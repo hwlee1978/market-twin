@@ -22,6 +22,9 @@ const LABELS_BY_LOCALE: Record<string, Parameters<typeof buildReportPdf>[1]> = {
     bestPrice: "추천 가격",
     riskLevel: "리스크",
     dataSources: "참고 데이터 출처",
+    regulatoryTitle: "규제 검증",
+    regulatoryExcluded: "제외",
+    regulatoryRestricted: "제한",
   },
   en: {
     title: "AI Market Twin — Launch Simulation Report",
@@ -38,6 +41,9 @@ const LABELS_BY_LOCALE: Record<string, Parameters<typeof buildReportPdf>[1]> = {
     bestPrice: "Best Price",
     riskLevel: "Risk Level",
     dataSources: "Data sources",
+    regulatoryTitle: "Regulatory check",
+    regulatoryExcluded: "Excluded",
+    regulatoryRestricted: "Restricted",
   },
 };
 
@@ -72,12 +78,20 @@ export async function GET(
     ? (sim.projects[0] as { product_name?: string })?.product_name ?? ""
     : (sim.projects as { product_name?: string } | null)?.product_name ?? "";
 
-  // _sources is added on persistence by the runner — extract before passing to schema-typed view
+  // _sources and _regulatory are added on persistence by the runner — extract
+  // before passing to the schema-typed view.
   const overviewRaw = (result.overview ?? {}) as Record<string, unknown>;
   const sources: string[] = Array.isArray(overviewRaw._sources)
     ? (overviewRaw._sources as string[])
     : [];
-  const { _sources, ...overviewClean } = overviewRaw;
+  const regulatory =
+    overviewRaw._regulatory && typeof overviewRaw._regulatory === "object"
+      ? (overviewRaw._regulatory as {
+          regulatedCategory?: string;
+          warnings: { country: string; status: "banned" | "restricted" | "allowed"; reason?: string; source?: string }[];
+        })
+      : undefined;
+  const { _sources, _regulatory, ...overviewClean } = overviewRaw;
 
   const buffer = await buildReportPdf(
     {
@@ -92,6 +106,7 @@ export async function GET(
     LABELS_BY_LOCALE[locale],
     productName,
     sources,
+    regulatory,
   );
 
   // Track download (fire-and-forget)

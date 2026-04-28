@@ -17,6 +17,7 @@ import {
   synthesisPrompt,
   SYNTHESIS_SYSTEM,
 } from "./prompts";
+import { evaluateRegulatory } from "./regulatory";
 import {
   CountryScoreSchema,
   OverviewSchema,
@@ -63,6 +64,9 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
   const countryLLM = getLLMProvider({ stage: "countries", provider: opts.provider, model: opts.model });
   const pricingLLM = getLLMProvider({ stage: "pricing", provider: opts.provider, model: opts.model });
   const synthesisLLM = getLLMProvider({ stage: "synthesis", provider: opts.provider, model: opts.model });
+  // Regulatory check uses the synthesis-tier model: this needs to be reliable
+  // about real laws (e.g. e-cigarette bans). Cheap models occasionally miss.
+  const regulatoryLLM = synthesisLLM;
 
   const updateStage = async (stage: string) => {
     await supabase
@@ -84,13 +88,37 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     .eq("id", opts.simulationId);
 
   try {
-    // Load gov-stats reference data for the candidate countries.
+    // ── Stage 0: regulatory pre-check ──────────────────────────
+    // Filter out countries where the product is legally banned BEFORE any
+    // downstream stage sees them — otherwise persona/country scoring will
+    // happily recommend an illegal market (e.g. e-cigarettes for Singapore).
+    await updateStage("regulatory");
+    const regulatory = await evaluateRegulatory(regulatoryLLM, opts.projectInput, locale);
+    console.log(
+      `[sim ${opts.simulationId}] regulatory: ${regulatory.allowedCountries.length} allowed, ` +
+        `${regulatory.excludedCountries.length} excluded${regulatory.result.regulatedCategory ? ` (category: ${regulatory.result.regulatedCategory})` : ""}`,
+    );
+    // From here on, treat the filtered list as the candidate set for the simulation.
+    const projectInput = {
+      ...opts.projectInput,
+      candidateCountries: regulatory.allowedCountries,
+    };
+
+    // If everything got excluded the simulation can't proceed meaningfully.
+    if (projectInput.candidateCountries.length === 0) {
+      throw new Error(
+        `All candidate countries were excluded by regulatory check. ` +
+          `Excluded: ${regulatory.excludedCountries.join(", ")}.`,
+      );
+    }
+
+    // Load gov-stats reference data for the (now filtered) candidate countries.
     // Missing countries simply contribute nothing — LLM falls back to its training prior.
     // Kept inside try block so any DB hiccup gets recorded as a `failed` simulation
     // instead of leaving the row stuck in `validating` forever.
     const referenceBundles = await loadReferenceBundles(
-      opts.projectInput.candidateCountries,
-      opts.projectInput.category,
+      projectInput.candidateCountries,
+      projectInput.category,
     );
     const referenceBlock = renderReferenceBlock(referenceBundles, locale);
     const referenceSources = collectSourceAttributions(referenceBundles);
@@ -105,7 +133,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       const batchSize = Math.min(PERSONA_BATCH, remaining);
       const r = await personaLLM.generate({
         system: PERSONA_SYSTEM,
-        prompt: personaPrompt(opts.projectInput, batchSize, locale, referenceBlock),
+        prompt: personaPrompt(projectInput, batchSize, locale, referenceBlock),
         jsonSchema: { type: "object", properties: { personas: { type: "array" } } },
         // Lower temperature trades a bit of persona variety for much stricter
         // adherence to the locale-language and reference-anchor rules above.
@@ -142,7 +170,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     await updateStage("scoring");
     const countriesResp = await countryLLM.generate({
       system: COUNTRY_SYSTEM,
-      prompt: countryPrompt(opts.projectInput, personas, locale),
+      prompt: countryPrompt(projectInput, personas, locale),
       jsonSchema: { type: "object", properties: { countries: { type: "array" } } },
       temperature: 0.4,
     });
@@ -155,7 +183,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     await updateStage("pricing");
     const pricingResp = await pricingLLM.generate({
       system: PRICING_SYSTEM,
-      prompt: pricingPrompt(opts.projectInput, personas, locale),
+      prompt: pricingPrompt(projectInput, personas, locale),
       jsonSchema: PricingResultSchema as unknown as object,
       temperature: 0.4,
     });
@@ -166,7 +194,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     const synthesisResp = await synthesisLLM.generate({
       system: SYNTHESIS_SYSTEM,
       prompt: synthesisPrompt(
-        opts.projectInput,
+        projectInput,
         personas,
         JSON.stringify(countryScores),
         JSON.stringify(pricing.success ? pricing.data : {}),
@@ -203,10 +231,10 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     const result: SimulationResult = {
       overview: synthesis.success
         ? synthesis.data.overview
-        : fallbackOverview(opts.projectInput, countryScores, personas),
+        : fallbackOverview(projectInput, countryScores, personas),
       countries: countryScores,
       personas,
-      pricing: pricing.success ? pricing.data : fallbackPricing(opts.projectInput),
+      pricing: pricing.success ? pricing.data : fallbackPricing(projectInput),
       creative: synthesis.success ? synthesis.data.creative : [],
       risks: synthesis.success ? synthesis.data.risks : [],
       recommendations: synthesis.success
@@ -215,12 +243,20 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     };
 
     // ── Persist ────────────────────────────────────────────────
-    // Stash reference-data attribution alongside the overview so UI/PDF can render it.
-    // The OverviewSchema strips unknown fields when parsing LLM output, so we add `_sources`
-    // here on the persistence path — it survives because Postgres stores overview as JSONB.
+    // Stash reference-data attribution + regulatory check alongside the overview so
+    // UI/PDF can render them. The OverviewSchema strips unknown fields when parsing
+    // LLM output, so we add `_sources` and `_regulatory` here on the persistence path
+    // — they survive because Postgres stores overview as JSONB.
     const overviewWithSources = {
       ...result.overview,
       _sources: referenceSources,
+      _regulatory: {
+        regulatedCategory: regulatory.result.regulatedCategory,
+        excludedCountries: regulatory.excludedCountries,
+        restrictedCountries: regulatory.restrictedCountries,
+        // Surface only entries with status != "allowed" so the UI doesn't render noise.
+        warnings: regulatory.result.checks.filter((c) => c.status !== "allowed"),
+      },
     };
     await supabase.from("simulation_results").upsert({
       simulation_id: opts.simulationId,

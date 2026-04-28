@@ -26,6 +26,7 @@ export function ResultsView({
   const [status, setStatus] = useState<SimStatus | null>(null);
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [sources, setSources] = useState<string[]>([]);
+  const [regulatory, setRegulatory] = useState<import("./tabs/OverviewTab").RegulatoryMeta | undefined>(undefined);
   const [pollError, setPollError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -45,8 +46,10 @@ export function ResultsView({
             const json = await r.json();
             if (active && json.result) {
               const overviewRaw = json.result.overview ?? {};
-              // _sources is attached on persist by the runner; extract before passing to schema-typed view
-              const { _sources, ...overviewClean } = overviewRaw as Record<string, unknown>;
+              // _sources and _regulatory are attached on persist by the runner;
+              // strip them before handing to the schema-typed view.
+              const { _sources, _regulatory, ...overviewClean } =
+                overviewRaw as Record<string, unknown>;
               setResult({
                 overview: overviewClean as SimulationResult["overview"],
                 countries: json.result.countries,
@@ -57,6 +60,11 @@ export function ResultsView({
                 recommendations: json.result.recommendations,
               });
               setSources(Array.isArray(_sources) ? (_sources as string[]) : []);
+              setRegulatory(
+                _regulatory && typeof _regulatory === "object"
+                  ? (_regulatory as import("./tabs/OverviewTab").RegulatoryMeta)
+                  : undefined,
+              );
             }
           }
         }
@@ -105,6 +113,7 @@ export function ResultsView({
       simulationId={simulationId}
       result={result}
       sources={sources}
+      regulatory={regulatory}
       locale={locale}
       pollError={pollError}
     />

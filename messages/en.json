@@ -116,6 +116,7 @@
     "running": "Simulation in progress",
     "stages": {
       "validating": "Validating input",
+      "regulatory": "Regulatory check",
       "personas": "Generating AI personas",
       "scoring": "Scoring countries",
       "pricing": "Running pricing model",
@@ -194,7 +195,19 @@
     "actionPlan": "Action Plan",
     "recommendedChannels": "Recommended Channels",
     "dataSources": "Data sources",
-    "exportPdf": "Download PDF report"
+    "exportPdf": "Download PDF report",
+    "regulatory": {
+      "title": "Regulatory check",
+      "category": "Regulated category",
+      "excluded": "Excluded countries",
+      "excludedDesc": "Auto-excluded from the simulation because this product is legally banned for sale in these markets",
+      "restricted": "Restricted countries",
+      "restrictedDesc": "Sale is permitted but with non-trivial constraints (license, prescription, age, regional)",
+      "statusBanned": "Banned",
+      "statusRestricted": "Restricted",
+      "statusAllowed": "Allowed",
+      "noIssues": "This product can be legally sold in all candidate countries."
+    }
   },
   "report": {
     "title": "AI Market Twin — Launch Simulation Report",

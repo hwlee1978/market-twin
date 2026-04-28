@@ -116,6 +116,7 @@
     "running": "시뮬레이션 진행 중",
     "stages": {
       "validating": "입력 검증 중",
+      "regulatory": "규제 검증 중",
       "personas": "AI 페르소나 생성 중",
       "scoring": "국가별 점수 계산 중",
       "pricing": "가격 모델 실행 중",
@@ -194,7 +195,19 @@
     "actionPlan": "액션 플랜",
     "recommendedChannels": "추천 채널",
     "dataSources": "참고 데이터 출처",
-    "exportPdf": "PDF 리포트 다운로드"
+    "exportPdf": "PDF 리포트 다운로드",
+    "regulatory": {
+      "title": "규제 검증",
+      "category": "규제 카테고리",
+      "excluded": "제외된 국가",
+      "excludedDesc": "본 제품이 법적으로 판매 불가하여 시뮬레이션에서 자동 제외된 국가",
+      "restricted": "제한 국가",
+      "restrictedDesc": "판매는 가능하나 라이선스·처방·연령 제한 등 추가 조건 적용",
+      "statusBanned": "금지",
+      "statusRestricted": "제한",
+      "statusAllowed": "허용",
+      "noIssues": "이 제품은 후보 국가 모두에서 규제상 판매 가능합니다."
+    }
   },
   "report": {
     "title": "AI Market Twin 출시 시뮬레이션 리포트",

@@ -80,6 +80,16 @@ interface ReportLabels {
   bestPrice: string;
   riskLevel: string;
   dataSources: string;
+  regulatoryTitle: string;
+  regulatoryExcluded: string;
+  regulatoryRestricted: string;
+}
+
+export interface RegulatoryWarningPdf {
+  country: string;
+  status: "banned" | "restricted" | "allowed";
+  reason?: string;
+  source?: string;
 }
 
 export async function buildReportPdf(
@@ -87,6 +97,7 @@ export async function buildReportPdf(
   labels: ReportLabels,
   productName: string,
   sources: string[] = [],
+  regulatory?: { regulatedCategory?: string; warnings: RegulatoryWarningPdf[] },
 ): Promise<Buffer> {
   const { overview, countries, pricing, risks, recommendations } = result;
 
@@ -123,6 +134,28 @@ export async function buildReportPdf(
 
         <Text style={styles.h2}>{labels.executiveSummary}</Text>
         <Text style={styles.para}>{recommendations.executiveSummary || overview.headline}</Text>
+
+        {regulatory && regulatory.warnings.length > 0 && (
+          <View>
+            <Text style={styles.h2}>{labels.regulatoryTitle}</Text>
+            {regulatory.warnings
+              .filter((w) => w.status === "banned")
+              .map((w, i) => (
+                <Text key={`b-${i}`} style={[styles.bullet, { color: "#dc2626" }]}>
+                  • [{labels.regulatoryExcluded}] {w.country}: {w.reason}
+                  {w.source ? ` (${w.source})` : ""}
+                </Text>
+              ))}
+            {regulatory.warnings
+              .filter((w) => w.status === "restricted")
+              .map((w, i) => (
+                <Text key={`r-${i}`} style={[styles.bullet, { color: "#ca8a04" }]}>
+                  • [{labels.regulatoryRestricted}] {w.country}: {w.reason}
+                  {w.source ? ` (${w.source})` : ""}
+                </Text>
+              ))}
+          </View>
+        )}
 
         <Text style={styles.h2}>{labels.countryRanking}</Text>
         <View style={styles.table}>

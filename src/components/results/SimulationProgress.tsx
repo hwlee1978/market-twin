@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
 import { Check, Loader2 } from "lucide-react";
 
-const STAGES = ["validating", "personas", "scoring", "pricing", "creative", "risk", "recommend"] as const;
+const STAGES = ["validating", "regulatory", "personas", "scoring", "pricing", "creative", "risk", "recommend"] as const;
 type Stage = (typeof STAGES)[number];
 
 export function SimulationProgress({ stage }: { stage: string }) {

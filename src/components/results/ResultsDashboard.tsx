@@ -20,6 +20,7 @@ export function ResultsDashboard({
   simulationId,
   result,
   sources,
+  regulatory,
   locale,
   pollError,
 }: {
@@ -27,6 +28,7 @@ export function ResultsDashboard({
   simulationId: string;
   result: SimulationResult;
   sources: string[];
+  regulatory?: import("./tabs/OverviewTab").RegulatoryMeta;
   locale: string;
   pollError: string | null;
 }) {
@@ -72,7 +74,9 @@ export function ResultsDashboard({
       {pollError && <div className="text-xs text-risk">{pollError}</div>}
 
       <div>
-        {tab === "overview" && <OverviewTab result={result} locale={locale} sources={sources} />}
+        {tab === "overview" && (
+          <OverviewTab result={result} locale={locale} sources={sources} regulatory={regulatory} />
+        )}
         {tab === "countries" && <CountriesTab countries={result.countries} />}
         {tab === "personas" && <PersonasTab personas={result.personas} />}
         {tab === "pricing" && <PricingTab pricing={result.pricing} currency="USD" />}
