@@ -36,6 +36,15 @@ If you find yourself typing Japanese kanji/kana, English words, or any non-Korea
 RULE 2 — REALISM OF INCOME / VALUES:
 Income amounts, currencies, and cultural references must match the persona's COUNTRY, not a US default. The currency symbol and number scale follow the country, while the surrounding label text follows the locale language.
 
+INCOME FORMAT CONSISTENCY:
+Every incomeBand using a non-USD currency MUST include the USD equivalent in parentheses for cross-country comparability. Examples:
+- KR: "연 ₩45M-₩55M (~$34-42k USD)"
+- JP: "年 ¥6M-¥8M (~$43-57k USD)"
+- GB: "연 £30k-£45k (~$38-56k USD)"
+- AE: "연 AED 120k-180k (~$33-49k USD)"
+- ID: "연 Rp 60M-100M (~$3.7-6.2k USD)"
+US personas use only "$" with no extra annotation. This rule applies UNIFORMLY across all non-USD countries — never omit the USD parenthetical for one country while including it for another.
+
 ═══ INCOME REFERENCE (annual, individual personal income) ═══
 
 Employed personas:
