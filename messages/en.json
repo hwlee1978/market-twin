@@ -227,5 +227,12 @@
     "viewProgress": "View progress",
     "runNew": "Run new simulation",
     "competitorUrlsCount": "{count} URL"
+  },
+  "projectList": {
+    "search": "Search projects...",
+    "delete": "Delete project",
+    "deleteConfirm": "Delete project \"{name}\"? All related simulations and reports will be removed. This cannot be undone.",
+    "deleteFailed": "Delete failed: {error}",
+    "noResults": "No matches"
   }
 }
