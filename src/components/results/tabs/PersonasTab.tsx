@@ -128,6 +128,22 @@ export function PersonasTab({ personas }: { personas: Persona[] }) {
         </span>
       </div>
 
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+        <span className="font-medium">{t("intentLegend")}:</span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block w-2.5 h-2.5 rounded-full bg-success" />
+          {t("intentHigh")}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block w-2.5 h-2.5 rounded-full bg-warn" />
+          {t("intentMedium")}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block w-2.5 h-2.5 rounded-full bg-risk" />
+          {t("intentLow")}
+        </span>
+      </div>
+
       {filtered.length === 0 ? (
         <div className="card text-center text-slate-500 py-12">{t("noResults")}</div>
       ) : (

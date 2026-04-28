@@ -183,7 +183,11 @@
       "showing": "{count}명 표시",
       "showingFirst": "{shown}명 표시 / 전체 {total}명",
       "noResults": "검색 결과 없음",
-      "clickToExpand": "클릭하면 상세 정보"
+      "clickToExpand": "클릭하면 상세 정보",
+      "intentLegend": "구매의향 점수 (0~100)",
+      "intentHigh": "70+ 높음",
+      "intentMedium": "35~69 보통",
+      "intentLow": "35미만 낮음"
     },
     "pricing": {
       "priceVsConversion": "가격 대 전환율",

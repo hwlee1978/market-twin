@@ -26,6 +26,36 @@ Font.register({
   ],
 });
 
+// Pretendard is Korean-optimized and doesn't include Japanese kana or
+// extended CJK ideographs — so source citations like "厚生労働省" or
+// "@cosme インサイトレポート" render as garbage. Register Noto Sans JP as
+// a fallback specifically for lines that contain those characters.
+// NotoSansJP covers Japanese kana, kanji, and most CJK ideographs that
+// overlap with Chinese.
+Font.register({
+  family: "AppFontCJK",
+  fonts: [
+    {
+      src: "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/JP/NotoSansJP-Regular.otf",
+      fontWeight: 400,
+    },
+  ],
+});
+
+/**
+ * True if the string contains characters that Pretendard can't render — Japanese
+ * kana, or CJK ideographs in contexts where the surrounding text isn't Korean.
+ * Used to pick AppFontCJK fallback for source citations and similar mixed text.
+ */
+function containsExtendedCJK(text: string): boolean {
+  // Japanese hiragana / katakana — definitive sign we need the JP-capable font.
+  if (/[぀-ゟ゠-ヿ]/.test(text)) return true;
+  // CJK ideographs without Korean Hangul → likely Chinese-only or mixed JP kanji.
+  const hasIdeographs = /[一-鿿]/.test(text);
+  const hasHangul = /[가-힯]/.test(text);
+  return hasIdeographs && !hasHangul;
+}
+
 const styles = StyleSheet.create({
   page: { padding: 48, fontSize: 11, fontFamily: "AppFont", color: "#0f172a" },
   brand: { fontSize: 10, color: "#0B2A5B", marginBottom: 6, letterSpacing: 1 },
@@ -143,20 +173,38 @@ export async function buildReportPdf(
             <Text style={styles.h2}>{labels.regulatoryTitle}</Text>
             {regulatory.warnings
               .filter((w) => w.status === "banned")
-              .map((w, i) => (
-                <Text key={`b-${i}`} style={[styles.bullet, { color: "#dc2626" }]}>
-                  • [{labels.regulatoryExcluded}] {cn(w.country)}: {w.reason}
-                  {w.source ? ` (${w.source})` : ""}
-                </Text>
-              ))}
+              .map((w, i) => {
+                const line = `[${labels.regulatoryExcluded}] ${cn(w.country)}: ${w.reason}${w.source ? ` (${w.source})` : ""}`;
+                return (
+                  <Text
+                    key={`b-${i}`}
+                    style={[
+                      styles.bullet,
+                      { color: "#dc2626" },
+                      containsExtendedCJK(line) ? { fontFamily: "AppFontCJK" } : {},
+                    ]}
+                  >
+                    • {line}
+                  </Text>
+                );
+              })}
             {regulatory.warnings
               .filter((w) => w.status === "restricted")
-              .map((w, i) => (
-                <Text key={`r-${i}`} style={[styles.bullet, { color: "#ca8a04" }]}>
-                  • [{labels.regulatoryRestricted}] {cn(w.country)}: {w.reason}
-                  {w.source ? ` (${w.source})` : ""}
-                </Text>
-              ))}
+              .map((w, i) => {
+                const line = `[${labels.regulatoryRestricted}] ${cn(w.country)}: ${w.reason}${w.source ? ` (${w.source})` : ""}`;
+                return (
+                  <Text
+                    key={`r-${i}`}
+                    style={[
+                      styles.bullet,
+                      { color: "#ca8a04" },
+                      containsExtendedCJK(line) ? { fontFamily: "AppFontCJK" } : {},
+                    ]}
+                  >
+                    • {line}
+                  </Text>
+                );
+              })}
           </View>
         )}
 
@@ -214,7 +262,14 @@ export async function buildReportPdf(
           <View style={{ marginTop: 18 }}>
             <Text style={styles.h2}>{labels.dataSources}</Text>
             {sources.map((src, i) => (
-              <Text key={i} style={[styles.bullet, { color: "#64748b" }]}>
+              <Text
+                key={i}
+                style={[
+                  styles.bullet,
+                  { color: "#64748b" },
+                  containsExtendedCJK(src) ? { fontFamily: "AppFontCJK" } : {},
+                ]}
+              >
                 • {src}
               </Text>
             ))}

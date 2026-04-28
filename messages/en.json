@@ -183,7 +183,11 @@
       "showing": "{count} personas",
       "showingFirst": "Showing first {shown} of {total}",
       "noResults": "No matches",
-      "clickToExpand": "Click for full detail"
+      "clickToExpand": "Click for full detail",
+      "intentLegend": "Purchase intent (0–100)",
+      "intentHigh": "70+ high",
+      "intentMedium": "35–69 medium",
+      "intentLow": "<35 low"
     },
     "pricing": {
       "priceVsConversion": "Price vs Conversion",
