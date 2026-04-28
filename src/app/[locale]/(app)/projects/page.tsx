@@ -1,7 +1,8 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { Plus } from "lucide-react";
+import { FolderOpen, Plus } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 
@@ -77,9 +78,16 @@ export default async function ProjectsPage({
             </tbody>
           </table>
         ) : (
-          <div className="px-6 py-12 text-center text-slate-500 text-sm">
-            {t("dashboard.noProjects")}
-          </div>
+          <EmptyState
+            icon={FolderOpen}
+            title={t("dashboard.noProjects")}
+            action={
+              <Link href="/projects/new" className="btn-primary">
+                <Plus size={16} />
+                {t("dashboard.newProject")}
+              </Link>
+            }
+          />
         )}
       </div>
     </div>

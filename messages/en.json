@@ -173,8 +173,16 @@
         "high": "High (≥70)",
         "low": "Low (<35)"
       },
+      "sort": {
+        "default": "Default order",
+        "intentDesc": "Intent: high → low",
+        "intentAsc": "Intent: low → high"
+      },
+      "searchPlaceholder": "Search profession, interests, objections...",
       "showing": "{count} personas",
-      "showingFirst": "Showing first {shown} of {total}"
+      "showingFirst": "Showing first {shown} of {total}",
+      "noResults": "No matches",
+      "clickToExpand": "Click for full detail"
     },
     "pricing": {
       "priceVsConversion": "Price vs Conversion",

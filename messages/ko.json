@@ -173,8 +173,16 @@
         "high": "높음 (≥70)",
         "low": "낮음 (<35)"
       },
+      "sort": {
+        "default": "기본 순서",
+        "intentDesc": "구매의향 높은 순",
+        "intentAsc": "구매의향 낮은 순"
+      },
+      "searchPlaceholder": "직업·관심사·거부 요인 검색...",
       "showing": "{count}명 표시",
-      "showingFirst": "{shown}명 표시 / 전체 {total}명"
+      "showingFirst": "{shown}명 표시 / 전체 {total}명",
+      "noResults": "검색 결과 없음",
+      "clickToExpand": "클릭하면 상세 정보"
     },
     "pricing": {
       "priceVsConversion": "가격 대 전환율",
