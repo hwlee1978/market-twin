@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
@@ -72,22 +72,36 @@ export async function POST(
     competitorUrls: project.competitor_urls ?? [],
   };
 
-  // Fire-and-await: we run inside this request because Vercel functions
-  // do not survive past the response. For longer jobs, swap to Inngest/QStash.
-  // We respond first by NOT awaiting, but we DO need to keep the function alive.
-  // Solution: run synchronously and return when complete. Client shows progress
-  // by polling /status (the runner updates current_stage as it goes).
-  // To avoid blocking the HTTP response on the full run, kick it off and return
-  // — Next.js runtime will continue executing inside maxDuration.
-  void runSimulation({
-    simulationId: sim.id,
-    projectInput,
-    personaCount: parsed.data.personaCount,
-    provider: parsed.data.provider,
-    model: parsed.data.model,
-    locale: parsed.data.locale,
-  }).catch((err) => {
-    console.error("simulation failed", err);
+  // Schedule the simulation to run AFTER the HTTP response is sent.
+  // Plain `void runSimulation(...)` works in `next dev` because the long-lived
+  // dev server keeps executing pending promises, but on Vercel the serverless
+  // function is killed the moment the response goes out — and the simulation
+  // never actually starts. `after()` from next/server explicitly tells the
+  // runtime to keep the function alive (up to maxDuration) for background
+  // continuation work, which is exactly the lifecycle we need here.
+  after(async () => {
+    try {
+      await runSimulation({
+        simulationId: sim.id,
+        projectInput,
+        personaCount: parsed.data.personaCount,
+        provider: parsed.data.provider,
+        model: parsed.data.model,
+        locale: parsed.data.locale,
+      });
+    } catch (err) {
+      console.error("[run/route] simulation failed", err);
+      // The runner's own try/catch should have already set status=failed,
+      // but persist a fallback failure marker just in case it threw before that.
+      await admin
+        .from("simulations")
+        .update({
+          status: "failed",
+          current_stage: "failed",
+          error_message: err instanceof Error ? err.message : String(err),
+        })
+        .eq("id", sim.id);
+    }
   });
 
   return NextResponse.json({ simulationId: sim.id });

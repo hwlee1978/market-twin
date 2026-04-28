@@ -55,15 +55,6 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
   const llm = getLLMProvider({ provider: opts.provider, model: opts.model });
   const locale: PromptLocale = opts.locale ?? "en";
 
-  // Load gov-stats reference data for the candidate countries.
-  // Missing countries simply contribute nothing — LLM falls back to its training prior.
-  const referenceBundles = await loadReferenceBundles(
-    opts.projectInput.candidateCountries,
-    opts.projectInput.category,
-  );
-  const referenceBlock = renderReferenceBlock(referenceBundles, locale);
-  const referenceSources = collectSourceAttributions(referenceBundles);
-
   const updateStage = async (stage: string) => {
     await supabase
       .from("simulations")
@@ -77,6 +68,17 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     .eq("id", opts.simulationId);
 
   try {
+    // Load gov-stats reference data for the candidate countries.
+    // Missing countries simply contribute nothing — LLM falls back to its training prior.
+    // Kept inside try block so any DB hiccup gets recorded as a `failed` simulation
+    // instead of leaving the row stuck in `validating` forever.
+    const referenceBundles = await loadReferenceBundles(
+      opts.projectInput.candidateCountries,
+      opts.projectInput.category,
+    );
+    const referenceBlock = renderReferenceBlock(referenceBundles, locale);
+    const referenceSources = collectSourceAttributions(referenceBundles);
+
     // ── Stage 1: personas ──────────────────────────────────────
     await updateStage("personas");
     const personas: z.infer<typeof PersonaSchema>[] = [];
