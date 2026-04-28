@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Pretendard",
+    "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+
+  /* Brand — Deep Blue scale */
+  --color-brand: #0b2a5b;
+  --color-brand-50: #eaf0fb;
+  --color-brand-100: #ccd8f0;
+  --color-brand-200: #94abd9;
+  --color-brand-300: #5c7ec0;
+  --color-brand-400: #2c53a5;
+  --color-brand-500: #0b2a5b;
+  --color-brand-600: #082249;
+  --color-brand-700: #061a37;
+  --color-brand-800: #031126;
+  --color-brand-900: #020914;
+
+  /* Accent — Electric Cyan */
+  --color-accent: #06b6d4;
+  --color-accent-50: #ecfeff;
+  --color-accent-100: #cffafe;
+  --color-accent-200: #a5f3fc;
+  --color-accent-300: #67e8f9;
+  --color-accent-400: #22d3ee;
+  --color-accent-500: #06b6d4;
+  --color-accent-600: #0891b2;
+  --color-accent-700: #0e7490;
+
+  /* Status */
+  --color-success: #10b981;
+  --color-success-soft: #d1fae5;
+  --color-risk: #ef4444;
+  --color-risk-soft: #fee2e2;
+  --color-warn: #f59e0b;
+  --color-warn-soft: #fef3c7;
+
+  /* Shadow */
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #f8fafc;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-xl border border-slate-200 shadow-card;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand text-white px-4 py-2.5 text-sm font-medium hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-white text-brand border border-brand-100 px-4 py-2.5 text-sm font-medium hover:bg-brand-50 transition-colors;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg text-slate-600 px-3 py-2 text-sm font-medium hover:bg-slate-100 transition-colors;
+  }
+  .input {
+    @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent;
+  }
+  .label {
+    @apply block text-sm font-medium text-slate-700 mb-1.5;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+}

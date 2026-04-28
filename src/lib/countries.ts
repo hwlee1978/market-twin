@@ -1,0 +1,18 @@
+export const COUNTRIES = [
+  { code: "KR", labelKo: "대한민국", labelEn: "South Korea" },
+  { code: "JP", labelKo: "일본", labelEn: "Japan" },
+  { code: "US", labelKo: "미국", labelEn: "United States" },
+  { code: "GB", labelKo: "영국", labelEn: "United Kingdom" },
+  { code: "DE", labelKo: "독일", labelEn: "Germany" },
+  { code: "FR", labelKo: "프랑스", labelEn: "France" },
+  { code: "AE", labelKo: "UAE", labelEn: "United Arab Emirates" },
+  { code: "SA", labelKo: "사우디아라비아", labelEn: "Saudi Arabia" },
+  { code: "SG", labelKo: "싱가포르", labelEn: "Singapore" },
+  { code: "AU", labelKo: "호주", labelEn: "Australia" },
+  { code: "CA", labelKo: "캐나다", labelEn: "Canada" },
+  { code: "VN", labelKo: "베트남", labelEn: "Vietnam" },
+  { code: "TH", labelKo: "태국", labelEn: "Thailand" },
+  { code: "ID", labelKo: "인도네시아", labelEn: "Indonesia" },
+  { code: "BR", labelKo: "브라질", labelEn: "Brazil" },
+  { code: "MX", labelKo: "멕시코", labelEn: "Mexico" },
+];

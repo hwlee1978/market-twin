@@ -1,0 +1,210 @@
+{
+  "common": {
+    "appName": "AI Market Twin",
+    "tagline": "AI로 출시 전에 시장 반응을 시뮬레이션합니다",
+    "loading": "로딩 중...",
+    "error": "오류가 발생했습니다",
+    "save": "저장",
+    "cancel": "취소",
+    "next": "다음",
+    "back": "이전",
+    "delete": "삭제",
+    "create": "만들기",
+    "edit": "편집",
+    "run": "실행",
+    "download": "다운로드",
+    "logout": "로그아웃",
+    "login": "로그인",
+    "signup": "회원가입",
+    "language": "언어",
+    "korean": "한국어",
+    "english": "English"
+  },
+  "nav": {
+    "dashboard": "대시보드",
+    "projects": "프로젝트",
+    "reports": "리포트",
+    "billing": "결제",
+    "team": "팀",
+    "settings": "설정"
+  },
+  "auth": {
+    "loginTitle": "로그인",
+    "signupTitle": "회원가입",
+    "email": "이메일",
+    "password": "비밀번호",
+    "passwordHint": "최소 8자 이상",
+    "loginCta": "로그인하기",
+    "signupCta": "무료 체험 시작",
+    "googleLogin": "Google로 계속하기",
+    "noAccount": "계정이 없으신가요?",
+    "haveAccount": "이미 계정이 있으신가요?",
+    "or": "또는",
+    "trustline": "글로벌 D2C·이커머스 팀이 사용하는 출시 의사결정 도구"
+  },
+  "dashboard": {
+    "title": "대시보드",
+    "kpi": {
+      "activeProjects": "진행 중인 프로젝트",
+      "avgSuccessScore": "평균 성공 점수",
+      "countriesTested": "테스트된 국가",
+      "monthlyReports": "이번 달 리포트"
+    },
+    "recentProjects": "최근 프로젝트",
+    "newProject": "새 프로젝트",
+    "noProjects": "아직 프로젝트가 없습니다. 첫 시뮬레이션을 시작해보세요.",
+    "suggested": "추천 액션",
+    "industryTrends": "산업 트렌드",
+    "table": {
+      "project": "프로젝트",
+      "product": "제품",
+      "status": "상태",
+      "countries": "국가",
+      "category": "카테고리",
+      "updated": "최종 수정"
+    }
+  },
+  "project": {
+    "wizard": {
+      "title": "새 프로젝트 만들기",
+      "step1": "제품 정보",
+      "step2": "가격",
+      "step3": "에셋",
+      "step4": "국가",
+      "step5": "경쟁사",
+      "step6": "검토",
+      "fields": {
+        "projectName": "프로젝트 이름",
+        "productName": "제품 이름",
+        "category": "카테고리",
+        "description": "제품 설명",
+        "basePrice": "기본 가격",
+        "currency": "통화",
+        "objective": "출시 목표",
+        "countries": "후보 국가",
+        "competitorUrls": "경쟁사 URL",
+        "assets": "이미지/영상"
+      },
+      "objective": {
+        "awareness": "브랜드 인지도",
+        "conversion": "즉시 매출 전환",
+        "retention": "재구매·리텐션",
+        "expansion": "신규 국가 진출"
+      },
+      "categories": {
+        "beauty": "뷰티",
+        "fashion": "패션",
+        "food": "식음료",
+        "health": "건강·웰빙",
+        "electronics": "가전·전자",
+        "home": "리빙",
+        "saas": "SaaS·소프트웨어",
+        "other": "기타"
+      },
+      "runCta": "시뮬레이션 실행"
+    },
+    "status": {
+      "draft": "초안",
+      "ready": "준비됨",
+      "running": "실행 중",
+      "completed": "완료",
+      "failed": "실패",
+      "archived": "보관"
+    }
+  },
+  "simulation": {
+    "running": "시뮬레이션 진행 중",
+    "stages": {
+      "validating": "입력 검증 중",
+      "personas": "AI 페르소나 생성 중",
+      "scoring": "국가별 점수 계산 중",
+      "pricing": "가격 모델 실행 중",
+      "creative": "크리에이티브 평가 중",
+      "risk": "리스크 분석 중",
+      "recommend": "추천 생성 중"
+    },
+    "etaShort": "예상 소요 2~5분",
+    "feelPremium": "AI 페르소나 10,000명이 당신의 제품을 평가하고 있습니다"
+  },
+  "results": {
+    "tabs": {
+      "overview": "개요",
+      "countries": "국가",
+      "personas": "페르소나",
+      "pricing": "가격",
+      "creative": "크리에이티브",
+      "risks": "리스크",
+      "recommendations": "추천"
+    },
+    "overview": {
+      "successScore": "성공 확률",
+      "bestCountry": "추천 진출국",
+      "bestSegment": "최적 타겟",
+      "bestPrice": "추천 가격",
+      "bestCreative": "최고 크리에이티브",
+      "riskLevel": "리스크 수준"
+    },
+    "country": {
+      "header": "국가",
+      "demand": "수요 점수",
+      "cac": "추정 CAC",
+      "competition": "경쟁 강도",
+      "score": "최종 점수",
+      "rank": "우선순위",
+      "rationale": "선정 사유",
+      "noData": "국가 데이터 없음"
+    },
+    "persona": {
+      "labels": {
+        "income": "소득",
+        "style": "구매 스타일",
+        "objections": "거부 요인",
+        "trustFactors": "신뢰 요인",
+        "interests": "관심사"
+      },
+      "gender": {
+        "male": "남성",
+        "female": "여성",
+        "other": "기타",
+        "unknown": "미상"
+      },
+      "intent": {
+        "all": "전체 구매의향",
+        "high": "높음 (≥70)",
+        "low": "낮음 (<35)"
+      },
+      "showing": "{count}명 표시",
+      "showingFirst": "{shown}명 표시 / 전체 {total}명"
+    },
+    "pricing": {
+      "priceVsConversion": "가격 대 전환율",
+      "recommendedPrice": "추천 가격",
+      "marginEstimate": "마진 추정",
+      "conversion": "전환율 (%)",
+      "revenue": "매출 지수"
+    },
+    "actionPlan": "액션 플랜",
+    "recommendedChannels": "추천 채널",
+    "dataSources": "참고 데이터 출처",
+    "exportPdf": "PDF 리포트 다운로드"
+  },
+  "report": {
+    "title": "AI Market Twin 출시 시뮬레이션 리포트",
+    "executiveSummary": "핵심 요약",
+    "keyMetrics": "핵심 지표",
+    "countryRanking": "국가 랭킹",
+    "pricingRecommendation": "가격 추천",
+    "personaInsights": "페르소나 인사이트",
+    "risks": "리스크",
+    "actionPlan": "액션 플랜"
+  },
+  "projectDetail": {
+    "description": "제품 설명",
+    "simulations": "시뮬레이션",
+    "noSimulations": "아직 실행한 시뮬레이션이 없습니다.",
+    "viewResults": "결과 보기",
+    "viewProgress": "진행 상황 보기",
+    "runNew": "새 시뮬레이션 실행",
+    "competitorUrlsCount": "{count}개 URL"
+  }
+}

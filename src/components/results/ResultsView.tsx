@@ -1,0 +1,112 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
+import type { SimulationResult } from "@/lib/simulation/schemas";
+import { SimulationProgress } from "./SimulationProgress";
+import { ResultsDashboard } from "./ResultsDashboard";
+
+interface SimStatus {
+  id: string;
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+  current_stage: string | null;
+  error_message: string | null;
+}
+
+export function ResultsView({
+  projectId,
+  simulationId,
+  locale,
+}: {
+  projectId: string;
+  simulationId: string | null;
+  locale: string;
+}) {
+  const t = useTranslations();
+  const [status, setStatus] = useState<SimStatus | null>(null);
+  const [result, setResult] = useState<SimulationResult | null>(null);
+  const [sources, setSources] = useState<string[]>([]);
+  const [pollError, setPollError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!simulationId) return;
+    let active = true;
+
+    const tick = async () => {
+      try {
+        const res = await fetch(`/api/simulations/${simulationId}/status`);
+        if (!res.ok) throw new Error(await res.text());
+        const data = (await res.json()) as SimStatus;
+        if (!active) return;
+        setStatus(data);
+        if (data.status === "completed") {
+          const r = await fetch(`/api/results/${simulationId}`);
+          if (r.ok) {
+            const json = await r.json();
+            if (active && json.result) {
+              const overviewRaw = json.result.overview ?? {};
+              // _sources is attached on persist by the runner; extract before passing to schema-typed view
+              const { _sources, ...overviewClean } = overviewRaw as Record<string, unknown>;
+              setResult({
+                overview: overviewClean as SimulationResult["overview"],
+                countries: json.result.countries,
+                personas: json.result.personas,
+                pricing: json.result.pricing,
+                creative: json.result.creative ?? [],
+                risks: json.result.risks ?? [],
+                recommendations: json.result.recommendations,
+              });
+              setSources(Array.isArray(_sources) ? (_sources as string[]) : []);
+            }
+          }
+        }
+      } catch (err) {
+        if (active) setPollError(err instanceof Error ? err.message : String(err));
+      }
+    };
+
+    tick();
+    const handle = setInterval(() => {
+      if (status?.status === "completed" || status?.status === "failed") return;
+      tick();
+    }, 3000);
+    return () => {
+      active = false;
+      clearInterval(handle);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simulationId, status?.status]);
+
+  const isRunning = useMemo(
+    () => status && (status.status === "pending" || status.status === "running"),
+    [status],
+  );
+
+  if (!simulationId) {
+    return <div className="text-sm text-slate-500">{t("common.error")}</div>;
+  }
+
+  if (status?.status === "failed") {
+    return (
+      <div className="card border-risk-soft bg-risk-soft text-risk">
+        <div className="font-medium">Simulation failed</div>
+        <p className="text-sm mt-1">{status.error_message ?? "Unknown error"}</p>
+      </div>
+    );
+  }
+
+  if (isRunning || !result) {
+    return <SimulationProgress stage={status?.current_stage ?? "validating"} />;
+  }
+
+  return (
+    <ResultsDashboard
+      projectId={projectId}
+      simulationId={simulationId}
+      result={result}
+      sources={sources}
+      locale={locale}
+      pollError={pollError}
+    />
+  );
+}

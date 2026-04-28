@@ -1,0 +1,104 @@
+"use client";
+
+import { useTranslations } from "next-intl";
+import { Link, useRouter } from "@/i18n/navigation";
+import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+
+export default function LoginPage() {
+  const t = useTranslations();
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    router.replace("/dashboard");
+    router.refresh();
+  };
+
+  const onGoogle = async () => {
+    const supabase = createClient();
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+  };
+
+  return (
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
+      <div className="hidden lg:flex flex-col justify-between bg-brand text-white p-12">
+        <div className="text-xl font-semibold">{t("common.appName")}</div>
+        <div>
+          <h1 className="text-4xl font-semibold leading-tight">{t("common.tagline")}</h1>
+          <p className="mt-4 text-brand-100 max-w-md">{t("auth.trustline")}</p>
+        </div>
+        <div className="text-xs text-brand-100">© AI Market Twin</div>
+      </div>
+
+      <div className="flex items-center justify-center p-8">
+        <div className="w-full max-w-sm">
+          <h2 className="text-2xl font-semibold mb-6">{t("auth.loginTitle")}</h2>
+
+          <button onClick={onGoogle} className="btn-secondary w-full mb-3">
+            {t("auth.googleLogin")}
+          </button>
+
+          <div className="my-4 flex items-center gap-3 text-xs text-slate-400">
+            <div className="h-px flex-1 bg-slate-200" />
+            {t("auth.or")}
+            <div className="h-px flex-1 bg-slate-200" />
+          </div>
+
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <label className="label">{t("auth.email")}</label>
+              <input
+                type="email"
+                className="input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label className="label">{t("auth.password")}</label>
+              <input
+                type="password"
+                className="input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                minLength={8}
+                required
+              />
+            </div>
+            {error && <div className="text-sm text-risk">{error}</div>}
+            <button type="submit" disabled={loading} className="btn-primary w-full">
+              {loading ? t("common.loading") : t("auth.loginCta")}
+            </button>
+          </form>
+
+          <p className="mt-6 text-sm text-slate-600">
+            {t("auth.noAccount")}{" "}
+            <Link href="/signup" className="text-brand font-medium hover:underline">
+              {t("common.signup")}
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
