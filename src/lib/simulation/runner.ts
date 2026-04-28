@@ -52,8 +52,17 @@ const PERSONA_BATCH = 12;
  */
 export async function runSimulation(opts: RunOptions): Promise<SimulationResult> {
   const supabase = createServiceClient();
-  const llm = getLLMProvider({ provider: opts.provider, model: opts.model });
   const locale: PromptLocale = opts.locale ?? "en";
+
+  // Pick a model per stage. Each stage independently honours
+  // LLM_<STAGE>_PROVIDER / LLM_<STAGE>_MODEL env vars; if those aren't set
+  // it falls back to LLM_DEFAULT_*. This is what lets us run cheap+fast
+  // models for high-volume persona batches while keeping a stronger model
+  // for the executive synthesis stage.
+  const personaLLM = getLLMProvider({ stage: "personas", provider: opts.provider, model: opts.model });
+  const countryLLM = getLLMProvider({ stage: "countries", provider: opts.provider, model: opts.model });
+  const pricingLLM = getLLMProvider({ stage: "pricing", provider: opts.provider, model: opts.model });
+  const synthesisLLM = getLLMProvider({ stage: "synthesis", provider: opts.provider, model: opts.model });
 
   const updateStage = async (stage: string) => {
     await supabase
@@ -62,9 +71,16 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       .eq("id", opts.simulationId);
   };
 
+  // Record the synthesis-stage model on the simulation row — that's the
+  // headline model users see in attribution. Other stage models are still
+  // visible in logs.
   await supabase
     .from("simulations")
-    .update({ started_at: new Date().toISOString(), model_provider: llm.name, model_version: llm.model })
+    .update({
+      started_at: new Date().toISOString(),
+      model_provider: synthesisLLM.name,
+      model_version: synthesisLLM.model,
+    })
     .eq("id", opts.simulationId);
 
   try {
@@ -87,7 +103,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     for (let i = 0; i < batches; i++) {
       const remaining = opts.personaCount - personas.length;
       const batchSize = Math.min(PERSONA_BATCH, remaining);
-      const r = await llm.generate({
+      const r = await personaLLM.generate({
         system: PERSONA_SYSTEM,
         prompt: personaPrompt(opts.projectInput, batchSize, locale, referenceBlock),
         jsonSchema: { type: "object", properties: { personas: { type: "array" } } },
@@ -124,7 +140,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
 
     // ── Stage 2: countries ─────────────────────────────────────
     await updateStage("scoring");
-    const countriesResp = await llm.generate({
+    const countriesResp = await countryLLM.generate({
       system: COUNTRY_SYSTEM,
       prompt: countryPrompt(opts.projectInput, personas, locale),
       jsonSchema: { type: "object", properties: { countries: { type: "array" } } },
@@ -137,7 +153,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
 
     // ── Stage 3: pricing ───────────────────────────────────────
     await updateStage("pricing");
-    const pricingResp = await llm.generate({
+    const pricingResp = await pricingLLM.generate({
       system: PRICING_SYSTEM,
       prompt: pricingPrompt(opts.projectInput, personas, locale),
       jsonSchema: PricingResultSchema as unknown as object,
@@ -147,7 +163,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
 
     // ── Stage 4: synthesis ─────────────────────────────────────
     await updateStage("recommend");
-    const synthesisResp = await llm.generate({
+    const synthesisResp = await synthesisLLM.generate({
       system: SYNTHESIS_SYSTEM,
       prompt: synthesisPrompt(
         opts.projectInput,

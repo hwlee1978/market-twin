@@ -38,7 +38,27 @@ Fill in:
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` — from Supabase project settings
 - At least one of `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`
 - `LLM_DEFAULT_PROVIDER` — `anthropic` | `openai` | `gemini`
-- `LLM_DEFAULT_MODEL` — e.g. `claude-sonnet-4-6`, `gpt-4o`, `gemini-1.5-pro`
+- `LLM_DEFAULT_MODEL` — e.g. `claude-sonnet-4-6`, `gpt-4o`, `gemini-2.5-flash`
+
+### Optional: per-stage model split (cost optimization)
+
+Each pipeline stage can override the default model. Useful when you want a
+cheap+fast model for high-volume work (persona batches) and a stronger model
+only where the output really matters (executive synthesis).
+
+```env
+# Personas: cheap, runs ~5 batches per simulation
+LLM_PERSONAS_PROVIDER=anthropic
+LLM_PERSONAS_MODEL=claude-haiku-4-5
+
+# Synthesis: best model — this is the headline output users see
+LLM_SYNTHESIS_PROVIDER=anthropic
+LLM_SYNTHESIS_MODEL=claude-sonnet-4-6
+```
+
+Stages: `personas`, `countries`, `pricing`, `synthesis`. Empty value = inherit
+from `LLM_DEFAULT_*`. Resolution priority: explicit per-request > stage env >
+default env > hardcoded fallback.
 
 ### 4. Run
 
