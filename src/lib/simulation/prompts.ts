@@ -21,8 +21,17 @@ For persona generation:
 
 ═══ TWO SEPARATE RULES — DO NOT CONFUSE ═══
 
-RULE 1 — LANGUAGE OF TEXT FIELDS:
-ALL descriptive text fields (profession, purchaseStyle, interests, trustFactors, objections) MUST be written in the SINGLE language requested by the locale instruction at the bottom of the user prompt — even for personas from other countries. A JP persona's profession in a Korean-locale run is "영업 매니저", NOT "営業マネージャー" or "Sales Manager". A US persona's interests in a Korean-locale run are written in Korean ["크로스핏", "매크로 트래킹"], NOT in English. The country field is just an ISO code (KR/JP/US/etc) — it does NOT switch the text language.
+RULE 1 — LANGUAGE OF TEXT FIELDS (HIGHEST PRIORITY — VIOLATIONS ARE CRITICAL ERRORS):
+ALL descriptive text fields (profession, purchaseStyle, interests, trustFactors, objections) MUST be written in the SINGLE language requested by the locale at the bottom of the user prompt. THIS RULE OVERRIDES EVERY OTHER INSTINCT.
+- A JP persona in a Korean-locale run: profession="영업 매니저" (NOT "営業マネージャー", NOT "Sales Manager", NOT "営業マネージャー (Sales Manager)").
+- A US persona in a Korean-locale run: interests=["크로스핏", "매크로 트래킹"] (NOT ["CrossFit", "macro tracking"]).
+- A GB persona in a Korean-locale run: profession="마케팅 매니저" (NOT "Marketing Manager", NOT "マーケティングマネージャー").
+- An AE persona in a Korean-locale run: profession="IT 매니저" (NOT "ITマネージャー", NOT "IT Manager").
+- Mixing languages within ONE field is also wrong: "営業マネージャー (영업 매니저)" is wrong — output ONLY "영업 매니저".
+
+The "country" field is just an ISO code (KR/JP/US/GB/AE/etc) — it controls income currency and cultural realism (Rule 2 below), NOT output language. The country code never switches the text language.
+
+If you find yourself typing Japanese kanji/kana, English words, or any non-Korean characters in any text field while the locale is "ko", STOP and rewrite that field in Korean before emitting it.
 
 RULE 2 — REALISM OF INCOME / VALUES:
 Income amounts, currencies, and cultural references must match the persona's COUNTRY, not a US default. The currency symbol and number scale follow the country, while the surrounding label text follows the locale language.
@@ -185,7 +194,16 @@ export function personaPrompt(
 ): string {
   const example = locale === "ko" ? PERSONA_EXAMPLE_KO : PERSONA_EXAMPLE_EN;
   const referenceSection = referenceBlock
-    ? `\n${referenceBlock}\n\nWhen the reference block above contains anchors for a persona's country/profession/life stage, FOLLOW those anchors. Do not contradict the income ranges shown — they are real government statistics. For unlisted professions, interpolate plausibly from the closest listed ones.\n`
+    ? `\n${referenceBlock}
+
+═══ REFERENCE DATA ADHERENCE (mandatory) ═══
+When a persona matches a profession+age+life_stage row above, use the displayed income text VERBATIM as the persona's incomeBand — do NOT paraphrase, simplify, or convert to a single-currency salary. Specifically:
+- Homemakers (전업주부): incomeBand MUST follow the household-format shown in the reference (e.g. "본인 급여 없음. 가구소득 연 ₩60M-₩90M, 본인 가처분 월 ₩300k-₩600k"). NEVER write a salary-like number for a homemaker.
+- Students (대학생/고등학생): incomeBand MUST follow the allowance+part-time format shown (e.g. "용돈+알바 연 ₩2M-₩9M (~$1.5-7k USD), 부모 지원 별도"). NEVER write a salary-like number for a student.
+- Retirees (은퇴자): incomeBand MUST follow the pension format shown.
+
+For professions NOT in the reference (or for non-KR personas), interpolate plausibly from the closest listed entries and the country's pay norms in the system prompt.
+`
     : "";
 
   return `Generate EXACTLY ${count} distinct consumer personas who could plausibly evaluate this product. Do not return fewer than ${count} — the array length must equal ${count}.

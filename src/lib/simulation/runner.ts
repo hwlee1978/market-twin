@@ -91,7 +91,11 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         system: PERSONA_SYSTEM,
         prompt: personaPrompt(opts.projectInput, batchSize, locale, referenceBlock),
         jsonSchema: { type: "object", properties: { personas: { type: "array" } } },
-        temperature: 0.9,
+        // Lower temperature trades a bit of persona variety for much stricter
+        // adherence to the locale-language and reference-anchor rules above.
+        // Variety is preserved by the prompt explicitly asking for skeptics +
+        // neutrals + champions and a heterogeneous mix.
+        temperature: 0.6,
         maxTokens: 8192,
       });
       // Parse personas individually so a single malformed entry doesn't reject the batch.
