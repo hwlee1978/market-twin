@@ -131,6 +131,33 @@ For longer-running sims (>5 min) move the runner behind a queue (Inngest/QStash/
 - Admin console (per `docs/Ai Market Twin Admin Console Design Spec.pdf`)
 - Real-time collaboration & comments
 
+## Reference data refresh (Phase A.2.5)
+
+Each country's persona income / consumer-norms reference data lives in
+`supabase/seeds/000X_<code>_reference_data.sql`. To keep these in sync with
+the underlying public statistics:
+
+- **Apply seeds to a DB** (idempotent — safe to re-run):
+  ```
+  DATABASE_URL=postgres://... npm run sync:reference
+  DATABASE_URL=postgres://... npm run sync:reference kr us de  # subset
+  ```
+  Get `DATABASE_URL` from Supabase → Project Settings → Database → Connection string.
+- **Run fetchers to refresh seed contents**:
+  ```
+  KOSIS_API_KEY=... BLS_API_KEY=... npm run fetch:reference
+  ```
+  Each fetcher writes its updated SQL back to `supabase/seeds/`. Review the
+  diff before applying.
+- **GitHub Actions** runs the same flow annually
+  (`.github/workflows/refresh-reference-data.yml`). Required repo secrets:
+  `SUPABASE_DATABASE_URL` plus optional API keys per fetcher
+  (`KOSIS_API_KEY`, `BLS_API_KEY`, ...).
+
+To add a new country fetcher, drop a `CountryFetcher` implementation under
+`scripts/fetch-reference/fetchers/<code>.ts` and register it in
+`scripts/fetch-reference/index.ts`.
+
 ## Scripts
 
 | | |
@@ -140,3 +167,5 @@ For longer-running sims (>5 min) move the runner behind a queue (Inngest/QStash/
 | `npm run start` | Start production server |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
+| `npm run sync:reference [codes...]` | Apply seed files to the DB |
+| `npm run fetch:reference [codes...]` | Run country fetchers, update seeds |
