@@ -8,6 +8,7 @@ import {
   renderToBuffer,
 } from "@react-pdf/renderer";
 import type { SimulationResult } from "@/lib/simulation/schemas";
+import { getCountryLabel } from "@/lib/countries";
 
 // Register Pretendard so Korean text renders correctly.
 // react-pdf only supports TTF/OTF (NOT woff), and fetches the font over HTTP at render time.
@@ -98,8 +99,10 @@ export async function buildReportPdf(
   productName: string,
   sources: string[] = [],
   regulatory?: { regulatedCategory?: string; warnings: RegulatoryWarningPdf[] },
+  locale: string = "en",
 ): Promise<Buffer> {
   const { overview, countries, pricing, risks, recommendations } = result;
+  const cn = (code: string) => getCountryLabel(code, locale) || code;
 
   const doc = (
     <Document>
@@ -116,7 +119,7 @@ export async function buildReportPdf(
           </View>
           <View style={styles.kpi}>
             <Text style={styles.kpiLabel}>{labels.bestCountry}</Text>
-            <Text style={styles.kpiValue}>{overview.bestCountry}</Text>
+            <Text style={styles.kpiValue}>{cn(overview.bestCountry)}</Text>
           </View>
           <View style={styles.kpi}>
             <Text style={styles.kpiLabel}>{labels.riskLevel}</Text>
@@ -142,7 +145,7 @@ export async function buildReportPdf(
               .filter((w) => w.status === "banned")
               .map((w, i) => (
                 <Text key={`b-${i}`} style={[styles.bullet, { color: "#dc2626" }]}>
-                  • [{labels.regulatoryExcluded}] {w.country}: {w.reason}
+                  • [{labels.regulatoryExcluded}] {cn(w.country)}: {w.reason}
                   {w.source ? ` (${w.source})` : ""}
                 </Text>
               ))}
@@ -150,7 +153,7 @@ export async function buildReportPdf(
               .filter((w) => w.status === "restricted")
               .map((w, i) => (
                 <Text key={`r-${i}`} style={[styles.bullet, { color: "#ca8a04" }]}>
-                  • [{labels.regulatoryRestricted}] {w.country}: {w.reason}
+                  • [{labels.regulatoryRestricted}] {cn(w.country)}: {w.reason}
                   {w.source ? ` (${w.source})` : ""}
                 </Text>
               ))}
@@ -169,7 +172,7 @@ export async function buildReportPdf(
           {countries.slice(0, 10).map((c) => (
             <View style={styles.tr} key={c.country}>
               <Text style={styles.tdNum}>{c.rank}</Text>
-              <Text style={styles.td}>{c.country}</Text>
+              <Text style={styles.td}>{cn(c.country)}</Text>
               <Text style={styles.tdScore}>{c.demandScore.toFixed(0)}</Text>
               <Text style={styles.tdScore}>{c.competitionScore.toFixed(0)}</Text>
               <Text style={styles.tdScore}>{c.finalScore.toFixed(0)}</Text>

@@ -1,16 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { clsx } from "clsx";
 import type { CountryScore } from "@/lib/simulation/schemas";
+import { getCountryLabel } from "@/lib/countries";
 
 type SortKey = "rank" | "demandScore" | "cacEstimateUsd" | "competitionScore" | "finalScore";
 type SortDir = "asc" | "desc";
 
 export function CountriesTab({ countries }: { countries: CountryScore[] }) {
   const t = useTranslations("results.country");
+  const locale = useLocale();
   const [sortKey, setSortKey] = useState<SortKey>("rank");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -72,7 +74,7 @@ export function CountriesTab({ countries }: { countries: CountryScore[] }) {
           {sorted.map((c) => (
             <tr key={c.country} className="border-t border-slate-100 hover:bg-slate-50">
               <td className="px-6 py-3 font-semibold text-brand">{c.rank}</td>
-              <td className="px-6 py-3 font-medium">{c.country}</td>
+              <td className="px-6 py-3 font-medium">{getCountryLabel(c.country, locale)}</td>
               <td className="px-6 py-3 text-right tabular-nums">{c.demandScore.toFixed(0)}</td>
               <td className="px-6 py-3 text-right tabular-nums">${c.cacEstimateUsd.toFixed(0)}</td>
               <td className="px-6 py-3 text-right tabular-nums">{c.competitionScore.toFixed(0)}</td>

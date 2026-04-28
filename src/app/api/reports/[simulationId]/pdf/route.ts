@@ -107,6 +107,7 @@ export async function GET(
     productName,
     sources,
     regulatory,
+    locale,
   );
 
   // Track download (fire-and-forget)

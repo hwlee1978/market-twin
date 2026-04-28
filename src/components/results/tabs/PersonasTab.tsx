@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
-import type { Persona } from "@/lib/simulation/schemas";
-import { clsx } from "clsx";
+import { useLocale, useTranslations } from "next-intl";
 import { Search, X } from "lucide-react";
+import { clsx } from "clsx";
+import type { Persona } from "@/lib/simulation/schemas";
+import { getCountryLabel } from "@/lib/countries";
 
 /** Map common LLM-output gender strings to canonical i18n keys. */
 function genderKey(g: string): "male" | "female" | "other" | "unknown" {
@@ -17,10 +18,9 @@ function genderKey(g: string): "male" | "female" | "other" | "unknown" {
 
 type SortKey = "default" | "intentDesc" | "intentAsc";
 
-const PAGE_SIZE = 30;
-
 export function PersonasTab({ personas }: { personas: Persona[] }) {
   const t = useTranslations("results.persona");
+  const locale = useLocale();
   const countries = useMemo(
     () => Array.from(new Set(personas.map((p) => p.country))).sort(),
     [personas],
@@ -30,11 +30,10 @@ export function PersonasTab({ personas }: { personas: Persona[] }) {
   const [sort, setSort] = useState<SortKey>("default");
   const [query, setQuery] = useState<string>("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let out = personas.filter((p) => {
+    return personas.filter((p) => {
       if (country !== "all" && p.country !== country) return false;
       if (intent === "high" && p.purchaseIntent < 70) return false;
       if (intent === "low" && p.purchaseIntent >= 35) return false;
@@ -53,23 +52,33 @@ export function PersonasTab({ personas }: { personas: Persona[] }) {
       }
       return true;
     });
+  }, [personas, country, intent, query]);
 
-    if (sort === "intentDesc") {
-      out = [...out].sort((a, b) => b.purchaseIntent - a.purchaseIntent);
-    } else if (sort === "intentAsc") {
-      out = [...out].sort((a, b) => a.purchaseIntent - b.purchaseIntent);
+  /** Group filtered personas by country, with the user-chosen sort applied within each group. */
+  const grouped = useMemo(() => {
+    const map = new Map<string, Persona[]>();
+    for (const p of filtered) {
+      const list = map.get(p.country) ?? [];
+      list.push(p);
+      map.set(p.country, list);
     }
-    return out;
-  }, [personas, country, intent, sort, query]);
+    if (sort !== "default") {
+      const sortFn =
+        sort === "intentDesc"
+          ? (a: Persona, b: Persona) => b.purchaseIntent - a.purchaseIntent
+          : (a: Persona, b: Persona) => a.purchaseIntent - b.purchaseIntent;
+      for (const list of map.values()) list.sort(sortFn);
+    }
+    // Sort groups by localized country name so the page reads naturally per locale.
+    return Array.from(map.entries()).sort(([a], [b]) =>
+      getCountryLabel(a, locale).localeCompare(getCountryLabel(b, locale), locale),
+    );
+  }, [filtered, sort, locale]);
 
-  // Reset to page 1 + collapse whenever filters change.
+  // Collapse expanded card whenever filters change.
   useEffect(() => {
-    setPage(1);
     setExpandedId(null);
   }, [country, intent, sort, query]);
-
-  const visible = filtered.slice(0, page * PAGE_SIZE);
-  const hasMore = visible.length < filtered.length;
 
   return (
     <div className="space-y-4">
@@ -96,7 +105,7 @@ export function PersonasTab({ personas }: { personas: Persona[] }) {
           <option value="all">{t("showing", { count: personas.length })}</option>
           {countries.map((c) => (
             <option key={c} value={c}>
-              {c}
+              {getCountryLabel(c, locale)}
             </option>
           ))}
         </select>
@@ -122,93 +131,94 @@ export function PersonasTab({ personas }: { personas: Persona[] }) {
       {filtered.length === 0 ? (
         <div className="card text-center text-slate-500 py-12">{t("noResults")}</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {visible.map((p) => {
-            const expanded = expandedId === p.id;
-            return (
-              <button
-                key={p.id}
-                onClick={() => setExpandedId(expanded ? null : (p.id ?? null))}
-                className={clsx(
-                  "card p-4 text-left transition-all hover:shadow-md hover:border-brand-100",
-                  expanded && "ring-2 ring-brand-100 shadow-md",
-                )}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold truncate">{p.profession}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">
-                      {p.country} • {p.ageRange} • {t(`gender.${genderKey(p.gender)}`)}
-                    </div>
-                  </div>
-                  <span
-                    className={clsx(
-                      "badge shrink-0",
-                      p.purchaseIntent >= 70
-                        ? "bg-success-soft text-success"
-                        : p.purchaseIntent >= 35
-                          ? "bg-warn-soft text-warn"
-                          : "bg-risk-soft text-risk",
-                    )}
-                  >
-                    {p.purchaseIntent}/100
-                  </span>
-                </div>
-                <div className="mt-3 text-xs text-slate-600 space-y-1.5">
-                  <div>
-                    <span className="text-slate-400">{t("labels.income")}:</span> {p.incomeBand}
-                  </div>
-                  <div>
-                    <span className="text-slate-400">{t("labels.style")}:</span> {p.purchaseStyle}
-                  </div>
-                  {p.objections?.length > 0 && (
-                    <div>
-                      <span className="text-slate-400">{t("labels.objections")}:</span>{" "}
-                      {expanded ? p.objections.join(", ") : p.objections.slice(0, 2).join(", ")}
-                      {!expanded && p.objections.length > 2 && (
-                        <span className="text-slate-400"> … +{p.objections.length - 2}</span>
+        <div className="space-y-6">
+          {grouped.map(([code, group]) => (
+            <section key={code} className="space-y-3">
+              <div className="flex items-baseline gap-2 border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-semibold text-slate-900">
+                  {getCountryLabel(code, locale)}
+                </h3>
+                <span className="text-xs text-slate-500">
+                  {t("showing", { count: group.length })}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {group.map((p) => {
+                  const expanded = expandedId === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => setExpandedId(expanded ? null : (p.id ?? null))}
+                      className={clsx(
+                        "card p-4 text-left transition-all hover:shadow-md hover:border-brand-100",
+                        expanded && "ring-2 ring-brand-100 shadow-md",
                       )}
-                    </div>
-                  )}
-                  {expanded && (
-                    <>
-                      {p.interests?.length > 0 && (
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold truncate">{p.profession}</div>
+                          <div className="text-xs text-slate-500 mt-0.5">
+                            {p.ageRange} • {t(`gender.${genderKey(p.gender)}`)}
+                          </div>
+                        </div>
+                        <span
+                          className={clsx(
+                            "badge shrink-0",
+                            p.purchaseIntent >= 70
+                              ? "bg-success-soft text-success"
+                              : p.purchaseIntent >= 35
+                                ? "bg-warn-soft text-warn"
+                                : "bg-risk-soft text-risk",
+                          )}
+                        >
+                          {p.purchaseIntent}/100
+                        </span>
+                      </div>
+                      <div className="mt-3 text-xs text-slate-600 space-y-1.5">
                         <div>
-                          <span className="text-slate-400">{t("labels.interests")}:</span>{" "}
-                          {p.interests.join(", ")}
+                          <span className="text-slate-400">{t("labels.income")}:</span> {p.incomeBand}
+                        </div>
+                        <div>
+                          <span className="text-slate-400">{t("labels.style")}:</span> {p.purchaseStyle}
+                        </div>
+                        {p.objections?.length > 0 && (
+                          <div>
+                            <span className="text-slate-400">{t("labels.objections")}:</span>{" "}
+                            {expanded ? p.objections.join(", ") : p.objections.slice(0, 2).join(", ")}
+                            {!expanded && p.objections.length > 2 && (
+                              <span className="text-slate-400"> … +{p.objections.length - 2}</span>
+                            )}
+                          </div>
+                        )}
+                        {expanded && (
+                          <>
+                            {p.interests?.length > 0 && (
+                              <div>
+                                <span className="text-slate-400">{t("labels.interests")}:</span>{" "}
+                                {p.interests.join(", ")}
+                              </div>
+                            )}
+                            {p.trustFactors?.length > 0 && (
+                              <div>
+                                <span className="text-slate-400">{t("labels.trustFactors")}:</span>{" "}
+                                {p.trustFactors.join(", ")}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      {!expanded && (
+                        <div className="mt-3 text-[10px] text-slate-400 uppercase tracking-wide">
+                          {t("clickToExpand")}
                         </div>
                       )}
-                      {p.trustFactors?.length > 0 && (
-                        <div>
-                          <span className="text-slate-400">{t("labels.trustFactors")}:</span>{" "}
-                          {p.trustFactors.join(", ")}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-                {!expanded && (
-                  <div className="mt-3 text-[10px] text-slate-400 uppercase tracking-wide">
-                    {t("clickToExpand")}
-                  </div>
-                )}
-              </button>
-            );
-          })}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
         </div>
-      )}
-
-      {hasMore && (
-        <div className="text-center">
-          <button onClick={() => setPage((p) => p + 1)} className="btn-secondary">
-            {t("showingFirst", { shown: visible.length, total: filtered.length })} →
-          </button>
-        </div>
-      )}
-      {!hasMore && filtered.length > PAGE_SIZE && (
-        <p className="text-center text-xs text-slate-500">
-          {t("showing", { count: filtered.length })}
-        </p>
       )}
     </div>
   );

@@ -5,6 +5,7 @@ import { AlertTriangle, Database, ShieldAlert } from "lucide-react";
 import { clsx } from "clsx";
 import { KpiCard } from "@/components/ui/KpiCard";
 import type { SimulationResult } from "@/lib/simulation/schemas";
+import { getCountryLabel } from "@/lib/countries";
 
 export interface RegulatoryWarning {
   country: string;
@@ -47,7 +48,10 @@ export function OverviewTab({ result, locale, sources, regulatory }: OverviewTab
           value={`${overview.successScore}%`}
           tone={overview.successScore >= 60 ? "success" : overview.successScore >= 35 ? "warn" : "risk"}
         />
-        <KpiCard label={t("results.overview.bestCountry")} value={overview.bestCountry} />
+        <KpiCard
+          label={t("results.overview.bestCountry")}
+          value={getCountryLabel(overview.bestCountry, locale) || overview.bestCountry}
+        />
         <KpiCard label={t("results.overview.bestSegment")} value={overview.bestSegment} />
         <KpiCard
           label={t("results.overview.bestPrice")}
@@ -104,7 +108,9 @@ export function OverviewTab({ result, locale, sources, regulatory }: OverviewTab
                   <ul className="space-y-1.5 text-sm">
                     {banned.map((w) => (
                       <li key={w.country} className="flex items-start gap-2">
-                        <span className="badge bg-risk-soft text-risk shrink-0">{w.country}</span>
+                        <span className="badge bg-risk-soft text-risk shrink-0">
+                          {getCountryLabel(w.country, locale) || w.country}
+                        </span>
                         <span className="text-slate-700">
                           {w.reason}
                           {w.source && (
@@ -128,7 +134,9 @@ export function OverviewTab({ result, locale, sources, regulatory }: OverviewTab
                   <ul className="space-y-1.5 text-sm">
                     {restricted.map((w) => (
                       <li key={w.country} className="flex items-start gap-2">
-                        <span className="badge bg-warn-soft text-warn shrink-0">{w.country}</span>
+                        <span className="badge bg-warn-soft text-warn shrink-0">
+                          {getCountryLabel(w.country, locale) || w.country}
+                        </span>
                         <span className="text-slate-700">
                           {w.reason}
                           {w.source && (

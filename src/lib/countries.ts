@@ -18,3 +18,20 @@ export const COUNTRIES = [
   { code: "BR", labelKo: "브라질", labelEn: "Brazil" },
   { code: "MX", labelKo: "멕시코", labelEn: "Mexico" },
 ];
+
+const COUNTRY_LOOKUP: Record<string, { labelKo: string; labelEn: string }> = Object.fromEntries(
+  COUNTRIES.map((c) => [c.code, { labelKo: c.labelKo, labelEn: c.labelEn }]),
+);
+
+/**
+ * Display a country code as a localized human label (e.g. "KR" → "대한민국" / "South Korea").
+ * Falls back to the raw code when the country isn't in our list (defensive — the LLM
+ * occasionally returns codes outside the candidate list).
+ */
+export function getCountryLabel(code: string | null | undefined, locale: string): string {
+  if (!code) return "";
+  const upper = code.toUpperCase();
+  const entry = COUNTRY_LOOKUP[upper];
+  if (!entry) return code;
+  return locale === "ko" ? entry.labelKo : entry.labelEn;
+}
