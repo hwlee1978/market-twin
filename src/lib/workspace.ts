@@ -63,11 +63,15 @@ export async function getOrCreatePrimaryWorkspace(): Promise<Result | null> {
 
 async function fetchExisting(userId: string, email: string): Promise<Result | null> {
   const supabase = await createClient();
+  // Match the v0.1 invariant: every user has exactly one workspace, and they
+  // are its owner. The DB unique index enforces this, so we don't filter by
+  // role here — that filter combined with RLS occasionally returned no row
+  // for users whose membership existed but whose role text matched edge
+  // cases. Just take the first membership.
   const { data: existing } = await supabase
     .from("workspace_members")
     .select("workspace_id, workspaces(status)")
     .eq("user_id", userId)
-    .eq("role", "owner")
     .limit(1)
     .maybeSingle();
 
