@@ -19,6 +19,10 @@ import {
 } from "./prompts";
 import { evaluateRegulatory } from "./regulatory";
 import {
+  notifySimulationComplete,
+  notifySimulationFailed,
+} from "@/lib/email/notify";
+import {
   CountryScoreSchema,
   OverviewSchema,
   PersonaSchema,
@@ -278,10 +282,35 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       })
       .eq("id", opts.simulationId);
 
-    await supabase
-      .from("projects")
-      .update({ status: "completed" })
-      .eq("id", (await supabase.from("simulations").select("project_id").eq("id", opts.simulationId).single()).data?.project_id);
+    // Look up workspace + project so the success email + project status
+    // update both have what they need without two extra round-trips.
+    const { data: simRow } = await supabase
+      .from("simulations")
+      .select("project_id, workspace_id")
+      .eq("id", opts.simulationId)
+      .single();
+    if (simRow?.project_id) {
+      await supabase
+        .from("projects")
+        .update({ status: "completed" })
+        .eq("id", simRow.project_id);
+    }
+
+    // Notify after persistence so the email link always resolves to a
+    // completed sim. Best-effort: a missing RESEND_API_KEY or send error
+    // logs and moves on without disturbing the simulation outcome.
+    if (simRow?.workspace_id && simRow.project_id) {
+      await notifySimulationComplete({
+        simulationId: opts.simulationId,
+        workspaceId: simRow.workspace_id,
+        projectId: simRow.project_id,
+        productName: opts.projectInput.productName,
+        locale: locale === "ko" ? "ko" : "en",
+        successScore: result.overview?.successScore ?? null,
+        bestCountry: result.overview?.bestCountry ?? null,
+        recommendedPriceCents: result.pricing?.recommendedPriceCents ?? null,
+      });
+    }
 
     return result;
   } catch (err) {
@@ -294,6 +323,24 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       .from("simulations")
       .update({ status: "failed", error_message: message })
       .eq("id", opts.simulationId);
+
+    // Notify on failure too — operators want to know without polling.
+    const { data: simRow } = await supabase
+      .from("simulations")
+      .select("project_id, workspace_id")
+      .eq("id", opts.simulationId)
+      .single();
+    if (simRow?.workspace_id && simRow.project_id) {
+      await notifySimulationFailed({
+        simulationId: opts.simulationId,
+        workspaceId: simRow.workspace_id,
+        projectId: simRow.project_id,
+        productName: opts.projectInput.productName,
+        locale: locale === "ko" ? "ko" : "en",
+        errorMessage: message,
+      });
+    }
+
     throw err;
   }
 }
