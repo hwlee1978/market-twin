@@ -76,7 +76,7 @@
         "description": "수요·CAC·경쟁 강도 기반의 0~100 점 평가"
       },
       "countries": {
-        "title": "17개국 시장 비교",
+        "title": "20개국 시장 비교",
         "description": "KOSIS·BLS·e-Stat 등 정부 통계로 grounded"
       },
       "personas": {

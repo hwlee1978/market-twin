@@ -76,7 +76,7 @@
         "description": "0–100 score from demand · CAC · competition signals"
       },
       "countries": {
-        "title": "17-country comparison",
+        "title": "20-country comparison",
         "description": "Grounded in gov statistics: KOSIS, BLS, e-Stat, and more"
       },
       "personas": {

@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     template: "%s · Market Twin",
   },
   description:
-    "Validate market reaction before you launch — with AI personas grounded in government statistics across 17 countries.",
+    "Validate market reaction before you launch — with AI personas grounded in government statistics across 20 countries.",
   icons: {
     icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
     shortcut: "/favicon.svg",
