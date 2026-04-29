@@ -158,6 +158,14 @@
     "loggingIn": "Signing in...",
     "signupCta": "Start free trial",
     "signingUp": "Creating account...",
+    "comingSoon": {
+      "badge": "Coming soon",
+      "title": "Signups open shortly",
+      "description": "We're putting the finishing touches on the product. If you want early access, drop us a note using the button below — we'll send onboarding instructions the moment we're ready.",
+      "requestAccess": "Request early access",
+      "contactEmail": "hello@markettwin.app",
+      "contactSubject": "Market Twin early access request"
+    },
     "googleLogin": "Continue with Google",
     "noAccount": "Don't have an account?",
     "haveAccount": "Already have an account?",
