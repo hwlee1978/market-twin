@@ -18,7 +18,13 @@ function genderKey(g: string): "male" | "female" | "other" | "unknown" {
 
 type SortKey = "default" | "intentDesc" | "intentAsc";
 
-export function PersonasTab({ personas }: { personas: Persona[] }) {
+export function PersonasTab({
+  personas,
+  sources = [],
+}: {
+  personas: Persona[];
+  sources?: string[];
+}) {
   const t = useTranslations("results.persona");
   const locale = useLocale();
   const countries = useMemo(
@@ -148,15 +154,35 @@ export function PersonasTab({ personas }: { personas: Persona[] }) {
         <div className="card text-center text-slate-500 py-12">{t("noResults")}</div>
       ) : (
         <div className="space-y-6">
-          {grouped.map(([code, group]) => (
+          {grouped.map(([code, group]) => {
+            const avg = Math.round(
+              group.reduce((s, p) => s + p.purchaseIntent, 0) / group.length,
+            );
+            const high = group.filter((p) => p.purchaseIntent >= 70).length;
+            const low = group.filter((p) => p.purchaseIntent < 35).length;
+            return (
             <section key={code} className="space-y-3">
-              <div className="flex items-baseline gap-2 border-b border-slate-200 pb-2">
-                <h3 className="text-sm font-semibold text-slate-900">
-                  {getCountryLabel(code, locale)}
-                </h3>
-                <span className="text-xs text-slate-500">
-                  {t("showing", { count: group.length })}
-                </span>
+              <div className="border-b border-slate-200 pb-2">
+                <div className="flex items-baseline gap-2">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    {getCountryLabel(code, locale)}
+                  </h3>
+                  <span className="text-xs text-slate-500">
+                    {t("showing", { count: group.length })}
+                  </span>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 tabular-nums">
+                  <span>
+                    {t("groupAvgIntent")}{" "}
+                    <span className="text-slate-700 font-medium">{avg}/100</span>
+                  </span>
+                  <span>
+                    {t("groupHigh")} <span className="text-success font-medium">{high}</span>
+                  </span>
+                  <span>
+                    {t("groupLow")} <span className="text-risk font-medium">{low}</span>
+                  </span>
+                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {group.map((p) => {
@@ -233,7 +259,17 @@ export function PersonasTab({ personas }: { personas: Persona[] }) {
                 })}
               </div>
             </section>
-          ))}
+            );
+          })}
+          {sources.length > 0 && (
+            <div className="card bg-slate-50 border-slate-200 text-xs text-slate-500">
+              <div className="font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                {t("anchoredOn")}
+              </div>
+              <p className="leading-relaxed">{sources.join(" · ")}</p>
+              <p className="mt-1 text-[11px] text-slate-400">{t("anchoredHint")}</p>
+            </div>
+          )}
         </div>
       )}
     </div>

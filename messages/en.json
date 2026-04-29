@@ -153,7 +153,20 @@
       "score": "Final Score",
       "rank": "Priority",
       "rationale": "Why",
-      "noData": "No country data"
+      "noData": "No country data",
+      "drill": {
+        "rationaleFull": "Full rationale",
+        "personaSummary": "Persona summary",
+        "count": "Personas",
+        "avgIntent": "Avg intent",
+        "highIntent": "High (≥70)",
+        "lowIntent": "Low (<35)",
+        "topObjections": "Top 5 objections",
+        "noPersonas": "No personas assigned to this country.",
+        "regBanned": "Sale banned",
+        "regRestricted": "Sale restricted",
+        "anchoredOn": "Anchored on"
+      }
     },
     "persona": {
       "labels": {
@@ -187,14 +200,33 @@
       "intentLegend": "Purchase intent (0–100)",
       "intentHigh": "70+ high",
       "intentMedium": "35–69 medium",
-      "intentLow": "<35 low"
+      "intentLow": "<35 low",
+      "groupAvgIntent": "Avg intent:",
+      "groupHigh": "High:",
+      "groupLow": "Low:",
+      "anchoredOn": "Anchored on",
+      "anchoredHint": "Persona generation referenced gov-statistics from the sources above."
     },
     "pricing": {
       "priceVsConversion": "Price vs Conversion",
       "recommendedPrice": "Recommended Price",
       "marginEstimate": "Margin Estimate",
       "conversion": "Conversion (%)",
-      "revenue": "Revenue index"
+      "revenue": "Revenue index",
+      "why": {
+        "title": "Why this price",
+        "recommendedMarker": "Recommended",
+        "sensitivity": "Persona price sensitivity",
+        "basedOn": "based on {n}",
+        "noPersonas": "No persona data.",
+        "interpHigh": "Price sensitivity skews high — lower price points convert better.",
+        "interpLow": "Price sensitivity skews low — premium pricing is viable.",
+        "interpMixed": "Price sensitivity is mixed — consider tiered pricing (good / better / best).",
+        "recommendedAt": "Recommended price",
+        "recommendedHint": "At this price: {conv}% conversion, {rev} revenue index",
+        "peakRevenue": "Peak revenue",
+        "peakHint": "Revenue index of {rev} — highest point on the curve"
+      }
     },
     "actionPlan": "Action Plan",
     "recommendedChannels": "Recommended Channels",

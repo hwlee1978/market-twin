@@ -153,7 +153,20 @@
       "score": "최종 점수",
       "rank": "우선순위",
       "rationale": "선정 사유",
-      "noData": "국가 데이터 없음"
+      "noData": "국가 데이터 없음",
+      "drill": {
+        "rationaleFull": "선정 사유 (전체)",
+        "personaSummary": "이 국가 페르소나 요약",
+        "count": "페르소나 수",
+        "avgIntent": "평균 구매의향",
+        "highIntent": "고의향 (≥70)",
+        "lowIntent": "저의향 (<35)",
+        "topObjections": "공통 거부 요인 Top 5",
+        "noPersonas": "이 국가에 할당된 페르소나가 없음.",
+        "regBanned": "판매 금지",
+        "regRestricted": "제한 조건 있음",
+        "anchoredOn": "통계 근거"
+      }
     },
     "persona": {
       "labels": {
@@ -187,14 +200,33 @@
       "intentLegend": "구매의향 점수 (0~100)",
       "intentHigh": "70+ 높음",
       "intentMedium": "35~69 보통",
-      "intentLow": "35미만 낮음"
+      "intentLow": "35미만 낮음",
+      "groupAvgIntent": "평균 의향:",
+      "groupHigh": "고의향:",
+      "groupLow": "저의향:",
+      "anchoredOn": "통계 근거",
+      "anchoredHint": "페르소나 생성 시 위 출처의 정부 통계를 참고했습니다."
     },
     "pricing": {
       "priceVsConversion": "가격 대 전환율",
       "recommendedPrice": "추천 가격",
       "marginEstimate": "마진 추정",
       "conversion": "전환율 (%)",
-      "revenue": "매출 지수"
+      "revenue": "매출 지수",
+      "why": {
+        "title": "왜 이 가격인가",
+        "recommendedMarker": "추천",
+        "sensitivity": "페르소나 가격 민감도",
+        "basedOn": "{n}명 기준",
+        "noPersonas": "페르소나 데이터 없음.",
+        "interpHigh": "가격 민감도가 높은 고객 비중이 큽니다 — 낮은 가격대가 전환에 유리합니다.",
+        "interpLow": "가격 민감도가 낮은 고객 비중이 큽니다 — 프리미엄 가격대도 충분히 가능합니다.",
+        "interpMixed": "가격 민감도가 분산되어 있습니다 — 다중 가격대 (good/better/best) 전략을 검토하세요.",
+        "recommendedAt": "추천 가격 지점",
+        "recommendedHint": "이 가격에서 전환율 {conv}%, 매출 지수 {rev}",
+        "peakRevenue": "매출 최대 지점",
+        "peakHint": "이 가격에서 매출 지수 {rev} 로 곡선상 최고치"
+      }
     },
     "actionPlan": "액션 플랜",
     "recommendedChannels": "추천 채널",

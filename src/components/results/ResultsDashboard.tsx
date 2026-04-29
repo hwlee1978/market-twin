@@ -77,9 +77,18 @@ export function ResultsDashboard({
         {tab === "overview" && (
           <OverviewTab result={result} locale={locale} sources={sources} regulatory={regulatory} />
         )}
-        {tab === "countries" && <CountriesTab countries={result.countries} />}
-        {tab === "personas" && <PersonasTab personas={result.personas} />}
-        {tab === "pricing" && <PricingTab pricing={result.pricing} currency="USD" />}
+        {tab === "countries" && (
+          <CountriesTab
+            countries={result.countries}
+            personas={result.personas}
+            regulatory={regulatory}
+            sources={sources}
+          />
+        )}
+        {tab === "personas" && <PersonasTab personas={result.personas} sources={sources} />}
+        {tab === "pricing" && (
+          <PricingTab pricing={result.pricing} currency="USD" personas={result.personas} />
+        )}
         {tab === "risks" && <RisksTab risks={result.risks} />}
         {tab === "recommendations" && <RecommendationsTab rec={result.recommendations} />}
       </div>
