@@ -1,4 +1,27 @@
 {
+  "onboarding": {
+    "startDemo": "Start Sample Demo",
+    "launching": "Launching demo...",
+    "card": {
+      "badge": "First time here?",
+      "title": "Run a sample first to see how it works",
+      "description": "Before filling in your own product details, take the pre-filled sample project for a spin. See exactly what the results screen looks like and what insights you get — in 2–3 minutes, no inputs required.",
+      "point1": "50 personas anchored on gov statistics",
+      "point2": "Side-by-side: Korea · Japan · United States",
+      "point3": "Price elasticity curve + recommended price",
+      "point4": "Auto-generated PDF report",
+      "etaHint": "Takes 2–3 minutes — starts instantly with zero input",
+      "preview": {
+        "title": "Sample project",
+        "product": "Product",
+        "category": "Category",
+        "electronics": "Electronics",
+        "price": "Price",
+        "countries": "Countries",
+        "personas": "Personas"
+      }
+    }
+  },
   "common": {
     "appName": "AI Market Twin",
     "tagline": "Simulate market reactions before you launch — with AI",

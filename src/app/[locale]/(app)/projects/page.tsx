@@ -1,7 +1,7 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { FolderOpen, Plus } from "lucide-react";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { Plus } from "lucide-react";
+import { DemoCard } from "@/components/onboarding/DemoCard";
 import { ProjectsTable } from "@/components/ProjectsTable";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
@@ -39,18 +39,7 @@ export default async function ProjectsPage({
       {hasProjects ? (
         <ProjectsTable projects={projects} locale={locale} />
       ) : (
-        <div className="card p-0">
-          <EmptyState
-            icon={FolderOpen}
-            title={t("dashboard.noProjects")}
-            action={
-              <Link href="/projects/new" className="btn-primary">
-                <Plus size={16} />
-                {t("dashboard.newProject")}
-              </Link>
-            }
-          />
-        </div>
+        <DemoCard />
       )}
     </div>
   );

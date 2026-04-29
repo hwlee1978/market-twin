@@ -1,9 +1,9 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { FolderOpen, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { DemoCard } from "@/components/onboarding/DemoCard";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 
@@ -57,6 +57,8 @@ export default async function DashboardPage({
     .eq("workspace_id", ctx.workspaceId)
     .gte("created_at", monthStart.toISOString());
 
+  const hasProjects = !!projects && projects.length > 0;
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -66,6 +68,8 @@ export default async function DashboardPage({
           {t("dashboard.newProject")}
         </Link>
       </div>
+
+      {!hasProjects && <DemoCard />}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
@@ -80,11 +84,11 @@ export default async function DashboardPage({
         <KpiCard label={t("dashboard.kpi.monthlyReports")} value={monthlyReports ?? 0} />
       </div>
 
-      <div className="card p-0 overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-base font-semibold">{t("dashboard.recentProjects")}</h2>
-        </div>
-        {projects && projects.length > 0 ? (
+      {hasProjects && (
+        <div className="card p-0 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="text-base font-semibold">{t("dashboard.recentProjects")}</h2>
+          </div>
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
               <tr>
@@ -114,19 +118,8 @@ export default async function DashboardPage({
               ))}
             </tbody>
           </table>
-        ) : (
-          <EmptyState
-            icon={FolderOpen}
-            title={t("dashboard.noProjects")}
-            action={
-              <Link href="/projects/new" className="btn-primary">
-                <Plus size={16} />
-                {t("dashboard.newProject")}
-              </Link>
-            }
-          />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
