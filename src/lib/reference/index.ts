@@ -41,10 +41,21 @@ export interface ConsumerNorms {
   source: string;
 }
 
+export interface Competitor {
+  country_code: string;
+  category: string;
+  brand_name: string;
+  brand_role: string;
+  segment: string | null;
+  notes: string;
+  source: string;
+}
+
 export interface CountryReferenceBundle {
   country: CountryStats | null;
   professions: ProfessionIncomeRow[];
   norms: ConsumerNorms | null;
+  competitors: Competitor[];
 }
 
 // ─── Loader ─────────────────────────────────────────────────────
@@ -60,12 +71,12 @@ export async function loadReferenceBundles(
   const supabase = createServiceClient();
   const result: Record<string, CountryReferenceBundle> = {};
   for (const code of countryCodes) {
-    result[code] = { country: null, professions: [], norms: null };
+    result[code] = { country: null, professions: [], norms: null, competitors: [] };
   }
   if (countryCodes.length === 0) return result;
 
-  // Load all three tables in parallel.
-  const [statsRes, profRes, normsRes] = await Promise.all([
+  // Load all four tables in parallel.
+  const [statsRes, profRes, normsRes, compRes] = await Promise.all([
     supabase
       .from("country_stats_latest")
       .select("*")
@@ -78,6 +89,11 @@ export async function loadReferenceBundles(
       .from("country_consumer_norms")
       .select("*")
       .in("country_code", countryCodes)
+      .eq("category", category),
+    supabase
+      .from("category_competitors")
+      .select("country_code, category, brand_name, brand_role, segment, notes, source")
+      .in("country_code", countryCodes.map((c) => c.toUpperCase()))
       .eq("category", category),
   ]);
 
@@ -106,6 +122,12 @@ export async function loadReferenceBundles(
   }
   for (const n of normsLatest.values()) {
     if (result[n.country_code]) result[n.country_code].norms = n;
+  }
+
+  // Competitors live in a flat table — just append each row to its country's bundle.
+  for (const c of (compRes.data ?? []) as Competitor[]) {
+    const code = c.country_code;
+    if (result[code]) result[code].competitors.push(c);
   }
 
   return result;
@@ -177,6 +199,17 @@ export function renderReferenceBlock(
         );
       }
     }
+
+    if (b.competitors.length > 0) {
+      lines.push(
+        locale === "ko" ? "주요 경쟁 브랜드:" : "Major competitors:",
+      );
+      for (const c of b.competitors) {
+        // [Brand — role / segment] notes
+        const segment = c.segment ? ` / ${c.segment}` : "";
+        lines.push(`  • ${c.brand_name} (${c.brand_role}${segment}) — ${c.notes}`);
+      }
+    }
   }
 
   lines.push(
@@ -199,6 +232,9 @@ export function collectSourceAttributions(
     if (b.country) sources.add(b.country.source);
     if (b.norms) sources.add(b.norms.source);
     for (const p of b.professions) sources.add(p.source);
+    for (const c of b.competitors) {
+      if (c.source) sources.add(c.source);
+    }
   }
   return Array.from(sources);
 }
