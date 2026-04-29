@@ -24,7 +24,7 @@
   },
   "common": {
     "appName": "AI Market Twin",
-    "tagline": "AI로 출시 전에 시장 반응을 시뮬레이션합니다",
+    "tagline": "출시 전에 시장 반응을 미리 보세요",
     "loading": "로딩 중...",
     "error": "오류가 발생했습니다",
     "save": "저장",
@@ -54,7 +54,11 @@
   },
   "auth": {
     "loginTitle": "로그인",
-    "signupTitle": "회원가입",
+    "loginSubtitle": "AI Market Twin 워크스페이스로 돌아오세요",
+    "signupTitle": "무료 계정 만들기",
+    "signupSubtitle": "30초 내 첫 시뮬레이션을 시작할 수 있습니다",
+    "signupReassure": "신용카드 불필요 · 첫 시뮬레이션 무료 · 언제든 해지 가능",
+    "checkEmail": "확인 이메일을 보냈습니다. 메일함을 확인해주세요.",
     "email": "이메일",
     "password": "비밀번호",
     "passwordHint": "최소 8자 이상",
@@ -64,7 +68,25 @@
     "noAccount": "계정이 없으신가요?",
     "haveAccount": "이미 계정이 있으신가요?",
     "or": "또는",
-    "trustline": "글로벌 D2C·이커머스 팀이 사용하는 출시 의사결정 도구"
+    "trustline": "정부 통계로 그라운딩된 AI 페르소나로, 실제 출시 전에 시장 반응을 검증합니다.",
+    "features": {
+      "successScore": {
+        "title": "출시 성공 점수",
+        "description": "수요·CAC·경쟁 강도 기반의 0~100 점 평가"
+      },
+      "countries": {
+        "title": "17개국 시장 비교",
+        "description": "KOSIS·BLS·e-Stat 등 정부 통계로 grounded"
+      },
+      "personas": {
+        "title": "AI 페르소나 시뮬",
+        "description": "직업·소득대·구매 의향까지 정밀 분석"
+      },
+      "regulatory": {
+        "title": "규제 사전 검증",
+        "description": "법적으로 판매 불가능한 시장은 자동 제외"
+      }
+    }
   },
   "dashboard": {
     "title": "대시보드",

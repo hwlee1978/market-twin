@@ -24,7 +24,7 @@
   },
   "common": {
     "appName": "AI Market Twin",
-    "tagline": "Simulate market reactions before you launch — with AI",
+    "tagline": "See how the market will react — before you launch",
     "loading": "Loading...",
     "error": "Something went wrong",
     "save": "Save",
@@ -53,18 +53,40 @@
     "settings": "Settings"
   },
   "auth": {
-    "loginTitle": "Log in",
-    "signupTitle": "Create account",
+    "loginTitle": "Welcome back",
+    "loginSubtitle": "Sign in to your AI Market Twin workspace",
+    "signupTitle": "Create your free account",
+    "signupSubtitle": "Run your first simulation in under 30 seconds",
+    "signupReassure": "No credit card · First simulation free · Cancel anytime",
+    "checkEmail": "Confirmation email sent. Check your inbox.",
     "email": "Email",
     "password": "Password",
     "passwordHint": "At least 8 characters",
-    "loginCta": "Log in",
+    "loginCta": "Sign in",
     "signupCta": "Start free trial",
     "googleLogin": "Continue with Google",
     "noAccount": "Don't have an account?",
     "haveAccount": "Already have an account?",
     "or": "or",
-    "trustline": "The launch decision tool used by global D2C and ecommerce teams"
+    "trustline": "Validate market reaction before launch — with AI personas grounded in real government statistics.",
+    "features": {
+      "successScore": {
+        "title": "Launch Success Score",
+        "description": "0–100 score from demand · CAC · competition signals"
+      },
+      "countries": {
+        "title": "17-country comparison",
+        "description": "Grounded in gov statistics: KOSIS, BLS, e-Stat, and more"
+      },
+      "personas": {
+        "title": "AI persona simulation",
+        "description": "Realistic profession, income, and intent breakdown"
+      },
+      "regulatory": {
+        "title": "Regulatory pre-check",
+        "description": "Markets where the product is legally banned are auto-excluded"
+      }
+    }
   },
   "dashboard": {
     "title": "Dashboard",
