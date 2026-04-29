@@ -16,10 +16,14 @@ export function KpiCard({ label, value, hint, tone = "default" }: Props) {
   }[tone];
 
   return (
-    <div className="card p-5">
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
-      <div className={clsx("mt-2 text-3xl font-semibold tabular-nums", toneCls)}>{value}</div>
-      {hint && <div className="mt-1 text-xs text-slate-500">{hint}</div>}
+    <div className="card p-6">
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+        {label}
+      </div>
+      <div className={clsx("mt-3 text-3xl font-semibold tabular-nums leading-none", toneCls)}>
+        {value}
+      </div>
+      {hint && <div className="mt-2 text-xs text-slate-500">{hint}</div>}
     </div>
   );
 }

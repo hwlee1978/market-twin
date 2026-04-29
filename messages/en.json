@@ -41,7 +41,8 @@
     "signup": "Sign up",
     "language": "Language",
     "korean": "한국어",
-    "english": "English"
+    "english": "English",
+    "loggedInAs": "Signed in as"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -67,11 +68,34 @@
   },
   "dashboard": {
     "title": "Dashboard",
+    "welcome": "Welcome",
+    "welcomeNamed": "Welcome, {name}",
+    "subtitleNew": "Welcome to AI Market Twin. Take the sample demo for a spin first to see what your results will look like.",
+    "subtitleReturning": "Project status and simulation insights at a glance",
     "kpi": {
       "activeProjects": "Active Projects",
       "avgSuccessScore": "Avg Success Score",
       "countriesTested": "Countries Tested",
       "monthlyReports": "Reports This Month"
+    },
+    "tracking": {
+      "title": "What you'll see here once you run a simulation",
+      "successScore": {
+        "title": "Success Score",
+        "description": "Average success probability per simulation (0–100)"
+      },
+      "countries": {
+        "title": "Country Comparison",
+        "description": "Country priority ranked by demand · CAC · competition"
+      },
+      "reports": {
+        "title": "Monthly Reports",
+        "description": "Auto-generated PDFs · download tracking"
+      },
+      "actions": {
+        "title": "Suggested Actions",
+        "description": "Next-step recommendations from your simulations"
+      }
     },
     "recentProjects": "Recent Projects",
     "newProject": "New Project",

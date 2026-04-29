@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Link, usePathname } from "@/i18n/navigation";
+import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import {
   LayoutDashboard,
   FolderOpen,
@@ -10,11 +10,11 @@ import {
   Users,
   Settings as SettingsIcon,
   LogOut,
+  Activity,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "@/i18n/navigation";
 
 const NAV = [
   { href: "/dashboard", icon: LayoutDashboard, key: "dashboard" as const },
@@ -44,12 +44,28 @@ export function AppShell({
   };
 
   return (
-    <div className="min-h-screen flex">
-      <aside className="w-60 shrink-0 bg-brand text-white flex flex-col">
-        <div className="px-5 py-5 text-lg font-semibold tracking-tight">
-          {tCommon("appName")}
+    <div className="min-h-screen flex bg-slate-50">
+      <aside className="w-64 shrink-0 bg-brand text-white flex flex-col">
+        <div className="px-6 pt-6 pb-5 flex items-center gap-2.5">
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-accent/15 text-accent">
+            <Activity size={16} />
+          </span>
+          <div className="leading-tight">
+            <div className="text-[15px] font-semibold tracking-tight">
+              {tCommon("appName")}
+            </div>
+            <div className="text-[10px] uppercase tracking-wider text-brand-200">
+              Launch Twin
+            </div>
+          </div>
         </div>
-        <nav className="flex-1 px-2 space-y-1">
+
+        <div className="px-3 pt-2 pb-1">
+          <div className="text-[10px] uppercase tracking-wider text-brand-200 px-3 pb-2">
+            {tNav("dashboard")}
+          </div>
+        </div>
+        <nav className="flex-1 px-3 space-y-0.5">
           {NAV.map((item) => {
             const active = pathname.startsWith(item.href);
             return (
@@ -57,34 +73,51 @@ export function AppShell({
                 key={item.href}
                 href={item.href}
                 className={clsx(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                  "relative flex items-center gap-3 pl-3 pr-3 py-2 rounded-lg text-sm transition-colors",
                   active
                     ? "bg-brand-600 text-white"
-                    : "text-brand-100 hover:bg-brand-600 hover:text-white",
+                    : "text-brand-100 hover:bg-brand-600/60 hover:text-white",
                 )}
               >
-                <item.icon size={16} />
-                {tNav(item.key)}
+                {active && (
+                  <span
+                    aria-hidden
+                    className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-accent"
+                  />
+                )}
+                <item.icon size={16} className={active ? "text-accent" : ""} />
+                <span>{tNav(item.key)}</span>
               </Link>
             );
           })}
         </nav>
-        <div className="px-3 py-4 border-t border-brand-600 space-y-2">
-          <div className="px-2 text-xs text-brand-100 truncate">{userEmail}</div>
-          <div className="flex items-center gap-2">
+
+        <div className="px-4 pt-4 pb-5 border-t border-brand-600/60 space-y-3">
+          {userEmail && (
+            <div className="px-1">
+              <div className="text-[10px] uppercase tracking-wider text-brand-200 mb-0.5">
+                {tCommon("loggedInAs")}
+              </div>
+              <div className="text-xs text-white truncate" title={userEmail}>
+                {userEmail}
+              </div>
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-2">
             <LocaleSwitcher />
             <button
               onClick={logout}
-              className="ml-auto inline-flex items-center gap-1.5 text-xs text-brand-100 hover:text-white"
+              className="inline-flex items-center gap-1.5 text-xs text-brand-100 hover:text-white px-2 py-1.5 rounded-md hover:bg-brand-600/60 transition-colors"
             >
-              <LogOut size={14} />
+              <LogOut size={13} />
               {tCommon("logout")}
             </button>
           </div>
         </div>
       </aside>
+
       <main className="flex-1 min-w-0">
-        <div className="max-w-7xl mx-auto px-8 py-8">{children}</div>
+        <div className="max-w-7xl mx-auto px-8 py-10 space-y-8">{children}</div>
       </main>
     </div>
   );

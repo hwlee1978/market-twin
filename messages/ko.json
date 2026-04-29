@@ -41,7 +41,8 @@
     "signup": "회원가입",
     "language": "언어",
     "korean": "한국어",
-    "english": "English"
+    "english": "English",
+    "loggedInAs": "로그인 계정"
   },
   "nav": {
     "dashboard": "대시보드",
@@ -67,11 +68,34 @@
   },
   "dashboard": {
     "title": "대시보드",
+    "welcome": "환영합니다",
+    "welcomeNamed": "환영합니다, {name}님",
+    "subtitleNew": "AI Market Twin 에 오신 것을 환영합니다. 아래 샘플 데모로 결과 화면이 어떻게 생겼는지 먼저 둘러보세요.",
+    "subtitleReturning": "프로젝트 진행 상황과 시뮬레이션 인사이트를 한눈에",
     "kpi": {
       "activeProjects": "진행 중인 프로젝트",
       "avgSuccessScore": "평균 성공 점수",
       "countriesTested": "테스트된 국가",
       "monthlyReports": "이번 달 리포트"
+    },
+    "tracking": {
+      "title": "시뮬레이션을 돌리면 이 화면에 표시됩니다",
+      "successScore": {
+        "title": "성공 점수",
+        "description": "각 시뮬레이션의 평균 성공 확률 (0~100점)"
+      },
+      "countries": {
+        "title": "국가 비교",
+        "description": "수요·CAC·경쟁 강도 기반 국가 우선순위"
+      },
+      "reports": {
+        "title": "월간 리포트",
+        "description": "PDF 자동 생성 · 다운로드 횟수 추적"
+      },
+      "actions": {
+        "title": "추천 액션",
+        "description": "시뮬레이션 결과 기반 다음 단계 제안"
+      }
     },
     "recentProjects": "최근 프로젝트",
     "newProject": "새 프로젝트",
