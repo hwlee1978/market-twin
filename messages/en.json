@@ -87,7 +87,133 @@
       "reassure": "No credit card · First simulation free · Cancel anytime"
     },
     "footer": {
-      "copyright": "© {year} Market Twin. All rights reserved."
+      "copyright": "© {year} Market Twin. All rights reserved.",
+      "privacy": "Privacy",
+      "terms": "Terms"
+    }
+  },
+  "cookieConsent": {
+    "title": "Cookie notice",
+    "description": "Market Twin uses essential cookies to run the service and analytics cookies to improve usability.",
+    "learnMore": "Learn more",
+    "accept": "Accept all",
+    "reject": "Essential only"
+  },
+  "legal": {
+    "lastUpdated": "Last updated",
+    "backToHome": "Back to home",
+    "nav": {
+      "home": "Home",
+      "privacy": "Privacy Policy",
+      "terms": "Terms of Service"
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "lastUpdated": "April 30, 2026",
+      "intro": "Market Twin (the 'Company' or 'Service') takes user privacy seriously and complies with applicable regulations including Korea's Personal Information Protection Act and GDPR. This policy explains what information we collect, how we use it, and how we protect it.",
+      "collect": {
+        "title": "Information We Collect",
+        "body": "We collect the following information to provide the service:",
+        "item1": "Account info: email address, password hash, login metadata (handled by Supabase Auth)",
+        "item2": "Workspace info: company name, industry, country — entered by you",
+        "item3": "Simulation inputs: product name, description, price, candidate countries, competitor URLs — entered in the wizard",
+        "item4": "Usage logs: page visits, simulation run history, IP address (operations and security purposes)"
+      },
+      "use": {
+        "title": "How We Use Information",
+        "body": "Collected information is used solely for the following purposes:",
+        "item1": "Running AI simulations and delivering results",
+        "item2": "Account authentication and workspace isolation",
+        "item3": "Email notifications about simulation outcomes (per user settings)",
+        "item4": "Service stability / security monitoring and abuse prevention"
+      },
+      "share": {
+        "title": "Third-Party Processors",
+        "body": "We share data with the following trusted processors to operate the service. We do not sell or share user data for marketing or advertising purposes.",
+        "supabase": "Database hosting and authentication (US / EU regions)",
+        "vercel": "Web application hosting (global CDN)",
+        "llm": "AI simulation processing (simulation inputs are sent to AI models; data is not used for training)",
+        "resend": "Transactional email delivery"
+      },
+      "retention": {
+        "title": "Retention",
+        "body": "We retain data until the user requests account deletion. Simulation results are retained indefinitely while a workspace is active and auto-deleted one year after a workspace is archived. Audit logs are retained for 5 years before anonymization."
+      },
+      "rights": {
+        "title": "User Rights",
+        "body": "You have the following rights, exercisable at any time via the email at the end of this policy:",
+        "item1": "Access your personal data",
+        "item2": "Request correction or deletion",
+        "item3": "Request restriction of processing",
+        "item4": "Request data portability (provided as JSON)"
+      },
+      "cookies": {
+        "title": "Cookies",
+        "body": "We use essential cookies for authentication sessions and analytics cookies to improve usability. On first visit you can decline analytics cookies via the consent banner. Essential cookies cannot be declined as they are required for the service to function."
+      },
+      "changes": {
+        "title": "Changes to This Policy",
+        "body": "We may update this policy from time to time. Material changes will be communicated via email or in-service notice."
+      },
+      "contact": {
+        "title": "Contact",
+        "body": "For privacy questions, please contact hello@markettwin.app."
+      }
+    },
+    "terms": {
+      "title": "Terms of Service",
+      "lastUpdated": "April 30, 2026",
+      "intro": "These terms govern your use of the AI launch simulation service provided by Market Twin (the 'Company'). By signing up or using the service, you agree to these terms.",
+      "acceptance": {
+        "title": "Acceptance",
+        "body": "By creating an account or using the service, you agree to these Terms and the Privacy Policy. If you do not agree, you may not use the service."
+      },
+      "service": {
+        "title": "Service Description",
+        "body": "Market Twin provides AI-driven persona simulation tools that predict pre-launch market reaction. Using government statistics and market research, we deliver country-specific demand, pricing, competition, and persona-intent analyses.",
+        "disclaimer": "Results are AI-derived estimates intended as reference material. They do not guarantee actual market outcomes. You must use results as guidance only; final decisions and accountability remain with you."
+      },
+      "account": {
+        "title": "Account",
+        "body": "You are responsible for providing accurate information and keeping your password secure. Notify us immediately if you discover unauthorized account use. Accounts follow a one-account-per-user principle; transfer or sharing may result in suspension."
+      },
+      "acceptableUse": {
+        "title": "Acceptable Use",
+        "body": "You may not:",
+        "item1": "Violate laws, infringe others' rights, or simulate clearly illegal products / services",
+        "item2": "Conduct automated load attacks, reverse engineer, or access APIs without authorization",
+        "item3": "Access other users' data without authorization or attempt to bypass system security",
+        "item4": "Resell or commercially redistribute result data without our explicit written consent"
+      },
+      "ip": {
+        "title": "Intellectual Property",
+        "body": "All code, designs, database structure, and simulation algorithms are the property of the Company or its licensors.",
+        "userContent": "Product information you input belongs to you, and we process it only to provide the service. You may freely use simulation results generated by the service for your own business purposes."
+      },
+      "disclaimer": {
+        "title": "Disclaimer",
+        "body": "The service is provided 'AS IS', and we make no warranties as to the accuracy, completeness, or fitness for a particular purpose of results. AI model outputs are estimates and may differ from actual market outcomes."
+      },
+      "liability": {
+        "title": "Limitation of Liability",
+        "body": "To the maximum extent permitted by law, we are not liable for any direct, indirect, or incidental damages arising from use of the service. Our aggregate liability shall not exceed the amount you paid us during the prior 12 months."
+      },
+      "termination": {
+        "title": "Termination",
+        "body": "You may stop using the service and request account deletion at any time. We may suspend or delete accounts for terms violations, with prior notice or immediately depending on severity."
+      },
+      "law": {
+        "title": "Governing Law",
+        "body": "These terms are governed by the laws of the Republic of Korea, with the Seoul Central District Court as the court of first instance. EU residents retain any additional rights granted by GDPR."
+      },
+      "changes": {
+        "title": "Changes",
+        "body": "We may update these terms from time to time. Material changes will be communicated via email or in-service notice. Continued use after changes constitutes acceptance."
+      },
+      "contact": {
+        "title": "Contact",
+        "body": "For questions about these terms, please contact hello@markettwin.app."
+      }
     }
   },
   "onboarding": {

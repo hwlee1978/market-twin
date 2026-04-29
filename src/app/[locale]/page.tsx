@@ -372,7 +372,15 @@ async function Footer() {
           </span>
           <span className="font-semibold tracking-tight">Market Twin</span>
         </div>
-        <div>{t("copyright", { year: new Date().getFullYear() })}</div>
+        <div className="flex items-center gap-5">
+          <Link href="/privacy" className="hover:text-brand">
+            {t("privacy")}
+          </Link>
+          <Link href="/terms" className="hover:text-brand">
+            {t("terms")}
+          </Link>
+          <span>{t("copyright", { year: new Date().getFullYear() })}</span>
+        </div>
       </div>
     </footer>
   );

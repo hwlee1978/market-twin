@@ -5,7 +5,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 
 const intlMiddleware = createIntlMiddleware(routing);
 
-const PUBLIC_PATHS = ["/login", "/signup", "/auth/callback"];
+const PUBLIC_PATHS = ["/login", "/signup", "/auth/callback", "/privacy", "/terms"];
 
 function isPublic(pathname: string) {
   // strip locale prefix for matching

@@ -72,6 +72,11 @@ body {
        layer wins over components layer). */
     @apply bg-white rounded-xl border border-slate-200 shadow-card p-6;
   }
+  .prose-legal {
+    /* Legal pages — privacy / terms. Tighter than prose-body since
+       lists and headings dominate, but still justified and readable. */
+    @apply text-sm text-slate-700 leading-[1.75];
+  }
   .prose-body {
     /* Reserved class for long-form Korean body text (executive summary,
        persona descriptions, regulatory warnings). Roomier line-height
