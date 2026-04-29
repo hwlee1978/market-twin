@@ -411,6 +411,94 @@
     "deleteFailed": "Delete failed: {error}",
     "noResults": "No matches"
   },
+  "reports": {
+    "title": "Reports archive",
+    "subtitle": "All completed simulations in one place — quick PDF downloads and direct results links",
+    "searchPlaceholder": "Search projects or products...",
+    "searching": "Searching...",
+    "emptyTitle": "No completed simulations yet",
+    "emptyDescription": "Once you run your first simulation, the result PDFs will collect here.",
+    "noResults": "No matches",
+    "noResultsHint": "Try a different search or clear it.",
+    "startFirst": "Create your first project",
+    "footnote": "{count} shown of {total} total",
+    "col": {
+      "project": "Project",
+      "product": "Product",
+      "successScore": "Score",
+      "bestCountry": "Best country",
+      "personas": "Personas",
+      "completed": "Completed",
+      "actions": "Actions"
+    },
+    "action": {
+      "view": "Open results",
+      "pdf": "Download PDF"
+    }
+  },
+  "team": {
+    "title": "Team",
+    "subtitle": "Workspace members and access info",
+    "members": {
+      "title": "Members",
+      "count": "{n} total",
+      "joined": "joined {date}"
+    },
+    "workspace": {
+      "title": "Workspace",
+      "name": "Name",
+      "companyName": "Company",
+      "plan": "Plan",
+      "created": "Created"
+    },
+    "inviteSoon": {
+      "title": "Team invites — coming in v0.2",
+      "description": "Inviting teammates by email and assigning analyst / viewer roles will land in v0.2. v0.1 runs as single-member workspaces."
+    },
+    "benefits": {
+      "rls": "Data is isolated per workspace by row-level security (RLS).",
+      "singleMember": "v0.1: one workspace per user, owner role.",
+      "emailNotifications": "Simulation completion and failure notifications are sent to your email."
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your profile, workspace, and notifications",
+    "profile": {
+      "title": "Profile",
+      "email": "Email",
+      "language": "Language"
+    },
+    "workspace": {
+      "title": "Workspace info",
+      "subtitle": "Used on the simulation results page and PDF report headers.",
+      "name": "Workspace name",
+      "companyName": "Company name",
+      "companyNamePlaceholder": "e.g. Acme Corporation",
+      "industry": "Industry",
+      "industryPlaceholder": "e.g. D2C / Electronics / Beauty",
+      "country": "Country",
+      "countryPlaceholder": "e.g. South Korea",
+      "plan": "Plan",
+      "created": "Created",
+      "save": "Save",
+      "saving": "Saving...",
+      "saved": "Saved"
+    },
+    "notifications": {
+      "title": "Email notifications",
+      "subtitle": "Get the result delivered to your inbox when a simulation finishes or fails.",
+      "simEmail": {
+        "title": "Simulation complete / failed alerts",
+        "description": "Includes success score, best country, recommended price, and a one-click button to the results page."
+      }
+    },
+    "session": {
+      "title": "Session",
+      "subtitle": "Sign out of this browser. Other devices stay signed in.",
+      "signOut": "Sign out"
+    }
+  },
   "admin": {
     "title": "Admin Console",
     "backToWorkspace": "Back to workspace",

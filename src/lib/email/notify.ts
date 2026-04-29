@@ -12,9 +12,24 @@ import {
  * v0.1: every workspace has exactly one member (the owner), so we send to
  * that single address. The function is shaped to scale to multi-member
  * workspaces later without runner-side changes.
+ *
+ * Honors the workspace.email_notifications toggle: if the user has turned
+ * notifications off in /settings, we return an empty list (and the caller
+ * skips the send entirely).
  */
 async function getWorkspaceRecipients(workspaceId: string): Promise<string[]> {
   const admin = createServiceClient();
+
+  const { data: ws } = await admin
+    .from("workspaces")
+    .select("email_notifications")
+    .eq("id", workspaceId)
+    .single();
+  const wsRow = ws as { email_notifications?: boolean } | null;
+  // Default true so that workspaces created before migration 0006 still get
+  // notified — the toggle has to be explicitly flipped off to silence.
+  if (wsRow && wsRow.email_notifications === false) return [];
+
   const { data: members } = await admin
     .from("workspace_members")
     .select("user_id")

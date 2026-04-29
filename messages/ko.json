@@ -411,6 +411,94 @@
     "deleteFailed": "삭제 실패: {error}",
     "noResults": "검색 결과 없음"
   },
+  "reports": {
+    "title": "리포트 아카이브",
+    "subtitle": "완료된 모든 시뮬레이션을 한곳에서 — PDF 다운로드와 결과 페이지 바로가기",
+    "searchPlaceholder": "프로젝트·제품명 검색...",
+    "searching": "검색 중...",
+    "emptyTitle": "아직 완료된 시뮬레이션이 없습니다",
+    "emptyDescription": "첫 시뮬레이션을 실행하면 결과 PDF가 여기에 모입니다.",
+    "noResults": "검색 결과 없음",
+    "noResultsHint": "다른 검색어를 시도하거나 검색을 비워두세요.",
+    "startFirst": "첫 프로젝트 만들기",
+    "footnote": "{count}개 표시 (전체 {total}개)",
+    "col": {
+      "project": "프로젝트",
+      "product": "제품",
+      "successScore": "성공 점수",
+      "bestCountry": "추천 국가",
+      "personas": "페르소나",
+      "completed": "완료 시각",
+      "actions": "액션"
+    },
+    "action": {
+      "view": "결과 화면 열기",
+      "pdf": "PDF 다운로드"
+    }
+  },
+  "team": {
+    "title": "팀",
+    "subtitle": "워크스페이스 멤버와 권한 정보",
+    "members": {
+      "title": "멤버",
+      "count": "{n}명",
+      "joined": "{date} 가입"
+    },
+    "workspace": {
+      "title": "워크스페이스",
+      "name": "이름",
+      "companyName": "회사",
+      "plan": "플랜",
+      "created": "생성일"
+    },
+    "inviteSoon": {
+      "title": "팀 초대 — v0.2 도입 예정",
+      "description": "이메일로 팀원을 초대하고 분석가·뷰어 권한을 부여하는 기능은 v0.2에서 추가됩니다. 현재는 1인 워크스페이스 단위로 운영됩니다."
+    },
+    "benefits": {
+      "rls": "데이터는 워크스페이스 단위로 격리되어 있습니다 (RLS).",
+      "singleMember": "v0.1: 사용자당 1개 워크스페이스, owner 권한.",
+      "emailNotifications": "시뮬레이션 완료·실패 시 등록된 이메일로 알림을 받습니다."
+    }
+  },
+  "settings": {
+    "title": "설정",
+    "subtitle": "프로필·워크스페이스·알림을 관리합니다",
+    "profile": {
+      "title": "프로필",
+      "email": "이메일",
+      "language": "언어"
+    },
+    "workspace": {
+      "title": "워크스페이스 정보",
+      "subtitle": "이 정보는 시뮬레이션 결과 페이지·PDF 헤더에 노출됩니다.",
+      "name": "워크스페이스 이름",
+      "companyName": "회사명",
+      "companyNamePlaceholder": "예: Acme Corporation",
+      "industry": "업종",
+      "industryPlaceholder": "예: D2C·전자기기·뷰티",
+      "country": "국가",
+      "countryPlaceholder": "예: 대한민국",
+      "plan": "플랜",
+      "created": "생성일",
+      "save": "저장",
+      "saving": "저장 중...",
+      "saved": "저장됨"
+    },
+    "notifications": {
+      "title": "이메일 알림",
+      "subtitle": "시뮬레이션이 끝나거나 실패할 때 등록 이메일로 결과를 받아보세요.",
+      "simEmail": {
+        "title": "시뮬레이션 완료·실패 알림",
+        "description": "성공 점수·추천 국가·추천 가격이 본문에 포함되며, 결과 페이지로 바로 이동하는 버튼이 함께 발송됩니다."
+      }
+    },
+    "session": {
+      "title": "세션",
+      "subtitle": "현재 브라우저에서 로그아웃합니다. 다른 기기 세션은 영향 없습니다.",
+      "signOut": "로그아웃"
+    }
+  },
   "admin": {
     "title": "어드민 콘솔",
     "backToWorkspace": "워크스페이스로 돌아가기",
