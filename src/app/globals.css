@@ -1,15 +1,12 @@
 @import "tailwindcss";
 
 /*
- * Pretendard — Korean-optimized variable font. Loaded from jsDelivr.
- * Using the Variable Web subset (5 weights, smaller payload) so Korean
- * glyphs are crisp on Windows browsers (whose default Malgun Gothic
- * looks chunky and heavy). Without this @import, the font-sans below
- * would fall back to system-ui and Korean text rendered with whatever
- * the OS provides — which is what made persona cards and headlines
- * look "투박" in earlier screenshots.
+ * Pretendard — Korean-optimized variable font. Loaded via <link> in
+ * src/app/layout.tsx (Tailwind v4 was eating the @import url() here).
+ * This font-sans declaration just wires the loaded family into the
+ * default text class so Korean glyphs stop falling back to Windows
+ * Malgun Gothic (which renders thick and heavy).
  */
-@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.css");
 
 @theme {
   --font-sans: "Pretendard Variable", "Pretendard", ui-sans-serif, system-ui,
@@ -77,8 +74,14 @@ body {
   }
   .prose-body {
     /* Reserved class for long-form Korean body text (executive summary,
-       persona descriptions). Roomier line-height + paragraph spacing. */
-    @apply text-sm text-slate-700 leading-[1.75];
+       persona descriptions, regulatory warnings). Roomier line-height
+       and justified alignment so the right edge stays clean — feels
+       more like a B2B report and less like a chat message. */
+    @apply text-sm text-slate-700 leading-[1.75] text-justify;
+    /* Browsers default text-justify-style to inter-word — for CJK,
+       ko / ja / zh, a slightly different justify rule reads better
+       (no oversized inter-character gaps). */
+    text-justify: inter-character;
   }
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand text-white px-4 py-2.5 text-sm font-medium hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:pointer-events-none;

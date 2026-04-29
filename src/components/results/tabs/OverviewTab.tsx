@@ -111,7 +111,7 @@ export function OverviewTab({ result, locale, sources, regulatory }: OverviewTab
                         <span className="badge bg-risk-soft text-risk shrink-0">
                           {getCountryLabel(w.country, locale) || w.country}
                         </span>
-                        <span className="text-slate-700">
+                        <span className="text-slate-700 text-justify flex-1">
                           {w.reason}
                           {w.source && (
                             <span className="text-slate-400 text-xs ml-1">({w.source})</span>
@@ -137,7 +137,7 @@ export function OverviewTab({ result, locale, sources, regulatory }: OverviewTab
                         <span className="badge bg-warn-soft text-warn shrink-0">
                           {getCountryLabel(w.country, locale) || w.country}
                         </span>
-                        <span className="text-slate-700">
+                        <span className="text-slate-700 text-justify flex-1">
                           {w.reason}
                           {w.source && (
                             <span className="text-slate-400 text-xs ml-1">({w.source})</span>
