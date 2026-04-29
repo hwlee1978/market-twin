@@ -55,26 +55,27 @@ Font.register({
 
 /**
  * Per-character font assignment. Pretendard covers Korean Hangul + Latin
- * cleanly; NotoSansJP covers Japanese kana + most CJK ideographs but
- * mangles Korean Hangul. So neither font alone handles a mixed
- * Korean-and-Japanese line — we have to split.
+ * cleanly but ships ZERO CJK ideographs in the static OTF subset we
+ * load. NotoSansJP covers all CJK Unified Ideographs (Japanese kanji,
+ * Korean Hanja, Simplified and Traditional Chinese characters share
+ * the same Unicode block).
  *
- * Heuristic:
+ * Heuristic (intentionally simple):
  *   - Hangul → Pretendard (default font).
  *   - Japanese kana (hiragana / katakana) → NotoSansJP.
- *   - CJK ideographs → NotoSansJP if the *whole text* contains any kana
- *     (Japanese context, e.g. 医薬品 next to の). Otherwise default —
- *     treat as Korean Hanja so the surrounding Hangul stays cohesive.
+ *   - CJK ideographs (any) → NotoSansJP. Whether they're Japanese
+ *     kanji, Korean Hanja, or Chinese is irrelevant; Pretendard
+ *     can't render them, NotoSansJP can.
  *   - Everything else (ASCII, punctuation, digits) → default.
  *
  * Returns `undefined` when the default (Pretendard via the parent <Text>)
  * is fine, so we don't bother emitting an inner <Text> element for
  * normal characters.
  */
-function fontForChar(ch: string, hasKana: boolean): string | undefined {
+function fontForChar(ch: string): string | undefined {
   if (/[가-힯]/.test(ch)) return undefined;
   if (/[぀-ゟ゠-ヿ]/.test(ch)) return "AppFontCJK";
-  if (/[一-鿿]/.test(ch)) return hasKana ? "AppFontCJK" : undefined;
+  if (/[一-鿿]/.test(ch)) return "AppFontCJK";
   return undefined;
 }
 
@@ -84,13 +85,12 @@ interface TextRun {
 }
 
 function splitByFont(text: string): TextRun[] {
-  const hasKana = /[぀-ゟ゠-ヿ]/.test(text);
   const runs: TextRun[] = [];
   let buffer = "";
   let currentFont: string | undefined;
   let initialized = false;
   for (const ch of text) {
-    const f = fontForChar(ch, hasKana);
+    const f = fontForChar(ch);
     if (!initialized) {
       currentFont = f;
       buffer = ch;
@@ -258,8 +258,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   sectionGap: { marginTop: 24 },
-  para: { fontSize: 10, lineHeight: 1.65, color: C.body },
-  paraTight: { fontSize: 9.5, lineHeight: 1.5, color: C.body },
+  para: { fontSize: 10, lineHeight: 1.65, color: C.body, textAlign: "justify" },
+  paraTight: { fontSize: 9.5, lineHeight: 1.5, color: C.body, textAlign: "justify" },
   microLabel: {
     fontSize: 8,
     color: C.muted,
@@ -343,6 +343,7 @@ const styles = StyleSheet.create({
     lineHeight: 1.55,
     color: C.body,
     paddingTop: 2,
+    textAlign: "justify",
   },
 
   // Pills + badges
