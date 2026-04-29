@@ -1,8 +1,19 @@
 @import "tailwindcss";
 
+/*
+ * Pretendard — Korean-optimized variable font. Loaded from jsDelivr.
+ * Using the Variable Web subset (5 weights, smaller payload) so Korean
+ * glyphs are crisp on Windows browsers (whose default Malgun Gothic
+ * looks chunky and heavy). Without this @import, the font-sans below
+ * would fall back to system-ui and Korean text rendered with whatever
+ * the OS provides — which is what made persona cards and headlines
+ * look "투박" in earlier screenshots.
+ */
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.css");
+
 @theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Pretendard",
-    "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-sans: "Pretendard Variable", "Pretendard", ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
 
   /* Brand — Deep Blue scale */

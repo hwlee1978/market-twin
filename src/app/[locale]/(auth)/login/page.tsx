@@ -56,7 +56,7 @@ export default function LoginPage() {
         </Link>
         <div className="space-y-8 max-w-md">
           <div>
-            <h1 className="text-4xl font-semibold leading-tight tracking-tight break-keep">
+            <h1 className="text-[2rem] font-bold leading-[1.2] tracking-tight whitespace-nowrap">
               {t("common.tagline")}
             </h1>
             <p className="mt-5 text-brand-100 leading-relaxed break-keep">
