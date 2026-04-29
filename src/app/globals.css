@@ -84,7 +84,7 @@ body {
     text-justify: inter-character;
   }
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand text-white px-4 py-2.5 text-sm font-medium hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand text-white px-4 py-2.5 text-sm font-medium hover:bg-brand-600 transition-colors disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed disabled:pointer-events-none;
   }
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 rounded-lg bg-white text-brand border border-brand-100 px-4 py-2.5 text-sm font-medium hover:bg-brand-50 transition-colors;
