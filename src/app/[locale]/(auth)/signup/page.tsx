@@ -89,7 +89,7 @@ export default function SignupPage() {
             {error && <div className="text-sm text-risk">{error}</div>}
             {info && <div className="text-sm text-success">{info}</div>}
             <button type="submit" disabled={loading} className="btn-primary w-full">
-              {loading ? t("common.loading") : t("auth.signupCta")}
+              {loading ? t("auth.signingUp") : t("auth.signupCta")}
             </button>
           </form>
 

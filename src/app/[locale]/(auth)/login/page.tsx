@@ -95,7 +95,7 @@ export default function LoginPage() {
             </div>
             {error && <div className="text-sm text-risk">{error}</div>}
             <button type="submit" disabled={loading} className="btn-primary w-full">
-              {loading ? t("common.loading") : t("auth.loginCta")}
+              {loading ? t("auth.loggingIn") : t("auth.loginCta")}
             </button>
           </form>
 
