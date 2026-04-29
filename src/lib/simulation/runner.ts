@@ -286,9 +286,13 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     return result;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    // Don't overwrite current_stage here — leave it pointing at whatever
+    // updateStage() set it to last. The admin health dashboard groups failures
+    // by stage to show which step in the pipeline is breaking, and that
+    // signal is lost if every failed row reports current_stage='failed'.
     await supabase
       .from("simulations")
-      .update({ status: "failed", current_stage: "failed", error_message: message })
+      .update({ status: "failed", error_message: message })
       .eq("id", opts.simulationId);
     throw err;
   }
