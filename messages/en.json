@@ -135,13 +135,29 @@
   },
   "project": {
     "wizard": {
-      "title": "Create new project",
-      "step1": "Product Info",
-      "step2": "Pricing",
-      "step3": "Assets",
-      "step4": "Countries",
-      "step5": "Competitors",
-      "step6": "Review",
+      "title": "Create a new project",
+      "steps": {
+        "product": {
+          "title": "Product",
+          "description": "What product are we simulating? Tell us the name, category, and key description."
+        },
+        "pricing": {
+          "title": "Pricing & Goal",
+          "description": "Set the base price and launch objective. These directly drive persona evaluation and pricing recommendations."
+        },
+        "countries": {
+          "title": "Countries",
+          "description": "Pick the markets to compare. AI personas are auto-generated from gov-statistics for each country."
+        },
+        "competitors": {
+          "title": "Competitors",
+          "description": "Reference competitor URLs. Optional — leave blank if you'd rather skip."
+        },
+        "review": {
+          "title": "Review & Run",
+          "description": "Final check on the inputs, then start the simulation."
+        }
+      },
       "fields": {
         "projectName": "Project name",
         "productName": "Product name",
@@ -154,11 +170,31 @@
         "competitorUrls": "Competitor URLs",
         "assets": "Images / videos"
       },
+      "placeholders": {
+        "projectName": "e.g. 2026 Global Launch — Wireless Earbuds",
+        "productName": "e.g. AcousticPro Buds X1",
+        "description": "e.g. Active noise-canceling wireless earbuds with 8h battery, IPX5 sweat resistance. Targeting commuters and remote workers. Available in matte black, sage, ivory."
+      },
+      "hints": {
+        "projectName": "Internal identifier. Shown on the simulation result page.",
+        "productName": "Actual product name (brand name + model).",
+        "description": "Minimum 10 characters. Describe features, target audience, and differentiation. The longer the better — persona accuracy improves.",
+        "basePrice": "Current or candidate launch price. Simulation generates the curve at ±50% around this anchor.",
+        "objective": "Pick the #1 KPI for this launch. Persona scenarios and channel recommendations adjust accordingly.",
+        "countries": "Pick at least 1 candidate country. We recommend ≤5 to keep cost and runtime manageable.",
+        "competitorUrls": "One URL per line. Competitor pages help with pricing and positioning context."
+      },
       "objective": {
         "awareness": "Brand awareness",
         "conversion": "Direct conversion",
         "retention": "Retention / repeat purchase",
         "expansion": "New country expansion"
+      },
+      "objectiveHint": {
+        "awareness": "Focus on new-brand exposure and content reach",
+        "conversion": "Drive immediate revenue at launch — pricing-optimized",
+        "retention": "Strengthen repeat purchase and LTV — loyal customer focus",
+        "expansion": "Expanding from existing market to new countries"
       },
       "categories": {
         "beauty": "Beauty",
@@ -170,7 +206,21 @@
         "saas": "SaaS / Software",
         "other": "Other"
       },
-      "runCta": "Run simulation"
+      "countriesPreset": "Recommended set: KR · JP · US",
+      "countriesSearchPlaceholder": "Search countries (KR, Japan, ...)",
+      "countriesCount": "{n} countries selected",
+      "competitorUrlsFormat": "One URL per line. Comma-separated also works.",
+      "personaCount": {
+        "label": "Persona count",
+        "hint": "Higher count = more accurate, but takes longer.",
+        "tier": {
+          "50": "Fast · ~2 min",
+          "200": "Balanced · ~4 min (recommended)",
+          "500": "Detailed · ~8 min",
+          "1000": "Maximum · ~15 min"
+        }
+      },
+      "runCta": "Create project + Start simulation"
     },
     "status": {
       "draft": "Draft",

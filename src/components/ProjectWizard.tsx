@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { COUNTRIES } from "@/lib/countries";
 import { clsx } from "clsx";
-import { Check } from "lucide-react";
+import { AlertCircle, Check, Loader2, Search } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { CountryChipRow } from "@/components/ui/CountryChip";
 
 interface FormState {
   name: string;
@@ -20,15 +22,20 @@ interface FormState {
   personaCount: number;
 }
 
-const STEP_KEYS = ["step1", "step2", "step3", "step4", "step5", "step6"] as const;
+const STEPS = ["product", "pricing", "countries", "competitors", "review"] as const;
+type StepKey = (typeof STEPS)[number];
+
+const RECOMMENDED_PRESET = ["KR", "JP", "US"];
 
 export function ProjectWizard({ locale }: { locale: string }) {
   const t = useTranslations();
+  const tw = useTranslations("project.wizard");
   const currentLocale = useLocale();
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [countryQuery, setCountryQuery] = useState("");
   const [form, setForm] = useState<FormState>({
     name: "",
     productName: "",
@@ -53,17 +60,30 @@ export function ProjectWizard({ locale }: { locale: string }) {
         : [...f.countries, code],
     }));
 
+  const filteredCountries = useMemo(() => {
+    const q = countryQuery.trim().toLowerCase();
+    if (!q) return COUNTRIES;
+    return COUNTRIES.filter(
+      (c) =>
+        c.code.toLowerCase().includes(q) ||
+        c.labelKo.toLowerCase().includes(q) ||
+        c.labelEn.toLowerCase().includes(q),
+    );
+  }, [countryQuery]);
+
   const canAdvance = () => {
-    switch (step) {
-      case 0:
-        return form.name.trim() && form.productName.trim() && form.description.trim().length >= 10;
-      case 1:
+    switch (STEPS[step]) {
+      case "product":
+        return (
+          form.name.trim() &&
+          form.productName.trim() &&
+          form.description.trim().length >= 10
+        );
+      case "pricing":
         return parseFloat(form.basePrice) > 0;
-      case 2:
-        return true;
-      case 3:
+      case "countries":
         return form.countries.length > 0;
-      case 4:
+      case "competitors":
         return true;
       default:
         return true;
@@ -100,7 +120,10 @@ export function ProjectWizard({ locale }: { locale: string }) {
       const runRes = await fetch(`/api/simulations/${projectId}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ personaCount: form.personaCount, locale: currentLocale }),
+        body: JSON.stringify({
+          personaCount: form.personaCount,
+          locale: currentLocale,
+        }),
       });
       if (!runRes.ok) throw new Error(await runRes.text());
       const { simulationId } = await runRes.json();
@@ -112,62 +135,84 @@ export function ProjectWizard({ locale }: { locale: string }) {
     }
   };
 
+  const stepKey: StepKey = STEPS[step];
+
   return (
-    <div className="max-w-3xl mx-auto space-y-8">
-      <h1 className="text-2xl font-semibold">{t("project.wizard.title")}</h1>
+    <div className="max-w-3xl mx-auto">
+      <PageHeader
+        title={tw("title")}
+        subtitle={tw(`steps.${stepKey}.description`)}
+      />
 
-      <Stepper currentStep={step} />
+      <div className="mt-6 mb-8">
+        <Stepper currentStep={step} />
+      </div>
 
-      <div className="card p-8">
-        {step === 0 && (
-          <div className="space-y-4">
-            <Field label={t("project.wizard.fields.projectName")}>
+      <div className="card p-8 space-y-6">
+        {stepKey === "product" && (
+          <>
+            <Field
+              label={tw("fields.projectName")}
+              hint={tw("hints.projectName")}
+            >
               <input
                 className="input"
+                placeholder={tw("placeholders.projectName")}
                 value={form.name}
                 onChange={(e) => update("name", e.target.value)}
               />
             </Field>
-            <Field label={t("project.wizard.fields.productName")}>
+            <Field
+              label={tw("fields.productName")}
+              hint={tw("hints.productName")}
+            >
               <input
                 className="input"
+                placeholder={tw("placeholders.productName")}
                 value={form.productName}
                 onChange={(e) => update("productName", e.target.value)}
               />
             </Field>
-            <Field label={t("project.wizard.fields.category")}>
+            <Field label={tw("fields.category")}>
               <select
                 className="input"
                 value={form.category}
                 onChange={(e) => update("category", e.target.value)}
               >
-                {(["beauty", "fashion", "food", "health", "electronics", "home", "saas", "other"] as const).map(
-                  (c) => (
-                    <option key={c} value={c}>
-                      {t(`project.wizard.categories.${c}`)}
-                    </option>
-                  ),
-                )}
+                {(["beauty", "fashion", "food", "health", "electronics", "home", "saas", "other"] as const).map((c) => (
+                  <option key={c} value={c}>
+                    {tw(`categories.${c}`)}
+                  </option>
+                ))}
               </select>
             </Field>
-            <Field label={t("project.wizard.fields.description")}>
+            <Field
+              label={tw("fields.description")}
+              hint={tw("hints.description")}
+            >
               <textarea
-                className="input min-h-[120px]"
+                className="input min-h-[140px] leading-relaxed"
+                placeholder={tw("placeholders.description")}
                 value={form.description}
                 onChange={(e) => update("description", e.target.value)}
               />
+              <CharCounter value={form.description} min={10} />
             </Field>
-          </div>
+          </>
         )}
 
-        {step === 1 && (
-          <div className="space-y-4">
-            <Field label={t("project.wizard.fields.basePrice")}>
+        {stepKey === "pricing" && (
+          <>
+            <Field
+              label={tw("fields.basePrice")}
+              hint={tw("hints.basePrice")}
+            >
               <div className="flex gap-2">
                 <input
                   type="number"
                   step="0.01"
                   min="0"
+                  placeholder="0.00"
                   className="input flex-1"
                   value={form.basePrice}
                   onChange={(e) => update("basePrice", e.target.value)}
@@ -184,40 +229,63 @@ export function ProjectWizard({ locale }: { locale: string }) {
                 </select>
               </div>
             </Field>
-            <Field label={t("project.wizard.fields.objective")}>
-              <select
-                className="input"
-                value={form.objective}
-                onChange={(e) =>
-                  update("objective", e.target.value as FormState["objective"])
-                }
+            <Field
+              label={tw("fields.objective")}
+              hint={tw("hints.objective")}
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(["awareness", "conversion", "retention", "expansion"] as const).map((o) => {
+                  const active = form.objective === o;
+                  return (
+                    <button
+                      key={o}
+                      type="button"
+                      onClick={() => update("objective", o)}
+                      className={clsx(
+                        "rounded-lg border px-4 py-3 text-sm text-left transition-colors",
+                        active
+                          ? "border-brand bg-brand-50 text-brand"
+                          : "border-slate-200 hover:border-slate-300",
+                      )}
+                    >
+                      <div className="font-medium">{tw(`objective.${o}`)}</div>
+                      <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                        {tw(`objectiveHint.${o}`)}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+          </>
+        )}
+
+        {stepKey === "countries" && (
+          <>
+            <div className="flex items-end justify-between gap-3 mb-3">
+              <div>
+                <label className="label">{tw("fields.countries")}</label>
+                <p className="text-xs text-slate-500">{tw("hints.countries")}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => update("countries", RECOMMENDED_PRESET)}
+                className="text-xs text-brand hover:underline whitespace-nowrap"
               >
-                {(["awareness", "conversion", "retention", "expansion"] as const).map((o) => (
-                  <option key={o} value={o}>
-                    {t(`project.wizard.objective.${o}`)}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="space-y-4">
-            <Field label={t("project.wizard.fields.assets")}>
-              <p className="text-sm text-slate-500">
-                {/* v0.1: file uploads deferred — assets are described in product description for now */}
-                Asset upload will be enabled in the next release. For now your description is used.
-              </p>
-            </Field>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="space-y-3">
-            <label className="label">{t("project.wizard.fields.countries")}</label>
+                {tw("countriesPreset")}
+              </button>
+            </div>
+            <div className="relative mb-3">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                className="input pl-9"
+                placeholder={tw("countriesSearchPlaceholder")}
+                value={countryQuery}
+                onChange={(e) => setCountryQuery(e.target.value)}
+              />
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {COUNTRIES.map((c) => {
+              {filteredCountries.map((c) => {
                 const selected = form.countries.includes(c.code);
                 return (
                   <button
@@ -225,76 +293,114 @@ export function ProjectWizard({ locale }: { locale: string }) {
                     type="button"
                     onClick={() => toggleCountry(c.code)}
                     className={clsx(
-                      "flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors",
+                      "flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors",
                       selected
                         ? "border-brand bg-brand-50 text-brand"
                         : "border-slate-200 hover:border-slate-300",
                     )}
                   >
-                    <span>{locale === "ko" ? c.labelKo : c.labelEn}</span>
-                    {selected && <Check size={14} />}
+                    <span className="truncate">
+                      {locale === "ko" ? c.labelKo : c.labelEn}
+                    </span>
+                    {selected && <Check size={14} className="shrink-0" />}
                   </button>
                 );
               })}
             </div>
-          </div>
+            <div className="text-xs text-slate-500 pt-1">
+              {tw("countriesCount", { n: form.countries.length })}
+            </div>
+          </>
         )}
 
-        {step === 4 && (
-          <Field label={t("project.wizard.fields.competitorUrls")}>
+        {stepKey === "competitors" && (
+          <Field
+            label={tw("fields.competitorUrls")}
+            hint={tw("hints.competitorUrls")}
+            optional
+          >
             <textarea
-              className="input min-h-[120px] font-mono text-xs"
-              placeholder="https://..."
+              className="input min-h-[140px] font-mono text-xs leading-relaxed"
+              placeholder={"https://competitor1.com\nhttps://competitor2.com"}
               value={form.competitorUrls}
               onChange={(e) => update("competitorUrls", e.target.value)}
             />
-            <p className="mt-1 text-xs text-slate-500">One URL per line</p>
+            <p className="mt-1.5 text-xs text-slate-500">{tw("competitorUrlsFormat")}</p>
           </Field>
         )}
 
-        {step === 5 && (
-          <div className="space-y-4">
-            <ReviewRow label={t("project.wizard.fields.projectName")} value={form.name} />
-            <ReviewRow label={t("project.wizard.fields.productName")} value={form.productName} />
-            <ReviewRow label={t("project.wizard.fields.category")} value={t(`project.wizard.categories.${form.category as "saas"}`)} />
+        {stepKey === "review" && (
+          <div className="space-y-5">
+            <ReviewRow label={tw("fields.projectName")} value={form.name} />
+            <ReviewRow label={tw("fields.productName")} value={form.productName} />
             <ReviewRow
-              label={t("project.wizard.fields.basePrice")}
+              label={tw("fields.category")}
+              value={tw(`categories.${form.category as "saas"}`)}
+            />
+            <ReviewRow
+              label={tw("fields.basePrice")}
               value={`${form.basePrice} ${form.currency}`}
             />
             <ReviewRow
-              label={t("project.wizard.fields.objective")}
-              value={t(`project.wizard.objective.${form.objective}`)}
+              label={tw("fields.objective")}
+              value={tw(`objective.${form.objective}`)}
             />
-            <ReviewRow
-              label={t("project.wizard.fields.countries")}
-              value={form.countries.join(", ")}
-            />
-            <Field label="Persona count">
-              <select
-                className="input w-40"
-                value={form.personaCount}
-                onChange={(e) => update("personaCount", Number(e.target.value))}
-              >
-                <option value={50}>50 (fast)</option>
-                <option value={200}>200</option>
-                <option value={500}>500</option>
-                <option value={1000}>1,000</option>
-              </select>
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0">
+              <div className="text-sm text-slate-500">{tw("fields.countries")}</div>
+              <div className="text-right">
+                {form.countries.length > 0 ? (
+                  <CountryChipRow codes={form.countries} size="sm" />
+                ) : (
+                  <span className="text-sm text-slate-900 font-medium">—</span>
+                )}
+              </div>
+            </div>
+
+            <Field label={tw("personaCount.label")} hint={tw("personaCount.hint")}>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[50, 200, 500, 1000].map((n) => {
+                  const active = form.personaCount === n;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => update("personaCount", n)}
+                      className={clsx(
+                        "rounded-lg border px-3 py-2.5 text-sm text-left transition-colors",
+                        active
+                          ? "border-brand bg-brand-50 text-brand"
+                          : "border-slate-200 hover:border-slate-300",
+                      )}
+                    >
+                      <div className="font-mono font-semibold tabular-nums">{n}</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        {tw(`personaCount.tier.${n}` as "personaCount.tier.50")}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </Field>
-            {error && <div className="text-sm text-risk">{error}</div>}
+
+            {error && (
+              <div className="flex items-start gap-2 rounded-lg border border-risk-soft bg-risk-soft/40 px-3 py-2 text-sm text-risk">
+                <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="mt-6 flex items-center justify-between">
         <button
           onClick={() => setStep((s) => Math.max(0, s - 1))}
           disabled={step === 0 || submitting}
-          className="btn-ghost"
+          className="btn-ghost disabled:opacity-40"
         >
           {t("common.back")}
         </button>
-        {step < STEP_KEYS.length - 1 ? (
+        {step < STEPS.length - 1 ? (
           <button
             onClick={() => setStep((s) => s + 1)}
             disabled={!canAdvance()}
@@ -303,8 +409,19 @@ export function ProjectWizard({ locale }: { locale: string }) {
             {t("common.next")}
           </button>
         ) : (
-          <button onClick={submit} disabled={submitting} className="btn-primary">
-            {submitting ? t("common.loading") : t("project.wizard.runCta")}
+          <button
+            onClick={submit}
+            disabled={submitting || !canAdvance()}
+            className="btn-primary"
+          >
+            {submitting ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                {t("common.loading")}
+              </>
+            ) : (
+              tw("runCta")
+            )}
           </button>
         )}
       </div>
@@ -313,26 +430,41 @@ export function ProjectWizard({ locale }: { locale: string }) {
 }
 
 function Stepper({ currentStep }: { currentStep: number }) {
-  const t = useTranslations("project.wizard");
+  const tw = useTranslations("project.wizard");
   return (
-    <ol className="flex items-center gap-2 text-xs">
-      {STEP_KEYS.map((key, i) => {
+    <ol className="flex items-center gap-1.5 text-xs flex-wrap">
+      {STEPS.map((key, i) => {
         const active = i === currentStep;
         const done = i < currentStep;
         return (
-          <li key={key} className="flex items-center gap-2">
+          <li key={key} className="flex items-center gap-1.5">
             <span
               className={clsx(
-                "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-medium",
-                done ? "bg-success text-white" : active ? "bg-brand text-white" : "bg-slate-200 text-slate-500",
+                "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums",
+                done
+                  ? "bg-success text-white"
+                  : active
+                    ? "bg-brand text-white"
+                    : "bg-slate-200 text-slate-500",
               )}
             >
               {done ? <Check size={12} /> : i + 1}
             </span>
-            <span className={clsx(active ? "text-brand font-medium" : "text-slate-500")}>
-              {t(key)}
+            <span
+              className={clsx(
+                "whitespace-nowrap",
+                active
+                  ? "text-brand font-semibold"
+                  : done
+                    ? "text-slate-700"
+                    : "text-slate-400",
+              )}
+            >
+              {tw(`steps.${key}.title`)}
             </span>
-            {i < STEP_KEYS.length - 1 && <span className="w-6 h-px bg-slate-200" />}
+            {i < STEPS.length - 1 && (
+              <span className="w-5 h-px bg-slate-200 mx-0.5" />
+            )}
           </li>
         );
       })}
@@ -340,20 +472,55 @@ function Stepper({ currentStep }: { currentStep: number }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  hint,
+  optional,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  optional?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <div>
-      <label className="label">{label}</label>
+      <label className="label flex items-center gap-2">
+        {label}
+        {optional && (
+          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-normal">
+            optional
+          </span>
+        )}
+      </label>
+      {hint && <p className="-mt-1 mb-2 text-xs text-slate-500 leading-relaxed">{hint}</p>}
       {children}
     </div>
   );
 }
 
+function CharCounter({ value, min }: { value: string; min: number }) {
+  const len = value.trim().length;
+  const enough = len >= min;
+  return (
+    <p
+      className={clsx(
+        "mt-1.5 text-xs tabular-nums",
+        enough ? "text-slate-500" : "text-slate-400",
+      )}
+    >
+      {enough ? `${len} characters` : `${len} / ${min} minimum`}
+    </p>
+  );
+}
+
 function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between border-b border-slate-100 pb-2 last:border-b-0">
+    <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0">
       <div className="text-sm text-slate-500">{label}</div>
-      <div className="text-sm text-slate-900 font-medium text-right max-w-[60%]">{value || "—"}</div>
+      <div className="text-sm text-slate-900 font-medium text-right max-w-[60%] break-keep">
+        {value || "—"}
+      </div>
     </div>
   );
 }

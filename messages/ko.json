@@ -136,12 +136,28 @@
   "project": {
     "wizard": {
       "title": "새 프로젝트 만들기",
-      "step1": "제품 정보",
-      "step2": "가격",
-      "step3": "에셋",
-      "step4": "국가",
-      "step5": "경쟁사",
-      "step6": "검토",
+      "steps": {
+        "product": {
+          "title": "제품",
+          "description": "어떤 제품을 시뮬레이션할까요? 제품 이름, 카테고리, 핵심 설명을 알려주세요."
+        },
+        "pricing": {
+          "title": "가격·목표",
+          "description": "기본 판매가와 출시 목표를 설정합니다. 페르소나 평가와 가격 추천에 직접 반영됩니다."
+        },
+        "countries": {
+          "title": "국가",
+          "description": "어느 국가들을 비교할지 선택하세요. 정부 통계 기반 페르소나가 자동으로 만들어집니다."
+        },
+        "competitors": {
+          "title": "경쟁사",
+          "description": "참고용 경쟁사 URL을 입력하세요. 비워두셔도 됩니다."
+        },
+        "review": {
+          "title": "검토·실행",
+          "description": "입력 내용을 마지막으로 확인하고 시뮬레이션을 시작하세요."
+        }
+      },
       "fields": {
         "projectName": "프로젝트 이름",
         "productName": "제품 이름",
@@ -154,11 +170,31 @@
         "competitorUrls": "경쟁사 URL",
         "assets": "이미지/영상"
       },
+      "placeholders": {
+        "projectName": "예: 2026 글로벌 출시 — 무선 이어버드",
+        "productName": "예: AcousticPro Buds X1",
+        "description": "예: 액티브 노이즈 캔슬링 무선 이어버드. 8시간 배터리, IPX5 방수, 통근자·재택근무자 타겟. 매트 블랙·세이지·아이보리 3색."
+      },
+      "hints": {
+        "projectName": "내부 식별용 이름. 시뮬레이션 결과 페이지에 표시됩니다.",
+        "productName": "실제 제품 명칭(브랜드명·모델명).",
+        "description": "최소 10자 이상. 제품 특징·타겟·차별점을 자유롭게 작성하세요. 길수록 페르소나 평가 정확도가 올라갑니다.",
+        "basePrice": "현재 책정 중이거나 출시 후보 가격. 시뮬레이션이 ±50% 범위에서 가격 곡선을 생성합니다.",
+        "objective": "이 출시의 1순위 KPI를 골라주세요. 페르소나 시나리오와 채널 추천이 달라집니다.",
+        "countries": "후보 국가 1개 이상 선택. 너무 많으면 비용·시간이 늘어나니 5개 내외 추천.",
+        "competitorUrls": "1줄에 1개. 경쟁사 페이지를 알려주시면 가격·포지셔닝 비교에 참고합니다."
+      },
       "objective": {
         "awareness": "브랜드 인지도",
         "conversion": "즉시 매출 전환",
         "retention": "재구매·리텐션",
         "expansion": "신규 국가 진출"
+      },
+      "objectiveHint": {
+        "awareness": "신규 브랜드 노출과 콘텐츠 도달 확대 위주",
+        "conversion": "출시 시점 즉시 매출 발생, 가격 최적화 우선",
+        "retention": "재구매·LTV 강화, 충성 고객 분석 중점",
+        "expansion": "기존 시장에서 신규 국가로 확장하는 시나리오"
       },
       "categories": {
         "beauty": "뷰티",
@@ -170,7 +206,21 @@
         "saas": "SaaS·소프트웨어",
         "other": "기타"
       },
-      "runCta": "시뮬레이션 실행"
+      "countriesPreset": "한국·일본·미국 추천 세트",
+      "countriesSearchPlaceholder": "국가 검색 (KR, 일본, ...)",
+      "countriesCount": "{n}개 국가 선택됨",
+      "competitorUrlsFormat": "1줄에 URL 1개. 콤마(,)로 구분해도 OK.",
+      "personaCount": {
+        "label": "페르소나 수",
+        "hint": "많을수록 정확하지만 시간·비용이 증가합니다.",
+        "tier": {
+          "50": "빠름 · ~2분",
+          "200": "균형 · ~4분 (추천)",
+          "500": "정밀 · ~8분",
+          "1000": "최대 · ~15분"
+        }
+      },
+      "runCta": "프로젝트 생성 + 시뮬레이션 시작"
     },
     "status": {
       "draft": "초안",
