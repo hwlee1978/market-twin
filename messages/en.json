@@ -238,5 +238,79 @@
     "deleteConfirm": "Delete project \"{name}\"? All related simulations and reports will be removed. This cannot be undone.",
     "deleteFailed": "Delete failed: {error}",
     "noResults": "No matches"
+  },
+  "admin": {
+    "title": "Admin Console",
+    "backToWorkspace": "Back to workspace",
+    "role": {
+      "super": "Super Admin",
+      "operations": "Operations",
+      "customer": "Customer Success",
+      "finance": "Finance",
+      "ml_ops": "ML Ops",
+      "support": "Support"
+    },
+    "nav": {
+      "overview": "Overview",
+      "customers": "Customers",
+      "simulations": "Simulations",
+      "projects": "Projects",
+      "billing": "Billing",
+      "models": "Models",
+      "health": "System Health",
+      "audit": "Audit Logs"
+    },
+    "overview": {
+      "title": "Operations Dashboard",
+      "subtitle": "Real-time state and operational issues across all workspaces",
+      "kpi": {
+        "totalWorkspaces": "Total Workspaces",
+        "totalProjects": "Total Projects",
+        "simulationsMonth": "Simulations This Month",
+        "failedJobs": "Failed Jobs"
+      },
+      "recentIssues": "Recent Issues / In-flight",
+      "viewAll": "View all",
+      "noIssues": "No active issues",
+      "table": {
+        "simulation": "Sim",
+        "workspace": "Workspace",
+        "stage": "Stage",
+        "status": "Status",
+        "started": "Started",
+        "error": "Error"
+      }
+    },
+    "simulations": {
+      "title": "Simulation Operations",
+      "subtitle": "Monitor, retry, and cancel simulations across all workspaces",
+      "empty": "No simulations match the current filter.",
+      "filter": {
+        "all": "All",
+        "running": "Running",
+        "failed": "Failed",
+        "completed": "Completed"
+      },
+      "col": {
+        "id": "ID",
+        "project": "Project",
+        "status": "Status",
+        "stage": "Stage",
+        "personas": "Personas",
+        "model": "Model",
+        "runtime": "Runtime",
+        "started": "Started"
+      },
+      "action": {
+        "retry": "Retry",
+        "cancel": "Cancel"
+      },
+      "confirmRetry": "Start a new simulation from this project. Continue?",
+      "confirmCancel": "Mark this simulation as cancelled. Continue?",
+      "actionFailed": "Action failed: {error}"
+    },
+    "placeholder": {
+      "comingSoon": "This screen ships in v0.3."
+    }
   }
 }

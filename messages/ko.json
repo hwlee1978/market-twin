@@ -238,5 +238,79 @@
     "deleteConfirm": "프로젝트 \"{name}\"을(를) 삭제하시겠어요? 관련 시뮬레이션과 리포트도 함께 사라집니다. 되돌릴 수 없습니다.",
     "deleteFailed": "삭제 실패: {error}",
     "noResults": "검색 결과 없음"
+  },
+  "admin": {
+    "title": "어드민 콘솔",
+    "backToWorkspace": "워크스페이스로 돌아가기",
+    "role": {
+      "super": "Super Admin",
+      "operations": "Operations",
+      "customer": "Customer Success",
+      "finance": "Finance",
+      "ml_ops": "ML Ops",
+      "support": "Support"
+    },
+    "nav": {
+      "overview": "개요",
+      "customers": "고객",
+      "simulations": "시뮬레이션",
+      "projects": "프로젝트",
+      "billing": "결제",
+      "models": "모델 관리",
+      "health": "시스템 상태",
+      "audit": "감사 로그"
+    },
+    "overview": {
+      "title": "운영 대시보드",
+      "subtitle": "전체 워크스페이스의 실시간 상태와 운영 이슈",
+      "kpi": {
+        "totalWorkspaces": "전체 워크스페이스",
+        "totalProjects": "전체 프로젝트",
+        "simulationsMonth": "이번 달 시뮬레이션",
+        "failedJobs": "실패한 작업"
+      },
+      "recentIssues": "최근 이슈 / 진행 중",
+      "viewAll": "모두 보기",
+      "noIssues": "현재 이슈 없음",
+      "table": {
+        "simulation": "시뮬",
+        "workspace": "워크스페이스",
+        "stage": "단계",
+        "status": "상태",
+        "started": "시작 시각",
+        "error": "에러"
+      }
+    },
+    "simulations": {
+      "title": "시뮬레이션 운영",
+      "subtitle": "전체 워크스페이스의 시뮬레이션 모니터링·재시도·취소",
+      "empty": "조건에 맞는 시뮬레이션이 없습니다.",
+      "filter": {
+        "all": "전체",
+        "running": "진행 중",
+        "failed": "실패",
+        "completed": "완료"
+      },
+      "col": {
+        "id": "ID",
+        "project": "프로젝트",
+        "status": "상태",
+        "stage": "단계",
+        "personas": "페르소나",
+        "model": "모델",
+        "runtime": "실행 시간",
+        "started": "시작"
+      },
+      "action": {
+        "retry": "재시도",
+        "cancel": "취소"
+      },
+      "confirmRetry": "이 프로젝트로 새 시뮬레이션을 시작합니다. 계속하시겠어요?",
+      "confirmCancel": "이 시뮬레이션을 취소된 상태로 표시합니다. 계속하시겠어요?",
+      "actionFailed": "작업 실패: {error}"
+    },
+    "placeholder": {
+      "comingSoon": "이 화면은 v0.3에서 추가됩니다."
+    }
   }
 }
