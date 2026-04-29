@@ -36,15 +36,20 @@ export default function SignupPage() {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
-    setLoading(false);
     if (error) {
+      setLoading(false);
       setError(error.message);
       return;
     }
     if (data.session) {
+      // Auto-logged in — keep the button disabled through the navigation.
+      // setLoading(false) intentionally skipped; the component unmounts
+      // when the dashboard route takes over.
       router.replace("/dashboard");
       router.refresh();
     } else {
+      // Email confirmation flow — reset so user can retry if needed.
+      setLoading(false);
       setInfo(t("auth.checkEmail"));
     }
   };

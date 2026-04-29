@@ -28,11 +28,15 @@ export default function LoginPage() {
     setError(null);
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
     if (error) {
+      setLoading(false);
       setError(error.message);
       return;
     }
+    // Keep loading=true through the navigation. The button stays disabled
+    // ("로그인 중...") until the dashboard takes over and this component
+    // unmounts. If we reset loading here, the button briefly snaps back
+    // to active in the gap between auth resolving and the route swap.
     router.replace("/dashboard");
     router.refresh();
   };
