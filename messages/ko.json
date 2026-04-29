@@ -381,7 +381,27 @@
     "viewResults": "결과 보기",
     "viewProgress": "진행 상황 보기",
     "runNew": "새 시뮬레이션 실행",
-    "competitorUrlsCount": "{count}개 URL"
+    "competitorUrlsCount": "{count}개 URL",
+    "compareRuns": "두 시뮬 비교"
+  },
+  "compare": {
+    "title": "시뮬레이션 비교",
+    "backToProject": "프로젝트로 돌아가기",
+    "needTwo": "비교하려면 완료된 시뮬레이션이 2개 이상 필요합니다.",
+    "simA": "시뮬 A",
+    "simB": "시뮬 B",
+    "section": {
+      "overview": "지표 비교",
+      "topCountries": "Top 5 국가 비교"
+    },
+    "metric": {
+      "successScore": "성공 점수",
+      "recommendedPrice": "추천 가격",
+      "avgIntent": "평균 구매의향",
+      "bestCountry": "최우선 국가",
+      "riskLevel": "리스크 수준",
+      "personaCount": "페르소나 수"
+    }
   },
   "projectList": {
     "search": "프로젝트 검색...",

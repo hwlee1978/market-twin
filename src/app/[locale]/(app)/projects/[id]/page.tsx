@@ -101,6 +101,14 @@ export default async function ProjectDetailPage({
                 : t("projectDetail.viewProgress")}
             </Link>
           )}
+          {(simulations?.filter((s) => s.status === "completed").length ?? 0) >= 2 && (
+            <Link
+              href={`/projects/${id}/compare`}
+              className="btn-ghost w-full mt-2"
+            >
+              {t("projectDetail.compareRuns")}
+            </Link>
+          )}
           <div className="mt-4 pt-4 border-t border-slate-100">
             <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">
               {t("projectDetail.runNew")}

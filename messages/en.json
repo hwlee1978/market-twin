@@ -381,7 +381,27 @@
     "viewResults": "View results",
     "viewProgress": "View progress",
     "runNew": "Run new simulation",
-    "competitorUrlsCount": "{count} URL"
+    "competitorUrlsCount": "{count} URL",
+    "compareRuns": "Compare two runs"
+  },
+  "compare": {
+    "title": "Compare simulations",
+    "backToProject": "Back to project",
+    "needTwo": "You need at least 2 completed simulations to compare.",
+    "simA": "Sim A",
+    "simB": "Sim B",
+    "section": {
+      "overview": "Metric comparison",
+      "topCountries": "Top 5 country comparison"
+    },
+    "metric": {
+      "successScore": "Success score",
+      "recommendedPrice": "Recommended price",
+      "avgIntent": "Avg purchase intent",
+      "bestCountry": "Best country",
+      "riskLevel": "Risk level",
+      "personaCount": "Persona count"
+    }
   },
   "projectList": {
     "search": "Search projects...",
