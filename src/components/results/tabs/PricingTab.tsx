@@ -105,12 +105,12 @@ export function PricingTab({
             </ResponsiveContainer>
           </div>
         </div>
-        <div className="card space-y-4">
+        <div className="card space-y-5">
           <div>
-            <div className="text-xs uppercase tracking-wide text-slate-500">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               {t("recommendedPrice")}
             </div>
-            <div className="mt-1 text-3xl font-semibold text-brand tabular-nums">
+            <div className="mt-2 text-3xl font-semibold text-brand tabular-nums leading-none">
               {(pricing.recommendedPriceCents / 100).toLocaleString(undefined, {
                 style: "currency",
                 currency,
@@ -118,22 +118,22 @@ export function PricingTab({
             </div>
           </div>
           <div>
-            <div className="text-xs uppercase tracking-wide text-slate-500">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
               {t("marginEstimate")}
             </div>
-            <div className="mt-1 text-sm text-slate-700">{pricing.marginEstimate}</div>
+            <p className="prose-body">{pricing.marginEstimate}</p>
           </div>
         </div>
       </div>
 
       <div className="card">
-        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">
+        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-5">
           {tWhy("title")}
         </h3>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div>
-            <div className="text-xs font-medium text-slate-700 mb-2">
+            <div className="text-xs font-medium text-slate-700 mb-3">
               {tWhy("sensitivity")}{" "}
               <span className="text-slate-400 font-normal">
                 ({tWhy("basedOn", { n: total })})
@@ -149,7 +149,7 @@ export function PricingTab({
                 pct={pct}
               />
             )}
-            <p className="mt-3 text-xs text-slate-500 leading-relaxed">
+            <p className="mt-4 text-xs text-slate-500 leading-relaxed">
               {pct(sensitivity.high) > pct(sensitivity.low)
                 ? tWhy("interpHigh")
                 : pct(sensitivity.low) > pct(sensitivity.high)
@@ -242,9 +242,11 @@ function SensitivityBar({
 function Row({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-1 font-mono text-sm text-slate-900">{value}</div>
-      {hint && <div className="mt-0.5 text-xs text-slate-500">{hint}</div>}
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+        {label}
+      </div>
+      <div className="mt-1.5 font-mono text-sm text-slate-900 tabular-nums">{value}</div>
+      {hint && <div className="mt-1 text-xs text-slate-500 leading-relaxed">{hint}</div>}
     </div>
   );
 }

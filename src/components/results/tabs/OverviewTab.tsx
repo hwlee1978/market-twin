@@ -154,10 +154,10 @@ export function OverviewTab({ result, locale, sources, regulatory }: OverviewTab
       )}
 
       <div className="card">
-        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
+        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">
           {t("report.executiveSummary")}
         </h3>
-        <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
+        <p className="prose-body whitespace-pre-wrap">
           {result.recommendations.executiveSummary || overview.headline}
         </p>
       </div>
@@ -165,12 +165,12 @@ export function OverviewTab({ result, locale, sources, regulatory }: OverviewTab
       {sources && sources.length > 0 && (
         <div className="card bg-slate-50 border-slate-200">
           <div className="flex items-start gap-3">
-            <Database size={16} className="text-slate-400 mt-0.5" />
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+            <Database size={16} className="text-slate-400 mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2.5">
                 {t("results.dataSources")}
               </div>
-              <ul className="space-y-1 text-xs text-slate-600">
+              <ul className="space-y-1.5 text-xs text-slate-600 leading-relaxed">
                 {sources.map((s, i) => (
                   <li key={i}>• {s}</li>
                 ))}

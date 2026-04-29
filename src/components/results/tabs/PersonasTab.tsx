@@ -192,15 +192,15 @@ export function PersonasTab({
                       key={p.id}
                       onClick={() => setExpandedId(expanded ? null : (p.id ?? null))}
                       className={clsx(
-                        "card p-4 text-left transition-all hover:shadow-md hover:border-brand-100",
+                        "card p-5 text-left transition-all hover:shadow-md hover:border-brand-100",
                         expanded && "ring-2 ring-brand-100 shadow-md",
                       )}
                     >
-                      <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="text-sm font-semibold truncate">{p.profession}</div>
-                          <div className="text-xs text-slate-500 mt-0.5">
-                            {p.ageRange} • {t(`gender.${genderKey(p.gender)}`)}
+                          <div className="text-xs text-slate-500 mt-1">
+                            {p.ageRange} · {t(`gender.${genderKey(p.gender)}`)}
                           </div>
                         </div>
                         <span
@@ -216,7 +216,7 @@ export function PersonasTab({
                           {p.purchaseIntent}/100
                         </span>
                       </div>
-                      <div className="mt-3 text-xs text-slate-600 space-y-1.5">
+                      <div className="mt-4 text-xs text-slate-600 space-y-2 leading-relaxed">
                         <div>
                           <span className="text-slate-400">{t("labels.income")}:</span> {p.incomeBand}
                         </div>
@@ -250,7 +250,7 @@ export function PersonasTab({
                         )}
                       </div>
                       {!expanded && (
-                        <div className="mt-3 text-[10px] text-slate-400 uppercase tracking-wide">
+                        <div className="mt-4 text-[10px] text-slate-400 uppercase tracking-wider">
                           {t("clickToExpand")}
                         </div>
                       )}
@@ -262,12 +262,16 @@ export function PersonasTab({
             );
           })}
           {sources.length > 0 && (
-            <div className="card bg-slate-50 border-slate-200 text-xs text-slate-500">
-              <div className="font-semibold uppercase tracking-wide text-slate-500 mb-1">
+            <div className="card bg-slate-50 border-slate-200">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
                 {t("anchoredOn")}
               </div>
-              <p className="leading-relaxed">{sources.join(" · ")}</p>
-              <p className="mt-1 text-[11px] text-slate-400">{t("anchoredHint")}</p>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {sources.join(" · ")}
+              </p>
+              <p className="mt-2 text-[11px] text-slate-400 leading-relaxed">
+                {t("anchoredHint")}
+              </p>
             </div>
           )}
         </div>

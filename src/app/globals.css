@@ -51,11 +51,23 @@ body {
   background-color: #f8fafc;
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
+  /* Keep CJK words together at line breaks. Has no effect on English
+     (already breaks at spaces) but stops Korean text from splitting
+     mid-word like "있/습니다". */
+  word-break: keep-all;
 }
 
 @layer components {
   .card {
-    @apply bg-white rounded-xl border border-slate-200 shadow-card;
+    /* Default padding so bare <div class="card"> has breathing room.
+       Cards that explicitly set p-0/p-4/etc. still override (utilities
+       layer wins over components layer). */
+    @apply bg-white rounded-xl border border-slate-200 shadow-card p-6;
+  }
+  .prose-body {
+    /* Reserved class for long-form Korean body text (executive summary,
+       persona descriptions). Roomier line-height + paragraph spacing. */
+    @apply text-sm text-slate-700 leading-[1.75];
   }
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand text-white px-4 py-2.5 text-sm font-medium hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:pointer-events-none;
