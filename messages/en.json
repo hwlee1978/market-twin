@@ -311,6 +311,89 @@
     },
     "placeholder": {
       "comingSoon": "This screen ships in v0.3."
+    },
+    "customers": {
+      "title": "Customers & Workspaces",
+      "subtitle": "Monitor, suspend, and audit every workspace",
+      "search": "Search by workspace, owner, or country...",
+      "empty": "No workspaces yet.",
+      "noResults": "No matches",
+      "backToList": "Back to list",
+      "filter": {
+        "all": "All",
+        "active": "Active",
+        "suspended": "Suspended",
+        "archived": "Archived"
+      },
+      "status": {
+        "active": "Active",
+        "suspended": "Suspended",
+        "archived": "Archived"
+      },
+      "col": {
+        "workspace": "Workspace",
+        "owner": "Owner",
+        "plan": "Plan",
+        "status": "Status",
+        "members": "Members",
+        "projects": "Projects",
+        "sims": "Sims",
+        "lastActivity": "Last Activity",
+        "created": "Created",
+        "project": "Project",
+        "product": "Product",
+        "countries": "Countries",
+        "updated": "Updated",
+        "stage": "Stage",
+        "personas": "Personas",
+        "model": "Model",
+        "started": "Started"
+      },
+      "kpi": {
+        "plan": "Plan",
+        "status": "Status",
+        "members": "Members",
+        "projects": "Projects"
+      },
+      "section": {
+        "profile": "Profile",
+        "members": "Members",
+        "noMembers": "No members",
+        "projects": "Projects",
+        "noProjects": "No projects",
+        "simulations": "Simulations",
+        "noSimulations": "No simulations"
+      },
+      "field": {
+        "id": "Workspace ID",
+        "industry": "Industry",
+        "country": "Country",
+        "created": "Created at"
+      },
+      "action": {
+        "suspend": "Suspend",
+        "reactivate": "Reactivate",
+        "archive": "Archive"
+      },
+      "confirm": {
+        "suspend": "Suspend this workspace? New projects and simulations will be blocked while suspended. Continue?",
+        "reactivate": "Reactivate this workspace? Continue?",
+        "archive": "Move this workspace to archived state? Data is retained but the workspace drops out of the active operations fleet. Continue?"
+      },
+      "actionFailed": "Action failed: {error}"
+    },
+    "audit": {
+      "title": "Audit Log",
+      "subtitle": "Sensitive actions performed by admins and the system (last 200)",
+      "empty": "No audit log entries.",
+      "col": {
+        "ts": "When",
+        "actor": "Actor",
+        "action": "Action",
+        "resource": "Resource",
+        "workspace": "Workspace",
+        "metadata": "Metadata"
+      }
     }
   }
 }

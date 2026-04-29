@@ -311,6 +311,89 @@
     },
     "placeholder": {
       "comingSoon": "이 화면은 v0.3에서 추가됩니다."
+    },
+    "customers": {
+      "title": "고객·워크스페이스",
+      "subtitle": "전체 워크스페이스 모니터링·정지·이력 조회",
+      "search": "워크스페이스명·소유자·국가 검색...",
+      "empty": "워크스페이스가 없습니다.",
+      "noResults": "검색 결과 없음",
+      "backToList": "목록으로",
+      "filter": {
+        "all": "전체",
+        "active": "활성",
+        "suspended": "정지",
+        "archived": "보관"
+      },
+      "status": {
+        "active": "활성",
+        "suspended": "정지",
+        "archived": "보관"
+      },
+      "col": {
+        "workspace": "워크스페이스",
+        "owner": "소유자",
+        "plan": "플랜",
+        "status": "상태",
+        "members": "멤버",
+        "projects": "프로젝트",
+        "sims": "시뮬",
+        "lastActivity": "최근 활동",
+        "created": "생성",
+        "project": "프로젝트",
+        "product": "제품",
+        "countries": "국가",
+        "updated": "최종 수정",
+        "stage": "단계",
+        "personas": "페르소나",
+        "model": "모델",
+        "started": "시작"
+      },
+      "kpi": {
+        "plan": "플랜",
+        "status": "상태",
+        "members": "멤버",
+        "projects": "프로젝트"
+      },
+      "section": {
+        "profile": "프로필",
+        "members": "멤버",
+        "noMembers": "멤버 없음",
+        "projects": "프로젝트",
+        "noProjects": "프로젝트 없음",
+        "simulations": "시뮬레이션",
+        "noSimulations": "시뮬레이션 없음"
+      },
+      "field": {
+        "id": "워크스페이스 ID",
+        "industry": "업종",
+        "country": "국가",
+        "created": "생성일"
+      },
+      "action": {
+        "suspend": "정지",
+        "reactivate": "재활성화",
+        "archive": "보관"
+      },
+      "confirm": {
+        "suspend": "이 워크스페이스를 정지합니다. 정지 동안 신규 프로젝트·시뮬레이션 생성이 차단됩니다. 계속하시겠어요?",
+        "reactivate": "이 워크스페이스를 다시 활성화합니다. 계속하시겠어요?",
+        "archive": "이 워크스페이스를 보관 상태로 전환합니다. 데이터는 유지되지만 운영 fleet에서는 빠집니다. 계속하시겠어요?"
+      },
+      "actionFailed": "작업 실패: {error}"
+    },
+    "audit": {
+      "title": "감사 로그",
+      "subtitle": "어드민·시스템의 민감 액션 기록 (최근 200건)",
+      "empty": "감사 로그 항목이 없습니다.",
+      "col": {
+        "ts": "시각",
+        "actor": "수행자",
+        "action": "액션",
+        "resource": "리소스",
+        "workspace": "워크스페이스",
+        "metadata": "메타데이터"
+      }
     }
   }
 }

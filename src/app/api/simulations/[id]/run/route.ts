@@ -24,6 +24,12 @@ export async function POST(
   const { id: projectId } = await ctx.params;
   const wsCtx = await getOrCreatePrimaryWorkspace();
   if (!wsCtx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (wsCtx.status !== "active") {
+    return NextResponse.json(
+      { error: `workspace_${wsCtx.status}` },
+      { status: 403 },
+    );
+  }
 
   const body = await req.json().catch(() => ({}));
   const parsed = RunSchema.safeParse(body);

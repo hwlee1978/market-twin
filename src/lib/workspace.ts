@@ -1,5 +1,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
+export type WorkspaceStatus = "active" | "suspended" | "archived";
+
 /**
  * Returns the user's primary workspace, creating one on first login.
  * v0.1: every user gets exactly one workspace (their personal one) and is the owner.
@@ -9,6 +11,7 @@ export async function getOrCreatePrimaryWorkspace(): Promise<{
   workspaceId: string;
   userId: string;
   email: string;
+  status: WorkspaceStatus;
 } | null> {
   const supabase = await createClient();
   const {
@@ -18,13 +21,20 @@ export async function getOrCreatePrimaryWorkspace(): Promise<{
 
   const { data: existing } = await supabase
     .from("workspace_members")
-    .select("workspace_id")
+    .select("workspace_id, workspaces(status)")
     .eq("user_id", user.id)
     .limit(1)
     .maybeSingle();
 
   if (existing?.workspace_id) {
-    return { workspaceId: existing.workspace_id, userId: user.id, email: user.email ?? "" };
+    const ws = existing.workspaces as { status?: string } | { status?: string }[] | null;
+    const statusVal = Array.isArray(ws) ? ws[0]?.status : ws?.status;
+    return {
+      workspaceId: existing.workspace_id,
+      userId: user.id,
+      email: user.email ?? "",
+      status: (statusVal ?? "active") as WorkspaceStatus,
+    };
   }
 
   // Create workspace + membership using service role so RLS doesn't block the bootstrap.
@@ -36,10 +46,16 @@ export async function getOrCreatePrimaryWorkspace(): Promise<{
     .single();
   if (wsErr || !ws) throw wsErr ?? new Error("Failed to create workspace");
 
+  // (Newly created workspace defaults to status='active'.)
   const { error: memErr } = await admin
     .from("workspace_members")
     .insert({ workspace_id: ws.id, user_id: user.id, role: "owner" });
   if (memErr) throw memErr;
 
-  return { workspaceId: ws.id, userId: user.id, email: user.email ?? "" };
+  return {
+    workspaceId: ws.id,
+    userId: user.id,
+    email: user.email ?? "",
+    status: "active" as WorkspaceStatus,
+  };
 }

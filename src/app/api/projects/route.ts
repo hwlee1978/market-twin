@@ -18,6 +18,12 @@ const CreateProjectSchema = z.object({
 export async function POST(req: Request) {
   const ctx = await getOrCreatePrimaryWorkspace();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (ctx.status !== "active") {
+    return NextResponse.json(
+      { error: `workspace_${ctx.status}` },
+      { status: 403 },
+    );
+  }
 
   const body = await req.json();
   const parsed = CreateProjectSchema.safeParse(body);
