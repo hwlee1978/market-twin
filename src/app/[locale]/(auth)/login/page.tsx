@@ -3,8 +3,16 @@
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useState } from "react";
+import { BarChart3, Globe2, ShieldCheck, Sparkles } from "lucide-react";
 import { LogoMark } from "@/components/ui/Logo";
 import { createClient } from "@/lib/supabase/client";
+
+const FEATURES = [
+  { icon: BarChart3, key: "successScore" as const },
+  { icon: Globe2, key: "countries" as const },
+  { icon: Sparkles, key: "personas" as const },
+  { icon: ShieldCheck, key: "regulatory" as const },
+];
 
 export default function LoginPage() {
   const t = useTranslations();
@@ -46,13 +54,32 @@ export default function LoginPage() {
           <LogoMark size={22} />
           <span className="text-xl font-semibold tracking-tight">Market Twin</span>
         </Link>
-        <div>
-          <h1 className="text-4xl font-semibold leading-tight tracking-tight break-keep">
-            {t("common.tagline")}
-          </h1>
-          <p className="mt-5 text-brand-100 max-w-md leading-relaxed break-keep">
-            {t("auth.trustline")}
-          </p>
+        <div className="space-y-8 max-w-md">
+          <div>
+            <h1 className="text-4xl font-semibold leading-tight tracking-tight break-keep">
+              {t("common.tagline")}
+            </h1>
+            <p className="mt-5 text-brand-100 leading-relaxed break-keep">
+              {t("auth.trustline")}
+            </p>
+          </div>
+          <ul className="space-y-3.5">
+            {FEATURES.map((f) => (
+              <li key={f.key} className="flex items-start gap-3">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 text-accent shrink-0">
+                  <f.icon size={15} />
+                </span>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-white">
+                    {t(`auth.features.${f.key}.title`)}
+                  </div>
+                  <div className="mt-0.5 text-xs text-brand-100 leading-relaxed">
+                    {t(`auth.features.${f.key}.description`)}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
         <div className="text-xs text-brand-100">© Market Twin</div>
       </div>
