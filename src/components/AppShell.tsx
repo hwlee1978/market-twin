@@ -10,10 +10,10 @@ import {
   Users,
   Settings as SettingsIcon,
   LogOut,
-  Activity,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { LocaleSwitcher } from "./LocaleSwitcher";
+import { LogoMark } from "./ui/Logo";
 import { createClient } from "@/lib/supabase/client";
 
 const NAV = [
@@ -46,16 +46,16 @@ export function AppShell({
   return (
     <div className="min-h-screen flex bg-slate-50">
       <aside className="w-64 shrink-0 bg-brand text-white flex flex-col">
-        <div className="px-6 pt-6 pb-5 flex items-center gap-2.5">
-          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-accent/15 text-accent">
-            <Activity size={16} />
+        <div className="px-6 pt-6 pb-5 flex items-center gap-3">
+          <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-white/10 text-white">
+            <LogoMark size={22} />
           </span>
           <div className="leading-tight">
             <div className="text-[15px] font-semibold tracking-tight">
-              {tCommon("appName")}
+              Market Twin
             </div>
-            <div className="text-[10px] uppercase tracking-wider text-brand-200">
-              Launch Twin
+            <div className="text-[10px] uppercase tracking-wider text-brand-200 mt-0.5">
+              {tCommon("appTagline")}
             </div>
           </div>
         </div>

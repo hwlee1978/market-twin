@@ -1,7 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Activity, BarChart3, Globe2, ShieldCheck, Sparkles } from "lucide-react";
+import { BarChart3, Globe2, ShieldCheck, Sparkles } from "lucide-react";
+import { LogoMark } from "@/components/ui/Logo";
 
 /**
  * Shared chrome for the login/signup pages. The left panel showcases what
@@ -40,16 +41,16 @@ export function AuthLayout({
           className="pointer-events-none absolute -bottom-40 -right-32 w-[520px] h-[520px] rounded-full bg-brand-300/15 blur-3xl"
         />
 
-        <div className="relative flex items-center gap-2.5">
-          <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-accent/20 text-accent">
-            <Activity size={18} />
+        <div className="relative flex items-center gap-3">
+          <span className="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-white/12 text-white">
+            <LogoMark size={26} />
           </span>
           <div className="leading-tight">
             <div className="text-base font-semibold tracking-tight">
-              {t("common.appName")}
+              Market Twin
             </div>
-            <div className="text-[10px] uppercase tracking-wider text-brand-200">
-              Launch Twin
+            <div className="text-[10px] uppercase tracking-wider text-brand-200 mt-0.5">
+              {t("common.appTagline")}
             </div>
           </div>
         </div>
@@ -91,12 +92,10 @@ export function AuthLayout({
       <main className="flex items-center justify-center px-6 py-12 lg:px-12">
         <div className="w-full max-w-sm">
           {/* Mobile-only brand mark since the side panel is hidden below lg */}
-          <div className="lg:hidden flex items-center gap-2 mb-8">
-            <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-brand text-accent">
-              <Activity size={14} />
-            </span>
+          <div className="lg:hidden flex items-center gap-2 mb-8 text-brand">
+            <LogoMark size={22} />
             <span className="text-sm font-semibold tracking-tight text-slate-900">
-              {t("common.appName")}
+              Market Twin
             </span>
           </div>
 

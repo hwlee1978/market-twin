@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 36" width="200" height="36" fill="none">
+  <rect x="2" y="3" width="18" height="18" rx="3" fill="#0A1F4D"/>
+  <rect x="10" y="11" width="18" height="18" rx="3" fill="none" stroke="#0A1F4D" stroke-width="2.2"/>
+  <text x="42" y="24" font-family="Pretendard, Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="17" font-weight="700" fill="#0A1F4D" letter-spacing="-0.4">Market Twin</text>
+</svg>

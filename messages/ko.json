@@ -23,7 +23,8 @@
     }
   },
   "common": {
-    "appName": "AI Market Twin",
+    "appName": "Market Twin",
+    "appTagline": "AI 출시 시뮬레이션",
     "tagline": "출시 전에 시장 반응을 미리 보세요",
     "loading": "로딩 중...",
     "error": "오류가 발생했습니다",

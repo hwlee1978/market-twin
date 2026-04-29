@@ -154,6 +154,16 @@ function row(label: string, value: string): string {
 }
 
 function layout(content: string, appName: string, footerText: string): string {
+  // Inline-SVG logo mark — Gmail and most modern clients render inline SVG
+  // fine. The wordmark sits next to it so the brand reads even when image
+  // download is blocked (the SVG is part of the HTML payload, not a remote
+  // asset).
+  const logoSvg = `
+    <svg viewBox="0 0 32 32" width="20" height="20" fill="none" style="vertical-align:middle;">
+      <rect x="3" y="3" width="18" height="18" rx="3" fill="#0A1F4D"/>
+      <rect x="11" y="11" width="18" height="18" rx="3" fill="none" stroke="#0A1F4D" stroke-width="2.2"/>
+    </svg>
+  `;
   return `
 <!DOCTYPE html>
 <html>
@@ -165,8 +175,11 @@ function layout(content: string, appName: string, footerText: string): string {
 <body style="margin:0;padding:24px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Pretendard','Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:#0f172a;">
   <table cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;width:100%;background:#ffffff;border-radius:12px;border:1px solid #e2e8f0;">
     <tr>
-      <td style="padding:24px 32px;border-bottom:1px solid #e2e8f0;">
-        <div style="font-size:13px;font-weight:600;color:#0b2a5b;letter-spacing:0.02em;">${escape(appName)}</div>
+      <td style="padding:20px 32px;border-bottom:1px solid #e2e8f0;">
+        <span style="display:inline-flex;align-items:center;gap:10px;font-size:14px;font-weight:600;color:#0A1F4D;letter-spacing:-0.01em;">
+          ${logoSvg}
+          <span>Market Twin</span>
+        </span>
       </td>
     </tr>
     <tr>

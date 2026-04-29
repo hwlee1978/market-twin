@@ -23,7 +23,8 @@
     }
   },
   "common": {
-    "appName": "AI Market Twin",
+    "appName": "Market Twin",
+    "appTagline": "AI Launch Simulation",
     "tagline": "See how the market will react — before you launch",
     "loading": "Loading...",
     "error": "Something went wrong",
