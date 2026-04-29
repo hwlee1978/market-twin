@@ -83,7 +83,9 @@ const C = {
 
 const styles = StyleSheet.create({
   page: {
-    padding: 0,
+    paddingTop: 64,
+    paddingBottom: 56,
+    paddingHorizontal: 48,
     fontSize: 10,
     fontFamily: "AppFont",
     color: C.ink,
@@ -123,11 +125,8 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: C.faint,
   },
-  body: {
-    paddingTop: 64,
-    paddingBottom: 56,
-    paddingHorizontal: 48,
-  },
+  // (Padding moved to `page` so chrome margins survive page breaks. The
+  // <View style={styles.body}> wrapper has been removed from each page.)
 
   // Cover
   coverPage: {
@@ -557,7 +556,7 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
       {/* PAGE 2 — EXECUTIVE SUMMARY + KEY METRICS */}
       <Page size="A4" style={styles.page}>
         <PageChrome pageNum={2} totalPages={TOTAL_PAGES} />
-        <View style={styles.body}>
+        <View>
           <Text style={styles.sectionEyebrow}>01 · {labels.executiveSummary}</Text>
           <Text style={styles.h2}>{labels.executiveSummary}</Text>
           <Text style={styles.para}>
@@ -623,7 +622,7 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
                   const color = w.status === "banned" ? C.risk : C.warn;
                   const line = `${cn(w.country)}: ${w.reason ?? ""}${w.source ? ` (${w.source})` : ""}`;
                   return (
-                    <View key={`reg-${i}`} style={{ flexDirection: "row", marginBottom: 6 }}>
+                    <View key={`reg-${i}`} wrap={false} style={{ flexDirection: "row", marginBottom: 6 }}>
                       <Text
                         style={[
                           styles.pill,
@@ -652,7 +651,7 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
       {/* PAGE 3 — COUNTRY ANALYSIS + PRICING */}
       <Page size="A4" style={styles.page}>
         <PageChrome pageNum={3} totalPages={TOTAL_PAGES} />
-        <View style={styles.body}>
+        <View>
           <Text style={styles.sectionEyebrow}>02 · {labels.countryRanking}</Text>
           <Text style={styles.h2}>{labels.countryRanking}</Text>
 
@@ -665,7 +664,7 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
               <Text style={styles.tdNum}>{labels.countryCol.score}</Text>
             </View>
             {countries.slice(0, 10).map((c) => (
-              <View style={styles.tr} key={c.country}>
+              <View style={styles.tr} wrap={false} key={c.country}>
                 <Text style={styles.tdRank}>{c.rank}</Text>
                 <Text
                   style={[
@@ -713,7 +712,7 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
                     <Text style={styles.tdNumWide}>{labels.pricingCol.revenue}</Text>
                   </View>
                   {pricing.curve.map((p, i) => (
-                    <View style={styles.tr} key={`curve-${i}`}>
+                    <View style={styles.tr} wrap={false} key={`curve-${i}`}>
                       <Text style={styles.tdGrow}>{fmtPrice(p.priceCents)}</Text>
                       <Text style={styles.tdNumWide}>
                         {(p.conversionProbability * 100).toFixed(1)}%
@@ -733,7 +732,7 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
       {/* PAGE 4 — PERSONAS + RISKS + ACTION + SOURCES */}
       <Page size="A4" style={styles.page}>
         <PageChrome pageNum={4} totalPages={TOTAL_PAGES} />
-        <View style={styles.body}>
+        <View>
           <Text style={styles.sectionEyebrow}>04 · {labels.personaInsights}</Text>
           <Text style={styles.h2}>{labels.personaInsights}</Text>
 
@@ -768,7 +767,7 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
                   <Text style={styles.tdNum}>{labels.personaAvgIntent}</Text>
                 </View>
                 {countryAgg.map((c) => (
-                  <View style={styles.tr} key={`agg-${c.code}`}>
+                  <View style={styles.tr} wrap={false} key={`agg-${c.code}`}>
                     <Text
                       style={[
                         styles.tdGrow,
@@ -801,6 +800,7 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
                 return (
                   <View
                     key={`risk-${i}`}
+                    wrap={false}
                     style={{ flexDirection: "row", marginBottom: 7 }}
                   >
                     <Text style={[styles.pill, sevStyle]}>{r.severity.toUpperCase()}</Text>
@@ -822,7 +822,7 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
             <Text style={styles.sectionEyebrow}>06 · {labels.actionPlan}</Text>
             <Text style={styles.h2}>{labels.actionPlan}</Text>
             {recommendations.actionPlan.map((s, i) => (
-              <View key={`act-${i}`} style={styles.numberedItem}>
+              <View key={`act-${i}`} wrap={false} style={styles.numberedItem}>
                 <Text style={styles.numberedDot}>{i + 1}</Text>
                 <Text style={styles.numberedText}>{s}</Text>
               </View>
