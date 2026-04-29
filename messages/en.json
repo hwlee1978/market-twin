@@ -448,7 +448,19 @@
           "1000": "Maximum · ~15 min"
         }
       },
-      "runCta": "Create project + Start simulation"
+      "runCta": "Create project + Start simulation",
+      "templates": {
+        "title": "Start from a template",
+        "description": "Pick a category preset — every field gets pre-filled. Edit freely after clicking.",
+        "items": {
+          "kbeauty": "K-beauty skincare",
+          "premiumFood": "Premium F&B",
+          "electronics": "Consumer electronics",
+          "modestFashion": "Modest fashion",
+          "supplement": "Health supplement",
+          "saas": "B2B SaaS"
+        }
+      }
     },
     "status": {
       "draft": "Draft",

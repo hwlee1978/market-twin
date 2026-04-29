@@ -5,22 +5,11 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { COUNTRIES } from "@/lib/countries";
 import { clsx } from "clsx";
-import { AlertCircle, Check, Loader2, Search } from "lucide-react";
+import { AlertCircle, Check, Loader2, Search, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CountryChipRow } from "@/components/ui/CountryChip";
-
-interface FormState {
-  name: string;
-  productName: string;
-  category: string;
-  description: string;
-  basePrice: string;
-  currency: string;
-  objective: "awareness" | "conversion" | "retention" | "expansion";
-  countries: string[];
-  competitorUrls: string;
-  personaCount: number;
-}
+import { WIZARD_TEMPLATES } from "@/lib/wizard/templates";
+import type { FormState } from "@/lib/wizard/types";
 
 const STEPS = ["product", "pricing", "countries", "competitors", "review"] as const;
 type StepKey = (typeof STEPS)[number];
@@ -70,6 +59,13 @@ export function ProjectWizard({ locale }: { locale: string }) {
         c.labelEn.toLowerCase().includes(q),
     );
   }, [countryQuery]);
+
+  /** Patches every form field at once with the template's values. */
+  const applyTemplate = (templateId: string) => {
+    const tplDef = WIZARD_TEMPLATES.find((tpl) => tpl.id === templateId);
+    if (!tplDef) return;
+    setForm((f) => ({ ...f, ...tplDef.patch }));
+  };
 
   const canAdvance = () => {
     switch (STEPS[step]) {
@@ -151,6 +147,29 @@ export function ProjectWizard({ locale }: { locale: string }) {
       <div className="card p-8 space-y-6">
         {stepKey === "product" && (
           <>
+            <div className="rounded-lg bg-brand-50/60 border border-brand-100 p-4">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-brand mb-2.5">
+                <Sparkles size={13} />
+                {tw("templates.title")}
+              </div>
+              <p className="text-xs text-slate-600 mb-3 leading-relaxed">
+                {tw("templates.description")}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {WIZARD_TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    onClick={() => applyTemplate(tpl.id)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-brand-100 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-brand hover:text-brand transition-colors"
+                  >
+                    <span className="text-sm leading-none">{tpl.emoji}</span>
+                    {tw(`templates.items.${tpl.i18nKey}` as "templates.items.kbeauty")}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <Field
               label={tw("fields.projectName")}
               hint={tw("hints.projectName")}
