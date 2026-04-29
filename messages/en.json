@@ -394,6 +394,53 @@
         "workspace": "Workspace",
         "metadata": "Metadata"
       }
+    },
+    "health": {
+      "title": "System Health",
+      "subtitle": "Simulation pipeline, LLM provider, and stuck-job monitoring",
+      "kpi": {
+        "successRate24h": "Success rate (24h)",
+        "avgRuntime": "Avg runtime",
+        "stuck": "Stuck sims",
+        "failed24h": "Failed (24h)",
+        "runs": "across {n} runs",
+        "over7d": "last 7 days"
+      },
+      "stageFailures": {
+        "title": "Failures by Stage (7 days)",
+        "empty": "No failures in the last 7 days."
+      },
+      "providers": {
+        "title": "LLM Provider Health (7 days)",
+        "empty": "No runs in the last 7 days.",
+        "col": {
+          "provider": "Provider",
+          "total": "Total",
+          "errorRate": "Error rate",
+          "avgRuntime": "Avg runtime"
+        }
+      },
+      "stuck": {
+        "title": "Stuck Simulations",
+        "description": "Jobs still in 'running' state past 6 minutes — zombies left over after the Vercel function was killed. Cancel or retry them.",
+        "empty": "No stuck jobs.",
+        "col": {
+          "stage": "Stage",
+          "provider": "Provider",
+          "runtime": "Elapsed",
+          "started": "Started"
+        }
+      },
+      "recentErrors": {
+        "title": "Recent Errors (last 10)",
+        "empty": "No recent errors.",
+        "col": {
+          "stage": "Stage",
+          "status": "Status",
+          "error": "Error message",
+          "started": "Started"
+        }
+      }
     }
   }
 }

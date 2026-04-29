@@ -394,6 +394,53 @@
         "workspace": "워크스페이스",
         "metadata": "메타데이터"
       }
+    },
+    "health": {
+      "title": "시스템 상태",
+      "subtitle": "시뮬레이션 파이프라인·LLM 제공자·멈춘 작업 모니터링",
+      "kpi": {
+        "successRate24h": "성공률 (24h)",
+        "avgRuntime": "평균 실행시간",
+        "stuck": "멈춘 시뮬레이션",
+        "failed24h": "실패 (24h)",
+        "runs": "{n}건 기준",
+        "over7d": "최근 7일"
+      },
+      "stageFailures": {
+        "title": "단계별 실패 분포 (7일)",
+        "empty": "최근 7일간 실패 없음."
+      },
+      "providers": {
+        "title": "LLM 제공자 상태 (7일)",
+        "empty": "최근 7일간 실행 없음.",
+        "col": {
+          "provider": "제공자",
+          "total": "총 실행",
+          "errorRate": "에러율",
+          "avgRuntime": "평균 시간"
+        }
+      },
+      "stuck": {
+        "title": "멈춘 시뮬레이션",
+        "description": "6분 이상 진행 중인 작업 — Vercel 함수 종료 후에도 status가 running으로 남아있는 좀비 작업입니다. 취소하거나 재시도하세요.",
+        "empty": "멈춘 작업 없음.",
+        "col": {
+          "stage": "단계",
+          "provider": "제공자",
+          "runtime": "경과 시간",
+          "started": "시작"
+        }
+      },
+      "recentErrors": {
+        "title": "최근 에러 (10건)",
+        "empty": "최근 에러 없음.",
+        "col": {
+          "stage": "단계",
+          "status": "상태",
+          "error": "에러 메시지",
+          "started": "시작"
+        }
+      }
     }
   }
 }
