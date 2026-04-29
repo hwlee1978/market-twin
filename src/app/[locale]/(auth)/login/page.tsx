@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useState } from "react";
+import { LogoMark } from "@/components/ui/Logo";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -41,10 +42,17 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
       <div className="hidden lg:flex flex-col justify-between bg-brand text-white p-12">
-        <div className="text-xl font-semibold">{t("common.appName")}</div>
+        <Link href="/" className="inline-flex items-center gap-2.5">
+          <LogoMark size={22} />
+          <span className="text-xl font-semibold tracking-tight">Market Twin</span>
+        </Link>
         <div>
-          <h1 className="text-4xl font-semibold leading-tight">{t("common.tagline")}</h1>
-          <p className="mt-4 text-brand-100 max-w-md">{t("auth.trustline")}</p>
+          <h1 className="text-4xl font-semibold leading-tight tracking-tight break-keep">
+            {t("common.tagline")}
+          </h1>
+          <p className="mt-5 text-brand-100 max-w-md leading-relaxed break-keep">
+            {t("auth.trustline")}
+          </p>
         </div>
         <div className="text-xs text-brand-100">© Market Twin</div>
       </div>
