@@ -72,6 +72,7 @@ export function AppShell({
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch
                 className={clsx(
                   "relative flex items-center gap-3 pl-3 pr-3 py-2 rounded-lg text-sm transition-colors",
                   active
