@@ -18,8 +18,10 @@ export function SimulationProgress({ stage }: { stage: string }) {
         <div className="text-xs uppercase tracking-wide text-accent-600 mb-2">
           {t("simulation.running")}
         </div>
-        <h2 className="text-2xl font-semibold mb-2">{t("simulation.feelPremium")}</h2>
-        <p className="text-sm text-slate-500 mb-8">{t("simulation.etaShort")}</p>
+        <h2 className="text-2xl font-semibold mb-2 break-keep leading-snug">
+          {t("simulation.feelPremium")}
+        </h2>
+        <p className="text-sm text-slate-500 mb-8 break-keep">{t("simulation.etaShort")}</p>
 
         <ol className="space-y-3 text-left max-w-md mx-auto">
           {STAGES.map((s, i) => {
