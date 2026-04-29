@@ -11,7 +11,7 @@
       "badge": "글로벌 D2C·이커머스 팀이 사용하는 출시 결정 도구",
       "titleLine1": "AI로 출시 전에",
       "titleLine2": "시장 반응을 시뮬레이션합니다",
-      "subtitleLine1": "10,000명의 AI 소비자 페르소나가 20개국 시장에서 당신의 제품을 테스트합니다.",
+      "subtitleLine1": "10,000명의 AI 소비자 페르소나가 24개국 시장에서 당신의 제품을 테스트합니다.",
       "subtitleLine2": "전통적인 시장조사가 6개월 걸리던 일을 48시간 안에 끝냅니다.",
       "ctaPrimary": "무료로 시작하기",
       "ctaSecondary": "어떻게 작동하나요?"
@@ -49,7 +49,7 @@
         "description": "직업·소득대·구매 의향·신뢰 요인까지 정밀 분석된 합성 소비자가 제품을 평가합니다."
       },
       "countries": {
-        "title": "20개국 시장 비교",
+        "title": "24개국 시장 비교",
         "description": "수요·CAC·경쟁 강도 기반으로 우선 출시 국가를 자동 추천. 시뮬마다 1~5개국 자유 선택."
       },
       "regulatory": {
@@ -71,7 +71,7 @@
     },
     "markets": {
       "eyebrow": "시장",
-      "title": "주요 글로벌 시장 20개국 커버",
+      "title": "주요 글로벌 시장 24개국 커버",
       "description": "각 국가는 자국 통계청과 시장 조사 데이터를 anchor로 페르소나가 생성됩니다."
     },
     "sources": {
@@ -177,7 +177,7 @@
         "description": "수요·CAC·경쟁 강도 기반의 0~100 점 평가"
       },
       "countries": {
-        "title": "20개국 시장 비교",
+        "title": "24개국 시장 비교",
         "description": "KOSIS·BLS·e-Stat 등 정부 통계로 grounded"
       },
       "personas": {

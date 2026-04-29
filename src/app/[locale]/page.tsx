@@ -268,8 +268,9 @@ async function Features() {
 async function Markets() {
   const t = await getTranslations("landing.markets");
   const codes = [
-    "KR", "JP", "CN", "TW", "US", "CA", "GB", "DE", "FR", "AE",
-    "SA", "SG", "MY", "AU", "IN", "VN", "TH", "ID", "BR", "MX",
+    "KR", "JP", "CN", "TW", "US", "CA", "GB", "DE", "FR", "IT",
+    "ES", "NL", "AE", "SA", "SG", "MY", "PH", "AU", "IN", "VN",
+    "TH", "ID", "BR", "MX",
   ];
   return (
     <section id="markets" className="py-20 lg:py-28">
