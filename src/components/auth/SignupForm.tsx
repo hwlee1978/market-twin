@@ -5,6 +5,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { useState } from "react";
 import { BarChart3, Globe2, ShieldCheck, Sparkles } from "lucide-react";
 import { LogoMark } from "@/components/ui/Logo";
+import { authErrorKey } from "@/lib/auth/error-messages";
 import { createClient } from "@/lib/supabase/client";
 
 const FEATURES = [
@@ -46,7 +47,7 @@ export function SignupForm() {
     });
     if (error) {
       setLoading(false);
-      setError(error.message);
+      setError(t(authErrorKey(error.message) as "errors.auth.generic"));
       return;
     }
     if (data.session) {

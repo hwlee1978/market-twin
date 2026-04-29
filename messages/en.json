@@ -92,6 +92,27 @@
       "terms": "Terms"
     }
   },
+  "errors": {
+    "app": {
+      "title": "Something went wrong",
+      "description": "An unexpected error prevented this page from loading. Please try again or refresh in a moment.",
+      "errorCode": "Error code",
+      "retry": "Try again",
+      "backToHome": "Back to home",
+      "backToDashboard": "Back to dashboard"
+    },
+    "auth": {
+      "invalidCredentials": "Email or password is incorrect.",
+      "emailNotConfirmed": "Your email isn't confirmed yet. Please check your inbox.",
+      "alreadyRegistered": "This email is already registered. Try signing in.",
+      "weakPassword": "Password is too weak. Use 8+ characters with letters, numbers, and symbols.",
+      "invalidEmail": "Please enter a valid email address.",
+      "rateLimit": "For security, please try again in a moment.",
+      "captcha": "Captcha verification failed. Please try again.",
+      "signupDisabled": "Signups are currently paused.",
+      "generic": "Something went wrong. Please try again in a moment."
+    }
+  },
   "cookieConsent": {
     "title": "Cookie notice",
     "description": "Market Twin uses essential cookies to run the service and analytics cookies to improve usability.",

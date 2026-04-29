@@ -5,6 +5,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { useState } from "react";
 import { BarChart3, Globe2, ShieldCheck, Sparkles } from "lucide-react";
 import { LogoMark } from "@/components/ui/Logo";
+import { authErrorKey } from "@/lib/auth/error-messages";
 import { createClient } from "@/lib/supabase/client";
 
 const FEATURES = [
@@ -30,7 +31,8 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setLoading(false);
-      setError(error.message);
+      // Map Supabase's English error to a locale-aware friendly message.
+      setError(t(authErrorKey(error.message) as "errors.auth.generic"));
       return;
     }
     // Keep loading=true through the navigation. The button stays disabled
