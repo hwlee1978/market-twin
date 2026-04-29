@@ -273,12 +273,17 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       recommendations: result.recommendations,
     });
 
+    // Denormalize the headline metrics onto the row so list views
+    // (/reports, /dashboard) don't need to join simulation_results.
     await supabase
       .from("simulations")
       .update({
         status: "completed",
         current_stage: "completed",
         completed_at: new Date().toISOString(),
+        success_score: result.overview?.successScore ?? null,
+        best_country: result.overview?.bestCountry ?? null,
+        recommended_price_cents: result.pricing?.recommendedPriceCents ?? null,
       })
       .eq("id", opts.simulationId);
 

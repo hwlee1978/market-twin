@@ -37,9 +37,10 @@ export default async function DashboardPage({
       .limit(8),
     supabase
       .from("simulations")
-      .select("id, simulation_results(overview)")
+      .select("id, success_score")
       .eq("workspace_id", ctx.workspaceId)
       .eq("status", "completed")
+      .not("success_score", "is", null)
       .limit(50),
     supabase
       .from("reports")
@@ -53,14 +54,7 @@ export default async function DashboardPage({
   const monthlyReports = monthlyReportsRes.count;
 
   const successScores = (completedSims ?? [])
-    .map((s) => {
-      const results = s.simulation_results as
-        | { overview?: { successScore?: number } }
-        | { overview?: { successScore?: number } }[]
-        | null;
-      const overview = Array.isArray(results) ? results[0]?.overview : results?.overview;
-      return overview?.successScore;
-    })
+    .map((s) => (s as { success_score: number | null }).success_score)
     .filter((n): n is number => typeof n === "number");
   const avgScore = successScores.length
     ? Math.round(successScores.reduce((a, b) => a + b, 0) / successScores.length)

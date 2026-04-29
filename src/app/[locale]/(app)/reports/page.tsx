@@ -16,8 +16,9 @@ type ReportRow = {
   started_at: string | null;
   completed_at: string | null;
   model_provider: string | null;
+  success_score: number | null;
+  best_country: string | null;
   projects: { id: string; name: string; product_name: string } | null;
-  simulation_results: { overview: { successScore?: number; bestCountry?: string } | null } | null;
 };
 
 export default async function ReportsPage({
@@ -35,12 +36,15 @@ export default async function ReportsPage({
   if (!ctx) return null;
 
   const supabase = await createClient();
+  // Reads success_score / best_country directly from simulations (denormalized
+  // by migration 0007) instead of joining simulation_results — that join was
+  // pulling the entire JSONB blob (tens of KB per row) just for two fields.
   const { data: simsRaw } = await supabase
     .from("simulations")
     .select(
-      `id, project_id, status, persona_count, started_at, completed_at, model_provider,
-       projects:projects(id, name, product_name),
-       simulation_results:simulation_results(overview)`,
+      `id, project_id, status, persona_count, started_at, completed_at,
+       model_provider, success_score, best_country,
+       projects:projects(id, name, product_name)`,
     )
     .eq("workspace_id", ctx.workspaceId)
     .eq("status", "completed")
@@ -96,9 +100,8 @@ export default async function ReportsPage({
             <tbody>
               {filtered.map((s) => {
                 const proj = s.projects;
-                const overview = s.simulation_results?.overview;
-                const score = overview?.successScore;
-                const bestCountry = overview?.bestCountry;
+                const score = s.success_score;
+                const bestCountry = s.best_country;
                 return (
                   <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50">
                     <td className="px-6 py-3">
