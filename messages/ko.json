@@ -395,6 +395,34 @@
         "metadata": "메타데이터"
       }
     },
+    "models": {
+      "title": "모델 관리",
+      "subtitle": "단계별 LLM 구성과 7일간 실행 통계 (읽기 전용 — 변경은 Vercel env에서)",
+      "default": {
+        "title": "기본 설정",
+        "provider": "기본 제공자",
+        "model": "기본 모델",
+        "hardcoded": "코드 기본값",
+        "hint": "단계별 env가 비어있을 때 fallback으로 사용됩니다. (LLM_DEFAULT_PROVIDER / LLM_DEFAULT_MODEL)"
+      },
+      "stages": {
+        "title": "단계별 구성",
+        "hint": "각 단계는 자기 env override를 우선 읽고, 없으면 기본 설정으로 fallback합니다.",
+        "col": {
+          "stage": "단계",
+          "envOverride": "Env 변수",
+          "provider": "제공자",
+          "model": "모델",
+          "runs7d": "실행 (7일)",
+          "failures": "실패",
+          "avgRuntime": "평균 시간"
+        }
+      },
+      "legacy": {
+        "title": "기타 stage 데이터",
+        "hint": "위 단계 표에 매핑되지 않는 옛날 데이터입니다 (예: 'failed' — 코드 수정 이전 시점에 기록된 행)."
+      }
+    },
     "health": {
       "title": "시스템 상태",
       "subtitle": "시뮬레이션 파이프라인·LLM 제공자·멈춘 작업 모니터링",

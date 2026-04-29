@@ -395,6 +395,34 @@
         "metadata": "Metadata"
       }
     },
+    "models": {
+      "title": "Model Management",
+      "subtitle": "Per-stage LLM configuration and 7-day execution stats (read-only — change via Vercel env)",
+      "default": {
+        "title": "Default config",
+        "provider": "Default provider",
+        "model": "Default model",
+        "hardcoded": "code default",
+        "hint": "Used as fallback when stage-specific envs are unset. (LLM_DEFAULT_PROVIDER / LLM_DEFAULT_MODEL)"
+      },
+      "stages": {
+        "title": "Per-stage configuration",
+        "hint": "Each stage reads its own env override first; falls back to the default config if empty.",
+        "col": {
+          "stage": "Stage",
+          "envOverride": "Env vars",
+          "provider": "Provider",
+          "model": "Model",
+          "runs7d": "Runs (7d)",
+          "failures": "Failures",
+          "avgRuntime": "Avg runtime"
+        }
+      },
+      "legacy": {
+        "title": "Other stage data",
+        "hint": "Rows whose current_stage doesn't map to a config stage above (e.g. 'failed' — recorded before the runner fix)."
+      }
+    },
     "health": {
       "title": "System Health",
       "subtitle": "Simulation pipeline, LLM provider, and stuck-job monitoring",
