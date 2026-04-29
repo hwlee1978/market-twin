@@ -54,15 +54,59 @@ Font.register({
 });
 
 /**
- * True if the string contains characters Pretendard can't render — Japanese
- * kana, or CJK ideographs without surrounding Korean Hangul. Used to switch
- * source/citation text to the JP-capable font.
+ * Per-character font assignment. Pretendard covers Korean Hangul + Latin
+ * cleanly; NotoSansJP covers Japanese kana + most CJK ideographs but
+ * mangles Korean Hangul. So neither font alone handles a mixed
+ * Korean-and-Japanese line — we have to split.
+ *
+ * Heuristic:
+ *   - Hangul → Pretendard (default font).
+ *   - Japanese kana (hiragana / katakana) → NotoSansJP.
+ *   - CJK ideographs → NotoSansJP if the *whole text* contains any kana
+ *     (Japanese context, e.g. 医薬品 next to の). Otherwise default —
+ *     treat as Korean Hanja so the surrounding Hangul stays cohesive.
+ *   - Everything else (ASCII, punctuation, digits) → default.
+ *
+ * Returns `undefined` when the default (Pretendard via the parent <Text>)
+ * is fine, so we don't bother emitting an inner <Text> element for
+ * normal characters.
  */
-function containsExtendedCJK(text: string): boolean {
-  if (/[぀-ゟ゠-ヿ]/.test(text)) return true;
-  const hasIdeographs = /[一-鿿]/.test(text);
-  const hasHangul = /[가-힯]/.test(text);
-  return hasIdeographs && !hasHangul;
+function fontForChar(ch: string, hasKana: boolean): string | undefined {
+  if (/[가-힯]/.test(ch)) return undefined;
+  if (/[぀-ゟ゠-ヿ]/.test(ch)) return "AppFontCJK";
+  if (/[一-鿿]/.test(ch)) return hasKana ? "AppFontCJK" : undefined;
+  return undefined;
+}
+
+interface TextRun {
+  text: string;
+  font?: string;
+}
+
+function splitByFont(text: string): TextRun[] {
+  const hasKana = /[぀-ゟ゠-ヿ]/.test(text);
+  const runs: TextRun[] = [];
+  let buffer = "";
+  let currentFont: string | undefined;
+  let initialized = false;
+  for (const ch of text) {
+    const f = fontForChar(ch, hasKana);
+    if (!initialized) {
+      currentFont = f;
+      buffer = ch;
+      initialized = true;
+      continue;
+    }
+    if (f === currentFont) {
+      buffer += ch;
+    } else {
+      if (buffer) runs.push({ text: buffer, font: currentFont });
+      buffer = ch;
+      currentFont = f;
+    }
+  }
+  if (buffer) runs.push({ text: buffer, font: currentFont });
+  return runs;
 }
 
 const C = {
@@ -394,6 +438,45 @@ interface BuildOptions {
   };
 }
 
+/**
+ * Renders text that may mix Korean Hangul, Japanese kana, and CJK
+ * ideographs by splitting it into runs and assigning the right font to
+ * each. A line like "약사법(PMD Act) 医薬品、医療機器等の品質..." needs
+ * Pretendard for the Korean parts and NotoSansJP for the Japanese parts —
+ * a single fontFamily can't do both, so we emit nested <Text> runs.
+ *
+ * Pure-Hangul / pure-ASCII strings get a single run with no font
+ * override, so the parent's font is used unchanged.
+ */
+// Style typing: react-pdf's Text component accepts Style | Style[] but the
+// type union includes SVG variants we don't use here. Cast through unknown
+// at the boundary to keep the call sites clean (they pass StyleSheet entries
+// which are valid pdf Styles).
+type PdfStyle = Parameters<typeof StyleSheet.create>[0][string];
+
+function CJKText({
+  children,
+  style,
+}: {
+  children: string;
+  style?: PdfStyle | PdfStyle[];
+}) {
+  const runs = splitByFont(children);
+  return (
+    <Text style={style}>
+      {runs.map((r, i) =>
+        r.font ? (
+          <Text key={i} style={{ fontFamily: r.font }}>
+            {r.text}
+          </Text>
+        ) : (
+          r.text
+        ),
+      )}
+    </Text>
+  );
+}
+
 export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
   const {
     result,
@@ -499,16 +582,9 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
               </View>
               <View style={styles.coverHeroCard}>
                 <Text style={styles.coverHeroLabel}>{labels.cover.bestCountry}</Text>
-                <Text
-                  style={[
-                    styles.coverHeroValue,
-                    containsExtendedCJK(cn(overview.bestCountry))
-                      ? { fontFamily: "AppFontCJK" }
-                      : {},
-                  ]}
-                >
+                <CJKText style={styles.coverHeroValue}>
                   {cn(overview.bestCountry)}
-                </Text>
+                </CJKText>
                 <Text style={styles.coverHeroSub}>
                   {overview.bestSegment}
                 </Text>
@@ -572,17 +648,9 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
               </View>
               <View style={styles.kpi}>
                 <Text style={styles.kpiLabel}>{labels.cover.bestCountry}</Text>
-                <Text
-                  style={[
-                    styles.kpiValue,
-                    { fontSize: 14 },
-                    containsExtendedCJK(cn(overview.bestCountry))
-                      ? { fontFamily: "AppFontCJK" }
-                      : {},
-                  ]}
-                >
+                <CJKText style={[styles.kpiValue, { fontSize: 14 }]}>
                   {cn(overview.bestCountry)}
-                </Text>
+                </CJKText>
               </View>
               <View style={styles.kpi}>
                 <Text style={styles.kpiLabel}>{labels.cover.bestPrice}</Text>
@@ -631,15 +699,14 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
                       >
                         {tag}
                       </Text>
-                      <Text
+                      <CJKText
                         style={[
                           styles.paraTight,
                           { color, flexGrow: 1, flexBasis: 0 },
-                          containsExtendedCJK(line) ? { fontFamily: "AppFontCJK" } : {},
                         ]}
                       >
                         {line}
-                      </Text>
+                      </CJKText>
                     </View>
                   );
                 })}
@@ -666,14 +733,7 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
             {countries.slice(0, 10).map((c) => (
               <View style={styles.tr} wrap={false} key={c.country}>
                 <Text style={styles.tdRank}>{c.rank}</Text>
-                <Text
-                  style={[
-                    styles.tdGrow,
-                    containsExtendedCJK(cn(c.country)) ? { fontFamily: "AppFontCJK" } : {},
-                  ]}
-                >
-                  {cn(c.country)}
-                </Text>
+                <CJKText style={styles.tdGrow}>{cn(c.country)}</CJKText>
                 <Text style={styles.tdNum}>{c.demandScore.toFixed(0)}</Text>
                 <Text style={styles.tdNum}>{c.competitionScore.toFixed(0)}</Text>
                 <Text style={[styles.tdNum, { fontWeight: 700, color: C.brand }]}>
@@ -768,14 +828,7 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
                 </View>
                 {countryAgg.map((c) => (
                   <View style={styles.tr} wrap={false} key={`agg-${c.code}`}>
-                    <Text
-                      style={[
-                        styles.tdGrow,
-                        containsExtendedCJK(cn(c.code)) ? { fontFamily: "AppFontCJK" } : {},
-                      ]}
-                    >
-                      {cn(c.code)}
-                    </Text>
+                    <CJKText style={styles.tdGrow}>{cn(c.code)}</CJKText>
                     <Text style={styles.tdNum}>{c.count}</Text>
                     <Text style={styles.tdNum}>{c.avgIntent}/100</Text>
                   </View>
@@ -854,15 +907,9 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
               </Text>
               <View style={styles.sourcesCard}>
                 {sources.map((src, i) => (
-                  <Text
-                    key={`src-${i}`}
-                    style={[
-                      styles.sourceLine,
-                      containsExtendedCJK(src) ? { fontFamily: "AppFontCJK" } : {},
-                    ]}
-                  >
-                    · {src}
-                  </Text>
+                  <CJKText key={`src-${i}`} style={styles.sourceLine}>
+                    {`· ${src}`}
+                  </CJKText>
                 ))}
               </View>
             </View>
