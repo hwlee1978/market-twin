@@ -21,13 +21,16 @@ alter table public.simulations
   add column if not exists recommended_price_cents integer;
 
 -- Backfill from existing simulation_results JSONB.
+-- successScore is sometimes stored as a decimal (e.g. 68.5) — cast through
+-- numeric and round before going to smallint, otherwise Postgres rejects
+-- "68.5" as invalid smallint syntax (22P02).
 -- Cast guards against malformed rows: if a value isn't a number / string we
 -- leave the column null and the UI falls back to "—".
 update public.simulations s
 set
-  success_score = nullif((sr.overview->>'successScore'), '')::smallint,
+  success_score = round(nullif((sr.overview->>'successScore'), '')::numeric)::smallint,
   best_country = nullif(sr.overview->>'bestCountry', ''),
-  recommended_price_cents = nullif((sr.pricing->>'recommendedPriceCents'), '')::integer
+  recommended_price_cents = round(nullif((sr.pricing->>'recommendedPriceCents'), '')::numeric)::integer
 from public.simulation_results sr
 where s.id = sr.simulation_id
   and s.status = 'completed'
