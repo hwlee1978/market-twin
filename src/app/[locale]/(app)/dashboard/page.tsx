@@ -21,23 +21,43 @@ export default async function DashboardPage({
   if (!ctx) return null;
 
   const supabase = await createClient();
-  const { data: projects } = await supabase
-    .from("projects")
-    .select("id, name, product_name, status, candidate_countries, updated_at")
-    .eq("workspace_id", ctx.workspaceId)
-    .order("updated_at", { ascending: false })
-    .limit(8);
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
 
-  const { data: completedSims } = await supabase
-    .from("simulations")
-    .select("id, simulation_results(overview)")
-    .eq("workspace_id", ctx.workspaceId)
-    .eq("status", "completed")
-    .limit(50);
+  // Parallel fan-out — these three queries don't depend on each other, so
+  // doing them sequentially was costing ~3× the wall time. Promise.all keeps
+  // them in flight together and lets the slowest one set the page latency.
+  const [projectsRes, completedSimsRes, monthlyReportsRes] = await Promise.all([
+    supabase
+      .from("projects")
+      .select("id, name, product_name, status, candidate_countries, updated_at")
+      .eq("workspace_id", ctx.workspaceId)
+      .order("updated_at", { ascending: false })
+      .limit(8),
+    supabase
+      .from("simulations")
+      .select("id, simulation_results(overview)")
+      .eq("workspace_id", ctx.workspaceId)
+      .eq("status", "completed")
+      .limit(50),
+    supabase
+      .from("reports")
+      .select("*", { count: "exact", head: true })
+      .eq("workspace_id", ctx.workspaceId)
+      .gte("created_at", monthStart.toISOString()),
+  ]);
+
+  const projects = projectsRes.data;
+  const completedSims = completedSimsRes.data;
+  const monthlyReports = monthlyReportsRes.count;
 
   const successScores = (completedSims ?? [])
     .map((s) => {
-      const results = s.simulation_results as { overview?: { successScore?: number } } | { overview?: { successScore?: number } }[] | null;
+      const results = s.simulation_results as
+        | { overview?: { successScore?: number } }
+        | { overview?: { successScore?: number } }[]
+        | null;
       const overview = Array.isArray(results) ? results[0]?.overview : results?.overview;
       return overview?.successScore;
     })
@@ -49,15 +69,6 @@ export default async function DashboardPage({
   const countriesTested = new Set(
     (projects ?? []).flatMap((p) => p.candidate_countries ?? []),
   ).size;
-
-  const monthStart = new Date();
-  monthStart.setDate(1);
-  monthStart.setHours(0, 0, 0, 0);
-  const { count: monthlyReports } = await supabase
-    .from("reports")
-    .select("*", { count: "exact", head: true })
-    .eq("workspace_id", ctx.workspaceId)
-    .gte("created_at", monthStart.toISOString());
 
   const hasProjects = !!projects && projects.length > 0;
 

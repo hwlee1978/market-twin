@@ -1,7 +1,7 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Mail, Users as UsersIcon, Sparkles, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 
 export default async function TeamPage({
@@ -15,30 +15,32 @@ export default async function TeamPage({
   const ctx = await getOrCreatePrimaryWorkspace();
   if (!ctx) return null;
 
+  // Workspace + members in parallel.
   const supabase = await createClient();
-  const { data: workspace } = await supabase
-    .from("workspaces")
-    .select("id, name, company_name, plan, created_at")
-    .eq("id", ctx.workspaceId)
-    .single();
-
-  const { data: members } = await supabase
-    .from("workspace_members")
-    .select("user_id, role, created_at")
-    .eq("workspace_id", ctx.workspaceId);
-
-  // Resolve emails via service role (workspace members table only has user_id).
-  const memberRows = (members ?? []) as Array<{
+  const [workspaceRes, membersRes] = await Promise.all([
+    supabase
+      .from("workspaces")
+      .select("id, name, company_name, plan, created_at")
+      .eq("id", ctx.workspaceId)
+      .single(),
+    supabase
+      .from("workspace_members")
+      .select("user_id, role, created_at")
+      .eq("workspace_id", ctx.workspaceId),
+  ]);
+  const workspace = workspaceRes.data;
+  const memberRows = (membersRes.data ?? []) as Array<{
     user_id: string;
     role: string;
     created_at: string;
   }>;
-  const admin = createServiceClient();
-  const { data: usersData } = await admin.auth.admin.listUsers({ perPage: 200 });
+
+  // v0.1: a workspace has exactly one member, and it's the current user.
+  // We already have their email from the auth context — no need for the
+  // admin.listUsers round-trip (was costing ~500ms-1s per nav).
+  // When v0.2 multi-member lands, this becomes a per-id lookup instead.
   const emailById = new Map<string, string>();
-  for (const u of usersData?.users ?? []) {
-    if (u.email) emailById.set(u.id, u.email);
-  }
+  emailById.set(ctx.userId, ctx.email);
 
   return (
     <>

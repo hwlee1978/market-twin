@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 export type WorkspaceStatus = "active" | "suspended" | "archived";
@@ -13,6 +14,11 @@ type Result = {
  * Returns the user's primary workspace, creating one on first login.
  * v0.1: every user gets exactly one workspace (their personal one) and is the owner.
  *
+ * Wrapped in React's `cache()` so a single request dedupes the lookup across
+ * layout + page server components — without this, every navigation hits the
+ * DB twice (once in (app)/layout.tsx, once in the page itself). The cache is
+ * scoped per-request so subsequent requests still see fresh state.
+ *
  * Concurrency note: migration 0005 puts a unique index on
  * (user_id) where role='owner', so even if two parallel requests race past
  * the membership lookup and both try to insert, the DB rejects the second
@@ -20,69 +26,85 @@ type Result = {
  * the winner. This stops the "4 phantom workspaces per user" bug we saw
  * before the index was added.
  */
-export async function getOrCreatePrimaryWorkspace(): Promise<Result | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+export const getOrCreatePrimaryWorkspace = cache(
+  async (): Promise<Result | null> => {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
 
-  const found = await fetchExisting(user.id, user.email ?? "");
-  if (found) return found;
+    // Inline membership lookup so we don't pay the createClient() cost twice.
+    const { data: existing } = await supabase
+      .from("workspace_members")
+      .select("workspace_id, workspaces(status)")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle();
 
-  const admin = createServiceClient();
-  const { data: ws, error: wsErr } = await admin
-    .from("workspaces")
-    .insert({ name: user.email ?? "My Workspace", company_name: user.email ?? "" })
-    .select("id")
-    .single();
-  if (wsErr || !ws) throw wsErr ?? new Error("Failed to create workspace");
-
-  const { error: memErr } = await admin
-    .from("workspace_members")
-    .insert({ workspace_id: ws.id, user_id: user.id, role: "owner" });
-
-  if (memErr) {
-    // Postgres unique_violation = 23505. Means another request beat us to it
-    // — clean up the orphan workspace we just created and return the winner.
-    if ((memErr as { code?: string }).code === "23505") {
-      await admin.from("workspaces").delete().eq("id", ws.id);
-      const winner = await fetchExisting(user.id, user.email ?? "");
-      if (winner) return winner;
+    if (existing?.workspace_id) {
+      const ws = existing.workspaces as
+        | { status?: string }
+        | { status?: string }[]
+        | null;
+      const statusVal = Array.isArray(ws) ? ws[0]?.status : ws?.status;
+      return {
+        workspaceId: existing.workspace_id,
+        userId: user.id,
+        email: user.email ?? "",
+        status: (statusVal ?? "active") as WorkspaceStatus,
+      };
     }
-    throw memErr;
-  }
 
-  return {
-    workspaceId: ws.id,
-    userId: user.id,
-    email: user.email ?? "",
-    status: "active",
-  };
-}
+    // First-login bootstrap path.
+    const admin = createServiceClient();
+    const { data: ws, error: wsErr } = await admin
+      .from("workspaces")
+      .insert({
+        name: user.email ?? "My Workspace",
+        company_name: user.email ?? "",
+      })
+      .select("id")
+      .single();
+    if (wsErr || !ws) throw wsErr ?? new Error("Failed to create workspace");
 
-async function fetchExisting(userId: string, email: string): Promise<Result | null> {
-  const supabase = await createClient();
-  // Match the v0.1 invariant: every user has exactly one workspace, and they
-  // are its owner. The DB unique index enforces this, so we don't filter by
-  // role here — that filter combined with RLS occasionally returned no row
-  // for users whose membership existed but whose role text matched edge
-  // cases. Just take the first membership.
-  const { data: existing } = await supabase
-    .from("workspace_members")
-    .select("workspace_id, workspaces(status)")
-    .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
+    const { error: memErr } = await admin
+      .from("workspace_members")
+      .insert({ workspace_id: ws.id, user_id: user.id, role: "owner" });
 
-  if (!existing?.workspace_id) return null;
+    if (memErr) {
+      // 23505 = unique_violation. Another request beat us to the membership
+      // insert — clean up our orphan workspace and return the winner.
+      if ((memErr as { code?: string }).code === "23505") {
+        await admin.from("workspaces").delete().eq("id", ws.id);
+        const { data: winner } = await supabase
+          .from("workspace_members")
+          .select("workspace_id, workspaces(status)")
+          .eq("user_id", user.id)
+          .limit(1)
+          .maybeSingle();
+        if (winner?.workspace_id) {
+          const wsW = winner.workspaces as
+            | { status?: string }
+            | { status?: string }[]
+            | null;
+          const statusVal = Array.isArray(wsW) ? wsW[0]?.status : wsW?.status;
+          return {
+            workspaceId: winner.workspace_id,
+            userId: user.id,
+            email: user.email ?? "",
+            status: (statusVal ?? "active") as WorkspaceStatus,
+          };
+        }
+      }
+      throw memErr;
+    }
 
-  const ws = existing.workspaces as { status?: string } | { status?: string }[] | null;
-  const statusVal = Array.isArray(ws) ? ws[0]?.status : ws?.status;
-  return {
-    workspaceId: existing.workspace_id,
-    userId,
-    email,
-    status: (statusVal ?? "active") as WorkspaceStatus,
-  };
-}
+    return {
+      workspaceId: ws.id,
+      userId: user.id,
+      email: user.email ?? "",
+      status: "active",
+    };
+  },
+);
