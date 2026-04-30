@@ -333,6 +333,9 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       prompt: countryPrompt(projectInput, aggregate, locale),
       jsonSchema: { type: "object", properties: { countries: { type: "array" } } },
       temperature: 0.4,
+      // Generous output budget so Korean rationale + ≤24 candidate countries
+      // never gets truncated mid-JSON. Provider default of 4096 cuts it close.
+      maxTokens: 8192,
     });
     const countries = z
       .object({ countries: z.array(CountryScoreSchema) })
@@ -346,6 +349,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       prompt: pricingPrompt(projectInput, aggregate, locale),
       jsonSchema: PricingResultSchema as unknown as object,
       temperature: 0.4,
+      maxTokens: 4096,
     });
     const pricing = PricingResultSchema.safeParse(pricingResp.json);
 
@@ -370,6 +374,13 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         },
       },
       temperature: 0.5,
+      // Synthesis output is the densest in the pipeline — Korean executive
+      // summary (3 paragraphs) + 6 risks with descriptions + 8-step action
+      // plan + 10 channel rows easily reaches 3.5–4k output tokens, which
+      // tips over the provider default of 4096 and silently truncates the
+      // JSON. 16k gives plenty of headroom and is still well under tier
+      // output caps.
+      maxTokens: 16384,
     });
 
     const synthesis = z

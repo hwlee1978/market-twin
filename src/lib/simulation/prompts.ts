@@ -25,8 +25,22 @@ const SYSTEM_BASE = `You are AI Market Twin, a B2B platform that simulates consu
 function categoryProfessionHint(category: string, locale: PromptLocale): string {
   const hints: Record<string, { ko: string; en: string }> = {
     ip: {
-      ko: "IP·콘텐츠(웹툰·만화·캐릭터 굿즈·콜렉터블) 타겟은 컬렉터 인접 직군에 weighted: 디자이너·일러스트레이터·마케터·프리랜서 콘텐츠 크리에이터·IT/PM·코스플레이어·콘텐츠 산업 기획자. 학생·일반 사무직·자영업자도 섞되, '대학생'과 '교사'만 반복하지 말 것.",
-      en: "IP / content (webtoon, manga, character merch, collectibles) — weight toward collector-adjacent: designers, illustrators, marketers, freelance content creators, IT/PMs, cosplayers, content-industry planners. Mix in some students, office workers, and self-employed — but do NOT cluster on 'student' and 'teacher'.",
+      ko: `IP·콘텐츠(웹툰·만화·캐릭터 굿즈·콜렉터블) 타겟 — 한 batch 안에서 최소 6개 이상의 서로 다른 직업이 등장하도록, 아래 직업군 풀에서 골고루 sampling하세요. '대학생'과 '마케팅 매니저' 두 개만 반복하면 INVALID.
+
+  • Creative 산업: 일러스트레이터(프리랜서), 만화·웹툰 작가(데뷔 신인 또는 지망생), 캐릭터 디자이너, 콘셉트 아티스트, 게임 디자이너, 콘텐츠 PD
+  • 미디어·유통: 출판사 편집자, 라이선싱·MD 매니저, 콘텐츠 큐레이터, 영상 편집자, 홍보 담당자
+  • 팬 경제: 코스플레이어(전업·반전업), 굿즈샵 운영자, 동인 작가(자영업), 콘텐츠 크리에이터·유튜버·스트리머, 인플루언서
+  • IT·게임: 게임 개발자, UX 디자이너, 모바일 앱 개발자, 데이터 분석가
+  • 인접 직군: 카페·만화방 운영자, 일러스트 학원 강사, 사진작가, 일반 사무직(키덜트 수집가), 자녀 둔 학부모(선물 구매)
+  • Always-eligible (단, batch 내 최대 2명): 대학생, 마케팅 매니저, 일반 회사원, 학생`,
+      en: `IP / content target — within ONE batch, surface at least 6 distinct professions drawn from the buckets below. If you only produce 'student' and 'marketing manager' the result is INVALID.
+
+  • Creative industry: freelance illustrator, manga/webtoon author (debut or aspiring), character designer, concept artist, game designer, content PD
+  • Media & distribution: publishing-house editor, licensing / MD manager, content curator, video editor, PR rep
+  • Fan economy: cosplayer (full or part-time), merch-shop owner, doujin author (self-employed), content creator / YouTuber / streamer, influencer
+  • Tech & games: game developer, UX designer, mobile app developer, data analyst
+  • Adjacent: café / manga-rental owner, illustration academy instructor, photographer, regular office worker (kidult collector), parent buying for children
+  • Always-eligible (but cap at 2 per batch): student, marketing manager, generic office worker`,
     },
     beauty: {
       ko: "뷰티 — 사무직·서비스직·자영업·홈메이커·대학생·뷰티 인플루언서·간호사 등 폭넓게, 한 직업에 몰리지 말 것.",
@@ -297,10 +311,17 @@ ${distributionInstruction}
 
 Mix in different life stages — not just full-time professionals. Include some students, homemakers, retirees, freelancers, or part-time workers where they realistically belong in the target market.
 
-═══ PROFESSION DIVERSITY RULE (mandatory) ═══
-Within this batch of ${count} personas, NO single base profession may appear in more than ~25% of personas. Surface variations of the same job (e.g. "대학생 (시각디자인 전공)" vs "대학생 (애니메이션 동아리)") count as the SAME base profession — they do not satisfy diversity. This rule applies per country too: each country's allotment must contain a heterogeneous occupation mix, not just 1–2 archetypes.
+═══ PROFESSION DIVERSITY RULE (mandatory — violations are CRITICAL ERRORS) ═══
+HARD LIMIT: in a batch of ${count} personas, the SAME base profession may appear AT MOST 2 times. Producing 3+ personas of the same base profession (even with different specializations) makes the entire batch INVALID.
 
-When you have a country quota of N personas, distribute them across at least max(3, N/3) distinct base professions. Draw from the FULL range of professions in the reference data, not only the most prominent 2–3 entries.${
+What counts as "same base profession":
+- "대학생 (시각디자인 전공)" + "대학생 (애니메이션 동아리)" + "대학생 (만화 동아리)" → ALL student. Same base. Maximum 2 of these in this batch.
+- "마케팅 매니저 (테크 스타트업)" + "마케팅 매니저 (엔터테인먼트)" → both Marketing Manager. Maximum 2.
+- "시니어 소프트웨어 엔지니어 (런던)" + "시니어 소프트웨어 엔지니어 (도쿄)" → same. Maximum 2.
+
+Empirical failure mode to avoid: generating ${count} personas where 70%+ are 대학생/Marketing Manager/Senior SW Engineer with different specializations. This destroys the simulation's value. Force yourself to use at least ${Math.max(6, Math.ceil(count / 2))} DIFFERENT base professions across this batch.
+
+Default to drawing from the FULL range of professions in the reference data and the category-specific profession menu below — every batch should look like a realistic cross-section of the actual buyer audience, not 2 archetypes copy-pasted with cosmetic variation.${
     categoryProfessionHint(input.category, locale)
       ? `\n\n═══ CATEGORY-SPECIFIC PROFESSION HINT ═══\n${categoryProfessionHint(input.category, locale)}`
       : ""
