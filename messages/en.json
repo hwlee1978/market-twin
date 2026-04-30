@@ -305,6 +305,12 @@
     "loggingIn": "Signing in...",
     "signupCta": "Start free trial",
     "signingUp": "Creating account...",
+    "consent": {
+      "required": "Required",
+      "optional": "Optional",
+      "agreeRich": "I agree to the <terms>Terms of Service</terms> and <privacy>Privacy Policy</privacy>",
+      "marketing": "Send me Market Twin product updates and newsletters (unsubscribe anytime)"
+    },
     "comingSoon": {
       "badge": "Coming soon",
       "title": "Signups open shortly",

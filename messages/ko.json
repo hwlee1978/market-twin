@@ -305,6 +305,12 @@
     "loggingIn": "로그인 중...",
     "signupCta": "무료 체험 시작",
     "signingUp": "가입 중...",
+    "consent": {
+      "required": "필수",
+      "optional": "선택",
+      "agreeRich": "<terms>이용약관</terms> 및 <privacy>개인정보 처리방침</privacy>에 동의합니다",
+      "marketing": "Market Twin의 제품 업데이트·뉴스레터를 이메일로 받겠습니다 (수신 거부는 언제든 가능)"
+    },
     "comingSoon": {
       "badge": "준비중",
       "title": "회원가입은 곧 오픈됩니다",

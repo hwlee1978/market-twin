@@ -28,6 +28,8 @@ export function SignupForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreeMarketing, setAgreeMarketing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -38,11 +40,21 @@ export function SignupForm() {
     setError(null);
     setInfo(null);
     const supabase = createClient();
+    // Stamp consent into the user's auth metadata so we have an audit
+    // trail of when ToS / Privacy were accepted and which version.
+    // (Term version is hard-coded for now; bump when the legal docs
+    // change to invalidate prior consents.)
+    const consent = {
+      tos_version: "2026-04-30",
+      tos_accepted_at: new Date().toISOString(),
+      marketing_email: agreeMarketing,
+    };
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: { consent },
       },
     });
     if (error) {
@@ -125,9 +137,60 @@ export function SignupForm() {
               />
               <p className="mt-1 text-xs text-slate-500">{t("auth.passwordHint")}</p>
             </div>
+            <div className="space-y-2.5 pt-1">
+              <label className="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 w-4 h-4 rounded border-slate-300 text-brand focus:ring-brand shrink-0"
+                  checked={agreeTerms}
+                  onChange={(e) => setAgreeTerms(e.target.checked)}
+                  required
+                />
+                <span className="leading-relaxed">
+                  <span className="text-risk font-semibold">[{t("auth.consent.required")}]</span>{" "}
+                  {t.rich("auth.consent.agreeRich", {
+                    terms: (chunks) => (
+                      <Link
+                        href="/terms"
+                        target="_blank"
+                        className="text-brand hover:underline font-medium"
+                      >
+                        {chunks}
+                      </Link>
+                    ),
+                    privacy: (chunks) => (
+                      <Link
+                        href="/privacy"
+                        target="_blank"
+                        className="text-brand hover:underline font-medium"
+                      >
+                        {chunks}
+                      </Link>
+                    ),
+                  })}
+                </span>
+              </label>
+              <label className="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 w-4 h-4 rounded border-slate-300 text-brand focus:ring-brand shrink-0"
+                  checked={agreeMarketing}
+                  onChange={(e) => setAgreeMarketing(e.target.checked)}
+                />
+                <span className="leading-relaxed">
+                  <span className="text-slate-400 font-semibold">[{t("auth.consent.optional")}]</span>{" "}
+                  {t("auth.consent.marketing")}
+                </span>
+              </label>
+            </div>
+
             {error && <div className="text-sm text-risk">{error}</div>}
             {info && <div className="text-sm text-success">{info}</div>}
-            <button type="submit" disabled={loading} className="btn-primary w-full">
+            <button
+              type="submit"
+              disabled={loading || !agreeTerms}
+              className="btn-primary w-full"
+            >
               {loading ? t("auth.signingUp") : t("auth.signupCta")}
             </button>
           </form>
