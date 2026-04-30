@@ -49,6 +49,44 @@ interface RunOptions {
 // detailed personas in one shot; 12 yields ≥ 90% of requested entries empirically.
 const PERSONA_BATCH = 12;
 
+// Number of persona batches fired in parallel against the LLM.
+// Default 4 keeps us well under Anthropic Tier 1 RPM/TPM limits (~50 RPM,
+// ~40k input TPM) for typical persona counts of 50–300. Higher tiers can
+// raise this via env to unlock more speed.
+const PERSONA_BATCH_CONCURRENCY = Math.max(
+  1,
+  Number(process.env.LLM_PERSONA_BATCH_CONCURRENCY ?? 4),
+);
+
+/**
+ * Worker-pool runner: executes `tasks` with at most `limit` concurrent ones,
+ * preserving result order. Uses allSettled semantics so a single failed batch
+ * doesn't crash the whole stage — caller decides how to handle each result.
+ */
+async function runWithConcurrency<T>(
+  limit: number,
+  tasks: Array<() => Promise<T>>,
+): Promise<PromiseSettledResult<T>[]> {
+  const results: PromiseSettledResult<T>[] = new Array(tasks.length);
+  let cursor = 0;
+  const workers = Array.from(
+    { length: Math.min(limit, tasks.length) },
+    async () => {
+      while (true) {
+        const idx = cursor++;
+        if (idx >= tasks.length) return;
+        try {
+          results[idx] = { status: "fulfilled", value: await tasks[idx]() };
+        } catch (reason) {
+          results[idx] = { status: "rejected", reason };
+        }
+      }
+    },
+  );
+  await Promise.all(workers);
+  return results;
+}
+
 /**
  * Even split of `total` across the candidate countries (remainder spread to the
  * first few in input order). Used as the across-batches target — see
@@ -178,7 +216,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     // ── Stage 1: personas ──────────────────────────────────────
     await updateStage("personas");
     const personas: z.infer<typeof PersonaSchema>[] = [];
-    const batches = Math.max(1, Math.ceil(opts.personaCount / PERSONA_BATCH));
+    const batchCount = Math.max(1, Math.ceil(opts.personaCount / PERSONA_BATCH));
     let parseSkips = 0;
 
     // Even-distribution quota across candidate countries. Without this, ko-locale
@@ -188,25 +226,58 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       opts.personaCount,
       projectInput.candidateCountries,
     );
-    const remainingQuota: Record<string, number> = { ...totalQuota };
     const generatedByCountry: Record<string, number> = {};
     for (const c of projectInput.candidateCountries) generatedByCountry[c] = 0;
 
-    for (let i = 0; i < batches; i++) {
-      const remaining = opts.personaCount - personas.length;
-      const batchSize = Math.min(PERSONA_BATCH, remaining);
-      const batchQuota = allocateBatchQuota(remainingQuota, batchSize);
-      const r = await personaLLM.generate({
-        system: PERSONA_SYSTEM,
-        prompt: personaPrompt(projectInput, batchSize, locale, referenceBlock, batchQuota),
-        jsonSchema: { type: "object", properties: { personas: { type: "array" } } },
-        // Lower temperature trades a bit of persona variety for much stricter
-        // adherence to the locale-language and reference-anchor rules above.
-        // Variety is preserved by the prompt explicitly asking for skeptics +
-        // neutrals + champions and a heterogeneous mix.
-        temperature: 0.6,
-        maxTokens: 8192,
-      });
+    // Pre-compute every batch's quota up front so all batches can fire in
+    // parallel — `allocateBatchQuota` mutates `remainingQuota` and we drain it
+    // serially HERE before any LLM call goes out.
+    const remainingQuota: Record<string, number> = { ...totalQuota };
+    const batchPlans: Array<{ size: number; quota: Record<string, number> }> = [];
+    for (let i = 0; i < batchCount; i++) {
+      const remaining = opts.personaCount - i * PERSONA_BATCH;
+      const size = Math.min(PERSONA_BATCH, remaining);
+      const quota = allocateBatchQuota(remainingQuota, size);
+      batchPlans.push({ size, quota });
+    }
+
+    // Fire batches in parallel (capped by PERSONA_BATCH_CONCURRENCY) — typical
+    // 50-persona run drops from ~5 sequential calls (~8 min) to 1–2 concurrent
+    // waves (~2 min). allSettled semantics so a single failed batch doesn't
+    // crash the run; we just collect what we have and the country distribution
+    // log surfaces any shortfall.
+    const t0 = Date.now();
+    const batchResults = await runWithConcurrency(
+      PERSONA_BATCH_CONCURRENCY,
+      batchPlans.map(({ size, quota }) => () =>
+        personaLLM.generate({
+          system: PERSONA_SYSTEM,
+          prompt: personaPrompt(projectInput, size, locale, referenceBlock, quota),
+          jsonSchema: { type: "object", properties: { personas: { type: "array" } } },
+          // Lower temperature trades a bit of persona variety for much stricter
+          // adherence to the locale-language and reference-anchor rules above.
+          // Variety is preserved by the prompt explicitly asking for skeptics +
+          // neutrals + champions and a heterogeneous mix.
+          temperature: 0.6,
+          maxTokens: 8192,
+        }),
+      ),
+    );
+    console.log(
+      `[sim ${opts.simulationId}] persona batches: ${batchCount} batches, ` +
+        `concurrency ${PERSONA_BATCH_CONCURRENCY}, total ${((Date.now() - t0) / 1000).toFixed(1)}s`,
+    );
+
+    for (let i = 0; i < batchResults.length; i++) {
+      const settled = batchResults[i];
+      if (settled.status === "rejected") {
+        console.warn(
+          `[sim ${opts.simulationId}] persona batch ${i} failed:`,
+          settled.reason instanceof Error ? settled.reason.message : settled.reason,
+        );
+        continue;
+      }
+      const r = settled.value;
       // Parse personas individually so a single malformed entry doesn't reject the batch.
       const wrapped = (r.json as { personas?: unknown[] } | null)?.personas;
       const arr = Array.isArray(wrapped) ? wrapped : [];
@@ -236,7 +307,6 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
           parseSkips++;
         }
       }
-      if (personas.length >= opts.personaCount) break;
     }
     if (parseSkips > 0) {
       console.warn(`[sim ${opts.simulationId}] skipped ${parseSkips} malformed personas`);
