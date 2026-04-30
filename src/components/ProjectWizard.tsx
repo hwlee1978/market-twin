@@ -34,7 +34,11 @@ export function ProjectWizard({ locale }: { locale: string }) {
     basePrice: "",
     currency: "USD",
     objective: "conversion",
-    countries: [],
+    // Pre-select the export-focused preset (KR origin + JP/US targets) so the
+    // wizard arrives with the positioning baked in. User can deselect KR or
+    // add other target markets, but they don't have to click the preset button
+    // to get a sensible starting set.
+    countries: RECOMMENDED_PRESET,
     competitorUrls: "",
     personaCount: 200,
   });
@@ -210,7 +214,7 @@ export function ProjectWizard({ locale }: { locale: string }) {
                 value={form.category}
                 onChange={(e) => update("category", e.target.value)}
               >
-                {(["beauty", "fashion", "food", "health", "electronics", "home", "saas", "other"] as const).map((c) => (
+                {(["beauty", "fashion", "food", "health", "electronics", "home", "saas", "ip", "other"] as const).map((c) => (
                   <option key={c} value={c}>
                     {tw(`categories.${c}`)}
                   </option>

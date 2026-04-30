@@ -149,10 +149,10 @@
     "launching": "Launching demo...",
     "card": {
       "badge": "First time here?",
-      "title": "Run a sample first to see how it works",
-      "description": "Before filling in your own product details, take the pre-filled sample project for a spin. See exactly what the results screen looks like and what insights you get — in 2–3 minutes, no inputs required.",
+      "title": "See K-product overseas validation in action",
+      "description": "Before filling in your own product details, take the pre-filled K-product sample for a spin. See exactly how overseas-market analysis surfaces — in 2–3 minutes, no inputs required.",
       "point1": "50 personas anchored on gov statistics",
-      "point2": "Side-by-side: Korea · Japan · United States",
+      "point2": "Korea → Japan & United States expansion comparison",
       "point3": "Price elasticity curve + recommended price",
       "point4": "Auto-generated PDF report",
       "etaHint": "Takes 2–3 minutes — starts instantly with zero input",
@@ -170,7 +170,7 @@
   "common": {
     "appName": "Market Twin",
     "appTagline": "AI Launch Simulation",
-    "tagline": "See how the market will react — before you launch",
+    "tagline": "Validate K-product overseas expansion — before launch",
     "loading": "Loading...",
     "error": "Something went wrong",
     "save": "Save",
@@ -206,7 +206,7 @@
     "loginTitle": "Welcome back",
     "loginSubtitle": "Sign in to your AI Market Twin workspace",
     "signupTitle": "Create your free account",
-    "signupSubtitle": "Run your first simulation in under 30 seconds",
+    "signupSubtitle": "Validate your K-product's overseas expansion in under 30 seconds",
     "signupReassure": "No credit card · First simulation free · Cancel anytime",
     "checkEmail": "Confirmation email sent. Check your inbox.",
     "email": "Email",
@@ -234,7 +234,7 @@
     "noAccount": "Don't have an account?",
     "haveAccount": "Already have an account?",
     "or": "or",
-    "trustline": "Cutting-edge AI simulates thousands of consumer personas — validate your market reaction before launch.",
+    "trustline": "Thousands of AI personas evaluate your K-product; AI then scores success probability per target market — gov-statistics-grounded overseas-launch validation.",
     "features": {
       "successScore": {
         "title": "Launch Success Score",
@@ -258,7 +258,7 @@
     "title": "Dashboard",
     "welcome": "Welcome",
     "welcomeNamed": "Welcome, {name}",
-    "subtitleNew": "Welcome to AI Market Twin. Take the sample demo for a spin first to see what your results will look like.",
+    "subtitleNew": "Validate your K-product's overseas expansion. Try the sample demo first to see what target-market analysis looks like.",
     "subtitleReturning": "Project status and simulation insights at a glance",
     "kpi": {
       "activeProjects": "Active Projects",
@@ -305,15 +305,15 @@
       "steps": {
         "product": {
           "title": "Product",
-          "description": "What product are we simulating? Tell us the name, category, and key description."
+          "description": "Which product are we validating for overseas expansion? Tell us the name, category, and key description."
         },
         "pricing": {
           "title": "Pricing & Goal",
           "description": "Set the base price and launch objective. These directly drive persona evaluation and pricing recommendations."
         },
         "countries": {
-          "title": "Countries",
-          "description": "Pick the markets to compare. AI personas are auto-generated from gov-statistics for each country."
+          "title": "Target markets",
+          "description": "Which overseas markets are you expanding into? Gov-statistics-grounded AI personas are auto-generated per market."
         },
         "competitors": {
           "title": "Competitors",
@@ -332,7 +332,7 @@
         "basePrice": "Base price",
         "currency": "Currency",
         "objective": "Launch objective",
-        "countries": "Candidate countries",
+        "countries": "Target markets",
         "competitorUrls": "Competitor URLs",
         "assets": "Images / videos"
       },
@@ -347,7 +347,7 @@
         "description": "Minimum 10 characters. Describe features, target audience, and differentiation. The longer the better — persona accuracy improves.",
         "basePrice": "Current or candidate launch price. Simulation generates the curve at ±50% around this anchor.",
         "objective": "Pick the #1 KPI for this launch. Persona scenarios and channel recommendations adjust accordingly.",
-        "countries": "Pick at least 1 candidate country. We recommend ≤5 to keep cost and runtime manageable.",
+        "countries": "Pick at least 1 target market for overseas expansion. We recommend ≤5 to keep cost and runtime manageable.",
         "competitorUrls": "One URL per line. Competitor pages help with pricing and positioning context."
       },
       "objective": {
@@ -370,9 +370,10 @@
         "electronics": "Electronics",
         "home": "Home & Living",
         "saas": "SaaS / Software",
+        "ip": "IP & Content",
         "other": "Other"
       },
-      "countriesPreset": "Recommended set: KR · JP · US",
+      "countriesPreset": "Korea → Japan & US (default)",
       "countriesSearchPlaceholder": "Search countries (KR, Japan, ...)",
       "countriesCount": "{n} countries selected",
       "competitorUrlsFormat": "One URL per line. Comma-separated also works.",
@@ -392,6 +393,7 @@
         "description": "Pick a category preset — every field gets pre-filled. Edit freely after clicking.",
         "items": {
           "kbeauty": "K-beauty skincare",
+          "kIp": "K-Webtoon IP goods",
           "premiumFood": "Premium F&B",
           "electronics": "Consumer electronics",
           "modestFashion": "Modest fashion",

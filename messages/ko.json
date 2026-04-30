@@ -149,10 +149,10 @@
     "launching": "데모 시작 중...",
     "card": {
       "badge": "처음이신가요?",
-      "title": "샘플로 한 번 돌려보고 시작하세요",
-      "description": "본인 제품 정보를 입력하기 전에, 미리 채워진 샘플 프로젝트로 시뮬레이션을 한 번 실행해보세요. 결과 화면이 어떻게 생겼는지, 어떤 인사이트가 나오는지 2~3분 안에 직접 확인할 수 있습니다.",
+      "title": "샘플로 K-product 해외 진출 검증을 체험해보세요",
+      "description": "본인 제품 정보를 입력하기 전에, 미리 채워진 K-product 샘플로 시뮬레이션을 한 번 실행해보세요. 해외 시장 진출 분석 결과가 어떻게 나오는지 2~3분 안에 직접 확인할 수 있습니다.",
       "point1": "정부 통계 기반 페르소나 50명",
-      "point2": "한국·일본·미국 시장 비교",
+      "point2": "한국 → 일본·미국 진출 시장 비교",
       "point3": "가격 탄력성 곡선 + 추천가",
       "point4": "PDF 리포트 자동 생성",
       "etaHint": "2~3분 소요 — 별도 입력 없이 즉시 시작",
@@ -170,7 +170,7 @@
   "common": {
     "appName": "Market Twin",
     "appTagline": "AI 출시 시뮬레이션",
-    "tagline": "출시 전에 시장 반응을 미리 보세요",
+    "tagline": "K-product 글로벌 진출, 출시 전에 검증하세요",
     "loading": "로딩 중...",
     "error": "오류가 발생했습니다",
     "save": "저장",
@@ -206,7 +206,7 @@
     "loginTitle": "로그인",
     "loginSubtitle": "AI Market Twin 워크스페이스로 돌아오세요",
     "signupTitle": "무료 계정 만들기",
-    "signupSubtitle": "30초 내 첫 시뮬레이션을 시작할 수 있습니다",
+    "signupSubtitle": "30초 내 K-product의 해외 진출을 검증할 수 있습니다",
     "signupReassure": "신용카드 불필요 · 첫 시뮬레이션 무료 · 언제든 해지 가능",
     "checkEmail": "확인 이메일을 보냈습니다. 메일함을 확인해주세요.",
     "email": "이메일",
@@ -234,7 +234,7 @@
     "noAccount": "계정이 없으신가요?",
     "haveAccount": "이미 계정이 있으신가요?",
     "or": "또는",
-    "trustline": "최첨단 AI가 시뮬레이션하는 수천명의 소비자 페르소나로 출시 전 시장 반응을 검증합니다.",
+    "trustline": "수천명의 AI 페르소나가 K-product를 평가하고, AI가 시장별 성공 확률을 분석합니다 — 정부 통계 기반으로 출시 전 해외 진출 검증.",
     "features": {
       "successScore": {
         "title": "출시 성공 점수",
@@ -258,7 +258,7 @@
     "title": "대시보드",
     "welcome": "환영합니다",
     "welcomeNamed": "환영합니다, {name}님",
-    "subtitleNew": "AI Market Twin 에 오신 것을 환영합니다. 아래 샘플 데모로 결과 화면이 어떻게 생겼는지 먼저 둘러보세요.",
+    "subtitleNew": "K-product의 글로벌 진출 검증 도구입니다. 아래 샘플 데모로 해외 시장 분석 결과가 어떻게 나오는지 먼저 확인해 보세요.",
     "subtitleReturning": "프로젝트 진행 상황과 시뮬레이션 인사이트를 한눈에",
     "kpi": {
       "activeProjects": "진행 중인 프로젝트",
@@ -305,15 +305,15 @@
       "steps": {
         "product": {
           "title": "제품",
-          "description": "어떤 제품을 시뮬레이션할까요? 제품 이름, 카테고리, 핵심 설명을 알려주세요."
+          "description": "어떤 제품의 해외 진출을 검증할까요? 제품 이름, 카테고리, 핵심 설명을 알려주세요."
         },
         "pricing": {
           "title": "가격·목표",
           "description": "기본 판매가와 출시 목표를 설정합니다. 페르소나 평가와 가격 추천에 직접 반영됩니다."
         },
         "countries": {
-          "title": "국가",
-          "description": "어느 국가들을 비교할지 선택하세요. 정부 통계 기반 페르소나가 자동으로 만들어집니다."
+          "title": "진출 시장",
+          "description": "어느 해외 시장으로 진출할지 선택하세요. 시장별 정부 통계 기반 페르소나가 자동으로 만들어집니다."
         },
         "competitors": {
           "title": "경쟁사",
@@ -332,7 +332,7 @@
         "basePrice": "기본 가격",
         "currency": "통화",
         "objective": "출시 목표",
-        "countries": "후보 국가",
+        "countries": "진출 후보 시장",
         "competitorUrls": "경쟁사 URL",
         "assets": "이미지/영상"
       },
@@ -347,7 +347,7 @@
         "description": "최소 10자 이상. 제품 특징·타겟·차별점을 자유롭게 작성하세요. 길수록 페르소나 평가 정확도가 올라갑니다.",
         "basePrice": "현재 책정 중이거나 출시 후보 가격. 시뮬레이션이 ±50% 범위에서 가격 곡선을 생성합니다.",
         "objective": "이 출시의 1순위 KPI를 골라주세요. 페르소나 시나리오와 채널 추천이 달라집니다.",
-        "countries": "후보 국가 1개 이상 선택. 너무 많으면 비용·시간이 늘어나니 5개 내외 추천.",
+        "countries": "진출 검증할 해외 시장을 1개 이상 선택. 너무 많으면 비용·시간이 늘어나니 5개 내외 추천.",
         "competitorUrls": "1줄에 1개. 경쟁사 페이지를 알려주시면 가격·포지셔닝 비교에 참고합니다."
       },
       "objective": {
@@ -370,9 +370,10 @@
         "electronics": "가전·전자",
         "home": "리빙",
         "saas": "SaaS·소프트웨어",
+        "ip": "IP·콘텐츠",
         "other": "기타"
       },
-      "countriesPreset": "한국·일본·미국 추천 세트",
+      "countriesPreset": "한국 → 일본·미국 진출 (기본)",
       "countriesSearchPlaceholder": "국가 검색 (KR, 일본, ...)",
       "countriesCount": "{n}개 국가 선택됨",
       "competitorUrlsFormat": "1줄에 URL 1개. 콤마(,)로 구분해도 OK.",
@@ -392,6 +393,7 @@
         "description": "비슷한 카테고리의 프리셋을 클릭하면 모든 필드가 한 번에 채워집니다. 클릭 후 자유롭게 수정하세요.",
         "items": {
           "kbeauty": "K-뷰티 스킨케어",
+          "kIp": "K-웹툰 IP 굿즈",
           "premiumFood": "프리미엄 식음료",
           "electronics": "프리미엄 가전",
           "modestFashion": "모데스트 패션",

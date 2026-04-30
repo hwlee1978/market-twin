@@ -53,6 +53,16 @@ export const WIZARD_TEMPLATES: WizardTemplate[] = [
     objective: "expansion" as Objective,
     countries: ["KR", "JP", "US", "SG"],
   }),
+  tpl("kIp", "🦸", {
+    name: "K-웹툰 IP 글로벌 굿즈 라이선싱",
+    productName: "Crimson Order Collectible Series",
+    category: "ip",
+    description:
+      "글로벌 팬덤을 보유한 K-웹툰 IP 기반 프리미엄 피규어 + 아트북 컬렉션. 한정판 D2C 박스셋 형태로 북미·일본·동남아 핵심 팬층을 타겟. 시즌 한정 출시 + 라이선싱 확장 모델 검토 중.",
+    basePrice: "79",
+    objective: "expansion" as Objective,
+    countries: ["KR", "US", "JP", "ID"],
+  }),
   tpl("premiumFood", "🍱", {
     name: "프리미엄 김치 D2C 출시",
     productName: "Heritage Kimchi Original",
