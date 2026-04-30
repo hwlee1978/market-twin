@@ -144,7 +144,64 @@ with rows(profession_canonical, profession_localized, life_stage, age_group,
   ('part_time_worker',
    '{"ko":"파트타임 근로자","en":"Part-time Worker"}'::jsonb,
    'employed', '30-39', 12000000, 18000000, 26000000,
-   '연 ₩12M-₩26M (~$9-20k USD)', '₩12M-₩26M annually (~$9-20k USD)')
+   '연 ₩12M-₩26M (~$9-20k USD)', '₩12M-₩26M annually (~$9-20k USD)'),
+
+  -- Industry-adjacent professions for IP / content / creator-economy targeting.
+  -- Without these, ko-locale runs over-cluster on 'student' and 'teacher'
+  -- because those were the most prominent reference anchors.
+  ('graphic_designer',
+   '{"ko":"그래픽 디자이너","en":"Graphic Designer"}'::jsonb,
+   'employed', '20-29', 26000000, 32000000, 42000000,
+   '연 ₩26M-₩42M (~$20-32k USD)', '₩26M-₩42M annually (~$20-32k USD)'),
+  ('graphic_designer',
+   '{"ko":"그래픽 디자이너","en":"Graphic Designer"}'::jsonb,
+   'employed', '30-39', 38000000, 50000000, 65000000,
+   '연 ₩38M-₩65M (~$29-50k USD)', '₩38M-₩65M annually (~$29-50k USD)'),
+
+  ('ux_designer',
+   '{"ko":"UX·UI 디자이너","en":"UX / UI Designer"}'::jsonb,
+   'employed', '20-29', 32000000, 42000000, 55000000,
+   '연 ₩32M-₩55M (~$24-42k USD)', '₩32M-₩55M annually (~$24-42k USD)'),
+  ('ux_designer',
+   '{"ko":"UX·UI 디자이너","en":"UX / UI Designer"}'::jsonb,
+   'employed', '30-39', 50000000, 70000000, 95000000,
+   '연 ₩50M-₩95M (~$38-72k USD)', '₩50M-₩95M annually (~$38-72k USD)'),
+
+  ('illustrator',
+   '{"ko":"일러스트레이터","en":"Illustrator"}'::jsonb,
+   'self_employed', '20-29', 18000000, 28000000, 45000000,
+   '프리랜서 연 ₩18M-₩45M (변동 큼, ~$14-34k USD)',
+   'Freelance ₩18M-₩45M annually (highly variable, ~$14-34k USD)'),
+  ('illustrator',
+   '{"ko":"일러스트레이터","en":"Illustrator"}'::jsonb,
+   'self_employed', '30-39', 28000000, 45000000, 70000000,
+   '프리랜서 연 ₩28M-₩70M (~$21-53k USD)',
+   'Freelance ₩28M-₩70M annually (~$21-53k USD)'),
+
+  ('freelance_creator',
+   '{"ko":"프리랜서 콘텐츠 크리에이터","en":"Freelance Content Creator"}'::jsonb,
+   'self_employed', '20-29', 12000000, 30000000, 80000000,
+   '프리랜서 연 ₩12M-₩80M (변동 매우 큼, ~$9-61k USD)',
+   'Freelance ₩12M-₩80M annually (highly variable, ~$9-61k USD)'),
+  ('freelance_creator',
+   '{"ko":"프리랜서 콘텐츠 크리에이터","en":"Freelance Content Creator"}'::jsonb,
+   'self_employed', '30-39', 20000000, 50000000, 150000000,
+   '프리랜서 연 ₩20M-₩150M (~$15-114k USD)',
+   'Freelance ₩20M-₩150M annually (~$15-114k USD)'),
+
+  ('content_planner',
+   '{"ko":"콘텐츠 기획자·PD","en":"Content Planner / PD"}'::jsonb,
+   'employed', '30-39', 45000000, 60000000, 80000000,
+   '연 ₩45M-₩80M (~$34-61k USD)', '₩45M-₩80M annually (~$34-61k USD)'),
+  ('content_planner',
+   '{"ko":"콘텐츠 기획자·PD","en":"Content Planner / PD"}'::jsonb,
+   'employed', '40-49', 60000000, 80000000, 110000000,
+   '연 ₩60M-₩110M (~$46-84k USD)', '₩60M-₩110M annually (~$46-84k USD)'),
+
+  ('marketing_assistant',
+   '{"ko":"마케팅·기획 (주니어)","en":"Marketing / Planning (Junior)"}'::jsonb,
+   'employed', '20-29', 30000000, 38000000, 48000000,
+   '연 ₩30M-₩48M (~$23-37k USD)', '₩30M-₩48M annually (~$23-37k USD)')
 )
 insert into public.country_profession_income
   (country_code, data_year, profession_canonical, profession_localized,

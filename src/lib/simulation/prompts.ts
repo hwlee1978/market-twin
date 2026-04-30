@@ -13,6 +13,52 @@ function languageInstruction(locale: PromptLocale): string {
 
 const SYSTEM_BASE = `You are AI Market Twin, a B2B platform that simulates consumer behavior across countries to predict product launch outcomes. Your job is to generate realistic, internally consistent synthetic data and scoring that an executive can act on. Be concrete, specific, and avoid generic marketing fluff.`;
 
+/**
+ * Per-category hint for what kinds of professions plausibly buy this category,
+ * to fight the LLM's tendency to repeat the same 1-2 archetypes (esp. for KR
+ * personas in ko-locale runs, which empirically over-index on student/teacher).
+ * Soft hint — not a hard constraint — so it shapes the distribution without
+ * locking out edge cases.
+ */
+function categoryProfessionHint(category: string, locale: PromptLocale): string {
+  const hints: Record<string, { ko: string; en: string }> = {
+    ip: {
+      ko: "IP·콘텐츠(웹툰·만화·캐릭터 굿즈·콜렉터블) 타겟은 컬렉터 인접 직군에 weighted: 디자이너·일러스트레이터·마케터·프리랜서 콘텐츠 크리에이터·IT/PM·코스플레이어·콘텐츠 산업 기획자. 학생·일반 사무직·자영업자도 섞되, '대학생'과 '교사'만 반복하지 말 것.",
+      en: "IP / content (webtoon, manga, character merch, collectibles) — weight toward collector-adjacent: designers, illustrators, marketers, freelance content creators, IT/PMs, cosplayers, content-industry planners. Mix in some students, office workers, and self-employed — but do NOT cluster on 'student' and 'teacher'.",
+    },
+    beauty: {
+      ko: "뷰티 — 사무직·서비스직·자영업·홈메이커·대학생·뷰티 인플루언서·간호사 등 폭넓게, 한 직업에 몰리지 말 것.",
+      en: "Beauty — broad mix: office workers, service industry, self-employed, homemakers, students, beauty influencers, nurses. Don't concentrate.",
+    },
+    food: {
+      ko: "식음료 — 가장 폭넓은 소비자층: 모든 직업·연령·라이프스테이지가 잠재 고객. 다양성 최대화.",
+      en: "Food & beverage — the broadest consumer base. All professions, ages, life stages welcome. Maximize diversity.",
+    },
+    saas: {
+      ko: "SaaS·소프트웨어 B2B — 의사결정권자 중심: 마케터·세일즈·HR·재무·운영 매니저·CXO·소상공인·프리랜서. 학생·은퇴자 비중 낮게.",
+      en: "B2B SaaS — decision-makers: marketers, sales, HR, finance, ops managers, CXOs, small-business owners, freelancers. De-emphasize students/retirees.",
+    },
+    health: {
+      ko: "건강·웰빙 — 30-50대 중심 + 실버 일부. 헬스컨셔스 직장인·운동선수·간호사·약사·홈메이커·은퇴자.",
+      en: "Health & wellness — skews 30-50s with some retirees. Health-conscious office workers, athletes, nurses, pharmacists, homemakers.",
+    },
+    fashion: {
+      ko: "패션 — 사무직·서비스직·학생·프리랜서·인플루언서·소상공인 등 폭넓게.",
+      en: "Fashion — broad: office workers, service industry, students, freelancers, influencers, small-business owners.",
+    },
+    electronics: {
+      ko: "가전·전자 — 사무직·IT 직군·자영업·자녀 둔 가정·게이머·홈오피스 사용자. 가족 단위와 개인 모두.",
+      en: "Electronics — office workers, IT roles, self-employed, parents, gamers, home-office users. Mix family and individual buyers.",
+    },
+    home: {
+      ko: "리빙 — 가정 단위 중심: 1인 가구 직장인·신혼부부·자녀 둔 가정·홈메이커·자취 학생·소형 자영업자.",
+      en: "Home & living — household-centric: single workers, newlyweds, families, homemakers, students living alone.",
+    },
+  };
+  const hint = hints[category];
+  return hint ? hint[locale] : "";
+}
+
 export const PERSONA_SYSTEM = `${SYSTEM_BASE}
 
 For persona generation:
@@ -248,6 +294,15 @@ Competitor references: ${input.competitorUrls.length ? input.competitorUrls.join
 ${distributionInstruction}
 
 Mix in different life stages — not just full-time professionals. Include some students, homemakers, retirees, freelancers, or part-time workers where they realistically belong in the target market.
+
+═══ PROFESSION DIVERSITY RULE (mandatory) ═══
+Within this batch of ${count} personas, NO single base profession may appear in more than ~25% of personas. Surface variations of the same job (e.g. "대학생 (시각디자인 전공)" vs "대학생 (애니메이션 동아리)") count as the SAME base profession — they do not satisfy diversity. This rule applies per country too: each country's allotment must contain a heterogeneous occupation mix, not just 1–2 archetypes.
+
+When you have a country quota of N personas, distribute them across at least max(3, N/3) distinct base professions. Draw from the FULL range of professions in the reference data, not only the most prominent 2–3 entries.${
+    categoryProfessionHint(input.category, locale)
+      ? `\n\n═══ CATEGORY-SPECIFIC PROFESSION HINT ═══\n${categoryProfessionHint(input.category, locale)}`
+      : ""
+  }
 
 CRITICAL constraints (re-read the system prompt rules):
 - ALL text fields (profession, purchaseStyle, interests, trustFactors, objections) in the LOCALE language — even for non-${locale.toUpperCase()} personas. Do NOT switch to the country's native language.
