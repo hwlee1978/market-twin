@@ -567,7 +567,7 @@
       "noMitigation": "영향받는 페르소나의 신뢰 요소가 없습니다.",
       "score": "점수",
       "anchoredOn": "근거 데이터",
-      "anchoredHint": "현재 KR(KOSIS) 데이터만 시드되어 있어, 다른 국가는 LLM 추정에 의존합니다.",
+      "anchoredHint": "페르소나 생성 시 위 출처의 정부·공공 통계를 참고했습니다.",
       "occurrences": "{n}회 언급",
       "impact": {
         "affected": "관련 페르소나",

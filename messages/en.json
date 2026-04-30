@@ -567,7 +567,7 @@
       "noMitigation": "No trust signals registered from affected personas.",
       "score": "Score",
       "anchoredOn": "Anchored on",
-      "anchoredHint": "Reference data is currently seeded for KR (KOSIS) only. Personas in other markets fall back to LLM estimates.",
+      "anchoredHint": "Personas were anchored on the gov-statistics sources above.",
       "occurrences": "{n} mentions",
       "impact": {
         "affected": "Related personas",
