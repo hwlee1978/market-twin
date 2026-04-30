@@ -200,8 +200,28 @@ export function personaPrompt(
    * anchor its output to these values instead of relying on its training prior.
    */
   referenceBlock: string = "",
+  /**
+   * Optional exact per-country quota for this batch (e.g. { KR: 4, US: 4, JP: 4 }).
+   * When present, replaces the soft "roughly evenly" instruction with a hard
+   * requirement — without this, ko-locale runs tend to skew Korean-heavy because
+   * the LLM defaults to its strongest training prior + the reference adherence
+   * section uses Korean examples.
+   */
+  batchQuota?: Record<string, number>,
 ): string {
   const example = locale === "ko" ? PERSONA_EXAMPLE_KO : PERSONA_EXAMPLE_EN;
+
+  const quotaEntries = batchQuota
+    ? Object.entries(batchQuota).filter(([, n]) => n > 0)
+    : [];
+  const distributionInstruction =
+    quotaEntries.length > 0
+      ? `MANDATORY country distribution for THIS batch — these counts are EXACT, not approximate. The "country" field of each persona MUST be one of the codes below, and the total per code MUST match exactly:
+${quotaEntries.map(([c, n]) => `  • ${c}: exactly ${n} persona${n > 1 ? "s" : ""}`).join("\n")}
+
+If you produce more or fewer of any country than specified above, the result is INVALID. Do not over-represent your strongest training prior — match the quota.`
+      : `Distribute personas roughly evenly across the candidate countries.`;
+
   const referenceSection = referenceBlock
     ? `\n${referenceBlock}
 
@@ -225,7 +245,9 @@ Launch objective: ${input.objective}
 Candidate countries: ${input.candidateCountries.join(", ")}
 Competitor references: ${input.competitorUrls.length ? input.competitorUrls.join(", ") : "none"}
 
-Distribute personas roughly evenly across the candidate countries. Mix in different life stages — not just full-time professionals. Include some students, homemakers, retirees, freelancers, or part-time workers where they realistically belong in the target market.
+${distributionInstruction}
+
+Mix in different life stages — not just full-time professionals. Include some students, homemakers, retirees, freelancers, or part-time workers where they realistically belong in the target market.
 
 CRITICAL constraints (re-read the system prompt rules):
 - ALL text fields (profession, purchaseStyle, interests, trustFactors, objections) in the LOCALE language — even for non-${locale.toUpperCase()} personas. Do NOT switch to the country's native language.

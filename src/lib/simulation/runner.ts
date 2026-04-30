@@ -50,6 +50,53 @@ interface RunOptions {
 const PERSONA_BATCH = 12;
 
 /**
+ * Even split of `total` across the candidate countries (remainder spread to the
+ * first few in input order). Used as the across-batches target — see
+ * `allocateBatchQuota` for the per-batch slice.
+ */
+function computeCountryQuota(total: number, countries: string[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (countries.length === 0) return out;
+  const base = Math.floor(total / countries.length);
+  const remainder = total - base * countries.length;
+  countries.forEach((c, i) => {
+    out[c] = base + (i < remainder ? 1 : 0);
+  });
+  return out;
+}
+
+/**
+ * Round-robin allocation of `batchSize` slots across countries, drawing from the
+ * `remaining` quota pool. Mutates `remaining` in place. Stops early when the pool
+ * is exhausted (covers the edge case where the previous batch over-shot somewhere
+ * — we just allocate what's left).
+ */
+function allocateBatchQuota(
+  remaining: Record<string, number>,
+  batchSize: number,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  const codes = Object.keys(remaining);
+  if (codes.length === 0) return out;
+  let allocated = 0;
+  let cursor = 0;
+  let exhausted = 0;
+  while (allocated < batchSize && exhausted < codes.length) {
+    const c = codes[cursor % codes.length];
+    if (remaining[c] > 0) {
+      out[c] = (out[c] ?? 0) + 1;
+      remaining[c]--;
+      allocated++;
+      exhausted = 0;
+    } else {
+      exhausted++;
+    }
+    cursor++;
+  }
+  return out;
+}
+
+/**
  * Runs the full simulation pipeline and persists the result.
  * Designed to run inside a Vercel function or background worker — total budget ~5 min.
  *
@@ -133,12 +180,25 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     const personas: z.infer<typeof PersonaSchema>[] = [];
     const batches = Math.max(1, Math.ceil(opts.personaCount / PERSONA_BATCH));
     let parseSkips = 0;
+
+    // Even-distribution quota across candidate countries. Without this, ko-locale
+    // runs skew Korean-heavy because the LLM's strongest training prior + the
+    // Korean reference-data examples both pull persona generation toward KR.
+    const totalQuota = computeCountryQuota(
+      opts.personaCount,
+      projectInput.candidateCountries,
+    );
+    const remainingQuota: Record<string, number> = { ...totalQuota };
+    const generatedByCountry: Record<string, number> = {};
+    for (const c of projectInput.candidateCountries) generatedByCountry[c] = 0;
+
     for (let i = 0; i < batches; i++) {
       const remaining = opts.personaCount - personas.length;
       const batchSize = Math.min(PERSONA_BATCH, remaining);
+      const batchQuota = allocateBatchQuota(remainingQuota, batchSize);
       const r = await personaLLM.generate({
         system: PERSONA_SYSTEM,
-        prompt: personaPrompt(projectInput, batchSize, locale, referenceBlock),
+        prompt: personaPrompt(projectInput, batchSize, locale, referenceBlock, batchQuota),
         jsonSchema: { type: "object", properties: { personas: { type: "array" } } },
         // Lower temperature trades a bit of persona variety for much stricter
         // adherence to the locale-language and reference-anchor rules above.
@@ -170,6 +230,8 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
             interests: filterLocaleNative(parsed.data.interests, locale),
           };
           personas.push(cleaned);
+          const code = (cleaned.country ?? "").toUpperCase();
+          generatedByCountry[code] = (generatedByCountry[code] ?? 0) + 1;
         } else {
           parseSkips++;
         }
@@ -179,7 +241,12 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     if (parseSkips > 0) {
       console.warn(`[sim ${opts.simulationId}] skipped ${parseSkips} malformed personas`);
     }
-    console.log(`[sim ${opts.simulationId}] generated ${personas.length} personas`);
+    const distributionLog = Object.entries(generatedByCountry)
+      .map(([c, n]) => `${c}=${n}/${totalQuota[c] ?? "?"}`)
+      .join(" ");
+    console.log(
+      `[sim ${opts.simulationId}] generated ${personas.length} personas — distribution: ${distributionLog}`,
+    );
 
     // ── Stage 2: countries ─────────────────────────────────────
     await updateStage("scoring");
