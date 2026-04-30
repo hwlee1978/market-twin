@@ -20,6 +20,7 @@ import {
 import { evaluateRegulatory } from "./regulatory";
 import { filterLocaleNative } from "./locale-filter";
 import { aggregatePersonas } from "./aggregate";
+import { planSlots, type PersonaSlot } from "./profession-pool";
 import {
   notifySimulationComplete,
   notifySimulationFailed,
@@ -88,52 +89,10 @@ async function runWithConcurrency<T>(
   return results;
 }
 
-/**
- * Even split of `total` across the candidate countries (remainder spread to the
- * first few in input order). Used as the across-batches target — see
- * `allocateBatchQuota` for the per-batch slice.
- */
-function computeCountryQuota(total: number, countries: string[]): Record<string, number> {
-  const out: Record<string, number> = {};
-  if (countries.length === 0) return out;
-  const base = Math.floor(total / countries.length);
-  const remainder = total - base * countries.length;
-  countries.forEach((c, i) => {
-    out[c] = base + (i < remainder ? 1 : 0);
-  });
-  return out;
-}
-
-/**
- * Round-robin allocation of `batchSize` slots across countries, drawing from the
- * `remaining` quota pool. Mutates `remaining` in place. Stops early when the pool
- * is exhausted (covers the edge case where the previous batch over-shot somewhere
- * — we just allocate what's left).
- */
-function allocateBatchQuota(
-  remaining: Record<string, number>,
-  batchSize: number,
-): Record<string, number> {
-  const out: Record<string, number> = {};
-  const codes = Object.keys(remaining);
-  if (codes.length === 0) return out;
-  let allocated = 0;
-  let cursor = 0;
-  let exhausted = 0;
-  while (allocated < batchSize && exhausted < codes.length) {
-    const c = codes[cursor % codes.length];
-    if (remaining[c] > 0) {
-      out[c] = (out[c] ?? 0) + 1;
-      remaining[c]--;
-      allocated++;
-      exhausted = 0;
-    } else {
-      exhausted++;
-    }
-    cursor++;
-  }
-  return out;
-}
+// Country quota + per-batch allocation now live in profession-pool.ts as
+// part of planSlots(), which produces a flat list of (country, profession)
+// slots covering the whole simulation. Batches are sliced from that list
+// in order — the slice itself doubles as the per-batch quota.
 
 /**
  * Runs the full simulation pipeline and persists the result.
@@ -220,26 +179,29 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     const batchCount = Math.max(1, Math.ceil(opts.personaCount / PERSONA_BATCH));
     let parseSkips = 0;
 
-    // Even-distribution quota across candidate countries. Without this, ko-locale
-    // runs skew Korean-heavy because the LLM's strongest training prior + the
-    // Korean reference-data examples both pull persona generation toward KR.
-    const totalQuota = computeCountryQuota(
+    // Pre-assign every persona slot with (country, profession) up front. The
+    // profession comes from a category-specific pool with hard caps on the
+    // generic archetypes the LLM keeps defaulting to (대학생 / 마케팅 매니저 /
+    // 일반 회사원). This guarantees across-batch profession diversity by
+    // construction, since each parallel batch gets a disjoint slice of
+    // pre-assigned slots — the LLM no longer chooses base profession.
+    const allSlots: PersonaSlot[] = planSlots(
       opts.personaCount,
       projectInput.candidateCountries,
+      projectInput.category,
+      locale,
+      opts.simulationId,
     );
     const generatedByCountry: Record<string, number> = {};
     for (const c of projectInput.candidateCountries) generatedByCountry[c] = 0;
 
-    // Pre-compute every batch's quota up front so all batches can fire in
-    // parallel — `allocateBatchQuota` mutates `remainingQuota` and we drain it
-    // serially HERE before any LLM call goes out.
-    const remainingQuota: Record<string, number> = { ...totalQuota };
-    const batchPlans: Array<{ size: number; quota: Record<string, number> }> = [];
+    // Slice the flat slot list into per-batch chunks. Each chunk doubles as
+    // the batch's country+profession assignment — no separate quota math.
+    const batchPlans: Array<{ slots: PersonaSlot[] }> = [];
     for (let i = 0; i < batchCount; i++) {
-      const remaining = opts.personaCount - i * PERSONA_BATCH;
-      const size = Math.min(PERSONA_BATCH, remaining);
-      const quota = allocateBatchQuota(remainingQuota, size);
-      batchPlans.push({ size, quota });
+      const start = i * PERSONA_BATCH;
+      const slots = allSlots.slice(start, start + PERSONA_BATCH);
+      if (slots.length > 0) batchPlans.push({ slots });
     }
 
     // Fire batches in parallel (capped by PERSONA_BATCH_CONCURRENCY) — typical
@@ -250,10 +212,10 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     const t0 = Date.now();
     const batchResults = await runWithConcurrency(
       PERSONA_BATCH_CONCURRENCY,
-      batchPlans.map(({ size, quota }) => () =>
+      batchPlans.map(({ slots }) => () =>
         personaLLM.generate({
           system: PERSONA_SYSTEM,
-          prompt: personaPrompt(projectInput, size, locale, referenceBlock, quota),
+          prompt: personaPrompt(projectInput, slots, locale, referenceBlock),
           jsonSchema: { type: "object", properties: { personas: { type: "array" } } },
           // Lower temperature trades a bit of persona variety for much stricter
           // adherence to the locale-language and reference-anchor rules above.
@@ -312,8 +274,12 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     if (parseSkips > 0) {
       console.warn(`[sim ${opts.simulationId}] skipped ${parseSkips} malformed personas`);
     }
+    const targetByCountry = allSlots.reduce<Record<string, number>>((acc, s) => {
+      acc[s.country] = (acc[s.country] ?? 0) + 1;
+      return acc;
+    }, {});
     const distributionLog = Object.entries(generatedByCountry)
-      .map(([c, n]) => `${c}=${n}/${totalQuota[c] ?? "?"}`)
+      .map(([c, n]) => `${c}=${n}/${targetByCountry[c] ?? "?"}`)
       .join(" ");
     console.log(
       `[sim ${opts.simulationId}] generated ${personas.length} personas — distribution: ${distributionLog}`,

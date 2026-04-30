@@ -1,6 +1,7 @@
 import type { ProjectInput } from "./schemas";
 import type { SimulationAggregate } from "./aggregate";
 import { renderAggregateForPrompt } from "./aggregate";
+import type { PersonaSlot } from "./profession-pool";
 
 export type PromptLocale = "ko" | "en";
 
@@ -254,7 +255,7 @@ US senior software engineer:
 
 export function personaPrompt(
   input: ProjectInput,
-  count: number,
+  slots: PersonaSlot[],
   locale: PromptLocale = "en",
   /**
    * Optional pre-formatted block of government-statistics reference data
@@ -262,27 +263,37 @@ export function personaPrompt(
    * anchor its output to these values instead of relying on its training prior.
    */
   referenceBlock: string = "",
-  /**
-   * Optional exact per-country quota for this batch (e.g. { KR: 4, US: 4, JP: 4 }).
-   * When present, replaces the soft "roughly evenly" instruction with a hard
-   * requirement — without this, ko-locale runs tend to skew Korean-heavy because
-   * the LLM defaults to its strongest training prior + the reference adherence
-   * section uses Korean examples.
-   */
-  batchQuota?: Record<string, number>,
 ): string {
   const example = locale === "ko" ? PERSONA_EXAMPLE_KO : PERSONA_EXAMPLE_EN;
+  const count = slots.length;
 
-  const quotaEntries = batchQuota
-    ? Object.entries(batchQuota).filter(([, n]) => n > 0)
-    : [];
-  const distributionInstruction =
-    quotaEntries.length > 0
-      ? `MANDATORY country distribution for THIS batch — these counts are EXACT, not approximate. The "country" field of each persona MUST be one of the codes below, and the total per code MUST match exactly:
-${quotaEntries.map(([c, n]) => `  • ${c}: exactly ${n} persona${n > 1 ? "s" : ""}`).join("\n")}
+  // When every slot carries a pre-assigned profession, we render an explicit
+  // numbered list — the LLM produces ONE persona per slot, in order, matching
+  // both the country and the base profession we assigned. This is what
+  // guarantees across-batch profession diversity (parallel batches each get
+  // disjoint slot slices).
+  const allSlotsHaveProfession = slots.every((s) => s.profession);
+  const distributionInstruction = allSlotsHaveProfession
+    ? `MANDATORY persona slot assignments — produce EXACTLY ${count} personas in array order, each matching its slot's country code AND base profession. Slot order is the order in your output array.
 
-If you produce more or fewer of any country than specified above, the result is INVALID. Do not over-represent your strongest training prior — match the quota.`
-      : `Distribute personas roughly evenly across the candidate countries.`;
+${slots.map((s, i) => `  Slot ${i + 1}: country=${s.country}, base profession=${s.profession}`).join("\n")}
+
+Rules:
+- The persona's "country" field MUST equal the slot's country code.
+- The persona's "profession" field MUST start with the assigned base profession. You MAY add a parenthetical specialization to make it concrete (e.g. "프리랜서 일러스트레이터 (게임 컨셉 아트 전문)" or "Senior software engineer (Tokyo fintech)"), but the base must match.
+- If an assigned profession doesn't naturally fit the slot's country, adapt to the closest local equivalent BUT keep the same base archetype.
+- Everything else (age, gender, income, intent, objections, trust factors, interests, purchase style) is YOUR creative judgment — vary widely across slots so the personas feel distinct.`
+    : `Distribute personas across these countries (exact counts):
+${Object.entries(
+        slots.reduce<Record<string, number>>((acc, s) => {
+          acc[s.country] = (acc[s.country] ?? 0) + 1;
+          return acc;
+        }, {}),
+      )
+        .map(([c, n]) => `  • ${c}: exactly ${n}`)
+        .join("\n")}
+
+If you produce more or fewer of any country than specified above, the result is INVALID.`;
 
   const referenceSection = referenceBlock
     ? `\n${referenceBlock}
@@ -309,7 +320,10 @@ Competitor references: ${input.competitorUrls.length ? input.competitorUrls.join
 
 ${distributionInstruction}
 
-Mix in different life stages — not just full-time professionals. Include some students, homemakers, retirees, freelancers, or part-time workers where they realistically belong in the target market.
+Mix in different life stages — not just full-time professionals. Include some students, homemakers, retirees, freelancers, or part-time workers where they realistically belong in the target market.${
+    allSlotsHaveProfession
+      ? "" // Slot-level profession assignment already guarantees diversity.
+      : `
 
 ═══ PROFESSION DIVERSITY RULE (mandatory — violations are CRITICAL ERRORS) ═══
 HARD LIMIT: in a batch of ${count} personas, the SAME base profession may appear AT MOST 2 times. Producing 3+ personas of the same base profession (even with different specializations) makes the entire batch INVALID.
@@ -319,12 +333,11 @@ What counts as "same base profession":
 - "마케팅 매니저 (테크 스타트업)" + "마케팅 매니저 (엔터테인먼트)" → both Marketing Manager. Maximum 2.
 - "시니어 소프트웨어 엔지니어 (런던)" + "시니어 소프트웨어 엔지니어 (도쿄)" → same. Maximum 2.
 
-Empirical failure mode to avoid: generating ${count} personas where 70%+ are 대학생/Marketing Manager/Senior SW Engineer with different specializations. This destroys the simulation's value. Force yourself to use at least ${Math.max(6, Math.ceil(count / 2))} DIFFERENT base professions across this batch.
-
-Default to drawing from the FULL range of professions in the reference data and the category-specific profession menu below — every batch should look like a realistic cross-section of the actual buyer audience, not 2 archetypes copy-pasted with cosmetic variation.${
-    categoryProfessionHint(input.category, locale)
-      ? `\n\n═══ CATEGORY-SPECIFIC PROFESSION HINT ═══\n${categoryProfessionHint(input.category, locale)}`
-      : ""
+Force yourself to use at least ${Math.max(6, Math.ceil(count / 2))} DIFFERENT base professions across this batch.${
+          categoryProfessionHint(input.category, locale)
+            ? `\n\n═══ CATEGORY-SPECIFIC PROFESSION HINT ═══\n${categoryProfessionHint(input.category, locale)}`
+            : ""
+        }`
   }
 
 CRITICAL constraints (re-read the system prompt rules):
@@ -397,7 +410,20 @@ export function synthesisPrompt(
   pricingJson: string,
   locale: PromptLocale = "en",
 ): string {
+  // The LLM's training cutoff is older than "now" — without this anchor it
+  // routinely refers to past events ("Japan Expo 2025", "MCM Comic Con 2024
+  // London") as upcoming, which makes the action plan unusable. Inject today
+  // so every "D-X / D+X" timeline anchors to a real future date.
+  const today = new Date().toISOString().slice(0, 10);
+  const currentYear = new Date().getUTCFullYear();
+  const dateContext =
+    locale === "ko"
+      ? `오늘 날짜: ${today}. 액션 플랜의 모든 날짜·이벤트는 오늘 이후로만 참조하세요. 이미 지난 이벤트(예: ${currentYear - 1}년 행사)를 미래 이벤트인 것처럼 적지 마세요. 일본 Japan Expo·UK MCM Comic Con 같은 연례 이벤트는 ${currentYear}년 또는 ${currentYear + 1}년 회차로 명시하세요.`
+      : `Today's date: ${today}. Anchor every action-plan date / event reference to AFTER today. Do NOT cite past events (e.g. ${currentYear - 1} editions) as upcoming. For annual events like Japan Expo, MCM Comic Con, Comic-Con etc., reference the ${currentYear} or ${currentYear + 1} edition explicitly.`;
+
   return `Produce the final executive verdict for this launch simulation.
+
+${dateContext}
 
 Product: ${input.productName} (${input.category}) — ${input.description}
 Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
