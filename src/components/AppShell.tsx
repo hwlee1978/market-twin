@@ -117,8 +117,25 @@ export function AppShell({
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0">
-        <div className="max-w-7xl mx-auto px-8 py-10 space-y-8">{children}</div>
+      <main className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1 max-w-7xl w-full mx-auto px-8 py-10 space-y-8">
+          {children}
+        </div>
+        <footer className="border-t border-slate-200/70 bg-white/60">
+          <div className="max-w-7xl mx-auto px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+            <div>
+              © {new Date().getFullYear()} Market Twin
+            </div>
+            <div className="flex items-center gap-4">
+              <Link href="/privacy" className="hover:text-brand">
+                {tCommon("nav.privacy")}
+              </Link>
+              <Link href="/terms" className="hover:text-brand">
+                {tCommon("nav.terms")}
+              </Link>
+            </div>
+          </div>
+        </footer>
       </main>
     </div>
   );

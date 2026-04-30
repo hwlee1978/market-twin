@@ -281,7 +281,11 @@
     "language": "Language",
     "korean": "한국어",
     "english": "English",
-    "loggedInAs": "Signed in as"
+    "loggedInAs": "Signed in as",
+    "nav": {
+      "privacy": "Privacy",
+      "terms": "Terms"
+    }
   },
   "nav": {
     "dashboard": "Dashboard",
