@@ -442,6 +442,14 @@
       "bestCreative": "Best Creative",
       "riskLevel": "Risk Level"
     },
+    "help": {
+      "successScore": "Overall launch success probability (0-100). Combines average persona purchase intent, country score, and regulatory risk into a single number.",
+      "bestCountry": "The candidate country with the highest combined score. AI recommends prioritizing marketing resources here first.",
+      "bestSegment": "The persona segment in the top country with the highest purchase intent (profession / age / behavior summary).",
+      "bestPrice": "AI's recommended entry price after analyzing the pricing curve and persona price sensitivity.",
+      "bestCreative": "The highest-scoring creative asset (only shown when creative inputs were provided in the wizard).",
+      "riskLevel": "Overall launch risk level (LOW / MEDIUM / HIGH). Combines regulatory, competitive, and supply-chain factors."
+    },
     "country": {
       "header": "Country",
       "demand": "Demand Score",
@@ -451,6 +459,14 @@
       "rank": "Priority",
       "rationale": "Why",
       "noData": "No country data",
+      "help": {
+        "rank": "Entry priority based on combined score and market attractiveness. Rank 1 is the most recommended market.",
+        "demand": "Estimated market demand for this product category in this country (0-100). Reflects market size and purchase intent.",
+        "cac": "Estimated customer acquisition cost (USD) per new customer. Reflects ad rates, channel efficiency, and competition intensity.",
+        "competition": "Number and market-share distribution of existing competitors in the same category (0-100). Higher score = harder to enter.",
+        "score": "Weighted final entry score across demand / CAC / competition (0-100). 100 = strongly recommended market.",
+        "rationale": "AI's reasoning for the score. Click the row to expand into persona analysis and regulatory notes."
+      },
       "drill": {
         "rationaleFull": "Full rationale",
         "personaSummary": "Persona summary",
@@ -502,7 +518,10 @@
       "groupHigh": "High:",
       "groupLow": "Low:",
       "anchoredOn": "Anchored on",
-      "anchoredHint": "Persona generation referenced gov-statistics from the sources above."
+      "anchoredHint": "Persona generation referenced gov-statistics from the sources above.",
+      "help": {
+        "intentLegend": "Purchase intent (0-100) is the persona's likelihood of actually buying the product. 70+ is a strong purchase signal; below 35 is hypothetical or hesitant."
+      }
     },
     "pricing": {
       "priceVsConversion": "Price vs Conversion",
@@ -510,6 +529,10 @@
       "marginEstimate": "Margin Estimate",
       "conversion": "Conversion (%)",
       "revenue": "Revenue index",
+      "help": {
+        "recommendedPrice": "Optimal entry price computed from demand, persona price sensitivity, and competitor price tier. May not be the revenue-max point (margin / positioning weighted in).",
+        "marginEstimate": "Margin commentary at the recommended price. Actual cost structure should be verified separately by the user."
+      },
       "why": {
         "title": "Why this price",
         "recommendedMarker": "Recommended",

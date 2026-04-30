@@ -6,6 +6,7 @@ import { Search, X } from "lucide-react";
 import { clsx } from "clsx";
 import type { Persona } from "@/lib/simulation/schemas";
 import { getCountryLabel } from "@/lib/countries";
+import { HelpTooltip } from "@/components/ui/HelpTooltip";
 
 /** Map common LLM-output gender strings to canonical i18n keys. */
 function genderKey(g: string): "male" | "female" | "other" | "unknown" {
@@ -135,7 +136,10 @@ export function PersonasTab({
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-        <span className="font-medium">{t("intentLegend")}:</span>
+        <span className="inline-flex items-center gap-1.5 font-medium">
+          {t("intentLegend")}:
+          <HelpTooltip text={t("help.intentLegend")} />
+        </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block w-2.5 h-2.5 rounded-full bg-success" />
           {t("intentHigh")}

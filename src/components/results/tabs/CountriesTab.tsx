@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight } from "lucide-react";
 import { clsx } from "clsx";
 import type { CountryScore, Persona } from "@/lib/simulation/schemas";
 import { getCountryLabel } from "@/lib/countries";
+import { HelpTooltip } from "@/components/ui/HelpTooltip";
 import type { RegulatoryMeta } from "./OverviewTab";
 
 type SortKey = "rank" | "demandScore" | "cacEstimateUsd" | "competitionScore" | "finalScore";
@@ -47,21 +48,34 @@ export function CountriesTab({ countries, personas = [], regulatory, sources = [
     }
   };
 
-  const SortHeader = ({ k, label, align }: { k: SortKey; label: string; align: "left" | "right" }) => {
+  const SortHeader = ({
+    k,
+    label,
+    align,
+    tooltip,
+  }: {
+    k: SortKey;
+    label: string;
+    align: "left" | "right";
+    tooltip?: string;
+  }) => {
     const active = sortKey === k;
     const Icon = active ? (sortDir === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
     return (
       <th className={clsx("px-6 py-3 font-medium", align === "right" ? "text-right" : "text-left")}>
-        <button
-          onClick={() => onSort(k)}
-          className={clsx(
-            "inline-flex items-center gap-1 hover:text-brand transition-colors",
-            active && "text-brand",
-          )}
-        >
-          <span>{label}</span>
-          <Icon size={12} className={clsx(!active && "opacity-40")} />
-        </button>
+        <span className="inline-flex items-center gap-1.5">
+          <button
+            onClick={() => onSort(k)}
+            className={clsx(
+              "inline-flex items-center gap-1 hover:text-brand transition-colors",
+              active && "text-brand",
+            )}
+          >
+            <span>{label}</span>
+            <Icon size={12} className={clsx(!active && "opacity-40")} />
+          </button>
+          {tooltip && <HelpTooltip text={tooltip} />}
+        </span>
       </th>
     );
   };
@@ -72,13 +86,38 @@ export function CountriesTab({ countries, personas = [], regulatory, sources = [
         <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
           <tr>
             <th className="w-8 px-3 py-3" />
-            <SortHeader k="rank" label="#" align="left" />
+            <SortHeader k="rank" label="#" align="left" tooltip={t("help.rank")} />
             <th className="text-left px-6 py-3 font-medium">{t("header")}</th>
-            <SortHeader k="demandScore" label={t("demand")} align="right" />
-            <SortHeader k="cacEstimateUsd" label={t("cac")} align="right" />
-            <SortHeader k="competitionScore" label={t("competition")} align="right" />
-            <SortHeader k="finalScore" label={t("score")} align="right" />
-            <th className="text-left px-6 py-3 font-medium">{t("rationale")}</th>
+            <SortHeader
+              k="demandScore"
+              label={t("demand")}
+              align="right"
+              tooltip={t("help.demand")}
+            />
+            <SortHeader
+              k="cacEstimateUsd"
+              label={t("cac")}
+              align="right"
+              tooltip={t("help.cac")}
+            />
+            <SortHeader
+              k="competitionScore"
+              label={t("competition")}
+              align="right"
+              tooltip={t("help.competition")}
+            />
+            <SortHeader
+              k="finalScore"
+              label={t("score")}
+              align="right"
+              tooltip={t("help.score")}
+            />
+            <th className="text-left px-6 py-3 font-medium">
+              <span className="inline-flex items-center gap-1.5">
+                {t("rationale")}
+                <HelpTooltip text={t("help.rationale")} />
+              </span>
+            </th>
           </tr>
         </thead>
         <tbody>

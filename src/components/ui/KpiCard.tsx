@@ -1,9 +1,12 @@
 import { clsx } from "clsx";
+import { HelpTooltip } from "./HelpTooltip";
 
 interface Props {
   label: string;
   value: string | number;
   hint?: string;
+  /** Optional explanatory tooltip shown via a (?) icon next to the label. */
+  help?: string;
   tone?: "default" | "success" | "warn" | "risk";
 }
 
@@ -16,7 +19,7 @@ interface Props {
  * layout — the card becomes a small description block instead of a
  * KPI tile.
  */
-export function KpiCard({ label, value, hint, tone = "default" }: Props) {
+export function KpiCard({ label, value, hint, help, tone = "default" }: Props) {
   const toneCls = {
     default: "text-slate-900",
     success: "text-success",
@@ -30,8 +33,9 @@ export function KpiCard({ label, value, hint, tone = "default" }: Props) {
 
   return (
     <div className="card p-6">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-        {label}
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+        <span>{label}</span>
+        {help && <HelpTooltip text={help} />}
       </div>
       <div
         className={clsx(

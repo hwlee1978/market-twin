@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { HelpTooltip } from "@/components/ui/HelpTooltip";
 import type { Persona, PricingResult } from "@/lib/simulation/schemas";
 
 export function PricingTab({
@@ -107,8 +108,9 @@ export function PricingTab({
         </div>
         <div className="card space-y-5">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-              {t("recommendedPrice")}
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              <span>{t("recommendedPrice")}</span>
+              <HelpTooltip text={t("help.recommendedPrice")} />
             </div>
             <div className="mt-2 text-3xl font-semibold text-brand tabular-nums leading-none">
               {(pricing.recommendedPriceCents / 100).toLocaleString(undefined, {
@@ -118,8 +120,9 @@ export function PricingTab({
             </div>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
-              {t("marginEstimate")}
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+              <span>{t("marginEstimate")}</span>
+              <HelpTooltip text={t("help.marginEstimate")} />
             </div>
             <p className="prose-body">{pricing.marginEstimate}</p>
           </div>

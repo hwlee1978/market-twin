@@ -45,16 +45,23 @@ export function OverviewTab({ result, locale, sources, regulatory }: OverviewTab
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <KpiCard
           label={t("results.overview.successScore")}
+          help={t("results.help.successScore")}
           value={`${overview.successScore}%`}
           tone={overview.successScore >= 60 ? "success" : overview.successScore >= 35 ? "warn" : "risk"}
         />
         <KpiCard
           label={t("results.overview.bestCountry")}
+          help={t("results.help.bestCountry")}
           value={getCountryLabel(overview.bestCountry, locale) || overview.bestCountry}
         />
-        <KpiCard label={t("results.overview.bestSegment")} value={overview.bestSegment} />
+        <KpiCard
+          label={t("results.overview.bestSegment")}
+          help={t("results.help.bestSegment")}
+          value={overview.bestSegment}
+        />
         <KpiCard
           label={t("results.overview.bestPrice")}
+          help={t("results.help.bestPrice")}
           value={(overview.bestPriceCents / 100).toLocaleString(locale, {
             style: "currency",
             currency: "USD",
@@ -62,10 +69,15 @@ export function OverviewTab({ result, locale, sources, regulatory }: OverviewTab
         />
         <KpiCard
           label={t("results.overview.riskLevel")}
+          help={t("results.help.riskLevel")}
           value={overview.riskLevel.toUpperCase()}
           tone={riskTone}
         />
-        <KpiCard label={t("results.overview.bestCreative")} value={overview.bestCreative ?? "—"} />
+        <KpiCard
+          label={t("results.overview.bestCreative")}
+          help={t("results.help.bestCreative")}
+          value={overview.bestCreative ?? "—"}
+        />
       </div>
 
       {showRegulatory && (
