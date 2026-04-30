@@ -19,6 +19,7 @@ import {
 } from "./prompts";
 import { evaluateRegulatory } from "./regulatory";
 import { filterLocaleNative } from "./locale-filter";
+import { aggregatePersonas } from "./aggregate";
 import {
   notifySimulationComplete,
   notifySimulationFailed,
@@ -318,11 +319,18 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       `[sim ${opts.simulationId}] generated ${personas.length} personas — distribution: ${distributionLog}`,
     );
 
+    // Compress the persona pool into bounded statistical summaries before any
+    // downstream LLM stage sees it. Country / pricing / synthesis prompts now
+    // get histograms, top objections / trust factors, profession + age + income
+    // distributions, plus a small set of stratified exemplars per country —
+    // grounding scales with persona-pool quality, not with prompt size.
+    const aggregate = aggregatePersonas(personas);
+
     // ── Stage 2: countries ─────────────────────────────────────
     await updateStage("scoring");
     const countriesResp = await countryLLM.generate({
       system: COUNTRY_SYSTEM,
-      prompt: countryPrompt(projectInput, personas, locale),
+      prompt: countryPrompt(projectInput, aggregate, locale),
       jsonSchema: { type: "object", properties: { countries: { type: "array" } } },
       temperature: 0.4,
     });
@@ -335,7 +343,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     await updateStage("pricing");
     const pricingResp = await pricingLLM.generate({
       system: PRICING_SYSTEM,
-      prompt: pricingPrompt(projectInput, personas, locale),
+      prompt: pricingPrompt(projectInput, aggregate, locale),
       jsonSchema: PricingResultSchema as unknown as object,
       temperature: 0.4,
     });
@@ -347,7 +355,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       system: SYNTHESIS_SYSTEM,
       prompt: synthesisPrompt(
         projectInput,
-        personas,
+        aggregate,
         JSON.stringify(countryScores),
         JSON.stringify(pricing.success ? pricing.data : {}),
         locale,

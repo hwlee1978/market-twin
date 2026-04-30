@@ -1,4 +1,6 @@
-import type { ProjectInput, Persona } from "./schemas";
+import type { ProjectInput } from "./schemas";
+import type { SimulationAggregate } from "./aggregate";
+import { renderAggregateForPrompt } from "./aggregate";
 
 export type PromptLocale = "ko" | "en";
 
@@ -320,21 +322,10 @@ export const COUNTRY_SYSTEM = `${SYSTEM_BASE} For country scoring, weigh demand 
 
 export function countryPrompt(
   input: ProjectInput,
-  personas: Persona[],
+  aggregate: SimulationAggregate,
   locale: PromptLocale = "en",
 ): string {
-  const intentByCountry = personas.reduce<Record<string, number[]>>((acc, p) => {
-    (acc[p.country] ??= []).push(p.purchaseIntent);
-    return acc;
-  }, {});
-  const summary = Object.entries(intentByCountry)
-    .map(
-      ([c, arr]) =>
-        `${c}: n=${arr.length}, avg_intent=${(arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1)}`,
-    )
-    .join("\n");
-
-  return `Rank these candidate countries for launching the product below. Use the persona intent summary as one input, but also incorporate market structure (competition, CAC realism, regulatory friction, cultural fit).
+  return `Rank these candidate countries for launching the product below. The persona stats below are the bounded grounding signal — read them carefully (intent histograms, top objections, top trust signals, profession mix per country) before incorporating market structure (competition, CAC realism, regulatory friction, cultural fit).
 
 CRITICAL: Only include countries from the candidate list. Do NOT add countries that are not in the list.
 
@@ -344,8 +335,7 @@ Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
 Objective: ${input.objective}
 Candidate countries (ONLY these allowed): ${input.candidateCountries.join(", ")}
 
-Persona intent summary by country:
-${summary}
+${renderAggregateForPrompt(aggregate, locale)}
 
 ${languageInstruction(locale)}
 
@@ -356,19 +346,21 @@ export const PRICING_SYSTEM = `${SYSTEM_BASE} For pricing, model how conversion 
 
 export function pricingPrompt(
   input: ProjectInput,
-  personas: Persona[],
+  aggregate: SimulationAggregate,
   locale: PromptLocale = "en",
 ): string {
-  const sensitivityCounts = personas.reduce<Record<string, number>>((acc, p) => {
-    acc[p.priceSensitivity] = (acc[p.priceSensitivity] ?? 0) + 1;
-    return acc;
-  }, {});
-
   return `Generate a pricing curve for this product. Sample 7-10 price points around the base price (from 0.5x to 2.0x). For each point, estimate conversion probability (0-1) and a revenue index (price * conversion, normalized).
 
 Product: ${input.productName} (${input.category})
 Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
-Persona price sensitivity distribution: ${JSON.stringify(sensitivityCounts)}
+Persona price sensitivity (overall): ${JSON.stringify(aggregate.overall.priceSensitivity)}
+Per-country sensitivity:
+${aggregate.byCountry
+  .map(
+    (c) =>
+      `  ${c.country}: low=${c.priceSensitivity.low} / med=${c.priceSensitivity.medium} / high=${c.priceSensitivity.high} (n=${c.count}, mean intent ${c.intentMean})`,
+  )
+  .join("\n")}
 
 ${languageInstruction(locale)}
 
@@ -379,22 +371,20 @@ export const SYNTHESIS_SYSTEM = `${SYSTEM_BASE} For final synthesis, distill the
 
 export function synthesisPrompt(
   input: ProjectInput,
-  personas: Persona[],
+  aggregate: SimulationAggregate,
   countriesJson: string,
   pricingJson: string,
   locale: PromptLocale = "en",
 ): string {
-  const avgIntent =
-    personas.reduce((s, p) => s + p.purchaseIntent, 0) / Math.max(personas.length, 1);
-
   return `Produce the final executive verdict for this launch simulation.
 
 Product: ${input.productName} (${input.category}) — ${input.description}
 Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
 Objective: ${input.objective}
-Personas analyzed: ${personas.length}, avg purchase intent: ${avgIntent.toFixed(1)}/100
 Country scores (JSON): ${countriesJson}
 Pricing analysis (JSON): ${pricingJson}
+
+${renderAggregateForPrompt(aggregate, locale)}
 
 ${languageInstruction(locale)}
 
