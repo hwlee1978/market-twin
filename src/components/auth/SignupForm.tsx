@@ -122,8 +122,9 @@ export function SignupForm() {
 
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
-              <label className="label">{t("auth.email")}</label>
+              <label htmlFor="signup-email" className="label">{t("auth.email")}</label>
               <input
+                id="signup-email"
                 type="email"
                 className="input"
                 value={email}
@@ -132,8 +133,9 @@ export function SignupForm() {
               />
             </div>
             <div>
-              <label className="label">{t("auth.password")}</label>
+              <label htmlFor="signup-password" className="label">{t("auth.password")}</label>
               <input
+                id="signup-password"
                 type="password"
                 className="input"
                 value={password}

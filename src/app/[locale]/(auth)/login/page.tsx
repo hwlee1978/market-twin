@@ -109,8 +109,9 @@ export default function LoginPage() {
 
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
-              <label className="label">{t("auth.email")}</label>
+              <label htmlFor="login-email" className="label">{t("auth.email")}</label>
               <input
+                id="login-email"
                 type="email"
                 className="input"
                 value={email}
@@ -119,8 +120,9 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <label className="label">{t("auth.password")}</label>
+              <label htmlFor="login-password" className="label">{t("auth.password")}</label>
               <input
+                id="login-password"
                 type="password"
                 className="input"
                 value={password}

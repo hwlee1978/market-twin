@@ -12,3 +12,8 @@ next-env.d.ts
 coverage
 .claude/
 tsconfig.tsbuildinfo
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
