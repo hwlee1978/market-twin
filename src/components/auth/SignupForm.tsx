@@ -7,6 +7,7 @@ import { BarChart3, Globe2, ShieldCheck, Sparkles } from "lucide-react";
 import { LogoMark } from "@/components/ui/Logo";
 import { authErrorKey } from "@/lib/auth/error-messages";
 import { createClient } from "@/lib/supabase/client";
+import { capture } from "@/lib/analytics/posthog";
 
 const FEATURES = [
   { icon: BarChart3, key: "successScore" as const },
@@ -62,6 +63,11 @@ export function SignupForm() {
       setError(t(authErrorKey(error.message) as "errors.auth.generic"));
       return;
     }
+    capture("signup_completed", {
+      via: "password",
+      auto_session: !!data.session,
+      marketing_consent: agreeMarketing,
+    });
     if (data.session) {
       // Auto-logged in — keep loading=true through navigation so the
       // submit button stays disabled until the dashboard mounts.

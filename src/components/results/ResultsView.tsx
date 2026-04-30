@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { SimulationResult } from "@/lib/simulation/schemas";
 import { SimulationProgress } from "./SimulationProgress";
 import { ResultsDashboard } from "./ResultsDashboard";
+import { capture } from "@/lib/analytics/posthog";
 
 interface SimStatus {
   id: string;
@@ -28,6 +29,9 @@ export function ResultsView({
   const [sources, setSources] = useState<string[]>([]);
   const [regulatory, setRegulatory] = useState<import("./tabs/OverviewTab").RegulatoryMeta | undefined>(undefined);
   const [pollError, setPollError] = useState<string | null>(null);
+  // Guard so simulation_completed/failed only fires once per mount, even
+  // though the status poll keeps ticking.
+  const completionFiredRef = useRef(false);
 
   useEffect(() => {
     if (!simulationId) return;
@@ -40,6 +44,20 @@ export function ResultsView({
         const data = (await res.json()) as SimStatus;
         if (!active) return;
         setStatus(data);
+        if (data.status === "completed" && !completionFiredRef.current) {
+          completionFiredRef.current = true;
+          capture("simulation_completed", {
+            simulation_id: simulationId,
+            project_id: projectId,
+          });
+        } else if (data.status === "failed" && !completionFiredRef.current) {
+          completionFiredRef.current = true;
+          capture("simulation_failed", {
+            simulation_id: simulationId,
+            project_id: projectId,
+            error: data.error_message ?? null,
+          });
+        }
         if (data.status === "completed") {
           const r = await fetch(`/api/results/${simulationId}`);
           if (r.ok) {

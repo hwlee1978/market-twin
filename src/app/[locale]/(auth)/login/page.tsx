@@ -7,6 +7,7 @@ import { BarChart3, Globe2, ShieldCheck, Sparkles } from "lucide-react";
 import { LogoMark } from "@/components/ui/Logo";
 import { authErrorKey } from "@/lib/auth/error-messages";
 import { createClient } from "@/lib/supabase/client";
+import { capture } from "@/lib/analytics/posthog";
 
 const FEATURES = [
   { icon: BarChart3, key: "successScore" as const },
@@ -35,6 +36,7 @@ export default function LoginPage() {
       setError(t(authErrorKey(error.message) as "errors.auth.generic"));
       return;
     }
+    capture("login_completed", { via: "password" });
     // Keep loading=true through the navigation. The button stays disabled
     // ("로그인 중...") until the dashboard takes over and this component
     // unmounts. If we reset loading here, the button briefly snaps back
@@ -44,6 +46,7 @@ export default function LoginPage() {
   };
 
   const onGoogle = async () => {
+    capture("login_started", { via: "google" });
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: "google",

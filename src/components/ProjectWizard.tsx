@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { CountryChipRow } from "@/components/ui/CountryChip";
 import { WIZARD_TEMPLATES } from "@/lib/wizard/templates";
 import type { FormState } from "@/lib/wizard/types";
+import { capture } from "@/lib/analytics/posthog";
 
 const STEPS = ["product", "pricing", "countries", "competitors", "review"] as const;
 type StepKey = (typeof STEPS)[number];
@@ -112,6 +113,12 @@ export function ProjectWizard({ locale }: { locale: string }) {
       });
       if (!res.ok) throw new Error(await res.text());
       const { projectId } = await res.json();
+      capture("project_created", {
+        category: form.category,
+        country_count: form.countries.length,
+        currency: form.currency,
+        objective: form.objective,
+      });
 
       const runRes = await fetch(`/api/simulations/${projectId}/run`, {
         method: "POST",
@@ -123,6 +130,11 @@ export function ProjectWizard({ locale }: { locale: string }) {
       });
       if (!runRes.ok) throw new Error(await runRes.text());
       const { simulationId } = await runRes.json();
+      capture("simulation_started", {
+        project_id: projectId,
+        persona_count: form.personaCount,
+        country_count: form.countries.length,
+      });
 
       router.push(`/projects/${projectId}/results?sim=${simulationId}`);
     } catch (err) {
