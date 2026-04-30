@@ -7,6 +7,7 @@ import { clsx } from "clsx";
 import type { CountryScore, Persona } from "@/lib/simulation/schemas";
 import { getCountryLabel } from "@/lib/countries";
 import { HelpTooltip } from "@/components/ui/HelpTooltip";
+import { isLocaleNative } from "@/lib/simulation/locale-filter";
 import type { RegulatoryMeta } from "./OverviewTab";
 
 type SortKey = "rank" | "demandScore" | "cacEstimateUsd" | "competitionScore" | "finalScore";
@@ -199,11 +200,14 @@ function CountryDrilldown({
   const lowIntent = inCountry.filter((p) => p.purchaseIntent < 35).length;
 
   // Aggregate the most common objections — strong signal for "why might this country churn?"
+  // Filter out locale-leaked entries (e.g. Japanese kana surfacing in a Korean run)
+  // so the top-N aggregation isn't polluted by stray cross-language outputs.
   const objectionCounts = new Map<string, number>();
   for (const p of inCountry) {
     for (const o of p.objections ?? []) {
       const key = o.trim();
       if (!key) continue;
+      if (!isLocaleNative(key, locale)) continue;
       objectionCounts.set(key, (objectionCounts.get(key) ?? 0) + 1);
     }
   }

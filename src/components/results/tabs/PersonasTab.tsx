@@ -7,6 +7,7 @@ import { clsx } from "clsx";
 import type { Persona } from "@/lib/simulation/schemas";
 import { getCountryLabel } from "@/lib/countries";
 import { HelpTooltip } from "@/components/ui/HelpTooltip";
+import { filterLocaleNative } from "@/lib/simulation/locale-filter";
 
 /** Map common LLM-output gender strings to canonical i18n keys. */
 function genderKey(g: string): "male" | "female" | "other" | "unknown" {
@@ -28,9 +29,21 @@ export function PersonasTab({
 }) {
   const t = useTranslations("results.persona");
   const locale = useLocale();
+  // Strip locale-leaked entries from each persona's free-text array fields so
+  // mixed-language items don't surface in the cards or the search haystack.
+  const cleanPersonas = useMemo(
+    () =>
+      personas.map((p) => ({
+        ...p,
+        objections: filterLocaleNative(p.objections, locale),
+        trustFactors: filterLocaleNative(p.trustFactors, locale),
+        interests: filterLocaleNative(p.interests, locale),
+      })),
+    [personas, locale],
+  );
   const countries = useMemo(
-    () => Array.from(new Set(personas.map((p) => p.country))).sort(),
-    [personas],
+    () => Array.from(new Set(cleanPersonas.map((p) => p.country))).sort(),
+    [cleanPersonas],
   );
   const [country, setCountry] = useState<string>("all");
   const [intent, setIntent] = useState<"all" | "high" | "low">("all");
@@ -40,7 +53,7 @@ export function PersonasTab({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return personas.filter((p) => {
+    return cleanPersonas.filter((p) => {
       if (country !== "all" && p.country !== country) return false;
       if (intent === "high" && p.purchaseIntent < 70) return false;
       if (intent === "low" && p.purchaseIntent >= 35) return false;
@@ -59,7 +72,7 @@ export function PersonasTab({
       }
       return true;
     });
-  }, [personas, country, intent, query]);
+  }, [cleanPersonas, country, intent, query]);
 
   /** Group filtered personas by country, with the user-chosen sort applied within each group. */
   const grouped = useMemo(() => {

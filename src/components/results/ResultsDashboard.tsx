@@ -89,7 +89,14 @@ export function ResultsDashboard({
         {tab === "pricing" && (
           <PricingTab pricing={result.pricing} currency="USD" personas={result.personas} />
         )}
-        {tab === "risks" && <RisksTab risks={result.risks} />}
+        {tab === "risks" && (
+          <RisksTab
+            risks={result.risks}
+            personas={result.personas}
+            countries={result.countries}
+            sources={sources}
+          />
+        )}
         {tab === "recommendations" && <RecommendationsTab rec={result.recommendations} />}
       </div>
     </div>

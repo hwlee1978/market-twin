@@ -18,6 +18,7 @@ import {
   SYNTHESIS_SYSTEM,
 } from "./prompts";
 import { evaluateRegulatory } from "./regulatory";
+import { filterLocaleNative } from "./locale-filter";
 import {
   notifySimulationComplete,
   notifySimulationFailed,
@@ -158,7 +159,17 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       for (const raw of arr) {
         const parsed = PersonaSchema.safeParse(raw);
         if (parsed.success) {
-          personas.push({ ...parsed.data, id: parsed.data.id ?? crypto.randomUUID() });
+          // Strip locale-leaked entries from free-text array fields. Even though the
+          // prompt forbids cross-language output, models occasionally leak the
+          // persona's "native" language and pollute downstream aggregations.
+          const cleaned = {
+            ...parsed.data,
+            id: parsed.data.id ?? crypto.randomUUID(),
+            objections: filterLocaleNative(parsed.data.objections, locale),
+            trustFactors: filterLocaleNative(parsed.data.trustFactors, locale),
+            interests: filterLocaleNative(parsed.data.interests, locale),
+          };
+          personas.push(cleaned);
         } else {
           parseSkips++;
         }
