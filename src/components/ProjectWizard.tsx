@@ -15,7 +15,11 @@ import { capture } from "@/lib/analytics/posthog";
 const STEPS = ["product", "pricing", "countries", "competitors", "review"] as const;
 type StepKey = (typeof STEPS)[number];
 
-const RECOMMENDED_PRESET = ["KR", "JP", "US"];
+// KR is the assumed origin for the K-product export use case — it should not
+// appear in the candidate target markets, otherwise the simulator ranks the
+// home market against export markets and recommends domestic launch as the
+// best move (which contradicts the entire positioning).
+const RECOMMENDED_PRESET = ["US", "JP", "ID"];
 
 export function ProjectWizard({ locale }: { locale: string }) {
   const t = useTranslations();
@@ -309,6 +313,9 @@ export function ProjectWizard({ locale }: { locale: string }) {
               >
                 {tw("countriesPreset")}
               </button>
+            </div>
+            <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 leading-relaxed">
+              {tw("countriesOriginHint")}
             </div>
             <div className="relative mb-3">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

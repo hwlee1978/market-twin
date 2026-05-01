@@ -373,7 +373,8 @@
         "ip": "IP·콘텐츠",
         "other": "기타"
       },
-      "countriesPreset": "한국 → 일본·미국 진출 (기본)",
+      "countriesPreset": "한국 → 미국·일본·인도네시아 (기본)",
+      "countriesOriginHint": "🇰🇷 한국은 출시 모국으로 가정합니다 — 진출 검증할 해외 시장만 선택하세요. 한국을 후보에 추가하면 국내·해외가 함께 비교됩니다.",
       "countriesSearchPlaceholder": "국가 검색 (KR, 일본, ...)",
       "countriesCount": "{n}개 국가 선택됨",
       "competitorUrlsFormat": "1줄에 URL 1개. 콤마(,)로 구분해도 OK.",

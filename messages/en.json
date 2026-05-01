@@ -373,7 +373,8 @@
         "ip": "IP & Content",
         "other": "Other"
       },
-      "countriesPreset": "Korea → Japan & US (default)",
+      "countriesPreset": "Korea → US · Japan · Indonesia (default)",
+      "countriesOriginHint": "🇰🇷 Korea is assumed as the origin market — pick only overseas markets to validate. Adding Korea to the candidates makes the simulator compare domestic vs. overseas side-by-side.",
       "countriesSearchPlaceholder": "Search countries (KR, Japan, ...)",
       "countriesCount": "{n} countries selected",
       "competitorUrlsFormat": "One URL per line. Comma-separated also works.",
