@@ -148,10 +148,25 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       `[sim ${opts.simulationId}] regulatory: ${regulatory.allowedCountries.length} allowed, ` +
         `${regulatory.excludedCountries.length} excluded${regulatory.result.regulatedCategory ? ` (category: ${regulatory.result.regulatedCategory})` : ""}`,
     );
+    // Defensive: drop the origin from candidate markets even if it slipped in
+    // (older rows pre-dating the originating_country split, or admin retries
+    // of legacy projects). The origin is a separate piece of context — keep it
+    // out of the export-target ranking so the simulator can never recommend
+    // domestic launch as the "best market" inside an overseas-validation run.
+    const originCode = (opts.projectInput.originatingCountry ?? "KR").toUpperCase();
+    const candidatesAfterOrigin = regulatory.allowedCountries.filter(
+      (c) => c.toUpperCase() !== originCode,
+    );
+    const droppedOrigin = candidatesAfterOrigin.length !== regulatory.allowedCountries.length;
+    if (droppedOrigin) {
+      console.log(
+        `[sim ${opts.simulationId}] dropped origin ${originCode} from candidates (kept as context)`,
+      );
+    }
     // From here on, treat the filtered list as the candidate set for the simulation.
     const projectInput = {
       ...opts.projectInput,
-      candidateCountries: regulatory.allowedCountries,
+      candidateCountries: candidatesAfterOrigin,
     };
 
     // If everything got excluded the simulation can't proceed meaningfully.

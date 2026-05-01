@@ -332,6 +332,7 @@
         "basePrice": "Base price",
         "currency": "Currency",
         "objective": "Launch objective",
+        "originatingCountry": "Origin (home market)",
         "countries": "Target markets",
         "competitorUrls": "Competitor URLs",
         "assets": "Images / videos"
@@ -347,6 +348,7 @@
         "description": "Minimum 10 characters. Describe features, target audience, and differentiation. The longer the better — persona accuracy improves.",
         "basePrice": "Current or candidate launch price. Simulation generates the curve at ±50% around this anchor.",
         "objective": "Pick the #1 KPI for this launch. Persona scenarios and channel recommendations adjust accordingly.",
+        "originatingCountry": "Where the company is based and runs operations. Simulation evaluates candidate markets as overseas export targets relative to this origin. Default: Korea.",
         "countries": "Pick at least 1 target market for overseas expansion. We recommend ≤5 to keep cost and runtime manageable.",
         "competitorUrls": "One URL per line. Competitor pages help with pricing and positioning context."
       },
@@ -374,7 +376,7 @@
         "other": "Other"
       },
       "countriesPreset": "Korea → US · Japan · Indonesia (default)",
-      "countriesOriginHint": "🇰🇷 Korea is assumed as the origin market — pick only overseas markets to validate. Adding Korea to the candidates makes the simulator compare domestic vs. overseas side-by-side.",
+      "countriesOriginHint": "🇰🇷 The origin market (selected above) is automatically excluded from candidate targets — this tool validates overseas expansion, so adding the origin to candidates has no effect. If you want to evaluate the origin market itself, switch the origin dropdown to a different country.",
       "countriesSearchPlaceholder": "Search countries (KR, Japan, ...)",
       "countriesCount": "{n} countries selected",
       "competitorUrlsFormat": "One URL per line. Comma-separated also works.",

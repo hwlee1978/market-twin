@@ -38,10 +38,11 @@ export function ProjectWizard({ locale }: { locale: string }) {
     basePrice: "",
     currency: "USD",
     objective: "conversion",
-    // Pre-select the export-focused preset (KR origin + JP/US targets) so the
-    // wizard arrives with the positioning baked in. User can deselect KR or
-    // add other target markets, but they don't have to click the preset button
-    // to get a sensible starting set.
+    // Default origin = KR — the K-product export positioning. Long-term this
+    // will get JP / TW / SEA defaults too as we expand into "JP→Global" etc.
+    originatingCountry: "KR",
+    // Pre-select the export-focused preset (foreign markets only — origin
+    // is tracked separately above). User can change either independently.
     countries: RECOMMENDED_PRESET,
     competitorUrls: "",
     personaCount: 200,
@@ -115,6 +116,7 @@ export function ProjectWizard({ locale }: { locale: string }) {
           basePriceCents: Math.round(parseFloat(form.basePrice) * 100),
           currency: form.currency,
           objective: form.objective,
+          originatingCountry: form.originatingCountry,
           candidateCountries: form.countries,
           competitorUrls,
         }),
@@ -301,6 +303,23 @@ export function ProjectWizard({ locale }: { locale: string }) {
 
         {stepKey === "countries" && (
           <>
+            <div className="mb-5">
+              <label className="label">{tw("fields.originatingCountry")}</label>
+              <p className="text-xs text-slate-500 mb-2">
+                {tw("hints.originatingCountry")}
+              </p>
+              <select
+                className="input w-full max-w-sm"
+                value={form.originatingCountry}
+                onChange={(e) => update("originatingCountry", e.target.value)}
+              >
+                {COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {locale === "ko" ? c.labelKo : c.labelEn} ({c.code})
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex items-end justify-between gap-3 mb-3">
               <div>
                 <label className="label">{tw("fields.countries")}</label>

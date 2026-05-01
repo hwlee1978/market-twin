@@ -24,7 +24,12 @@ const SAMPLE_DATA = {
   basePriceCents: 14900, // $149
   currency: "USD",
   objective: "conversion",
-  candidateCountries: ["KR", "JP", "US"],
+  // Origin = KR (the K-product positioning's default home market). Candidate
+  // markets are export-only — keeping KR out of candidates so the demo
+  // result reflects the actual use case (overseas validation, not
+  // domestic-vs-overseas comparison).
+  originatingCountry: "KR",
+  candidateCountries: ["US", "JP", "GB"],
   competitorUrls: [],
 } as const;
 
@@ -36,6 +41,7 @@ export function getSampleProjectInput(): ProjectInput {
     basePriceCents: SAMPLE_DATA.basePriceCents,
     currency: SAMPLE_DATA.currency,
     objective: SAMPLE_DATA.objective,
+    originatingCountry: SAMPLE_DATA.originatingCountry,
     candidateCountries: [...SAMPLE_DATA.candidateCountries],
     competitorUrls: [...SAMPLE_DATA.competitorUrls],
   };

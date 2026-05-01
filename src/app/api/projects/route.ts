@@ -11,6 +11,8 @@ const CreateProjectSchema = z.object({
   basePriceCents: z.number().int().nonnegative(),
   currency: z.string(),
   objective: z.enum(["awareness", "conversion", "retention", "expansion"]),
+  // Defaults to KR — covers older clients that don't send the field yet.
+  originatingCountry: z.string().default("KR"),
   candidateCountries: z.array(z.string()).min(1),
   competitorUrls: z.array(z.string().url()).default([]),
 });
@@ -45,6 +47,7 @@ export async function POST(req: Request) {
       base_price_cents: input.basePriceCents,
       currency: input.currency,
       objective: input.objective,
+      originating_country: input.originatingCountry,
       candidate_countries: input.candidateCountries,
       competitor_urls: input.competitorUrls,
       status: "ready",

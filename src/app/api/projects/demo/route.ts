@@ -50,6 +50,7 @@ export async function POST() {
       base_price_cents: sample.basePriceCents,
       currency: sample.currency,
       objective: sample.objective,
+      originating_country: sample.originatingCountry,
       candidate_countries: [...sample.candidateCountries],
       competitor_urls: [],
       status: "running",

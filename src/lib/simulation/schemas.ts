@@ -8,6 +8,15 @@ export const ProjectInputSchema = z.object({
   basePriceCents: z.number().int().nonnegative(),
   currency: z.string().default("USD"),
   objective: z.enum(["awareness", "conversion", "retention", "expansion"]),
+  /**
+   * The product's origin / home market — informs the simulator that the
+   * candidate countries are EXPORT TARGETS, not equal-weight launch options.
+   * Synthesis uses this to keep action plans overseas-focused; if the origin
+   * also appears in candidateCountries (user opted into a domestic-vs-overseas
+   * comparison), country scoring still ranks it but the simulation knows
+   * which entry is the home market.
+   */
+  originatingCountry: z.string().default("KR"),
   candidateCountries: z.array(z.string()).min(1),
   competitorUrls: z.array(z.string().url()).default([]),
 });

@@ -14,6 +14,12 @@ export interface FormState {
   basePrice: string;
   currency: string;
   objective: Objective;
+  /**
+   * Home market — separates the company's origin from `countries` (export
+   * targets). Defaults to KR. The wizard renders this as a dropdown above
+   * the candidate-countries multi-select.
+   */
+  originatingCountry: string;
   countries: string[];
   competitorUrls: string;
   personaCount: number;

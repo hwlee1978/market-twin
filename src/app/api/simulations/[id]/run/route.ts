@@ -74,6 +74,7 @@ export async function POST(
     basePriceCents: project.base_price_cents ?? 0,
     currency: project.currency ?? "USD",
     objective: project.objective as ProjectInput["objective"],
+    originatingCountry: project.originating_country ?? "KR",
     candidateCountries: project.candidate_countries ?? [],
     competitorUrls: project.competitor_urls ?? [],
   };

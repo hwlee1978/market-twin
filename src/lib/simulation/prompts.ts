@@ -315,8 +315,11 @@ Category: ${input.category}
 Description: ${input.description}
 Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
 Launch objective: ${input.objective}
-Candidate countries: ${input.candidateCountries.join(", ")}
+Origin (the company exporting this product, NOT a candidate market): ${input.originatingCountry}
+Candidate target markets (overseas, where personas live): ${input.candidateCountries.join(", ")}
 Competitor references: ${input.competitorUrls.length ? input.competitorUrls.join(", ") : "none"}
+
+Each persona is a CONSUMER in their candidate target market evaluating an imported ${input.originatingCountry}-origin product. Their objections / trust factors / interests should reflect a foreign-market buyer's view of an imported brand (cultural translation distance, official-import channel concerns, price-relative-to-local-equivalents, etc.).
 
 ${distributionInstruction}
 
@@ -359,15 +362,16 @@ export function countryPrompt(
   aggregate: SimulationAggregate,
   locale: PromptLocale = "en",
 ): string {
-  return `Rank these candidate countries for launching the product below. The persona stats below are the bounded grounding signal — read them carefully (intent histograms, top objections, top trust signals, profession mix per country) before incorporating market structure (competition, CAC realism, regulatory friction, cultural fit).
+  return `Rank these candidate OVERSEAS-EXPANSION TARGET MARKETS for launching the product below. The company is based in ${input.originatingCountry} (the origin / home market) and is validating overseas expansion — score each candidate as an EXPORT TARGET, not as a domestic market. The persona stats below are the bounded grounding signal — read them carefully (intent histograms, top objections, top trust signals, profession mix per country) before incorporating market structure (competition, CAC realism, regulatory friction, cultural fit, distance from origin).
 
-CRITICAL: Only include countries from the candidate list. Do NOT add countries that are not in the list.
+CRITICAL: Only include countries from the candidate list. Do NOT add countries that are not in the list. Do NOT include the origin (${input.originatingCountry}) in the ranking — it is the home market, not a target.
 
+Origin (home market, NOT a target): ${input.originatingCountry}
 Product: ${input.productName} (${input.category})
 Description: ${input.description}
 Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
 Objective: ${input.objective}
-Candidate countries (ONLY these allowed): ${input.candidateCountries.join(", ")}
+Candidate target markets (ONLY these allowed): ${input.candidateCountries.join(", ")}
 
 ${renderAggregateForPrompt(aggregate, locale)}
 
@@ -421,10 +425,11 @@ export function synthesisPrompt(
       ? `오늘 날짜: ${today}. 액션 플랜의 모든 날짜·이벤트는 오늘 이후로만 참조하세요. 이미 지난 이벤트(예: ${currentYear - 1}년 행사)를 미래 이벤트인 것처럼 적지 마세요. 일본 Japan Expo·UK MCM Comic Con 같은 연례 이벤트는 ${currentYear}년 또는 ${currentYear + 1}년 회차로 명시하세요.`
       : `Today's date: ${today}. Anchor every action-plan date / event reference to AFTER today. Do NOT cite past events (e.g. ${currentYear - 1} editions) as upcoming. For annual events like Japan Expo, MCM Comic Con, Comic-Con etc., reference the ${currentYear} or ${currentYear + 1} edition explicitly.`;
 
-  return `Produce the final executive verdict for this launch simulation.
+  return `Produce the final executive verdict for this OVERSEAS-EXPANSION launch simulation. The company is based in ${input.originatingCountry} (origin / home market) and is validating expansion into the candidate overseas markets below. Treat the analysis strictly as an export-validation report — DO NOT recommend launching in ${input.originatingCountry} as if it were a target market, and do not include domestic-channel action items (e.g. ${input.originatingCountry === "KR" ? "스마트스토어·네이버 쇼핑·KR-internal channels" : "home-market-only retail or distribution"}). The bestCountry field MUST be one of the candidate overseas targets, never the origin.
 
 ${dateContext}
 
+Origin (home market, NOT a target): ${input.originatingCountry}
 Product: ${input.productName} (${input.category}) — ${input.description}
 Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
 Objective: ${input.objective}
