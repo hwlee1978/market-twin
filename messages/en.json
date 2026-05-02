@@ -684,6 +684,8 @@
     "description": "Description",
     "simulations": "Simulations",
     "noSimulations": "No simulations yet.",
+    "firstSimTitle": "Ready to run your first simulation",
+    "firstSimSubtitle": "Get an overseas-market analysis from your product inputs in under 24 hours. Typical run: 5–7 minutes.",
     "viewResults": "View results",
     "viewProgress": "View progress",
     "runNew": "Run new simulation",

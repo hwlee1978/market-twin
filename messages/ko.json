@@ -684,6 +684,8 @@
     "description": "제품 설명",
     "simulations": "시뮬레이션",
     "noSimulations": "아직 실행한 시뮬레이션이 없습니다.",
+    "firstSimTitle": "첫 시뮬레이션을 실행할 준비가 됐어요",
+    "firstSimSubtitle": "입력한 제품 정보로 24시간 내 해외 진출 분석을 받을 수 있습니다. 평균 5~7분 소요.",
     "viewResults": "결과 보기",
     "viewProgress": "진행 상황 보기",
     "runNew": "새 시뮬레이션 실행",
