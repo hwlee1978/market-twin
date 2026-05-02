@@ -115,6 +115,72 @@ async function runWithConcurrency<T>(
 // in order — the slice itself doubles as the per-batch quota.
 
 /**
+ * Aggregate N independent country-scoring samples into a single ranked list
+ * by taking the per-country median across all numeric fields. Same idea as
+ * the pricing 3-sample median: outlier samples (where the LLM happened to
+ * over- or under-weight one country) get washed out, leaving a stable
+ * recommendation.
+ *
+ * For each country code, computes:
+ *   - median(finalScore), median(demandScore), median(cacEstimateUsd),
+ *     median(competitionScore)
+ *   - rationale picked from the sample whose finalScore is closest to the
+ *     median (so the explanation always corresponds to a real LLM output,
+ *     not a synthetic average that could read as inconsistent)
+ * Then re-ranks by median finalScore.
+ *
+ * Countries that don't appear in every sample still aggregate over whatever
+ * samples include them — the median of [70, 65] is 67.5, not penalised for
+ * the missing third sample.
+ */
+function aggregateCountryScores(
+  samples: Array<z.infer<typeof CountryScoreSchema>[]>,
+): z.infer<typeof CountryScoreSchema>[] {
+  if (samples.length === 0) return [];
+  if (samples.length === 1) return samples[0];
+  const median = (xs: number[]): number => {
+    const sorted = [...xs].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0
+      ? (sorted[mid - 1] + sorted[mid]) / 2
+      : sorted[mid];
+  };
+  const byCountry = new Map<string, z.infer<typeof CountryScoreSchema>[]>();
+  for (const sample of samples) {
+    for (const row of sample) {
+      const key = row.country.toUpperCase();
+      const arr = byCountry.get(key) ?? [];
+      arr.push(row);
+      byCountry.set(key, arr);
+    }
+  }
+  const aggregated: z.infer<typeof CountryScoreSchema>[] = [];
+  for (const [country, rows] of byCountry.entries()) {
+    const medFinal = median(rows.map((r) => r.finalScore));
+    const medDemand = median(rows.map((r) => r.demandScore));
+    const medCAC = median(rows.map((r) => r.cacEstimateUsd));
+    const medCompetition = median(rows.map((r) => r.competitionScore));
+    // Pick the rationale from the sample whose finalScore is closest to the
+    // median — keeps narrative consistent with the numbers we're showing.
+    const closest = [...rows].sort(
+      (a, b) => Math.abs(a.finalScore - medFinal) - Math.abs(b.finalScore - medFinal),
+    )[0];
+    aggregated.push({
+      country,
+      demandScore: Math.round(medDemand),
+      cacEstimateUsd: Math.round(medCAC * 100) / 100,
+      competitionScore: Math.round(medCompetition),
+      finalScore: Math.round(medFinal * 10) / 10,
+      rank: 0, // re-assigned below
+      rationale: closest.rationale,
+    });
+  }
+  aggregated.sort((a, b) => b.finalScore - a.finalScore);
+  aggregated.forEach((row, i) => (row.rank = i + 1));
+  return aggregated;
+}
+
+/**
  * Runs the full simulation pipeline and persists the result.
  * Designed to run inside a Vercel function or background worker — total budget ~5 min.
  *
@@ -683,25 +749,64 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     const aggregate = aggregatePersonas(personas);
 
     // ── Stage 2: countries ─────────────────────────────────────
+    // Multi-sample averaging: country scoring at single-call amplifies the
+    // persona-aggregate's stochastic variance dramatically — empirically a
+    // ±5pt swing in JP avg intent (50.6 vs 41.0 across 3 sims of same fixture)
+    // produced a ±33pt swing in JP finalScore, which flipped bestCountry from
+    // JP to TH. Three parallel calls + per-country median collapses the
+    // amplification: outlier-low or outlier-high country LLM calls get washed
+    // out by the other two. Cost is negligible (Haiku) and parallel so wall
+    // time only grows by network jitter.
     await updateStage("scoring");
     const tCountries = Date.now();
-    const countriesResp = await countryLLM.generate({
-      system: COUNTRY_SYSTEM,
-      prompt: countryPrompt(projectInput, aggregate, locale),
-      jsonSchema: { type: "object", properties: { countries: { type: "array" } } },
-      temperature: 0.4,
-      // Generous output budget so Korean rationale + ≤24 candidate countries
-      // never gets truncated mid-JSON. Provider default of 4096 cuts it close.
-      maxTokens: 8192,
-    });
-    const countries = z
-      .object({ countries: z.array(CountryScoreSchema) })
-      .safeParse(countriesResp.json);
-    const countryScores = countries.success ? countries.data.countries : [];
-    console.log(
-      `[sim ${opts.simulationId}] countries: ${countryScores.length} scored — ` +
-        `${((Date.now() - tCountries) / 1000).toFixed(1)}s`,
+    const COUNTRY_SAMPLES = 3;
+    const countryPromptText = countryPrompt(projectInput, aggregate, locale);
+    const countriesResps = await Promise.all(
+      Array.from({ length: COUNTRY_SAMPLES }, () =>
+        countryLLM.generate({
+          system: COUNTRY_SYSTEM,
+          prompt: countryPromptText,
+          jsonSchema: { type: "object", properties: { countries: { type: "array" } } },
+          // Keep variance among samples — too low and the median collapses
+          // to a single answer, defeating the point. Same temp as pricing.
+          temperature: 0.4,
+          // Generous output budget so Korean rationale + ≤24 candidate countries
+          // never gets truncated mid-JSON. Provider default of 4096 cuts it close.
+          maxTokens: 8192,
+        }),
+      ),
     );
+    const countrySamples: Array<z.infer<typeof CountryScoreSchema>[]> = [];
+    for (const resp of countriesResps) {
+      const parsed = z
+        .object({ countries: z.array(CountryScoreSchema) })
+        .safeParse(resp.json);
+      if (parsed.success) countrySamples.push(parsed.data.countries);
+    }
+    const countryScores =
+      countrySamples.length > 0 ? aggregateCountryScores(countrySamples) : [];
+    if (countrySamples.length > 0) {
+      // Show per-sample bestCountry across the 3 calls so it's obvious in the
+      // log when the LLM was internally inconsistent vs converged.
+      const bestPerSample = countrySamples
+        .map((sample) => {
+          const top = [...sample].sort((a, b) => b.finalScore - a.finalScore)[0];
+          return top ? `${top.country}=${top.finalScore.toFixed(0)}` : "?";
+        })
+        .join(" / ");
+      const medianBest = [...countryScores].sort((a, b) => b.finalScore - a.finalScore)[0];
+      console.log(
+        `[sim ${opts.simulationId}] countries: ${countrySamples.length}/${COUNTRY_SAMPLES} samples ` +
+          `→ best per sample: ${bestPerSample} → median best: ` +
+          `${medianBest?.country ?? "?"}=${medianBest?.finalScore.toFixed(0) ?? "?"} — ` +
+          `${((Date.now() - tCountries) / 1000).toFixed(1)}s`,
+      );
+    } else {
+      console.warn(
+        `[sim ${opts.simulationId}] countries: all ${COUNTRY_SAMPLES} samples failed to parse — ` +
+          `${((Date.now() - tCountries) / 1000).toFixed(1)}s`,
+      );
+    }
 
     // ── Stage 3: pricing ───────────────────────────────────────
     // Multi-sample averaging: pricing is the noisiest stage in the pipeline
