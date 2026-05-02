@@ -24,6 +24,7 @@ type Overview = {
   bestSegment?: string;
   bestPriceCents?: number;
   riskLevel?: "low" | "medium" | "high";
+  bestCreative?: string | null;
 };
 
 type CountryScore = {
@@ -34,12 +35,15 @@ type CountryScore = {
 
 type Pricing = { recommendedPriceCents?: number };
 
+type CreativeEntry = { assetName: string; score: number };
+
 type ResultRow = {
   simulation_id: string;
   overview: Overview | null;
   countries: CountryScore[] | null;
   personas: Array<{ purchaseIntent: number }> | null;
   pricing: Pricing | null;
+  creative: CreativeEntry[] | null;
 };
 
 export default async function CompareSimulationsPage({
@@ -106,7 +110,7 @@ export default async function CompareSimulationsPage({
 
   const { data: resultsRaw } = await supabase
     .from("simulation_results")
-    .select("simulation_id, overview, countries, personas, pricing")
+    .select("simulation_id, overview, countries, personas, pricing, creative")
     .in("simulation_id", [aId, bId]);
   const results = (resultsRaw ?? []) as ResultRow[];
 
@@ -117,6 +121,18 @@ export default async function CompareSimulationsPage({
 
   const aMetrics = computeMetrics(aResult);
   const bMetrics = computeMetrics(bResult);
+
+  // Currency-aware price formatter — same Intl pattern as the PDF report.
+  // Falls back to USD if the project somehow has a missing currency.
+  const projectCurrency = project.currency ?? "USD";
+  const priceFormatter = new Intl.NumberFormat(
+    locale === "ko" ? "ko-KR" : "en-US",
+    {
+      style: "currency",
+      currency: projectCurrency,
+      currencyDisplay: "symbol",
+    },
+  );
 
   return (
     <div className="space-y-6">
@@ -175,10 +191,10 @@ export default async function CompareSimulationsPage({
           />
           <CompareKpi
             label={t("metric.recommendedPrice")}
-            a={aMetrics.priceUsd}
-            b={bMetrics.priceUsd}
-            format={(v) => (v !== undefined ? `$${v.toFixed(2)}` : "—")}
-            currency={project.currency ?? "USD"}
+            a={aMetrics.priceAmount}
+            b={bMetrics.priceAmount}
+            format={(v) => (v !== undefined ? priceFormatter.format(v) : "—")}
+            currency={projectCurrency}
           />
           <CompareKpi
             label={t("metric.avgIntent")}
@@ -207,6 +223,27 @@ export default async function CompareSimulationsPage({
             b={bSim.persona_count}
             format={(v) => (v !== undefined ? v.toString() : "—")}
           />
+          {/* Creative score comparison only renders when at least one of the
+              two sims actually produced creative output — keeps the grid clean
+              for runs where no asset was uploaded on either side. */}
+          {(aMetrics.bestCreativeScore !== undefined ||
+            bMetrics.bestCreativeScore !== undefined) && (
+            <CompareKpi
+              label={t("metric.bestCreativeScore")}
+              a={aMetrics.bestCreativeScore}
+              b={bMetrics.bestCreativeScore}
+              format={(v) => (v !== undefined ? `${v}/100` : "—")}
+              higherIsBetter
+            />
+          )}
+          {(aResult?.overview?.bestCreative || bResult?.overview?.bestCreative) && (
+            <CompareInfo
+              label={t("metric.bestCreativeName")}
+              a={aResult?.overview?.bestCreative ?? undefined}
+              b={bResult?.overview?.bestCreative ?? undefined}
+              renderValue={(v) => v ?? "—"}
+            />
+          )}
         </div>
       </div>
 
@@ -232,7 +269,9 @@ export default async function CompareSimulationsPage({
 function computeMetrics(r: ResultRow | undefined) {
   return {
     successScore: r?.overview?.successScore,
-    priceUsd:
+    // Price in main currency units (not always USD — `priceUsd` was a
+    // misleading legacy name). Caller formats with the project's currency.
+    priceAmount:
       r?.pricing?.recommendedPriceCents !== undefined
         ? r.pricing.recommendedPriceCents / 100
         : undefined,
@@ -242,6 +281,10 @@ function computeMetrics(r: ResultRow | undefined) {
             r.personas.reduce((s, p) => s + (p.purchaseIntent ?? 0), 0) /
               r.personas.length,
           )
+        : undefined,
+    bestCreativeScore:
+      r?.creative && r.creative.length > 0
+        ? Math.max(...r.creative.map((c) => c.score))
         : undefined,
   };
 }

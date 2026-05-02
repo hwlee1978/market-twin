@@ -319,6 +319,10 @@
           "title": "경쟁사",
           "description": "참고용 경쟁사 URL을 입력하세요. 비워두셔도 됩니다."
         },
+        "assets": {
+          "title": "크리에이티브",
+          "description": "광고·콘텐츠 컨셉을 텍스트로 설명하세요. 이미지 URL을 함께 첨부하면 시각 분석으로 정확도가 올라갑니다."
+        },
         "review": {
           "title": "검토·실행",
           "description": "입력 내용을 마지막으로 확인하고 시뮬레이션을 시작하세요."
@@ -335,12 +339,15 @@
         "originatingCountry": "출시 모국 (Origin)",
         "countries": "진출 후보 시장",
         "competitorUrls": "경쟁사 URL",
-        "assets": "이미지/영상"
+        "assets": "이미지/영상",
+        "assetDescriptions": "크리에이티브 컨셉",
+        "assetUrls": "이미지 URL (선택)"
       },
       "placeholders": {
         "projectName": "예: 2026 글로벌 출시 — 무선 이어버드",
         "productName": "예: AcousticPro Buds X1",
-        "description": "예: 액티브 노이즈 캔슬링 무선 이어버드. 8시간 배터리, IPX5 방수, 통근자·재택근무자 타겟. 매트 블랙·세이지·아이보리 3색."
+        "description": "예: 액티브 노이즈 캔슬링 무선 이어버드. 8시간 배터리, IPX5 방수, 통근자·재택근무자 타겟. 매트 블랙·세이지·아이보리 3색.",
+        "assetDescriptions": "예시:\nHero 비디오 — 모닝 루틴 컨셉\n인스타 캐러셀 — 미니멀 정물\n3분 데모 영상 — 사용자 후기 인터뷰"
       },
       "hints": {
         "projectName": "내부 식별용 이름. 시뮬레이션 결과 페이지에 표시됩니다.",
@@ -350,7 +357,17 @@
         "objective": "이 출시의 1순위 KPI를 골라주세요. 페르소나 시나리오와 채널 추천이 달라집니다.",
         "originatingCountry": "회사가 출시·운영하는 모국. 시뮬레이션은 이 국가를 기준으로 후보 시장을 해외 진출 타겟으로 평가합니다. 기본값: 한국.",
         "countries": "진출 검증할 해외 시장을 1개 이상 선택. 너무 많으면 비용·시간이 늘어나니 5개 내외 추천.",
-        "competitorUrls": "1줄에 1개. 경쟁사 페이지를 알려주시면 가격·포지셔닝 비교에 참고합니다."
+        "competitorUrls": "1줄에 1개. 경쟁사 페이지를 알려주시면 가격·포지셔닝 비교에 참고합니다.",
+        "assetDescriptions": "각 컨셉을 1줄에 1개씩 설명해주세요 (예: \"Hero 비디오 — 모닝 루틴\"). 텍스트만 입력해도 분석이 가능합니다.",
+        "assetUrls": "공개 접근 가능한 이미지 URL (1줄에 1개). 입력 시 Anthropic vision으로 실제 시각 자료를 분석해 평가 정확도가 올라갑니다."
+      },
+      "validation": {
+        "projectName": "프로젝트명을 입력하세요",
+        "productName": "제품명을 입력하세요",
+        "description": "제품 설명을 10자 이상 입력하세요",
+        "basePrice": "가격을 0보다 큰 숫자로 입력하세요",
+        "countries": "최소 1개 후보 시장을 선택하세요",
+        "submitFailed": "제출에 실패했습니다. 다시 시도해주세요."
       },
       "objective": {
         "awareness": "브랜드 인지도",
@@ -379,7 +396,8 @@
       "countriesOriginHint": "🇰🇷 출시 모국(위에서 선택)은 진출 후보 시장에서 자동 제외됩니다 — 해외 진출 검증이 목적이므로, 후보에 모국을 추가해도 시뮬레이션은 무시합니다. 모국 자체를 비교하고 싶다면 위에서 출시 모국을 다른 국가로 바꾸세요.",
       "countriesSearchPlaceholder": "국가 검색 (KR, 일본, ...)",
       "countriesCount": "{n}개 국가 선택됨",
-      "competitorUrlsFormat": "1줄에 URL 1개. 콤마(,)로 구분해도 OK.",
+      "competitorUrlsFormat": "1줄에 URL 1개씩 입력하세요.",
+      "assetUrlsAccuracyHint": "💡 이미지 URL을 추가하지 않으면 텍스트 설명만 기반으로 평가합니다. Anthropic vision이 실제 이미지를 검토하도록 1개 이상의 공개 URL을 추가하면 크리에이티브 점수와 강·약점 분석이 더 정확해집니다.",
       "personaCount": {
         "label": "페르소나 수",
         "hint": "많을수록 정확하지만 시간·비용이 증가합니다.",
@@ -422,12 +440,27 @@
       "personas": "AI 페르소나 생성 중",
       "scoring": "국가별 점수 계산 중",
       "pricing": "가격 모델 실행 중",
-      "creative": "크리에이티브 평가 중",
-      "risk": "리스크 분석 중",
       "recommend": "추천 생성 중"
     },
-    "etaShort": "예상 소요 2~5분",
-    "feelPremium": "AI 페르소나가 당신의 제품을 정밀 평가 중입니다"
+    "etaShort": "예상 소요 5~10분",
+    "feelPremium": "AI 페르소나가 당신의 제품을 정밀 평가 중입니다",
+    "elapsed": "{time} 경과",
+    "cancel": "시뮬레이션 취소",
+    "cancelling": "취소 중...",
+    "cancelConfirm": "진행 중인 시뮬레이션을 취소하시겠습니까? 지금까지의 분석 결과는 저장되지 않습니다.",
+    "pollWarning": "상태 업데이트가 잠시 지연되고 있습니다 — 자동 재시도 중",
+    "failed": {
+      "title": "시뮬레이션 실패",
+      "subtitle": "분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+      "stageLabel": "실패 단계",
+      "detailToggle": "기술 정보",
+      "backToProject": "프로젝트로 돌아가기"
+    },
+    "cancelled": {
+      "title": "시뮬레이션 취소됨",
+      "subtitle": "이 시뮬레이션은 운영자에 의해 취소되었습니다.",
+      "backToProject": "프로젝트로 돌아가기"
+    }
   },
   "results": {
     "tabs": {
@@ -435,7 +468,6 @@
       "countries": "국가",
       "personas": "페르소나",
       "pricing": "가격",
-      "creative": "크리에이티브",
       "risks": "리스크",
       "recommendations": "추천"
     },
@@ -492,7 +524,13 @@
         "style": "구매 스타일",
         "objections": "거부 요인",
         "trustFactors": "신뢰 요인",
-        "interests": "관심사"
+        "interests": "관심사",
+        "priceSensitivity": "가격 민감도"
+      },
+      "sensitivity": {
+        "low": "낮음",
+        "medium": "보통",
+        "high": "높음"
       },
       "gender": {
         "male": "남성",
@@ -515,6 +553,7 @@
       "showingFirst": "{shown}명 표시 / 전체 {total}명",
       "noResults": "검색 결과 없음",
       "clickToExpand": "클릭하면 상세 정보",
+      "clickToCollapse": "접기",
       "intentLegend": "구매의향 점수 (0~100)",
       "intentHigh": "70+ 높음",
       "intentMedium": "35~69 보통",
@@ -555,6 +594,16 @@
     },
     "actionPlan": "액션 플랜",
     "recommendedChannels": "추천 채널",
+    "recommendations": {
+      "emptyExecSummary": "분석 요약 데이터가 부족합니다.",
+      "emptyActionPlan": "액션 플랜이 생성되지 않았습니다 — 시뮬레이션을 다시 실행해보세요.",
+      "emptyChannels": "추천 채널이 생성되지 않았습니다."
+    },
+    "creative": {
+      "title": "크리에이티브 평가",
+      "strengths": "강점",
+      "weaknesses": "약점"
+    },
     "dataSources": "참고 데이터 출처",
     "exportPdf": "PDF 리포트 다운로드",
     "risks": {
@@ -652,7 +701,9 @@
       "avgIntent": "평균 구매의향",
       "bestCountry": "최우선 국가",
       "riskLevel": "리스크 수준",
-      "personaCount": "페르소나 수"
+      "personaCount": "페르소나 수",
+      "bestCreativeScore": "최고 크리에이티브 점수",
+      "bestCreativeName": "최고 크리에이티브"
     }
   },
   "projectList": {
@@ -800,6 +851,7 @@
         "all": "전체",
         "running": "진행 중",
         "failed": "실패",
+        "cancelled": "취소됨",
         "completed": "완료"
       },
       "col": {
@@ -818,7 +870,8 @@
       },
       "confirmRetry": "이 프로젝트로 새 시뮬레이션을 시작합니다. 계속하시겠어요?",
       "confirmCancel": "이 시뮬레이션을 취소된 상태로 표시합니다. 계속하시겠어요?",
-      "actionFailed": "작업 실패: {error}"
+      "actionFailed": "작업 실패: {error}",
+      "zombieHint": "{mins}분 이상 진행 중 — Vercel 함수가 종료된 좀비 작업일 가능성이 높습니다. 취소 후 재시도하세요."
     },
     "placeholder": {
       "comingSoon": "이 화면은 v0.3에서 추가됩니다."

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { AlertTriangle, Database, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Database, ShieldAlert, Sparkles } from "lucide-react";
 import { clsx } from "clsx";
 import { KpiCard } from "@/components/ui/KpiCard";
 import type { SimulationResult } from "@/lib/simulation/schemas";
@@ -73,11 +73,13 @@ export function OverviewTab({ result, locale, sources, regulatory }: OverviewTab
           value={overview.riskLevel.toUpperCase()}
           tone={riskTone}
         />
-        <KpiCard
-          label={t("results.overview.bestCreative")}
-          help={t("results.help.bestCreative")}
-          value={overview.bestCreative ?? "—"}
-        />
+        {overview.bestCreative && (
+          <KpiCard
+            label={t("results.overview.bestCreative")}
+            help={t("results.help.bestCreative")}
+            value={overview.bestCreative}
+          />
+        )}
       </div>
 
       {showRegulatory && (
@@ -173,6 +175,67 @@ export function OverviewTab({ result, locale, sources, regulatory }: OverviewTab
           {result.recommendations.executiveSummary || overview.headline}
         </p>
       </div>
+
+      {result.creative && result.creative.length > 0 && (
+        <div className="card">
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles size={14} className="text-brand" />
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              {t("results.creative.title")}
+            </h3>
+          </div>
+          <div className="space-y-3">
+            {result.creative.map((c, i) => {
+              const tone =
+                c.score >= 70 ? "success" : c.score >= 40 ? "warn" : "risk";
+              return (
+                <div
+                  key={`creative-${i}`}
+                  className="rounded-lg border border-slate-200 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="font-medium text-sm text-slate-900 break-keep">
+                      {c.assetName}
+                    </div>
+                    <span
+                      className={clsx(
+                        "badge shrink-0",
+                        tone === "success"
+                          ? "bg-success-soft text-success"
+                          : tone === "warn"
+                            ? "bg-warn-soft text-warn"
+                            : "bg-risk-soft text-risk",
+                      )}
+                    >
+                      {c.score}/100
+                    </span>
+                  </div>
+                  {c.strengths.length > 0 && (
+                    <div className="mt-2 text-xs leading-relaxed">
+                      <span className="text-success font-medium">
+                        {t("results.creative.strengths")}:
+                      </span>{" "}
+                      <span className="text-slate-700">
+                        {c.strengths.join(", ")}
+                      </span>
+                    </div>
+                  )}
+                  {c.weaknesses.length > 0 && (
+                    <div className="mt-1 text-xs leading-relaxed">
+                      <span className="text-risk font-medium">
+                        {t("results.creative.weaknesses")}:
+                      </span>{" "}
+                      <span className="text-slate-700">
+                        {c.weaknesses.join(", ")}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {sources && sources.length > 0 && (
         <div className="card bg-slate-50 border-slate-200">

@@ -373,6 +373,27 @@ const styles = StyleSheet.create({
     color: C.body,
     marginBottom: 3,
   },
+
+  // Voice quote card — "voice of the customer" section
+  voiceCard: {
+    padding: 12,
+    borderRadius: 6,
+    borderLeft: `2pt solid ${C.brand}`,
+    backgroundColor: C.brandSoft,
+    marginBottom: 9,
+  },
+  voiceQuote: {
+    fontSize: 9.5,
+    lineHeight: 1.55,
+    color: C.ink,
+    fontStyle: "italic",
+    marginBottom: 6,
+  },
+  voiceAttribution: {
+    fontSize: 8,
+    color: C.muted,
+    fontWeight: 600,
+  },
 });
 
 interface ReportLabels {
@@ -411,6 +432,9 @@ interface ReportLabels {
   regulatoryTitle: string;
   regulatoryExcluded: string;
   regulatoryRestricted: string;
+  voicesTitle: string;
+  voicesSub: string;
+  intentLabel: string;
   generatedBy: string;
   page: string;
 }
@@ -429,6 +453,9 @@ interface BuildOptions {
   sources?: string[];
   regulatory?: { regulatedCategory?: string; warnings: RegulatoryWarningPdf[] };
   locale?: string;
+  /** Project currency (ISO 4217). When omitted, falls back to USD — covers
+   *  legacy sims persisted before currency was plumbed through to the PDF. */
+  currency?: string;
   // Sim metadata for the cover.
   meta?: {
     simulationId?: string;
@@ -486,11 +513,20 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
     sources = [],
     regulatory,
     locale = "en",
+    currency = "USD",
     meta = {},
   } = opts;
   const { overview, countries, personas, pricing, risks, recommendations } = result;
   const cn = (code: string) => getCountryLabel(code, locale) || code;
-  const fmtPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  // Currency-aware price formatter. Uses Intl so KRW/JPY (no decimals) and
+  // USD/EUR/GBP (2 decimals) format correctly per their conventions, with the
+  // proper symbol for the locale.
+  const priceFormatter = new Intl.NumberFormat(locale === "ko" ? "ko-KR" : "en-US", {
+    style: "currency",
+    currency,
+    currencyDisplay: "symbol",
+  });
+  const fmtPrice = (cents: number) => priceFormatter.format(cents / 100);
 
   // Persona aggregates for the persona insights page.
   const personaCount = personas?.length ?? 0;
@@ -525,6 +561,44 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
   const runDate = meta.runDate ?? new Date().toISOString().slice(0, 10);
   const modelLabel = meta.modelVersion ?? meta.modelProvider ?? "—";
 
+  // ── Voice selection ──────────────────────────────────────────
+  // Pick representative voices from the persona pool: 2 high-intent
+  // (champions), 2 mid-intent (neutrals), 2 low-intent (skeptics) so the
+  // PDF reader sees the FULL emotional spectrum, not just enthusiastic
+  // quotes. Deduplicate by country to keep diversity. Skip personas
+  // without a voice (legacy sims, parse failures).
+  type Voiced = (typeof personas)[number] & { voice: string };
+  const voiced: Voiced[] = personas
+    .filter((p): p is Voiced => !!p.voice && p.voice.trim().length > 0)
+    .sort((a, b) => b.purchaseIntent - a.purchaseIntent);
+  const pickN = (pool: Voiced[], n: number): Voiced[] => {
+    const seen = new Set<string>();
+    const picked: Voiced[] = [];
+    for (const p of pool) {
+      if (picked.length >= n) break;
+      if (seen.has(p.country)) continue;
+      seen.add(p.country);
+      picked.push(p);
+    }
+    // Backfill if dedup left us short — better to repeat a country than to
+    // ship a near-empty section.
+    if (picked.length < n) {
+      for (const p of pool) {
+        if (picked.length >= n) break;
+        if (!picked.includes(p)) picked.push(p);
+      }
+    }
+    return picked;
+  };
+  const high = voiced.filter((p) => p.purchaseIntent >= 70);
+  const low = voiced.filter((p) => p.purchaseIntent < 35);
+  const mid = voiced.filter((p) => p.purchaseIntent >= 35 && p.purchaseIntent < 70);
+  const selectedVoices: Voiced[] = [
+    ...pickN(high, 2),
+    ...pickN(mid, 2),
+    ...pickN(low, 2),
+  ];
+
   // SVG logo mark — same shape as the in-app component.
   const Logo = ({ size = 14, color = "#FFFFFF" }: { size?: number; color?: string }) => (
     <Svg width={size} height={size} viewBox="0 0 32 32">
@@ -538,7 +612,10 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
     </Svg>
   );
 
-  const PageChrome = ({ pageNum, totalPages }: { pageNum: number; totalPages: number }) => (
+  // Page chrome with dynamic totalPages — react-pdf injects pageNumber +
+  // totalPages on every render. Hardcoding "Page X / 4" was a footgun: any
+  // long content that overflowed to a 5th page would still print "5 / 4".
+  const PageChrome = () => (
     <>
       <View style={styles.pageHeader} fixed>
         <View style={styles.pageHeaderBrand}>
@@ -551,12 +628,14 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
       </View>
       <View style={styles.pageFooter} fixed>
         <Text>{labels.generatedBy} · {runDate}</Text>
-        <Text>{labels.page} {pageNum} / {totalPages}</Text>
+        <Text
+          render={({ pageNumber, totalPages }) =>
+            `${labels.page} ${pageNumber} / ${totalPages}`
+          }
+        />
       </View>
     </>
   );
-
-  const TOTAL_PAGES = 4;
 
   const doc = (
     <Document>
@@ -625,19 +704,21 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
           </View>
 
           <Text style={{ fontSize: 9, color: "#94CFEA" }}>
-            {labels.generatedBy} · marketTwin.app
+            {labels.generatedBy} · markettwin.ai
           </Text>
         </View>
       </Page>
 
       {/* PAGE 2 — EXECUTIVE SUMMARY + KEY METRICS */}
       <Page size="A4" style={styles.page}>
-        <PageChrome pageNum={2} totalPages={TOTAL_PAGES} />
+        <PageChrome />
         <View>
           <Text style={styles.sectionEyebrow}>01 · {labels.executiveSummary}</Text>
           <Text style={styles.h2}>{labels.executiveSummary}</Text>
           <Text style={styles.para}>
-            {recommendations.executiveSummary || overview.headline}
+            {recommendations.executiveSummary?.trim() ||
+              overview.headline?.trim() ||
+              "—"}
           </Text>
 
           <View style={styles.sectionGap}>
@@ -718,7 +799,7 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
 
       {/* PAGE 3 — COUNTRY ANALYSIS + PRICING */}
       <Page size="A4" style={styles.page}>
-        <PageChrome pageNum={3} totalPages={TOTAL_PAGES} />
+        <PageChrome />
         <View>
           <Text style={styles.sectionEyebrow}>02 · {labels.countryRanking}</Text>
           <Text style={styles.h2}>{labels.countryRanking}</Text>
@@ -792,7 +873,7 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
 
       {/* PAGE 4 — PERSONAS + RISKS + ACTION + SOURCES */}
       <Page size="A4" style={styles.page}>
-        <PageChrome pageNum={4} totalPages={TOTAL_PAGES} />
+        <PageChrome />
         <View>
           <Text style={styles.sectionEyebrow}>04 · {labels.personaInsights}</Text>
           <Text style={styles.h2}>{labels.personaInsights}</Text>
@@ -875,12 +956,16 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
           <View style={styles.sectionGap}>
             <Text style={styles.sectionEyebrow}>06 · {labels.actionPlan}</Text>
             <Text style={styles.h2}>{labels.actionPlan}</Text>
-            {recommendations.actionPlan.map((s, i) => (
-              <View key={`act-${i}`} wrap={false} style={styles.numberedItem}>
-                <Text style={styles.numberedDot}>{i + 1}</Text>
-                <Text style={styles.numberedText}>{s}</Text>
-              </View>
-            ))}
+            {recommendations.actionPlan.length === 0 ? (
+              <Text style={styles.paraTight}>—</Text>
+            ) : (
+              recommendations.actionPlan.map((s, i) => (
+                <View key={`act-${i}`} wrap={false} style={styles.numberedItem}>
+                  <Text style={styles.numberedDot}>{i + 1}</Text>
+                  <Text style={styles.numberedText}>{s}</Text>
+                </View>
+              ))
+            )}
           </View>
 
           {recommendations.channels && recommendations.channels.length > 0 && (
@@ -917,6 +1002,46 @@ export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
           )}
         </View>
       </Page>
+
+      {/* PAGE 5 — VOICES OF THE CUSTOMER (conditional)                  */}
+      {/* Renders only when at least one persona has a voice. Six picks  */}
+      {/* spread across high / mid / low intent so the reader sees the   */}
+      {/* full emotional spectrum, not just enthusiastic quotes.          */}
+      {selectedVoices.length > 0 && (
+        <Page size="A4" style={styles.page}>
+          <PageChrome />
+          <View>
+            <Text style={styles.sectionEyebrow}>07 · {labels.voicesTitle}</Text>
+            <Text style={styles.h2}>{labels.voicesTitle}</Text>
+            <Text style={[styles.paraTight, { marginBottom: 14, color: C.muted }]}>
+              {labels.voicesSub}
+            </Text>
+            {selectedVoices.map((p, i) => {
+              const intentTone =
+                p.purchaseIntent >= 70
+                  ? styles.severityLow // green = champion
+                  : p.purchaseIntent >= 35
+                    ? styles.severityMedium // amber = neutral
+                    : styles.severityHigh; // red = skeptic
+              return (
+                <View key={`voice-${i}`} wrap={false} style={styles.voiceCard}>
+                  <CJKText style={styles.voiceQuote}>
+                    {`"${p.voice}"`}
+                  </CJKText>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <CJKText style={styles.voiceAttribution}>
+                      {`— ${p.profession} · ${cn(p.country)} · ${p.ageRange}`}
+                    </CJKText>
+                    <Text style={[styles.pill, intentTone]}>
+                      {`${labels.intentLabel} ${p.purchaseIntent}`}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </Page>
+      )}
     </Document>
   );
 

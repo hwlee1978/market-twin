@@ -3,8 +3,14 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
-import { RotateCcw, X } from "lucide-react";
+import { AlertTriangle, RotateCcw, X } from "lucide-react";
+import { clsx } from "clsx";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+
+// Past this many minutes a "running" sim is almost certainly a zombie —
+// Vercel kills serverless functions at maxDuration=300s (5 min) so anything
+// still claiming "running" past ~6 min hasn't actually been alive for a while.
+const ZOMBIE_THRESHOLD_MINUTES = 6;
 
 interface Row {
   id: string;
@@ -25,6 +31,7 @@ const FILTERS = [
   { key: "all", label: "all" },
   { key: "running", label: "running" },
   { key: "failed", label: "failed" },
+  { key: "cancelled", label: "cancelled" },
   { key: "completed", label: "completed" },
 ] as const;
 
@@ -95,14 +102,34 @@ export function AdminSimulationsTable({
   };
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { all: rows.length, running: 0, failed: 0, completed: 0 };
+    const c: Record<string, number> = {
+      all: rows.length,
+      running: 0,
+      failed: 0,
+      cancelled: 0,
+      completed: 0,
+    };
     for (const r of rows) {
       if (r.status === "running" || r.status === "pending") c.running++;
       if (r.status === "failed") c.failed++;
+      if (r.status === "cancelled") c.cancelled++;
       if (r.status === "completed") c.completed++;
     }
     return c;
   }, [rows]);
+
+  /**
+   * A "running" row is suspect when started > ZOMBIE_THRESHOLD_MINUTES ago.
+   * Vercel kills serverless functions at maxDuration=300s, so anything still
+   * claiming `running` past ~6 minutes is almost certainly a zombie left
+   * behind by a function timeout. Surfacing these helps the admin clean up.
+   */
+  const isZombie = (sim: Row): boolean => {
+    if (sim.status !== "running" && sim.status !== "pending") return false;
+    if (!sim.started_at) return false;
+    const ageMin = (Date.now() - new Date(sim.started_at).getTime()) / 60000;
+    return ageMin > ZOMBIE_THRESHOLD_MINUTES;
+  };
 
   return (
     <div className="space-y-4">
@@ -122,8 +149,8 @@ export function AdminSimulationsTable({
         ))}
       </div>
 
-      <div className="card p-0 overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="card p-0 overflow-x-auto">
+        <table className="w-full text-sm min-w-[920px]">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-6 py-3 font-medium">{t("col.id")}</th>
@@ -138,8 +165,16 @@ export function AdminSimulationsTable({
             </tr>
           </thead>
           <tbody>
-            {filtered.map((s) => (
-              <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50">
+            {filtered.map((s) => {
+              const zombie = isZombie(s);
+              return (
+              <tr
+                key={s.id}
+                className={clsx(
+                  "border-t border-slate-100 transition-colors",
+                  zombie ? "bg-warn-soft/40 hover:bg-warn-soft/60" : "hover:bg-slate-50",
+                )}
+              >
                 <td className="px-6 py-3 font-mono text-xs text-slate-700">{s.id.slice(0, 8)}</td>
                 <td className="px-6 py-3">
                   <div className="text-slate-900 truncate max-w-[200px]">
@@ -150,7 +185,17 @@ export function AdminSimulationsTable({
                   </div>
                 </td>
                 <td className="px-6 py-3">
-                  <StatusBadge status={s.status} label={tProj(s.status as "completed")} />
+                  <div className="flex items-center gap-1.5">
+                    <StatusBadge status={s.status} label={tProj(s.status as "completed")} />
+                    {zombie && (
+                      <span
+                        title={t("zombieHint", { mins: ZOMBIE_THRESHOLD_MINUTES })}
+                        className="inline-flex items-center text-warn"
+                      >
+                        <AlertTriangle size={12} />
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-6 py-3 text-slate-600 text-xs">{s.current_stage ?? "—"}</td>
                 <td className="px-6 py-3 text-right tabular-nums text-slate-700">
@@ -195,7 +240,8 @@ export function AdminSimulationsTable({
                   )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={9} className="px-6 py-12 text-center text-slate-500 text-sm">

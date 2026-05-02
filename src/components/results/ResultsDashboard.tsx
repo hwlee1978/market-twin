@@ -41,19 +41,21 @@ export function ResultsDashboard({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold">{t("dashboard.title")}</h1>
           <p className="text-slate-500 text-sm mt-1">{result.overview.headline}</p>
         </div>
-        <button onClick={exportPdf} className="btn-primary">
+        <button onClick={exportPdf} className="btn-primary self-start sm:self-auto shrink-0">
           <Download size={16} />
           {t("results.exportPdf")}
         </button>
       </div>
 
-      <div className="border-b border-slate-200">
-        <nav className="-mb-px flex gap-6 text-sm">
+      {/* Tab strip: horizontal-scroll on mobile so 6 tabs fit even when the
+          viewport doesn't have room for all of them inline. */}
+      <div className="border-b border-slate-200 overflow-x-auto">
+        <nav className="-mb-px flex gap-6 text-sm whitespace-nowrap">
           {TABS.map((key) => (
             <button
               key={key}

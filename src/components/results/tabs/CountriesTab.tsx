@@ -82,8 +82,8 @@ export function CountriesTab({ countries, personas = [], regulatory, sources = [
   };
 
   return (
-    <div className="card p-0 overflow-hidden">
-      <table className="w-full text-sm">
+    <div className="card p-0 overflow-x-auto">
+      <table className="w-full text-sm min-w-[680px]">
         <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
           <tr>
             <th className="w-8 px-3 py-3" />

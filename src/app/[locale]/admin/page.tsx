@@ -70,7 +70,7 @@ export default async function AdminOverviewPage({
         />
       </div>
 
-      <div className="card p-0 overflow-hidden">
+      <div className="card p-0">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-base font-semibold">{t("recentIssues")}</h2>
           <Link
@@ -82,7 +82,8 @@ export default async function AdminOverviewPage({
           </Link>
         </div>
         {recentFailedRows.length > 0 ? (
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[680px]">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
               <tr>
                 <th className="text-left px-6 py-3 font-medium">{t("table.simulation")}</th>
@@ -118,6 +119,7 @@ export default async function AdminOverviewPage({
               ))}
             </tbody>
           </table>
+        </div>
         ) : (
           <div className="px-6 py-12 text-center text-slate-500 text-sm">
             {t("noIssues")}

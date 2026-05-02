@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { AlertOctagon, ArrowLeft, ChevronDown, Ban } from "lucide-react";
+import { Link } from "@/i18n/navigation";
+import { clsx } from "clsx";
 import type { SimulationResult } from "@/lib/simulation/schemas";
 import { SimulationProgress } from "./SimulationProgress";
 import { ResultsDashboard } from "./ResultsDashboard";
@@ -12,6 +15,7 @@ interface SimStatus {
   status: "pending" | "running" | "completed" | "failed" | "cancelled";
   current_stage: string | null;
   error_message: string | null;
+  started_at: string | null;
 }
 
 export function ResultsView({
@@ -93,7 +97,16 @@ export function ResultsView({
 
     tick();
     const handle = setInterval(() => {
-      if (status?.status === "completed" || status?.status === "failed") return;
+      // Stop polling on any terminal state — completed / failed / cancelled.
+      // (Without "cancelled" the loop would keep firing 3s requests forever
+      //  for an admin-cancelled sim that the user is still viewing.)
+      if (
+        status?.status === "completed" ||
+        status?.status === "failed" ||
+        status?.status === "cancelled"
+      ) {
+        return;
+      }
       tick();
     }, 3000);
     return () => {
@@ -114,15 +127,27 @@ export function ResultsView({
 
   if (status?.status === "failed") {
     return (
-      <div className="card border-risk-soft bg-risk-soft text-risk">
-        <div className="font-medium">Simulation failed</div>
-        <p className="text-sm mt-1">{status.error_message ?? "Unknown error"}</p>
-      </div>
+      <FailedState
+        projectId={projectId}
+        stage={status.current_stage}
+        errorMessage={status.error_message}
+      />
     );
   }
 
+  if (status?.status === "cancelled") {
+    return <CancelledState projectId={projectId} />;
+  }
+
   if (isRunning || !result) {
-    return <SimulationProgress stage={status?.current_stage ?? "validating"} />;
+    return (
+      <SimulationProgress
+        stage={status?.current_stage ?? "validating"}
+        startedAt={status?.started_at ?? null}
+        pollError={pollError}
+        simulationId={simulationId}
+      />
+    );
   }
 
   return (
@@ -135,5 +160,86 @@ export function ResultsView({
       locale={locale}
       pollError={pollError}
     />
+  );
+}
+
+function FailedState({
+  projectId,
+  stage,
+  errorMessage,
+}: {
+  projectId: string;
+  stage: string | null;
+  errorMessage: string | null;
+}) {
+  const t = useTranslations("simulation.failed");
+  const [showDetail, setShowDetail] = useState(false);
+
+  return (
+    <div className="max-w-2xl mx-auto py-12">
+      <div className="card text-center p-12">
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-risk-soft mb-4">
+          <AlertOctagon size={24} className="text-risk" />
+        </div>
+        <h2 className="text-xl font-semibold mb-2 text-slate-900">{t("title")}</h2>
+        <p className="text-sm text-slate-500 break-keep mb-6">{t("subtitle")}</p>
+
+        {stage && (
+          <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700 mb-6">
+            <span className="text-slate-500">{t("stageLabel")}:</span>
+            <span className="font-medium">{stage}</span>
+          </div>
+        )}
+
+        <div className="flex justify-center mb-6">
+          <Link href={`/projects/${projectId}`} className="btn-primary">
+            <ArrowLeft size={16} />
+            {t("backToProject")}
+          </Link>
+        </div>
+
+        {errorMessage && (
+          <div className="text-left max-w-md mx-auto">
+            <button
+              type="button"
+              onClick={() => setShowDetail((v) => !v)}
+              className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
+            >
+              <ChevronDown
+                size={12}
+                className={clsx("transition-transform", showDetail && "rotate-180")}
+              />
+              {t("detailToggle")}
+            </button>
+            {showDetail && (
+              <pre className="mt-2 p-3 rounded-md bg-slate-50 border border-slate-200 text-[11px] text-slate-600 whitespace-pre-wrap break-words font-mono">
+                {errorMessage}
+              </pre>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CancelledState({ projectId }: { projectId: string }) {
+  const t = useTranslations("simulation.cancelled");
+  return (
+    <div className="max-w-2xl mx-auto py-12">
+      <div className="card text-center p-12">
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-100 mb-4">
+          <Ban size={24} className="text-slate-500" />
+        </div>
+        <h2 className="text-xl font-semibold mb-2 text-slate-900">{t("title")}</h2>
+        <p className="text-sm text-slate-500 break-keep mb-6">{t("subtitle")}</p>
+        <div className="flex justify-center">
+          <Link href={`/projects/${projectId}`} className="btn-primary">
+            <ArrowLeft size={16} />
+            {t("backToProject")}
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }

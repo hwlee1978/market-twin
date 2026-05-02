@@ -5,14 +5,14 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { COUNTRIES } from "@/lib/countries";
 import { clsx } from "clsx";
-import { AlertCircle, Check, Loader2, Search, Sparkles } from "lucide-react";
+import { AlertCircle, Check, Info, Loader2, Search, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CountryChipRow } from "@/components/ui/CountryChip";
 import { WIZARD_TEMPLATES } from "@/lib/wizard/templates";
 import type { FormState } from "@/lib/wizard/types";
 import { capture } from "@/lib/analytics/posthog";
 
-const STEPS = ["product", "pricing", "countries", "competitors", "review"] as const;
+const STEPS = ["product", "pricing", "countries", "competitors", "assets", "review"] as const;
 type StepKey = (typeof STEPS)[number];
 
 // KR is the assumed origin for the K-product export use case — it should not
@@ -45,6 +45,8 @@ export function ProjectWizard({ locale }: { locale: string }) {
     // is tracked separately above). User can change either independently.
     countries: RECOMMENDED_PRESET,
     competitorUrls: "",
+    assetDescriptions: "",
+    assetUrls: "",
     personaCount: 200,
   });
 
@@ -77,33 +79,87 @@ export function ProjectWizard({ locale }: { locale: string }) {
     setForm((f) => ({ ...f, ...tplDef.patch }));
   };
 
-  const canAdvance = () => {
+  // Returns the human-readable items the user needs to address before
+  // advancing the current step. Empty array = step is valid.
+  // Surfacing what's missing (rather than just disabling Next) is what
+  // turns a confused-grey-button moment into a self-correcting one.
+  const validationHints = (): string[] => {
     switch (STEPS[step]) {
-      case "product":
-        return (
-          form.name.trim() &&
-          form.productName.trim() &&
-          form.description.trim().length >= 10
-        );
+      case "product": {
+        const errors: string[] = [];
+        if (!form.name.trim()) errors.push(tw("validation.projectName"));
+        if (!form.productName.trim()) errors.push(tw("validation.productName"));
+        if (form.description.trim().length < 10) errors.push(tw("validation.description"));
+        return errors;
+      }
       case "pricing":
-        return parseFloat(form.basePrice) > 0;
+        return parseFloat(form.basePrice) > 0 ? [] : [tw("validation.basePrice")];
       case "countries":
-        return form.countries.length > 0;
+        return form.countries.length > 0 ? [] : [tw("validation.countries")];
       case "competitors":
-        return true;
+        return [];
+      case "assets":
+        // Both fields optional — validation never blocks. Empty B is
+        // surfaced as an inline accuracy notice inside the step itself,
+        // not as a hard error.
+        return [];
       default:
-        return true;
+        return [];
     }
+  };
+
+  const stepErrors = validationHints();
+  const canAdvance = stepErrors.length === 0;
+
+  /**
+   * Walks the API error response and returns a human-readable message.
+   * Server returns one of:
+   *   - { "error": "string message" }                                — runtime error
+   *   - { "error": { "fieldErrors": {field: [msg]}, "formErrors": [] } }  — Zod
+   *   - plain text                                                   — fallback
+   * We unwrap to a friendly summary so users don't see raw JSON dumps.
+   */
+  const parseApiError = async (res: Response): Promise<string> => {
+    const body = await res.text();
+    try {
+      const parsed = JSON.parse(body);
+      if (typeof parsed?.error === "string") return parsed.error;
+      const fieldErrors = parsed?.error?.fieldErrors;
+      if (fieldErrors && typeof fieldErrors === "object") {
+        const lines = Object.entries(fieldErrors as Record<string, string[]>)
+          .map(([field, msgs]) => `${field}: ${(msgs ?? []).join(", ")}`)
+          .filter(Boolean);
+        if (lines.length > 0) return lines.join("\n");
+      }
+      const formErrors = parsed?.error?.formErrors;
+      if (Array.isArray(formErrors) && formErrors.length > 0) {
+        return formErrors.join(", ");
+      }
+    } catch {
+      // Not JSON — fall through to raw text.
+    }
+    return body || tw("validation.submitFailed");
   };
 
   const submit = async () => {
     setSubmitting(true);
     setError(null);
     try {
-      const competitorUrls = form.competitorUrls
-        .split(/[\n,]/)
+      // Extract URLs by regex — robust to whatever the user pasted (newlines,
+      // commas, surrounding markdown brackets, trailing punctuation, etc.).
+      // We only support http/https here; data: and blob: URLs aren't fetchable
+      // by Anthropic vision and would just hit a server-side validation error.
+      const extractUrls = (text: string): string[] => {
+        if (!text) return [];
+        const matches = text.match(/https?:\/\/[^\s,<>"'`)\]]+/g) ?? [];
+        return matches.map((u) => u.replace(/[.,;:!?)\]]+$/, ""));
+      };
+      const competitorUrls = extractUrls(form.competitorUrls);
+      const assetDescriptions = form.assetDescriptions
+        .split(/\n/)
         .map((s) => s.trim())
         .filter(Boolean);
+      const assetUrls = extractUrls(form.assetUrls);
 
       const res = await fetch("/api/projects", {
         method: "POST",
@@ -119,9 +175,11 @@ export function ProjectWizard({ locale }: { locale: string }) {
           originatingCountry: form.originatingCountry,
           candidateCountries: form.countries,
           competitorUrls,
+          assetDescriptions,
+          assetUrls,
         }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await parseApiError(res));
       const { projectId } = await res.json();
       capture("project_created", {
         category: form.category,
@@ -138,7 +196,7 @@ export function ProjectWizard({ locale }: { locale: string }) {
           locale: currentLocale,
         }),
       });
-      if (!runRes.ok) throw new Error(await runRes.text());
+      if (!runRes.ok) throw new Error(await parseApiError(runRes));
       const { simulationId } = await runRes.json();
       capture("simulation_started", {
         project_id: projectId,
@@ -390,6 +448,44 @@ export function ProjectWizard({ locale }: { locale: string }) {
           </Field>
         )}
 
+        {stepKey === "assets" && (
+          <>
+            <Field
+              label={tw("fields.assetDescriptions")}
+              hint={tw("hints.assetDescriptions")}
+              optional
+            >
+              <textarea
+                className="input min-h-[120px] leading-relaxed"
+                placeholder={tw("placeholders.assetDescriptions")}
+                value={form.assetDescriptions}
+                onChange={(e) => update("assetDescriptions", e.target.value)}
+              />
+            </Field>
+
+            <Field
+              label={tw("fields.assetUrls")}
+              hint={tw("hints.assetUrls")}
+              optional
+            >
+              <textarea
+                className="input min-h-[100px] font-mono text-xs leading-relaxed"
+                placeholder={
+                  "https://images.example.com/hero.jpg\nhttps://cdn.example.com/banner.png"
+                }
+                value={form.assetUrls}
+                onChange={(e) => update("assetUrls", e.target.value)}
+              />
+            </Field>
+
+            {form.assetUrls.trim().length === 0 && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 leading-relaxed">
+                {tw("assetUrlsAccuracyHint")}
+              </div>
+            )}
+          </>
+        )}
+
         {stepKey === "review" && (
           <div className="space-y-5">
             <ReviewRow label={tw("fields.projectName")} value={form.name} />
@@ -453,6 +549,17 @@ export function ProjectWizard({ locale }: { locale: string }) {
         )}
       </div>
 
+      {stepErrors.length > 0 && (
+        <ul className="mt-4 space-y-1.5 text-xs text-slate-500">
+          {stepErrors.map((e, i) => (
+            <li key={i} className="flex items-center gap-1.5">
+              <Info size={12} className="shrink-0 text-slate-400" />
+              <span>{e}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
       <div className="mt-6 flex items-center justify-between">
         <button
           onClick={() => setStep((s) => Math.max(0, s - 1))}
@@ -464,7 +571,7 @@ export function ProjectWizard({ locale }: { locale: string }) {
         {step < STEPS.length - 1 ? (
           <button
             onClick={() => setStep((s) => s + 1)}
-            disabled={!canAdvance()}
+            disabled={!canAdvance}
             className="btn-primary"
           >
             {t("common.next")}
@@ -472,7 +579,7 @@ export function ProjectWizard({ locale }: { locale: string }) {
         ) : (
           <button
             onClick={submit}
-            disabled={submitting || !canAdvance()}
+            disabled={submitting || !canAdvance}
             className="btn-primary"
           >
             {submitting ? (
