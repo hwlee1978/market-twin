@@ -17,3 +17,21 @@ tsconfig.tsbuildinfo
 test-results/
 playwright-report/
 playwright/.cache/
+
+# Local diagnostic / comparison artifacts
+voice-compare-*.md
+
+# Pitch deck experiments / superseded artifacts
+# (PITCH_DECK.html is the canonical, committed deck)
+*.pptx
+PITCH_DECK.pdf
+PITCH_DECK_print.html
+INVESTMENT_BRIEF.md
+PRESENTATION_GUIDE.md
+VISUAL_ANALYSIS.md
+generate_pptx.js
+generate_presentation.py
+generate_professional_pptx.js
+
+# Editor / IDE
+.vscode/
