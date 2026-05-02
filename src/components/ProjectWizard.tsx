@@ -48,6 +48,8 @@ export function ProjectWizard({ locale }: { locale: string }) {
     assetDescriptions: "",
     assetUrls: "",
     personaCount: 200,
+    tier: "decision",
+    notifyEmail: "",
   });
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
@@ -188,23 +190,28 @@ export function ProjectWizard({ locale }: { locale: string }) {
         objective: form.objective,
       });
 
-      const runRes = await fetch(`/api/simulations/${projectId}/run`, {
+      // Always go through the ensemble endpoint — hypothesis tier is just
+      // an N=1 ensemble. Single source of truth for result rendering, and
+      // every project's history shows the same shape.
+      const runRes = await fetch(`/api/projects/${projectId}/run-ensemble`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          personaCount: form.personaCount,
+          tier: form.tier,
+          notifyEmail: form.notifyEmail.trim() || undefined,
           locale: currentLocale,
         }),
       });
       if (!runRes.ok) throw new Error(await parseApiError(runRes));
-      const { simulationId } = await runRes.json();
-      capture("simulation_started", {
+      const { ensembleId } = await runRes.json();
+      capture("ensemble_started", {
         project_id: projectId,
-        persona_count: form.personaCount,
+        tier: form.tier,
         country_count: form.countries.length,
+        notify_email: !!form.notifyEmail.trim(),
       });
 
-      router.push(`/projects/${projectId}/results?sim=${simulationId}`);
+      router.push(`/projects/${projectId}/results?ensemble=${ensembleId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setSubmitting(false);
@@ -513,31 +520,59 @@ export function ProjectWizard({ locale }: { locale: string }) {
               </div>
             </div>
 
-            <Field label={tw("personaCount.label")} hint={tw("personaCount.hint")}>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[50, 200, 500, 1000].map((n) => {
-                  const active = form.personaCount === n;
+            <Field label={tw("tier.label")} hint={tw("tier.hint")}>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {(["hypothesis", "decision", "deep"] as const).map((t) => {
+                  const active = form.tier === t;
                   return (
                     <button
-                      key={n}
+                      key={t}
                       type="button"
-                      onClick={() => update("personaCount", n)}
+                      onClick={() => update("tier", t)}
                       className={clsx(
-                        "rounded-lg border px-3 py-2.5 text-sm text-left transition-colors",
+                        "rounded-lg border px-3 py-3 text-left transition-colors",
                         active
-                          ? "border-brand bg-brand-50 text-brand"
+                          ? "border-brand bg-brand-50"
                           : "border-slate-200 hover:border-slate-300",
                       )}
                     >
-                      <div className="font-mono font-semibold tabular-nums">{n}</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">
-                        {tw(`personaCount.tier.${n}` as "personaCount.tier.50")}
+                      <div
+                        className={clsx(
+                          "text-sm font-semibold",
+                          active ? "text-brand" : "text-slate-900",
+                        )}
+                      >
+                        {tw(`tier.${t}.name`)}
+                      </div>
+                      <div className="text-[11px] font-mono tabular-nums text-slate-500 mt-1">
+                        {tw(`tier.${t}.spec`)}
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-1 leading-snug">
+                        {tw(`tier.${t}.desc`)}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-1.5">
+                        {tw(`tier.${t}.time`)}
                       </div>
                     </button>
                   );
                 })}
               </div>
             </Field>
+
+            {form.tier !== "hypothesis" && (
+              <Field
+                label={tw("notifyEmail.label")}
+                hint={tw("notifyEmail.hint")}
+              >
+                <input
+                  type="email"
+                  className="input"
+                  placeholder={tw("notifyEmail.placeholder")}
+                  value={form.notifyEmail}
+                  onChange={(e) => update("notifyEmail", e.target.value)}
+                />
+              </Field>
+            )}
 
             {error && (
               <div className="flex items-start gap-2 rounded-lg border border-risk-soft bg-risk-soft/40 px-3 py-2 text-sm text-risk">

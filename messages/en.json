@@ -409,7 +409,34 @@
           "1000": "Maximum · ~15 min"
         }
       },
-      "runCta": "Create project + Start simulation",
+      "tier": {
+        "label": "Analysis depth",
+        "hint": "Confidence scales with the number of parallel sims. Decision and Deep aggregate N independent runs and surface consensus + variance alongside the headline recommendation.",
+        "hypothesis": {
+          "name": "Hypothesis",
+          "spec": "200 personas · 1 run",
+          "desc": "Quick exploration",
+          "time": "~5 min"
+        },
+        "decision": {
+          "name": "Decision",
+          "spec": "1,000 personas · 5 parallel",
+          "desc": "Decision-grade confidence (recommended)",
+          "time": "~7 min"
+        },
+        "deep": {
+          "name": "Deep Validation",
+          "spec": "5,000 personas · 25 parallel",
+          "desc": "Pre-launch / board-grade",
+          "time": "~15 min"
+        }
+      },
+      "notifyEmail": {
+        "label": "Email notification (optional)",
+        "placeholder": "Email to notify on completion",
+        "hint": "Decision and Deep take 5+ minutes. We'll email you the result link if you enter an address."
+      },
+      "runCta": "Create project + Start analysis",
       "templates": {
         "title": "Start from a template",
         "description": "Pick a category preset — every field gets pre-filled. Edit freely after clicking.",
@@ -685,6 +712,9 @@
   "projectDetail": {
     "description": "Description",
     "simulations": "Simulations",
+    "analyses": "Analysis history",
+    "recommendation": "Recommended market",
+    "consensus": "consensus",
     "noSimulations": "No simulations yet.",
     "firstSimTitle": "Ready to run your first simulation",
     "firstSimSubtitle": "Get an overseas-market analysis from your product inputs in under 24 hours. Typical run: 5–7 minutes.",

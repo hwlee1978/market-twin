@@ -409,7 +409,34 @@
           "1000": "최대 · ~15분"
         }
       },
-      "runCta": "프로젝트 생성 + 시뮬레이션 시작",
+      "tier": {
+        "label": "분석 깊이",
+        "hint": "병렬 시뮬레이션 수에 따라 신뢰도가 달라집니다. Decision 이상은 N개 독립 시뮬을 합산하여 추천 국가의 합의도와 변동성을 함께 표시합니다.",
+        "hypothesis": {
+          "name": "Hypothesis",
+          "spec": "200 personas · 1회",
+          "desc": "빠른 가설 탐색용",
+          "time": "~5분"
+        },
+        "decision": {
+          "name": "Decision",
+          "spec": "1,000 personas · 5 병렬",
+          "desc": "의사결정 신뢰도 (추천)",
+          "time": "~7분"
+        },
+        "deep": {
+          "name": "Deep Validation",
+          "spec": "5,000 personas · 25 병렬",
+          "desc": "최종 검증·임원 보고",
+          "time": "~15분"
+        }
+      },
+      "notifyEmail": {
+        "label": "이메일 알림 (선택)",
+        "placeholder": "결과 완료 시 받을 이메일",
+        "hint": "Decision 이상은 5분 이상 소요됩니다. 이메일 입력 시 결과 링크를 보내드려요."
+      },
+      "runCta": "프로젝트 생성 + 분석 시작",
       "templates": {
         "title": "템플릿으로 시작하기",
         "description": "비슷한 카테고리의 프리셋을 클릭하면 모든 필드가 한 번에 채워집니다. 클릭 후 자유롭게 수정하세요.",
@@ -685,6 +712,9 @@
   "projectDetail": {
     "description": "제품 설명",
     "simulations": "시뮬레이션",
+    "analyses": "분석 이력",
+    "recommendation": "추천 진출국",
+    "consensus": "합의도",
     "noSimulations": "아직 실행한 시뮬레이션이 없습니다.",
     "firstSimTitle": "첫 시뮬레이션을 실행할 준비가 됐어요",
     "firstSimSubtitle": "입력한 제품 정보로 24시간 내 해외 진출 분석을 받을 수 있습니다. 평균 5~7분 소요.",

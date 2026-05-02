@@ -6,6 +6,7 @@ import { runSimulation } from "@/lib/simulation/runner";
 import type { ProjectInput } from "@/lib/simulation/schemas";
 import { aggregateEnsemble, type EnsembleSimSnapshot } from "@/lib/simulation/ensemble";
 import type { CountryScore } from "@/lib/simulation/schemas";
+import { notifyEnsembleComplete } from "@/lib/email/notify";
 
 // Each individual sim still fits in 800s (Vercel Pro + Fluid Compute);
 // the ensemble route itself returns immediately and orchestrates via after().
@@ -178,9 +179,23 @@ export async function POST(
       }),
     );
 
-    // 4. All sims settled — aggregate and persist.
+    // 4. All sims settled — aggregate, persist, then notify.
     try {
-      await aggregateAndPersist(ensembleId);
+      const aggregate = await aggregateAndPersist(ensembleId);
+      if (aggregate) {
+        await notifyEnsembleComplete({
+          ensembleId,
+          workspaceId: project.workspace_id,
+          projectId: project.id,
+          productName: project.product_name,
+          locale,
+          tier: tier as Tier,
+          bestCountry: aggregate.recommendation.country,
+          consensusPercent: aggregate.recommendation.consensusPercent,
+          confidence: aggregate.recommendation.confidence,
+          notifyEmail: notifyEmail ?? null,
+        });
+      }
     } catch (err) {
       console.error(`[ensemble ${ensembleId}] aggregation failed:`, err);
       await admin
@@ -206,7 +221,9 @@ export async function POST(
 /**
  * Pulls the persisted simulation_results for every sim in the ensemble,
  * runs the aggregator, and stores the result on the ensemble row. Called
- * once after all sims have settled (success or failure).
+ * once after all sims have settled (success or failure). Returns the
+ * computed aggregate so the caller can use it for follow-on actions
+ * (email notification etc.) without re-querying.
  */
 async function aggregateAndPersist(ensembleId: string) {
   const admin = createServiceClient();
@@ -277,4 +294,6 @@ async function aggregateAndPersist(ensembleId: string) {
           : null,
     })
     .eq("id", ensembleId);
+
+  return snapshots.length > 0 ? aggregate : null;
 }

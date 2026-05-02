@@ -35,6 +35,31 @@ export default async function ProjectDetailPage({
 
   const latest = simulations?.[0];
 
+  // Pull ensemble history alongside individual sims. Ensembles are the
+  // primary history view going forward — each row links to the aggregated
+  // dashboard. Standalone sims (legacy / quick mode) stay in their own list.
+  const { data: ensembles } = await supabase
+    .from("ensembles")
+    .select(
+      "id, tier, parallel_sims, per_sim_personas, status, created_at, completed_at, aggregate_result",
+    )
+    .eq("project_id", id)
+    .order("created_at", { ascending: false })
+    .limit(10);
+  type EnsembleRow = {
+    id: string;
+    tier: "hypothesis" | "decision" | "deep";
+    parallel_sims: number;
+    per_sim_personas: number;
+    status: string;
+    created_at: string;
+    completed_at: string | null;
+    aggregate_result: {
+      recommendation?: { country: string; consensusPercent: number; confidence: string };
+    } | null;
+  };
+  const ensemblesList = (ensembles ?? []) as unknown as EnsembleRow[];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -74,7 +99,47 @@ export default async function ProjectDetailPage({
         </div>
 
         <div className="card">
-          <h3 className="text-base font-semibold mb-3">{t("projectDetail.simulations")}</h3>
+          <h3 className="text-base font-semibold mb-3">{t("projectDetail.analyses")}</h3>
+
+          {ensemblesList.length > 0 && (
+            <ul className="space-y-2 mb-4">
+              {ensemblesList.map((e) => {
+                const tierLabel =
+                  e.tier === "deep" ? "Deep" : e.tier === "decision" ? "Decision" : "Hypothesis";
+                const rec = e.aggregate_result?.recommendation;
+                return (
+                  <li key={e.id} className="text-sm">
+                    <Link
+                      href={`/projects/${id}/results?ensemble=${e.id}`}
+                      className="block rounded-lg border border-slate-200 px-3 py-2 hover:border-brand transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide bg-brand/10 text-brand px-1.5 py-0.5 rounded">
+                            {tierLabel}
+                          </span>
+                          <span className="text-xs text-slate-500 truncate">
+                            {new Date(e.created_at).toLocaleString(locale)}
+                          </span>
+                        </div>
+                        <StatusBadge status={e.status} label={t(`project.status.${e.status}`)} />
+                      </div>
+                      {rec && e.status === "completed" && (
+                        <div className="mt-1.5 text-xs text-slate-600">
+                          {t("projectDetail.recommendation")}:{" "}
+                          <span className="font-semibold text-slate-900">{rec.country}</span>{" "}
+                          <span className="text-slate-400">
+                            · {rec.consensusPercent}% {t("projectDetail.consensus")}
+                          </span>
+                        </div>
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
           {simulations && simulations.length > 0 ? (
             <>
               <ul className="space-y-2">

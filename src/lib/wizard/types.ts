@@ -34,4 +34,13 @@ export interface FormState {
    */
   assetUrls: string;
   personaCount: number;
+  /**
+   * Analysis depth tier — drives which `/run-ensemble` preset gets used.
+   * - hypothesis: 1 sim × 200 personas (fast hypothesis check)
+   * - decision: 5 sims × 200 personas = 1,000 effective (default)
+   * - deep: 25 sims × 200 personas = 5,000 effective (board-grade)
+   */
+  tier: "hypothesis" | "decision" | "deep";
+  /** Optional email for completion notification (deep tier 30+ min). */
+  notifyEmail: string;
 }
