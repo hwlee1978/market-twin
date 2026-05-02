@@ -245,7 +245,7 @@ async function main() {
        from public.personas
        where workspace_id = $1 and source_simulation_id is null
        group by base_profession, country
-       order by cnt::int desc limit 20`,
+       order by count(*) desc limit 20`,
       [workspaceId],
     );
     console.log(`\nWorkspace seed pool top cells (post-insert):`);
