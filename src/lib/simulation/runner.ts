@@ -57,14 +57,28 @@ interface RunOptions {
 // detailed personas in one shot; 12 yields ≥ 90% of requested entries empirically.
 const PERSONA_BATCH = 12;
 
-// Number of persona batches fired in parallel against the LLM.
-// Default 4 keeps us well under Anthropic Tier 1 RPM/TPM limits (~50 RPM,
-// ~40k input TPM) for typical persona counts of 50–300. Higher tiers can
-// raise this via env to unlock more speed.
-const PERSONA_BATCH_CONCURRENCY = Math.max(
-  1,
-  Number(process.env.LLM_PERSONA_BATCH_CONCURRENCY ?? 4),
-);
+/**
+ * Concurrency for parallel persona batches (fresh + reaction-only paths).
+ *
+ * Auto-scales with persona count to keep wall-clock time bounded as sims
+ * grow: a 500-persona sim has 42 batches, so a fixed concurrency of 4 means
+ * 11 sequential waves and ~5+ minutes for personas-stage alone. Lifting
+ * concurrency to 8 cuts that to ~6 waves.
+ *
+ * Tier 2 Anthropic limits (~90k output tokens/min, ~1000 RPM) easily
+ * accommodate concurrency 8 — each batch is ~2.5k output tokens, so 8
+ * concurrent calls = 20k tokens in flight, well under the cap.
+ *
+ * Env override (`LLM_PERSONA_BATCH_CONCURRENCY`) always wins — useful for
+ * Tier 1 environments where 4 is already the safe ceiling.
+ */
+function personaBatchConcurrency(personaCount: number): number {
+  const envOverride = Number(process.env.LLM_PERSONA_BATCH_CONCURRENCY);
+  if (Number.isFinite(envOverride) && envOverride > 0) return Math.floor(envOverride);
+  if (personaCount >= 500) return 8;
+  if (personaCount >= 200) return 6;
+  return 4;
+}
 
 /**
  * Worker-pool runner: executes `tasks` with at most `limit` concurrent ones,
@@ -182,16 +196,22 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     })
     .eq("id", opts.simulationId);
 
+  // Top-level wall-clock for the whole sim — prints at end alongside per-stage
+  // timings so it's obvious where the budget went on slow runs.
+  const tSimStart = Date.now();
+
   try {
     // ── Stage 0: regulatory pre-check ──────────────────────────
     // Filter out countries where the product is legally banned BEFORE any
     // downstream stage sees them — otherwise persona/country scoring will
     // happily recommend an illegal market (e.g. e-cigarettes for Singapore).
     await updateStage("regulatory");
+    const tReg = Date.now();
     const regulatory = await evaluateRegulatory(regulatoryLLM, opts.projectInput, locale);
     console.log(
       `[sim ${opts.simulationId}] regulatory: ${regulatory.allowedCountries.length} allowed, ` +
-        `${regulatory.excludedCountries.length} excluded${regulatory.result.regulatedCategory ? ` (category: ${regulatory.result.regulatedCategory})` : ""}`,
+        `${regulatory.excludedCountries.length} excluded${regulatory.result.regulatedCategory ? ` (category: ${regulatory.result.regulatedCategory})` : ""} — ` +
+        `${((Date.now() - tReg) / 1000).toFixed(1)}s`,
     );
     // Defensive: drop the origin from candidate markets even if it slipped in
     // (older rows pre-dating the originating_country split, or admin retries
@@ -249,6 +269,15 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     // line at the end of personas-stage tells you at-a-glance whether the
     // prompt-side defenses are holding for this run's locale × persona mix.
     let voiceSlipCount = 0;
+    // Concurrency scales with persona count (4 → 6 → 8) so 200/500-persona
+    // sims don't sit through 11 sequential waves. See personaBatchConcurrency().
+    const personaConcurrency = personaBatchConcurrency(opts.personaCount);
+    if (personaConcurrency !== 4) {
+      console.log(
+        `[sim ${opts.simulationId}] persona batch concurrency: ${personaConcurrency} ` +
+          `(scaled for ${opts.personaCount} personas)`,
+      );
+    }
 
     const allSlots: PersonaSlot[] = planSlots(
       opts.personaCount,
@@ -351,7 +380,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       }
       const t0 = Date.now();
       const missResults = await runWithConcurrency(
-        PERSONA_BATCH_CONCURRENCY,
+        personaConcurrency,
         missBatchPlans.map(({ slots }) => () =>
           personaLLM.generate({
             system: PERSONA_SYSTEM,
@@ -465,7 +494,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       }
       const tR = Date.now();
       const reactionResults = await runWithConcurrency(
-        PERSONA_BATCH_CONCURRENCY,
+        personaConcurrency,
         reactionBatches.map((batch) => () =>
           personaLLM.generate({
             system: PERSONA_REACTION_SYSTEM,
@@ -655,6 +684,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
 
     // ── Stage 2: countries ─────────────────────────────────────
     await updateStage("scoring");
+    const tCountries = Date.now();
     const countriesResp = await countryLLM.generate({
       system: COUNTRY_SYSTEM,
       prompt: countryPrompt(projectInput, aggregate, locale),
@@ -668,6 +698,10 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       .object({ countries: z.array(CountryScoreSchema) })
       .safeParse(countriesResp.json);
     const countryScores = countries.success ? countries.data.countries : [];
+    console.log(
+      `[sim ${opts.simulationId}] countries: ${countryScores.length} scored — ` +
+        `${((Date.now() - tCountries) / 1000).toFixed(1)}s`,
+    );
 
     // ── Stage 3: pricing ───────────────────────────────────────
     // Multi-sample averaging: pricing is the noisiest stage in the pipeline
@@ -676,6 +710,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     // sim cost (pricing is a small slice of the pipeline). Other stages stay
     // single-call — synthesis variance is mitigated separately via lower temp.
     await updateStage("pricing");
+    const tPricing = Date.now();
     const PRICING_SAMPLES = 3;
     const pricingPromptText = pricingPrompt(projectInput, aggregate, locale);
     const pricingResps = await Promise.all(
@@ -715,12 +750,13 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
           .map((p) => `$${(p.recommendedPriceCents / 100).toFixed(2)}`)
           .join(" / ")} → median $${(
           pricingCandidates[medianIdx].recommendedPriceCents / 100
-        ).toFixed(2)}`,
+        ).toFixed(2)} — ${((Date.now() - tPricing) / 1000).toFixed(1)}s`,
       );
     }
 
     // ── Stage 4: synthesis ─────────────────────────────────────
     await updateStage("recommend");
+    const tSynth = Date.now();
     // Vision is currently Anthropic-only — drop image URLs for other
     // providers so they don't go into a text prompt where they'd just look
     // like raw URLs the model can't see (and would tempt it to invent
@@ -729,15 +765,24 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       synthesisLLM.name === "anthropic"
         ? projectInput.assetUrls ?? []
         : [];
+    const synthesisPromptText = synthesisPrompt(
+      projectInput,
+      aggregate,
+      JSON.stringify(countryScores),
+      JSON.stringify(pricing.success ? pricing.data : {}),
+      locale,
+    );
+    // Rough token estimate (chars / 4) so we can spot when aggregator
+    // compression isn't keeping up at higher persona counts. Synthesis is the
+    // densest prompt in the pipeline; if this trends past ~60k chars on a
+    // 500-persona sim we need to tighten aggregate.ts.
+    console.log(
+      `[sim ${opts.simulationId}] synthesis prompt: ${synthesisPromptText.length.toLocaleString()} chars ` +
+        `(~${Math.round(synthesisPromptText.length / 4).toLocaleString()} tokens est.)`,
+    );
     const synthesisResp = await synthesisLLM.generate({
       system: SYNTHESIS_SYSTEM,
-      prompt: synthesisPrompt(
-        projectInput,
-        aggregate,
-        JSON.stringify(countryScores),
-        JSON.stringify(pricing.success ? pricing.data : {}),
-        locale,
-      ),
+      prompt: synthesisPromptText,
       images: synthesisImages,
       jsonSchema: {
         type: "object",
@@ -761,6 +806,10 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       // output caps.
       maxTokens: 16384,
     });
+    console.log(
+      `[sim ${opts.simulationId}] synthesis: ${((Date.now() - tSynth) / 1000).toFixed(1)}s ` +
+        `(in=${synthesisResp.usage?.inputTokens ?? "?"}, out=${synthesisResp.usage?.outputTokens ?? "?"})`,
+    );
 
     const synthesis = z
       .object({
@@ -912,6 +961,13 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       })
       .eq("id", opts.simulationId)
       .neq("status", "cancelled");
+
+    // Top-level wall-clock — print after persistence so the line shows up
+    // last in the log stream, makes it easy to scroll back and see the total.
+    console.log(
+      `[sim ${opts.simulationId}] DONE — ${((Date.now() - tSimStart) / 1000).toFixed(1)}s ` +
+        `total · ${personas.length} personas · ${countryScores.length} markets`,
+    );
 
     // Look up workspace + project so the success email + project status
     // update both have what they need without two extra round-trips.
