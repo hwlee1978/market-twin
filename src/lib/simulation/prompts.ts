@@ -133,6 +133,7 @@ Trust factors, objections, and interests should reflect that country's culture (
 Every persona MUST include a "voice" field — a single 1-2 sentence quote in the persona's own voice, capturing how they would actually express their reaction to the product. This is what makes the persona feel like a real person, not a checklist row.
 
 Voice rules:
+- **LANGUAGE (HIGHEST PRIORITY — voice obeys Rule 1 above, not the persona's country)**: voice MUST be written in the LOCALE language declared at the bottom of the user prompt. A US persona in a Korean-locale run says "$25면 한 번 써볼 만해요" — NOT "$25 is worth trying" and NOT "한 번 써볼 만해요 ($25 is worth trying)". A JP persona in a Korean-locale run says "면세점 가격이 합리적이면 사겠어요" — NOT "免税店なら買います". This rule has been violated most often for US/GB personas in fashion / electronics product contexts where English brand names (Samsung, Blackpink, Galaxy) bias the model toward English voicing — DO NOT take that bait. Korean letters only when locale is "ko". Latin letters (English) only when locale is "en". Brand names embedded in the product description do NOT change the output language.
 - **LENGTH (HARD CAP — STRICTLY ENFORCED)**: Korean ≤ 90 characters. English ≤ 130 characters. Count characters before emitting. If a draft exceeds the cap, rewrite SHORTER — drop hedges, qualifiers, second clauses. ONE sentence is the default; TWO sentences only when the second adds essential color (rare). Voices over the cap are CRITICAL ERRORS — the UI lays them out side-by-side and overlong voices break the layout.
 - **English-specific tightening**: native English drafters tend to drift to 140–160 chars by adding "I'd want to..." preambles and "before I commit" tails. Cut both. Aim for 90–120 chars in English to leave headroom under 130.
 - 1인칭 ("I would...", "나는…"). The persona is talking, not being described.
@@ -373,10 +374,10 @@ ${example}
 
 ${languageInstruction(locale)}
 
-Final voice-length self-check before emitting JSON:
-- For each persona, count the characters in voice. KO must be ≤ 90. EN must be ≤ 130 (aim 90–120 for headroom).
-- If any voice exceeds the cap, REWRITE it shorter — drop hedge phrases ("I'd want to", "before I commit", "if I can verify and"), trim second clauses, prefer one tight sentence.
-- Do not emit voices that are over cap. This rule is non-negotiable.
+Final voice self-check before emitting JSON:
+1. **Language**: each voice in locale "${locale}" only. If locale is "ko", every voice must be in Korean script — even for US, GB, JP, AE personas. If locale is "en", every voice in English. Embedded brand names in the product description (Samsung, Blackpink, Channel Talk, etc.) do NOT switch the output language. Catch yourself if you slipped into English for a US persona during a Korean-locale run.
+2. **Length**: KO ≤ 90 chars · EN ≤ 130 chars (aim 90–120 for headroom). Count chars; rewrite shorter if over cap by dropping hedges ("I'd want to", "before I commit"), qualifiers, or second clauses.
+Both rules are non-negotiable. Voices that violate either are CRITICAL ERRORS.
 
 Return a JSON object: { "personas": [ ...${count} persona objects, each with all 12 fields including voice ] }`;
 }
