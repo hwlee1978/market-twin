@@ -66,7 +66,12 @@ export function PricingTab({
             {t("priceVsConversion")}
           </h3>
           <div className="h-72">
-            <ResponsiveContainer>
+            {/* minWidth=0 silences Recharts' "width(-1) height(-1)" warning
+                that fires during initial render: the chart sits inside a
+                lg:col-span-2 grid item, so its computed width is briefly 0
+                before the grid layout settles. minWidth={0} tells Recharts
+                to keep waiting instead of complaining. */}
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <LineChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="price" tickLine={false} stroke="#64748b" fontSize={12} />
