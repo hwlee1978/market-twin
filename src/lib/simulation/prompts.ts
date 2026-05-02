@@ -94,6 +94,17 @@ ALL descriptive text fields (profession, purchaseStyle, interests, trustFactors,
 - An AE persona in a Korean-locale run: profession="IT 매니저" (NOT "ITマネージャー", NOT "IT Manager").
 - Mixing languages within ONE field is also wrong: "営業マネージャー (영업 매니저)" or "成分表で確認 못 해요" — output ONLY in the locale language.
 
+═══ BRAND / CHANNEL NAME PRESERVATION ═══
+Brand and channel names are preserved in their canonical real-world form, NOT translated, even when a literal translation produces a valid Korean word. The brand IS the name — translating it creates a non-existent entity.
+- Japanese channels with Korean cognates (frequent slip risk):
+  - **kakaku.com** (or 価格.com) — Japan's #1 price comparison site. WRITE "kakaku.com". DO NOT translate to "가격.com" — that domain does not exist. The site name is "kakaku", not "price".
+  - **Tabelog** (食べログ) — Japan's #1 restaurant review site. WRITE "Tabelog" or "타베로그". DO NOT translate to "먹로그" or "식사로그".
+  - **Mercari** (メルカリ) — secondhand marketplace. WRITE "Mercari" or "메르카리". DO NOT translate.
+  - **Rakuten** (楽天) — write "Rakuten" or "라쿠텐". DO NOT translate to "낙천".
+  - **Yodobashi** (ヨドバシカメラ) — write "Yodobashi" or "요도바시카메라".
+- Already in Latin script — preserve as-is: Qoo10, @cosme, Amazon Japan, Costco, Wirecutter, Reddit, Sephora, Stylevana, YesStyle, Cult Beauty, Look Fantastic, John Lewis, Currys.
+- Government bodies and physical chains may be transliterated to Hangul: 厚生労働省 → "후생노동성", ヤマダ電機 → "야마다전기", ビックカメラ → "빅카메라". This is acceptable because the target reader (a Korean executive) is more likely to recognize the Hangul rendering than the original kana/kanji. But the rule is preserve > transliterate > translate. Only translate when the translation matches an established Korean term (e.g. "외무성" for foreign ministry).
+
 The "country" field is just an ISO code (KR/JP/US/GB/AE/etc) — it controls income currency and cultural realism (Rule 2 below), NOT output language. The country code never switches the text language.
 
 If you find yourself typing Japanese kanji/kana (ひらがな・カタカナ・漢字), English words, or any non-Korean characters in any text field while the locale is "ko", STOP and rewrite that field in Korean before emitting it. Voice is the most slip-prone field — re-check every voice for hiragana/katakana/Latin sentences before output.
@@ -414,6 +425,14 @@ For persona reaction generation:
 
 ═══ LANGUAGE RULE (HIGHEST PRIORITY) ═══
 ALL text fields (trustFactors, objections, voice) MUST be in the locale language declared at the bottom of the user prompt. The persona's "country" field controls cultural context (what reviews/influencers/channels they trust, what regulators they cite), NOT output language. Korean script only when locale is "ko"; Latin (English) only when locale is "en".
+
+═══ BRAND / CHANNEL NAME PRESERVATION ═══
+Brand names are preserved in their canonical real-world form, NOT translated:
+- **kakaku.com** (価格.com) — Japan's #1 price comparison site. WRITE "kakaku.com". DO NOT translate to "가격.com" — that domain does not exist.
+- **Tabelog** (食べログ) — write "Tabelog" or "타베로그", NOT "먹로그".
+- **Mercari** (メルカリ), **Rakuten** (楽天) — preserve original spelling or transliterate ("메르카리", "라쿠텐"). DO NOT translate.
+- Already in Latin: Qoo10, @cosme, Amazon, Costco, Wirecutter, Reddit, Sephora, Stylevana, YesStyle, Cult Beauty, Look Fantastic, John Lewis, Currys — preserve as-is.
+- Government bodies and physical chains may transliterate to Hangul (厚生労働省→"후생노동성", ヤマダ電機→"야마다전기"). Rule order: preserve > transliterate > translate. Translate ONLY when an established Korean term exists.
 
 ═══ REALISM RULE ═══
 Persona reactions should reflect their country's culture (e.g. KR: 맘카페·식약처; JP: 専門家推薦·品質保証; US: Reddit·인플루언서; SG: HSA labels) AND their profession-specific lens (a pharmacist verifies INCI lists differently than a college student verifies Reddit threads).

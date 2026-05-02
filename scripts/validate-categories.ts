@@ -175,6 +175,7 @@ async function main() {
     sampleVoices: Array<{ profession: string; country: string; intent: number; voice: string }>;
     slotMismatches: Array<{ index: number; expected: string; actual: string }>;
     nonLocaleVoices: Array<{ profession: string; country: string; voice: string }>;
+    translatedBrands: Array<{ profession: string; country: string; voice: string; matched: string }>;
   };
 
   // Reuse the production sanitizer so the validator catches the same set of
@@ -182,6 +183,23 @@ async function main() {
   function isVoiceInLocale(voice: string, locale: "ko" | "en"): boolean {
     if (!voice) return true;
     return sanitizeVoice(voice, locale) !== null;
+  }
+
+  // Anti-patterns: brand names the model has translated into Korean cognates
+  // instead of preserving the canonical real-world spelling. These domains
+  // and services don't exist under the translated names, so a personae
+  // referencing them is making up a non-real channel.
+  const TRANSLATED_BRAND_PATTERNS: Array<{ pattern: RegExp; canonical: string }> = [
+    { pattern: /가격\.com/i,            canonical: "kakaku.com" },
+    { pattern: /먹로그|식사로그/,         canonical: "Tabelog (타베로그)" },
+    { pattern: /낙천\.com|낙천닷컴/,     canonical: "Rakuten (라쿠텐)" },
+    { pattern: /원숭이마트/,              canonical: "(unknown — possible bad transliteration)" },
+  ];
+  function findTranslatedBrand(voice: string): string | null {
+    for (const { pattern, canonical } of TRANSLATED_BRAND_PATTERNS) {
+      if (pattern.test(voice)) return canonical;
+    }
+    return null;
   }
 
   const rows: Row[] = [];
@@ -207,6 +225,7 @@ async function main() {
     const baseProfessionCounts: Record<string, number> = {};
     const slotMismatches: Array<{ index: number; expected: string; actual: string }> = [];
     const nonLocaleVoices: Array<{ profession: string; country: string; voice: string }> = [];
+    const translatedBrands: Array<{ profession: string; country: string; voice: string; matched: string }> = [];
 
     // Slot match: persona profession must START WITH the slot's base
     // archetype. Strip the trailing "(...)" specialization from the slot
@@ -231,6 +250,15 @@ async function main() {
         if (len > 90) capViolations++;
         if (!isVoiceInLocale(data.voice, LOCALE)) {
           nonLocaleVoices.push({ profession: data.profession, country: data.country, voice: data.voice });
+        }
+        const matched = findTranslatedBrand(data.voice);
+        if (matched) {
+          translatedBrands.push({
+            profession: data.profession,
+            country: data.country,
+            voice: data.voice,
+            matched,
+          });
         }
       }
       const base = slot.profession || "<free>";
@@ -266,12 +294,14 @@ async function main() {
       sampleVoices,
       slotMismatches,
       nonLocaleVoices,
+      translatedBrands,
     });
 
     console.log(
       `  ${fixture.category}: ${parsedPersonas.length}/${PERSONA_COUNT} parsed, ` +
         `${professionMatchSlot}/${PERSONA_COUNT} prof-slot match, ` +
-        `${capViolations} cap violations, ${result.ms}ms`,
+        `${capViolations} cap violations, ` +
+        `${translatedBrands.length} translated brands, ${result.ms}ms`,
     );
   });
 
@@ -289,7 +319,7 @@ async function main() {
   out.push(`## Summary`);
   out.push(``);
   out.push(
-    `| Category | Parsed | Prof-slot match | Country match | Cap violations | Avg voice len | Distinct base prof | Latency |`,
+    `| Category | Parsed | Prof-slot match | Country match | Cap | Lang slip | Brand mistx | Avg voice |`,
   );
   out.push(`|---|---|---|---|---|---|---|---|`);
   for (const r of rows) {
@@ -298,15 +328,17 @@ async function main() {
       r.professionMatchSlot < r.total ||
       r.countryMatchSlot < r.total ||
       r.capViolations > 0 ||
+      r.nonLocaleVoices.length > 0 ||
+      r.translatedBrands.length > 0 ||
       r.overusedProfessions.length > 0
         ? "⚠️ "
         : "✓ ";
     out.push(
-      `| ${flag}${r.category} | ${r.parsed}/${r.total} | ${r.professionMatchSlot}/${r.total} | ${r.countryMatchSlot}/${r.total} | ${r.capViolations} | ${r.avgVoiceLen}ch | ${r.distinctBaseProfessions} | ${r.ms}ms |`,
+      `| ${flag}${r.category} | ${r.parsed}/${r.total} | ${r.professionMatchSlot}/${r.total} | ${r.countryMatchSlot}/${r.total} | ${r.capViolations} | ${r.nonLocaleVoices.length} | ${r.translatedBrands.length} | ${r.avgVoiceLen}ch |`,
     );
   }
   out.push(``);
-  out.push(`**Legend**: ✓ all pass · ⚠️ at least one issue (parse / slot mismatch / cap / overuse).`);
+  out.push(`**Legend**: ✓ all pass · ⚠️ at least one issue (parse / slot / cap / language slip / translated brand / overuse).`);
   out.push(``);
 
   // ── Per-category detail ──
@@ -335,6 +367,15 @@ async function main() {
       out.push(``);
       for (const v of r.nonLocaleVoices) {
         out.push(`- _(${v.profession}, ${v.country})_`);
+        out.push(`  > ${v.voice}`);
+      }
+      out.push(``);
+    }
+    if (r.translatedBrands.length > 0) {
+      out.push(`### ⚠️ Translated brand names (${r.translatedBrands.length}) — preserve canonical spelling`);
+      out.push(``);
+      for (const v of r.translatedBrands) {
+        out.push(`- _(${v.profession}, ${v.country})_ — should be \`${v.matched}\``);
         out.push(`  > ${v.voice}`);
       }
       out.push(``);
