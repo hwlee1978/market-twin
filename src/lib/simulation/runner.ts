@@ -361,20 +361,12 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       );
     }
 
-    const allSlots: PersonaSlot[] = planSlots(
-      opts.personaCount,
-      projectInput.candidateCountries,
-      projectInput.category,
-      locale,
-      opts.simulationId,
-    );
-    const generatedByCountry: Record<string, number> = {};
-    for (const c of projectInput.candidateCountries) generatedByCountry[c] = 0;
-
-    // Resolve workspace_id + project_id once. project_id is the seed for
-    // deterministic pool sampling — every sim of the same project draws the
-    // same personas, so the persona aggregate stays stable across re-runs
-    // (fixing the "same fixture, different bestCountry" instability).
+    // Resolve workspace_id + project_id BEFORE slot planning. project_id
+    // seeds both planSlots (which professions get assigned to which slots)
+    // AND the pool sampling sort below — using the same seed for both
+    // means same project always plans the same slots AND draws the same
+    // personas, so the persona aggregate stays stable across re-runs.
+    // simulationId would change per sim and break that stability.
     const { data: simRowForWs } = await supabase
       .from("simulations")
       .select("workspace_id, project_id")
@@ -382,6 +374,19 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       .single();
     const workspaceId = simRowForWs?.workspace_id as string | undefined;
     const projectId = simRowForWs?.project_id as string | undefined;
+    // Fall back to simulationId only if project_id isn't resolvable (legacy
+    // paths) — the determinism per project is what's load-bearing here.
+    const slotSeed = projectId ?? opts.simulationId;
+
+    const allSlots: PersonaSlot[] = planSlots(
+      opts.personaCount,
+      projectInput.candidateCountries,
+      projectInput.category,
+      locale,
+      slotSeed,
+    );
+    const generatedByCountry: Record<string, number> = {};
+    for (const c of projectInput.candidateCountries) generatedByCountry[c] = 0;
 
     // ── 1a. Pool sampling ────────────────────────────────────────
     type PoolBase = {
