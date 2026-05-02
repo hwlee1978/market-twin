@@ -534,7 +534,15 @@ ${renderAggregateForPrompt(aggregate, locale)}
 
 ${languageInstruction(locale)}
 
-Return a JSON object: { "countries": [ { country, demandScore, cacEstimateUsd, competitionScore, finalScore, rank, rationale } ] } — sorted by rank ascending (1 = best). country must be one of: ${input.candidateCountries.join(", ")}.`;
+Return a JSON object: { "countries": [ { country, demandScore, cacEstimateUsd, competitionScore, finalScore, rank, rationale } ] } — sorted by rank ascending (1 = best). country must be one of: ${input.candidateCountries.join(", ")}.
+
+═══ SCORE SCALE (CRITICAL — common mistake) ═══
+ALL scores (demandScore, competitionScore, finalScore) are on a **0-100 scale**, NOT 0-10.
+- A strong recommendation: finalScore 75-85 (NOT 7.5-8.5)
+- A weak market: finalScore 30-50 (NOT 3-5)
+- An average market: finalScore 55-70 (NOT 5.5-7)
+- cacEstimateUsd is a dollar amount (e.g. 12.50 means $12.50), NOT a score.
+If your top-ranked country has finalScore < 50, double-check — you probably accidentally used the 0-10 scale. Multiply by 10 to fix before emitting.`;
 }
 
 export const PRICING_SYSTEM = `${SYSTEM_BASE} For pricing, model how conversion changes across price points — typically conversion drops as price rises, but not linearly. Identify the revenue-maximizing point.`;

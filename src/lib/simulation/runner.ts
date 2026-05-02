@@ -157,10 +157,43 @@ function fnv1a(s: string): number {
  * samples include them — the median of [70, 65] is 67.5, not penalised for
  * the missing third sample.
  */
+/**
+ * Detects samples where the LLM scored on the wrong scale (0-10 instead of
+ * 0-100). Heuristic: if every country in the sample has finalScore < 25,
+ * the LLM almost certainly slipped scales — a real-world ranking always has
+ * at least one country in the 50-90 range. Auto-multiply by 10 to recover
+ * (cacEstimateUsd is a dollar amount, not a score, so leave it alone).
+ *
+ * Caught a real issue in the Beauty of Joseon ensemble where 3 of 15 country
+ * LLM samples returned the entire ranking on a 0-10 scale (US 8.2, GB 7.1,
+ * JP 6.4). Median across samples then collapsed to single-digit scores for
+ * one of the 5 sims, distorting aggregate stats while still picking the
+ * correct bestCountry by luck.
+ */
+function normalizeCountrySampleScale(
+  sample: z.infer<typeof CountryScoreSchema>[],
+): z.infer<typeof CountryScoreSchema>[] {
+  if (sample.length === 0) return sample;
+  const maxFinal = Math.max(...sample.map((c) => c.finalScore));
+  if (maxFinal < 25) {
+    // Whole-sample 0-10 slip — rescale all scores by 10x.
+    return sample.map((c) => ({
+      ...c,
+      finalScore: Math.min(100, c.finalScore * 10),
+      demandScore: c.demandScore < 25 ? Math.min(100, c.demandScore * 10) : c.demandScore,
+      competitionScore: c.competitionScore < 25 ? Math.min(100, c.competitionScore * 10) : c.competitionScore,
+    }));
+  }
+  return sample;
+}
+
 function aggregateCountryScores(
   samples: Array<z.infer<typeof CountryScoreSchema>[]>,
 ): z.infer<typeof CountryScoreSchema>[] {
   if (samples.length === 0) return [];
+  // Normalize each sample's scale before aggregating — drops occasional
+  // 0-10 slips that would otherwise contaminate the median.
+  samples = samples.map(normalizeCountrySampleScale);
   if (samples.length === 1) return samples[0];
   const median = (xs: number[]): number => {
     const sorted = [...xs].sort((a, b) => a - b);
@@ -834,6 +867,19 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         .object({ countries: z.array(CountryScoreSchema) })
         .safeParse(resp.json);
       if (parsed.success) countrySamples.push(parsed.data.countries);
+    }
+    // Track + log scale slips (LLM scoring on 0-10 instead of 0-100) so we
+    // can monitor frequency in production. The aggregator auto-rescales,
+    // but we want visibility into how often the prompt fails.
+    let scaleSlipsCount = 0;
+    for (const sample of countrySamples) {
+      if (sample.length > 0 && Math.max(...sample.map((c) => c.finalScore)) < 25) {
+        scaleSlipsCount++;
+        console.warn(
+          `[sim ${opts.simulationId}] country sample on 0-10 scale (LLM mistake) — ` +
+            `auto-rescaled. Top: ${sample.map((c) => `${c.country}=${c.finalScore}`).join(", ")}`,
+        );
+      }
     }
     const countryScores =
       countrySamples.length > 0 ? aggregateCountryScores(countrySamples) : [];
