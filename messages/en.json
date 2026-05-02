@@ -611,6 +611,8 @@
     },
     "dataSources": "Data sources",
     "exportPdf": "Download PDF report",
+    "exportingPdf": "Generating PDF...",
+    "pdfFailed": "Couldn't generate the PDF. Please try again in a moment.",
     "risks": {
       "noRisks": "No significant risks flagged.",
       "linkedObjections": "Related persona concerns",

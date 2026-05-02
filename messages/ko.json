@@ -611,6 +611,8 @@
     },
     "dataSources": "참고 데이터 출처",
     "exportPdf": "PDF 리포트 다운로드",
+    "exportingPdf": "PDF 생성 중...",
+    "pdfFailed": "PDF 생성에 실패했습니다. 잠시 후 다시 시도해주세요.",
     "risks": {
       "noRisks": "특기할 만한 리스크가 없습니다.",
       "linkedObjections": "관련 페르소나 우려",

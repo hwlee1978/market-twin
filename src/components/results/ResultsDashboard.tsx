@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
-import { Download } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import type { SimulationResult } from "@/lib/simulation/schemas";
 import { OverviewTab } from "./tabs/OverviewTab";
 import { CountriesTab } from "./tabs/CountriesTab";
@@ -34,9 +34,40 @@ export function ResultsDashboard({
 }) {
   const t = useTranslations();
   const [tab, setTab] = useState<Tab>("overview");
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
-  const exportPdf = () => {
-    window.open(`/api/reports/${simulationId}/pdf?locale=${locale}`, "_blank");
+  // Fetch the PDF as a blob so we can show an inline error if generation
+  // fails. The previous `window.open(...)` opened a tab to the API URL,
+  // which would land users on a raw JSON error page when the report wasn't
+  // ready yet (409) or had been deleted (404). Doing the fetch ourselves
+  // lets us surface a friendly, retryable message in-place.
+  const exportPdf = async () => {
+    if (pdfBusy) return;
+    setPdfBusy(true);
+    setPdfError(null);
+    try {
+      const res = await fetch(`/api/reports/${simulationId}/pdf?locale=${locale}`);
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const filename =
+        res.headers
+          .get("content-disposition")
+          ?.match(/filename="?([^"]+)"?/)?.[1] ?? `market-twin-${simulationId}.pdf`;
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[pdf export] failed", err);
+      setPdfError(t("results.pdfFailed"));
+    } finally {
+      setPdfBusy(false);
+    }
   };
 
   return (
@@ -46,10 +77,17 @@ export function ResultsDashboard({
           <h1 className="text-2xl font-semibold">{t("dashboard.title")}</h1>
           <p className="text-slate-500 text-sm mt-1">{result.overview.headline}</p>
         </div>
-        <button onClick={exportPdf} className="btn-primary self-start sm:self-auto shrink-0">
-          <Download size={16} />
-          {t("results.exportPdf")}
-        </button>
+        <div className="flex flex-col items-end gap-1 self-start sm:self-auto shrink-0">
+          <button
+            onClick={exportPdf}
+            disabled={pdfBusy}
+            className="btn-primary disabled:opacity-60"
+          >
+            {pdfBusy ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+            {t(pdfBusy ? "results.exportingPdf" : "results.exportPdf")}
+          </button>
+          {pdfError && <p className="text-xs text-risk">{pdfError}</p>}
+        </div>
       </div>
 
       {/* Tab strip: horizontal-scroll on mobile so 6 tabs fit even when the
