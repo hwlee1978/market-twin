@@ -244,6 +244,11 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     await updateStage("personas");
     const personas: z.infer<typeof PersonaSchema>[] = [];
     let parseSkips = 0;
+    // Tracks how many voices the runtime sanitizer dropped this stage. Each
+    // drop is also logged inline (with the offending text), but the summary
+    // line at the end of personas-stage tells you at-a-glance whether the
+    // prompt-side defenses are holding for this run's locale × persona mix.
+    let voiceSlipCount = 0;
 
     const allSlots: PersonaSlot[] = planSlots(
       opts.personaCount,
@@ -387,6 +392,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
           if (parsed.success) {
             const sanitizedVoice = sanitizeVoice(parsed.data.voice, locale);
             if (parsed.data.voice && sanitizedVoice === null) {
+              voiceSlipCount++;
               console.warn(
                 `[sim ${opts.simulationId}] voice slip dropped (fresh, ${parsed.data.country}): ` +
                   `"${parsed.data.voice.slice(0, 80)}"`,
@@ -549,6 +555,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
           const objections = filterLocaleNative(reaction.objections, locale);
           const sanitizedReactionVoice = sanitizeVoice(reaction.voice, locale);
           if (reaction.voice && sanitizedReactionVoice === null) {
+            voiceSlipCount++;
             console.warn(
               `[sim ${opts.simulationId}] voice slip dropped (reaction, ${hit.base.country}): ` +
                 `"${reaction.voice.slice(0, 80)}"`,
@@ -633,6 +640,10 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       .join(" ");
     console.log(
       `[sim ${opts.simulationId}] generated ${personas.length} personas — distribution: ${distributionLog}`,
+    );
+    console.log(
+      `[sim ${opts.simulationId}] voice slips: ${voiceSlipCount}/${personas.length} (locale=${locale})` +
+        (voiceSlipCount === 0 ? " ✓" : ""),
     );
 
     // Compress the persona pool into bounded statistical summaries before any
