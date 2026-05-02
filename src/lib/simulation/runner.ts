@@ -50,6 +50,14 @@ interface RunOptions {
   provider?: LLMProviderName;
   model?: string;
   locale?: PromptLocale;
+  /**
+   * Override the seed used for slot planning + pool sampling. Ensembles
+   * pass `${ensembleId}-${index}` here so each sim within an ensemble draws
+   * a DIFFERENT subset of personas — that variety is what makes ensemble
+   * aggregation surface confidence intervals. Standalone sims leave this
+   * unset and get the default project_id seed (deterministic per project).
+   */
+  seedOverride?: string;
 }
 
 // Smaller batches are more reliably completed by the LLM.
@@ -374,9 +382,14 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       .single();
     const workspaceId = simRowForWs?.workspace_id as string | undefined;
     const projectId = simRowForWs?.project_id as string | undefined;
-    // Fall back to simulationId only if project_id isn't resolvable (legacy
-    // paths) — the determinism per project is what's load-bearing here.
-    const slotSeed = projectId ?? opts.simulationId;
+    // Seed precedence: explicit override (ensemble) > project_id (standalone
+    // determinism) > simulationId (legacy fallback). Ensembles pass distinct
+    // overrides per sim so each draws a different sample, then aggregate the
+    // N runs into a confidence-graded recommendation.
+    const slotSeed = opts.seedOverride ?? projectId ?? opts.simulationId;
+    // Pool sampling uses the same seed concept — same override means same
+    // personas drawn, varying override gives varying draws.
+    const poolSeed = opts.seedOverride ?? projectId ?? opts.simulationId;
 
     const allSlots: PersonaSlot[] = planSlots(
       opts.personaCount,
@@ -439,7 +452,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
           // — only "tail" insertions affect the order of unselected personas.
           // Falls back to id-only hash when project_id isn't resolvable
           // (legacy paths) so we still get deterministic-per-pool behavior.
-          const seed = projectId ?? "no-project";
+          const seed = poolSeed;
           const sorted = all
             .map((p) => ({ p, h: fnv1a(`${seed}:${p.id}`) }))
             .sort((a, b) => a.h - b.h)
