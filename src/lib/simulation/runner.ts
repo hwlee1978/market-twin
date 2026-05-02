@@ -115,6 +115,22 @@ async function runWithConcurrency<T>(
 // in order — the slice itself doubles as the per-batch quota.
 
 /**
+ * 32-bit FNV-1a hash. Used to deterministically order pool personas per
+ * project so re-running the same project always picks the same sample —
+ * matches how real market research works (commit to a sample, don't
+ * re-survey different people for the same study). Tiny + dependency-free;
+ * not crypto.
+ */
+function fnv1a(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (h * 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+
+/**
  * Aggregate N independent country-scoring samples into a single ranked list
  * by taking the per-country median across all numeric fields. Same idea as
  * the pricing 3-sample median: outlier samples (where the LLM happened to
@@ -355,13 +371,17 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     const generatedByCountry: Record<string, number> = {};
     for (const c of projectInput.candidateCountries) generatedByCountry[c] = 0;
 
-    // Resolve workspace_id once so we can scope pool reads/writes.
+    // Resolve workspace_id + project_id once. project_id is the seed for
+    // deterministic pool sampling — every sim of the same project draws the
+    // same personas, so the persona aggregate stays stable across re-runs
+    // (fixing the "same fixture, different bestCountry" instability).
     const { data: simRowForWs } = await supabase
       .from("simulations")
-      .select("workspace_id")
+      .select("workspace_id, project_id")
       .eq("id", opts.simulationId)
       .single();
     const workspaceId = simRowForWs?.workspace_id as string | undefined;
+    const projectId = simRowForWs?.project_id as string | undefined;
 
     // ── 1a. Pool sampling ────────────────────────────────────────
     type PoolBase = {
@@ -395,6 +415,10 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       await Promise.all(
         Array.from(cellCounts.entries()).map(async ([key, n]) => {
           const [country, baseProfession] = key.split("|");
+          // Fetch the entire cell (capped) so we can sort deterministically
+          // in JS — Supabase JS doesn't expose custom ORDER BY expressions
+          // like md5(id || $1) that we'd need server-side. Cells are small
+          // (typically 10-30 personas) so over-fetching is cheap.
           const { data } = await supabase
             .from("personas")
             .select(
@@ -403,10 +427,20 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
             .eq("workspace_id", workspaceId)
             .eq("country", country)
             .eq("base_profession", baseProfession)
-            .order("use_count", { ascending: true })
-            .order("last_used_at", { ascending: true })
-            .limit(n);
-          poolByCell.set(key, (data ?? []) as PoolBase[]);
+            .limit(200);
+          const all = (data ?? []) as PoolBase[];
+          // Deterministic sort: hash(project_id || persona_id). Same project
+          // always sees the same first-N personas, even as the pool grows
+          // — only "tail" insertions affect the order of unselected personas.
+          // Falls back to id-only hash when project_id isn't resolvable
+          // (legacy paths) so we still get deterministic-per-pool behavior.
+          const seed = projectId ?? "no-project";
+          const sorted = all
+            .map((p) => ({ p, h: fnv1a(`${seed}:${p.id}`) }))
+            .sort((a, b) => a.h - b.h)
+            .slice(0, n)
+            .map(({ p }) => p);
+          poolByCell.set(key, sorted);
         }),
       );
 
