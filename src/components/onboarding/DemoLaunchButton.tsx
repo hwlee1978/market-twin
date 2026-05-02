@@ -37,7 +37,9 @@ export function DemoLaunchButton({
       };
       router.push(`/projects/${projectId}/results?sim=${simulationId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      // Log raw cause for debugging; show user a friendly i18n string.
+      console.error("[demo launch] failed", err);
+      setError(t("launchFailed"));
       setBusy(false);
     }
   };

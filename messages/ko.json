@@ -147,6 +147,7 @@
   "onboarding": {
     "startDemo": "샘플 데모 시작",
     "launching": "데모 시작 중...",
+    "launchFailed": "데모 시작에 실패했습니다. 잠시 후 다시 시도해주세요.",
     "card": {
       "badge": "처음이신가요?",
       "title": "샘플로 K-product 해외 진출 검증을 체험해보세요",
@@ -448,13 +449,17 @@
     "cancel": "시뮬레이션 취소",
     "cancelling": "취소 중...",
     "cancelConfirm": "진행 중인 시뮬레이션을 취소하시겠습니까? 지금까지의 분석 결과는 저장되지 않습니다.",
+    "cancelFailed": "취소 요청이 실패했습니다. 잠시 후 다시 시도해주세요.",
     "pollWarning": "상태 업데이트가 잠시 지연되고 있습니다 — 자동 재시도 중",
     "failed": {
       "title": "시뮬레이션 실패",
       "subtitle": "분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
       "stageLabel": "실패 단계",
       "detailToggle": "기술 정보",
-      "backToProject": "프로젝트로 돌아가기"
+      "backToProject": "프로젝트로 돌아가기",
+      "retry": "다시 시도",
+      "retrying": "재시도 중...",
+      "retryFailed": "재시도 요청이 실패했습니다. 잠시 후 다시 시도해주세요."
     },
     "cancelled": {
       "title": "시뮬레이션 취소됨",

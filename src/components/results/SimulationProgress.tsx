@@ -88,7 +88,9 @@ export function SimulationProgress({
       // No local state change needed here; just leave the disabled button
       // visible until that swap happens.
     } catch (err) {
-      setCancelError(err instanceof Error ? err.message : String(err));
+      // Log raw cause for debugging; show user a friendly i18n string.
+      console.error("[cancel] failed", err);
+      setCancelError(t("simulation.cancelFailed"));
       setCancelling(false);
     }
   };

@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { AlertOctagon, ArrowLeft, ChevronDown, Ban } from "lucide-react";
-import { Link } from "@/i18n/navigation";
+import { AlertOctagon, ArrowLeft, ChevronDown, Ban, Loader2, RefreshCw } from "lucide-react";
+import { Link, useRouter } from "@/i18n/navigation";
 import { clsx } from "clsx";
 import type { SimulationResult } from "@/lib/simulation/schemas";
 import { SimulationProgress } from "./SimulationProgress";
@@ -129,6 +129,7 @@ export function ResultsView({
     return (
       <FailedState
         projectId={projectId}
+        simulationId={simulationId}
         stage={status.current_stage}
         errorMessage={status.error_message}
       />
@@ -165,15 +166,41 @@ export function ResultsView({
 
 function FailedState({
   projectId,
+  simulationId,
   stage,
   errorMessage,
 }: {
   projectId: string;
+  simulationId: string;
   stage: string | null;
   errorMessage: string | null;
 }) {
   const t = useTranslations("simulation.failed");
+  const router = useRouter();
   const [showDetail, setShowDetail] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+
+  const onRetry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      const res = await fetch(`/api/simulations/${simulationId}/retry`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const { simulationId: newSimId } = (await res.json()) as { simulationId: string };
+      // Hand off to the new sim's results page — the existing poll will pick
+      // up the running state and switch back to SimulationProgress.
+      router.push(`/projects/${projectId}/results?sim=${newSimId}`);
+    } catch (err) {
+      // Log raw cause for debugging; show user a friendly i18n string.
+      console.error("[retry] failed", err);
+      setRetryError(t("retryFailed"));
+      setRetrying(false);
+    }
+  };
 
   return (
     <div className="max-w-2xl mx-auto py-12">
@@ -191,12 +218,29 @@ function FailedState({
           </div>
         )}
 
-        <div className="flex justify-center mb-6">
-          <Link href={`/projects/${projectId}`} className="btn-primary">
+        <div className="flex flex-wrap justify-center gap-2 mb-2">
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={retrying}
+            className="btn-primary disabled:opacity-60"
+          >
+            {retrying ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <RefreshCw size={16} />
+            )}
+            {t(retrying ? "retrying" : "retry")}
+          </button>
+          <Link href={`/projects/${projectId}`} className="btn-ghost">
             <ArrowLeft size={16} />
             {t("backToProject")}
           </Link>
         </div>
+        {retryError && (
+          <p className="text-xs text-risk mb-6">{retryError}</p>
+        )}
+        {!retryError && <div className="mb-6" />}
 
         {errorMessage && (
           <div className="text-left max-w-md mx-auto">

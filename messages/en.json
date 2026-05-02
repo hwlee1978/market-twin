@@ -147,6 +147,7 @@
   "onboarding": {
     "startDemo": "Start Sample Demo",
     "launching": "Launching demo...",
+    "launchFailed": "Couldn't launch the demo. Please try again in a moment.",
     "card": {
       "badge": "First time here?",
       "title": "See K-product overseas validation in action",
@@ -448,13 +449,17 @@
     "cancel": "Cancel simulation",
     "cancelling": "Cancelling...",
     "cancelConfirm": "Cancel this simulation? Analysis progress so far will not be saved.",
+    "cancelFailed": "Couldn't cancel the simulation. Please try again in a moment.",
     "pollWarning": "Status updates are briefly delayed — auto-retrying",
     "failed": {
       "title": "Simulation failed",
       "subtitle": "Something went wrong during analysis. Please try again.",
       "stageLabel": "Failed at",
       "detailToggle": "Technical details",
-      "backToProject": "Back to project"
+      "backToProject": "Back to project",
+      "retry": "Retry simulation",
+      "retrying": "Retrying...",
+      "retryFailed": "Couldn't start the retry. Please try again in a moment."
     },
     "cancelled": {
       "title": "Simulation cancelled",
