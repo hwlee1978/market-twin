@@ -386,7 +386,10 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     lineHeight: 1.55,
     color: C.ink,
-    fontStyle: "italic",
+    // Italic dropped: AppFont (Pretendard) doesn't ship an italic variant, and
+    // react-pdf throws "Could not resolve font" if we ask for one. Korean
+    // typography rarely uses italic anyway — the brand-coloured left border
+    // and the "..." quote marks already mark this block as a quotation.
     marginBottom: 6,
   },
   voiceAttribution: {
