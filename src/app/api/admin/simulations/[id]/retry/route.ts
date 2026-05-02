@@ -4,7 +4,8 @@ import { ADMIN_PERMISSIONS, getAdminContext, recordAuditLog } from "@/lib/admin"
 import { runSimulation } from "@/lib/simulation/runner";
 import type { ProjectInput } from "@/lib/simulation/schemas";
 
-export const maxDuration = 300;
+// Pro + Fluid Compute cap; matches /api/simulations/:id/run.
+export const maxDuration = 800;
 export const dynamic = "force-dynamic";
 
 /**

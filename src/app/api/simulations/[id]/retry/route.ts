@@ -4,9 +4,9 @@ import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { runSimulation } from "@/lib/simulation/runner";
 import type { ProjectInput } from "@/lib/simulation/schemas";
 
-// Same lifecycle budget as the original /run endpoint — Vercel kills
-// serverless functions past 300s.
-export const maxDuration = 300;
+// Same lifecycle budget as the original /run endpoint. Pro + Fluid Compute
+// caps at 800s — see /run/route.ts for the rationale.
+export const maxDuration = 800;
 export const dynamic = "force-dynamic";
 
 /**

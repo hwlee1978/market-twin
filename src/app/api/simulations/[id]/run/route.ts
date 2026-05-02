@@ -5,9 +5,14 @@ import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { runSimulation } from "@/lib/simulation/runner";
 import type { ProjectInput } from "@/lib/simulation/schemas";
 
-// Vercel function timeout — 300s on Pro, 60s default on Hobby.
-// Keep persona counts modest in v0.1 so simulations complete inside this budget.
-export const maxDuration = 300;
+// Vercel function timeout. Plan caps:
+//   - Hobby: 60s
+//   - Pro (basic Serverless): 300s
+//   - Pro + Fluid Compute: 800s ← we target this; enabled in Vercel dashboard
+//   - Enterprise + Fluid Compute: 800-900s
+// 200-persona sims measured ~440s on dev; 500-persona sims project to ~600-700s.
+// 800s gives both meaningful headroom on Pro+Fluid without needing Enterprise.
+export const maxDuration = 800;
 export const dynamic = "force-dynamic";
 
 const RunSchema = z.object({

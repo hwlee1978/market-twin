@@ -9,9 +9,11 @@ import {
 } from "@/lib/demo/sampleProject";
 import { runSimulation } from "@/lib/simulation/runner";
 
-// Same budget as the manual run path — Vercel kills serverless functions
-// past 300s. The 50-persona demo finishes well inside that.
-export const maxDuration = 300;
+// Same budget as the manual run path — see /api/simulations/:id/run/route.ts
+// for the Pro + Fluid Compute = 800s rationale. The 50-persona demo finishes
+// well inside even the basic 300s tier; 800s just matches the rest of the
+// pipeline so admin/retry flows behave identically.
+export const maxDuration = 800;
 export const dynamic = "force-dynamic";
 
 /**

@@ -8,9 +8,9 @@ import { clsx } from "clsx";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 
 // Past this many minutes a "running" sim is almost certainly a zombie —
-// Vercel kills serverless functions at maxDuration=300s (5 min) so anything
-// still claiming "running" past ~6 min hasn't actually been alive for a while.
-const ZOMBIE_THRESHOLD_MINUTES = 6;
+// Vercel Pro + Fluid Compute caps functions at 800s (~13 min) so anything
+// still claiming "running" past ~15 min hasn't actually been alive for a while.
+const ZOMBIE_THRESHOLD_MINUTES = 15;
 
 interface Row {
   id: string;
@@ -120,9 +120,9 @@ export function AdminSimulationsTable({
 
   /**
    * A "running" row is suspect when started > ZOMBIE_THRESHOLD_MINUTES ago.
-   * Vercel kills serverless functions at maxDuration=300s, so anything still
-   * claiming `running` past ~6 minutes is almost certainly a zombie left
-   * behind by a function timeout. Surfacing these helps the admin clean up.
+   * Vercel Pro + Fluid Compute caps functions at 800s (~13 min), so anything
+   * still claiming `running` past ~15 minutes is almost certainly a zombie
+   * left behind by a function timeout. Surfacing these helps the admin clean up.
    */
   const isZombie = (sim: Row): boolean => {
     if (sim.status !== "running" && sim.status !== "pending") return false;
