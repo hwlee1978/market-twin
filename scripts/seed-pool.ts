@@ -66,13 +66,13 @@ async function runWithConcurrency<T>(
 }
 
 async function main() {
-  const [, , workspaceId, category, countriesArg] = process.argv;
+  const [, , workspaceId, category, countriesArg, perCountryArg] = process.argv;
   if (!workspaceId || !category) {
     console.error(
-      "Usage: npm run seed:pool -- <workspace_id> <category> [countries=US,JP,GB,...]",
+      "Usage: npm run seed:pool -- <workspace_id> <category> [countries=US,JP,GB,...] [per-country=50]",
     );
     console.error(
-      "Example: npm run seed:pool -- 0c8e774f-356a-4bf2-ba3d-8bfb41e6d019 beauty",
+      "Example: npm run seed:pool -- 0c8e774f-356a-4bf2-ba3d-8bfb41e6d019 beauty US,JP,GB,DE 30",
     );
     process.exit(1);
   }
@@ -84,7 +84,14 @@ async function main() {
     .split(",")
     .map((s) => s.trim().toUpperCase())
     .filter(Boolean);
-  const totalPersonas = PERSONAS_PER_COUNTRY * countries.length;
+  const perCountry = perCountryArg
+    ? Math.max(1, Number.parseInt(perCountryArg, 10))
+    : PERSONAS_PER_COUNTRY;
+  if (Number.isNaN(perCountry)) {
+    console.error(`Invalid per-country count: ${perCountryArg}`);
+    process.exit(1);
+  }
+  const totalPersonas = perCountry * countries.length;
   const locale = "ko" as const;
 
   console.log(
