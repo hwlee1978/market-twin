@@ -20,6 +20,7 @@
  */
 import { writeFileSync } from "fs";
 import { AnthropicProvider } from "../src/lib/llm/anthropic";
+import { sanitizeVoice } from "../src/lib/simulation/locale-filter";
 import { planSlots, type PersonaSlot } from "../src/lib/simulation/profession-pool";
 import { personaPrompt, PERSONA_SYSTEM } from "../src/lib/simulation/prompts";
 import { PersonaSchema, type ProjectInput } from "../src/lib/simulation/schemas";
@@ -176,14 +177,11 @@ async function main() {
     nonLocaleVoices: Array<{ profession: string; country: string; voice: string }>;
   };
 
-  // Cheap heuristic: voice should be in locale script. For locale "ko",
-  // a voice that contains zero hangul codepoints is a clear language slip.
+  // Reuse the production sanitizer so the validator catches the same set of
+  // slips runner.ts would drop — pure-JP voices AND mixed JP+KO ("成分表 확인 못 해요").
   function isVoiceInLocale(voice: string, locale: "ko" | "en"): boolean {
     if (!voice) return true;
-    const hasHangul = /[가-힯]/.test(voice);
-    if (locale === "ko") return hasHangul;
-    // For "en" we don't penalize — Latin script is the default.
-    return true;
+    return sanitizeVoice(voice, locale) !== null;
   }
 
   const rows: Row[] = [];

@@ -22,7 +22,7 @@ import {
   SYNTHESIS_CRITIQUE_SYSTEM,
 } from "./prompts";
 import { evaluateRegulatory } from "./regulatory";
-import { filterLocaleNative } from "./locale-filter";
+import { filterLocaleNative, sanitizeVoice } from "./locale-filter";
 import { aggregatePersonas } from "./aggregate";
 import { planSlots, type PersonaSlot } from "./profession-pool";
 import {
@@ -385,12 +385,20 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         for (let pi = 0; pi < arr.length && pi < batchSlots.length; pi++) {
           const parsed = PersonaSchema.safeParse(arr[pi]);
           if (parsed.success) {
+            const sanitizedVoice = sanitizeVoice(parsed.data.voice, locale);
+            if (parsed.data.voice && sanitizedVoice === null) {
+              console.warn(
+                `[sim ${opts.simulationId}] voice slip dropped (fresh, ${parsed.data.country}): ` +
+                  `"${parsed.data.voice.slice(0, 80)}"`,
+              );
+            }
             const cleaned = {
               ...parsed.data,
               id: parsed.data.id ?? crypto.randomUUID(),
               objections: filterLocaleNative(parsed.data.objections, locale),
               trustFactors: filterLocaleNative(parsed.data.trustFactors, locale),
               interests: filterLocaleNative(parsed.data.interests, locale),
+              voice: sanitizedVoice ?? "",
             };
             freshPairs.push({ persona: cleaned, slot: batchSlots[pi] });
           } else {
@@ -539,7 +547,14 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
           }
           const trustFactors = filterLocaleNative(reaction.trustFactors, locale);
           const objections = filterLocaleNative(reaction.objections, locale);
-          const voice = reaction.voice ?? "";
+          const sanitizedReactionVoice = sanitizeVoice(reaction.voice, locale);
+          if (reaction.voice && sanitizedReactionVoice === null) {
+            console.warn(
+              `[sim ${opts.simulationId}] voice slip dropped (reaction, ${hit.base.country}): ` +
+                `"${reaction.voice.slice(0, 80)}"`,
+            );
+          }
+          const voice = sanitizedReactionVoice ?? "";
           const merged = {
             id: hit.base.id,
             ageRange: hit.base.age_range,

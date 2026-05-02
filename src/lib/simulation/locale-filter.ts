@@ -43,3 +43,31 @@ export function filterLocaleNative(items: string[] | undefined, locale: LocaleHi
   if (!items || items.length === 0) return [];
   return items.filter((s) => isLocaleNative(s, locale));
 }
+
+/**
+ * Sanitize a voice (1인칭) field. Voice is single-sentence and customer-facing,
+ * so a slip is more visible than a leaked objection. Stricter than the array
+ * filter because mixed JP+KO voices ("成分表 확인 못 해요") still contain Hangul
+ * and would pass `isLocaleNative` — we want those rejected too.
+ *
+ * Returns the original voice if it's clean for the locale, or `null` if it
+ * contains forbidden script (caller should log + replace with empty string).
+ *
+ * Rules:
+ * - `ko`: requires Hangul AND forbids hiragana/katakana. Han (한자) is allowed
+ *   since Korean uses Hanja and brand names may include CJK chars.
+ * - `en` (and any other locale): forbids ALL CJK script (Hangul/Hiragana/
+ *   Katakana/Han).
+ */
+export function sanitizeVoice(voice: string | undefined, locale: LocaleHint): string | null {
+  if (!voice) return null;
+  const t = voice.trim();
+  if (!t) return null;
+  if (locale === "ko") {
+    if (!HANGUL_RE.test(t)) return null;
+    if (HIRAGANA_KATAKANA_RE.test(t)) return null;
+    return voice;
+  }
+  if (HANGUL_RE.test(t) || HIRAGANA_KATAKANA_RE.test(t) || HAN_RE.test(t)) return null;
+  return voice;
+}

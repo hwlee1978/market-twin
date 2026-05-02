@@ -87,14 +87,16 @@ For persona generation:
 RULE 1 — LANGUAGE OF TEXT FIELDS (HIGHEST PRIORITY — VIOLATIONS ARE CRITICAL ERRORS):
 ALL descriptive text fields (profession, purchaseStyle, interests, trustFactors, objections, voice) MUST be written in the SINGLE language requested by the locale at the bottom of the user prompt. THIS RULE OVERRIDES EVERY OTHER INSTINCT.
 - A JP persona in a Korean-locale run: profession="영업 매니저" (NOT "営業マネージャー", NOT "Sales Manager", NOT "営業マネージャー (Sales Manager)").
+- A JP persona in a Korean-locale run: voice="Qoo10에서 쿠폰 뜨면 바로 사봐야겠어요" (NOT "Qoo10のクーポンで安くなったら絶対買う", NOT "@cosmeのレビューを読んでから決める"). **THIS IS THE MOST FREQUENT SLIP** — Japanese-context content (Qoo10 / @cosme / ドラッグストア / 厚生労働省) heavily biases output toward Japanese. Resist that bias. Reference those Japanese channels by name but write the surrounding sentence in Korean.
 - A US persona in a Korean-locale run: interests=["크로스핏", "매크로 트래킹"] (NOT ["CrossFit", "macro tracking"]).
+- A US persona in a Korean-locale run: voice="$25면 한 번 써볼 만해요" (NOT "$25 is worth trying").
 - A GB persona in a Korean-locale run: profession="마케팅 매니저" (NOT "Marketing Manager", NOT "マーケティングマネージャー").
 - An AE persona in a Korean-locale run: profession="IT 매니저" (NOT "ITマネージャー", NOT "IT Manager").
-- Mixing languages within ONE field is also wrong: "営業マネージャー (영업 매니저)" is wrong — output ONLY "영업 매니저".
+- Mixing languages within ONE field is also wrong: "営業マネージャー (영업 매니저)" or "成分表で確認 못 해요" — output ONLY in the locale language.
 
 The "country" field is just an ISO code (KR/JP/US/GB/AE/etc) — it controls income currency and cultural realism (Rule 2 below), NOT output language. The country code never switches the text language.
 
-If you find yourself typing Japanese kanji/kana, English words, or any non-Korean characters in any text field while the locale is "ko", STOP and rewrite that field in Korean before emitting it.
+If you find yourself typing Japanese kanji/kana (ひらがな・カタカナ・漢字), English words, or any non-Korean characters in any text field while the locale is "ko", STOP and rewrite that field in Korean before emitting it. Voice is the most slip-prone field — re-check every voice for hiragana/katakana/Latin sentences before output.
 
 RULE 2 — REALISM OF INCOME / VALUES:
 Income amounts, currencies, and cultural references must match the persona's COUNTRY, not a US default. The currency symbol and number scale follow the country, while the surrounding label text follows the locale language.
@@ -133,7 +135,12 @@ Trust factors, objections, and interests should reflect that country's culture (
 Every persona MUST include a "voice" field — a single 1-2 sentence quote in the persona's own voice, capturing how they would actually express their reaction to the product. This is what makes the persona feel like a real person, not a checklist row.
 
 Voice rules:
-- **LANGUAGE (HIGHEST PRIORITY — voice obeys Rule 1 above, not the persona's country)**: voice MUST be written in the LOCALE language declared at the bottom of the user prompt. A US persona in a Korean-locale run says "$25면 한 번 써볼 만해요" — NOT "$25 is worth trying" and NOT "한 번 써볼 만해요 ($25 is worth trying)". A JP persona in a Korean-locale run says "면세점 가격이 합리적이면 사겠어요" — NOT "免税店なら買います". This rule has been violated most often for US/GB personas in fashion / electronics product contexts where English brand names (Samsung, Blackpink, Galaxy) bias the model toward English voicing — DO NOT take that bait. Korean letters only when locale is "ko". Latin letters (English) only when locale is "en". Brand names embedded in the product description do NOT change the output language.
+- **LANGUAGE (HIGHEST PRIORITY — voice obeys Rule 1 above, not the persona's country)**: voice MUST be written in the LOCALE language declared at the bottom of the user prompt. Examples for ko locale:
+  - US persona: "$25면 한 번 써볼 만해요" — NOT "$25 is worth trying" and NOT "한 번 써볼 만해요 ($25 is worth trying)".
+  - **JP persona**: "Qoo10 쿠폰 뜨면 바로 살게요" or "@cosme 리뷰 20개 이상 쌓이면 살게요" — NOT "Qoo10のクーポンで安くなったら買います", NOT "@cosmeのレビューを読んでから決める", NOT "ドラッグストアで試せないのが不安だ". **JP slip is the most frequent failure** because Japanese-context references (Qoo10 / @cosme / ドラッグストア / 厚生労働省) heavily bias output toward Japanese. Reference those names by their original spelling but write the surrounding sentence in Korean. Mixed voices like "成分表 확인 못 해요" or "18에 試してみたい" are also CRITICAL ERRORS.
+  - GB persona: "Cult Beauty 입점하면 살게요" — NOT "I'll buy when it lands at Cult Beauty".
+  - Brand names embedded in the product description (Samsung, Blackpink, Galaxy, Coway, Qoo10) do NOT switch the output language.
+  - Hangul script for ko locale; Latin script for en locale. Hiragana / katakana / non-Korean kanji in a ko-locale voice = critical error.
 - **LENGTH (HARD CAP — STRICTLY ENFORCED)**: Korean ≤ 90 characters. English ≤ 130 characters. Count characters before emitting. If a draft exceeds the cap, rewrite SHORTER — drop hedges, qualifiers, second clauses. ONE sentence is the default; TWO sentences only when the second adds essential color (rare). Voices over the cap are CRITICAL ERRORS — the UI lays them out side-by-side and overlong voices break the layout.
 - **English-specific tightening**: native English drafters tend to drift to 140–160 chars by adding "I'd want to..." preambles and "before I commit" tails. Cut both. Aim for 90–120 chars in English to leave headroom under 130.
 - 1인칭 ("I would...", "나는…"). The persona is talking, not being described.
@@ -375,7 +382,10 @@ ${example}
 ${languageInstruction(locale)}
 
 Final voice self-check before emitting JSON:
-1. **Language**: each voice in locale "${locale}" only. If locale is "ko", every voice must be in Korean script — even for US, GB, JP, AE personas. If locale is "en", every voice in English. Embedded brand names in the product description (Samsung, Blackpink, Channel Talk, etc.) do NOT switch the output language. Catch yourself if you slipped into English for a US persona during a Korean-locale run.
+1. **Language — scan every voice for forbidden script for locale "${locale}"**:
+   - If locale is "ko": voice must be in Hangul (가-힣). NO hiragana (あ-ん), NO katakana (ア-ン), NO English sentences. The most frequent slip is JP-country personas slipping into Japanese for Qoo10/@cosme/ドラッグストア content — write those references in Korean ("Qoo10에서", "@cosme 리뷰").
+   - If locale is "en": voice must be in Latin script.
+   - If you find any violation, REWRITE that voice in the locale language before emitting.
 2. **Length**: KO ≤ 90 chars · EN ≤ 130 chars (aim 90–120 for headroom). Count chars; rewrite shorter if over cap by dropping hedges ("I'd want to", "before I commit"), qualifiers, or second clauses.
 Both rules are non-negotiable. Voices that violate either are CRITICAL ERRORS.
 
@@ -392,10 +402,18 @@ For persona reaction generation:
 - trustFactors: 1-3 things ABOUT this product that this persona would find credible (specific, not generic).
 - objections: 1-3 specific concerns this persona would raise (pinpoint the friction, not platitudes).
 - purchaseIntent: 0-100 honest score reflecting actual likelihood to buy.
-- voice: a single 1-2 sentence first-person quote. **HARD LENGTH CAP — STRICTLY ENFORCED**: Korean ≤ 90 chars, English ≤ 130 chars (aim 90–120 in English for headroom). Count chars before emitting; if over cap, rewrite shorter — drop hedge phrases ("I'd want to", "before I commit"), trim second clauses. ONE sentence is the default. Concrete (references the product, price, or specific concern), reflects their profession + price sensitivity, NOT a summary of trustFactors/objections. This is what makes the persona feel like a real person, not a checklist.
+- voice: a single 1-2 sentence first-person quote.
+  - **LANGUAGE (HIGHEST PRIORITY)**: voice MUST be in the LOCALE language regardless of the persona's country. Examples for a Korean-locale run:
+    - US persona: "$25면 한 번 써볼 만해요" — NOT "$25 is worth trying".
+    - **JP persona**: "Qoo10 쿠폰 뜨면 바로 살게요" — NOT "Qoo10のクーポンで安くなったら買います", NOT "@cosmeのレビューを読んでから決める". **JP slip is the most frequent failure** because Japanese-context references (Qoo10 / @cosme / ドラッグストア / 厚生労働省) heavily bias output toward Japanese. Reference those names but keep the sentence in Korean: "@cosme 리뷰 20개 이상 쌓이면 살게요" is correct.
+    - GB persona: "Cult Beauty 입점하면 살게요" — NOT "I'll buy when it lands at Cult Beauty".
+    - Mixed-language voices like "成分表 확인 못 해요" or "18에 試してみたい" are CRITICAL ERRORS.
+    - Embedded brand names in the product description (Samsung, Blackpink, Galaxy, Coway) do NOT switch the output language.
+  - **HARD LENGTH CAP — STRICTLY ENFORCED**: Korean ≤ 90 chars, English ≤ 130 chars (aim 90–120 in English for headroom). Count chars before emitting; if over cap, rewrite shorter — drop hedge phrases ("I'd want to", "before I commit"), trim second clauses. ONE sentence is the default.
+  - Concrete (references the product, price, or specific concern), reflects their profession + price sensitivity, NOT a summary of trustFactors/objections. This is what makes the persona feel like a real person, not a checklist.
 
 ═══ LANGUAGE RULE (HIGHEST PRIORITY) ═══
-ALL text fields (trustFactors, objections) MUST be in the locale language declared at the bottom of the user prompt. The persona's "country" field controls cultural context (what reviews/influencers/channels they trust, what regulators they cite), NOT output language.
+ALL text fields (trustFactors, objections, voice) MUST be in the locale language declared at the bottom of the user prompt. The persona's "country" field controls cultural context (what reviews/influencers/channels they trust, what regulators they cite), NOT output language. Korean script only when locale is "ko"; Latin (English) only when locale is "en".
 
 ═══ REALISM RULE ═══
 Persona reactions should reflect their country's culture (e.g. KR: 맘카페·식약처; JP: 専門家推薦·品質保証; US: Reddit·인플루언서; SG: HSA labels) AND their profession-specific lens (a pharmacist verifies INCI lists differently than a college student verifies Reddit threads).
@@ -463,6 +481,14 @@ ${languageInstruction(locale)}
 
 For each persona above, return ONE reaction object in the SAME ORDER:
 { "id": "(the id above)", "trustFactors": [1-3 strings], "objections": [1-3 strings], "purchaseIntent": 0-100, "voice": "(1-2 sentence first-person quote in the locale language)" }
+
+Final voice self-check before emitting JSON:
+1. **Language — scan every voice for forbidden script for locale "${locale}"**:
+   - If locale is "ko": voice must be in Hangul. NO hiragana / katakana / English sentences. The most frequent slip is JP-country personas writing in Japanese (Qoo10/@cosme content). Write those names in Korean ("Qoo10에서", "@cosme 리뷰").
+   - If locale is "en": voice must be in Latin script.
+   - If you find any violation, REWRITE that voice in the locale language before emitting.
+2. **Length**: KO ≤ 90 chars · EN ≤ 130 chars (aim 90–120 for headroom). Count chars; rewrite shorter if over cap.
+Both rules are non-negotiable.
 
 Return: { "reactions": [ ...${count} objects ] }`;
 }
