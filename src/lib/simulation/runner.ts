@@ -11,11 +11,15 @@ import {
   COUNTRY_SYSTEM,
   personaPrompt,
   PERSONA_SYSTEM,
+  personaReactionPrompt,
+  PERSONA_REACTION_SYSTEM,
   pricingPrompt,
   PRICING_SYSTEM,
   type PromptLocale,
   synthesisPrompt,
   SYNTHESIS_SYSTEM,
+  synthesisCritiquePrompt,
+  SYNTHESIS_CRITIQUE_SYSTEM,
 } from "./prompts";
 import { evaluateRegulatory } from "./regulatory";
 import { filterLocaleNative } from "./locale-filter";
@@ -28,12 +32,14 @@ import {
 import {
   CountryScoreSchema,
   OverviewSchema,
+  PersonaReactionSchema,
   PersonaSchema,
   PricingResultSchema,
   type ProjectInput,
   RecommendationSchema,
   RiskSchema,
   type SimulationResult,
+  SynthesisCritiqueSchema,
 } from "./schemas";
 import { z } from "zod";
 
@@ -118,11 +124,50 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
   // about real laws (e.g. e-cigarette bans). Cheap models occasionally miss.
   const regulatoryLLM = synthesisLLM;
 
+  // Surface the per-stage model selection in the run log — operators
+  // verifying a Haiku/Sonnet split or debugging a quality regression can
+  // immediately see which model produced which stage's output.
+  console.log(
+    `[sim ${opts.simulationId}] models: ` +
+      `personas=${personaLLM.name}/${personaLLM.model} · ` +
+      `countries=${countryLLM.name}/${countryLLM.model} · ` +
+      `pricing=${pricingLLM.name}/${pricingLLM.model} · ` +
+      `synthesis=${synthesisLLM.name}/${synthesisLLM.model}`,
+  );
+
+  /**
+   * Sentinel error used when the user cancelled the sim via the cancel
+   * endpoint. We throw this to short-circuit the pipeline; the outer catch
+   * recognises it and skips the failure-state side effects (status='failed',
+   * notify, etc.) since the row is already 'cancelled'.
+   */
+  const CANCELLED_ERR = "__simulation_cancelled__";
+
+  /**
+   * Returns true when the user has cancelled this sim. Called before each
+   * stage so we can abort early without firing the next LLM batch. We accept
+   * one extra DB read per stage for the cancellation guarantee.
+   */
+  const isCancelled = async (): Promise<boolean> => {
+    const { data } = await supabase
+      .from("simulations")
+      .select("status")
+      .eq("id", opts.simulationId)
+      .single();
+    return data?.status === "cancelled";
+  };
+
   const updateStage = async (stage: string) => {
+    if (await isCancelled()) {
+      throw new Error(CANCELLED_ERR);
+    }
     await supabase
       .from("simulations")
       .update({ current_stage: stage, status: "running" })
-      .eq("id", opts.simulationId);
+      .eq("id", opts.simulationId)
+      // Don't bump cancelled rows back into 'running' — race-safe even if
+      // cancel landed between the isCancelled() check and the update below.
+      .neq("status", "cancelled");
   };
 
   // Record the synthesis-stage model on the simulation row — that's the
@@ -189,17 +234,17 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     const referenceSources = collectSourceAttributions(referenceBundles);
 
     // ── Stage 1: personas ──────────────────────────────────────
+    // Two-phase generation:
+    //   1. Pool sampling — try to reuse existing base personas from this
+    //      workspace's library, avoiding the cost of regenerating known
+    //      profiles. Pool hits only need a small "reactions" LLM call.
+    //   2. Fresh generation — for slots the pool can't satisfy, generate
+    //      full personas (existing behaviour). Their base profiles are
+    //      saved back into the pool so subsequent sims benefit.
     await updateStage("personas");
     const personas: z.infer<typeof PersonaSchema>[] = [];
-    const batchCount = Math.max(1, Math.ceil(opts.personaCount / PERSONA_BATCH));
     let parseSkips = 0;
 
-    // Pre-assign every persona slot with (country, profession) up front. The
-    // profession comes from a category-specific pool with hard caps on the
-    // generic archetypes the LLM keeps defaulting to (대학생 / 마케팅 매니저 /
-    // 일반 회사원). This guarantees across-batch profession diversity by
-    // construction, since each parallel batch gets a disjoint slice of
-    // pre-assigned slots — the LLM no longer chooses base profession.
     const allSlots: PersonaSlot[] = planSlots(
       opts.personaCount,
       projectInput.candidateCountries,
@@ -210,81 +255,356 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     const generatedByCountry: Record<string, number> = {};
     for (const c of projectInput.candidateCountries) generatedByCountry[c] = 0;
 
-    // Slice the flat slot list into per-batch chunks. Each chunk doubles as
-    // the batch's country+profession assignment — no separate quota math.
-    const batchPlans: Array<{ slots: PersonaSlot[] }> = [];
-    for (let i = 0; i < batchCount; i++) {
-      const start = i * PERSONA_BATCH;
-      const slots = allSlots.slice(start, start + PERSONA_BATCH);
-      if (slots.length > 0) batchPlans.push({ slots });
-    }
+    // Resolve workspace_id once so we can scope pool reads/writes.
+    const { data: simRowForWs } = await supabase
+      .from("simulations")
+      .select("workspace_id")
+      .eq("id", opts.simulationId)
+      .single();
+    const workspaceId = simRowForWs?.workspace_id as string | undefined;
 
-    // Fire batches in parallel (capped by PERSONA_BATCH_CONCURRENCY) — typical
-    // 50-persona run drops from ~5 sequential calls (~8 min) to 1–2 concurrent
-    // waves (~2 min). allSettled semantics so a single failed batch doesn't
-    // crash the run; we just collect what we have and the country distribution
-    // log surfaces any shortfall.
-    const t0 = Date.now();
-    const batchResults = await runWithConcurrency(
-      PERSONA_BATCH_CONCURRENCY,
-      batchPlans.map(({ slots }) => () =>
-        personaLLM.generate({
-          system: PERSONA_SYSTEM,
-          prompt: personaPrompt(projectInput, slots, locale, referenceBlock),
-          jsonSchema: { type: "object", properties: { personas: { type: "array" } } },
-          // Lower temperature trades a bit of persona variety for much stricter
-          // adherence to the locale-language and reference-anchor rules above.
-          // Variety is preserved by the prompt explicitly asking for skeptics +
-          // neutrals + champions and a heterogeneous mix.
-          temperature: 0.6,
-          maxTokens: 8192,
+    // ── 1a. Pool sampling ────────────────────────────────────────
+    type PoolBase = {
+      id: string;
+      age_range: string;
+      gender: string;
+      country: string;
+      income_band: string;
+      profession: string;
+      base_profession: string;
+      interests: string[] | null;
+      purchase_style: string;
+      price_sensitivity: string;
+    };
+    type PoolHit = { slot: PersonaSlot; base: PoolBase };
+
+    const hits: PoolHit[] = [];
+    const missSlots: PersonaSlot[] = [];
+
+    if (workspaceId) {
+      // Group slots by (country, base_profession) so we can fetch each cell once.
+      // Slots without an assigned profession (free-choice categories) skip the
+      // pool entirely — there's nothing to match on.
+      const cellCounts = new Map<string, number>();
+      for (const s of allSlots) {
+        if (!s.profession) continue;
+        const key = `${s.country}|${s.profession}`;
+        cellCounts.set(key, (cellCounts.get(key) ?? 0) + 1);
+      }
+      const poolByCell = new Map<string, PoolBase[]>();
+      await Promise.all(
+        Array.from(cellCounts.entries()).map(async ([key, n]) => {
+          const [country, baseProfession] = key.split("|");
+          const { data } = await supabase
+            .from("personas")
+            .select(
+              "id, age_range, gender, country, income_band, profession, base_profession, interests, purchase_style, price_sensitivity",
+            )
+            .eq("workspace_id", workspaceId)
+            .eq("country", country)
+            .eq("base_profession", baseProfession)
+            .order("use_count", { ascending: true })
+            .order("last_used_at", { ascending: true })
+            .limit(n);
+          poolByCell.set(key, (data ?? []) as PoolBase[]);
         }),
-      ),
-    );
-    console.log(
-      `[sim ${opts.simulationId}] persona batches: ${batchCount} batches, ` +
-        `concurrency ${PERSONA_BATCH_CONCURRENCY}, total ${((Date.now() - t0) / 1000).toFixed(1)}s`,
-    );
+      );
 
-    for (let i = 0; i < batchResults.length; i++) {
-      const settled = batchResults[i];
-      if (settled.status === "rejected") {
-        console.warn(
-          `[sim ${opts.simulationId}] persona batch ${i} failed:`,
-          settled.reason instanceof Error ? settled.reason.message : settled.reason,
-        );
-        continue;
-      }
-      const r = settled.value;
-      // Parse personas individually so a single malformed entry doesn't reject the batch.
-      const wrapped = (r.json as { personas?: unknown[] } | null)?.personas;
-      const arr = Array.isArray(wrapped) ? wrapped : [];
-      if (arr.length === 0) {
-        console.warn(
-          `[sim ${opts.simulationId}] persona batch ${i} returned no array — raw text snippet:`,
-          r.text.slice(0, 200),
-        );
-      }
-      for (const raw of arr) {
-        const parsed = PersonaSchema.safeParse(raw);
-        if (parsed.success) {
-          // Strip locale-leaked entries from free-text array fields. Even though the
-          // prompt forbids cross-language output, models occasionally leak the
-          // persona's "native" language and pollute downstream aggregations.
-          const cleaned = {
-            ...parsed.data,
-            id: parsed.data.id ?? crypto.randomUUID(),
-            objections: filterLocaleNative(parsed.data.objections, locale),
-            trustFactors: filterLocaleNative(parsed.data.trustFactors, locale),
-            interests: filterLocaleNative(parsed.data.interests, locale),
-          };
-          personas.push(cleaned);
-          const code = (cleaned.country ?? "").toUpperCase();
-          generatedByCountry[code] = (generatedByCountry[code] ?? 0) + 1;
+      // Allocate slots to pool entries in declaration order. Slots without a
+      // matching pool entry (or without slot.profession) drop into misses.
+      for (const slot of allSlots) {
+        if (!slot.profession) {
+          missSlots.push(slot);
+          continue;
+        }
+        const key = `${slot.country}|${slot.profession}`;
+        const candidates = poolByCell.get(key) ?? [];
+        const next = candidates.shift();
+        if (next) {
+          hits.push({ slot, base: next });
         } else {
-          parseSkips++;
+          missSlots.push(slot);
         }
       }
+    } else {
+      // No workspace context (legacy/test path) — skip pool, generate everything fresh.
+      missSlots.push(...allSlots);
+    }
+    console.log(
+      `[sim ${opts.simulationId}] pool: ${hits.length} hits / ${missSlots.length} misses` +
+        (workspaceId ? ` (workspace ${workspaceId.slice(0, 8)})` : " (no workspace)"),
+    );
+
+    // ── 1b. Fresh generation for misses ──────────────────────────
+    type FreshPair = { persona: z.infer<typeof PersonaSchema>; slot: PersonaSlot };
+    const freshPairs: FreshPair[] = [];
+
+    if (missSlots.length > 0) {
+      const missBatchPlans: Array<{ slots: PersonaSlot[] }> = [];
+      for (let i = 0; i < missSlots.length; i += PERSONA_BATCH) {
+        missBatchPlans.push({ slots: missSlots.slice(i, i + PERSONA_BATCH) });
+      }
+      const t0 = Date.now();
+      const missResults = await runWithConcurrency(
+        PERSONA_BATCH_CONCURRENCY,
+        missBatchPlans.map(({ slots }) => () =>
+          personaLLM.generate({
+            system: PERSONA_SYSTEM,
+            prompt: personaPrompt(projectInput, slots, locale, referenceBlock),
+            jsonSchema: { type: "object", properties: { personas: { type: "array" } } },
+            temperature: 0.6,
+            maxTokens: 8192,
+          }),
+        ),
+      );
+      console.log(
+        `[sim ${opts.simulationId}] fresh persona batches: ${missBatchPlans.length}, ` +
+          `${((Date.now() - t0) / 1000).toFixed(1)}s`,
+      );
+      for (let bi = 0; bi < missResults.length; bi++) {
+        const settled = missResults[bi];
+        const batchSlots = missBatchPlans[bi].slots;
+        if (settled.status === "rejected") {
+          console.warn(
+            `[sim ${opts.simulationId}] fresh batch ${bi} failed:`,
+            settled.reason instanceof Error ? settled.reason.message : settled.reason,
+          );
+          continue;
+        }
+        const r = settled.value;
+        const wrapped = (r.json as { personas?: unknown[] } | null)?.personas;
+        const arr = Array.isArray(wrapped) ? wrapped : [];
+        if (arr.length === 0) {
+          console.warn(
+            `[sim ${opts.simulationId}] fresh batch ${bi} returned no array — raw:`,
+            r.text.slice(0, 200),
+          );
+        }
+        // Pair persona arr[i] with slot batchSlots[i] — used downstream when
+        // saving base profiles to the pool with the assigned base_profession.
+        for (let pi = 0; pi < arr.length && pi < batchSlots.length; pi++) {
+          const parsed = PersonaSchema.safeParse(arr[pi]);
+          if (parsed.success) {
+            const cleaned = {
+              ...parsed.data,
+              id: parsed.data.id ?? crypto.randomUUID(),
+              objections: filterLocaleNative(parsed.data.objections, locale),
+              trustFactors: filterLocaleNative(parsed.data.trustFactors, locale),
+              interests: filterLocaleNative(parsed.data.interests, locale),
+            };
+            freshPairs.push({ persona: cleaned, slot: batchSlots[pi] });
+          } else {
+            parseSkips++;
+          }
+        }
+      }
+    }
+
+    // Save fresh base profiles to the pool so future sims can reuse them.
+    // Only slot-assigned personas qualify (free-choice ones have no
+    // base_profession to match on later).
+    if (workspaceId) {
+      const slotted = freshPairs.filter(({ slot }) => !!slot.profession);
+      if (slotted.length > 0) {
+        const poolRows = slotted.map(({ persona, slot }) => ({
+          workspace_id: workspaceId,
+          age_range: persona.ageRange,
+          gender: persona.gender,
+          country: persona.country,
+          income_band: persona.incomeBand,
+          profession: persona.profession,
+          base_profession: slot.profession,
+          interests: persona.interests,
+          purchase_style: persona.purchaseStyle,
+          price_sensitivity: persona.priceSensitivity,
+          source_simulation_id: opts.simulationId,
+          locale,
+        }));
+        const { data: inserted, error: insertErr } = await supabase
+          .from("personas")
+          .insert(poolRows)
+          .select("id");
+        if (insertErr) {
+          console.warn(`[sim ${opts.simulationId}] pool insert failed: ${insertErr.message}`);
+        } else if (inserted) {
+          // Re-bind each persona's id to the pool-generated id so downstream
+          // results carry the canonical pool reference.
+          for (let i = 0; i < slotted.length && i < inserted.length; i++) {
+            slotted[i].persona.id = inserted[i].id;
+          }
+        }
+      }
+    }
+
+    // Track miss-stage counts for the distribution log.
+    for (const fp of freshPairs) {
+      personas.push(fp.persona);
+      const code = (fp.persona.country ?? "").toUpperCase();
+      generatedByCountry[code] = (generatedByCountry[code] ?? 0) + 1;
+    }
+
+    // ── 1c. Reaction generation for pool hits ────────────────────
+    if (hits.length > 0) {
+      const reactionBatches: PoolHit[][] = [];
+      for (let i = 0; i < hits.length; i += PERSONA_BATCH) {
+        reactionBatches.push(hits.slice(i, i + PERSONA_BATCH));
+      }
+      const tR = Date.now();
+      const reactionResults = await runWithConcurrency(
+        PERSONA_BATCH_CONCURRENCY,
+        reactionBatches.map((batch) => () =>
+          personaLLM.generate({
+            system: PERSONA_REACTION_SYSTEM,
+            prompt: personaReactionPrompt(
+              projectInput,
+              batch.map((h) => ({
+                id: h.base.id,
+                ageRange: h.base.age_range,
+                gender: h.base.gender,
+                country: h.base.country,
+                incomeBand: h.base.income_band,
+                profession: h.base.profession,
+                interests: h.base.interests ?? [],
+                purchaseStyle: h.base.purchase_style,
+                priceSensitivity: h.base.price_sensitivity as "low" | "medium" | "high",
+              })),
+              locale,
+              referenceBlock,
+            ),
+            jsonSchema: { type: "object", properties: { reactions: { type: "array" } } },
+            temperature: 0.6,
+            // 12-persona batches in Korean reach ~7k output tokens (rich
+            // trustFactors + objections + JSON wrapper). 4k truncates the
+            // array mid-output → entire batch unparseable. 8k matches the
+            // fresh-persona budget and gives enough headroom.
+            maxTokens: 8192,
+          }),
+        ),
+      );
+      console.log(
+        `[sim ${opts.simulationId}] reaction batches: ${reactionBatches.length}, ` +
+          `${((Date.now() - tR) / 1000).toFixed(1)}s`,
+      );
+
+      const reactionRows: Array<{
+        simulation_id: string;
+        persona_id: string;
+        trust_factors: string[];
+        objections: string[];
+        purchase_intent: number;
+        voice: string;
+      }> = [];
+
+      for (let bi = 0; bi < reactionResults.length; bi++) {
+        const settled = reactionResults[bi];
+        const batch = reactionBatches[bi];
+        if (settled.status === "rejected") {
+          console.warn(
+            `[sim ${opts.simulationId}] reaction batch ${bi} failed:`,
+            settled.reason instanceof Error ? settled.reason.message : settled.reason,
+          );
+          continue;
+        }
+        const r = settled.value;
+        const wrapped = (r.json as { reactions?: unknown[] } | null)?.reactions;
+        const arr = Array.isArray(wrapped) ? wrapped : [];
+        // Diagnostic: if no reactions parsed, dump the raw response so the
+        // failure mode (truncation, schema drift, wrong wrapper key) is
+        // visible without needing a debugger.
+        if (arr.length === 0) {
+          console.warn(
+            `[sim ${opts.simulationId}] reaction batch ${bi} returned no array — raw text snippet:`,
+            r.text.slice(0, 400),
+          );
+        }
+        // Build a map of id → reaction so we match by id (LLM may reorder).
+        const reactionMap = new Map<string, z.infer<typeof PersonaReactionSchema>>();
+        let perBatchSchemaFails = 0;
+        for (const raw of arr) {
+          const parsed = PersonaReactionSchema.safeParse(raw);
+          if (parsed.success) reactionMap.set(parsed.data.id, parsed.data);
+          else perBatchSchemaFails++;
+        }
+        if (perBatchSchemaFails > 0) {
+          console.warn(
+            `[sim ${opts.simulationId}] reaction batch ${bi}: ${perBatchSchemaFails}/${arr.length} entries failed schema. Sample:`,
+            JSON.stringify(arr[0]).slice(0, 300),
+          );
+        }
+        for (const hit of batch) {
+          const reaction = reactionMap.get(hit.base.id);
+          if (!reaction) {
+            parseSkips++;
+            continue;
+          }
+          const trustFactors = filterLocaleNative(reaction.trustFactors, locale);
+          const objections = filterLocaleNative(reaction.objections, locale);
+          const voice = reaction.voice ?? "";
+          const merged = {
+            id: hit.base.id,
+            ageRange: hit.base.age_range,
+            gender: hit.base.gender,
+            country: hit.base.country,
+            incomeBand: hit.base.income_band,
+            profession: hit.base.profession,
+            interests: hit.base.interests ?? [],
+            purchaseStyle: hit.base.purchase_style,
+            priceSensitivity: hit.base.price_sensitivity as "low" | "medium" | "high",
+            trustFactors,
+            objections,
+            purchaseIntent: reaction.purchaseIntent,
+            voice,
+          };
+          personas.push(merged);
+          const code = (merged.country ?? "").toUpperCase();
+          generatedByCountry[code] = (generatedByCountry[code] ?? 0) + 1;
+          reactionRows.push({
+            simulation_id: opts.simulationId,
+            persona_id: hit.base.id,
+            trust_factors: trustFactors,
+            objections,
+            purchase_intent: reaction.purchaseIntent,
+            voice,
+          });
+        }
+      }
+
+      // Persist reactions for traceability + bump pool usage stats. Both are
+      // fire-and-forget for the simulation result itself — failures are
+      // logged but don't poison the run.
+      if (reactionRows.length > 0) {
+        const { error: rxErr } = await supabase
+          .from("simulation_persona_reactions")
+          .insert(reactionRows);
+        if (rxErr) {
+          console.warn(
+            `[sim ${opts.simulationId}] reaction insert failed: ${rxErr.message}`,
+          );
+        }
+      }
+
+      // Bump use_count + last_used_at on every hit persona so the pool's
+      // sampling priority (least-used first) stays meaningful. Read-then-
+      // write is racy but acceptable at our scale; future RPC can do it
+      // atomically if it ever matters.
+      const hitIds = hits.map((h) => h.base.id);
+      const { data: currentCounts } = await supabase
+        .from("personas")
+        .select("id, use_count")
+        .in("id", hitIds);
+      const rows = (currentCounts ?? []) as Array<{ id: string; use_count: number | null }>;
+      const now = new Date().toISOString();
+      await Promise.all(
+        rows.map((row) =>
+          supabase
+            .from("personas")
+            .update({
+              use_count: (row.use_count ?? 1) + 1,
+              last_used_at: now,
+            })
+            .eq("id", row.id),
+        ),
+      );
     }
     if (parseSkips > 0) {
       console.warn(`[sim ${opts.simulationId}] skipped ${parseSkips} malformed personas`);
@@ -324,18 +644,65 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     const countryScores = countries.success ? countries.data.countries : [];
 
     // ── Stage 3: pricing ───────────────────────────────────────
+    // Multi-sample averaging: pricing is the noisiest stage in the pipeline
+    // (same persona aggregate can yield $22 vs $28 across runs). Three parallel
+    // calls + median-by-recommendedPrice gives a stable signal at +5-7% total
+    // sim cost (pricing is a small slice of the pipeline). Other stages stay
+    // single-call — synthesis variance is mitigated separately via lower temp.
     await updateStage("pricing");
-    const pricingResp = await pricingLLM.generate({
-      system: PRICING_SYSTEM,
-      prompt: pricingPrompt(projectInput, aggregate, locale),
-      jsonSchema: PricingResultSchema as unknown as object,
-      temperature: 0.4,
-      maxTokens: 4096,
-    });
-    const pricing = PricingResultSchema.safeParse(pricingResp.json);
+    const PRICING_SAMPLES = 3;
+    const pricingPromptText = pricingPrompt(projectInput, aggregate, locale);
+    const pricingResps = await Promise.all(
+      Array.from({ length: PRICING_SAMPLES }, () =>
+        pricingLLM.generate({
+          system: PRICING_SYSTEM,
+          prompt: pricingPromptText,
+          jsonSchema: PricingResultSchema as unknown as object,
+          // Keep variance among the 3 samples — too low and the median
+          // collapses to a single answer, defeating the whole point.
+          temperature: 0.4,
+          maxTokens: 4096,
+        }),
+      ),
+    );
+    const pricingCandidates: Array<z.infer<typeof PricingResultSchema>> = [];
+    for (const resp of pricingResps) {
+      const parsed = PricingResultSchema.safeParse(resp.json);
+      if (parsed.success) pricingCandidates.push(parsed.data);
+    }
+    let pricing: ReturnType<typeof PricingResultSchema.safeParse>;
+    if (pricingCandidates.length === 0) {
+      // All 3 samples malformed — let downstream fall back as before.
+      pricing = PricingResultSchema.safeParse(null);
+    } else {
+      // Sort by recommended price, take the candidate at median position.
+      // Returning the FULL median candidate (curve + margin + price) keeps
+      // every field internally consistent — vs averaging price across the 3
+      // and taking curves from one, which would mismatch.
+      pricingCandidates.sort(
+        (a, b) => a.recommendedPriceCents - b.recommendedPriceCents,
+      );
+      const medianIdx = Math.floor(pricingCandidates.length / 2);
+      pricing = PricingResultSchema.safeParse(pricingCandidates[medianIdx]);
+      console.log(
+        `[sim ${opts.simulationId}] pricing samples: ${pricingCandidates
+          .map((p) => `$${(p.recommendedPriceCents / 100).toFixed(2)}`)
+          .join(" / ")} → median $${(
+          pricingCandidates[medianIdx].recommendedPriceCents / 100
+        ).toFixed(2)}`,
+      );
+    }
 
     // ── Stage 4: synthesis ─────────────────────────────────────
     await updateStage("recommend");
+    // Vision is currently Anthropic-only — drop image URLs for other
+    // providers so they don't go into a text prompt where they'd just look
+    // like raw URLs the model can't see (and would tempt it to invent
+    // visual analyses it can't actually perform).
+    const synthesisImages =
+      synthesisLLM.name === "anthropic"
+        ? projectInput.assetUrls ?? []
+        : [];
     const synthesisResp = await synthesisLLM.generate({
       system: SYNTHESIS_SYSTEM,
       prompt: synthesisPrompt(
@@ -345,6 +712,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         JSON.stringify(pricing.success ? pricing.data : {}),
         locale,
       ),
+      images: synthesisImages,
       jsonSchema: {
         type: "object",
         properties: {
@@ -354,7 +722,11 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
           recommendations: { type: "object" },
         },
       },
-      temperature: 0.5,
+      // Lowered from 0.5 to 0.3 to reduce run-to-run variance in synthesis
+      // (best-country swap, action-plan reordering) without crushing the
+      // model's ability to write nuanced executive prose. Still enough
+      // entropy to vary phrasing batch-to-batch but tightens core decisions.
+      temperature: 0.3,
       // Synthesis output is the densest in the pipeline — Korean executive
       // summary (3 paragraphs) + 6 risks with descriptions + 8-step action
       // plan + 10 channel rows easily reaches 3.5–4k output tokens, which
@@ -394,6 +766,83 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         : { executiveSummary: "", actionPlan: [], channels: [] },
     };
 
+    // ── Stage 4b: synthesis critique ───────────────────────────
+    // Audit the synthesis result against the underlying data and apply
+    // mechanical fixes for any inconsistency the auditor catches. This is
+    // where flaky LLM outputs (bestCountry mismatch with country ranking,
+    // riskLevel out of step with the risks array, etc.) get corrected
+    // BEFORE persisting — saves the user from seeing nonsensical results.
+    // Only runs when synthesis itself succeeded; fallback path skips it.
+    if (synthesis.success) {
+      try {
+        const tCrit = Date.now();
+        const critiqueResp = await synthesisLLM.generate({
+          system: SYNTHESIS_CRITIQUE_SYSTEM,
+          prompt: synthesisCritiquePrompt(
+            projectInput,
+            JSON.stringify(countryScores),
+            JSON.stringify(pricing.success ? pricing.data : {}),
+            JSON.stringify({
+              overview: result.overview,
+              risks: result.risks,
+            }),
+            locale,
+          ),
+          jsonSchema: {
+            type: "object",
+            properties: {
+              issues: { type: "array" },
+              fixes: { type: "object" },
+            },
+          },
+          // Low temp: this is a structured consistency check, not creative
+          // writing — we want stable, predictable corrections.
+          temperature: 0.2,
+          maxTokens: 4096,
+        });
+        const critique = SynthesisCritiqueSchema.safeParse(critiqueResp.json);
+        if (critique.success) {
+          const { issues, fixes } = critique.data;
+          if (issues.length > 0 || Object.keys(fixes).length > 0) {
+            console.log(
+              `[sim ${opts.simulationId}] critique: ${issues.length} issue(s), ` +
+                `${Object.keys(fixes).length} fix(es) — ${((Date.now() - tCrit) / 1000).toFixed(1)}s`,
+            );
+            for (const issue of issues) {
+              console.log(`  • ${issue}`);
+            }
+            // Apply fixes mechanically. Each field in `fixes` overrides the
+            // matching field on overview. We DO NOT regenerate downstream
+            // text (executive summary, action plan) — those still reflect
+            // synthesis's reasoning; only the headline KPI fields snap.
+            if (fixes.bestCountry) result.overview.bestCountry = fixes.bestCountry;
+            if (fixes.riskLevel) result.overview.riskLevel = fixes.riskLevel;
+            if (typeof fixes.bestPriceCents === "number") {
+              result.overview.bestPriceCents = fixes.bestPriceCents;
+            }
+            if (fixes.bestSegment) result.overview.bestSegment = fixes.bestSegment;
+            if (fixes.headline) result.overview.headline = fixes.headline;
+          } else {
+            console.log(
+              `[sim ${opts.simulationId}] critique: clean — ` +
+                `${((Date.now() - tCrit) / 1000).toFixed(1)}s`,
+            );
+          }
+        } else {
+          console.warn(
+            `[sim ${opts.simulationId}] critique parse failed — skipping fixes`,
+          );
+        }
+      } catch (err) {
+        // Critique failure is non-fatal: persist synthesis as-is. We don't
+        // want a flaky audit pass to gate on returning the user's report.
+        console.warn(
+          `[sim ${opts.simulationId}] critique error — skipping`,
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
+
     // ── Persist ────────────────────────────────────────────────
     // Stash reference-data attribution + regulatory check alongside the overview so
     // UI/PDF can render them. The OverviewSchema strips unknown fields when parsing
@@ -423,6 +872,8 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
 
     // Denormalize the headline metrics onto the row so list views
     // (/reports, /dashboard) don't need to join simulation_results.
+    // The .neq("status", "cancelled") gate ensures a late-arriving runner
+    // can't overwrite a user-cancelled sim back to "completed".
     await supabase
       .from("simulations")
       .update({
@@ -433,7 +884,8 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         best_country: result.overview?.bestCountry ?? null,
         recommended_price_cents: result.pricing?.recommendedPriceCents ?? null,
       })
-      .eq("id", opts.simulationId);
+      .eq("id", opts.simulationId)
+      .neq("status", "cancelled");
 
     // Look up workspace + project so the success email + project status
     // update both have what they need without two extra round-trips.
@@ -468,14 +920,24 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     return result;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    // User-cancelled simulations exit through the same throw path but should
+    // NOT trigger failure side effects: row is already 'cancelled', operators
+    // don't need a notification, and we shouldn't downgrade status to 'failed'.
+    if (message === CANCELLED_ERR) {
+      console.log(`[sim ${opts.simulationId}] cancelled by user — pipeline aborted`);
+      return undefined as unknown as SimulationResult;
+    }
     // Don't overwrite current_stage here — leave it pointing at whatever
     // updateStage() set it to last. The admin health dashboard groups failures
     // by stage to show which step in the pipeline is breaking, and that
     // signal is lost if every failed row reports current_stage='failed'.
+    // .neq("status", "cancelled") so a cancel that landed mid-flight isn't
+    // silently rewritten to 'failed'.
     await supabase
       .from("simulations")
       .update({ status: "failed", error_message: message })
-      .eq("id", opts.simulationId);
+      .eq("id", opts.simulationId)
+      .neq("status", "cancelled");
 
     // Notify on failure too — operators want to know without polling.
     const { data: simRow } = await supabase

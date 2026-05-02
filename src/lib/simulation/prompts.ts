@@ -80,12 +80,12 @@ export const PERSONA_SYSTEM = `${SYSTEM_BASE}
 
 For persona generation:
 - Vary demographics, professions, life stages, and incomes so the sample reflects real heterogeneity (skeptics + neutrals + champions, not all enthusiastic).
-- Every persona MUST include all 11 fields — do not omit any.
+- Every persona MUST include all 12 fields — do not omit any.
 
 ═══ TWO SEPARATE RULES — DO NOT CONFUSE ═══
 
 RULE 1 — LANGUAGE OF TEXT FIELDS (HIGHEST PRIORITY — VIOLATIONS ARE CRITICAL ERRORS):
-ALL descriptive text fields (profession, purchaseStyle, interests, trustFactors, objections) MUST be written in the SINGLE language requested by the locale at the bottom of the user prompt. THIS RULE OVERRIDES EVERY OTHER INSTINCT.
+ALL descriptive text fields (profession, purchaseStyle, interests, trustFactors, objections, voice) MUST be written in the SINGLE language requested by the locale at the bottom of the user prompt. THIS RULE OVERRIDES EVERY OTHER INSTINCT.
 - A JP persona in a Korean-locale run: profession="영업 매니저" (NOT "営業マネージャー", NOT "Sales Manager", NOT "営業マネージャー (Sales Manager)").
 - A US persona in a Korean-locale run: interests=["크로스핏", "매크로 트래킹"] (NOT ["CrossFit", "macro tracking"]).
 - A GB persona in a Korean-locale run: profession="마케팅 매니저" (NOT "Marketing Manager", NOT "マーケティングマネージャー").
@@ -127,7 +127,20 @@ Non-employed / atypical personas — DO NOT give them salary-like income:
 - 무직 / 구직자: minimal or none.
 
 ═══ CONSUMER BEHAVIOR ═══
-Trust factors, objections, and interests should reflect that country's culture (e.g. KR: 맘카페 후기·식약처 인증; JP: 専門家推薦·品質; US: Reddit·influencer reviews; SG: government-backed health labels).`;
+Trust factors, objections, and interests should reflect that country's culture (e.g. KR: 맘카페 후기·식약처 인증; JP: 専門家推薦·品質; US: Reddit·influencer reviews; SG: government-backed health labels).
+
+═══ VOICE FIELD (1인칭 인용) ═══
+Every persona MUST include a "voice" field — a single 1-2 sentence quote in the persona's own voice, capturing how they would actually express their reaction to the product. This is what makes the persona feel like a real person, not a checklist row.
+
+Voice rules:
+- **LENGTH (HARD CAP — STRICTLY ENFORCED)**: Korean ≤ 90 characters. English ≤ 130 characters. Count characters before emitting. If a draft exceeds the cap, rewrite SHORTER — drop hedges, qualifiers, second clauses. ONE sentence is the default; TWO sentences only when the second adds essential color (rare). Voices over the cap are CRITICAL ERRORS — the UI lays them out side-by-side and overlong voices break the layout.
+- **English-specific tightening**: native English drafters tend to drift to 140–160 chars by adding "I'd want to..." preambles and "before I commit" tails. Cut both. Aim for 90–120 chars in English to leave headroom under 130.
+- 1인칭 ("I would...", "나는…"). The persona is talking, not being described.
+- Concrete: reference the actual product, price, or specific concern from objections.
+- Reflects the persona's profession + price sensitivity (a pharmacist sounds different from a college student even with similar concerns).
+- Mirror the locale language and the persona's cultural lens (KR: casual or polite Korean depending on age; JP: keigo for professionals if applicable, but always in OUTPUT LOCALE).
+- Should NOT just summarize trustFactors/objections — instead, voice the persona's gut reaction or one specific framing they'd express.
+- Compact wins: a single tight line beats a meandering 2-sentence thought.`;
 
 const PERSONA_EXAMPLE_KO = `Example personas (locale = ko, ALL text in Korean even for non-KR personas):
 
@@ -143,7 +156,8 @@ KR 초등학교 교사:
   "priceSensitivity": "high",
   "trustFactors": ["식약처 인증", "맘카페 후기"],
   "objections": ["가격이 부담스러움", "단백질바는 간식이 아니라 식사 대용 같아 거부감"],
-  "purchaseIntent": 45
+  "purchaseIntent": 45,
+  "voice": "맘카페 후기 좀 더 보고 한 박스만 사보려고요. 정기 구독은 가격 때문에 부담돼요."
 }
 
 JP 영업 매니저 (country=JP, 그러나 텍스트 필드는 모두 한국어):
@@ -158,7 +172,8 @@ JP 영업 매니저 (country=JP, 그러나 텍스트 필드는 모두 한국어)
   "priceSensitivity": "low",
   "trustFactors": ["전문가 추천", "오프라인 매장 직접 확인"],
   "objections": ["가격 부담", "익숙한 일본 브랜드를 선호"],
-  "purchaseIntent": 55
+  "purchaseIntent": 55,
+  "voice": "의사가 추천하면 한 번 시도해보겠지만, 익숙한 일본 브랜드 두고 굳이 바꿀 이유가 있나 싶어요."
 }
 
 KR 대학생 (비취업, 적은 가처분 소득):
@@ -173,7 +188,8 @@ KR 대학생 (비취업, 적은 가처분 소득):
   "priceSensitivity": "high",
   "trustFactors": ["인플루언서 리뷰", "쿠팡 평점"],
   "objections": ["가격이 비쌈", "용돈으로 매일 사기 부담"],
-  "purchaseIntent": 35
+  "purchaseIntent": 35,
+  "voice": "용돈으로 매일 사기엔 좀 세요. 그냥 쿠팡 가성비 단백질바가 낫지 않나 싶고요."
 }
 
 KR 주부 (개인 급여 없음):
@@ -188,7 +204,8 @@ KR 주부 (개인 급여 없음):
   "priceSensitivity": "high",
   "trustFactors": ["맘카페 후기", "친구 추천"],
   "objections": ["가족 식비에서 추가 지출 부담", "맛이 별로면 가족이 안 먹음"],
-  "purchaseIntent": 50
+  "purchaseIntent": 50,
+  "voice": "성분은 괜찮은데 가족이 안 먹으면 결국 제가 다 먹잖아요. 친구가 먼저 써봤다고 하면 같이 사볼게요."
 }
 
 US 시니어 소프트웨어 엔지니어 (country=US, 텍스트는 한국어):
@@ -203,7 +220,8 @@ US 시니어 소프트웨어 엔지니어 (country=US, 텍스트는 한국어):
   "priceSensitivity": "low",
   "trustFactors": ["Reddit 리뷰", "공인 영양사 추천"],
   "objections": ["일반 단백질바보다 비쌈", "비건 단백질 품질에 의문"],
-  "purchaseIntent": 68
+  "purchaseIntent": 68,
+  "voice": "r/Fitness에서 후기 검증되면 한 케이스 시도해볼게요. 매크로만 맞으면 프리미엄 가격은 괜찮아요."
 }`;
 
 const PERSONA_EXAMPLE_EN = `Example personas (locale = en, ALL text in English even for non-US personas):
@@ -220,7 +238,8 @@ KR teacher (country=KR but text in English):
   "priceSensitivity": "high",
   "trustFactors": ["KFDA certification", "Korean parenting forum reviews"],
   "objections": ["Price feels expensive", "Sees protein bars as meal replacement, not snack"],
-  "purchaseIntent": 45
+  "purchaseIntent": 45,
+  "voice": "I'd read a few more parenting-forum reviews first. Price is a stretch for daily use — maybe just one box to test."
 }
 
 KR college student (limited disposable income):
@@ -235,7 +254,8 @@ KR college student (limited disposable income):
   "priceSensitivity": "high",
   "trustFactors": ["Influencer reviews", "Coupang ratings"],
   "objections": ["Price is high", "Cannot afford daily on allowance"],
-  "purchaseIntent": 35
+  "purchaseIntent": 35,
+  "voice": "Honestly it's pricey on my allowance — I'd rather grab a value-brand bar from Coupang."
 }
 
 US senior software engineer:
@@ -250,7 +270,8 @@ US senior software engineer:
   "priceSensitivity": "low",
   "trustFactors": ["Reddit reviews", "Registered dietitian endorsements"],
   "objections": ["Generic protein bars are cheaper", "Skeptical of vegan protein quality"],
-  "purchaseIntent": 68
+  "purchaseIntent": 68,
+  "voice": "If r/Fitness validates the macros, I'll try a case — premium price is fine when the spec checks out."
 }`;
 
 export function personaPrompt(
@@ -352,7 +373,97 @@ ${example}
 
 ${languageInstruction(locale)}
 
-Return a JSON object: { "personas": [ ...${count} persona objects, each with all 11 fields ] }`;
+Final voice-length self-check before emitting JSON:
+- For each persona, count the characters in voice. KO must be ≤ 90. EN must be ≤ 130 (aim 90–120 for headroom).
+- If any voice exceeds the cap, REWRITE it shorter — drop hedge phrases ("I'd want to", "before I commit", "if I can verify and"), trim second clauses, prefer one tight sentence.
+- Do not emit voices that are over cap. This rule is non-negotiable.
+
+Return a JSON object: { "personas": [ ...${count} persona objects, each with all 12 fields including voice ] }`;
+}
+
+export const PERSONA_REACTION_SYSTEM = `${SYSTEM_BASE}
+
+For persona reaction generation:
+- You are given pre-defined consumer personas with their profiles already established (country, age, profession, income, lifestyle).
+- Your job is to predict ONLY each persona's reaction to the specific product — what they would trust, what they would object to, and how likely they are to actually buy.
+- Do NOT regenerate any base profile attribute. Use the provided fields verbatim.
+- Reactions must be SPECIFIC to this product (price point, category, origin, claims) and grounded in the persona's own demographic + profession + price-sensitivity context.
+- trustFactors: 1-3 things ABOUT this product that this persona would find credible (specific, not generic).
+- objections: 1-3 specific concerns this persona would raise (pinpoint the friction, not platitudes).
+- purchaseIntent: 0-100 honest score reflecting actual likelihood to buy.
+- voice: a single 1-2 sentence first-person quote. **HARD LENGTH CAP — STRICTLY ENFORCED**: Korean ≤ 90 chars, English ≤ 130 chars (aim 90–120 in English for headroom). Count chars before emitting; if over cap, rewrite shorter — drop hedge phrases ("I'd want to", "before I commit"), trim second clauses. ONE sentence is the default. Concrete (references the product, price, or specific concern), reflects their profession + price sensitivity, NOT a summary of trustFactors/objections. This is what makes the persona feel like a real person, not a checklist.
+
+═══ LANGUAGE RULE (HIGHEST PRIORITY) ═══
+ALL text fields (trustFactors, objections) MUST be in the locale language declared at the bottom of the user prompt. The persona's "country" field controls cultural context (what reviews/influencers/channels they trust, what regulators they cite), NOT output language.
+
+═══ REALISM RULE ═══
+Persona reactions should reflect their country's culture (e.g. KR: 맘카페·식약처; JP: 専門家推薦·品質保証; US: Reddit·인플루언서; SG: HSA labels) AND their profession-specific lens (a pharmacist verifies INCI lists differently than a college student verifies Reddit threads).
+
+Across the batch, distribute purchaseIntent realistically — include skeptics (low), neutrals, and a few champions. Real consumer panels are heterogeneous.`;
+
+/**
+ * Reaction-only prompt for pool-sampled personas. The base profile is given
+ * verbatim; the LLM produces only `{ id, trustFactors, objections, purchaseIntent }`
+ * per persona. Cuts ~50% of the tokens vs full persona generation since the
+ * profile fields are already known.
+ */
+export function personaReactionPrompt(
+  input: ProjectInput,
+  basePersonas: Array<{
+    id: string;
+    ageRange: string;
+    gender: string;
+    country: string;
+    incomeBand: string;
+    profession: string;
+    interests: string[];
+    purchaseStyle: string;
+    priceSensitivity: "low" | "medium" | "high";
+  }>,
+  locale: PromptLocale = "en",
+  referenceBlock: string = "",
+): string {
+  const count = basePersonas.length;
+  const personaList = basePersonas
+    .map(
+      (p, i) =>
+        `${i + 1}. id=${p.id}
+   country=${p.country} | ${p.ageRange} | ${p.gender}
+   profession: ${p.profession}
+   incomeBand: ${p.incomeBand}
+   purchaseStyle: ${p.purchaseStyle}
+   priceSensitivity: ${p.priceSensitivity}
+   interests: ${p.interests.join(", ")}`,
+    )
+    .join("\n\n");
+
+  const referenceSection = referenceBlock
+    ? `\n${referenceBlock}\n`
+    : "";
+
+  return `Predict the reaction of EXACTLY ${count} pre-defined personas to the product below. Use each persona's base profile AS GIVEN — do not change country, age, profession, income, or any other attribute. Generate ONLY the reactions.
+
+Product: ${input.productName}
+Category: ${input.category}
+Description: ${input.description}
+Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
+Launch objective: ${input.objective}
+Origin (the company exporting this product): ${input.originatingCountry}
+Candidate target markets: ${input.candidateCountries.join(", ")}
+${input.competitorUrls.length > 0 ? `Competitor references: ${input.competitorUrls.join(", ")}` : ""}
+
+Each persona is a foreign-market CONSUMER evaluating an imported ${input.originatingCountry}-origin product. Their reactions should reflect that import-buyer perspective (cultural translation distance, official-import channel concerns, price relative to local equivalents).
+
+═══ PERSONAS (use base attributes verbatim — DO NOT regenerate) ═══
+
+${personaList}
+${referenceSection}
+${languageInstruction(locale)}
+
+For each persona above, return ONE reaction object in the SAME ORDER:
+{ "id": "(the id above)", "trustFactors": [1-3 strings], "objections": [1-3 strings], "purchaseIntent": 0-100, "voice": "(1-2 sentence first-person quote in the locale language)" }
+
+Return: { "reactions": [ ...${count} objects ] }`;
 }
 
 export const COUNTRY_SYSTEM = `${SYSTEM_BASE} For country scoring, weigh demand signals, competitive density, customer-acquisition cost realism, and cultural fit. Rank from best to worst.`;
@@ -407,6 +518,68 @@ Return: { "recommendedPriceCents": int, "marginEstimate": "string description (i
 
 export const SYNTHESIS_SYSTEM = `${SYSTEM_BASE} For final synthesis, distill the analysis into an executive-readable verdict with a clear go/no-go signal, the highest-leverage action plan, and honest risks.`;
 
+export const SYNTHESIS_CRITIQUE_SYSTEM = `${SYSTEM_BASE}
+
+You are a consistency auditor for executive simulation reports. Given a synthesis result and the underlying data (country scores, pricing curve, risks, persona aggregate), check that the headline claims hold up. Return mechanical fixes for any inconsistency, in the SAME locale as the synthesis output.
+
+Bias toward "no issue": only flag when there's a clear data contradiction. Style/voice differences ARE NOT issues — the author has latitude. Only structural mismatches matter:
+- bestCountry that isn't actually the highest-ranked candidate (off by >5 points or rank > 1)
+- riskLevel "low" when 3+ HIGH risks are listed (or "high" when no risks above MEDIUM exist)
+- bestPriceCents that's nowhere on the recommended pricing curve
+- bestSegment claiming a profession/age that's < 5% of the persona pool
+- headline that contradicts the bestCountry / riskLevel decisions
+
+When in doubt, leave \`fixes\` empty.`;
+
+/**
+ * Self-critique pass — runs after synthesis to catch inconsistencies between
+ * the executive-summary claims and the underlying persona/country/pricing
+ * data. Returns mechanical fixes the runner applies before persisting.
+ */
+export function synthesisCritiquePrompt(
+  input: ProjectInput,
+  countriesJson: string,
+  pricingJson: string,
+  synthesisJson: string,
+  locale: PromptLocale = "en",
+): string {
+  return `Audit this synthesis result for internal consistency with the underlying data.
+
+Origin: ${input.originatingCountry}
+Candidate target markets: ${input.candidateCountries.join(", ")}
+Country scores (data): ${countriesJson}
+Pricing analysis (data): ${pricingJson}
+
+Synthesis result (under audit):
+${synthesisJson}
+
+═══ Consistency checks ═══
+
+1. **bestCountry alignment**: Is overview.bestCountry the highest-ranked entry in the country scores (rank=1)? If not, fix overview.bestCountry to the actual rank-1 country code.
+
+2. **riskLevel calibration**: Count the risks by severity. Roughly:
+   - 0-1 HIGH + 0-1 MEDIUM = "low"
+   - 1-2 HIGH or 2-4 MEDIUM = "medium"
+   - 3+ HIGH or many MEDIUM = "high"
+   If overview.riskLevel is off by one bucket, fix it.
+
+3. **bestPriceCents alignment**: Is overview.bestPriceCents within ±15% of pricing.recommendedPriceCents? If not, set it to pricing.recommendedPriceCents.
+
+4. **headline consistency**: If you fix bestCountry or riskLevel above, also rewrite headline (in ${LANG_NAME[locale]}) to match. Otherwise leave it.
+
+5. **bestSegment plausibility**: We don't have the persona pool here, so trust the synthesis on this one unless overview.bestSegment is empty/generic ("everyone", "general consumer"). Only override if obviously broken.
+
+═══ Output rules ═══
+
+- If everything checks out: \`{ "issues": [], "fixes": {} }\`
+- If issues found: list them in \`issues\` (1 line each, in ${LANG_NAME[locale]}) and put corrections in \`fixes\`. Only include fields that need fixing — DO NOT echo unchanged fields.
+- Be conservative: flagging a non-issue is worse than missing one.
+
+${languageInstruction(locale)}
+
+Return: { "issues": [...], "fixes": { bestCountry?, riskLevel?, bestPriceCents?, bestSegment?, headline? } }`;
+}
+
 export function synthesisPrompt(
   input: ProjectInput,
   aggregate: SimulationAggregate,
@@ -425,6 +598,49 @@ export function synthesisPrompt(
       ? `오늘 날짜: ${today}. 액션 플랜의 모든 날짜·이벤트는 오늘 이후로만 참조하세요. 이미 지난 이벤트(예: ${currentYear - 1}년 행사)를 미래 이벤트인 것처럼 적지 마세요. 일본 Japan Expo·UK MCM Comic Con 같은 연례 이벤트는 ${currentYear}년 또는 ${currentYear + 1}년 회차로 명시하세요.`
       : `Today's date: ${today}. Anchor every action-plan date / event reference to AFTER today. Do NOT cite past events (e.g. ${currentYear - 1} editions) as upcoming. For annual events like Japan Expo, MCM Comic Con, Comic-Con etc., reference the ${currentYear} or ${currentYear + 1} edition explicitly.`;
 
+  // ── Creative section ──────────────────────────────────────────
+  // Concept descriptions feed in as text (always). Image URLs are passed
+  // separately as image content blocks by the LLM provider — the prompt
+  // tells the model HOW to use them. When neither is provided, instruct
+  // the model to skip creative and emit an empty array.
+  const hasDescriptions = (input.assetDescriptions?.length ?? 0) > 0;
+  const hasImages = (input.assetUrls?.length ?? 0) > 0;
+  const creativeSection = (() => {
+    if (!hasDescriptions && !hasImages) {
+      return locale === "ko"
+        ? `\n크리에이티브 자산이 제공되지 않았습니다. "creative" 필드는 빈 배열 []로 두세요.`
+        : `\nNo creative assets provided. Leave the "creative" field as an empty array [].`;
+    }
+    const lines: string[] = [];
+    if (hasDescriptions) {
+      lines.push(
+        locale === "ko"
+          ? `크리에이티브 컨셉 (텍스트 설명):`
+          : `Creative concepts (text descriptions):`,
+      );
+      input.assetDescriptions.forEach((d, i) => lines.push(`  ${i + 1}. ${d}`));
+    }
+    if (hasImages) {
+      lines.push(
+        locale === "ko"
+          ? `\n첨부된 이미지 ${input.assetUrls.length}장이 이 메시지의 시각 자료로 함께 전달되었습니다 (위 텍스트 다음 순서). 각 이미지를 실제 시각 자료로 검토하고, 텍스트 컨셉과 매칭하여 평가하세요.`
+          : `\n${input.assetUrls.length} image(s) are attached as visual references in this message (after the prompt text). Inspect each image as actual visuals and pair them with the text concepts above for scoring.`,
+      );
+    } else if (hasDescriptions) {
+      lines.push(
+        locale === "ko"
+          ? `\n이미지 URL은 제공되지 않았습니다 — 텍스트 설명만으로 제품 컨텍스트·페르소나 신호 기반 평가를 진행하세요. 정확도는 시각 자료가 있을 때보다 낮을 수 있다는 점을 인지하세요.`
+          : `\nNo image URLs provided — score based on the text descriptions and product context only. Note that accuracy is lower without visual references.`,
+      );
+    }
+    lines.push(
+      locale === "ko"
+        ? `\n결과의 "creative" 필드에 각 컨셉/이미지마다 한 항목씩 채우세요: { "assetName": "(짧은 라벨)", "score": 0-100, "strengths": [...], "weaknesses": [...] }. assetName은 텍스트 설명의 핵심 단어 또는 이미지에서 본 시각 모티프로 짓고, strengths/weaknesses는 페르소나의 신뢰 요인·거부 요인을 근거로 ${LANG_NAME[locale]}로 작성하세요. "overview.bestCreative"는 점수가 가장 높은 항목의 assetName과 일치시키세요.`
+        : `\nFill the result's "creative" field with one entry per concept/image: { "assetName": "(short label)", "score": 0-100, "strengths": [...], "weaknesses": [...] }. Derive assetName from the description's key noun or the visual motif in the image; ground strengths/weaknesses in the persona trust factors and objections, written in ${LANG_NAME[locale]}. Set "overview.bestCreative" to the assetName of the highest-scoring entry.`,
+    );
+    return lines.join("\n");
+  })();
+
   return `Produce the final executive verdict for this OVERSEAS-EXPANSION launch simulation. The company is based in ${input.originatingCountry} (origin / home market) and is validating expansion into the candidate overseas markets below. Treat the analysis strictly as an export-validation report — DO NOT recommend launching in ${input.originatingCountry} as if it were a target market, and do not include domestic-channel action items (e.g. ${input.originatingCountry === "KR" ? "스마트스토어·네이버 쇼핑·KR-internal channels" : "home-market-only retail or distribution"}). The bestCountry field MUST be one of the candidate overseas targets, never the origin.
 
 ${dateContext}
@@ -438,6 +654,8 @@ Pricing analysis (JSON): ${pricingJson}
 
 ${renderAggregateForPrompt(aggregate, locale)}
 
+═══ CREATIVE EVALUATION ═══${creativeSection}
+
 ${languageInstruction(locale)}
 
 Return a JSON object:
@@ -447,7 +665,7 @@ Return a JSON object:
     "bestCountry": "country code, must be from: ${input.candidateCountries.join(", ")}",
     "bestSegment": "concise persona description in ${LANG_NAME[locale]}",
     "bestPriceCents": int,
-    "bestCreative": null,
+    "bestCreative": ${hasDescriptions || hasImages ? `"assetName of highest-scoring creative, in ${LANG_NAME[locale]}"` : "null"},
     "riskLevel": "low|medium|high",
     "headline": "one-sentence verdict in ${LANG_NAME[locale]}"
   },

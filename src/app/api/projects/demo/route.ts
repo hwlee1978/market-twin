@@ -53,6 +53,8 @@ export async function POST() {
       originating_country: sample.originatingCountry,
       candidate_countries: [...sample.candidateCountries],
       competitor_urls: [],
+      asset_descriptions: [...sample.assetDescriptions],
+      asset_urls: [...sample.assetUrls],
       status: "running",
     })
     .select("id, workspace_id")

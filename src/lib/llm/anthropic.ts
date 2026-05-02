@@ -17,19 +17,31 @@ export class AnthropicProvider implements LLMProvider {
       ? "\n\nRespond with a single JSON object that strictly matches the provided schema. Do not wrap in markdown code fences."
       : "";
 
+    const promptText = wantsJson
+      ? `${req.prompt}\n\nJSON schema:\n${JSON.stringify(req.jsonSchema)}`
+      : req.prompt;
+
+    // When images are supplied, build a multi-block content array — text
+    // first so the model has the framing before it sees the visuals. URLs
+    // must be publicly fetchable; Anthropic returns 400 if it can't load,
+    // which surfaces back to the caller as a normal error.
+    const userContent: Anthropic.MessageParam["content"] =
+      req.images && req.images.length > 0
+        ? [
+            { type: "text", text: promptText },
+            ...req.images.map((url) => ({
+              type: "image" as const,
+              source: { type: "url" as const, url },
+            })),
+          ]
+        : promptText;
+
     const response = await this.client.messages.create({
       model: this.model,
       max_tokens: req.maxTokens ?? 4096,
       temperature: req.temperature ?? 0.7,
       system: (req.system ?? "") + systemSuffix,
-      messages: [
-        {
-          role: "user",
-          content: wantsJson
-            ? `${req.prompt}\n\nJSON schema:\n${JSON.stringify(req.jsonSchema)}`
-            : req.prompt,
-        },
-      ],
+      messages: [{ role: "user", content: userContent }],
     });
 
     const text = response.content

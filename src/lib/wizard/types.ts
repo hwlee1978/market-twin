@@ -22,5 +22,16 @@ export interface FormState {
   originatingCountry: string;
   countries: string[];
   competitorUrls: string;
+  /**
+   * Creative concept descriptions (one per line in the textarea). Empty
+   * string until user enters anything. Split into an array on submit.
+   */
+  assetDescriptions: string;
+  /**
+   * Optional creative asset image URLs (one per line). When provided,
+   * synthesis evaluates them via Anthropic vision; otherwise the LLM
+   * falls back to text-only concept scoring.
+   */
+  assetUrls: string;
   personaCount: number;
 }

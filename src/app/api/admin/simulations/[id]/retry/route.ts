@@ -67,6 +67,8 @@ export async function POST(
     originatingCountry: project.originating_country ?? "KR",
     candidateCountries: project.candidate_countries ?? [],
     competitorUrls: project.competitor_urls ?? [],
+    assetDescriptions: project.asset_descriptions ?? [],
+    assetUrls: project.asset_urls ?? [],
   };
 
   after(async () => {

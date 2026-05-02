@@ -31,6 +31,8 @@ const SAMPLE_DATA = {
   originatingCountry: "KR",
   candidateCountries: ["US", "JP", "GB"],
   competitorUrls: [],
+  assetDescriptions: [],
+  assetUrls: [],
 } as const;
 
 export function getSampleProjectInput(): ProjectInput {
@@ -44,6 +46,8 @@ export function getSampleProjectInput(): ProjectInput {
     originatingCountry: SAMPLE_DATA.originatingCountry,
     candidateCountries: [...SAMPLE_DATA.candidateCountries],
     competitorUrls: [...SAMPLE_DATA.competitorUrls],
+    assetDescriptions: [...SAMPLE_DATA.assetDescriptions],
+    assetUrls: [...SAMPLE_DATA.assetUrls],
   };
 }
 

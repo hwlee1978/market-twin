@@ -77,6 +77,8 @@ export async function POST(
     originatingCountry: project.originating_country ?? "KR",
     candidateCountries: project.candidate_countries ?? [],
     competitorUrls: project.competitor_urls ?? [],
+    assetDescriptions: project.asset_descriptions ?? [],
+    assetUrls: project.asset_urls ?? [],
   };
 
   // Schedule the simulation to run AFTER the HTTP response is sent.

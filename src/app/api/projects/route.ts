@@ -15,6 +15,8 @@ const CreateProjectSchema = z.object({
   originatingCountry: z.string().default("KR"),
   candidateCountries: z.array(z.string()).min(1),
   competitorUrls: z.array(z.string().url()).default([]),
+  assetDescriptions: z.array(z.string()).default([]),
+  assetUrls: z.array(z.string().url()).default([]),
 });
 
 export async function POST(req: Request) {
@@ -50,6 +52,8 @@ export async function POST(req: Request) {
       originating_country: input.originatingCountry,
       candidate_countries: input.candidateCountries,
       competitor_urls: input.competitorUrls,
+      asset_descriptions: input.assetDescriptions,
+      asset_urls: input.assetUrls,
       status: "ready",
     })
     .select("id")

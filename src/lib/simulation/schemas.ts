@@ -19,6 +19,19 @@ export const ProjectInputSchema = z.object({
   originatingCountry: z.string().default("KR"),
   candidateCountries: z.array(z.string()).min(1),
   competitorUrls: z.array(z.string().url()).default([]),
+  /**
+   * User-described creative concepts (always text). Each entry is one
+   * creative idea — feeds the synthesis stage so the LLM can score against
+   * the product context.
+   */
+  assetDescriptions: z.array(z.string()).default([]),
+  /**
+   * Optional hosted image URLs for vision-powered evaluation. When present
+   * AND the synthesis provider supports images (currently only Anthropic),
+   * the synthesis prompt sends them as image content blocks. Empty array
+   * is the common case — wizard surfaces an accuracy hint.
+   */
+  assetUrls: z.array(z.string().url()).default([]),
 });
 export type ProjectInput = z.infer<typeof ProjectInputSchema>;
 
@@ -81,8 +94,28 @@ export const PersonaSchema = z.object({
   trustFactors: z.preprocess(toStringArray, z.array(z.string())),
   objections: z.preprocess(toStringArray, z.array(z.string())),
   purchaseIntent: z.preprocess(toIntent, z.number().min(0).max(100)),
+  /**
+   * First-person quote capturing the persona's reaction to the product
+   * in their own voice. Defaults to empty for legacy sims that never
+   * asked the LLM to produce one — UI hides the quote block when empty.
+   */
+  voice: z.preprocess((v) => (typeof v === "string" ? v : ""), z.string()).default(""),
 });
 export type Persona = z.infer<typeof PersonaSchema>;
+
+/**
+ * Reaction-only output for personas sampled from the pool. The full persona
+ * profile is already known from the DB row; the LLM only needs to predict
+ * how that pre-defined person would react to the specific product.
+ */
+export const PersonaReactionSchema = z.object({
+  id: z.string(),
+  trustFactors: z.preprocess(toStringArray, z.array(z.string())),
+  objections: z.preprocess(toStringArray, z.array(z.string())),
+  purchaseIntent: z.preprocess(toIntent, z.number().min(0).max(100)),
+  voice: z.preprocess((v) => (typeof v === "string" ? v : ""), z.string()).default(""),
+});
+export type PersonaReaction = z.infer<typeof PersonaReactionSchema>;
 
 // ─── Country scoring ───────────────────────────────────────────
 export const CountryScoreSchema = z.object({
@@ -155,3 +188,32 @@ export const SimulationResultSchema = z.object({
   recommendations: RecommendationSchema,
 });
 export type SimulationResult = z.infer<typeof SimulationResultSchema>;
+
+// ─── Synthesis critique ────────────────────────────────────────
+/**
+ * Output of the post-synthesis self-critique pass. The critique LLM checks
+ * the synthesis result against the underlying data (persona aggregate,
+ * country scores, pricing curve) and returns mechanical fixes the runner
+ * applies before persisting.
+ *
+ * Empty `issues` and missing `fixes` = synthesis was internally consistent.
+ */
+export const SynthesisCritiqueSchema = z.object({
+  /** Human-readable reasons for adjustments — surfaced in operator logs. */
+  issues: z.array(z.string()).default([]),
+  /**
+   * Field-level overrides applied to the synthesis result. Each field is
+   * optional; only present when the critique detected an inconsistency.
+   */
+  fixes: z
+    .object({
+      bestCountry: z.string().optional(),
+      riskLevel: z.enum(["low", "medium", "high"]).optional(),
+      bestPriceCents: z.number().int().nonnegative().optional(),
+      bestSegment: z.string().optional(),
+      headline: z.string().optional(),
+    })
+    .partial()
+    .default({}),
+});
+export type SynthesisCritique = z.infer<typeof SynthesisCritiqueSchema>;

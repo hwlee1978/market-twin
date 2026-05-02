@@ -51,7 +51,9 @@ export const WIZARD_TEMPLATES: WizardTemplate[] = [
       "비타민 C + 나이아신아마이드 기반 프리미엄 미백·항산화 세럼. 30대 직장인 여성을 핵심 타겟으로 하며, 미국·일본·동남아 시장 동시 진출을 검토 중입니다.",
     basePrice: "48",
     objective: "expansion" as Objective,
-    countries: ["KR", "JP", "US", "SG"],
+    // No KR — origin defaults to KR and is auto-excluded from candidates,
+    // so leaving KR in here would falsely advertise a 4-market evaluation.
+    countries: ["JP", "US", "SG"],
   }),
   tpl("kIp", "🦸", {
     name: "K-웹툰 IP 글로벌 굿즈 라이선싱",
@@ -61,7 +63,7 @@ export const WIZARD_TEMPLATES: WizardTemplate[] = [
       "글로벌 팬덤을 보유한 K-웹툰 IP 기반 프리미엄 피규어 + 아트북 컬렉션. 한정판 D2C 박스셋 형태로 북미·일본·동남아 핵심 팬층을 타겟. 시즌 한정 출시 + 라이선싱 확장 모델 검토 중.",
     basePrice: "79",
     objective: "expansion" as Objective,
-    countries: ["KR", "US", "JP", "ID"],
+    countries: ["US", "JP", "ID"],
   }),
   tpl("premiumFood", "🍱", {
     name: "프리미엄 김치 D2C 출시",
@@ -71,7 +73,7 @@ export const WIZARD_TEMPLATES: WizardTemplate[] = [
       "전통 발효 방식 4주 숙성 프리미엄 김치. 비건·글루텐프리·MSG 무첨가. 30~50대 가족 타겟. D2C 정기배송 모델 검토 중.",
     basePrice: "24",
     objective: "conversion" as Objective,
-    countries: ["KR", "US", "GB", "AU"],
+    countries: ["US", "GB", "AU"],
   }),
   tpl("electronics", "🎧", {
     name: "프리미엄 무선 이어버드 글로벌 출시",
@@ -81,7 +83,7 @@ export const WIZARD_TEMPLATES: WizardTemplate[] = [
       "액티브 노이즈 캔슬링 무선 이어버드. 8시간 배터리(28h with case), IPX5 방수, 공간 음향. 통근자·재택근무자 타겟. 매트 블랙·세이지·아이보리 3색.",
     basePrice: "149",
     objective: "conversion" as Objective,
-    countries: ["KR", "JP", "US"],
+    countries: ["JP", "US", "GB"],
   }),
   tpl("modestFashion", "🌙", {
     name: "MENA 모데스트 패션 라인",
