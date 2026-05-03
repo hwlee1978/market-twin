@@ -712,6 +712,33 @@ ${renderAggregateForPrompt(aggregate, locale)}
 
 ${languageInstruction(locale)}
 
+═══ RISK WRITING GUIDANCE ═══
+${
+  locale === "ko"
+    ? `리스크는 "규제 리스크" / "경쟁 강도" 같은 추상적 카테고리가 아니라, 구체적이고 의사결정에 직접 쓸 수 있는 형태로 작성하세요.
+
+각 리스크는 다음을 포함해야 합니다:
+1) **구체적 원인**: 어느 페르소나 거부 요인, 국가 규제, 가격 민감도 신호에서 도출됐는지 명시.
+2) **사업적 임팩트**: 가능하면 정량화 (예: "진입 첫 90일 매출 ${"±"}40% 변동", "광고 비용 1.5배 상승", "런칭 ${"±"}3개월 지연").
+3) **적용 진출국**: 어느 시장에 가장 강하게 적용되는지 (예: "US 한정", "JP·GB 공통").
+
+5-8개의 구별되는 리스크를 작성하세요. 같은 원인의 변형은 합쳐서 하나로 표현. severity는 발생 확률 + 임팩트 크기로 판단.
+
+나쁜 예: { "factor": "규제 리스크", "severity": "medium", "description": "현지 규제를 준수해야 함." }
+좋은 예: { "factor": "Amazon US 미입점 — Stylevana/YesStyle 의존", "severity": "high", "description": "US 페르소나 67명 중 42명이 Amazon US를 1순위 구매처로 언급. 직접 입점 없이 Stylevana로만 판매 시 진입 첫 90일 잠재 매출의 ${"±"}55%를 잃을 수 있음." }`
+    : `Write risks as concrete, decision-actionable items — never abstract categories like "regulatory risk" or "competition intensity."
+
+Each risk MUST include:
+1) **Concrete cause**: which persona objection, country regulation, or pricing-sensitivity signal it derives from.
+2) **Business impact**: quantify when possible ("first-90-day revenue down 40%", "CAC up 1.5x", "launch delayed 3 months").
+3) **Affected market(s)**: name the country / countries most exposed (e.g. "US-only", "JP + GB").
+
+Produce 5-8 distinct risks. Collapse variants of the same root cause into one. Severity reflects probability × impact.
+
+Bad: { "factor": "Regulatory risk", "severity": "medium", "description": "Must comply with local regulation." }
+Good: { "factor": "Amazon US absence — Stylevana/YesStyle dependency", "severity": "high", "description": "42 of 67 US personas cite Amazon US as primary purchase channel. Selling only via Stylevana risks losing ~55% of first-90-day revenue." }`
+}
+
 Return a JSON object:
 {
   "overview": {
@@ -724,7 +751,7 @@ Return a JSON object:
     "headline": "one-sentence verdict in ${LANG_NAME[locale]}"
   },
   "creative": [],
-  "risks": [ { "factor": "(in ${LANG_NAME[locale]})", "severity": "low|medium|high", "description": "(in ${LANG_NAME[locale]})" } ],
+  "risks": [ { "factor": "(in ${LANG_NAME[locale]}, see RISK WRITING GUIDANCE above)", "severity": "low|medium|high", "description": "(specific + quantified, in ${LANG_NAME[locale]})" } ],
   "recommendations": {
     "executiveSummary": "2-3 paragraphs in ${LANG_NAME[locale]}",
     "actionPlan": [ "concrete steps in ${LANG_NAME[locale]}" ],

@@ -161,13 +161,31 @@ function buildMergePrompt(
 
   const guidance = isKo
     ? `통합 결과 작성 지침:
-1. executiveSummary: 모든 시뮬의 합의 narrative를 2-4문장으로 통합. 추천 진출국 + 이유 + 핵심 우려사항을 포함.
-2. mergedRisks: 의미가 같은 리스크는 합치고 surfacedInSims에 등장 횟수 기록. 자주 등장한 + severity 높은 순으로 정렬. 최대 12개.
-3. mergedActions: 의미가 같은 액션은 합치고 surfacedInSims 기록. 가장 자주 권장된 순으로 정렬. 최대 10개.`
+
+1. **executiveSummary**: 모든 시뮬의 합의 narrative를 2-4문장으로 통합. 추천 진출국 + 이유 + 핵심 우려사항을 포함.
+
+2. **mergedRisks**: 의미가 같은 리스크는 합치되, **구체성을 우선시하세요**. 같은 원인을 다룬 두 리스크가 있을 때:
+   - 더 구체적이고 측정 가능한 쪽 (예: "Amazon US 미입점으로 첫 90일 매출 55% 손실")을 채택
+   - 추상적인 쪽 (예: "유통 채널 리스크")은 버리거나, 구체적 표현으로 다시 쓰기
+   - 합쳐진 description은 가장 자세한 sim의 표현을 기반으로 하되, 다른 sim에서 추가된 구체적 데이터(숫자, 페르소나 인용)가 있으면 통합
+   - surfacedInSims는 의미적으로 같은 리스크를 언급한 sim 수
+   - 정렬: severity (high > medium > low) → surfacedInSims 내림차순. 단순 frequency만으로 정렬하지 말 것.
+   - 최대 12개. 추상적/일반론적 리스크는 제외 (예: "규제 리스크", "경쟁 강도" 같은 카테고리만 있는 항목).
+
+3. **mergedActions**: 의미가 같은 액션은 합치되 **실행 가능한 구체성**을 우선시. 같은 의도의 두 액션 중 더 명확한 채널/타임라인/숫자를 가진 쪽을 채택. surfacedInSims 기록. 정렬: 권장 빈도 + 실행 우선순위. 최대 10개.`
     : `Output guidance:
-1. executiveSummary: 2-4 sentence consensus across all sims. Cover the recommended market, why, and the central concern.
-2. mergedRisks: collapse semantic duplicates, set surfacedInSims to occurrence count. Sort by frequency × severity. Max 12.
-3. mergedActions: collapse semantic duplicates, set surfacedInSims to count. Sort by frequency. Max 10.`;
+
+1. **executiveSummary**: 2-4 sentence consensus across all sims. Cover the recommended market, why, and the central concern.
+
+2. **mergedRisks**: collapse semantic duplicates, but **prefer specific over generic**. When two risks point at the same cause:
+   - Keep the more concrete + quantified version ("Amazon US absence costs 55% of first-90-day revenue") over the abstract one ("distribution channel risk").
+   - Discard or rewrite vague/category-only risks like "regulatory risk" or "competition intensity".
+   - Build the merged description from the most-detailed sim's wording; fold in concrete numbers / persona quotes from other sims when present.
+   - surfacedInSims = number of sims that mentioned a semantically equivalent risk.
+   - Sort by severity (high > medium > low), then surfacedInSims descending. Do not rank by frequency alone.
+   - Max 12. Drop entries that are pure category labels with no specific cause.
+
+3. **mergedActions**: collapse semantic duplicates, prefer the action with the most actionable specificity (concrete channel / timeline / numbers). Set surfacedInSims to count. Sort by frequency + execution priority. Max 10.`;
 
   return [intro, productLine, riskLevelLine, "", "## Per-sim outputs", simBlocks, "", guidance].join(
     "\n",

@@ -851,7 +851,17 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     // time only grows by network jitter.
     await updateStage("scoring");
     const tCountries = Date.now();
-    const COUNTRY_SAMPLES = 3;
+    // Median over N parallel country-scoring calls. 5 is a sweet spot:
+    // medians stabilise visibly between 3 and 5 (the bias from one outlier
+    // sample drops from 33% weight to 20%) but adding a 6th or 7th call
+    // gives diminishing returns relative to the extra LLM spend. Country
+    // model is the cheap haiku/gpt-4o-mini tier so 5x is fine cost-wise;
+    // they all fire concurrently so wall-clock is unchanged from 3.
+    const COUNTRY_SAMPLES = (() => {
+      const env = Number(process.env.LLM_COUNTRY_SAMPLES);
+      if (Number.isFinite(env) && env > 0 && env <= 9) return Math.floor(env);
+      return 5;
+    })();
     const countryPromptText = countryPrompt(projectInput, aggregate, locale);
     const countriesResps = await Promise.all(
       Array.from({ length: COUNTRY_SAMPLES }, () =>
@@ -921,7 +931,15 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     // single-call — synthesis variance is mitigated separately via lower temp.
     await updateStage("pricing");
     const tPricing = Date.now();
-    const PRICING_SAMPLES = 3;
+    // Same 3 → 5 bump as country scoring; pricing variance has the same
+    // outlier sensitivity (one sample suggesting $9 when median is $25
+    // shouldn't move the recommendation much). Env override mirrors
+    // LLM_COUNTRY_SAMPLES for parity.
+    const PRICING_SAMPLES = (() => {
+      const env = Number(process.env.LLM_PRICING_SAMPLES);
+      if (Number.isFinite(env) && env > 0 && env <= 9) return Math.floor(env);
+      return 5;
+    })();
     const pricingPromptText = pricingPrompt(projectInput, aggregate, locale);
     const pricingResps = await Promise.all(
       Array.from({ length: PRICING_SAMPLES }, () =>

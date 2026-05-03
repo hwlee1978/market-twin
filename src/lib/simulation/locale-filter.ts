@@ -51,18 +51,33 @@ export function filterLocaleNative(items: string[] | undefined, locale: LocaleHi
  * and would pass `isLocaleNative` — we want those rejected too.
  *
  * Returns the original voice if it's clean for the locale, or `null` if it
- * contains forbidden script (caller should log + replace with empty string).
+ * contains forbidden script / persona-break patterns (caller should log +
+ * replace with empty string).
  *
- * Rules:
+ * Rejection rules — script:
  * - `ko`: requires Hangul AND forbids hiragana/katakana. Han (한자) is allowed
  *   since Korean uses Hanja and brand names may include CJK chars.
  * - `en` (and any other locale): forbids ALL CJK script (Hangul/Hiragana/
  *   Katakana/Han).
+ *
+ * Rejection rules — persona-break (locale-independent):
+ * - LLM self-reference ("as a language model", "AI assistant", "I cannot",
+ *   "죄송하지만 저는") — model dropped persona mode mid-voice.
+ * - Markdown formatting (**bold**, [link](url)) — voice should be plain
+ *   spoken text, not formatted prose.
+ * - Naked URLs — personas don't paste URLs into reaction quotes.
  */
 export function sanitizeVoice(voice: string | undefined, locale: LocaleHint): string | null {
   if (!voice) return null;
   const t = voice.trim();
   if (!t) return null;
+
+  // ── persona-break patterns (apply to every locale) ──
+  if (LLM_SELF_REF_RE.test(t)) return null;
+  if (MARKDOWN_RE.test(t)) return null;
+  if (URL_RE.test(t)) return null;
+
+  // ── script rules ──
   if (locale === "ko") {
     if (!HANGUL_RE.test(t)) return null;
     if (HIRAGANA_KATAKANA_RE.test(t)) return null;
@@ -71,3 +86,16 @@ export function sanitizeVoice(voice: string | undefined, locale: LocaleHint): st
   if (HANGUL_RE.test(t) || HIRAGANA_KATAKANA_RE.test(t) || HAN_RE.test(t)) return null;
   return voice;
 }
+
+// LLM persona-break giveaways. Case-insensitive Korean + English markers.
+// Keep this conservative — false positives drop real voices, so each entry
+// has to be a phrase a real customer would essentially never use.
+const LLM_SELF_REF_RE =
+  /\b(as an? (ai|language model|assistant|llm)|i (cannot|can't|am unable to|am an ai|am a language)|i'm an? (ai|assistant|language model)|sorry,? (but )?(i|as)|i don't have (the )?ability)\b|저는 (인공지능|AI|언어 ?모델|어시스턴트)|죄송하지만 저는|저는 .{0,20}(할 수 없|드릴 수 없)/i;
+
+// Markdown headers / bold / italics / links / fenced code. Personas don't
+// format their inner monologue — when this fires it's leaked LLM output.
+const MARKDOWN_RE = /(\*\*[^*]+\*\*|__[^_]+__|\[[^\]]+\]\([^)]+\)|^#+ |```)/m;
+
+// Naked URLs and bare schemes.
+const URL_RE = /https?:\/\/|www\./i;
