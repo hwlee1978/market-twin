@@ -20,7 +20,9 @@
     "inventory:pool": "tsx --env-file=.env.local scripts/pool-inventory.ts",
     "inspect:sim": "tsx --env-file=.env.local scripts/inspect-sim.ts",
     "analyze:ensemble": "tsx --env-file=.env.local scripts/ensemble-analysis.ts",
-    "ensemble:run": "tsx --env-file=.env.local scripts/run-ensemble.ts"
+    "ensemble:run": "tsx --env-file=.env.local scripts/run-ensemble.ts",
+    "smoke:ensemble-pdf": "tsx --env-file=.env.local scripts/smoke-ensemble-pdf.ts",
+    "smoke:ensemble-e2e": "tsx --env-file=.env.local scripts/smoke-ensemble-e2e.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

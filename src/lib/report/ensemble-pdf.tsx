@@ -279,7 +279,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         coverRecLabel: "추천 진출국",
         consensus: "합의도",
         confidence: { STRONG: "강함", MODERATE: "보통", WEAK: "약함" },
-        coverFooter: `${parallelSims} 병렬 시뮬레이션 · ${aggregate.effectivePersonas.toLocaleString()} effective personas · ${llmProviders.join(", ")}`,
+        coverFooter: `${parallelSims}개 시뮬레이션 · 페르소나 ${aggregate.effectivePersonas.toLocaleString()}명 · ${llmProviders.join(", ")}`,
         bestCountryEyebrow: "01 · 추천 분포",
         bestCountryTitle: "시뮬별 1위 국가 분포",
         segmentEyebrow: "02 · 전략별 추천",
@@ -297,6 +297,12 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         varianceTitle: "결과 신뢰성 진단",
         varianceMeta: "최대 점수 변동",
         varianceMetaMean: "평균 변동",
+        varianceLabels: { low: "낮음", moderate: "보통", high: "높음" },
+        varianceNotes: {
+          low: "단일 시뮬 결과만으로도 신뢰할 수 있는 수준입니다.",
+          moderate: "시뮬 간 변동이 중간 수준입니다. 앙상블 결과가 의미 있는 신뢰도를 더해줍니다.",
+          high: "동일 조건에서도 시뮬마다 점수 편차가 큽니다. 단일 시뮬은 불안정하니 앙상블 결과를 신뢰하세요.",
+        },
         footerLeft: "Market Twin · 정밀 검증 보고서",
       }
     : {
@@ -304,7 +310,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         coverRecLabel: "Recommended Market",
         consensus: "consensus",
         confidence: { STRONG: "Strong", MODERATE: "Moderate", WEAK: "Weak" },
-        coverFooter: `${parallelSims} parallel sims · ${aggregate.effectivePersonas.toLocaleString()} effective personas · ${llmProviders.join(", ")}`,
+        coverFooter: `${parallelSims} parallel sim${parallelSims === 1 ? "" : "s"} · ${aggregate.effectivePersonas.toLocaleString()} personas · ${llmProviders.join(", ")}`,
         bestCountryEyebrow: "01 · Recommendation Distribution",
         bestCountryTitle: "Top market across all sims",
         segmentEyebrow: "02 · Strategy Picks",
@@ -322,6 +328,12 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         varianceTitle: "Result reliability diagnosis",
         varianceMeta: "Max score range",
         varianceMetaMean: "Mean range",
+        varianceLabels: { low: "Low", moderate: "Moderate", high: "High" },
+        varianceNotes: {
+          low: "Single-sim answer would have been reliable.",
+          moderate: "Moderate run-to-run variance. Ensemble adds meaningful confidence.",
+          high: "Same fixture produces very different country scores per run. Trust the ensemble; single sim alone would be unreliable.",
+        },
         footerLeft: "Market Twin · Validation Report",
       };
 
@@ -467,9 +479,11 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             <View style={[styles.calloutDot, { backgroundColor: varianceColor }]} />
             <View style={{ flex: 1 }}>
               <MText style={styles.calloutLabel}>
-                {aggregate.varianceAssessment.label.toUpperCase()}
+                {t.varianceLabels[aggregate.varianceAssessment.label]}
               </MText>
-              <MText style={styles.calloutBody}>{aggregate.varianceAssessment.note}</MText>
+              <MText style={styles.calloutBody}>
+                {t.varianceNotes[aggregate.varianceAssessment.label]}
+              </MText>
               <MText style={styles.calloutMeta}>
                 {`${t.varianceMeta}: ${aggregate.varianceAssessment.maxFinalScoreRange.toFixed(0)}pt · ${t.varianceMetaMean}: ${aggregate.varianceAssessment.meanFinalScoreRange.toFixed(0)}pt`}
               </MText>

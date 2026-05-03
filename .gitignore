@@ -21,6 +21,7 @@ playwright/.cache/
 # Local diagnostic / comparison artifacts
 voice-compare-*.md
 validate-categories-*.md
+smoke-ensemble-*.pdf
 
 # Pitch deck experiments / superseded artifacts
 # (PITCH_DECK.html is the canonical, committed deck)
