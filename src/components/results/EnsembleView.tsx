@@ -416,14 +416,15 @@ function EnsembleDashboard({
         />
         <div>
           <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-            변동성 평가
+            {locale === "ko" ? "변동성 평가" : "Variance assessment"}
           </div>
           <p className="text-sm text-slate-700 leading-relaxed">
-            {varianceAssessment.note}
+            {varianceCopy(varianceAssessment.label, locale)}
           </p>
           <p className="text-xs text-slate-500 mt-1">
-            최대 점수 변동: {varianceAssessment.maxFinalScoreRange}점 · 평균 변동:{" "}
-            {varianceAssessment.meanFinalScoreRange}점
+            {locale === "ko"
+              ? `최대 점수 변동: ${varianceAssessment.maxFinalScoreRange}점 · 평균 변동: ${varianceAssessment.meanFinalScoreRange}점`
+              : `Max score range: ${varianceAssessment.maxFinalScoreRange}pt · Mean range: ${varianceAssessment.meanFinalScoreRange}pt`}
           </p>
         </div>
       </div>
@@ -433,4 +434,24 @@ function EnsembleDashboard({
       </p>
     </div>
   );
+}
+
+// Mirrors the locale mapping in src/lib/report/ensemble-pdf.tsx so the
+// dashboard and PDF tell the same story for the same variance label. The
+// English string baked into aggregate.varianceAssessment.note is ignored.
+function varianceCopy(label: "low" | "moderate" | "high", locale: string): string {
+  const isKo = locale === "ko";
+  if (label === "high") {
+    return isKo
+      ? "동일 조건에서도 시뮬마다 점수 편차가 큽니다. 단일 시뮬은 불안정하니 앙상블 결과를 신뢰하세요."
+      : "Same fixture produces very different country scores per run. Trust the ensemble; single sim alone would be unreliable.";
+  }
+  if (label === "moderate") {
+    return isKo
+      ? "시뮬 간 변동이 중간 수준입니다. 앙상블 결과가 의미 있는 신뢰도를 더해줍니다."
+      : "Moderate run-to-run variance. Ensemble adds meaningful confidence.";
+  }
+  return isKo
+    ? "단일 시뮬 결과만으로도 신뢰할 수 있는 수준입니다."
+    : "Single-sim answer would have been reliable.";
 }
