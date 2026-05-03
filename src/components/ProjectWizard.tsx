@@ -521,14 +521,17 @@ export function ProjectWizard({ locale }: { locale: string }) {
             </div>
 
             <Field label={tw("tier.label")} hint={tw("tier.hint")}>
-              <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              {/* deep_pro intentionally omitted: 50 sims runs ~20 min,
+                  exceeds Vercel Pro's 800s maxDuration. The API still
+                  accepts the tier for CLI runs. See ensemble_status
+                  memory for revival paths. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                 {(
                   [
                     "hypothesis",
                     "decision",
                     "decision_plus",
                     "deep",
-                    "deep_pro",
                   ] as const
                 ).map((t) => {
                   const active = form.tier === t;

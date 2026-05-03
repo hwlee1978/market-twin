@@ -79,11 +79,8 @@ export function RunEnsembleButton({ projectId, className }: Props) {
               ? "심층분석 · 5,000명 · 멀티 LLM · 약 10–15분"
               : "Deep · 5,000 personas · multi-LLM · ~10–15 min"}
           </option>
-          <option value="deep_pro">
-            {isKo
-              ? "심층분석 Pro · 10,000명 · 멀티 LLM · 약 20–25분"
-              : "Deep Pro · 10,000 personas · multi-LLM · ~20–25 min"}
-          </option>
+          {/* deep_pro hidden until we redesign for sub-800s execution —
+              50 sims × multi-LLM exceeds Vercel's maxDuration today. */}
         </select>
         <input
           type="email"
