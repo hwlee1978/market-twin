@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { createServiceClient } from "@/lib/supabase/server";
+import { formatCentsUsd } from "@/lib/llm/cost";
 
 export default async function AdminOverviewPage({
   params,
@@ -31,7 +32,15 @@ export default async function AdminOverviewPage({
     workspace_id: string | null;
   }
 
-  const [workspaces, projects, simsThisMonth, failedSims, recentFailed] = await Promise.all([
+  const [
+    workspaces,
+    projects,
+    simsThisMonth,
+    failedSims,
+    recentFailed,
+    ensemblesThisMonth,
+    spendThisMonth,
+  ] = await Promise.all([
     admin.from("workspaces").select("*", { count: "exact", head: true }),
     admin.from("projects").select("*", { count: "exact", head: true }),
     admin
@@ -48,9 +57,26 @@ export default async function AdminOverviewPage({
       .in("status", ["failed", "running"])
       .order("started_at", { ascending: false, nullsFirst: false })
       .limit(8),
+    admin
+      .from("ensembles")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", monthStart.toISOString()),
+    // Spend rollup needs the actual cost values, not just a count, so this
+    // pulls the column then sums in JS. Cheap enough at the current scale —
+    // revisit with a SQL aggregate or materialised view past ~50K sims/mo.
+    admin
+      .from("simulations")
+      .select("total_cost_cents")
+      .eq("status", "completed")
+      .gte("completed_at", monthStart.toISOString())
+      .not("total_cost_cents", "is", null),
   ]);
 
   const recentFailedRows = (recentFailed.data ?? []) as FailedRow[];
+  const monthSpendCents = (spendThisMonth.data ?? []).reduce(
+    (sum: number, r: { total_cost_cents: number | null }) => sum + (r.total_cost_cents ?? 0),
+    0,
+  );
 
   return (
     <div className="space-y-6">
@@ -59,10 +85,18 @@ export default async function AdminOverviewPage({
         <p className="text-sm text-slate-500 mt-1">{t("subtitle")}</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <KpiCard label={t("kpi.totalWorkspaces")} value={workspaces.count ?? 0} />
         <KpiCard label={t("kpi.totalProjects")} value={projects.count ?? 0} />
         <KpiCard label={t("kpi.simulationsMonth")} value={simsThisMonth.count ?? 0} />
+        <KpiCard
+          label={locale === "ko" ? "이번 달 앙상블" : "Ensembles this month"}
+          value={ensemblesThisMonth.count ?? 0}
+        />
+        <KpiCard
+          label={locale === "ko" ? "이번 달 비용" : "Spend this month"}
+          value={formatCentsUsd(monthSpendCents)}
+        />
         <KpiCard
           label={t("kpi.failedJobs")}
           value={failedSims.count ?? 0}

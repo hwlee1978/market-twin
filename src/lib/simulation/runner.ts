@@ -1,5 +1,6 @@
 import { getLLMProvider } from "@/lib/llm";
-import type { LLMProviderName } from "@/lib/llm";
+import type { LLMProvider, LLMProviderName } from "@/lib/llm";
+import { llmCallCostCents } from "@/lib/llm/cost";
 import {
   collectSourceAttributions,
   loadReferenceBundles,
@@ -92,6 +93,31 @@ function personaBatchConcurrency(personaCount: number, provider?: string): numbe
   if (personaCount >= 500) return 8;
   if (personaCount >= 200) return 6;
   return 4;
+}
+
+/**
+ * Wraps an LLMProvider so every generate() call accumulates input/output
+ * token counts and computed cost into the shared usage object. Lets the
+ * runner stay agnostic about which provider is in use — every call site
+ * just calls .generate() and the wrapper invisibly tallies billing data.
+ */
+function withUsageTracking(
+  llm: LLMProvider,
+  usage: { inputTokens: number; outputTokens: number; costCents: number },
+): LLMProvider {
+  return {
+    name: llm.name,
+    model: llm.model,
+    generate: async (req) => {
+      const res = await llm.generate(req);
+      const inT = res.usage?.inputTokens ?? 0;
+      const outT = res.usage?.outputTokens ?? 0;
+      usage.inputTokens += inT;
+      usage.outputTokens += outT;
+      usage.costCents += llmCallCostCents(llm.name, llm.model, inT, outT);
+      return res;
+    },
+  };
 }
 
 /**
@@ -259,10 +285,21 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
   // it falls back to LLM_DEFAULT_*. This is what lets us run cheap+fast
   // models for high-volume persona batches while keeping a stronger model
   // for the executive synthesis stage.
-  const personaLLM = getLLMProvider({ stage: "personas", provider: opts.provider, model: opts.model });
-  const countryLLM = getLLMProvider({ stage: "countries", provider: opts.provider, model: opts.model });
-  const pricingLLM = getLLMProvider({ stage: "pricing", provider: opts.provider, model: opts.model });
-  const synthesisLLM = getLLMProvider({ stage: "synthesis", provider: opts.provider, model: opts.model });
+  const personaLLMRaw = getLLMProvider({ stage: "personas", provider: opts.provider, model: opts.model });
+  const countryLLMRaw = getLLMProvider({ stage: "countries", provider: opts.provider, model: opts.model });
+  const pricingLLMRaw = getLLMProvider({ stage: "pricing", provider: opts.provider, model: opts.model });
+  const synthesisLLMRaw = getLLMProvider({ stage: "synthesis", provider: opts.provider, model: opts.model });
+
+  // Token + cost accumulator. Every LLM call routes through these wrapped
+  // providers, so the numbers cover regulatory + personas + reactions +
+  // countries (5x) + pricing (5x) + synthesis + critique. Persisted to
+  // simulations.total_input_tokens / total_output_tokens / total_cost_cents
+  // at the end of the success path so /admin/billing has data to render.
+  const usage = { inputTokens: 0, outputTokens: 0, costCents: 0 };
+  const personaLLM = withUsageTracking(personaLLMRaw, usage);
+  const countryLLM = withUsageTracking(countryLLMRaw, usage);
+  const pricingLLM = withUsageTracking(pricingLLMRaw, usage);
+  const synthesisLLM = withUsageTracking(synthesisLLMRaw, usage);
   // Regulatory check uses the synthesis-tier model: this needs to be reliable
   // about real laws (e.g. e-cigarette bans). Cheap models occasionally miss.
   const regulatoryLLM = synthesisLLM;
@@ -1186,6 +1223,12 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         success_score: result.overview?.successScore ?? null,
         best_country: result.overview?.bestCountry ?? null,
         recommended_price_cents: result.pricing?.recommendedPriceCents ?? null,
+        // Token + cost totals captured by the LLM-wrapper accumulator.
+        // Persisted now so admin/billing has data without re-reading
+        // simulation_results.
+        total_input_tokens: usage.inputTokens,
+        total_output_tokens: usage.outputTokens,
+        total_cost_cents: usage.costCents,
       })
       .eq("id", opts.simulationId)
       .neq("status", "cancelled");
@@ -1194,7 +1237,9 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     // last in the log stream, makes it easy to scroll back and see the total.
     console.log(
       `[sim ${opts.simulationId}] DONE — ${((Date.now() - tSimStart) / 1000).toFixed(1)}s ` +
-        `total · ${personas.length} personas · ${countryScores.length} markets`,
+        `total · ${personas.length} personas · ${countryScores.length} markets · ` +
+        `${(usage.inputTokens / 1000).toFixed(1)}k in + ${(usage.outputTokens / 1000).toFixed(1)}k out → ` +
+        `$${(usage.costCents / 100).toFixed(2)}`,
     );
 
     // Look up workspace + project so the success email + project status
