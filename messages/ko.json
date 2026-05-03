@@ -411,24 +411,36 @@
       },
       "tier": {
         "label": "분석 깊이",
-        "hint": "병렬 시뮬레이션 수에 따라 신뢰도가 달라집니다. Decision 이상은 N개 독립 시뮬을 합산하여 추천 국가의 합의도와 변동성을 함께 표시합니다.",
+        "hint": "페르소나 수와 시뮬레이션 수가 많을수록 신뢰도가 높아집니다. 검증분석 이상은 N개 독립 시뮬을 합산해 추천 국가의 합의도와 변동성을 함께 표시합니다.",
         "hypothesis": {
-          "name": "Hypothesis",
-          "spec": "200 personas · 1회",
-          "desc": "빠른 가설 탐색용",
+          "name": "초기검증",
+          "spec": "200명 · 1 시뮬",
+          "desc": "빠른 가설 탐색",
           "time": "~5분"
         },
         "decision": {
-          "name": "Decision",
-          "spec": "1,000 personas · 5 병렬",
-          "desc": "의사결정 신뢰도 (추천)",
-          "time": "~7분"
+          "name": "검증분석",
+          "spec": "1,000명 · 5 시뮬",
+          "desc": "의사결정 신뢰도",
+          "time": "~10분"
+        },
+        "decision_plus": {
+          "name": "검증분석+",
+          "spec": "3,000명 · 15 시뮬",
+          "desc": "더 강한 합의도",
+          "time": "~10–15분"
         },
         "deep": {
-          "name": "Deep Validation",
-          "spec": "5,000 personas · 25 병렬",
-          "desc": "최종 검증·임원 보고",
-          "time": "~15분"
+          "name": "심층분석",
+          "spec": "5,000명 · 25 시뮬 · 멀티 LLM",
+          "desc": "교차 모델 검증·임원 보고",
+          "time": "~10–15분"
+        },
+        "deep_pro": {
+          "name": "심층분석 Pro",
+          "spec": "10,000명 · 50 시뮬 · 멀티 LLM",
+          "desc": "최대 신뢰도·이사회 보고",
+          "time": "~20–25분"
         }
       },
       "notifyEmail": {

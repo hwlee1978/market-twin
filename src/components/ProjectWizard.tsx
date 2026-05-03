@@ -521,8 +521,16 @@ export function ProjectWizard({ locale }: { locale: string }) {
             </div>
 
             <Field label={tw("tier.label")} hint={tw("tier.hint")}>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {(["hypothesis", "decision", "deep"] as const).map((t) => {
+              <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                {(
+                  [
+                    "hypothesis",
+                    "decision",
+                    "decision_plus",
+                    "deep",
+                    "deep_pro",
+                  ] as const
+                ).map((t) => {
                   const active = form.tier === t;
                   return (
                     <button

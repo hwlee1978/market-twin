@@ -25,10 +25,37 @@ export const dynamic = "force-dynamic";
  * shifts but stays deterministic — sim 0 always uses providers[0].
  */
 const TIER_PRESETS = {
-  hypothesis: { parallelSims: 1, perSimPersonas: 200, llmProviders: ["anthropic"] as const },
-  decision: { parallelSims: 5, perSimPersonas: 200, llmProviders: ["anthropic"] as const },
+  hypothesis: {
+    parallelSims: 1,
+    perSimPersonas: 200,
+    llmProviders: ["anthropic"] as const,
+  },
+  decision: {
+    parallelSims: 5,
+    perSimPersonas: 200,
+    llmProviders: ["anthropic"] as const,
+  },
+  decision_plus: {
+    // 15 sims still fits a single Anthropic provider's burst tolerance
+    // (Tier 2 absorbs the wave), so we don't need to bring in OpenAI /
+    // Gemini at this depth. Multi-LLM stays a Deep-only feature.
+    parallelSims: 15,
+    perSimPersonas: 200,
+    llmProviders: ["anthropic"] as const,
+  },
   deep: {
     parallelSims: 25,
+    perSimPersonas: 200,
+    llmProviders: ["anthropic", "openai", "gemini"] as const,
+  },
+  deep_pro: {
+    // 50 sims × 200 personas. Anthropic 17 + OpenAI 17 + Gemini 16 round-
+    // robin; Gemini gets 4-wide concurrency cap (4 waves of ~5 min) so
+    // total runtime is bounded by Gemini and ~20 min — pushes Vercel's
+    // 800s maxDuration. If timeouts surface, we'll either bump cap-12
+    // for OpenAI/Anthropic so their waves overlap Gemini's, or split
+    // the run across two ensembles.
+    parallelSims: 50,
     perSimPersonas: 200,
     llmProviders: ["anthropic", "openai", "gemini"] as const,
   },
@@ -56,7 +83,9 @@ const PROVIDER_SIM_CONCURRENCY: Record<ProviderName, number> = {
 };
 
 const RunSchema = z.object({
-  tier: z.enum(["hypothesis", "decision", "deep"]).default("decision"),
+  tier: z
+    .enum(["hypothesis", "decision", "decision_plus", "deep", "deep_pro"])
+    .default("decision"),
   notifyEmail: z.string().email().optional(),
   locale: z.enum(["ko", "en"]).default("ko"),
 });

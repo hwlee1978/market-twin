@@ -36,11 +36,13 @@ export interface FormState {
   personaCount: number;
   /**
    * Analysis depth tier — drives which `/run-ensemble` preset gets used.
-   * - hypothesis: 1 sim × 200 personas (fast hypothesis check)
-   * - decision: 5 sims × 200 personas = 1,000 effective (default)
-   * - deep: 25 sims × 200 personas = 5,000 effective (board-grade)
+   * - hypothesis:    1 sim  × 200 = 200 personas    (fast hypothesis check)
+   * - decision:      5 sims × 200 = 1,000 personas  (default)
+   * - decision_plus: 15 sims × 200 = 3,000 personas (deeper consensus, single LLM)
+   * - deep:          25 sims × 200 = 5,000 personas (multi-LLM, board-grade)
+   * - deep_pro:      50 sims × 200 = 10,000 personas (multi-LLM, max consensus)
    */
-  tier: "hypothesis" | "decision" | "deep";
+  tier: "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro";
   /** Optional email for completion notification (deep tier 30+ min). */
   notifyEmail: string;
 }

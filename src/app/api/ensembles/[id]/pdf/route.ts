@@ -57,7 +57,12 @@ export async function GET(
   const buffer = await buildEnsemblePdf({
     aggregate: ensemble.aggregate_result as EnsembleAggregate,
     productName,
-    tier: ensemble.tier as "hypothesis" | "decision" | "deep",
+    tier: ensemble.tier as
+      | "hypothesis"
+      | "decision"
+      | "decision_plus"
+      | "deep"
+      | "deep_pro",
     parallelSims: ensemble.parallel_sims,
     perSimPersonas: ensemble.per_sim_personas,
     llmProviders: ensemble.llm_providers ?? ["anthropic"],

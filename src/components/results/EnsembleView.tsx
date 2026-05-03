@@ -356,7 +356,7 @@ function EnsembleDashboard({
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-500 mb-1 flex-wrap">
             <span className="px-2 py-0.5 rounded-full bg-brand/10 text-brand font-semibold">
-              {tier.toUpperCase()}
+              {tierBadgeLabel(tier, isKo)}
             </span>
             <span>·</span>
             <span>
@@ -719,6 +719,23 @@ function NarrativeSection({
       )}
     </div>
   );
+}
+
+// Tier badge label for the dashboard header. Mirrors the TIER_LABELS map
+// in the project detail page and the TIER_DISPLAY map in ensemble-pdf.tsx
+// so all three surfaces (badge, list row, PDF eyebrow) print the same
+// Korean / English name.
+function tierBadgeLabel(tier: string, isKo: boolean): string {
+  const map: Record<string, { ko: string; en: string }> = {
+    hypothesis: { ko: "초기검증", en: "Hypothesis" },
+    decision: { ko: "검증분석", en: "Decision" },
+    decision_plus: { ko: "검증분석+", en: "Decision+" },
+    deep: { ko: "심층분석", en: "Deep" },
+    deep_pro: { ko: "심층분석 Pro", en: "Deep Pro" },
+  };
+  const entry = map[tier];
+  if (!entry) return tier.toUpperCase();
+  return isKo ? entry.ko : entry.en.toUpperCase();
 }
 
 // Display label for a provider id. Keep this small and centralized so the

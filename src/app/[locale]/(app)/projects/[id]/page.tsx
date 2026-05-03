@@ -52,9 +52,15 @@ export default async function ProjectDetailPage({
     .eq("project_id", id)
     .order("created_at", { ascending: false })
     .limit(10);
+  type EnsembleTier =
+    | "hypothesis"
+    | "decision"
+    | "decision_plus"
+    | "deep"
+    | "deep_pro";
   type EnsembleRow = {
     id: string;
-    tier: "hypothesis" | "decision" | "deep";
+    tier: EnsembleTier;
     parallel_sims: number;
     per_sim_personas: number;
     status: string;
@@ -65,6 +71,22 @@ export default async function ProjectDetailPage({
     } | null;
   };
   const ensemblesList = (ensembles ?? []) as unknown as EnsembleRow[];
+  const TIER_LABELS: Record<EnsembleTier, string> =
+    locale === "ko"
+      ? {
+          hypothesis: "초기검증",
+          decision: "검증분석",
+          decision_plus: "검증분석+",
+          deep: "심층분석",
+          deep_pro: "심층분석 Pro",
+        }
+      : {
+          hypothesis: "Hypothesis",
+          decision: "Decision",
+          decision_plus: "Decision+",
+          deep: "Deep",
+          deep_pro: "Deep Pro",
+        };
 
   return (
     <div className="space-y-6">
@@ -110,8 +132,7 @@ export default async function ProjectDetailPage({
           {ensemblesList.length > 0 && (
             <ul className="space-y-2 mb-4">
               {ensemblesList.map((e) => {
-                const tierLabel =
-                  e.tier === "deep" ? "Deep" : e.tier === "decision" ? "Decision" : "Hypothesis";
+                const tierLabel = TIER_LABELS[e.tier] ?? e.tier;
                 const rec = e.aggregate_result?.recommendation;
                 return (
                   <li key={e.id} className="text-sm">

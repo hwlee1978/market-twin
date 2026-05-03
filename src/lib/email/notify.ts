@@ -142,7 +142,7 @@ export async function notifyEnsembleComplete(args: {
   projectId: string;
   productName: string;
   locale: Locale;
-  tier: "hypothesis" | "decision" | "deep";
+  tier: "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro";
   bestCountry: string | null;
   consensusPercent: number;
   confidence: "STRONG" | "MODERATE" | "WEAK";
@@ -162,8 +162,16 @@ export async function notifyEnsembleComplete(args: {
       projectId: args.projectId,
       ensembleId: args.ensembleId,
     });
-    const tierLabel =
-      args.tier === "deep" ? "Deep Validation" : args.tier === "decision" ? "Decision" : "Hypothesis";
+    const TIER_NAMES: Record<typeof args.tier, { ko: string; en: string }> = {
+      hypothesis: { ko: "초기검증", en: "Hypothesis" },
+      decision: { ko: "검증분석", en: "Decision" },
+      decision_plus: { ko: "검증분석+", en: "Decision+" },
+      deep: { ko: "심층분석", en: "Deep" },
+      deep_pro: { ko: "심층분석 Pro", en: "Deep Pro" },
+    };
+    const tierLabel = (TIER_NAMES[args.tier] ?? TIER_NAMES.decision)[
+      args.locale === "ko" ? "ko" : "en"
+    ];
     const countryLabel = args.bestCountry
       ? getCountryLabel(args.bestCountry, args.locale) || args.bestCountry
       : "—";

@@ -411,24 +411,36 @@
       },
       "tier": {
         "label": "Analysis depth",
-        "hint": "Confidence scales with the number of parallel sims. Decision and Deep aggregate N independent runs and surface consensus + variance alongside the headline recommendation.",
+        "hint": "Confidence scales with the number of personas and parallel sims. Decision and above aggregate N independent runs and surface consensus + variance alongside the headline recommendation.",
         "hypothesis": {
           "name": "Hypothesis",
-          "spec": "200 personas · 1 run",
+          "spec": "200 personas · 1 sim",
           "desc": "Quick exploration",
           "time": "~5 min"
         },
         "decision": {
           "name": "Decision",
-          "spec": "1,000 personas · 5 parallel",
-          "desc": "Decision-grade confidence (recommended)",
-          "time": "~7 min"
+          "spec": "1,000 personas · 5 sims",
+          "desc": "Decision-grade confidence",
+          "time": "~10 min"
+        },
+        "decision_plus": {
+          "name": "Decision+",
+          "spec": "3,000 personas · 15 sims",
+          "desc": "Stronger consensus",
+          "time": "~10–15 min"
         },
         "deep": {
-          "name": "Deep Validation",
-          "spec": "5,000 personas · 25 parallel",
-          "desc": "Pre-launch / board-grade",
-          "time": "~15 min"
+          "name": "Deep",
+          "spec": "5,000 personas · 25 sims · multi-LLM",
+          "desc": "Cross-model · board-grade",
+          "time": "~10–15 min"
+        },
+        "deep_pro": {
+          "name": "Deep Pro",
+          "spec": "10,000 personas · 50 sims · multi-LLM",
+          "desc": "Max confidence · executive review",
+          "time": "~20–25 min"
         }
       },
       "notifyEmail": {

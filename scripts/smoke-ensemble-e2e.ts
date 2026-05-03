@@ -27,17 +27,34 @@ import type {
 } from "../src/lib/simulation/schemas";
 
 const TIER_PRESETS = {
-  hypothesis: { parallelSims: 1, perSimPersonas: 200, llmProviders: ["anthropic"] as const },
-  decision: { parallelSims: 5, perSimPersonas: 200, llmProviders: ["anthropic"] as const },
+  hypothesis: {
+    parallelSims: 1,
+    perSimPersonas: 200,
+    llmProviders: ["anthropic"] as const,
+  },
+  decision: {
+    parallelSims: 5,
+    perSimPersonas: 200,
+    llmProviders: ["anthropic"] as const,
+  },
+  decision_plus: {
+    parallelSims: 15,
+    perSimPersonas: 200,
+    llmProviders: ["anthropic"] as const,
+  },
   deep: {
     parallelSims: 25,
     perSimPersonas: 200,
     llmProviders: ["anthropic", "openai", "gemini"] as const,
   },
+  deep_pro: {
+    parallelSims: 50,
+    perSimPersonas: 200,
+    llmProviders: ["anthropic", "openai", "gemini"] as const,
+  },
   // Cheap dev variant: 3 sims, one per provider — exercises the multi-LLM
   // round-robin without burning a 25-sim deep run. Reuses the "deep" tier
-  // label because the ensembles_tier_check DB constraint only allows the
-  // three production tier names. Not exposed in the UI.
+  // label so the DB tier check accepts it. Not exposed in the UI.
   "deep-3": {
     parallelSims: 3,
     perSimPersonas: 200,

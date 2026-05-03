@@ -5,7 +5,7 @@ import { useLocale } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { Sparkles, Loader2 } from "lucide-react";
 
-type Tier = "hypothesis" | "decision" | "deep";
+type Tier = "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro";
 
 interface Props {
   projectId: string;
@@ -61,18 +61,28 @@ export function RunEnsembleButton({ projectId, className }: Props) {
         >
           <option value="hypothesis">
             {isKo
-              ? "Hypothesis · 1 시뮬 × 200명 · 약 5–7분"
-              : "Hypothesis · 1 sim × 200 personas · ~5–7 min"}
+              ? "초기검증 · 200명 · 약 5분"
+              : "Hypothesis · 200 personas · ~5 min"}
           </option>
           <option value="decision">
             {isKo
-              ? "Decision · 5 시뮬 × 200명 · 약 10–15분"
-              : "Decision · 5 sims × 200 personas · ~10–15 min"}
+              ? "검증분석 · 1,000명 · 약 10분"
+              : "Decision · 1,000 personas · ~10 min"}
+          </option>
+          <option value="decision_plus">
+            {isKo
+              ? "검증분석+ · 3,000명 · 약 10–15분"
+              : "Decision+ · 3,000 personas · ~10–15 min"}
           </option>
           <option value="deep">
             {isKo
-              ? "Deep · 25 시뮬 × 200명 · 멀티 LLM · 약 10–15분"
-              : "Deep · 25 sims × 200 personas · multi-LLM · ~10–15 min"}
+              ? "심층분석 · 5,000명 · 멀티 LLM · 약 10–15분"
+              : "Deep · 5,000 personas · multi-LLM · ~10–15 min"}
+          </option>
+          <option value="deep_pro">
+            {isKo
+              ? "심층분석 Pro · 10,000명 · 멀티 LLM · 약 20–25분"
+              : "Deep Pro · 10,000 personas · multi-LLM · ~20–25 min"}
           </option>
         </select>
         <input

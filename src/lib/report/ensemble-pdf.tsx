@@ -349,7 +349,7 @@ function buildLineupString(
 interface BuildArgs {
   aggregate: EnsembleAggregate;
   productName: string;
-  tier: "hypothesis" | "decision" | "deep";
+  tier: "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro";
   parallelSims: number;
   perSimPersonas: number;
   llmProviders: string[];
@@ -358,11 +358,22 @@ interface BuildArgs {
   ensembleId: string;
 }
 
+const TIER_DISPLAY: Record<
+  BuildArgs["tier"],
+  { ko: string; en: string; eyebrowKo: string; eyebrowEn: string }
+> = {
+  hypothesis: { ko: "초기검증", en: "Hypothesis", eyebrowKo: "초기검증 분석", eyebrowEn: "Hypothesis analysis" },
+  decision: { ko: "검증분석", en: "Decision", eyebrowKo: "검증분석", eyebrowEn: "Decision analysis" },
+  decision_plus: { ko: "검증분석+", en: "Decision+", eyebrowKo: "검증분석+", eyebrowEn: "Decision+ analysis" },
+  deep: { ko: "심층분석", en: "Deep", eyebrowKo: "심층분석", eyebrowEn: "Deep analysis" },
+  deep_pro: { ko: "심층분석 Pro", en: "Deep Pro", eyebrowKo: "심층분석 Pro", eyebrowEn: "Deep Pro analysis" },
+};
+
 export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
   const { aggregate, productName, tier, parallelSims, perSimPersonas, llmProviders, locale, generatedAt, ensembleId } = args;
   const isKo = locale === "ko";
-  const tierLabel =
-    tier === "deep" ? "Deep Validation" : tier === "decision" ? "Decision" : "Hypothesis";
+  const tierDisplay = TIER_DISPLAY[tier] ?? TIER_DISPLAY.decision;
+  const tierEyebrow = (isKo ? tierDisplay.eyebrowKo : tierDisplay.eyebrowEn).toUpperCase();
   const generatedAtStr = generatedAt.toLocaleDateString(
     isKo ? "ko-KR" : "en-US",
     { year: "numeric", month: "short", day: "numeric" },
@@ -371,7 +382,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
   const lineup = buildLineupString(llmProviders, parallelSims, aggregate.providerBreakdown, isKo);
   const t = isKo
     ? {
-        coverEyebrow: `MARKET TWIN · ${tierLabel.toUpperCase()} ANALYSIS`,
+        coverEyebrow: `MARKET TWIN · ${tierEyebrow}`,
         coverRecLabel: "추천 진출국",
         consensus: "합의도",
         confidence: { STRONG: "강함", MODERATE: "보통", WEAK: "약함" },
@@ -402,7 +413,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         footerLeft: "Market Twin · 정밀 검증 보고서",
       }
     : {
-        coverEyebrow: `MARKET TWIN · ${tierLabel.toUpperCase()} ANALYSIS`,
+        coverEyebrow: `MARKET TWIN · ${tierEyebrow}`,
         coverRecLabel: "Recommended Market",
         consensus: "consensus",
         confidence: { STRONG: "Strong", MODERATE: "Moderate", WEAK: "Weak" },
