@@ -167,6 +167,17 @@ export default async function ProjectDetailPage({
             </ul>
           )}
 
+          {/* Compare button only when at least 2 completed ensembles exist —
+              otherwise the compare page would just show the empty-state. */}
+          {ensemblesList.filter((e) => e.status === "completed").length >= 2 && (
+            <Link
+              href={`/projects/${id}/compare-ensembles`}
+              className="btn-ghost w-full text-xs mb-4"
+            >
+              {locale === "ko" ? "앙상블 비교" : "Compare ensembles"}
+            </Link>
+          )}
+
           {simulations && simulations.length > 0 ? (
             <>
               <ul className="space-y-2">
@@ -190,14 +201,6 @@ export default async function ProjectDetailPage({
                   {latest.status === "completed"
                     ? t("projectDetail.viewResults")
                     : t("projectDetail.viewProgress")}
-                </Link>
-              )}
-              {(simulations.filter((s) => s.status === "completed").length ?? 0) >= 2 && (
-                <Link
-                  href={`/projects/${id}/compare`}
-                  className="btn-ghost w-full mt-2"
-                >
-                  {t("projectDetail.compareRuns")}
                 </Link>
               )}
               <div className="mt-4 pt-4 border-t border-slate-100">
