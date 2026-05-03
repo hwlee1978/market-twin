@@ -1181,9 +1181,12 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
 
     // Look up workspace + project so the success email + project status
     // update both have what they need without two extra round-trips.
+    // ensemble_id tells us whether this sim is one of N inside a deep/decision
+    // run — if so, the per-sim notification is suppressed and the ensemble
+    // route sends a single rollup email instead.
     const { data: simRow } = await supabase
       .from("simulations")
-      .select("project_id, workspace_id")
+      .select("project_id, workspace_id, ensemble_id")
       .eq("id", opts.simulationId)
       .single();
     if (simRow?.project_id) {
@@ -1196,7 +1199,9 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     // Notify after persistence so the email link always resolves to a
     // completed sim. Best-effort: a missing RESEND_API_KEY or send error
     // logs and moves on without disturbing the simulation outcome.
-    if (simRow?.workspace_id && simRow.project_id) {
+    // Skip when the sim belongs to an ensemble — otherwise a 25-sim deep
+    // run would spam the recipient 25 times before the rollup email lands.
+    if (simRow?.workspace_id && simRow.project_id && !simRow.ensemble_id) {
       await notifySimulationComplete({
         simulationId: opts.simulationId,
         workspaceId: simRow.workspace_id,
@@ -1232,12 +1237,14 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       .neq("status", "cancelled");
 
     // Notify on failure too — operators want to know without polling.
+    // Same suppression as the success path: ensemble sims roll up into a
+    // single email rather than spamming once per failed sim.
     const { data: simRow } = await supabase
       .from("simulations")
-      .select("project_id, workspace_id")
+      .select("project_id, workspace_id, ensemble_id")
       .eq("id", opts.simulationId)
       .single();
-    if (simRow?.workspace_id && simRow.project_id) {
+    if (simRow?.workspace_id && simRow.project_id && !simRow.ensemble_id) {
       await notifySimulationFailed({
         simulationId: opts.simulationId,
         workspaceId: simRow.workspace_id,
