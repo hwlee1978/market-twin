@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { LLMProvider, LLMRequest, LLMResponse } from "./types";
+import { withLLMRetry } from "./retry";
 
 export class AnthropicProvider implements LLMProvider {
   readonly name = "anthropic" as const;
@@ -36,13 +37,17 @@ export class AnthropicProvider implements LLMProvider {
           ]
         : promptText;
 
-    const response = await this.client.messages.create({
-      model: this.model,
-      max_tokens: req.maxTokens ?? 4096,
-      temperature: req.temperature ?? 0.7,
-      system: (req.system ?? "") + systemSuffix,
-      messages: [{ role: "user", content: userContent }],
-    });
+    const response = await withLLMRetry(
+      () =>
+        this.client.messages.create({
+          model: this.model,
+          max_tokens: req.maxTokens ?? 4096,
+          temperature: req.temperature ?? 0.7,
+          system: (req.system ?? "") + systemSuffix,
+          messages: [{ role: "user", content: userContent }],
+        }),
+      { provider: "anthropic" },
+    );
 
     const text = response.content
       .filter((c): c is Anthropic.TextBlock => c.type === "text")

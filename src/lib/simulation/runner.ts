@@ -68,21 +68,27 @@ const PERSONA_BATCH = 12;
 /**
  * Concurrency for parallel persona batches (fresh + reaction-only paths).
  *
- * Auto-scales with persona count to keep wall-clock time bounded as sims
- * grow: a 500-persona sim has 42 batches, so a fixed concurrency of 4 means
- * 11 sequential waves and ~5+ minutes for personas-stage alone. Lifting
- * concurrency to 8 cuts that to ~6 waves.
+ * Auto-scales with persona count to keep wall-clock time bounded — but is
+ * also capped per-provider because OpenAI Tier 1 (gpt-4o TPM 30K) and
+ * Gemini's bursty 503 behavior both choke at the Anthropic-tuned 6-8
+ * concurrency. Each reaction batch consumes ~5K tokens, so 6 concurrent
+ * OpenAI calls = 30K TPM = exactly the Tier 1 cap → guaranteed 429s on
+ * the next batch wave.
  *
- * Tier 2 Anthropic limits (~90k output tokens/min, ~1000 RPM) easily
- * accommodate concurrency 8 — each batch is ~2.5k output tokens, so 8
- * concurrent calls = 20k tokens in flight, well under the cap.
+ * Per-provider caps (until they get their own env override):
+ *   anthropic: persona-count-scaled (4 → 6 → 8) — Tier 2 limits absorb it
+ *   openai:    2 (5K × 2 = 10K TPM, leaves 20K headroom on Tier 1)
+ *   gemini:    4 (Tier 1 RPM 150 is fine, but 503 bursts kick in higher)
  *
- * Env override (`LLM_PERSONA_BATCH_CONCURRENCY`) always wins — useful for
- * Tier 1 environments where 4 is already the safe ceiling.
+ * Env override (`LLM_PERSONA_BATCH_CONCURRENCY`) always wins — flip it up
+ * when the OpenAI org reaches Tier 2 / Gemini paid quota stabilizes.
  */
-function personaBatchConcurrency(personaCount: number): number {
+function personaBatchConcurrency(personaCount: number, provider?: string): number {
   const envOverride = Number(process.env.LLM_PERSONA_BATCH_CONCURRENCY);
   if (Number.isFinite(envOverride) && envOverride > 0) return Math.floor(envOverride);
+  if (provider === "openai") return 2;
+  if (provider === "gemini") return 4;
+  // anthropic (default fallback): scale with sim size.
   if (personaCount >= 500) return 8;
   if (personaCount >= 200) return 6;
   return 4;
@@ -392,13 +398,14 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     // line at the end of personas-stage tells you at-a-glance whether the
     // prompt-side defenses are holding for this run's locale × persona mix.
     let voiceSlipCount = 0;
-    // Concurrency scales with persona count (4 → 6 → 8) so 200/500-persona
-    // sims don't sit through 11 sequential waves. See personaBatchConcurrency().
-    const personaConcurrency = personaBatchConcurrency(opts.personaCount);
+    // Concurrency scales with persona count + provider — Anthropic gets
+    // the persona-count-based ladder, OpenAI/Gemini get tighter caps to
+    // stay inside their TPM/burst limits. See personaBatchConcurrency().
+    const personaConcurrency = personaBatchConcurrency(opts.personaCount, opts.provider);
     if (personaConcurrency !== 4) {
       console.log(
         `[sim ${opts.simulationId}] persona batch concurrency: ${personaConcurrency} ` +
-          `(scaled for ${opts.personaCount} personas)`,
+          `(provider=${opts.provider ?? "default"}, ${opts.personaCount} personas)`,
       );
     }
 

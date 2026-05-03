@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import type { LLMProvider, LLMRequest, LLMResponse } from "./types";
+import { withLLMRetry } from "./retry";
 
 export class OpenAIProvider implements LLMProvider {
   readonly name = "openai" as const;
@@ -14,21 +15,25 @@ export class OpenAIProvider implements LLMProvider {
   async generate(req: LLMRequest): Promise<LLMResponse> {
     const wantsJson = !!req.jsonSchema;
 
-    const response = await this.client.chat.completions.create({
-      model: this.model,
-      temperature: req.temperature ?? 0.7,
-      max_tokens: req.maxTokens ?? 4096,
-      response_format: wantsJson ? { type: "json_object" } : undefined,
-      messages: [
-        ...(req.system ? [{ role: "system" as const, content: req.system }] : []),
-        {
-          role: "user",
-          content: wantsJson
-            ? `${req.prompt}\n\nReturn JSON matching this schema:\n${JSON.stringify(req.jsonSchema)}`
-            : req.prompt,
-        },
-      ],
-    });
+    const response = await withLLMRetry(
+      () =>
+        this.client.chat.completions.create({
+          model: this.model,
+          temperature: req.temperature ?? 0.7,
+          max_tokens: req.maxTokens ?? 4096,
+          response_format: wantsJson ? { type: "json_object" } : undefined,
+          messages: [
+            ...(req.system ? [{ role: "system" as const, content: req.system }] : []),
+            {
+              role: "user",
+              content: wantsJson
+                ? `${req.prompt}\n\nReturn JSON matching this schema:\n${JSON.stringify(req.jsonSchema)}`
+                : req.prompt,
+            },
+          ],
+        }),
+      { provider: "openai" },
+    );
 
     const text = response.choices[0]?.message?.content ?? "";
 

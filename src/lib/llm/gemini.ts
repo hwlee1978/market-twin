@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { LLMProvider, LLMRequest, LLMResponse } from "./types";
+import { withLLMRetry } from "./retry";
 
 export class GeminiProvider implements LLMProvider {
   readonly name = "gemini" as const;
@@ -25,10 +26,14 @@ export class GeminiProvider implements LLMProvider {
       },
     });
 
-    const result = await model.generateContent(
-      wantsJson
-        ? `${req.prompt}\n\nJSON schema (return JSON only):\n${JSON.stringify(req.jsonSchema)}`
-        : req.prompt,
+    const result = await withLLMRetry(
+      () =>
+        model.generateContent(
+          wantsJson
+            ? `${req.prompt}\n\nJSON schema (return JSON only):\n${JSON.stringify(req.jsonSchema)}`
+            : req.prompt,
+        ),
+      { provider: "gemini" },
     );
 
     const text = result.response.text();
