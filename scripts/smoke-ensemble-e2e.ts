@@ -264,6 +264,7 @@ async function main() {
     risks?: unknown;
     recommendations?: unknown;
     pricing?: unknown;
+    creative?: unknown[];
   };
   type EnsembleSimRow = {
     id: string;
@@ -277,7 +278,7 @@ async function main() {
     .from("simulations")
     .select(
       `id, ensemble_index, best_country, status, model_provider,
-       simulation_results ( countries, personas, overview, risks, recommendations, pricing )`,
+       simulation_results ( countries, personas, overview, risks, recommendations, pricing, creative )`,
     )
     .eq("ensemble_id", ensembleId);
   if (rowsErr) throw rowsErr;
@@ -300,6 +301,25 @@ async function main() {
     for (const [c, v] of Object.entries(sums)) {
       intentByCountry[c] = { n: v.n, meanIntent: v.n > 0 ? v.total / v.n : 0 };
     }
+    const compactPersonas = personas.flatMap((p) => {
+      const rec = p as {
+        country?: string;
+        purchaseIntent?: number;
+        voice?: string;
+        age?: number;
+        occupation?: string;
+      };
+      if (typeof rec.purchaseIntent !== "number" || !rec.country) return [];
+      return [
+        {
+          country: rec.country.toUpperCase(),
+          purchaseIntent: rec.purchaseIntent,
+          voice: rec.voice,
+          age: rec.age,
+          occupation: rec.occupation,
+        },
+      ];
+    });
     return [
       {
         simulationId: r.id,
@@ -312,6 +332,8 @@ async function main() {
         risks: (result.risks ?? undefined) as EnsembleSimSnapshot["risks"],
         recommendations: (result.recommendations ?? undefined) as EnsembleSimSnapshot["recommendations"],
         pricing: (result.pricing ?? undefined) as EnsembleSimSnapshot["pricing"],
+        personas: compactPersonas,
+        creative: (result.creative ?? undefined) as EnsembleSimSnapshot["creative"],
       },
     ];
   });

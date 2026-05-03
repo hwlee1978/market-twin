@@ -53,6 +53,27 @@ export interface EnsembleSimSnapshot {
   risks?: Risk[];
   recommendations?: Recommendation;
   pricing?: PricingResult;
+  /**
+   * Per-persona records. Heavy field — 200 entries × ~30 fields each
+   * — but keeping only what we need for aggregation downstream
+   * (intent, country, voice, age, occupation). Aggregator consumes
+   * this and emits PersonasAggregate; we don't keep the raw array on
+   * the persisted EnsembleAggregate.
+   */
+  personas?: Array<{
+    country: string;
+    purchaseIntent: number;
+    voice?: string;
+    age?: number;
+    occupation?: string;
+  }>;
+  /** Creative asset scoring from this sim (optional — sim may have skipped). */
+  creative?: Array<{
+    assetName: string;
+    score: number;
+    strengths: string[];
+    weaknesses: string[];
+  }>;
 }
 
 export interface CountryStats {
@@ -118,6 +139,15 @@ export interface EnsembleAggregate {
    */
   narrative?: EnsembleNarrative;
 
+  /** Persona-level summary across all sims. Optional for legacy ensembles. */
+  personas?: PersonasAggregate;
+
+  /** Pricing curve consensus across all sims. */
+  pricing?: PricingAggregate;
+
+  /** Creative asset scores aggregated across sims, when sims supplied any. */
+  creative?: CreativeAggregate;
+
   /** Overall ensemble variance health — quick visual cue for the UI. */
   varianceAssessment: {
     maxFinalScoreRange: number;
@@ -125,6 +155,86 @@ export interface EnsembleAggregate {
     label: "low" | "moderate" | "high";
     note: string;
   };
+}
+
+/**
+ * Persona-level summary aggregated across all sims. We DON'T store the
+ * full persona array here (25 sims × 200 personas = 2-3 MB easily); the
+ * raw rows live in simulation_results. This struct carries everything
+ * the dashboard / PDF persona section needs without re-querying.
+ */
+export interface PersonasAggregate {
+  total: number;
+  byCountry: Array<{
+    country: string;
+    count: number;
+    meanIntent: number;
+    medianIntent: number;
+  }>;
+  /** Histogram bins of purchaseIntent (0-100), 10 bins of width 10. */
+  intentHistogram: Array<{ binStart: number; binEnd: number; count: number }>;
+  intentMean: number;
+  intentMedian: number;
+  highIntentCount: number; // intent >= 70
+  lowIntentCount: number; // intent < 35
+  /**
+   * Notable verbatim quotes. We keep a small handful (3-5) per polarity
+   * — enough for the report to feel grounded without ballooning the
+   * jsonb. Picked by intent score (top positive, lowest negative) and
+   * deduped naively on the first 60 chars to avoid the same hot take
+   * showing up multiple times across sims.
+   */
+  topPositiveVoices: Array<{
+    text: string;
+    country: string;
+    intent: number;
+    occupation?: string;
+    age?: number;
+  }>;
+  topNegativeVoices: Array<{
+    text: string;
+    country: string;
+    intent: number;
+    occupation?: string;
+    age?: number;
+  }>;
+  /** Demographic distributions — useful for the report and any ad-targeting follow-up. */
+  ageDistribution: Array<{ bucket: string; count: number }>;
+  occupationTopN: Array<{ occupation: string; count: number }>;
+}
+
+/**
+ * Pricing aggregate — collapses per-sim pricing curves into one consensus
+ * curve, plus the median recommended price across sims.
+ */
+export interface PricingAggregate {
+  recommendedPriceCents: number;
+  recommendedPriceMedian: number;
+  recommendedPriceP25: number;
+  recommendedPriceP75: number;
+  marginEstimate: string; // mode of per-sim values
+  /**
+   * Consensus curve: average conversion probability at each price point
+   * across all sims, sorted ascending by price. Sims may have slightly
+   * different price grids — we bucket nearest-cent-rounded prices to
+   * keep the curve dense without over-binning.
+   */
+  curve: Array<{
+    priceCents: number;
+    meanConversionProbability: number;
+    sampleCount: number;
+  }>;
+}
+
+/** Creative asset aggregate — only present when sims provided creative scoring. */
+export interface CreativeAggregate {
+  assets: Array<{
+    assetName: string;
+    meanScore: number;
+    /** Strengths/weaknesses surfaced, deduped, with frequency. */
+    topStrengths: Array<{ point: string; surfacedInSims: number }>;
+    topWeaknesses: Array<{ point: string; surfacedInSims: number }>;
+  }>;
 }
 
 export interface EnsembleNarrative {
@@ -245,6 +355,11 @@ export function aggregateEnsemble(
   // ── provider breakdown (only when sims span 2+ providers) ──
   const providerBreakdown = computeProviderBreakdown(sims, winner?.country ?? null);
 
+  // ── personas / pricing / creative aggregates ──
+  const personas = computePersonasAggregate(sims);
+  const pricing = computePricingAggregate(sims);
+  const creative = computeCreativeAggregate(sims);
+
   return {
     simCount,
     effectivePersonas,
@@ -257,12 +372,235 @@ export function aggregateEnsemble(
     countryStats,
     segments,
     providerBreakdown,
+    personas,
+    pricing,
+    creative,
     varianceAssessment: {
       maxFinalScoreRange: round1(maxR),
       meanFinalScoreRange: round1(meanR),
       label,
       note,
     },
+  };
+}
+
+function computePersonasAggregate(
+  sims: EnsembleSimSnapshot[],
+): PersonasAggregate | undefined {
+  const all: NonNullable<EnsembleSimSnapshot["personas"]>[number][] = [];
+  for (const s of sims) {
+    if (s.personas) all.push(...s.personas);
+  }
+  if (all.length === 0) return undefined;
+
+  const intents = all.map((p) => p.purchaseIntent);
+  const intentMean = round1(mean(intents));
+  const intentMedian = round1(median(intents));
+  const highIntentCount = all.filter((p) => p.purchaseIntent >= 70).length;
+  const lowIntentCount = all.filter((p) => p.purchaseIntent < 35).length;
+
+  // Histogram in 10-wide bins. We include 100 in the [90, 100] bin so the
+  // top end isn't a singleton.
+  const bins: PersonasAggregate["intentHistogram"] = [];
+  for (let i = 0; i < 100; i += 10) {
+    const top = i + 10;
+    const inBin = all.filter((p) => {
+      const v = p.purchaseIntent;
+      return top === 100 ? v >= i && v <= 100 : v >= i && v < top;
+    }).length;
+    bins.push({ binStart: i, binEnd: top, count: inBin });
+  }
+
+  // Per-country aggregates.
+  const byCountryMap = new Map<string, number[]>();
+  for (const p of all) {
+    const k = (p.country ?? "?").toUpperCase();
+    const arr = byCountryMap.get(k) ?? [];
+    arr.push(p.purchaseIntent);
+    byCountryMap.set(k, arr);
+  }
+  const byCountry = [...byCountryMap.entries()]
+    .map(([country, arr]) => ({
+      country,
+      count: arr.length,
+      meanIntent: round1(mean(arr)),
+      medianIntent: round1(median(arr)),
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  // Top voices, deduped on first 60 chars (cheap dedup; if two personas
+  // really did say the same thing in different sims, that's signal too).
+  const withVoice = all.filter((p) => p.voice && p.voice.trim().length > 0);
+  const seen = new Set<string>();
+  const dedup = (
+    arr: typeof withVoice,
+    take: number,
+  ): PersonasAggregate["topPositiveVoices"] => {
+    const out: PersonasAggregate["topPositiveVoices"] = [];
+    for (const p of arr) {
+      const key = (p.voice ?? "").slice(0, 60);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        text: p.voice ?? "",
+        country: p.country,
+        intent: p.purchaseIntent,
+        occupation: p.occupation,
+        age: p.age,
+      });
+      if (out.length >= take) break;
+    }
+    return out;
+  };
+  const topPositiveVoices = dedup(
+    [...withVoice].sort((a, b) => b.purchaseIntent - a.purchaseIntent),
+    5,
+  );
+  // Reset dedup so positives don't poison negatives (a low-intent voice
+  // might share a phrase with a high-intent one).
+  seen.clear();
+  const topNegativeVoices = dedup(
+    [...withVoice].sort((a, b) => a.purchaseIntent - b.purchaseIntent),
+    5,
+  );
+
+  // Demographics — 10-year age buckets, top occupations.
+  const ageBucketMap = new Map<string, number>();
+  for (const p of all) {
+    if (typeof p.age !== "number" || p.age <= 0) continue;
+    const decade = Math.floor(p.age / 10) * 10;
+    const key = `${decade}s`;
+    ageBucketMap.set(key, (ageBucketMap.get(key) ?? 0) + 1);
+  }
+  const ageDistribution = [...ageBucketMap.entries()]
+    .map(([bucket, count]) => ({ bucket, count }))
+    .sort((a, b) => parseInt(a.bucket) - parseInt(b.bucket));
+
+  const occMap = new Map<string, number>();
+  for (const p of all) {
+    if (!p.occupation) continue;
+    occMap.set(p.occupation, (occMap.get(p.occupation) ?? 0) + 1);
+  }
+  const occupationTopN = [...occMap.entries()]
+    .map(([occupation, count]) => ({ occupation, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 12);
+
+  return {
+    total: all.length,
+    byCountry,
+    intentHistogram: bins,
+    intentMean,
+    intentMedian,
+    highIntentCount,
+    lowIntentCount,
+    topPositiveVoices,
+    topNegativeVoices,
+    ageDistribution,
+    occupationTopN,
+  };
+}
+
+function computePricingAggregate(
+  sims: EnsembleSimSnapshot[],
+): PricingAggregate | undefined {
+  const present = sims.filter((s) => s.pricing);
+  if (present.length === 0) return undefined;
+
+  const recs = present.map((s) => s.pricing!.recommendedPriceCents);
+  const sortedRecs = [...recs].sort((a, b) => a - b);
+  const p25 = sortedRecs[Math.floor(sortedRecs.length * 0.25)] ?? sortedRecs[0];
+  const p75 = sortedRecs[Math.floor(sortedRecs.length * 0.75)] ?? sortedRecs[sortedRecs.length - 1];
+
+  // Mode of margin estimates.
+  const marginCounts = new Map<string, number>();
+  for (const s of present) {
+    const m = s.pricing!.marginEstimate;
+    marginCounts.set(m, (marginCounts.get(m) ?? 0) + 1);
+  }
+  const marginEstimate =
+    [...marginCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
+
+  // Bucket curve points by nearest cent. Sims may pick slightly different
+  // price grids; we collapse exact-match prices and average the conversion
+  // probability across sims that hit that price.
+  const curveBuckets = new Map<number, { sum: number; count: number }>();
+  for (const s of present) {
+    for (const point of s.pricing!.curve) {
+      const key = point.priceCents;
+      const cur = curveBuckets.get(key) ?? { sum: 0, count: 0 };
+      cur.sum += point.conversionProbability;
+      cur.count += 1;
+      curveBuckets.set(key, cur);
+    }
+  }
+  const curve = [...curveBuckets.entries()]
+    .map(([priceCents, v]) => ({
+      priceCents,
+      meanConversionProbability:
+        Math.round((v.sum / v.count) * 1000) / 1000,
+      sampleCount: v.count,
+    }))
+    .sort((a, b) => a.priceCents - b.priceCents);
+
+  return {
+    recommendedPriceCents: median(recs),
+    recommendedPriceMedian: median(recs),
+    recommendedPriceP25: p25,
+    recommendedPriceP75: p75,
+    marginEstimate,
+    curve,
+  };
+}
+
+function computeCreativeAggregate(
+  sims: EnsembleSimSnapshot[],
+): CreativeAggregate | undefined {
+  const present = sims.filter((s) => s.creative && s.creative.length > 0);
+  if (present.length === 0) return undefined;
+
+  // Group per-asset across sims. We key by lowercased assetName so a sim
+  // that varied case doesn't fragment the bucket.
+  const byAsset = new Map<
+    string,
+    {
+      assetName: string;
+      scores: number[];
+      strengths: Map<string, number>;
+      weaknesses: Map<string, number>;
+    }
+  >();
+  for (const s of present) {
+    for (const a of s.creative!) {
+      const key = a.assetName.toLowerCase();
+      const cur = byAsset.get(key) ?? {
+        assetName: a.assetName,
+        scores: [] as number[],
+        strengths: new Map<string, number>(),
+        weaknesses: new Map<string, number>(),
+      };
+      cur.scores.push(a.score);
+      for (const x of a.strengths) cur.strengths.set(x, (cur.strengths.get(x) ?? 0) + 1);
+      for (const x of a.weaknesses) cur.weaknesses.set(x, (cur.weaknesses.get(x) ?? 0) + 1);
+      byAsset.set(key, cur);
+    }
+  }
+
+  return {
+    assets: [...byAsset.values()]
+      .map((a) => ({
+        assetName: a.assetName,
+        meanScore: round1(mean(a.scores)),
+        topStrengths: [...a.strengths.entries()]
+          .map(([point, n]) => ({ point, surfacedInSims: n }))
+          .sort((a, b) => b.surfacedInSims - a.surfacedInSims)
+          .slice(0, 6),
+        topWeaknesses: [...a.weaknesses.entries()]
+          .map(([point, n]) => ({ point, surfacedInSims: n }))
+          .sort((a, b) => b.surfacedInSims - a.surfacedInSims)
+          .slice(0, 6),
+      }))
+      .sort((a, b) => b.meanScore - a.meanScore),
   };
 }
 

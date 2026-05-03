@@ -337,10 +337,14 @@ function EnsembleDashboard({
     varianceAssessment,
     providerBreakdown,
     narrative,
+    personas,
+    pricing,
+    creative,
     effectivePersonas,
     simCount,
   } = aggregate;
   const isKo = locale === "ko";
+  const [activeTab, setActiveTab] = useState<TabKey>("summary");
 
   const confidenceColor =
     recommendation.confidence === "STRONG"
@@ -392,12 +396,166 @@ function EnsembleDashboard({
         </div>
       </div>
 
-      {/* Top recommendation card */}
+      <TabsNav
+        active={activeTab}
+        onChange={setActiveTab}
+        aggregate={aggregate}
+        isKo={isKo}
+      />
+
+      {activeTab === "summary" && (
+        <SummaryTab
+          recommendation={recommendation}
+          confidenceColor={confidenceColor}
+          bestCountryDistribution={bestCountryDistribution}
+          simCount={simCount}
+          varianceAssessment={varianceAssessment}
+          locale={locale}
+          isKo={isKo}
+        />
+      )}
+      {activeTab === "overview" && (
+        <OverviewTab
+          narrative={narrative}
+          recommendation={recommendation}
+          confidenceColor={confidenceColor}
+          simCount={simCount}
+          effectivePersonas={effectivePersonas}
+          tier={tier}
+          isKo={isKo}
+        />
+      )}
+      {activeTab === "countries" && (
+        <CountriesTab
+          countryStats={countryStats}
+          segments={segments}
+          bestCountryDistribution={bestCountryDistribution}
+          recommendation={recommendation}
+          simCount={simCount}
+          locale={locale}
+          isKo={isKo}
+        />
+      )}
+      {activeTab === "personas" && (
+        <PersonasTab personas={personas} isKo={isKo} locale={locale} />
+      )}
+      {activeTab === "pricing" && (
+        <PricingTab pricing={pricing} isKo={isKo} />
+      )}
+      {activeTab === "risks" && (
+        <RisksTab narrative={narrative} isKo={isKo} />
+      )}
+      {activeTab === "actions" && (
+        <ActionsTab narrative={narrative} isKo={isKo} />
+      )}
+      {activeTab === "data" && (
+        <DataTab
+          providerBreakdown={providerBreakdown}
+          varianceAssessment={varianceAssessment}
+          countryStats={countryStats}
+          creative={creative}
+          ensembleId={result.id}
+          tier={tier}
+          parallelSims={parallel_sims}
+          effectivePersonas={effectivePersonas}
+          llmProviders={llm_providers}
+          locale={locale}
+          isKo={isKo}
+        />
+      )}
+
+      <p className="text-xs text-slate-400 text-center">
+        {isKo ? "앙상블 ID" : "Ensemble ID"}: {result.id}
+      </p>
+    </div>
+  );
+}
+
+/* ────────────────────────────────── tabs ─── */
+
+type TabKey =
+  | "summary"
+  | "overview"
+  | "countries"
+  | "personas"
+  | "pricing"
+  | "risks"
+  | "actions"
+  | "data";
+
+function TabsNav({
+  active,
+  onChange,
+  aggregate,
+  isKo,
+}: {
+  active: TabKey;
+  onChange: (k: TabKey) => void;
+  aggregate: EnsembleAggregate;
+  isKo: boolean;
+}) {
+  // Hide tabs that have no underlying data so we don't show an empty
+  // "페르소나" tab when the snapshot didn't carry persona records (legacy
+  // ensembles, or hypothesis tier without the new capture).
+  const tabs: Array<{ key: TabKey; label: string; show: boolean }> = [
+    { key: "summary", label: isKo ? "요약" : "Summary", show: true },
+    { key: "overview", label: isKo ? "개요" : "Overview", show: !!aggregate.narrative?.executiveSummary },
+    { key: "countries", label: isKo ? "국가" : "Countries", show: aggregate.countryStats.length > 0 },
+    { key: "personas", label: isKo ? "페르소나" : "Personas", show: !!aggregate.personas },
+    { key: "pricing", label: isKo ? "가격" : "Pricing", show: !!aggregate.pricing },
+    { key: "risks", label: isKo ? "리스크" : "Risks", show: !!aggregate.narrative?.mergedRisks?.length },
+    { key: "actions", label: isKo ? "추천 액션" : "Actions", show: !!aggregate.narrative?.mergedActions?.length },
+    { key: "data", label: isKo ? "데이터" : "Data", show: true },
+  ];
+  return (
+    <div className="border-b border-slate-200 -mb-px">
+      <div className="flex flex-wrap gap-x-1 gap-y-1">
+        {tabs
+          .filter((t) => t.show)
+          .map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => onChange(t.key)}
+              className={clsx(
+                "px-3 py-2 text-sm font-medium border-b-2 transition-colors",
+                active === t.key
+                  ? "border-brand text-brand"
+                  : "border-transparent text-slate-500 hover:text-slate-800",
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+      </div>
+    </div>
+  );
+}
+
+function SummaryTab({
+  recommendation,
+  confidenceColor,
+  bestCountryDistribution,
+  simCount,
+  varianceAssessment,
+  locale,
+  isKo,
+}: {
+  recommendation: EnsembleAggregate["recommendation"];
+  confidenceColor: string;
+  bestCountryDistribution: EnsembleAggregate["bestCountryDistribution"];
+  simCount: number;
+  varianceAssessment: EnsembleAggregate["varianceAssessment"];
+  locale: string;
+  isKo: boolean;
+}) {
+  return (
+    <div className="space-y-6">
       <div className="card p-6 bg-gradient-to-br from-brand-50/40 to-white border-brand/20">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-              추천 진출국
+              {isKo ? "추천 진출국" : "Recommended market"}
             </div>
             <div className="flex items-baseline gap-3">
               <div className="text-4xl font-bold text-slate-900">
@@ -405,18 +563,14 @@ function EnsembleDashboard({
               </div>
               <div className="text-sm">
                 <span className={clsx("font-semibold", confidenceColor)}>
-                  {recommendation.consensusPercent}% 합의
+                  {recommendation.consensusPercent}% {isKo ? "합의" : "consensus"}
                 </span>
-                <span className="text-slate-500 ml-2">
-                  ({recommendation.confidence})
-                </span>
+                <span className="text-slate-500 ml-2">({recommendation.confidence})</span>
               </div>
             </div>
           </div>
           <CheckCircle2 className={confidenceColor} size={32} />
         </div>
-
-        {/* Distribution bars */}
         <div className="mt-6 space-y-2">
           {bestCountryDistribution.map((b) => (
             <div key={b.country} className="flex items-center gap-3 text-sm">
@@ -438,133 +592,6 @@ function EnsembleDashboard({
         </div>
       </div>
 
-      {/* Consensus narrative — only when LLM merge step ran. */}
-      {narrative && (
-        <NarrativeSection narrative={narrative} isKo={isKo} />
-      )}
-
-      {/* Segment recommendations */}
-      <div>
-        <h2 className="text-base font-semibold text-slate-900 mb-3">
-          전략별 추천
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {segments.map((seg) => (
-            <div key={seg.id} className="card p-4">
-              <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-                {seg.labelKo}
-              </div>
-              <div className="flex items-baseline gap-2">
-                <div className="text-xl font-semibold text-slate-900">
-                  {seg.bestCountry}
-                </div>
-                <div className="text-xs text-slate-500">
-                  {seg.id === "cac" ? `$${seg.bestValue.toFixed(2)}` : seg.bestValue.toFixed(1)}
-                </div>
-              </div>
-              {seg.alternative && (
-                <div className="mt-1 text-xs text-slate-500">
-                  대안: {seg.alternative.country} (
-                  {seg.id === "cac"
-                    ? `$${seg.alternative.value.toFixed(2)}`
-                    : seg.alternative.value.toFixed(1)}
-                  )
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Provider consensus — only when sims spanned multiple LLMs (deep tier) */}
-      {providerBreakdown && providerBreakdown.length > 0 && (
-        <div>
-          <h2 className="text-base font-semibold text-slate-900 mb-3">
-            {locale === "ko" ? "LLM별 합의도" : "Cross-model consensus"}
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {providerBreakdown.map((pb) => {
-              const top = pb.bestCountryDistribution[0];
-              const aligned = pb.agreementWithOverallPercent;
-              return (
-                <div key={pb.provider} className="card p-4">
-                  <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-                    {providerLabel(pb.provider)} · {pb.simCount}{locale === "ko" ? "개 시뮬" : " sims"}
-                  </div>
-                  <div className="text-xl font-bold text-slate-900">
-                    {top?.country ?? "—"}
-                  </div>
-                  <div className="text-xs text-slate-500 mt-0.5">
-                    {top ? `${top.percent}% ${locale === "ko" ? "지지" : "support"}` : ""}
-                  </div>
-                  <div className="mt-2 text-xs">
-                    <span
-                      className={clsx(
-                        "font-semibold",
-                        aligned === 100
-                          ? "text-success"
-                          : aligned >= 50
-                            ? "text-slate-700"
-                            : "text-warn",
-                      )}
-                    >
-                      {aligned}%
-                    </span>{" "}
-                    <span className="text-slate-500">
-                      {locale === "ko" ? "전체 합의와 일치" : "agreement w/ overall"}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Country stats table */}
-      <div>
-        <h2 className="text-base font-semibold text-slate-900 mb-3">
-          국가별 점수 분포
-        </h2>
-        <div className="card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-2 text-left">국가</th>
-                <th className="px-4 py-2 text-right">평균 점수</th>
-                <th className="px-4 py-2 text-right">중앙값</th>
-                <th className="px-4 py-2 text-right">표준편차</th>
-                <th className="px-4 py-2 text-right">범위</th>
-                <th className="px-4 py-2 text-right">CAC</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {countryStats.map((c) => (
-                <tr key={c.country}>
-                  <td className="px-4 py-2 font-medium text-slate-900">{c.country}</td>
-                  <td className="px-4 py-2 text-right tabular-nums">
-                    {c.finalScore.mean.toFixed(1)}
-                  </td>
-                  <td className="px-4 py-2 text-right tabular-nums">
-                    {c.finalScore.median.toFixed(1)}
-                  </td>
-                  <td className="px-4 py-2 text-right tabular-nums text-slate-500">
-                    {c.finalScore.std.toFixed(1)}
-                  </td>
-                  <td className="px-4 py-2 text-right tabular-nums text-slate-500">
-                    {c.finalScore.min.toFixed(0)}–{c.finalScore.max.toFixed(0)}
-                  </td>
-                  <td className="px-4 py-2 text-right tabular-nums text-slate-500">
-                    ${c.cacEstimateUsd.median.toFixed(2)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Variance assessment */}
       <div
         className={clsx(
           "card p-4 flex gap-3 items-start",
@@ -585,38 +612,528 @@ function EnsembleDashboard({
         />
         <div>
           <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-            {locale === "ko" ? "변동성 평가" : "Variance assessment"}
+            {isKo ? "변동성 평가" : "Variance assessment"}
           </div>
           <p className="text-sm text-slate-700 leading-relaxed">
             {varianceCopy(varianceAssessment.label, locale)}
           </p>
           <p className="text-xs text-slate-500 mt-1">
-            {locale === "ko"
+            {isKo
               ? `최대 점수 변동: ${varianceAssessment.maxFinalScoreRange}점 · 평균 변동: ${varianceAssessment.meanFinalScoreRange}점`
               : `Max score range: ${varianceAssessment.maxFinalScoreRange}pt · Mean range: ${varianceAssessment.meanFinalScoreRange}pt`}
           </p>
         </div>
       </div>
-
-      <p className="text-xs text-slate-400 text-center">
-        앙상블 ID: {result.id}
-      </p>
     </div>
   );
 }
 
-/**
- * Consensus narrative — executive summary + merged risks + merged actions
- * sourced from the LLM merge step that runs after aggregateEnsemble. Each
- * sub-block is independent: missing risks don't suppress the actions list.
- */
-function NarrativeSection({
+function OverviewTab({
+  narrative,
+  recommendation,
+  confidenceColor,
+  simCount,
+  effectivePersonas,
+  tier,
+  isKo,
+}: {
+  narrative: EnsembleAggregate["narrative"];
+  recommendation: EnsembleAggregate["recommendation"];
+  confidenceColor: string;
+  simCount: number;
+  effectivePersonas: number;
+  tier: string;
+  isKo: boolean;
+}) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <KpiCard
+          label={isKo ? "추천 진출국" : "Recommended"}
+          value={recommendation.country}
+          accent={confidenceColor}
+        />
+        <KpiCard
+          label={isKo ? "합의도" : "Consensus"}
+          value={`${recommendation.consensusPercent}%`}
+          sub={recommendation.confidence}
+          accent={confidenceColor}
+        />
+        <KpiCard
+          label={isKo ? "시뮬 수" : "Sims"}
+          value={String(simCount)}
+          sub={tierBadgeLabel(tier, isKo)}
+        />
+        <KpiCard
+          label={isKo ? "유효 페르소나" : "Effective personas"}
+          value={effectivePersonas.toLocaleString()}
+        />
+      </div>
+
+      {narrative?.executiveSummary && (
+        <div>
+          <h2 className="text-base font-semibold text-slate-900 mb-2">
+            {isKo ? "종합 의견" : "Executive summary"}
+          </h2>
+          <div className="card p-5">
+            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+              {narrative.executiveSummary}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KpiCard({
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  accent?: string;
+}) {
+  return (
+    <div className="card p-4">
+      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
+      <div className={clsx("text-2xl font-bold mt-1", accent)}>{value}</div>
+      {sub && <div className="text-[10px] uppercase font-semibold text-slate-400 mt-1">{sub}</div>}
+    </div>
+  );
+}
+
+function CountriesTab({
+  countryStats,
+  segments,
+  bestCountryDistribution,
+  recommendation,
+  simCount,
+  locale,
+  isKo,
+}: {
+  countryStats: EnsembleAggregate["countryStats"];
+  segments: EnsembleAggregate["segments"];
+  bestCountryDistribution: EnsembleAggregate["bestCountryDistribution"];
+  recommendation: EnsembleAggregate["recommendation"];
+  simCount: number;
+  locale: string;
+  isKo: boolean;
+}) {
+  void locale;
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-base font-semibold text-slate-900 mb-3">
+          {isKo ? "전략별 추천" : "Picks by priority"}
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {segments.map((seg) => (
+            <div key={seg.id} className="card p-4">
+              <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
+                {seg.labelKo}
+              </div>
+              <div className="flex items-baseline gap-2">
+                <div className="text-xl font-semibold text-slate-900">
+                  {seg.bestCountry}
+                </div>
+                <div className="text-xs text-slate-500">
+                  {seg.id === "cac" ? `$${seg.bestValue.toFixed(2)}` : seg.bestValue.toFixed(1)}
+                </div>
+              </div>
+              {seg.alternative && (
+                <div className="mt-1 text-xs text-slate-500">
+                  {isKo ? "대안" : "Alt"}: {seg.alternative.country} (
+                  {seg.id === "cac"
+                    ? `$${seg.alternative.value.toFixed(2)}`
+                    : seg.alternative.value.toFixed(1)}
+                  )
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-base font-semibold text-slate-900 mb-3">
+          {isKo ? "1위 국가 분포" : "Best-country distribution"}
+        </h2>
+        <div className="card p-4 space-y-2">
+          {bestCountryDistribution.map((b) => (
+            <div key={b.country} className="flex items-center gap-3 text-sm">
+              <div className="w-12 font-medium text-slate-700">{b.country}</div>
+              <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className={clsx(
+                    "h-full",
+                    b.country === recommendation.country ? "bg-success" : "bg-slate-300",
+                  )}
+                  style={{ width: `${b.percent}%` }}
+                />
+              </div>
+              <div className="w-20 text-right text-xs text-slate-500 tabular-nums">
+                {b.count}/{simCount} ({b.percent}%)
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-base font-semibold text-slate-900 mb-3">
+          {isKo ? "국가별 점수 분포" : "Per-country score distribution"}
+        </h2>
+        <div className="card overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-2 text-left">{isKo ? "국가" : "Country"}</th>
+                <th className="px-4 py-2 text-right">{isKo ? "평균 점수" : "Mean"}</th>
+                <th className="px-4 py-2 text-right">{isKo ? "중앙값" : "Median"}</th>
+                <th className="px-4 py-2 text-right">{isKo ? "표준편차" : "Std"}</th>
+                <th className="px-4 py-2 text-right">{isKo ? "범위" : "Range"}</th>
+                <th className="px-4 py-2 text-right">{isKo ? "수요" : "Demand"}</th>
+                <th className="px-4 py-2 text-right">{isKo ? "경쟁" : "Comp"}</th>
+                <th className="px-4 py-2 text-right">CAC</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {countryStats.map((c) => (
+                <tr key={c.country}>
+                  <td className="px-4 py-2 font-medium text-slate-900">{c.country}</td>
+                  <td className="px-4 py-2 text-right tabular-nums">{c.finalScore.mean.toFixed(1)}</td>
+                  <td className="px-4 py-2 text-right tabular-nums">{c.finalScore.median.toFixed(1)}</td>
+                  <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                    {c.finalScore.std.toFixed(1)}
+                  </td>
+                  <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                    {c.finalScore.min.toFixed(0)}–{c.finalScore.max.toFixed(0)}
+                  </td>
+                  <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                    {c.demandScore.median.toFixed(0)}
+                  </td>
+                  <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                    {c.competitionScore.median.toFixed(0)}
+                  </td>
+                  <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                    ${c.cacEstimateUsd.median.toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PersonasTab({
+  personas,
+  isKo,
+  locale,
+}: {
+  personas: EnsembleAggregate["personas"];
+  isKo: boolean;
+  locale: string;
+}) {
+  void locale;
+  if (!personas) {
+    return (
+      <div className="card p-8 text-center text-slate-500">
+        {isKo
+          ? "이 앙상블에는 페르소나 통합 데이터가 없습니다 (이전 버전에서 생성된 결과)."
+          : "No aggregated persona data on this ensemble (legacy run)."}
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <KpiCard
+          label={isKo ? "총 페르소나" : "Total"}
+          value={personas.total.toLocaleString()}
+        />
+        <KpiCard
+          label={isKo ? "평균 구매의향" : "Mean intent"}
+          value={`${personas.intentMean.toFixed(0)}%`}
+          sub={isKo ? `중앙값 ${personas.intentMedian}%` : `Median ${personas.intentMedian}%`}
+        />
+        <KpiCard
+          label={isKo ? "강한 관심 (≥70)" : "High intent (≥70)"}
+          value={personas.highIntentCount.toLocaleString()}
+          accent="text-success"
+        />
+        <KpiCard
+          label={isKo ? "약한 관심 (<35)" : "Low intent (<35)"}
+          value={personas.lowIntentCount.toLocaleString()}
+          accent="text-warn"
+        />
+      </div>
+
+      <div>
+        <h2 className="text-base font-semibold text-slate-900 mb-3">
+          {isKo ? "구매의향 분포 (히스토그램)" : "Intent distribution"}
+        </h2>
+        <div className="card p-4">
+          <div className="flex items-end gap-1 h-32">
+            {personas.intentHistogram.map((b) => {
+              const max = Math.max(...personas.intentHistogram.map((x) => x.count));
+              const h = max > 0 ? (b.count / max) * 100 : 0;
+              return (
+                <div key={b.binStart} className="flex-1 flex flex-col items-center gap-1">
+                  <div
+                    className={clsx(
+                      "w-full rounded-t",
+                      b.binStart >= 70
+                        ? "bg-success"
+                        : b.binStart < 35
+                          ? "bg-warn"
+                          : "bg-slate-300",
+                    )}
+                    style={{ height: `${h}%` }}
+                    title={`${b.binStart}–${b.binEnd}: ${b.count}`}
+                  />
+                  <div className="text-[10px] text-slate-400 tabular-nums">{b.binStart}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-base font-semibold text-slate-900 mb-3">
+          {isKo ? "국가별 평균 구매의향" : "Per-country mean intent"}
+        </h2>
+        <div className="card overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-2 text-left">{isKo ? "국가" : "Country"}</th>
+                <th className="px-4 py-2 text-right">{isKo ? "페르소나" : "Personas"}</th>
+                <th className="px-4 py-2 text-right">{isKo ? "평균 의향" : "Mean intent"}</th>
+                <th className="px-4 py-2 text-right">{isKo ? "중앙값" : "Median"}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {personas.byCountry.map((c) => (
+                <tr key={c.country}>
+                  <td className="px-4 py-2 font-medium text-slate-900">{c.country}</td>
+                  <td className="px-4 py-2 text-right tabular-nums text-slate-600">
+                    {c.count.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-2 text-right tabular-nums">{c.meanIntent}%</td>
+                  <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                    {c.medianIntent}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <VoiceList
+          title={isKo ? "긍정 페르소나의 목소리" : "Positive voices"}
+          voices={personas.topPositiveVoices}
+          accent="success"
+        />
+        <VoiceList
+          title={isKo ? "부정 페르소나의 목소리" : "Negative voices"}
+          voices={personas.topNegativeVoices}
+          accent="warn"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900 mb-2">
+            {isKo ? "연령대 분포" : "Age distribution"}
+          </h3>
+          <div className="card p-4 space-y-1">
+            {personas.ageDistribution.length === 0 ? (
+              <div className="text-xs text-slate-400">—</div>
+            ) : (
+              personas.ageDistribution.map((b) => {
+                const max = Math.max(...personas.ageDistribution.map((x) => x.count));
+                const w = max > 0 ? (b.count / max) * 100 : 0;
+                return (
+                  <div key={b.bucket} className="flex items-center gap-2 text-xs">
+                    <div className="w-10 text-slate-600">{b.bucket}</div>
+                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-brand/60" style={{ width: `${w}%` }} />
+                    </div>
+                    <div className="w-10 text-right text-slate-500 tabular-nums">{b.count}</div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900 mb-2">
+            {isKo ? "직업 분포 (Top 12)" : "Top occupations"}
+          </h3>
+          <div className="card p-4 space-y-1">
+            {personas.occupationTopN.length === 0 ? (
+              <div className="text-xs text-slate-400">—</div>
+            ) : (
+              personas.occupationTopN.map((o) => (
+                <div key={o.occupation} className="flex items-center justify-between text-xs">
+                  <div className="text-slate-700 truncate">{o.occupation}</div>
+                  <div className="text-slate-500 tabular-nums shrink-0 ml-2">{o.count}</div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VoiceList({
+  title,
+  voices,
+  accent,
+}: {
+  title: string;
+  voices: NonNullable<EnsembleAggregate["personas"]>["topPositiveVoices"];
+  accent: "success" | "warn";
+}) {
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-slate-900 mb-2">{title}</h3>
+      <div className="card p-4 space-y-3">
+        {voices.length === 0 ? (
+          <div className="text-xs text-slate-400">—</div>
+        ) : (
+          voices.map((v, i) => (
+            <div key={i} className="text-sm">
+              <p className="text-slate-700 leading-relaxed">"{v.text}"</p>
+              <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                <span>{v.country}</span>
+                <span>·</span>
+                <span
+                  className={clsx(
+                    accent === "success" ? "text-success" : "text-warn",
+                    "font-semibold tabular-nums",
+                  )}
+                >
+                  {v.intent}%
+                </span>
+                {v.occupation && (
+                  <>
+                    <span>·</span>
+                    <span className="truncate">{v.occupation}</span>
+                  </>
+                )}
+                {typeof v.age === "number" && (
+                  <>
+                    <span>·</span>
+                    <span>{v.age}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PricingTab({
+  pricing,
+  isKo,
+}: {
+  pricing: EnsembleAggregate["pricing"];
+  isKo: boolean;
+}) {
+  if (!pricing) {
+    return (
+      <div className="card p-8 text-center text-slate-500">
+        {isKo
+          ? "이 앙상블에는 가격 통합 데이터가 없습니다."
+          : "No aggregated pricing data on this ensemble."}
+      </div>
+    );
+  }
+  const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const maxConv = Math.max(...pricing.curve.map((p) => p.meanConversionProbability), 0.0001);
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <KpiCard
+          label={isKo ? "추천 가격 (중앙값)" : "Recommended price"}
+          value={fmt(pricing.recommendedPriceCents)}
+        />
+        <KpiCard
+          label="P25 — P75"
+          value={`${fmt(pricing.recommendedPriceP25)} – ${fmt(pricing.recommendedPriceP75)}`}
+        />
+        <KpiCard
+          label={isKo ? "마진 추정 (최빈)" : "Margin estimate"}
+          value={pricing.marginEstimate}
+        />
+        <KpiCard
+          label={isKo ? "가격 포인트" : "Curve points"}
+          value={String(pricing.curve.length)}
+        />
+      </div>
+
+      <div>
+        <h2 className="text-base font-semibold text-slate-900 mb-3">
+          {isKo ? "가격별 평균 전환률 (시뮬 합산)" : "Mean conversion by price"}
+        </h2>
+        <div className="card p-4">
+          <div className="space-y-1">
+            {pricing.curve.map((p) => (
+              <div key={p.priceCents} className="flex items-center gap-3 text-xs">
+                <div className="w-16 tabular-nums text-slate-700 font-medium">
+                  {fmt(p.priceCents)}
+                </div>
+                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-brand"
+                    style={{ width: `${(p.meanConversionProbability / maxConv) * 100}%` }}
+                  />
+                </div>
+                <div className="w-14 text-right text-slate-600 tabular-nums">
+                  {(p.meanConversionProbability * 100).toFixed(1)}%
+                </div>
+                <div className="w-12 text-right text-slate-400 tabular-nums">
+                  n={p.sampleCount}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RisksTab({
   narrative,
   isKo,
 }: {
-  narrative: NonNullable<EnsembleAggregate["narrative"]>;
+  narrative: EnsembleAggregate["narrative"];
   isKo: boolean;
 }) {
+  if (!narrative?.mergedRisks?.length) {
+    return (
+      <div className="card p-8 text-center text-slate-500">
+        {isKo ? "통합 리스크 데이터가 없습니다." : "No merged risks available."}
+      </div>
+    );
+  }
   const riskLevelLabel =
     narrative.overallRiskLevel === "high"
       ? isKo ? "높음" : "HIGH"
@@ -630,60 +1147,157 @@ function NarrativeSection({
         ? "text-warn"
         : "text-success";
   return (
-    <div className="space-y-5">
-      {/* Executive summary */}
-      {narrative.executiveSummary && (
-        <div>
-          <h2 className="text-base font-semibold text-slate-900 mb-2">
-            {isKo ? "개요" : "Executive summary"}
-          </h2>
-          <div className="card p-4">
-            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-              {narrative.executiveSummary}
-            </p>
-          </div>
+    <div className="space-y-4">
+      <div className="card p-4 flex items-center justify-between">
+        <div className="text-sm text-slate-600">
+          {isKo ? "종합 리스크 수준" : "Overall risk level"}
         </div>
-      )}
+        <div className={clsx("text-lg font-bold", riskLevelClass)}>{riskLevelLabel}</div>
+      </div>
+      <div className="card divide-y divide-slate-100">
+        {narrative.mergedRisks.map((r, i) => {
+          const sevClass =
+            r.severity === "high"
+              ? "text-risk"
+              : r.severity === "medium"
+                ? "text-warn"
+                : "text-slate-500";
+          return (
+            <div key={i} className="p-4 flex gap-3 items-start">
+              <div className={clsx("shrink-0 w-16 text-[10px] font-bold uppercase tracking-wider pt-0.5", sevClass)}>
+                {r.severity}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold text-slate-900 mb-0.5">{r.factor}</div>
+                <p className="text-sm text-slate-600 leading-relaxed">{r.description}</p>
+                <div className="text-xs text-slate-400 mt-1">
+                  {isKo
+                    ? `${r.surfacedInSims}개 시뮬에서 언급`
+                    : `Surfaced in ${r.surfacedInSims} sim${r.surfacedInSims === 1 ? "" : "s"}`}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
-      {/* Merged risks */}
-      {narrative.mergedRisks.length > 0 && (
+function ActionsTab({
+  narrative,
+  isKo,
+}: {
+  narrative: EnsembleAggregate["narrative"];
+  isKo: boolean;
+}) {
+  if (!narrative?.mergedActions?.length) {
+    return (
+      <div className="card p-8 text-center text-slate-500">
+        {isKo ? "통합 액션 데이터가 없습니다." : "No merged actions available."}
+      </div>
+    );
+  }
+  return (
+    <ol className="card divide-y divide-slate-100">
+      {narrative.mergedActions.map((a, i) => (
+        <li key={i} className="p-4 flex gap-3 items-start">
+          <div className="shrink-0 w-6 text-sm font-bold text-brand">{i + 1}.</div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-slate-700 leading-relaxed">{a.action}</p>
+            <div className="text-xs text-slate-400 mt-1">
+              {isKo
+                ? `${a.surfacedInSims}개 시뮬에서 권장`
+                : `Recommended by ${a.surfacedInSims} sim${a.surfacedInSims === 1 ? "" : "s"}`}
+            </div>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function DataTab({
+  providerBreakdown,
+  varianceAssessment,
+  countryStats,
+  creative,
+  ensembleId,
+  tier,
+  parallelSims,
+  effectivePersonas,
+  llmProviders,
+  locale,
+  isKo,
+}: {
+  providerBreakdown: EnsembleAggregate["providerBreakdown"];
+  varianceAssessment: EnsembleAggregate["varianceAssessment"];
+  countryStats: EnsembleAggregate["countryStats"];
+  creative: EnsembleAggregate["creative"];
+  ensembleId: string;
+  tier: string;
+  parallelSims: number;
+  effectivePersonas: number;
+  llmProviders: string[];
+  locale: string;
+  isKo: boolean;
+}) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-base font-semibold text-slate-900 mb-3">
+          {isKo ? "분석 메타데이터" : "Analysis metadata"}
+        </h2>
+        <div className="card divide-y divide-slate-100 text-sm">
+          <MetaRow label={isKo ? "Tier" : "Tier"} value={tierBadgeLabel(tier, isKo)} />
+          <MetaRow label={isKo ? "병렬 시뮬" : "Parallel sims"} value={String(parallelSims)} />
+          <MetaRow
+            label={isKo ? "유효 페르소나" : "Effective personas"}
+            value={effectivePersonas.toLocaleString()}
+          />
+          <MetaRow
+            label={isKo ? "LLM 라인업" : "LLM providers"}
+            value={llmProviders.map(providerLabel).join(", ")}
+          />
+          <MetaRow label={isKo ? "앙상블 ID" : "Ensemble ID"} value={ensembleId} />
+          <MetaRow label={isKo ? "로케일" : "Locale"} value={locale} />
+        </div>
+      </div>
+
+      {providerBreakdown && providerBreakdown.length > 0 && (
         <div>
-          <h2 className="text-base font-semibold text-slate-900 mb-2">
-            {isKo ? "주요 리스크 (시뮬 합의)" : "Key risks (cross-sim consensus)"}
-            <span className={clsx("ml-2 text-xs font-medium", riskLevelClass)}>
-              {isKo ? `종합: ${riskLevelLabel}` : `Overall: ${riskLevelLabel}`}
-            </span>
+          <h2 className="text-base font-semibold text-slate-900 mb-3">
+            {isKo ? "LLM별 합의도" : "Cross-model consensus"}
           </h2>
-          <div className="card divide-y divide-slate-100">
-            {narrative.mergedRisks.map((r, i) => {
-              const sevClass =
-                r.severity === "high"
-                  ? "text-risk"
-                  : r.severity === "medium"
-                    ? "text-warn"
-                    : "text-slate-500";
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {providerBreakdown.map((pb) => {
+              const top = pb.bestCountryDistribution[0];
+              const aligned = pb.agreementWithOverallPercent;
               return (
-                <div key={i} className="p-4 flex gap-3 items-start">
-                  <div
-                    className={clsx(
-                      "shrink-0 w-16 text-[10px] font-bold uppercase tracking-wider pt-0.5",
-                      sevClass,
-                    )}
-                  >
-                    {r.severity}
+                <div key={pb.provider} className="card p-4">
+                  <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
+                    {providerLabel(pb.provider)} · {pb.simCount}{isKo ? "개 시뮬" : " sims"}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold text-slate-900 mb-0.5">
-                      {r.factor}
-                    </div>
-                    <p className="text-sm text-slate-600 leading-relaxed">
-                      {r.description}
-                    </p>
-                    <div className="text-xs text-slate-400 mt-1">
-                      {isKo
-                        ? `${r.surfacedInSims}개 시뮬에서 언급`
-                        : `Surfaced in ${r.surfacedInSims} sim${r.surfacedInSims === 1 ? "" : "s"}`}
-                    </div>
+                  <div className="text-xl font-bold text-slate-900">{top?.country ?? "—"}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    {top ? `${top.percent}% ${isKo ? "지지" : "support"}` : ""}
+                  </div>
+                  <div className="mt-2 text-xs">
+                    <span
+                      className={clsx(
+                        "font-semibold",
+                        aligned === 100
+                          ? "text-success"
+                          : aligned >= 50
+                            ? "text-slate-700"
+                            : "text-warn",
+                      )}
+                    >
+                      {aligned}%
+                    </span>{" "}
+                    <span className="text-slate-500">
+                      {isKo ? "전체 합의와 일치" : "agreement w/ overall"}
+                    </span>
                   </div>
                 </div>
               );
@@ -692,31 +1306,86 @@ function NarrativeSection({
         </div>
       )}
 
-      {/* Merged actions */}
-      {narrative.mergedActions.length > 0 && (
+      <div>
+        <h2 className="text-base font-semibold text-slate-900 mb-3">
+          {isKo ? "변동성 통계" : "Variance statistics"}
+        </h2>
+        <div className="card divide-y divide-slate-100 text-sm">
+          <MetaRow
+            label={isKo ? "최대 점수 변동" : "Max score range"}
+            value={`${varianceAssessment.maxFinalScoreRange}pt`}
+          />
+          <MetaRow
+            label={isKo ? "평균 변동" : "Mean range"}
+            value={`${varianceAssessment.meanFinalScoreRange}pt`}
+          />
+          <MetaRow
+            label={isKo ? "변동성 등급" : "Variance label"}
+            value={varianceAssessment.label.toUpperCase()}
+          />
+          <MetaRow
+            label={isKo ? "분석 국가 수" : "Markets analyzed"}
+            value={String(countryStats.length)}
+          />
+        </div>
+      </div>
+
+      {creative && creative.assets.length > 0 && (
         <div>
-          <h2 className="text-base font-semibold text-slate-900 mb-2">
-            {isKo ? "권장 액션 (시뮬 합의)" : "Recommended actions (cross-sim consensus)"}
+          <h2 className="text-base font-semibold text-slate-900 mb-3">
+            {isKo ? "크리에이티브 분석" : "Creative analysis"}
           </h2>
-          <ol className="card divide-y divide-slate-100">
-            {narrative.mergedActions.map((a, i) => (
-              <li key={i} className="p-4 flex gap-3 items-start">
-                <div className="shrink-0 w-6 text-sm font-bold text-brand">
-                  {i + 1}.
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-slate-700 leading-relaxed">{a.action}</p>
-                  <div className="text-xs text-slate-400 mt-1">
-                    {isKo
-                      ? `${a.surfacedInSims}개 시뮬에서 권장`
-                      : `Recommended by ${a.surfacedInSims} sim${a.surfacedInSims === 1 ? "" : "s"}`}
+          <div className="space-y-3">
+            {creative.assets.map((a) => (
+              <div key={a.assetName} className="card p-4">
+                <div className="flex items-baseline justify-between mb-2">
+                  <div className="text-sm font-semibold text-slate-900">{a.assetName}</div>
+                  <div className="text-lg font-bold text-brand tabular-nums">
+                    {a.meanScore.toFixed(0)}
                   </div>
                 </div>
-              </li>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <div className="text-slate-500 uppercase tracking-wide mb-1">
+                      {isKo ? "강점" : "Strengths"}
+                    </div>
+                    <ul className="space-y-1">
+                      {a.topStrengths.map((s, i) => (
+                        <li key={i} className="text-slate-700">
+                          • {s.point}{" "}
+                          <span className="text-slate-400">({s.surfacedInSims})</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 uppercase tracking-wide mb-1">
+                      {isKo ? "약점" : "Weaknesses"}
+                    </div>
+                    <ul className="space-y-1">
+                      {a.topWeaknesses.map((s, i) => (
+                        <li key={i} className="text-slate-700">
+                          • {s.point}{" "}
+                          <span className="text-slate-400">({s.surfacedInSims})</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
             ))}
-          </ol>
+          </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function MetaRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between p-3">
+      <div className="text-slate-500">{label}</div>
+      <div className="text-slate-900 font-medium font-mono text-xs">{value}</div>
     </div>
   );
 }
