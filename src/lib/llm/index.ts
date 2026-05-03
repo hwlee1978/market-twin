@@ -51,11 +51,11 @@ const PROVIDER_STAGE_DEFAULTS: Record<LLMProviderName, Record<SimulationStage, s
     personas: "gemini-2.5-flash",
     countries: "gemini-2.5-flash",
     pricing: "gemini-2.5-flash",
-    // Was gemini-2.5-pro, but Google enforces a separate (much smaller)
-    // free-tier quota on Pro that fails the deep tier round-robin with
-    // 429s in practice. Flash is plenty for synthesis given the persona
-    // input is already pre-aggregated; revisit if we move to a paid tier.
-    synthesis: "gemini-2.5-flash",
+    // Pro for synthesis matches the cross-model intent of the deep tier:
+    // each provider's strongest reasoning model on the final stage.
+    // Requires Gemini API paid billing on the API key — Google AI Pro
+    // (consumer 5TB plan) does NOT cover this.
+    synthesis: "gemini-2.5-pro",
   },
 };
 
