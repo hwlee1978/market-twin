@@ -20,7 +20,7 @@ import type { EnsembleAggregate } from "../src/lib/simulation/ensemble";
 function syntheticFixture(): {
   aggregate: EnsembleAggregate;
   productName: string;
-  tier: "hypothesis" | "decision" | "deep";
+  tier: "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro";
   parallelSims: number;
   perSimPersonas: number;
   llmProviders: string[];
@@ -99,12 +99,23 @@ async function main() {
   let payload: {
     aggregate: EnsembleAggregate;
     productName: string;
-    tier: "hypothesis" | "decision" | "deep";
+    tier: "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro";
     parallelSims: number;
     perSimPersonas: number;
     llmProviders: string[];
     completedAt: Date;
     ensembleId: string;
+    project?: {
+      name: string;
+      product_name: string;
+      category: string | null;
+      description: string | null;
+      base_price_cents: number | null;
+      currency: string | null;
+      objective: string | null;
+      originating_country: string | null;
+      candidate_countries: string[] | null;
+    };
   };
 
   if (forceSynthetic || !process.env.DATABASE_URL) {
@@ -131,10 +142,21 @@ async function main() {
         aggregate_result: EnsembleAggregate;
         completed_at: string | null;
         product_name: string;
+        project_name: string | null;
+        category: string | null;
+        description: string | null;
+        base_price_cents: number | null;
+        currency: string | null;
+        objective: string | null;
+        originating_country: string | null;
+        candidate_countries: string[] | null;
       }>(
         `select e.id::text as id, e.tier, e.parallel_sims, e.per_sim_personas,
                 e.llm_providers, e.aggregate_result, e.completed_at,
-                p.product_name
+                p.product_name,
+                p.name as project_name, p.category, p.description,
+                p.base_price_cents, p.currency, p.objective,
+                p.originating_country, p.candidate_countries
            from public.ensembles e
            join public.projects p on p.id = e.project_id
            ${where}
@@ -150,12 +172,23 @@ async function main() {
         payload = {
           aggregate: e.aggregate_result,
           productName: e.product_name,
-          tier: e.tier as "hypothesis" | "decision" | "deep",
+          tier: e.tier as "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro",
           parallelSims: e.parallel_sims,
           perSimPersonas: e.per_sim_personas,
           llmProviders: e.llm_providers ?? ["anthropic"],
           completedAt: e.completed_at ? new Date(e.completed_at) : new Date(),
           ensembleId: e.id,
+          project: {
+            name: e.project_name ?? "",
+            product_name: e.product_name,
+            category: e.category,
+            description: e.description,
+            base_price_cents: e.base_price_cents,
+            currency: e.currency,
+            objective: e.objective,
+            originating_country: e.originating_country,
+            candidate_countries: e.candidate_countries,
+          },
         };
       }
     } finally {
@@ -180,6 +213,7 @@ async function main() {
     locale,
     generatedAt: payload.completedAt,
     ensembleId: payload.ensembleId,
+    project: payload.project,
   });
   const elapsed = Date.now() - t0;
 

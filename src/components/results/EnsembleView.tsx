@@ -2021,7 +2021,7 @@ function DataTab({
             value={llmProviders.map(providerLabel).join(", ")}
             tooltip={
               isKo
-                ? "분석에 참여한 AI 모델. 심층분석 이상은 여러 모델을 라운드로빈해 모델 편향을 줄입니다."
+                ? "분석에 참여한 AI 모델. 심층분석 이상은 여러 모델을 번갈아 활용해 단일 모델 편향을 줄입니다."
                 : "AI models that produced this analysis. Deep tiers round-robin across providers to dampen single-model bias."
             }
           />

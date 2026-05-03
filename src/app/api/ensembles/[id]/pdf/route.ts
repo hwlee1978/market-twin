@@ -45,11 +45,14 @@ export async function GET(
     );
   }
 
-  // Pull product name for the cover. Tiny extra query, kept out of the
-  // ensembles select so we don't widen that row's footprint everywhere.
+  // Pull project context for the project-info / executive-summary
+  // pages. Same row the dashboard uses; kept out of the ensembles
+  // select so we don't widen that row's footprint everywhere.
   const { data: project } = await supabase
     .from("projects")
-    .select("product_name")
+    .select(
+      "name, product_name, category, description, base_price_cents, currency, objective, originating_country, candidate_countries",
+    )
     .eq("id", ensemble.project_id)
     .single();
   const productName = project?.product_name ?? "Untitled product";
@@ -69,6 +72,7 @@ export async function GET(
     locale,
     generatedAt: ensemble.completed_at ? new Date(ensemble.completed_at) : new Date(),
     ensembleId: ensemble.id,
+    project: project ?? null,
   });
 
   return new NextResponse(buffer as unknown as BodyInit, {
