@@ -47,6 +47,15 @@ const TIER_PRESETS = {
 type Tier = keyof typeof TIER_PRESETS;
 type ProviderName = "anthropic" | "openai" | "gemini";
 
+// Mirrors src/app/api/projects/[id]/run-ensemble/route.ts so the smoke
+// driver exercises the same per-provider concurrency cap as production.
+// Bumping these in one file requires bumping in the other.
+const PROVIDER_SIM_CONCURRENCY: Record<ProviderName, number> = {
+  anthropic: 12,
+  openai: 12,
+  gemini: 4,
+};
+
 function admin() {
   return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -169,32 +178,63 @@ async function main() {
     assetUrls: project.asset_urls ?? [],
   };
 
-  // 3. Run sims in parallel.
+  // 3. Run sims with per-provider concurrency cap. Cross-provider runs
+  //    are unconstrained; within a provider we cap to avoid burst 429/503.
   const t0 = Date.now();
-  console.log(`\nRunning ${preset.parallelSims} sim(s) in parallel...`);
-  await Promise.allSettled(
-    simRows.map(async ({ id: simId, index, provider }) => {
-      try {
-        await runSimulation({
-          simulationId: simId,
-          projectInput,
-          personaCount: preset.perSimPersonas,
-          locale: "ko",
-          seedOverride: `${ensembleId}-${index}`,
-          provider,
-        });
-        console.log(`  ✓ sim ${index} (${simId.slice(0, 8)}) [${provider}] done`);
-      } catch (err) {
-        console.error(`  ✗ sim ${index} [${provider}] failed:`, err);
-        await sb
-          .from("simulations")
-          .update({
-            status: "failed",
-            current_stage: "failed",
-            error_message: err instanceof Error ? err.message : String(err),
-          })
-          .eq("id", simId);
-      }
+  const groups = new Map<ProviderName, typeof simRows>();
+  for (const row of simRows) {
+    const arr = groups.get(row.provider) ?? [];
+    arr.push(row);
+    groups.set(row.provider, arr);
+  }
+  const groupSummary = [...groups.entries()]
+    .map(([p, rows]) => `${p}=${rows.length}`)
+    .join(", ");
+  console.log(
+    `\nRunning ${preset.parallelSims} sim(s) (${groupSummary}) — gemini cap ${PROVIDER_SIM_CONCURRENCY.gemini}`,
+  );
+
+  const runOne = async ({
+    id: simId,
+    index,
+    provider,
+  }: (typeof simRows)[number]) => {
+    try {
+      await runSimulation({
+        simulationId: simId,
+        projectInput,
+        personaCount: preset.perSimPersonas,
+        locale: "ko",
+        seedOverride: `${ensembleId}-${index}`,
+        provider,
+      });
+      console.log(`  ✓ sim ${index} (${simId.slice(0, 8)}) [${provider}] done`);
+    } catch (err) {
+      console.error(`  ✗ sim ${index} [${provider}] failed:`, err);
+      await sb
+        .from("simulations")
+        .update({
+          status: "failed",
+          current_stage: "failed",
+          error_message: err instanceof Error ? err.message : String(err),
+        })
+        .eq("id", simId);
+    }
+  };
+
+  await Promise.all(
+    [...groups.entries()].map(async ([prov, sims]) => {
+      const limit = Math.min(PROVIDER_SIM_CONCURRENCY[prov] ?? 4, sims.length);
+      let cursor = 0;
+      await Promise.all(
+        Array.from({ length: limit }, async () => {
+          while (true) {
+            const idx = cursor++;
+            if (idx >= sims.length) return;
+            await runOne(sims[idx]);
+          }
+        }),
+      );
     }),
   );
 

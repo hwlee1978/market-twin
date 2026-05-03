@@ -35,6 +35,25 @@ const TIER_PRESETS = {
 type Tier = keyof typeof TIER_PRESETS;
 type ProviderName = "anthropic" | "openai" | "gemini";
 
+/**
+ * Maximum sims per provider running concurrently within a single ensemble.
+ *
+ * Even with retry/backoff at the LLM layer, kicking off all 8 Gemini sims
+ * at once means 8 simultaneous regulatory-check calls to gemini-2.5-pro,
+ * which Google reliably 503s under as "high demand" — and the retries
+ * pile back into the same burst. Capping at 4 means two staggered waves,
+ * which empirically gets us through.
+ *
+ * Anthropic and OpenAI tolerate the full deep-tier burst (9 / 8 sims),
+ * so they're capped well above what any tier produces. If we ever push
+ * past 12 sims for a single provider, revisit.
+ */
+const PROVIDER_SIM_CONCURRENCY: Record<ProviderName, number> = {
+  anthropic: 12,
+  openai: 12,
+  gemini: 4,
+};
+
 const RunSchema = z.object({
   tier: z.enum(["hypothesis", "decision", "deep"]).default("decision"),
   notifyEmail: z.string().email().optional(),
@@ -170,28 +189,58 @@ export async function POST(
   //    response until all sims finish.
   after(async () => {
     const ensembleId = ensemble.id;
-    await Promise.allSettled(
-      simRows.map(async ({ id: simId, index, provider }) => {
-        try {
-          await runSimulation({
-            simulationId: simId,
-            projectInput,
-            personaCount: preset.perSimPersonas,
-            locale,
-            seedOverride: `${ensembleId}-${index}`,
-            provider,
-          });
-        } catch (err) {
-          console.error(`[ensemble ${ensembleId}] sim ${simId} failed:`, err);
-          await admin
-            .from("simulations")
-            .update({
-              status: "failed",
-              current_stage: "failed",
-              error_message: err instanceof Error ? err.message : String(err),
-            })
-            .eq("id", simId);
-        }
+
+    // Group sims by provider and run each group through a worker pool
+    // sized for that provider's burst tolerance. Cross-provider parallelism
+    // is unconstrained — anthropic/openai/gemini share no rate limits.
+    const groups = new Map<ProviderName, typeof simRows>();
+    for (const row of simRows) {
+      const arr = groups.get(row.provider) ?? [];
+      arr.push(row);
+      groups.set(row.provider, arr);
+    }
+
+    const runOne = async ({
+      id: simId,
+      index,
+      provider,
+    }: (typeof simRows)[number]) => {
+      try {
+        await runSimulation({
+          simulationId: simId,
+          projectInput,
+          personaCount: preset.perSimPersonas,
+          locale,
+          seedOverride: `${ensembleId}-${index}`,
+          provider,
+        });
+      } catch (err) {
+        console.error(`[ensemble ${ensembleId}] sim ${simId} failed:`, err);
+        await admin
+          .from("simulations")
+          .update({
+            status: "failed",
+            current_stage: "failed",
+            error_message: err instanceof Error ? err.message : String(err),
+          })
+          .eq("id", simId);
+      }
+    };
+
+    await Promise.all(
+      [...groups.entries()].map(async ([prov, sims]) => {
+        const limit = Math.min(PROVIDER_SIM_CONCURRENCY[prov] ?? 4, sims.length);
+        // Worker pool: each worker pulls the next sim off the queue.
+        let cursor = 0;
+        await Promise.all(
+          Array.from({ length: limit }, async () => {
+            while (true) {
+              const idx = cursor++;
+              if (idx >= sims.length) return;
+              await runOne(sims[idx]);
+            }
+          }),
+        );
       }),
     );
 
