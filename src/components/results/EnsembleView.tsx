@@ -1509,7 +1509,7 @@ function AllPersonasModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col"
+        className="bg-white rounded-xl shadow-2xl max-w-[96vw] w-full max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-baseline justify-between p-5 border-b border-slate-100">
@@ -1580,7 +1580,21 @@ function AllPersonasModal({
             </div>
           )}
           {!loading && !error && data && data.personas.length > 0 && (
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-fixed">
+              <colgroup>
+                {/* Narrow demographic columns up front, voice eats the
+                    remaining width so quotes are readable without
+                    truncation. table-fixed locks these widths so a long
+                    profession string can't shove voice off-screen. */}
+                <col className="w-[120px]" />
+                <col className="w-[60px]" />
+                <col className="w-[70px]" />
+                <col className="w-[70px]" />
+                <col className="w-[160px]" />
+                <col className="w-[180px]" />
+                <col className="w-[70px]" />
+                <col />
+              </colgroup>
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 sticky top-0">
                 <tr>
                   <th className="text-left px-4 py-2 font-medium">{isKo ? "이름" : "Name"}</th>
@@ -1595,8 +1609,11 @@ function AllPersonasModal({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {data.personas.map((p, i) => (
-                  <tr key={i} className="hover:bg-slate-50">
-                    <td className="px-4 py-2 text-slate-900 font-medium whitespace-nowrap">
+                  <tr key={i} className="hover:bg-slate-50 align-top">
+                    <td
+                      className="px-4 py-2 text-slate-900 font-medium truncate"
+                      title={p.name ?? ""}
+                    >
                       {p.name ?? "—"}
                     </td>
                     <td className="px-4 py-2 text-slate-700">{p.country}</td>
@@ -1604,10 +1621,16 @@ function AllPersonasModal({
                       {p.ageRange ?? "—"}
                     </td>
                     <td className="px-4 py-2 text-slate-600">{p.gender ?? "—"}</td>
-                    <td className="px-4 py-2 text-slate-600 truncate max-w-[160px]">
+                    <td
+                      className="px-4 py-2 text-slate-600 truncate"
+                      title={p.profession ?? ""}
+                    >
                       {p.profession ?? "—"}
                     </td>
-                    <td className="px-4 py-2 text-slate-600 whitespace-nowrap">
+                    <td
+                      className="px-4 py-2 text-slate-600 truncate text-xs"
+                      title={p.incomeBand ?? ""}
+                    >
                       {p.incomeBand ?? "—"}
                     </td>
                     <td
@@ -1622,7 +1645,7 @@ function AllPersonasModal({
                     >
                       {p.purchaseIntent}%
                     </td>
-                    <td className="px-4 py-2 text-slate-700 text-xs leading-relaxed">
+                    <td className="px-4 py-2 text-slate-700 text-sm leading-relaxed">
                       {p.voice ? `"${p.voice}"` : "—"}
                     </td>
                   </tr>
@@ -1761,31 +1784,35 @@ function PricingTab({
               </div>
             </div>
           </div>
-          <div className="flex gap-3 shrink-0">
-            <div className="rounded-lg bg-white border border-slate-200 px-4 py-3 min-w-[120px]">
+          {peakPoint && (
+            <div className="rounded-lg bg-white border border-slate-200 px-4 py-3 shrink-0 min-w-[140px]">
               <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">
-                {isKo ? "예상 마진" : "Margin"}
+                {isKo ? "최고 전환 가격" : "Peak conversion"}
               </div>
-              <div className="text-base font-semibold text-slate-900">
-                {pricing.marginEstimate}
+              <div className="text-base font-semibold text-slate-900 tabular-nums">
+                {fmt(peakPoint.priceCents)}
+              </div>
+              <div className="text-[10px] text-slate-400">
+                {(peakPoint.meanConversionProbability * 100).toFixed(1)}%
               </div>
             </div>
-            {peakPoint && (
-              <div className="rounded-lg bg-white border border-slate-200 px-4 py-3 min-w-[140px]">
-                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">
-                  {isKo ? "최고 전환 가격" : "Peak conversion"}
-                </div>
-                <div className="text-base font-semibold text-slate-900 tabular-nums">
-                  {fmt(peakPoint.priceCents)}
-                </div>
-                <div className="text-[10px] text-slate-400">
-                  {(peakPoint.meanConversionProbability * 100).toFixed(1)}%
-                </div>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
+
+      {/* Margin narrative — separate row because the LLM often returns a
+          multi-sentence rationale here, which would overflow the hero
+          metric strip and make the card unreadable. */}
+      {pricing.marginEstimate && pricing.marginEstimate !== "—" && (
+        <div className="card p-5">
+          <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">
+            {isKo ? "예상 마진 분석" : "Margin analysis"}
+          </div>
+          <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
+            {pricing.marginEstimate}
+          </p>
+        </div>
+      )}
 
       <div>
         <h2 className="text-base font-semibold text-slate-900 mb-3">
@@ -1962,18 +1989,60 @@ function DataTab({
           {isKo ? "분석 메타데이터" : "Analysis metadata"}
         </h2>
         <div className="card divide-y divide-slate-100 text-sm">
-          <MetaRow label={isKo ? "Tier" : "Tier"} value={tierBadgeLabel(tier, isKo)} />
-          <MetaRow label={isKo ? "병렬 시뮬" : "Parallel sims"} value={String(parallelSims)} />
+          <MetaRow
+            label="Tier"
+            value={tierBadgeLabel(tier, isKo)}
+            tooltip={
+              isKo
+                ? "분석의 깊이 등급. 초기검증(1 시뮬) → 검증분석(5) → 검증분석+(15) → 심층분석(25, 멀티 LLM) → 심층분석 Pro(50, 멀티 LLM)."
+                : "Analysis depth. Hypothesis(1) → Decision(5) → Decision+(15) → Deep(25, multi-LLM) → Deep Pro(50, multi-LLM)."
+            }
+          />
+          <MetaRow
+            label={isKo ? "병렬 시뮬" : "Parallel sims"}
+            value={String(parallelSims)}
+            tooltip={
+              isKo
+                ? "동시에 실행한 독립 시뮬 수. 시뮬마다 다른 페르소나 샘플을 사용해 합의도와 변동성을 측정합니다."
+                : "Number of independent simulations run in parallel. Each uses a different persona sample to measure consensus + variance."
+            }
+          />
           <MetaRow
             label={isKo ? "유효 페르소나" : "Effective personas"}
             value={effectivePersonas.toLocaleString()}
+            tooltip={
+              isKo
+                ? "모든 시뮬에 걸쳐 생성된 총 페르소나 수. 통계적 신뢰도의 직접 척도."
+                : "Total personas generated across every sim. Direct measure of statistical confidence."
+            }
           />
           <MetaRow
             label={isKo ? "LLM 라인업" : "LLM providers"}
             value={llmProviders.map(providerLabel).join(", ")}
+            tooltip={
+              isKo
+                ? "분석에 참여한 AI 모델. 심층분석 이상은 여러 모델을 라운드로빈해 모델 편향을 줄입니다."
+                : "AI models that produced this analysis. Deep tiers round-robin across providers to dampen single-model bias."
+            }
           />
-          <MetaRow label={isKo ? "앙상블 ID" : "Ensemble ID"} value={ensembleId} />
-          <MetaRow label={isKo ? "로케일" : "Locale"} value={locale} />
+          <MetaRow
+            label={isKo ? "앙상블 ID" : "Ensemble ID"}
+            value={ensembleId}
+            tooltip={
+              isKo
+                ? "이 분석의 고유 식별자. 지원 문의나 API 호출 시 참조하세요."
+                : "Unique identifier for this analysis. Reference when contacting support or calling the API."
+            }
+          />
+          <MetaRow
+            label={isKo ? "로케일" : "Locale"}
+            value={locale}
+            tooltip={
+              isKo
+                ? "분석에 사용된 언어. 페르소나 voice / 리스크 / 액션 모두 이 언어로 생성됩니다."
+                : "Language used throughout the analysis (persona voices, risks, actions all in this locale)."
+            }
+          />
         </div>
       </div>
 
@@ -2027,18 +2096,38 @@ function DataTab({
           <MetaRow
             label={isKo ? "최대 점수 변동" : "Max score range"}
             value={`${varianceAssessment.maxFinalScoreRange}pt`}
+            tooltip={
+              isKo
+                ? "한 국가 점수가 시뮬마다 얼마나 다르게 나왔는지의 최대 차이. 30점 이상이면 단일 시뮬은 신뢰하기 어렵습니다."
+                : "Largest spread of a single country's score across sims. >30 means a lone sim is unreliable."
+            }
           />
           <MetaRow
             label={isKo ? "평균 변동" : "Mean range"}
             value={`${varianceAssessment.meanFinalScoreRange}pt`}
+            tooltip={
+              isKo
+                ? "모든 국가의 점수 변동을 평균한 값. 전반적인 시뮬 안정성을 보여줍니다."
+                : "Average of every country's score range. A general read on sim-to-sim stability."
+            }
           />
           <MetaRow
             label={isKo ? "변동성 등급" : "Variance label"}
             value={varianceAssessment.label.toUpperCase()}
+            tooltip={
+              isKo
+                ? "LOW(낮음)·MODERATE(보통)·HIGH(높음). HIGH면 단일 시뮬 결과는 노이즈에 휩쓸릴 수 있으니 앙상블 합의도를 더 무겁게 보세요."
+                : "LOW · MODERATE · HIGH. HIGH means a single sim could be noisy — trust the ensemble consensus more heavily."
+            }
           />
           <MetaRow
             label={isKo ? "분석 국가 수" : "Markets analyzed"}
             value={String(countryStats.length)}
+            tooltip={
+              isKo
+                ? "최종 점수가 산출된 후보 진출국 수. 규제 단계에서 차단된 국가는 여기서 제외됩니다."
+                : "Candidate markets that received a final score. Regulatory-blocked countries are excluded here."
+            }
           />
         </div>
       </div>
@@ -2094,11 +2183,31 @@ function DataTab({
   );
 }
 
-function MetaRow({ label, value }: { label: string; value: string }) {
+function MetaRow({
+  label,
+  value,
+  tooltip,
+}: {
+  label: string;
+  value: string;
+  tooltip?: string;
+}) {
   return (
-    <div className="flex items-center justify-between p-3">
-      <div className="text-slate-500">{label}</div>
-      <div className="text-slate-900 font-medium font-mono text-xs">{value}</div>
+    <div className="flex items-center justify-between p-3 gap-3">
+      <div className="text-slate-500 flex items-center gap-1.5 min-w-0">
+        <span>{label}</span>
+        {tooltip && (
+          <span
+            className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-slate-200 text-slate-500 text-[10px] font-bold cursor-help shrink-0"
+            title={tooltip}
+          >
+            ?
+          </span>
+        )}
+      </div>
+      <div className="text-slate-900 font-medium font-mono text-xs text-right break-all">
+        {value}
+      </div>
     </div>
   );
 }
