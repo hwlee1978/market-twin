@@ -20,6 +20,7 @@ import {
   aggregateEnsemble,
   type EnsembleSimSnapshot,
 } from "../src/lib/simulation/ensemble";
+import { mergeNarrative } from "../src/lib/simulation/ensemble-narrative";
 import type {
   CountryScore,
   ProjectInput,
@@ -239,22 +240,27 @@ async function main() {
   );
 
   // 4. Aggregate + persist (mirrors aggregateAndPersist in route.ts).
+  type StoredResult = {
+    countries: unknown[];
+    personas: unknown[];
+    overview?: unknown;
+    risks?: unknown;
+    recommendations?: unknown;
+    pricing?: unknown;
+  };
   type EnsembleSimRow = {
     id: string;
     ensemble_index: number | null;
     best_country: string | null;
     status: string;
     model_provider: string | null;
-    simulation_results:
-      | { countries: unknown[]; personas: unknown[] }
-      | { countries: unknown[]; personas: unknown[] }[]
-      | null;
+    simulation_results: StoredResult | StoredResult[] | null;
   };
   const { data: rawRows, error: rowsErr } = await sb
     .from("simulations")
     .select(
       `id, ensemble_index, best_country, status, model_provider,
-       simulation_results ( countries, personas )`,
+       simulation_results ( countries, personas, overview, risks, recommendations, pricing )`,
     )
     .eq("ensemble_id", ensembleId);
   if (rowsErr) throw rowsErr;
@@ -285,11 +291,28 @@ async function main() {
         countries: (result.countries ?? []) as CountryScore[],
         personaIntentByCountry: intentByCountry,
         provider: r.model_provider ?? undefined,
+        overview: (result.overview ?? undefined) as EnsembleSimSnapshot["overview"],
+        risks: (result.risks ?? undefined) as EnsembleSimSnapshot["risks"],
+        recommendations: (result.recommendations ?? undefined) as EnsembleSimSnapshot["recommendations"],
+        pricing: (result.pricing ?? undefined) as EnsembleSimSnapshot["pricing"],
       },
     ];
   });
   const aggregate = aggregateEnsemble(snapshots);
   const finalStatus = snapshots.length === 0 ? "failed" : "completed";
+
+  // Same narrative-merge step the production endpoint runs.
+  if (snapshots.length > 0) {
+    const narrative = await mergeNarrative({
+      snapshots,
+      productName: project.product_name,
+      bestCountry: aggregate.recommendation.country,
+      consensusPercent: aggregate.recommendation.consensusPercent,
+      locale: "ko",
+    });
+    if (narrative) aggregate.narrative = narrative;
+  }
+
   await sb
     .from("ensembles")
     .update({

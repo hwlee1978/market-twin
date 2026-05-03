@@ -5,6 +5,7 @@ import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { runSimulation } from "@/lib/simulation/runner";
 import type { ProjectInput } from "@/lib/simulation/schemas";
 import { aggregateEnsemble, type EnsembleSimSnapshot } from "@/lib/simulation/ensemble";
+import { mergeNarrative } from "@/lib/simulation/ensemble-narrative";
 import type { CountryScore } from "@/lib/simulation/schemas";
 import { notifyEnsembleComplete } from "@/lib/email/notify";
 
@@ -246,7 +247,11 @@ export async function POST(
 
     // 4. All sims settled — aggregate, persist, then notify.
     try {
-      const aggregate = await aggregateAndPersist(ensembleId);
+      const aggregate = await aggregateAndPersist({
+        ensembleId,
+        productName: project.product_name,
+        locale,
+      });
       if (aggregate) {
         await notifyEnsembleComplete({
           ensembleId,
@@ -290,25 +295,35 @@ export async function POST(
  * computed aggregate so the caller can use it for follow-on actions
  * (email notification etc.) without re-querying.
  */
-async function aggregateAndPersist(ensembleId: string) {
+async function aggregateAndPersist(opts: {
+  ensembleId: string;
+  productName: string;
+  locale: "ko" | "en";
+}) {
+  const { ensembleId, productName, locale } = opts;
   const admin = createServiceClient();
 
+  type StoredResult = {
+    countries: unknown[];
+    personas: unknown[];
+    overview?: unknown;
+    risks?: unknown;
+    recommendations?: unknown;
+    pricing?: unknown;
+  };
   type EnsembleSimRow = {
     id: string;
     ensemble_index: number | null;
     best_country: string | null;
     status: string;
     model_provider: string | null;
-    simulation_results:
-      | { countries: unknown[]; personas: unknown[] }
-      | { countries: unknown[]; personas: unknown[] }[]
-      | null;
+    simulation_results: StoredResult | StoredResult[] | null;
   };
   const { data: rawRows, error } = await admin
     .from("simulations")
     .select(
       `id, ensemble_index, best_country, status, model_provider,
-       simulation_results ( countries, personas )`,
+       simulation_results ( countries, personas, overview, risks, recommendations, pricing )`,
     )
     .eq("ensemble_id", ensembleId);
   if (error || !rawRows) {
@@ -342,12 +357,30 @@ async function aggregateAndPersist(ensembleId: string) {
         countries: (result.countries ?? []) as CountryScore[],
         personaIntentByCountry: intentByCountry,
         provider: r.model_provider ?? undefined,
+        overview: (result.overview ?? undefined) as EnsembleSimSnapshot["overview"],
+        risks: (result.risks ?? undefined) as EnsembleSimSnapshot["risks"],
+        recommendations: (result.recommendations ?? undefined) as EnsembleSimSnapshot["recommendations"],
+        pricing: (result.pricing ?? undefined) as EnsembleSimSnapshot["pricing"],
       },
     ];
   });
 
   const aggregate = aggregateEnsemble(snapshots);
   const finalStatus = snapshots.length === 0 ? "failed" : "completed";
+
+  // Narrative merge runs after the deterministic aggregator. Failure here
+  // is non-fatal — the chart sections (recommendation / breakdown / stats)
+  // are still useful even without merged risks/actions.
+  if (snapshots.length > 0) {
+    const narrative = await mergeNarrative({
+      snapshots,
+      productName,
+      bestCountry: aggregate.recommendation.country,
+      consensusPercent: aggregate.recommendation.consensusPercent,
+      locale,
+    });
+    if (narrative) aggregate.narrative = narrative;
+  }
 
   await admin
     .from("ensembles")

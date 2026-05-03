@@ -336,9 +336,11 @@ function EnsembleDashboard({
     segments,
     varianceAssessment,
     providerBreakdown,
+    narrative,
     effectivePersonas,
     simCount,
   } = aggregate;
+  const isKo = locale === "ko";
 
   const confidenceColor =
     recommendation.confidence === "STRONG"
@@ -435,6 +437,11 @@ function EnsembleDashboard({
           ))}
         </div>
       </div>
+
+      {/* Consensus narrative — only when LLM merge step ran. */}
+      {narrative && (
+        <NarrativeSection narrative={narrative} isKo={isKo} />
+      )}
 
       {/* Segment recommendations */}
       <div>
@@ -594,6 +601,122 @@ function EnsembleDashboard({
       <p className="text-xs text-slate-400 text-center">
         앙상블 ID: {result.id}
       </p>
+    </div>
+  );
+}
+
+/**
+ * Consensus narrative — executive summary + merged risks + merged actions
+ * sourced from the LLM merge step that runs after aggregateEnsemble. Each
+ * sub-block is independent: missing risks don't suppress the actions list.
+ */
+function NarrativeSection({
+  narrative,
+  isKo,
+}: {
+  narrative: NonNullable<EnsembleAggregate["narrative"]>;
+  isKo: boolean;
+}) {
+  const riskLevelLabel =
+    narrative.overallRiskLevel === "high"
+      ? isKo ? "높음" : "HIGH"
+      : narrative.overallRiskLevel === "medium"
+        ? isKo ? "보통" : "MEDIUM"
+        : isKo ? "낮음" : "LOW";
+  const riskLevelClass =
+    narrative.overallRiskLevel === "high"
+      ? "text-risk"
+      : narrative.overallRiskLevel === "medium"
+        ? "text-warn"
+        : "text-success";
+  return (
+    <div className="space-y-5">
+      {/* Executive summary */}
+      {narrative.executiveSummary && (
+        <div>
+          <h2 className="text-base font-semibold text-slate-900 mb-2">
+            {isKo ? "개요" : "Executive summary"}
+          </h2>
+          <div className="card p-4">
+            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+              {narrative.executiveSummary}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Merged risks */}
+      {narrative.mergedRisks.length > 0 && (
+        <div>
+          <h2 className="text-base font-semibold text-slate-900 mb-2">
+            {isKo ? "주요 리스크 (시뮬 합의)" : "Key risks (cross-sim consensus)"}
+            <span className={clsx("ml-2 text-xs font-medium", riskLevelClass)}>
+              {isKo ? `종합: ${riskLevelLabel}` : `Overall: ${riskLevelLabel}`}
+            </span>
+          </h2>
+          <div className="card divide-y divide-slate-100">
+            {narrative.mergedRisks.map((r, i) => {
+              const sevClass =
+                r.severity === "high"
+                  ? "text-risk"
+                  : r.severity === "medium"
+                    ? "text-warn"
+                    : "text-slate-500";
+              return (
+                <div key={i} className="p-4 flex gap-3 items-start">
+                  <div
+                    className={clsx(
+                      "shrink-0 w-16 text-[10px] font-bold uppercase tracking-wider pt-0.5",
+                      sevClass,
+                    )}
+                  >
+                    {r.severity}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-slate-900 mb-0.5">
+                      {r.factor}
+                    </div>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      {r.description}
+                    </p>
+                    <div className="text-xs text-slate-400 mt-1">
+                      {isKo
+                        ? `${r.surfacedInSims}개 시뮬에서 언급`
+                        : `Surfaced in ${r.surfacedInSims} sim${r.surfacedInSims === 1 ? "" : "s"}`}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Merged actions */}
+      {narrative.mergedActions.length > 0 && (
+        <div>
+          <h2 className="text-base font-semibold text-slate-900 mb-2">
+            {isKo ? "권장 액션 (시뮬 합의)" : "Recommended actions (cross-sim consensus)"}
+          </h2>
+          <ol className="card divide-y divide-slate-100">
+            {narrative.mergedActions.map((a, i) => (
+              <li key={i} className="p-4 flex gap-3 items-start">
+                <div className="shrink-0 w-6 text-sm font-bold text-brand">
+                  {i + 1}.
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-slate-700 leading-relaxed">{a.action}</p>
+                  <div className="text-xs text-slate-400 mt-1">
+                    {isKo
+                      ? `${a.surfacedInSims}개 시뮬에서 권장`
+                      : `Recommended by ${a.surfacedInSims} sim${a.surfacedInSims === 1 ? "" : "s"}`}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
     </div>
   );
 }

@@ -208,6 +208,45 @@ const styles = StyleSheet.create({
   colCountry: { flex: 1.4 },
   colNum: { flex: 1, textAlign: "right" },
 
+  // Narrative
+  summaryBox: {
+    backgroundColor: C.card,
+    borderRadius: 6,
+    padding: 14,
+    fontSize: 10,
+    color: C.body,
+    lineHeight: 1.6,
+  },
+  riskRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingVertical: 8,
+    borderBottom: `0.5pt solid ${C.divider}`,
+    alignItems: "flex-start",
+  },
+  riskRowLast: { borderBottom: "none" },
+  riskSeverityBadge: {
+    width: 56,
+    fontSize: 8,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    paddingTop: 1,
+  },
+  riskBody: { flex: 1 },
+  riskFactor: { fontSize: 10, fontWeight: 600, color: C.ink, marginBottom: 2 },
+  riskDesc: { fontSize: 9, color: C.body, lineHeight: 1.5 },
+  riskMeta: { fontSize: 8, color: C.faint, marginTop: 2 },
+  actionRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingVertical: 6,
+    alignItems: "flex-start",
+  },
+  actionBullet: { fontSize: 10, fontWeight: 700, color: C.brand, width: 16 },
+  actionText: { flex: 1, fontSize: 10, color: C.body, lineHeight: 1.5 },
+  actionMeta: { fontSize: 8, color: C.faint, marginLeft: 6 },
+
   // Variance callout
   callout: {
     backgroundColor: C.card,
@@ -249,6 +288,11 @@ function MText({ children, style }: { children: string; style?: Style | Style[] 
       )}
     </Text>
   );
+}
+
+function riskLevelLabel(level: "low" | "medium" | "high", isKo: boolean): string {
+  if (isKo) return level === "high" ? "높음" : level === "medium" ? "보통" : "낮음";
+  return level === "high" ? "HIGH" : level === "medium" ? "MEDIUM" : "LOW";
 }
 
 // Mirrors providerLabel in EnsembleView.tsx — keep these two in sync so the
@@ -436,6 +480,89 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           <MText style={{ fontSize: 8, fontWeight: 600, color: C.muted, letterSpacing: 0.4 }}>MARKET TWIN</MText>
           <MText style={{ fontSize: 8, color: C.faint }}>{productName}</MText>
         </View>
+
+        {/* Narrative sections — only present when the LLM merge step ran
+            (multi-sim ensemble). Single-sim ensembles also get them via
+            the trivial-pass-through path in mergeNarrative(). */}
+        {aggregate.narrative && (
+          <>
+            <View style={styles.sectionBlock}>
+              <MText style={styles.sectionEyebrow}>{isKo ? "개요" : "Executive summary"}</MText>
+              <MText style={styles.sectionTitle}>
+                {isKo
+                  ? `종합 추천: ${recCountryLabel}`
+                  : `Consensus recommendation: ${recCountryLabel}`}
+              </MText>
+              <View style={styles.summaryBox}>
+                <MText style={{ fontSize: 10, color: C.body, lineHeight: 1.6 }}>
+                  {aggregate.narrative.executiveSummary}
+                </MText>
+              </View>
+            </View>
+
+            {aggregate.narrative.mergedRisks.length > 0 && (
+              <View style={styles.sectionBlock}>
+                <MText style={styles.sectionEyebrow}>
+                  {isKo ? "주요 리스크 (시뮬 합의)" : "Key risks (cross-sim consensus)"}
+                </MText>
+                <MText style={styles.sectionTitle}>
+                  {isKo
+                    ? `종합 리스크 수준: ${riskLevelLabel(aggregate.narrative.overallRiskLevel, true)}`
+                    : `Overall: ${riskLevelLabel(aggregate.narrative.overallRiskLevel, false)}`}
+                </MText>
+                <View>
+                  {aggregate.narrative.mergedRisks.map((r, i, arr) => {
+                    const sevColor =
+                      r.severity === "high" ? C.risk : r.severity === "medium" ? C.warn : C.muted;
+                    const last = i === arr.length - 1;
+                    return (
+                      <View key={i} style={[styles.riskRow, last ? styles.riskRowLast : {}]} wrap={false}>
+                        <MText style={[styles.riskSeverityBadge, { color: sevColor }]}>
+                          {r.severity}
+                        </MText>
+                        <View style={styles.riskBody}>
+                          <MText style={styles.riskFactor}>{r.factor}</MText>
+                          <MText style={styles.riskDesc}>{r.description}</MText>
+                          <MText style={styles.riskMeta}>
+                            {isKo
+                              ? `${r.surfacedInSims}개 시뮬에서 언급`
+                              : `Surfaced in ${r.surfacedInSims} sim${r.surfacedInSims === 1 ? "" : "s"}`}
+                          </MText>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {aggregate.narrative.mergedActions.length > 0 && (
+              <View style={styles.sectionBlock}>
+                <MText style={styles.sectionEyebrow}>
+                  {isKo ? "권장 액션 (시뮬 합의)" : "Recommended actions (cross-sim consensus)"}
+                </MText>
+                <MText style={styles.sectionTitle}>
+                  {isKo ? "우선순위 액션 플랜" : "Priority action plan"}
+                </MText>
+                <View>
+                  {aggregate.narrative.mergedActions.map((a, i) => (
+                    <View key={i} style={styles.actionRow} wrap={false}>
+                      <MText style={styles.actionBullet}>{`${i + 1}.`}</MText>
+                      <View style={{ flex: 1 }}>
+                        <MText style={styles.actionText}>{a.action}</MText>
+                        <MText style={styles.actionMeta}>
+                          {isKo
+                            ? `${a.surfacedInSims}개 시뮬에서 권장`
+                            : `Recommended by ${a.surfacedInSims} sim${a.surfacedInSims === 1 ? "" : "s"}`}
+                        </MText>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+          </>
+        )}
 
         {/* Section 1: bestCountry distribution */}
         <View style={styles.sectionBlock}>

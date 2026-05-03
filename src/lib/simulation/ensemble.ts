@@ -8,7 +8,7 @@
  * recomputing.
  */
 
-import type { CountryScore } from "./schemas";
+import type { CountryScore, Overview, Risk, Recommendation, PricingResult } from "./schemas";
 
 /* ────────────────────────────────── stats helpers ─── */
 function median(xs: number[]): number {
@@ -41,6 +41,18 @@ export interface EnsembleSimSnapshot {
    * this undefined and skip the providerBreakdown section.
    */
   provider?: string;
+  /**
+   * Synthesis-stage narrative outputs from this sim. Carried into the
+   * aggregator so a downstream LLM merge step can dedup risks across
+   * sims and surface the consensus narrative — without these, the
+   * ensemble report would be charts-only and lose all of the executive
+   * summary / risks / action plan that single-sim reports surface.
+   * All optional because legacy snapshots may not have them.
+   */
+  overview?: Overview;
+  risks?: Risk[];
+  recommendations?: Recommendation;
+  pricing?: PricingResult;
 }
 
 export interface CountryStats {
@@ -98,6 +110,14 @@ export interface EnsembleAggregate {
    */
   providerBreakdown?: ProviderConsensus[];
 
+  /**
+   * Consensus narrative produced by an LLM merge step over the per-sim
+   * overview/risks/recommendations. Optional because the merge runs
+   * AFTER aggregateEnsemble() in the orchestration layer and is allowed
+   * to fail silently (the chart sections are still useful on their own).
+   */
+  narrative?: EnsembleNarrative;
+
   /** Overall ensemble variance health — quick visual cue for the UI. */
   varianceAssessment: {
     maxFinalScoreRange: number;
@@ -105,6 +125,34 @@ export interface EnsembleAggregate {
     label: "low" | "moderate" | "high";
     note: string;
   };
+}
+
+export interface EnsembleNarrative {
+  /** Unified executive summary across all sims (LLM-merged). */
+  executiveSummary: string;
+  /**
+   * Risks deduped across sims with a frequency count: how many of the N
+   * sims surfaced this risk (or a semantically equivalent one). The LLM
+   * merge collapses near-duplicates so "Amazon 미입점" and "Amazon 진출
+   * 안 됨" become one line with count 2.
+   */
+  mergedRisks: Array<{
+    factor: string;
+    description: string;
+    severity: "low" | "medium" | "high";
+    /** Number of sims that surfaced this risk (after semantic dedup). */
+    surfacedInSims: number;
+  }>;
+  /**
+   * Action items deduped across sims, in rough priority order (most
+   * frequently mentioned first when the LLM can rank them).
+   */
+  mergedActions: Array<{
+    action: string;
+    surfacedInSims: number;
+  }>;
+  /** Aggregate riskLevel across sims — defaults to mode of per-sim values. */
+  overallRiskLevel: "low" | "medium" | "high";
 }
 
 /* ────────────────────────────────── main aggregator ─── */
