@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, CheckCircle2, AlertCircle, TrendingUp } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download } from "lucide-react";
 import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 
@@ -185,8 +185,40 @@ function EnsembleDashboard({
   locale: string;
 }) {
   void projectId;
-  void locale;
-  const { aggregate, parallel_sims, per_sim_personas, llm_providers, tier } = result;
+  const { aggregate, llm_providers, tier } = result;
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  // Same blob-fetch pattern as ResultsDashboard.exportPdf — lets us show
+  // an inline error if generation fails instead of opening a tab to a
+  // raw JSON 4xx page.
+  const exportPdf = async () => {
+    if (pdfBusy) return;
+    setPdfBusy(true);
+    setPdfError(null);
+    try {
+      const res = await fetch(`/api/ensembles/${result.id}/pdf?locale=${locale}`);
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const filename =
+        res.headers
+          .get("content-disposition")
+          ?.match(/filename="?([^"]+)"?/)?.[1] ?? `market-twin-ensemble-${result.id.slice(0, 8)}.pdf`;
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[ensemble pdf]", err);
+      setPdfError(locale === "ko" ? "PDF 생성에 실패했습니다." : "Couldn't generate PDF.");
+    } finally {
+      setPdfBusy(false);
+    }
+  };
   const {
     bestCountryDistribution,
     recommendation,
@@ -207,19 +239,38 @@ function EnsembleDashboard({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-500 mb-1">
-          <span className="px-2 py-0.5 rounded-full bg-brand/10 text-brand font-semibold">
-            {tier.toUpperCase()}
-          </span>
-          <span>·</span>
-          <span>
-            {simCount}개 시뮬 · {effectivePersonas.toLocaleString()} effective personas
-          </span>
-          <span>·</span>
-          <span>{llm_providers.join(", ")}</span>
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-500 mb-1">
+            <span className="px-2 py-0.5 rounded-full bg-brand/10 text-brand font-semibold">
+              {tier.toUpperCase()}
+            </span>
+            <span>·</span>
+            <span>
+              {simCount}개 시뮬 · {effectivePersonas.toLocaleString()} effective personas
+            </span>
+            <span>·</span>
+            <span>{llm_providers.join(", ")}</span>
+          </div>
+          <h1 className="text-2xl font-semibold">앙상블 분석 결과</h1>
         </div>
-        <h1 className="text-2xl font-semibold">앙상블 분석 결과</h1>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <button
+            onClick={exportPdf}
+            disabled={pdfBusy}
+            className="btn-primary disabled:opacity-60"
+          >
+            {pdfBusy ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+            {pdfBusy
+              ? locale === "ko"
+                ? "PDF 생성 중..."
+                : "Generating PDF..."
+              : locale === "ko"
+                ? "PDF 리포트 다운로드"
+                : "Download PDF report"}
+          </button>
+          {pdfError && <p className="text-xs text-risk">{pdfError}</p>}
+        </div>
       </div>
 
       {/* Top recommendation card */}
