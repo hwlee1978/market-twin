@@ -4,6 +4,7 @@ import { Sparkles } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { RunSimulationButton } from "@/components/RunSimulationButton";
+import { RunEnsembleButton } from "@/components/RunEnsembleButton";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 
@@ -27,11 +28,16 @@ export default async function ProjectDetailPage({
     .single();
   if (!project) notFound();
 
+  // Standalone simulations only — sims that belong to an ensemble are
+  // already tracked in the ensemble card, and a 25-sim deep ensemble would
+  // otherwise drown the page in repeated rows.
   const { data: simulations } = await supabase
     .from("simulations")
     .select("id, status, current_stage, persona_count, started_at, completed_at, model_provider, model_version")
     .eq("project_id", id)
-    .order("created_at", { ascending: false });
+    .is("ensemble_id", null)
+    .order("created_at", { ascending: false })
+    .limit(10);
 
   const latest = simulations?.[0];
 
@@ -177,7 +183,15 @@ export default async function ProjectDetailPage({
                 <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">
                   {t("projectDetail.runNew")}
                 </div>
-                <RunSimulationButton projectId={id} />
+                <RunEnsembleButton projectId={id} />
+                <details className="mt-3">
+                  <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-600">
+                    {locale === "ko" ? "단일 시뮬 (legacy)" : "Single sim (legacy)"}
+                  </summary>
+                  <div className="mt-2">
+                    <RunSimulationButton projectId={id} />
+                  </div>
+                </details>
               </div>
             </>
           ) : (
@@ -195,7 +209,7 @@ export default async function ProjectDetailPage({
               <p className="text-xs text-slate-500 leading-relaxed mb-4 break-keep">
                 {t("projectDetail.firstSimSubtitle")}
               </p>
-              <RunSimulationButton projectId={id} />
+              <RunEnsembleButton projectId={id} />
             </div>
           )}
         </div>
