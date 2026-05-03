@@ -251,6 +251,21 @@ function MText({ children, style }: { children: string; style?: Style | Style[] 
   );
 }
 
+// Mirrors providerLabel in EnsembleView.tsx — keep these two in sync so the
+// dashboard and PDF render the same brand name for each provider id.
+function providerLabelPdf(provider: string): string {
+  switch (provider) {
+    case "anthropic":
+      return "Claude";
+    case "openai":
+      return "GPT-4";
+    case "gemini":
+      return "Gemini";
+    default:
+      return provider;
+  }
+}
+
 interface BuildArgs {
   aggregate: EnsembleAggregate;
   productName: string;
@@ -436,6 +451,39 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             })}
           </View>
         </View>
+
+        {/* Section 2.5: Provider consensus — only for multi-LLM ensembles. */}
+        {aggregate.providerBreakdown && aggregate.providerBreakdown.length > 0 && (
+          <View style={styles.sectionBlock}>
+            <MText style={styles.sectionEyebrow}>
+              {isKo ? "LLM별 합의도" : "Cross-model consensus"}
+            </MText>
+            <MText style={styles.sectionTitle}>
+              {isKo
+                ? "모델별 추천 시장 및 전체 합의 일치도"
+                : "Per-model pick + agreement with overall winner"}
+            </MText>
+            <View style={styles.segGrid}>
+              {aggregate.providerBreakdown.map((pb) => {
+                const top = pb.bestCountryDistribution[0];
+                return (
+                  <View key={pb.provider} style={styles.segCard} wrap={false}>
+                    <MText style={styles.segLabel}>
+                      {`${providerLabelPdf(pb.provider)} · ${pb.simCount}${isKo ? "개" : ""}`}
+                    </MText>
+                    <MText style={styles.segCountry}>{top?.country ?? "—"}</MText>
+                    <MText style={styles.segValue}>
+                      {top ? `${top.percent}% ${isKo ? "지지" : "support"}` : ""}
+                    </MText>
+                    <MText style={styles.segAlt}>
+                      {`${pb.agreementWithOverallPercent}% ${isKo ? "전체 합의 일치" : "agreement w/ overall"}`}
+                    </MText>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {/* Section 3: Country stats table */}
         <View style={styles.sectionBlock}>

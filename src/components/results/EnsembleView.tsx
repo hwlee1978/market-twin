@@ -225,6 +225,7 @@ function EnsembleDashboard({
     countryStats,
     segments,
     varianceAssessment,
+    providerBreakdown,
     effectivePersonas,
     simCount,
   } = aggregate;
@@ -352,6 +353,51 @@ function EnsembleDashboard({
         </div>
       </div>
 
+      {/* Provider consensus — only when sims spanned multiple LLMs (deep tier) */}
+      {providerBreakdown && providerBreakdown.length > 0 && (
+        <div>
+          <h2 className="text-base font-semibold text-slate-900 mb-3">
+            {locale === "ko" ? "LLM별 합의도" : "Cross-model consensus"}
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {providerBreakdown.map((pb) => {
+              const top = pb.bestCountryDistribution[0];
+              const aligned = pb.agreementWithOverallPercent;
+              return (
+                <div key={pb.provider} className="card p-4">
+                  <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
+                    {providerLabel(pb.provider)} · {pb.simCount}{locale === "ko" ? "개 시뮬" : " sims"}
+                  </div>
+                  <div className="text-xl font-bold text-slate-900">
+                    {top?.country ?? "—"}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    {top ? `${top.percent}% ${locale === "ko" ? "지지" : "support"}` : ""}
+                  </div>
+                  <div className="mt-2 text-xs">
+                    <span
+                      className={clsx(
+                        "font-semibold",
+                        aligned === 100
+                          ? "text-success"
+                          : aligned >= 50
+                            ? "text-slate-700"
+                            : "text-warn",
+                      )}
+                    >
+                      {aligned}%
+                    </span>{" "}
+                    <span className="text-slate-500">
+                      {locale === "ko" ? "전체 합의와 일치" : "agreement w/ overall"}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Country stats table */}
       <div>
         <h2 className="text-base font-semibold text-slate-900 mb-3">
@@ -434,6 +480,22 @@ function EnsembleDashboard({
       </p>
     </div>
   );
+}
+
+// Display label for a provider id. Keep this small and centralized so the
+// dashboard, PDF, and any admin views render the same brand name. Unknown
+// providers fall through to the raw id.
+function providerLabel(provider: string): string {
+  switch (provider) {
+    case "anthropic":
+      return "Claude";
+    case "openai":
+      return "GPT-4";
+    case "gemini":
+      return "Gemini";
+    default:
+      return provider;
+  }
 }
 
 // Mirrors the locale mapping in src/lib/report/ensemble-pdf.tsx so the

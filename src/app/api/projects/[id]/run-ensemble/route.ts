@@ -15,15 +15,25 @@ export const dynamic = "force-dynamic";
 
 /**
  * Tier presets — single source of truth for how each tier maps to
- * (parallel sims × per-sim personas). Keeps the wizard, billing logic,
- * and runner aligned without each computing the math separately.
+ * (parallel sims × per-sim personas × provider mix). Deep tier round-
+ * robins providers across sims so the ensemble's diversity comes from
+ * model diversity, not just persona diversity. The 25 deep sims fan out
+ * to ~8 sims per provider (with 3 providers).
+ *
+ * If you change the order of llmProviders, the round-robin assignment
+ * shifts but stays deterministic — sim 0 always uses providers[0].
  */
 const TIER_PRESETS = {
-  hypothesis: { parallelSims: 1, perSimPersonas: 200, llmProviders: ["anthropic"] },
-  decision: { parallelSims: 5, perSimPersonas: 200, llmProviders: ["anthropic"] },
-  deep: { parallelSims: 25, perSimPersonas: 200, llmProviders: ["anthropic"] },
+  hypothesis: { parallelSims: 1, perSimPersonas: 200, llmProviders: ["anthropic"] as const },
+  decision: { parallelSims: 5, perSimPersonas: 200, llmProviders: ["anthropic"] as const },
+  deep: {
+    parallelSims: 25,
+    perSimPersonas: 200,
+    llmProviders: ["anthropic", "openai", "gemini"] as const,
+  },
 } as const;
 type Tier = keyof typeof TIER_PRESETS;
+type ProviderName = "anthropic" | "openai" | "gemini";
 
 const RunSchema = z.object({
   tier: z.enum(["hypothesis", "decision", "deep"]).default("decision"),
@@ -98,9 +108,13 @@ export async function POST(
 
   // 2. Create N pending sim rows linked to the ensemble. Insertion order
   //    determines ensemble_index, which feeds the seed override so each sim
-  //    draws a different persona sample.
-  const simRows: Array<{ id: string; index: number }> = [];
+  //    draws a different persona sample. For multi-LLM tiers (deep), we
+  //    round-robin over llm_providers so each sim is fixed to one provider
+  //    end-to-end — the ensemble's bestCountry distribution then reflects
+  //    cross-model agreement, not single-model variance.
+  const simRows: Array<{ id: string; index: number; provider: ProviderName }> = [];
   for (let i = 0; i < preset.parallelSims; i++) {
+    const provider = preset.llmProviders[i % preset.llmProviders.length] as ProviderName;
     const { data: sim, error: simErr } = await admin
       .from("simulations")
       .insert({
@@ -111,6 +125,7 @@ export async function POST(
         current_stage: "validating",
         ensemble_id: ensemble.id,
         ensemble_index: i,
+        model_provider: provider,
       })
       .select("id")
       .single();
@@ -129,7 +144,7 @@ export async function POST(
         { status: 500 },
       );
     }
-    simRows.push({ id: sim.id, index: i });
+    simRows.push({ id: sim.id, index: i, provider });
   }
 
   await admin.from("projects").update({ status: "running" }).eq("id", project.id);
@@ -156,7 +171,7 @@ export async function POST(
   after(async () => {
     const ensembleId = ensemble.id;
     await Promise.allSettled(
-      simRows.map(async ({ id: simId, index }) => {
+      simRows.map(async ({ id: simId, index, provider }) => {
         try {
           await runSimulation({
             simulationId: simId,
@@ -164,6 +179,7 @@ export async function POST(
             personaCount: preset.perSimPersonas,
             locale,
             seedOverride: `${ensembleId}-${index}`,
+            provider,
           });
         } catch (err) {
           console.error(`[ensemble ${ensembleId}] sim ${simId} failed:`, err);
@@ -233,6 +249,7 @@ async function aggregateAndPersist(ensembleId: string) {
     ensemble_index: number | null;
     best_country: string | null;
     status: string;
+    model_provider: string | null;
     simulation_results:
       | { countries: unknown[]; personas: unknown[] }
       | { countries: unknown[]; personas: unknown[] }[]
@@ -241,7 +258,7 @@ async function aggregateAndPersist(ensembleId: string) {
   const { data: rawRows, error } = await admin
     .from("simulations")
     .select(
-      `id, ensemble_index, best_country, status,
+      `id, ensemble_index, best_country, status, model_provider,
        simulation_results ( countries, personas )`,
     )
     .eq("ensemble_id", ensembleId);
@@ -275,6 +292,7 @@ async function aggregateAndPersist(ensembleId: string) {
         bestCountry: r.best_country ?? null,
         countries: (result.countries ?? []) as CountryScore[],
         personaIntentByCountry: intentByCountry,
+        provider: r.model_provider ?? undefined,
       },
     ];
   });

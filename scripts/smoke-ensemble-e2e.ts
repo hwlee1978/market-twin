@@ -26,11 +26,26 @@ import type {
 } from "../src/lib/simulation/schemas";
 
 const TIER_PRESETS = {
-  hypothesis: { parallelSims: 1, perSimPersonas: 200, llmProviders: ["anthropic"] },
-  decision: { parallelSims: 5, perSimPersonas: 200, llmProviders: ["anthropic"] },
-  deep: { parallelSims: 25, perSimPersonas: 200, llmProviders: ["anthropic"] },
+  hypothesis: { parallelSims: 1, perSimPersonas: 200, llmProviders: ["anthropic"] as const },
+  decision: { parallelSims: 5, perSimPersonas: 200, llmProviders: ["anthropic"] as const },
+  deep: {
+    parallelSims: 25,
+    perSimPersonas: 200,
+    llmProviders: ["anthropic", "openai", "gemini"] as const,
+  },
+  // Cheap dev variant: 3 sims, one per provider — exercises the multi-LLM
+  // round-robin without burning a 25-sim deep run. Reuses the "deep" tier
+  // label because the ensembles_tier_check DB constraint only allows the
+  // three production tier names. Not exposed in the UI.
+  "deep-3": {
+    parallelSims: 3,
+    perSimPersonas: 200,
+    llmProviders: ["anthropic", "openai", "gemini"] as const,
+    storedTier: "deep" as const,
+  },
 } as const;
 type Tier = keyof typeof TIER_PRESETS;
+type ProviderName = "anthropic" | "openai" | "gemini";
 
 function admin() {
   return createSupabaseClient(
@@ -93,14 +108,17 @@ async function main() {
   console.log(`Tier: ${tier} · ${preset.parallelSims}×${preset.perSimPersonas}`);
   console.log(`Markets: ${(project.candidate_countries ?? []).join(", ")}`);
 
-  // 1. Create ensemble row.
+  // 1. Create ensemble row. For dev-only tier variants ("deep-3") use the
+  //    storedTier override so we satisfy the DB tier check constraint while
+  //    still surfacing the actual variant name to the user.
+  const dbTier = (preset as { storedTier?: string }).storedTier ?? tier;
   const { data: ensemble, error: ensErr } = await sb
     .from("ensembles")
     .insert({
       project_id: project.id,
       workspace_id: project.workspace_id,
       created_by: owner.user_id,
-      tier,
+      tier: dbTier,
       parallel_sims: preset.parallelSims,
       per_sim_personas: preset.perSimPersonas,
       llm_providers: preset.llmProviders,
@@ -112,9 +130,12 @@ async function main() {
   const ensembleId = ensemble.id as string;
   console.log(`\nEnsemble: ${ensembleId.slice(0, 8)}`);
 
-  // 2. Create N pending sim rows.
-  const simRows: Array<{ id: string; index: number }> = [];
+  // 2. Create N pending sim rows. Round-robin provider assignment for
+  //    multi-LLM tiers so the smoke test exercises the same code path the
+  //    deep tier uses in production.
+  const simRows: Array<{ id: string; index: number; provider: ProviderName }> = [];
   for (let i = 0; i < preset.parallelSims; i++) {
+    const provider = preset.llmProviders[i % preset.llmProviders.length] as ProviderName;
     const { data: sim, error: simErr } = await sb
       .from("simulations")
       .insert({
@@ -125,11 +146,12 @@ async function main() {
         current_stage: "validating",
         ensemble_id: ensembleId,
         ensemble_index: i,
+        model_provider: provider,
       })
       .select("id")
       .single();
     if (simErr || !sim) throw simErr ?? new Error("sim insert failed");
-    simRows.push({ id: sim.id as string, index: i });
+    simRows.push({ id: sim.id as string, index: i, provider });
   }
   await sb.from("projects").update({ status: "running" }).eq("id", project.id);
 
@@ -151,7 +173,7 @@ async function main() {
   const t0 = Date.now();
   console.log(`\nRunning ${preset.parallelSims} sim(s) in parallel...`);
   await Promise.allSettled(
-    simRows.map(async ({ id: simId, index }) => {
+    simRows.map(async ({ id: simId, index, provider }) => {
       try {
         await runSimulation({
           simulationId: simId,
@@ -159,10 +181,11 @@ async function main() {
           personaCount: preset.perSimPersonas,
           locale: "ko",
           seedOverride: `${ensembleId}-${index}`,
+          provider,
         });
-        console.log(`  ✓ sim ${index} (${simId.slice(0, 8)}) done`);
+        console.log(`  ✓ sim ${index} (${simId.slice(0, 8)}) [${provider}] done`);
       } catch (err) {
-        console.error(`  ✗ sim ${index} failed:`, err);
+        console.error(`  ✗ sim ${index} [${provider}] failed:`, err);
         await sb
           .from("simulations")
           .update({
@@ -181,6 +204,7 @@ async function main() {
     ensemble_index: number | null;
     best_country: string | null;
     status: string;
+    model_provider: string | null;
     simulation_results:
       | { countries: unknown[]; personas: unknown[] }
       | { countries: unknown[]; personas: unknown[] }[]
@@ -189,7 +213,7 @@ async function main() {
   const { data: rawRows, error: rowsErr } = await sb
     .from("simulations")
     .select(
-      `id, ensemble_index, best_country, status,
+      `id, ensemble_index, best_country, status, model_provider,
        simulation_results ( countries, personas )`,
     )
     .eq("ensemble_id", ensembleId);
@@ -220,6 +244,7 @@ async function main() {
         bestCountry: r.best_country ?? null,
         countries: (result.countries ?? []) as CountryScore[],
         personaIntentByCountry: intentByCountry,
+        provider: r.model_provider ?? undefined,
       },
     ];
   });

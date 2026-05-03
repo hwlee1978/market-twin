@@ -34,6 +34,13 @@ export interface EnsembleSimSnapshot {
   countries: CountryScore[];
   /** Persona-aggregate-level intent per country, used for transparency. */
   personaIntentByCountry: Record<string, { n: number; meanIntent: number }>;
+  /**
+   * Which LLM provider drove this sim. Set for multi-LLM ensembles
+   * (deep tier round-robins anthropic/openai/gemini) so the aggregator
+   * can surface cross-model agreement. Single-provider ensembles leave
+   * this undefined and skip the providerBreakdown section.
+   */
+  provider?: string;
 }
 
 export interface CountryStats {
@@ -54,6 +61,20 @@ export interface SegmentRec {
   alternative?: { country: string; value: number };
 }
 
+export interface ProviderConsensus {
+  provider: string;
+  simCount: number;
+  /** This provider's pick distribution across its sims. */
+  bestCountryDistribution: Array<{ country: string; count: number; percent: number }>;
+  /**
+   * Of this provider's sims, what percent chose the SAME country as the
+   * overall ensemble winner. 100 = perfect alignment with the cross-model
+   * consensus, 0 = total disagreement. Useful "did this LLM agree with the
+   * room?" signal.
+   */
+  agreementWithOverallPercent: number;
+}
+
 export interface EnsembleAggregate {
   /** Number of sims successfully aggregated. */
   simCount: number;
@@ -70,6 +91,12 @@ export interface EnsembleAggregate {
 
   countryStats: CountryStats[];
   segments: SegmentRec[];
+
+  /**
+   * Cross-model breakdown — only populated when sims came from multiple
+   * providers (deep tier). Single-provider ensembles leave this undefined.
+   */
+  providerBreakdown?: ProviderConsensus[];
 
   /** Overall ensemble variance health — quick visual cue for the UI. */
   varianceAssessment: {
@@ -167,6 +194,9 @@ export function aggregateEnsemble(
     note = "Moderate run-to-run variance. Ensemble adds meaningful confidence.";
   }
 
+  // ── provider breakdown (only when sims span 2+ providers) ──
+  const providerBreakdown = computeProviderBreakdown(sims, winner?.country ?? null);
+
   return {
     simCount,
     effectivePersonas,
@@ -178,6 +208,7 @@ export function aggregateEnsemble(
     },
     countryStats,
     segments,
+    providerBreakdown,
     varianceAssessment: {
       maxFinalScoreRange: round1(maxR),
       meanFinalScoreRange: round1(meanR),
@@ -185,6 +216,55 @@ export function aggregateEnsemble(
       note,
     },
   };
+}
+
+function computeProviderBreakdown(
+  sims: EnsembleSimSnapshot[],
+  overallWinner: string | null,
+): ProviderConsensus[] | undefined {
+  // Only meaningful when sims actually span multiple providers. A 1-provider
+  // ensemble would just duplicate the top-level distribution, which adds
+  // visual noise without insight.
+  const present = new Set(
+    sims.map((s) => s.provider).filter((p): p is string => typeof p === "string" && p.length > 0),
+  );
+  if (present.size < 2) return undefined;
+
+  const byProvider = new Map<string, EnsembleSimSnapshot[]>();
+  for (const s of sims) {
+    const p = s.provider ?? "unknown";
+    const arr = byProvider.get(p) ?? [];
+    arr.push(s);
+    byProvider.set(p, arr);
+  }
+
+  const out: ProviderConsensus[] = [];
+  for (const [provider, group] of byProvider.entries()) {
+    const dist = new Map<string, number>();
+    for (const s of group) {
+      const k = s.bestCountry ?? "?";
+      dist.set(k, (dist.get(k) ?? 0) + 1);
+    }
+    const distribution = [...dist.entries()]
+      .map(([country, count]) => ({
+        country,
+        count,
+        percent: Math.round((count / group.length) * 100),
+      }))
+      .sort((a, b) => b.count - a.count);
+    const aligned = overallWinner
+      ? group.filter((s) => s.bestCountry === overallWinner).length
+      : 0;
+    out.push({
+      provider,
+      simCount: group.length,
+      bestCountryDistribution: distribution,
+      agreementWithOverallPercent: Math.round((aligned / group.length) * 100),
+    });
+  }
+  // Anchor the order so the UI is stable across re-renders.
+  out.sort((a, b) => a.provider.localeCompare(b.provider));
+  return out;
 }
 
 /* ────────────────────────────────── internals ─── */
