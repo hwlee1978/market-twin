@@ -55,10 +55,10 @@ export interface EnsembleSimSnapshot {
   pricing?: PricingResult;
   /**
    * Per-persona records. Heavy field — 200 entries × ~30 fields each
-   * — but keeping only what we need for aggregation downstream
-   * (intent, country, voice, ageRange, profession). Aggregator consumes
-   * this and emits PersonasAggregate; we don't keep the raw array on
-   * the persisted EnsembleAggregate.
+   * — but keeping only what we need for aggregation downstream:
+   * intent, country, voice, ageRange, profession, gender, incomeBand.
+   * Aggregator consumes this and emits PersonasAggregate; we don't
+   * keep the raw array on the persisted EnsembleAggregate.
    */
   personas?: Array<{
     country: string;
@@ -66,6 +66,8 @@ export interface EnsembleSimSnapshot {
     voice?: string;
     ageRange?: string;
     profession?: string;
+    gender?: string;
+    incomeBand?: string;
   }>;
   /** Creative asset scoring from this sim (optional — sim may have skipped). */
   creative?: Array<{
@@ -201,6 +203,30 @@ export interface PersonasAggregate {
   /** Demographic distributions — useful for the report and any ad-targeting follow-up. */
   ageDistribution: Array<{ bucket: string; count: number }>;
   professionTopN: Array<{ profession: string; count: number }>;
+
+  /**
+   * Segment-level intent breakdown. Each cut (gender / age / income)
+   * shows mean purchase intent and the country that segment most often
+   * picks as their #1 choice. Populated only when the underlying field
+   * is present on enough personas — segments with <10 members get
+   * dropped because the means become noisy.
+   */
+  segmentBreakdown: {
+    byGender: SegmentBreakdownRow[];
+    byAge: SegmentBreakdownRow[];
+    byIncome: SegmentBreakdownRow[];
+  };
+}
+
+export interface SegmentBreakdownRow {
+  /** The segment label (e.g. "female", "25-34", "$50k–$80k"). */
+  bucket: string;
+  count: number;
+  meanIntent: number;
+  /** Country that most personas in this segment had as their highest-intent target market. */
+  topCountry: string;
+  /** Share of this segment whose top market is `topCountry`. */
+  topCountryShare: number;
 }
 
 /**
@@ -491,6 +517,19 @@ function computePersonasAggregate(
     .sort((a, b) => b.count - a.count)
     .slice(0, 12);
 
+  // Segment cuts. Each cut buckets personas by a demographic field, then
+  // collapses to one row per bucket: count + mean intent + the country
+  // members of that bucket most often choose as #1. The "country choice"
+  // here is the persona's own country field — we treat that as their
+  // primary market interest because the schema doesn't have a per-
+  // persona target-market preference. Buckets with <10 personas get
+  // dropped (means too noisy to be actionable).
+  const segmentBreakdown = {
+    byGender: bucketIntoSegments(all, (p) => normaliseGender(p.gender)),
+    byAge: bucketIntoSegments(all, (p) => normaliseAge(p.ageRange)),
+    byIncome: bucketIntoSegments(all, (p) => normaliseIncome(p.incomeBand)),
+  };
+
   return {
     total: all.length,
     byCountry,
@@ -503,7 +542,99 @@ function computePersonasAggregate(
     topNegativeVoices,
     ageDistribution,
     professionTopN,
+    segmentBreakdown,
   };
+}
+
+const SEGMENT_MIN_COUNT = 10;
+
+interface RawPersona {
+  country: string;
+  purchaseIntent: number;
+  voice?: string;
+  ageRange?: string;
+  profession?: string;
+  gender?: string;
+  incomeBand?: string;
+}
+
+function bucketIntoSegments(
+  personas: RawPersona[],
+  bucketFn: (p: RawPersona) => string | null,
+): SegmentBreakdownRow[] {
+  const buckets = new Map<string, RawPersona[]>();
+  for (const p of personas) {
+    const key = bucketFn(p);
+    if (!key) continue;
+    const arr = buckets.get(key) ?? [];
+    arr.push(p);
+    buckets.set(key, arr);
+  }
+  const rows: SegmentBreakdownRow[] = [];
+  for (const [bucket, members] of buckets.entries()) {
+    if (members.length < SEGMENT_MIN_COUNT) continue;
+    const meanIntent = round1(mean(members.map((m) => m.purchaseIntent)));
+    // Top country = the most-frequently-listed home country among this
+    // bucket's personas. Tie-break alphabetical for stability.
+    const countryCounts = new Map<string, number>();
+    for (const m of members) {
+      countryCounts.set(m.country, (countryCounts.get(m.country) ?? 0) + 1);
+    }
+    const topEntry = [...countryCounts.entries()].sort(
+      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+    )[0];
+    const topCountry = topEntry?.[0] ?? "?";
+    const topCountryShare = topEntry
+      ? Math.round((topEntry[1] / members.length) * 100)
+      : 0;
+    rows.push({
+      bucket,
+      count: members.length,
+      meanIntent,
+      topCountry,
+      topCountryShare,
+    });
+  }
+  // Sort by count desc so the largest segment is first.
+  rows.sort((a, b) => b.count - a.count);
+  return rows;
+}
+
+function normaliseGender(g: string | undefined): string | null {
+  if (!g) return null;
+  const t = g.trim().toLowerCase();
+  if (!t) return null;
+  // LLM occasionally returns "F", "Female", "여성", "female", etc. Keep
+  // the canonical pair so segments don't fragment across labels.
+  if (t.startsWith("f") || t.includes("female") || t.includes("여")) return "female";
+  if (t.startsWith("m") || t.includes("male") || t.includes("남")) return "male";
+  if (t.includes("non") || t.includes("nb") || t.includes("기타") || t.includes("other"))
+    return "other";
+  return null;
+}
+
+function normaliseAge(a: string | undefined): string | null {
+  if (!a) return null;
+  const t = a.trim();
+  if (!t) return null;
+  // Already a range like "25-34", "20s", or "30대" — pass through. Numbers
+  // alone (e.g. "27") get bucketed into a decade so they aggregate with
+  // peers instead of forming singletons.
+  if (/^\d{1,2}\s*[-–]\s*\d{1,2}$/.test(t) || /\d+s$/i.test(t)) return t;
+  if (/^\d+대$/.test(t)) return t;
+  const num = parseInt(t, 10);
+  if (Number.isFinite(num) && num > 0 && num < 120) {
+    const decade = Math.floor(num / 10) * 10;
+    return `${decade}s`;
+  }
+  return t;
+}
+
+function normaliseIncome(i: string | undefined): string | null {
+  if (!i) return null;
+  const t = i.trim();
+  if (!t) return null;
+  return t;
 }
 
 function computePricingAggregate(

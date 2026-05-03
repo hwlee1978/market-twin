@@ -1598,6 +1598,89 @@ function PersonasTab({
           </div>
         </div>
       </div>
+
+      {/* Segment intent breakdown — gender / age / income cuts. Each
+          row buckets personas by that demographic and shows mean intent
+          + which country members of that bucket most often picked.
+          Buckets with <10 personas are dropped server-side so the means
+          stay actionable. */}
+      {(personas.segmentBreakdown.byGender.length > 0 ||
+        personas.segmentBreakdown.byAge.length > 0 ||
+        personas.segmentBreakdown.byIncome.length > 0) && (
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900 mb-2">
+            {isKo ? "세그먼트별 구매의향 (10명 이상 그룹만)" : "Intent by segment (groups ≥10 only)"}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <SegmentTable
+              title={isKo ? "성별" : "Gender"}
+              rows={personas.segmentBreakdown.byGender}
+              isKo={isKo}
+            />
+            <SegmentTable
+              title={isKo ? "연령" : "Age"}
+              rows={personas.segmentBreakdown.byAge}
+              isKo={isKo}
+            />
+            <SegmentTable
+              title={isKo ? "소득" : "Income"}
+              rows={personas.segmentBreakdown.byIncome}
+              isKo={isKo}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SegmentTable({
+  title,
+  rows,
+  isKo,
+}: {
+  title: string;
+  rows: NonNullable<EnsembleAggregate["personas"]>["segmentBreakdown"]["byGender"];
+  isKo: boolean;
+}) {
+  return (
+    <div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+        {title}
+      </div>
+      <div className="card p-3">
+        {rows.length === 0 ? (
+          <div className="text-xs text-slate-400 text-center py-2">—</div>
+        ) : (
+          <table className="w-full text-xs">
+            <thead className="text-slate-500">
+              <tr>
+                <th className="text-left py-1 pr-2 font-medium">{isKo ? "그룹" : "Bucket"}</th>
+                <th className="text-right py-1 px-1 font-medium">n</th>
+                <th className="text-right py-1 px-1 font-medium">{isKo ? "평균" : "Mean"}</th>
+                <th className="text-left py-1 pl-2 font-medium">{isKo ? "1순위 시장" : "Top market"}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rows.map((r) => (
+                <tr key={r.bucket}>
+                  <td className="py-1.5 pr-2 text-slate-800 truncate max-w-[100px]" title={r.bucket}>
+                    {r.bucket}
+                  </td>
+                  <td className="py-1.5 px-1 text-right tabular-nums text-slate-600">{r.count}</td>
+                  <td className="py-1.5 px-1 text-right tabular-nums font-semibold text-slate-900">
+                    {r.meanIntent}%
+                  </td>
+                  <td className="py-1.5 pl-2 text-slate-700">
+                    <span className="font-medium">{r.topCountry}</span>
+                    <span className="text-slate-400 text-[10px] ml-1">{r.topCountryShare}%</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }

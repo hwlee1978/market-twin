@@ -308,6 +308,8 @@ async function main() {
         voice?: string;
         ageRange?: string;
         profession?: string;
+        gender?: string;
+        incomeBand?: string;
       };
       if (typeof rec.purchaseIntent !== "number" || !rec.country) return [];
       return [
@@ -317,6 +319,8 @@ async function main() {
           voice: rec.voice,
           ageRange: rec.ageRange,
           profession: rec.profession,
+          gender: rec.gender,
+          incomeBand: rec.incomeBand,
         },
       ];
     });

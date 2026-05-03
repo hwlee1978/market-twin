@@ -1140,6 +1140,40 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           </View>
         )}
 
+        {tierBudget.showDemographics &&
+          (p.segmentBreakdown.byGender.length > 0 ||
+            p.segmentBreakdown.byAge.length > 0 ||
+            p.segmentBreakdown.byIncome.length > 0) && (
+            <View style={styles.sectionBlock}>
+              <MText style={styles.sectionEyebrow}>
+                {isKo ? "세그먼트별 구매의향" : "Intent by segment"}
+              </MText>
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                {p.segmentBreakdown.byGender.length > 0 && (
+                  <SegmentBlock
+                    title={isKo ? "성별" : "Gender"}
+                    rows={p.segmentBreakdown.byGender}
+                    isKo={isKo}
+                  />
+                )}
+                {p.segmentBreakdown.byAge.length > 0 && (
+                  <SegmentBlock
+                    title={isKo ? "연령" : "Age"}
+                    rows={p.segmentBreakdown.byAge}
+                    isKo={isKo}
+                  />
+                )}
+                {p.segmentBreakdown.byIncome.length > 0 && (
+                  <SegmentBlock
+                    title={isKo ? "소득" : "Income"}
+                    rows={p.segmentBreakdown.byIncome}
+                    isKo={isKo}
+                  />
+                )}
+              </View>
+            </View>
+          )}
+
         {pageFooter}
       </Page>
     );
@@ -1628,6 +1662,37 @@ function BulletItem({ text }: { text: string }) {
   return (
     <View style={styles.bulletRow}>
       <MText style={styles.bulletText}>{`· ${text}`}</MText>
+    </View>
+  );
+}
+
+function SegmentBlock({
+  title,
+  rows,
+  isKo,
+}: {
+  title: string;
+  rows: NonNullable<EnsembleAggregate["personas"]>["segmentBreakdown"]["byGender"];
+  isKo: boolean;
+}) {
+  return (
+    <View style={{ flex: 1, backgroundColor: C.card, padding: 8, borderRadius: 4 }}>
+      <MText style={{ fontSize: 8, fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4 }}>
+        {title}
+      </MText>
+      {rows.map((r) => (
+        <View key={r.bucket} style={{ marginBottom: 4 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <MText style={{ fontSize: 9, color: C.ink, fontWeight: 600 }}>{r.bucket}</MText>
+            <MText style={{ fontSize: 9, color: C.ink, fontFamily: "AppFont" }}>
+              {`${r.meanIntent}%`}
+            </MText>
+          </View>
+          <MText style={{ fontSize: 7, color: C.muted }}>
+            {`n=${r.count} · ${isKo ? "1순위" : "Top"}: ${r.topCountry} (${r.topCountryShare}%)`}
+          </MText>
+        </View>
+      ))}
     </View>
   );
 }
