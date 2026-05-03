@@ -5,6 +5,13 @@ import { useTranslations } from "next-intl";
 import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download } from "lucide-react";
 import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
+import {
+  BestCountryPieChart,
+  CountryIntentChart,
+  CountryScoreChart,
+  IntentHistogramChart,
+  PricingCurveChart,
+} from "./charts";
 
 interface EnsembleStatus {
   id: string;
@@ -28,6 +35,18 @@ interface EnsembleStatus {
   error_message?: string | null;
 }
 
+interface ProjectInfo {
+  name: string;
+  product_name: string;
+  category: string | null;
+  description: string | null;
+  base_price_cents: number | null;
+  currency: string | null;
+  objective: string | null;
+  originating_country: string | null;
+  candidate_countries: string[] | null;
+}
+
 interface EnsembleResult {
   id: string;
   tier: string;
@@ -35,6 +54,9 @@ interface EnsembleResult {
   per_sim_personas: number;
   llm_providers: string[];
   aggregate: EnsembleAggregate;
+  created_at?: string;
+  completed_at?: string | null;
+  project?: ProjectInfo | null;
 }
 
 export function EnsembleView({
@@ -409,6 +431,12 @@ function EnsembleDashboard({
           confidenceColor={confidenceColor}
           bestCountryDistribution={bestCountryDistribution}
           simCount={simCount}
+          effectivePersonas={effectivePersonas}
+          tier={tier}
+          llmProviders={llm_providers}
+          parallelSims={parallel_sims}
+          completedAt={result.completed_at ?? null}
+          project={result.project ?? null}
           varianceAssessment={varianceAssessment}
           locale={locale}
           isKo={isKo}
@@ -537,6 +565,12 @@ function SummaryTab({
   confidenceColor,
   bestCountryDistribution,
   simCount,
+  effectivePersonas,
+  tier,
+  llmProviders,
+  parallelSims,
+  completedAt,
+  project,
   varianceAssessment,
   locale,
   isKo,
@@ -545,12 +579,33 @@ function SummaryTab({
   confidenceColor: string;
   bestCountryDistribution: EnsembleAggregate["bestCountryDistribution"];
   simCount: number;
+  effectivePersonas: number;
+  tier: string;
+  llmProviders: string[];
+  parallelSims: number;
+  completedAt: string | null;
+  project: ProjectInfo | null;
   varianceAssessment: EnsembleAggregate["varianceAssessment"];
   locale: string;
   isKo: boolean;
 }) {
   return (
     <div className="space-y-6">
+      {project && (
+        <ProjectInfoCard project={project} locale={locale} isKo={isKo} />
+      )}
+
+      <SimRunInfoCard
+        tier={tier}
+        simCount={simCount}
+        parallelSims={parallelSims}
+        effectivePersonas={effectivePersonas}
+        llmProviders={llmProviders}
+        completedAt={completedAt}
+        isKo={isKo}
+        locale={locale}
+      />
+
       <div className="card p-6 bg-gradient-to-br from-brand-50/40 to-white border-brand/20">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -571,24 +626,32 @@ function SummaryTab({
           </div>
           <CheckCircle2 className={confidenceColor} size={32} />
         </div>
-        <div className="mt-6 space-y-2">
-          {bestCountryDistribution.map((b) => (
-            <div key={b.country} className="flex items-center gap-3 text-sm">
-              <div className="w-12 font-medium text-slate-700">{b.country}</div>
-              <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className={clsx(
-                    "h-full",
-                    b.country === recommendation.country ? "bg-success" : "bg-slate-300",
-                  )}
-                  style={{ width: `${b.percent}%` }}
-                />
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+          <div className="sm:col-span-1">
+            <BestCountryPieChart
+              data={bestCountryDistribution}
+              winner={recommendation.country}
+            />
+          </div>
+          <div className="sm:col-span-2 space-y-2">
+            {bestCountryDistribution.map((b) => (
+              <div key={b.country} className="flex items-center gap-3 text-sm">
+                <div className="w-12 font-medium text-slate-700">{b.country}</div>
+                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={clsx(
+                      "h-full",
+                      b.country === recommendation.country ? "bg-success" : "bg-slate-300",
+                    )}
+                    style={{ width: `${b.percent}%` }}
+                  />
+                </div>
+                <div className="w-20 text-right text-xs text-slate-500 tabular-nums">
+                  {b.count}/{simCount} ({b.percent}%)
+                </div>
               </div>
-              <div className="w-20 text-right text-xs text-slate-500 tabular-nums">
-                {b.count}/{simCount} ({b.percent}%)
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
@@ -623,6 +686,173 @@ function SummaryTab({
               : `Max score range: ${varianceAssessment.maxFinalScoreRange}pt · Mean range: ${varianceAssessment.meanFinalScoreRange}pt`}
           </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Quick "what was this analysis about" card — product name, category,
+ * pricing, the candidate market list. Sits at the very top of the
+ * Summary tab so the user reading the report later doesn't have to
+ * jump back to the project page to remember what they ran.
+ */
+function ProjectInfoCard({
+  project,
+  locale,
+  isKo,
+}: {
+  project: ProjectInfo;
+  locale: string;
+  isKo: boolean;
+}) {
+  void locale;
+  const fmtPrice = () => {
+    if (project.base_price_cents == null) return "—";
+    const v = project.base_price_cents / 100;
+    return `${v.toFixed(2)} ${project.currency ?? "USD"}`;
+  };
+  const objectiveLabel = (() => {
+    if (!project.objective) return "—";
+    if (!isKo) return project.objective;
+    const map: Record<string, string> = {
+      conversion: "전환",
+      awareness: "인지도",
+      retention: "유지",
+      expansion: "확장",
+    };
+    return map[project.objective] ?? project.objective;
+  })();
+  return (
+    <div className="card p-5">
+      <div className="flex items-baseline justify-between mb-4">
+        <h2 className="text-base font-semibold text-slate-900">
+          {isKo ? "프로젝트 개요" : "Project info"}
+        </h2>
+        <span className="text-xs text-slate-400">{project.name}</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
+            {isKo ? "제품" : "Product"}
+          </div>
+          <div className="text-sm font-medium text-slate-900">
+            {project.product_name}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
+            {isKo ? "카테고리" : "Category"}
+          </div>
+          <div className="text-sm text-slate-900">{project.category ?? "—"}</div>
+        </div>
+        <div>
+          <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
+            {isKo ? "기본 가격" : "Base price"}
+          </div>
+          <div className="text-sm text-slate-900 tabular-nums">{fmtPrice()}</div>
+        </div>
+        <div>
+          <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
+            {isKo ? "출시 목표" : "Objective"}
+          </div>
+          <div className="text-sm text-slate-900">{objectiveLabel}</div>
+        </div>
+        <div>
+          <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
+            {isKo ? "출시 국가" : "Origin"}
+          </div>
+          <div className="text-sm text-slate-900">
+            {project.originating_country ?? "—"}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
+            {isKo ? "후보 진출국" : "Target markets"}
+          </div>
+          <div className="text-sm text-slate-900">
+            {(project.candidate_countries ?? []).join(", ") || "—"}
+          </div>
+        </div>
+        {project.description && (
+          <div className="sm:col-span-2 pt-3 border-t border-slate-100">
+            <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
+              {isKo ? "설명" : "Description"}
+            </div>
+            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+              {project.description}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Snapshot of how this analysis was actually executed — tier label, sim
+ * count, total effective personas, providers used, completion timestamp.
+ * Complements the project-info card by answering "what was the budget /
+ * setup of THIS run" once the user has more than one ensemble per project.
+ */
+function SimRunInfoCard({
+  tier,
+  simCount,
+  parallelSims,
+  effectivePersonas,
+  llmProviders,
+  completedAt,
+  isKo,
+  locale,
+}: {
+  tier: string;
+  simCount: number;
+  parallelSims: number;
+  effectivePersonas: number;
+  llmProviders: string[];
+  completedAt: string | null;
+  isKo: boolean;
+  locale: string;
+}) {
+  const completed = completedAt
+    ? new Date(completedAt).toLocaleString(locale, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "—";
+  const successRate = parallelSims > 0
+    ? Math.round((simCount / parallelSims) * 100)
+    : 0;
+  return (
+    <div className="card p-5">
+      <h2 className="text-base font-semibold text-slate-900 mb-4">
+        {isKo ? "실행 요약" : "Run summary"}
+      </h2>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <KpiCard
+          label={isKo ? "분석 단계" : "Tier"}
+          value={tierBadgeLabel(tier, isKo)}
+        />
+        <KpiCard
+          label={isKo ? "완료 시뮬" : "Completed sims"}
+          value={`${simCount}/${parallelSims}`}
+          sub={`${successRate}%`}
+          accent={
+            successRate >= 90 ? "text-success" : successRate >= 60 ? "text-warn" : "text-risk"
+          }
+        />
+        <KpiCard
+          label={isKo ? "유효 페르소나" : "Effective personas"}
+          value={effectivePersonas.toLocaleString()}
+        />
+        <KpiCard
+          label="LLM"
+          value={llmProviders.map(providerLabel).join(" · ")}
+          sub={completed}
+        />
       </div>
     </div>
   );
@@ -785,7 +1015,23 @@ function CountriesTab({
 
       <div>
         <h2 className="text-base font-semibold text-slate-900 mb-3">
-          {isKo ? "국가별 점수 분포" : "Per-country score distribution"}
+          {isKo ? "국가별 점수 (평균)" : "Per-country mean score"}
+        </h2>
+        <div className="card p-4">
+          <CountryScoreChart
+            data={countryStats.map((c) => ({
+              country: c.country,
+              mean: c.finalScore.mean,
+              min: c.finalScore.min,
+              max: c.finalScore.max,
+            }))}
+          />
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-base font-semibold text-slate-900 mb-3">
+          {isKo ? "국가별 점수 분포 (전체 통계)" : "Per-country full statistics"}
         </h2>
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
@@ -880,29 +1126,7 @@ function PersonasTab({
           {isKo ? "구매의향 분포 (히스토그램)" : "Intent distribution"}
         </h2>
         <div className="card p-4">
-          <div className="flex items-end gap-1 h-32">
-            {personas.intentHistogram.map((b) => {
-              const max = Math.max(...personas.intentHistogram.map((x) => x.count));
-              const h = max > 0 ? (b.count / max) * 100 : 0;
-              return (
-                <div key={b.binStart} className="flex-1 flex flex-col items-center gap-1">
-                  <div
-                    className={clsx(
-                      "w-full rounded-t",
-                      b.binStart >= 70
-                        ? "bg-success"
-                        : b.binStart < 35
-                          ? "bg-warn"
-                          : "bg-slate-300",
-                    )}
-                    style={{ height: `${h}%` }}
-                    title={`${b.binStart}–${b.binEnd}: ${b.count}`}
-                  />
-                  <div className="text-[10px] text-slate-400 tabular-nums">{b.binStart}</div>
-                </div>
-              );
-            })}
-          </div>
+          <IntentHistogramChart data={personas.intentHistogram} />
         </div>
       </div>
 
@@ -910,31 +1134,8 @@ function PersonasTab({
         <h2 className="text-base font-semibold text-slate-900 mb-3">
           {isKo ? "국가별 평균 구매의향" : "Per-country mean intent"}
         </h2>
-        <div className="card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-2 text-left">{isKo ? "국가" : "Country"}</th>
-                <th className="px-4 py-2 text-right">{isKo ? "페르소나" : "Personas"}</th>
-                <th className="px-4 py-2 text-right">{isKo ? "평균 의향" : "Mean intent"}</th>
-                <th className="px-4 py-2 text-right">{isKo ? "중앙값" : "Median"}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {personas.byCountry.map((c) => (
-                <tr key={c.country}>
-                  <td className="px-4 py-2 font-medium text-slate-900">{c.country}</td>
-                  <td className="px-4 py-2 text-right tabular-nums text-slate-600">
-                    {c.count.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-2 text-right tabular-nums">{c.meanIntent}%</td>
-                  <td className="px-4 py-2 text-right tabular-nums text-slate-500">
-                    {c.medianIntent}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="card p-4">
+          <CountryIntentChart data={personas.byCountry} />
         </div>
       </div>
 
@@ -1093,29 +1294,36 @@ function PricingTab({
           {isKo ? "가격별 평균 전환률 (시뮬 합산)" : "Mean conversion by price"}
         </h2>
         <div className="card p-4">
-          <div className="space-y-1">
-            {pricing.curve.map((p) => (
-              <div key={p.priceCents} className="flex items-center gap-3 text-xs">
-                <div className="w-16 tabular-nums text-slate-700 font-medium">
-                  {fmt(p.priceCents)}
-                </div>
-                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-brand"
-                    style={{ width: `${(p.meanConversionProbability / maxConv) * 100}%` }}
-                  />
-                </div>
-                <div className="w-14 text-right text-slate-600 tabular-nums">
-                  {(p.meanConversionProbability * 100).toFixed(1)}%
-                </div>
-                <div className="w-12 text-right text-slate-400 tabular-nums">
-                  n={p.sampleCount}
-                </div>
-              </div>
-            ))}
-          </div>
+          <PricingCurveChart data={pricing.curve} />
         </div>
       </div>
+
+      <details className="card p-4">
+        <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700">
+          {isKo ? "원본 가격 포인트 데이터" : "Raw price-point data"}
+        </summary>
+        <div className="mt-3 space-y-1">
+          {pricing.curve.map((p) => (
+            <div key={p.priceCents} className="flex items-center gap-3 text-xs">
+              <div className="w-16 tabular-nums text-slate-700 font-medium">
+                {fmt(p.priceCents)}
+              </div>
+              <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-brand/70"
+                  style={{ width: `${(p.meanConversionProbability / maxConv) * 100}%` }}
+                />
+              </div>
+              <div className="w-14 text-right text-slate-600 tabular-nums">
+                {(p.meanConversionProbability * 100).toFixed(1)}%
+              </div>
+              <div className="w-12 text-right text-slate-400 tabular-nums">
+                n={p.sampleCount}
+              </div>
+            </div>
+          ))}
+        </div>
+      </details>
     </div>
   );
 }

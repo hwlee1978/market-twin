@@ -46,6 +46,18 @@ export async function GET(
     );
   }
 
+  // Pull project context so the dashboard summary tab can show product
+  // name / category / pricing / candidate countries without a second
+  // round-trip from the client. Tiny extra query, kept here rather than
+  // widening the ensembles-row select.
+  const { data: project } = await supabase
+    .from("projects")
+    .select(
+      "name, product_name, category, description, base_price_cents, currency, objective, originating_country, candidate_countries",
+    )
+    .eq("id", ensemble.project_id)
+    .single();
+
   return NextResponse.json({
     id: ensemble.id,
     project_id: ensemble.project_id,
@@ -57,5 +69,6 @@ export async function GET(
     created_at: ensemble.created_at,
     completed_at: ensemble.completed_at,
     aggregate: ensemble.aggregate_result,
+    project: project ?? null,
   });
 }
