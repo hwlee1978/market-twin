@@ -306,8 +306,8 @@ async function main() {
         country?: string;
         purchaseIntent?: number;
         voice?: string;
-        age?: number;
-        occupation?: string;
+        ageRange?: string;
+        profession?: string;
       };
       if (typeof rec.purchaseIntent !== "number" || !rec.country) return [];
       return [
@@ -315,8 +315,8 @@ async function main() {
           country: rec.country.toUpperCase(),
           purchaseIntent: rec.purchaseIntent,
           voice: rec.voice,
-          age: rec.age,
-          occupation: rec.occupation,
+          ageRange: rec.ageRange,
+          profession: rec.profession,
         },
       ];
     });

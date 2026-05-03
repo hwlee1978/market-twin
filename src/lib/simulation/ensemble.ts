@@ -56,7 +56,7 @@ export interface EnsembleSimSnapshot {
   /**
    * Per-persona records. Heavy field — 200 entries × ~30 fields each
    * — but keeping only what we need for aggregation downstream
-   * (intent, country, voice, age, occupation). Aggregator consumes
+   * (intent, country, voice, ageRange, profession). Aggregator consumes
    * this and emits PersonasAggregate; we don't keep the raw array on
    * the persisted EnsembleAggregate.
    */
@@ -64,8 +64,8 @@ export interface EnsembleSimSnapshot {
     country: string;
     purchaseIntent: number;
     voice?: string;
-    age?: number;
-    occupation?: string;
+    ageRange?: string;
+    profession?: string;
   }>;
   /** Creative asset scoring from this sim (optional — sim may have skipped). */
   creative?: Array<{
@@ -188,19 +188,19 @@ export interface PersonasAggregate {
     text: string;
     country: string;
     intent: number;
-    occupation?: string;
-    age?: number;
+    profession?: string;
+    ageRange?: string;
   }>;
   topNegativeVoices: Array<{
     text: string;
     country: string;
     intent: number;
-    occupation?: string;
-    age?: number;
+    profession?: string;
+    ageRange?: string;
   }>;
   /** Demographic distributions — useful for the report and any ad-targeting follow-up. */
   ageDistribution: Array<{ bucket: string; count: number }>;
-  occupationTopN: Array<{ occupation: string; count: number }>;
+  professionTopN: Array<{ profession: string; count: number }>;
 }
 
 /**
@@ -445,8 +445,8 @@ function computePersonasAggregate(
         text: p.voice ?? "",
         country: p.country,
         intent: p.purchaseIntent,
-        occupation: p.occupation,
-        age: p.age,
+        profession: p.profession,
+        ageRange: p.ageRange,
       });
       if (out.length >= take) break;
     }
@@ -464,25 +464,30 @@ function computePersonasAggregate(
     5,
   );
 
-  // Demographics — 10-year age buckets, top occupations.
+  // Demographics — ageRange comes through as a string label like "25-34"
+  // straight from the LLM, so we just bucket by literal value. Sort is
+  // numeric-first when the buckets parse cleanly.
   const ageBucketMap = new Map<string, number>();
   for (const p of all) {
-    if (typeof p.age !== "number" || p.age <= 0) continue;
-    const decade = Math.floor(p.age / 10) * 10;
-    const key = `${decade}s`;
-    ageBucketMap.set(key, (ageBucketMap.get(key) ?? 0) + 1);
+    if (!p.ageRange) continue;
+    ageBucketMap.set(p.ageRange, (ageBucketMap.get(p.ageRange) ?? 0) + 1);
   }
   const ageDistribution = [...ageBucketMap.entries()]
     .map(([bucket, count]) => ({ bucket, count }))
-    .sort((a, b) => parseInt(a.bucket) - parseInt(b.bucket));
+    .sort((a, b) => {
+      const an = parseInt(a.bucket);
+      const bn = parseInt(b.bucket);
+      if (Number.isFinite(an) && Number.isFinite(bn)) return an - bn;
+      return a.bucket.localeCompare(b.bucket);
+    });
 
-  const occMap = new Map<string, number>();
+  const profMap = new Map<string, number>();
   for (const p of all) {
-    if (!p.occupation) continue;
-    occMap.set(p.occupation, (occMap.get(p.occupation) ?? 0) + 1);
+    if (!p.profession) continue;
+    profMap.set(p.profession, (profMap.get(p.profession) ?? 0) + 1);
   }
-  const occupationTopN = [...occMap.entries()]
-    .map(([occupation, count]) => ({ occupation, count }))
+  const professionTopN = [...profMap.entries()]
+    .map(([profession, count]) => ({ profession, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 12);
 
@@ -497,7 +502,7 @@ function computePersonasAggregate(
     topPositiveVoices,
     topNegativeVoices,
     ageDistribution,
-    occupationTopN,
+    professionTopN,
   };
 }
 

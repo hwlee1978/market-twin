@@ -451,6 +451,14 @@ function EnsembleDashboard({
           effectivePersonas={effectivePersonas}
           tier={tier}
           isKo={isKo}
+          bestCountryDistribution={bestCountryDistribution}
+          countryStats={countryStats}
+          segments={segments}
+          varianceAssessment={varianceAssessment}
+          providerBreakdown={providerBreakdown}
+          pricing={pricing}
+          personas={personas}
+          locale={locale}
         />
       )}
       {activeTab === "countries" && (
@@ -465,7 +473,12 @@ function EnsembleDashboard({
         />
       )}
       {activeTab === "personas" && (
-        <PersonasTab personas={personas} isKo={isKo} locale={locale} />
+        <PersonasTab
+          personas={personas}
+          isKo={isKo}
+          locale={locale}
+          ensembleId={result.id}
+        />
       )}
       {activeTab === "pricing" && (
         <PricingTab pricing={pricing} isKo={isKo} />
@@ -866,6 +879,14 @@ function OverviewTab({
   effectivePersonas,
   tier,
   isKo,
+  bestCountryDistribution,
+  countryStats,
+  segments,
+  varianceAssessment,
+  providerBreakdown,
+  pricing,
+  personas,
+  locale,
 }: {
   narrative: EnsembleAggregate["narrative"];
   recommendation: EnsembleAggregate["recommendation"];
@@ -874,7 +895,23 @@ function OverviewTab({
   effectivePersonas: number;
   tier: string;
   isKo: boolean;
+  bestCountryDistribution: EnsembleAggregate["bestCountryDistribution"];
+  countryStats: EnsembleAggregate["countryStats"];
+  segments: EnsembleAggregate["segments"];
+  varianceAssessment: EnsembleAggregate["varianceAssessment"];
+  providerBreakdown: EnsembleAggregate["providerBreakdown"];
+  pricing: EnsembleAggregate["pricing"];
+  personas: EnsembleAggregate["personas"];
+  locale: string;
 }) {
+  void locale;
+  const runnerUp = bestCountryDistribution[1];
+  const winnerStats = countryStats.find((c) => c.country === recommendation.country);
+  const overallSeg = segments.find((s) => s.id === "overall");
+  const topRisk = narrative?.mergedRisks?.[0];
+  const topAction = narrative?.mergedActions?.[0];
+  const fmtPrice = (cents?: number) =>
+    typeof cents === "number" ? `$${(cents / 100).toFixed(2)}` : "—";
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -900,10 +937,157 @@ function OverviewTab({
         />
       </div>
 
+      {/* Key findings — bullet list of the 5-7 most-actionable headlines.
+          Each bullet should leave the reader knowing what to do next, not
+          just what the number is. */}
+      <div>
+        <h2 className="text-base font-semibold text-slate-900 mb-3">
+          {isKo ? "핵심 발견" : "Key findings"}
+        </h2>
+        <ul className="card p-5 space-y-3 text-sm text-slate-700 leading-relaxed">
+          <li className="flex gap-3">
+            <span className="shrink-0 text-brand font-bold">·</span>
+            <span>
+              {isKo ? (
+                <>
+                  <span className="font-semibold text-slate-900">{recommendation.country}</span>
+                  {" "}진출이 합의 우위 ({recommendation.consensusPercent}% / {recommendation.confidence})
+                  {winnerStats &&
+                    ` — 평균 점수 ${winnerStats.finalScore.mean.toFixed(0)}, 표준편차 ${winnerStats.finalScore.std.toFixed(1)}`}
+                  .
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold text-slate-900">{recommendation.country}</span>
+                  {" "}leads consensus ({recommendation.consensusPercent}% / {recommendation.confidence})
+                  {winnerStats &&
+                    ` — mean score ${winnerStats.finalScore.mean.toFixed(0)}, std ${winnerStats.finalScore.std.toFixed(1)}`}
+                  .
+                </>
+              )}
+            </span>
+          </li>
+          {runnerUp && (
+            <li className="flex gap-3">
+              <span className="shrink-0 text-brand font-bold">·</span>
+              <span>
+                {isKo
+                  ? `차순위는 ${runnerUp.country} (${runnerUp.percent}%) — 1순위가 막혔을 때 즉시 대안.`
+                  : `Runner-up: ${runnerUp.country} (${runnerUp.percent}%) — immediate fallback if the winner is blocked.`}
+              </span>
+            </li>
+          )}
+          {overallSeg && overallSeg.bestCountry !== recommendation.country && (
+            <li className="flex gap-3">
+              <span className="shrink-0 text-warn font-bold">·</span>
+              <span>
+                {isKo
+                  ? `종합 점수 1위는 ${overallSeg.bestCountry} (${overallSeg.bestValue.toFixed(0)}) — 합의도 1위와 다르므로 의사결정 시 참고.`
+                  : `Top-scored market is ${overallSeg.bestCountry} (${overallSeg.bestValue.toFixed(0)}) — diverges from consensus winner; review before committing.`}
+              </span>
+            </li>
+          )}
+          {pricing && (
+            <li className="flex gap-3">
+              <span className="shrink-0 text-brand font-bold">·</span>
+              <span>
+                {isKo
+                  ? `권장 가격 ${fmtPrice(pricing.recommendedPriceCents)} (시뮬 50% 구간 ${fmtPrice(pricing.recommendedPriceP25)}–${fmtPrice(pricing.recommendedPriceP75)}).`
+                  : `Recommended price ${fmtPrice(pricing.recommendedPriceCents)} (mid-50% range ${fmtPrice(pricing.recommendedPriceP25)}–${fmtPrice(pricing.recommendedPriceP75)}).`}
+              </span>
+            </li>
+          )}
+          {personas && (
+            <li className="flex gap-3">
+              <span className="shrink-0 text-brand font-bold">·</span>
+              <span>
+                {isKo
+                  ? `${personas.total.toLocaleString()}명 페르소나 평균 구매의향 ${personas.intentMean.toFixed(0)}% (강한 관심 ${personas.highIntentCount.toLocaleString()}명, 약한 관심 ${personas.lowIntentCount.toLocaleString()}명).`
+                  : `${personas.total.toLocaleString()} personas with mean intent ${personas.intentMean.toFixed(0)}% (high ≥70: ${personas.highIntentCount}, low <35: ${personas.lowIntentCount}).`}
+              </span>
+            </li>
+          )}
+          {topRisk && (
+            <li className="flex gap-3">
+              <span
+                className={clsx(
+                  "shrink-0 font-bold",
+                  topRisk.severity === "high"
+                    ? "text-risk"
+                    : topRisk.severity === "medium"
+                      ? "text-warn"
+                      : "text-slate-500",
+                )}
+              >
+                ·
+              </span>
+              <span>
+                {isKo ? "최우선 리스크: " : "Top risk: "}
+                <span className="font-semibold text-slate-900">{topRisk.factor}</span>{" "}
+                ({topRisk.severity}, {isKo ? `${topRisk.surfacedInSims}개 시뮬에서 언급` : `surfaced in ${topRisk.surfacedInSims}`}).
+              </span>
+            </li>
+          )}
+          {topAction && (
+            <li className="flex gap-3">
+              <span className="shrink-0 text-success font-bold">·</span>
+              <span>
+                {isKo ? "1순위 액션: " : "First action: "}
+                <span className="font-medium text-slate-900">{topAction.action}</span>
+              </span>
+            </li>
+          )}
+          <li className="flex gap-3">
+            <span className="shrink-0 text-slate-400 font-bold">·</span>
+            <span className="text-slate-500">
+              {isKo
+                ? `시뮬 간 변동성: ${varianceAssessment.label.toUpperCase()} (최대 점수 변동 ${varianceAssessment.maxFinalScoreRange}점) — ${varianceCopy(varianceAssessment.label, isKo ? "ko" : "en")}`
+                : `Variance: ${varianceAssessment.label.toUpperCase()} (max range ${varianceAssessment.maxFinalScoreRange}pt) — ${varianceCopy(varianceAssessment.label, "en")}`}
+            </span>
+          </li>
+        </ul>
+      </div>
+
+      {/* Cross-model consensus mini-strip — only when multi-LLM. Just a
+          headline read; the data tab carries the full breakdown. */}
+      {providerBreakdown && providerBreakdown.length > 0 && (
+        <div>
+          <h2 className="text-base font-semibold text-slate-900 mb-3">
+            {isKo ? "모델 합의 신호" : "Cross-model agreement"}
+          </h2>
+          <div className="card p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {providerBreakdown.map((pb) => (
+              <div key={pb.provider} className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs text-slate-500">
+                    {providerLabel(pb.provider)} · {pb.simCount}{isKo ? "개 시뮬" : " sims"}
+                  </div>
+                  <div className="text-sm font-semibold text-slate-900">
+                    {pb.bestCountryDistribution[0]?.country ?? "—"}
+                  </div>
+                </div>
+                <div
+                  className={clsx(
+                    "text-lg font-bold tabular-nums",
+                    pb.agreementWithOverallPercent === 100
+                      ? "text-success"
+                      : pb.agreementWithOverallPercent >= 50
+                        ? "text-slate-700"
+                        : "text-warn",
+                  )}
+                >
+                  {pb.agreementWithOverallPercent}%
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {narrative?.executiveSummary && (
         <div>
           <h2 className="text-base font-semibold text-slate-900 mb-2">
-            {isKo ? "종합 의견" : "Executive summary"}
+            {isKo ? "종합 의견 (시뮬 통합)" : "Executive summary (cross-sim consensus)"}
           </h2>
           <div className="card p-5">
             <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
@@ -963,8 +1147,14 @@ function CountriesTab({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {segments.map((seg) => (
             <div key={seg.id} className="card p-4">
-              <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-                {seg.labelKo}
+              <div className="text-xs uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1.5">
+                <span>{seg.labelKo}</span>
+                <span
+                  className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-slate-200 text-slate-500 text-[10px] font-bold cursor-help"
+                  title={segmentTooltip(seg.id, isKo)}
+                >
+                  ?
+                </span>
               </div>
               <div className="flex items-baseline gap-2">
                 <div className="text-xl font-semibold text-slate-900">
@@ -1082,12 +1272,15 @@ function PersonasTab({
   personas,
   isKo,
   locale,
+  ensembleId,
 }: {
   personas: EnsembleAggregate["personas"];
   isKo: boolean;
   locale: string;
+  ensembleId: string;
 }) {
   void locale;
+  const [showAll, setShowAll] = useState(false);
   if (!personas) {
     return (
       <div className="card p-8 text-center text-slate-500">
@@ -1099,6 +1292,33 @@ function PersonasTab({
   }
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h2 className="text-base font-semibold text-slate-900">
+          {isKo
+            ? `페르소나 통계 (총 ${personas.total.toLocaleString()}명)`
+            : `Persona statistics (${personas.total.toLocaleString()} total)`}
+        </h2>
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className="btn-primary text-sm"
+        >
+          {isKo
+            ? `모든 페르소나 보기 (${personas.total.toLocaleString()}명)`
+            : `View all ${personas.total.toLocaleString()} personas`}
+        </button>
+      </div>
+
+      {showAll && (
+        <AllPersonasModal
+          ensembleId={ensembleId}
+          totalKnown={personas.total}
+          isKo={isKo}
+          onClose={() => setShowAll(false)}
+          countries={personas.byCountry.map((c) => c.country)}
+        />
+      )}
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <KpiCard
           label={isKo ? "총 페르소나" : "Total"}
@@ -1179,21 +1399,262 @@ function PersonasTab({
         </div>
         <div>
           <h3 className="text-sm font-semibold text-slate-900 mb-2">
-            {isKo ? "직업 분포 (Top 12)" : "Top occupations"}
+            {isKo ? "직업 분포 (Top 12)" : "Top professions"}
           </h3>
           <div className="card p-4 space-y-1">
-            {personas.occupationTopN.length === 0 ? (
+            {personas.professionTopN.length === 0 ? (
               <div className="text-xs text-slate-400">—</div>
             ) : (
-              personas.occupationTopN.map((o) => (
-                <div key={o.occupation} className="flex items-center justify-between text-xs">
-                  <div className="text-slate-700 truncate">{o.occupation}</div>
+              personas.professionTopN.map((o) => (
+                <div key={o.profession} className="flex items-center justify-between text-xs">
+                  <div className="text-slate-700 truncate">{o.profession}</div>
                   <div className="text-slate-500 tabular-nums shrink-0 ml-2">{o.count}</div>
                 </div>
               ))
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+interface PersonaApiRow {
+  simIndex: number;
+  name?: string;
+  ageRange?: string;
+  gender?: string;
+  country: string;
+  profession?: string;
+  incomeBand?: string;
+  purchaseIntent: number;
+  voice?: string;
+  trustFactors?: string[];
+  objections?: string[];
+}
+
+/**
+ * Full-page-ish modal that paginates through every persona generated by
+ * every sim in this ensemble. We don't ship the full set with the result
+ * payload (10K+ rows × ~500 bytes = MB-sized), so the modal lazy-fetches
+ * pages as the user navigates. Filters live entirely server-side so the
+ * page count and sort order stay accurate without re-tallying client-side.
+ */
+function AllPersonasModal({
+  ensembleId,
+  totalKnown,
+  isKo,
+  onClose,
+  countries,
+}: {
+  ensembleId: string;
+  totalKnown: number;
+  isKo: boolean;
+  onClose: () => void;
+  countries: string[];
+}) {
+  const [page, setPage] = useState(0);
+  const [country, setCountry] = useState<string>("");
+  const [intentFilter, setIntentFilter] = useState<"all" | "high" | "low">("all");
+  const [data, setData] = useState<{
+    page: number;
+    perPage: number;
+    total: number;
+    pageCount: number;
+    personas: PersonaApiRow[];
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(null);
+    const params = new URLSearchParams({
+      page: String(page),
+      perPage: "50",
+    });
+    if (country) params.set("country", country);
+    if (intentFilter === "high") params.set("minIntent", "70");
+    if (intentFilter === "low") params.set("maxIntent", "34");
+    fetch(`/api/ensembles/${ensembleId}/personas?${params.toString()}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      })
+      .then((d) => {
+        if (active) setData(d);
+      })
+      .catch((err) => {
+        if (active) setError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [ensembleId, page, country, intentFilter]);
+
+  // Reset to page 0 when filters change so we don't sit on an out-of-range
+  // page after the result count shrinks.
+  const resetAndSet = <T,>(setter: (v: T) => void, value: T) => {
+    setter(value);
+    setPage(0);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-baseline justify-between p-5 border-b border-slate-100">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">
+              {isKo ? "모든 페르소나" : "All personas"}
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">
+              {isKo
+                ? `이 앙상블에 포함된 모든 페르소나 (예상 ${totalKnown.toLocaleString()}명, 구매의향 내림차순 정렬)`
+                : `Every persona across all sims in this ensemble (~${totalKnown.toLocaleString()}, sorted by intent desc)`}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-700 text-2xl leading-none"
+            aria-label="close"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="px-5 py-3 border-b border-slate-100 flex flex-wrap items-center gap-3 bg-slate-50">
+          <select
+            className="input text-sm py-1"
+            value={country}
+            onChange={(e) => resetAndSet(setCountry, e.target.value)}
+          >
+            <option value="">{isKo ? "모든 국가" : "All countries"}</option>
+            {countries.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <select
+            className="input text-sm py-1"
+            value={intentFilter}
+            onChange={(e) => resetAndSet(setIntentFilter, e.target.value as "all" | "high" | "low")}
+          >
+            <option value="all">{isKo ? "구매의향 전체" : "All intent levels"}</option>
+            <option value="high">{isKo ? "강한 관심 (≥70)" : "High intent (≥70)"}</option>
+            <option value="low">{isKo ? "약한 관심 (<35)" : "Low intent (<35)"}</option>
+          </select>
+          {data && (
+            <span className="text-xs text-slate-500 ml-auto">
+              {isKo
+                ? `${data.total.toLocaleString()}명 일치 · 페이지 ${data.page + 1} / ${data.pageCount}`
+                : `${data.total.toLocaleString()} matches · page ${data.page + 1} of ${data.pageCount}`}
+            </span>
+          )}
+        </div>
+
+        <div className="flex-1 overflow-auto">
+          {loading && (
+            <div className="p-12 text-center text-slate-500">
+              <Loader2 className="animate-spin mx-auto" size={20} />
+            </div>
+          )}
+          {error && (
+            <div className="p-6 text-sm text-risk">
+              {isKo ? `오류: ${error}` : `Error: ${error}`}
+            </div>
+          )}
+          {!loading && !error && data && data.personas.length === 0 && (
+            <div className="p-12 text-center text-slate-400 text-sm">
+              {isKo ? "해당 조건의 페르소나가 없습니다." : "No personas match these filters."}
+            </div>
+          )}
+          {!loading && !error && data && data.personas.length > 0 && (
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 sticky top-0">
+                <tr>
+                  <th className="text-left px-4 py-2 font-medium">{isKo ? "이름" : "Name"}</th>
+                  <th className="text-left px-4 py-2 font-medium">{isKo ? "국가" : "Country"}</th>
+                  <th className="text-left px-4 py-2 font-medium">{isKo ? "나이" : "Age"}</th>
+                  <th className="text-left px-4 py-2 font-medium">{isKo ? "성별" : "Gender"}</th>
+                  <th className="text-left px-4 py-2 font-medium">{isKo ? "직업" : "Profession"}</th>
+                  <th className="text-left px-4 py-2 font-medium">{isKo ? "소득" : "Income"}</th>
+                  <th className="text-right px-4 py-2 font-medium">{isKo ? "의향" : "Intent"}</th>
+                  <th className="text-left px-4 py-2 font-medium">{isKo ? "코멘트" : "Voice"}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {data.personas.map((p, i) => (
+                  <tr key={i} className="hover:bg-slate-50">
+                    <td className="px-4 py-2 text-slate-900 font-medium whitespace-nowrap">
+                      {p.name ?? "—"}
+                    </td>
+                    <td className="px-4 py-2 text-slate-700">{p.country}</td>
+                    <td className="px-4 py-2 text-slate-600 whitespace-nowrap">
+                      {p.ageRange ?? "—"}
+                    </td>
+                    <td className="px-4 py-2 text-slate-600">{p.gender ?? "—"}</td>
+                    <td className="px-4 py-2 text-slate-600 truncate max-w-[160px]">
+                      {p.profession ?? "—"}
+                    </td>
+                    <td className="px-4 py-2 text-slate-600 whitespace-nowrap">
+                      {p.incomeBand ?? "—"}
+                    </td>
+                    <td
+                      className={clsx(
+                        "px-4 py-2 text-right tabular-nums font-semibold",
+                        p.purchaseIntent >= 70
+                          ? "text-success"
+                          : p.purchaseIntent < 35
+                            ? "text-warn"
+                            : "text-slate-700",
+                      )}
+                    >
+                      {p.purchaseIntent}%
+                    </td>
+                    <td className="px-4 py-2 text-slate-700 text-xs leading-relaxed">
+                      {p.voice ? `"${p.voice}"` : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {data && data.pageCount > 1 && (
+          <div className="border-t border-slate-100 p-3 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0 || loading}
+              className="btn-ghost text-sm disabled:opacity-40"
+            >
+              {isKo ? "← 이전" : "← Previous"}
+            </button>
+            <span className="text-xs text-slate-500">
+              {page + 1} / {data.pageCount}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(data.pageCount - 1, p + 1))}
+              disabled={page >= data.pageCount - 1 || loading}
+              className="btn-ghost text-sm disabled:opacity-40"
+            >
+              {isKo ? "다음 →" : "Next →"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1229,16 +1690,16 @@ function VoiceList({
                 >
                   {v.intent}%
                 </span>
-                {v.occupation && (
+                {v.profession && (
                   <>
                     <span>·</span>
-                    <span className="truncate">{v.occupation}</span>
+                    <span className="truncate">{v.profession}</span>
                   </>
                 )}
-                {typeof v.age === "number" && (
+                {v.ageRange && (
                   <>
                     <span>·</span>
-                    <span>{v.age}</span>
+                    <span>{v.ageRange}</span>
                   </>
                 )}
               </div>
@@ -1268,41 +1729,85 @@ function PricingTab({
   }
   const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
   const maxConv = Math.max(...pricing.curve.map((p) => p.meanConversionProbability), 0.0001);
+
+  // Best-conversion price point — surface separately from the median so
+  // the user sees both "consensus recommended" and "highest-converting"
+  // and can spot when those diverge (e.g. a price below recommended
+  // converts more but margin pressure forces the higher anchor).
+  const peakPoint = pricing.curve.reduce<typeof pricing.curve[number] | null>(
+    (best, p) => (best === null || p.meanConversionProbability > best.meanConversionProbability ? p : best),
+    null,
+  );
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard
-          label={isKo ? "추천 가격 (중앙값)" : "Recommended price"}
-          value={fmt(pricing.recommendedPriceCents)}
-        />
-        <KpiCard
-          label="P25 — P75"
-          value={`${fmt(pricing.recommendedPriceP25)} – ${fmt(pricing.recommendedPriceP75)}`}
-        />
-        <KpiCard
-          label={isKo ? "마진 추정 (최빈)" : "Margin estimate"}
-          value={pricing.marginEstimate}
-        />
-        <KpiCard
-          label={isKo ? "가격 포인트" : "Curve points"}
-          value={String(pricing.curve.length)}
-        />
+      {/* Hero: recommended price + range + margin in one row. Compact
+          single-row card so the pricing tab opens with the headline answer
+          immediately visible — no large dead vertical space. */}
+      <div className="card p-5 bg-gradient-to-br from-brand-50/40 to-white border-brand/20">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
+              {isKo ? "권장 가격 (시뮬 합산 중앙값)" : "Recommended price (median across sims)"}
+            </div>
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <div className="text-4xl font-bold text-brand tabular-nums leading-none">
+                {fmt(pricing.recommendedPriceCents)}
+              </div>
+              <div className="text-sm text-slate-500">
+                {isKo
+                  ? `중간 50%: ${fmt(pricing.recommendedPriceP25)} – ${fmt(pricing.recommendedPriceP75)}`
+                  : `Mid-50%: ${fmt(pricing.recommendedPriceP25)} – ${fmt(pricing.recommendedPriceP75)}`}
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3 shrink-0">
+            <div className="rounded-lg bg-white border border-slate-200 px-4 py-3 min-w-[120px]">
+              <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">
+                {isKo ? "예상 마진" : "Margin"}
+              </div>
+              <div className="text-base font-semibold text-slate-900">
+                {pricing.marginEstimate}
+              </div>
+            </div>
+            {peakPoint && (
+              <div className="rounded-lg bg-white border border-slate-200 px-4 py-3 min-w-[140px]">
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">
+                  {isKo ? "최고 전환 가격" : "Peak conversion"}
+                </div>
+                <div className="text-base font-semibold text-slate-900 tabular-nums">
+                  {fmt(peakPoint.priceCents)}
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {(peakPoint.meanConversionProbability * 100).toFixed(1)}%
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <div>
         <h2 className="text-base font-semibold text-slate-900 mb-3">
-          {isKo ? "가격별 평균 전환률 (시뮬 합산)" : "Mean conversion by price"}
+          {isKo ? "가격–전환 곡선" : "Price–conversion curve"}
         </h2>
         <div className="card p-4">
           <PricingCurveChart data={pricing.curve} />
+          <p className="text-xs text-slate-500 mt-3 leading-relaxed">
+            {isKo
+              ? "각 가격대에서 모든 시뮬의 평균 전환 확률입니다. 곡선의 정점이 가장 많은 페르소나가 구매로 이어진 지점이며, 곡선이 완만하면 가격 민감도가 낮음을 의미합니다."
+              : "Mean conversion probability at each price point across every sim. The peak shows where the most personas convert; a flat curve means low price sensitivity."}
+          </p>
         </div>
       </div>
 
       <details className="card p-4">
-        <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700">
-          {isKo ? "원본 가격 포인트 데이터" : "Raw price-point data"}
+        <summary className="text-sm text-slate-600 cursor-pointer hover:text-slate-800 font-medium">
+          {isKo
+            ? "원본 가격 포인트 데이터 보기"
+            : "View raw price-point data"}
         </summary>
-        <div className="mt-3 space-y-1">
+        <div className="mt-3 space-y-1.5">
           {pricing.curve.map((p) => (
             <div key={p.priceCents} className="flex items-center gap-3 text-xs">
               <div className="w-16 tabular-nums text-slate-700 font-medium">
@@ -1596,6 +2101,41 @@ function MetaRow({ label, value }: { label: string; value: string }) {
       <div className="text-slate-900 font-medium font-mono text-xs">{value}</div>
     </div>
   );
+}
+
+/**
+ * Plain-language explanation for each strategy segment shown on the
+ * Countries tab. Surfaced on hover as a (?) tooltip — these labels are
+ * dense enough that "수요 우선" alone doesn't tell a non-analyst why
+ * they should consider that market.
+ */
+function segmentTooltip(id: string, isKo: boolean): string {
+  if (isKo) {
+    switch (id) {
+      case "volume":
+        return "수요 점수가 가장 높은 시장. 매출을 빨리 확대하고 싶거나 인지도부터 쌓으려는 경우에 추천합니다.";
+      case "cac":
+        return "고객 1명을 데려오는 비용(CAC)이 가장 낮은 시장. 마케팅 예산이 제한적일 때 효율을 우선시하는 선택지입니다.";
+      case "competition":
+        return "경쟁 강도가 가장 약한 시장. 정착이 쉽고 점유율을 빨리 가져갈 수 있지만 시장 자체가 작을 수도 있습니다.";
+      case "overall":
+        return "수요 / 경쟁 / 비용을 가중평균한 종합 점수가 가장 높은 시장. 균형 잡힌 의사결정이 필요할 때 1순위 후보입니다.";
+      default:
+        return "";
+    }
+  }
+  switch (id) {
+    case "volume":
+      return "Highest demand score — best for fast revenue growth or brand-building entries.";
+    case "cac":
+      return "Lowest customer-acquisition cost — favor this when the marketing budget is tight.";
+    case "competition":
+      return "Lowest competitive density — easier to land in, though the market itself may be smaller.";
+    case "overall":
+      return "Highest weighted score (demand × competition × cost). The balanced default pick.";
+    default:
+      return "";
+  }
 }
 
 // Tier badge label for the dashboard header. Mirrors the TIER_LABELS map
