@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download } from "lucide-react";
 import { clsx } from "clsx";
@@ -50,6 +50,10 @@ export function EnsembleView({
   const [status, setStatus] = useState<EnsembleStatus | null>(null);
   const [result, setResult] = useState<EnsembleResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Tracks whether we've already fired the OS-level "complete" notification
+  // for this ensemble. The polling effect can re-render after the result
+  // arrives; without this guard the user gets the same toast twice.
+  const notifFiredRef = useRef(false);
 
   // Status polling. Once status flips to completed/failed, fetch the
   // aggregate result once and stop polling.
@@ -84,6 +88,37 @@ export function EnsembleView({
     };
   }, [ensembleId]);
 
+  // Fire an OS-level notification once when the result arrives, IF the user
+  // pre-granted permission via the toggle on the progress screen. Page can
+  // be backgrounded or in another tab — the toast still surfaces. Email is
+  // the durable channel; this is the "I'm watching now" channel.
+  useEffect(() => {
+    if (!result || notifFiredRef.current) return;
+    if (typeof Notification === "undefined") return;
+    if (Notification.permission !== "granted") return;
+    notifFiredRef.current = true;
+    const rec = result.aggregate.recommendation;
+    const isKo = locale === "ko";
+    const title = isKo ? "Market Twin · 분석 완료" : "Market Twin · Analysis complete";
+    const body = isKo
+      ? `추천: ${rec.country} (${rec.consensusPercent}% ${rec.confidence})`
+      : `Top market: ${rec.country} (${rec.consensusPercent}% ${rec.confidence})`;
+    try {
+      const n = new Notification(title, {
+        body,
+        // Same tag = browsers replace any earlier one for this ensemble
+        // instead of stacking duplicates.
+        tag: `ensemble-${ensembleId}`,
+      });
+      n.onclick = () => {
+        window.focus();
+        n.close();
+      };
+    } catch (err) {
+      console.warn("[notification]", err);
+    }
+  }, [result, ensembleId, locale]);
+
   if (!status) {
     return (
       <div className="max-w-3xl mx-auto py-12 text-center">
@@ -108,7 +143,7 @@ export function EnsembleView({
   }
 
   if (status.status !== "completed" || !result) {
-    return <EnsembleProgress status={status} pollError={error} />;
+    return <EnsembleProgress status={status} pollError={error} locale={locale} />;
   }
 
   return <EnsembleDashboard projectId={projectId} result={result} locale={locale} />;
@@ -118,12 +153,20 @@ export function EnsembleView({
 function EnsembleProgress({
   status,
   pollError,
+  locale,
 }: {
   status: EnsembleStatus;
   pollError: string | null;
+  locale: string;
 }) {
   const { counts } = status;
   const pct = counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0;
+  // Subline gives the user a "something is moving right now" cue when the
+  // top number ("0/25 완료") would otherwise feel frozen for several minutes.
+  const activitySubline =
+    counts.running > 0 || counts.pending > 0
+      ? `${counts.running}개 진행 중 · ${counts.pending}개 대기${counts.failed > 0 ? ` · ${counts.failed}개 실패` : ""}`
+      : null;
   return (
     <div className="max-w-2xl mx-auto py-12">
       <div className="card p-10">
@@ -133,34 +176,42 @@ function EnsembleProgress({
         <h2 className="text-2xl font-semibold text-center mb-1">
           {counts.completed}/{counts.total} 시뮬레이션 완료
         </h2>
-        <p className="text-sm text-slate-500 text-center mb-6">
+        <p className="text-sm text-slate-500 text-center mb-1">
           {status.parallel_sims}개 독립 시뮬레이션을 병렬 실행하여 신뢰도 있는 결과를 도출합니다.
         </p>
+        {activitySubline && (
+          <p className="text-xs text-slate-400 text-center mb-6">{activitySubline}</p>
+        )}
+        {!activitySubline && <div className="mb-6" />}
 
-        {/* Per-sim status grid — N small bars showing individual progress. */}
+        {/* Per-sim status grid — N small bars. Running sims pulse so the
+            user has a clear "this is alive" signal during the 5–10 min
+            that 25 deep-tier sims take to settle. */}
         <div className="grid grid-cols-5 sm:grid-cols-10 gap-2 mb-6">
           {status.sims.map((sim) => (
             <div
               key={sim.id}
               className={clsx(
                 "h-2 rounded-full transition-colors",
-                sim.status === "completed"
-                  ? "bg-success"
-                  : sim.status === "running"
-                    ? "bg-brand"
-                    : sim.status === "failed"
-                      ? "bg-risk"
-                      : "bg-slate-200",
+                sim.status === "completed" && "bg-success",
+                sim.status === "running" && "bg-success/60 animate-pulse",
+                sim.status === "failed" && "bg-risk",
+                sim.status === "pending" && "bg-slate-200",
               )}
-              title={`Sim ${(sim.ensemble_index ?? 0) + 1}: ${sim.status}`}
+              title={`Sim ${(sim.ensemble_index ?? 0) + 1}: ${sim.status}${sim.current_stage ? ` (${sim.current_stage})` : ""}`}
             />
           ))}
         </div>
 
-        {/* Aggregate progress bar */}
-        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+        {/* Aggregate progress bar — pulse the leading edge while sims are
+            still in flight so the bar visibly "breathes" even between
+            completion bumps. */}
+        <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden">
           <div
-            className="h-full bg-brand transition-all duration-500"
+            className={clsx(
+              "h-full bg-brand transition-all duration-500",
+              counts.running > 0 && "animate-pulse",
+            )}
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -169,7 +220,66 @@ function EnsembleProgress({
         {pollError && (
           <p className="mt-4 text-xs text-warn text-center">{pollError}</p>
         )}
+
+        <NotificationToggle locale={locale} />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Single self-contained control for opting into OS-level notifications.
+ * Hidden when the browser doesn't support Notifications, when the user
+ * has explicitly denied (no point pushing the prompt at them again), or
+ * after permission is granted. The actual fire-on-completion happens in
+ * EnsembleView's effect — this component only handles the permission
+ * handshake.
+ */
+function NotificationToggle({ locale }: { locale: string }) {
+  const isKo = locale === "ko";
+  const [perm, setPerm] = useState<NotificationPermission | "unsupported" | "loading">(
+    "loading",
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof Notification === "undefined") {
+      setPerm("unsupported");
+      return;
+    }
+    setPerm(Notification.permission);
+  }, []);
+
+  const request = async () => {
+    if (typeof Notification === "undefined") return;
+    try {
+      const result = await Notification.requestPermission();
+      setPerm(result);
+    } catch (err) {
+      console.warn("[notification permission]", err);
+    }
+  };
+
+  if (perm === "loading" || perm === "unsupported" || perm === "denied") return null;
+  if (perm === "granted") {
+    return (
+      <p className="mt-5 text-xs text-success text-center">
+        {isKo
+          ? "✓ 알림 권한 완료 — 분석이 끝나면 브라우저 알림으로 알려드립니다."
+          : "✓ Notifications enabled — we'll ping you when the analysis finishes."}
+      </p>
+    );
+  }
+  return (
+    <div className="mt-5 text-center">
+      <button
+        type="button"
+        onClick={request}
+        className="text-xs text-brand hover:underline"
+      >
+        {isKo
+          ? "🔔 완료 시 브라우저 알림 받기"
+          : "🔔 Notify me when it's done"}
+      </button>
     </div>
   );
 }
