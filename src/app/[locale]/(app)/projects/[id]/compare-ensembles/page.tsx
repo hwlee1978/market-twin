@@ -1,10 +1,18 @@
 import { setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { Link } from "@/i18n/navigation";
-import { ArrowLeft, ArrowRight, Minus } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { CountryChip } from "@/components/ui/CountryChip";
 import { CompareSelector } from "@/components/results/CompareSelector";
+import {
+  ActionPanel,
+  CompareInfo,
+  CompareKpi,
+  DistributionPanel,
+  RiskPanel,
+  SectionTitle,
+  TierBadge,
+} from "@/components/compare/CompareCards";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { getCountryLabel } from "@/lib/countries";
@@ -232,6 +240,11 @@ export default async function CompareEnsemblesPage({
             label={isKo ? "분석 단계" : "Tier"}
             a={isKo ? TIER_LABELS_KO[aEns.tier] : TIER_LABELS_EN[aEns.tier]}
             b={isKo ? TIER_LABELS_KO[bEns.tier] : TIER_LABELS_EN[bEns.tier]}
+            tooltip={
+              isKo
+                ? "분석의 깊이 등급. 시뮬 수와 페르소나 수가 많은 tier일수록 합의도가 강해지지만 시간/비용도 큽니다."
+                : "Analysis depth. Higher tiers run more sims for stronger consensus at higher cost/time."
+            }
           />
           <CompareInfo
             label={isKo ? "추천 진출국" : "Recommended"}
@@ -247,6 +260,11 @@ export default async function CompareEnsemblesPage({
                   bEns.aggregate_result.recommendation.country
                 : "—"
             }
+            tooltip={
+              isKo
+                ? "각 분석에서 가장 많이 1순위로 선택된 진출국. 양쪽이 다르면 입력 또는 환경 변화가 결론에 영향을 준 것."
+                : "Most-frequently-picked top market. Diverging values mean inputs or environment shifted the conclusion."
+            }
           />
           <CompareKpi
             label={isKo ? "합의도" : "Consensus"}
@@ -254,11 +272,21 @@ export default async function CompareEnsemblesPage({
             b={bEns.aggregate_result?.recommendation.consensusPercent}
             format={(v) => (v !== undefined ? `${v}%` : "—")}
             higherIsBetter
+            tooltip={
+              isKo
+                ? "전체 시뮬 중 추천 진출국을 1순위로 뽑은 비율. ≥80% STRONG, 50-79% MODERATE, <50% WEAK."
+                : "Share of sims that picked the recommended market. ≥80% STRONG, 50-79% MODERATE, <50% WEAK."
+            }
           />
           <CompareInfo
             label={isKo ? "신뢰도 등급" : "Confidence"}
             a={aEns.aggregate_result?.recommendation.confidence}
             b={bEns.aggregate_result?.recommendation.confidence}
+            tooltip={
+              isKo
+                ? "합의도를 STRONG/MODERATE/WEAK 라벨로 변환한 값. 의사결정 시 즉시 참고할 시각 신호."
+                : "Shorthand label for the consensus tier. Quick visual signal for decision-making."
+            }
           />
           <CompareKpi
             label={isKo ? "병렬 시뮬" : "Parallel sims"}
@@ -266,6 +294,11 @@ export default async function CompareEnsemblesPage({
             b={bEns.parallel_sims}
             format={(v) => (v !== undefined ? String(v) : "—")}
             higherIsBetter
+            tooltip={
+              isKo
+                ? "동시에 실행한 독립 시뮬 수. 많을수록 합의도와 변동성 측정이 견고합니다."
+                : "Number of independent sims run in parallel. More = more robust consensus + variance signal."
+            }
           />
           <CompareKpi
             label={isKo ? "유효 페르소나" : "Effective personas"}
@@ -273,6 +306,11 @@ export default async function CompareEnsemblesPage({
             b={bEns.aggregate_result?.effectivePersonas ?? bEns.parallel_sims * bEns.per_sim_personas}
             format={(v) => (v !== undefined ? v.toLocaleString() : "—")}
             higherIsBetter
+            tooltip={
+              isKo
+                ? "모든 시뮬에 걸쳐 생성된 총 페르소나 수. 통계적 신뢰도의 직접 지표."
+                : "Total personas across every sim. Direct measure of statistical confidence."
+            }
           />
         </div>
       </div>
@@ -285,6 +323,11 @@ export default async function CompareEnsemblesPage({
             label={isKo ? "변동성 등급" : "Variance"}
             a={aEns.aggregate_result?.varianceAssessment.label.toUpperCase()}
             b={bEns.aggregate_result?.varianceAssessment.label.toUpperCase()}
+            tooltip={
+              isKo
+                ? "LOW(낮음)·MODERATE(보통)·HIGH(높음). HIGH면 단일 시뮬 결과는 노이즈에 휩쓸릴 수 있어 앙상블 합의도를 더 신뢰해야 합니다."
+                : "LOW · MODERATE · HIGH. HIGH means single sims could be noisy — trust the ensemble consensus more."
+            }
           />
           <CompareKpi
             label={isKo ? "최대 점수 변동" : "Max score range"}
@@ -292,11 +335,21 @@ export default async function CompareEnsemblesPage({
             b={bEns.aggregate_result?.varianceAssessment.maxFinalScoreRange}
             format={(v) => (v !== undefined ? `${v}pt` : "—")}
             higherIsBetter={false}
+            tooltip={
+              isKo
+                ? "한 국가 점수가 시뮬마다 얼마나 다르게 나왔는지의 최대 차이. 30점 이상이면 단일 시뮬은 신뢰하기 어렵습니다."
+                : "Largest spread of a single country's score across sims. >30 means a lone sim is unreliable."
+            }
           />
           <CompareInfo
             label={isKo ? "종합 리스크" : "Overall risk"}
             a={aEns.aggregate_result?.narrative?.overallRiskLevel?.toUpperCase()}
             b={bEns.aggregate_result?.narrative?.overallRiskLevel?.toUpperCase()}
+            tooltip={
+              isKo
+                ? "각 시뮬이 매긴 리스크 수준의 다수결. HIGH/MEDIUM이면 진출 전 특별 검토가 필요한 신호."
+                : "Mode of per-sim riskLevel. HIGH/MEDIUM signals special review before market entry."
+            }
           />
           <CompareKpi
             label={isKo ? "권장 가격" : "Recommended price"}
@@ -312,6 +365,11 @@ export default async function CompareEnsemblesPage({
             }
             format={(v) => (v !== undefined ? priceFormatter.format(v) : "—")}
             currency={projectCurrency}
+            tooltip={
+              isKo
+                ? "각 시뮬의 권장 가격을 모은 중앙값. 시장 가격 민감도와 마진 균형을 가장 잘 만족시키는 가격."
+                : "Median recommended price across sims — best balance of price sensitivity and margin."
+            }
           />
           {aEns.aggregate_result?.personas && bEns.aggregate_result?.personas && (
             <>
@@ -321,6 +379,11 @@ export default async function CompareEnsemblesPage({
                 b={bEns.aggregate_result.personas.intentMean}
                 format={(v) => (v !== undefined ? `${v.toFixed(0)}%` : "—")}
                 higherIsBetter
+                tooltip={
+                  isKo
+                    ? "모든 페르소나의 0-100 구매의향 평균. 높을수록 시장 수요가 강함."
+                    : "Mean of every persona's 0-100 purchase intent. Higher = stronger demand signal."
+                }
               />
               <CompareKpi
                 label={isKo ? "강한 관심 (≥70)" : "High intent (≥70)"}
@@ -328,6 +391,11 @@ export default async function CompareEnsemblesPage({
                 b={bEns.aggregate_result.personas.highIntentCount}
                 format={(v) => (v !== undefined ? v.toLocaleString() : "—")}
                 higherIsBetter
+                tooltip={
+                  isKo
+                    ? "구매의향 70 이상의 페르소나 수 — 즉시 구매 가능성이 높은 핵심 타깃 규모."
+                    : "Count of personas with intent ≥70 — the high-conversion core target."
+                }
               />
             </>
           )}
@@ -657,14 +725,6 @@ function normaliseTitle(s: string): string {
   return s.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-function TierBadge({ label }: { label: string }) {
-  return (
-    <span className="inline-block text-xs font-bold uppercase tracking-wider bg-brand/10 text-brand px-2 py-1 rounded">
-      {label}
-    </span>
-  );
-}
-
 function formatEnsembleLabel(e: EnsembleRow, locale: string, isKo: boolean): string {
   const date = new Date(e.completed_at ?? e.created_at).toLocaleString(locale, {
     year: "numeric",
@@ -677,255 +737,3 @@ function formatEnsembleLabel(e: EnsembleRow, locale: string, isKo: boolean): str
   return `${tier} · ${date}`;
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-      {children}
-    </h2>
-  );
-}
-
-function CompareKpi({
-  label,
-  a,
-  b,
-  format,
-  higherIsBetter,
-  currency,
-}: {
-  label: string;
-  a: number | undefined;
-  b: number | undefined;
-  format: (v: number | undefined) => string;
-  higherIsBetter?: boolean;
-  currency?: string;
-}) {
-  const delta = a !== undefined && b !== undefined && a !== b ? b - a : undefined;
-  const deltaSign =
-    delta === undefined ? "flat" : delta > 0 ? "up" : delta < 0 ? "down" : "flat";
-  const tone =
-    delta === undefined || higherIsBetter === undefined
-      ? "neutral"
-      : (higherIsBetter && deltaSign === "up") ||
-          (!higherIsBetter && deltaSign === "down")
-        ? "good"
-        : deltaSign === "flat"
-          ? "neutral"
-          : "bad";
-  return (
-    <div className="rounded-lg border border-slate-200 p-4 bg-slate-50/40">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-        {label}
-      </div>
-      <div className="mt-2 grid grid-cols-2 gap-2 text-sm tabular-nums">
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-slate-400">A</div>
-          <div className="font-mono text-slate-900">{format(a)}</div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-slate-400">B</div>
-          <div className="font-mono text-slate-900">{format(b)}</div>
-        </div>
-      </div>
-      <div className="mt-2 flex items-center gap-1.5 text-xs">
-        <DeltaBadge sign={deltaSign} tone={tone} />
-        {delta !== undefined && (
-          <span className="text-slate-500 tabular-nums">
-            Δ {delta > 0 ? "+" : ""}
-            {currency ? delta.toFixed(2) : Math.round(delta)}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function CompareInfo({
-  label,
-  a,
-  b,
-}: {
-  label: string;
-  a: string | undefined;
-  b: string | undefined;
-}) {
-  const same = a === b;
-  return (
-    <div className="rounded-lg border border-slate-200 p-4 bg-slate-50/40">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-        {label}
-      </div>
-      <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-slate-400">A</div>
-          <div className="text-slate-900 font-medium">{a ?? "—"}</div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-slate-400">B</div>
-          <div className="text-slate-900 font-medium">{b ?? "—"}</div>
-        </div>
-      </div>
-      <div className="mt-2 text-xs text-slate-500">{same ? "—" : "≠"}</div>
-    </div>
-  );
-}
-
-function DeltaBadge({
-  sign,
-  tone,
-}: {
-  sign: "up" | "down" | "flat";
-  tone: "good" | "bad" | "neutral";
-}) {
-  const Icon = sign === "up" ? ArrowRight : sign === "down" ? ArrowLeft : Minus;
-  const cls =
-    tone === "good"
-      ? "bg-success-soft text-success"
-      : tone === "bad"
-        ? "bg-risk-soft text-risk"
-        : "bg-slate-100 text-slate-500";
-  return (
-    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full ${cls}`}>
-      <Icon
-        size={11}
-        className={
-          sign === "up" ? "rotate-[-45deg]" : sign === "down" ? "rotate-[-135deg]" : ""
-        }
-      />
-    </span>
-  );
-}
-
-function DistributionPanel({
-  title,
-  distribution,
-  winner,
-  simCount,
-  locale,
-}: {
-  title: string;
-  distribution: EnsembleAggregate["bestCountryDistribution"];
-  winner?: string;
-  simCount: number;
-  locale: string;
-}) {
-  void locale;
-  return (
-    <div>
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
-        {title}
-      </div>
-      {distribution.length === 0 ? (
-        <p className="text-xs text-slate-500">—</p>
-      ) : (
-        <div className="space-y-2">
-          {distribution.map((b) => {
-            const isWinner = b.country === winner;
-            return (
-              <div key={b.country} className="flex items-center gap-3 text-sm">
-                <CountryChip code={b.country} size="sm" />
-                <div className="w-10 font-medium text-slate-700">{b.country}</div>
-                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${isWinner ? "bg-success" : "bg-slate-300"}`}
-                    style={{ width: `${b.percent}%` }}
-                  />
-                </div>
-                <div className="w-20 text-right text-xs text-slate-500 tabular-nums">
-                  {b.count}/{simCount} ({b.percent}%)
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RiskPanel({
-  title,
-  risks,
-  isKo,
-}: {
-  title: string;
-  risks: NonNullable<EnsembleAggregate["narrative"]>["mergedRisks"];
-  isKo: boolean;
-}) {
-  return (
-    <div>
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
-        {title}
-      </div>
-      {risks.length === 0 ? (
-        <p className="text-xs text-slate-500">—</p>
-      ) : (
-        <ul className="space-y-3">
-          {risks.map((r, i) => {
-            const sevClass =
-              r.severity === "high"
-                ? "text-risk"
-                : r.severity === "medium"
-                  ? "text-warn"
-                  : "text-slate-500";
-            return (
-              <li key={i} className="text-sm">
-                <div className="flex items-baseline gap-2">
-                  <span className={`text-[10px] font-bold uppercase ${sevClass}`}>
-                    {r.severity}
-                  </span>
-                  <span className="font-semibold text-slate-900">{r.factor}</span>
-                </div>
-                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                  {r.description}
-                </p>
-                <p className="text-[10px] text-slate-400 mt-0.5">
-                  {isKo
-                    ? `${r.surfacedInSims}개 시뮬에서 언급`
-                    : `Surfaced in ${r.surfacedInSims} sim${r.surfacedInSims === 1 ? "" : "s"}`}
-                </p>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function ActionPanel({
-  title,
-  actions,
-  isKo,
-}: {
-  title: string;
-  actions: NonNullable<EnsembleAggregate["narrative"]>["mergedActions"];
-  isKo: boolean;
-}) {
-  return (
-    <div>
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-3">
-        {title}
-      </div>
-      {actions.length === 0 ? (
-        <p className="text-xs text-slate-500">—</p>
-      ) : (
-        <ol className="space-y-3">
-          {actions.map((a, i) => (
-            <li key={i} className="text-sm flex gap-2">
-              <span className="text-brand font-bold shrink-0">{i + 1}.</span>
-              <div className="min-w-0">
-                <p className="text-slate-700 leading-relaxed">{a.action}</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">
-                  {isKo
-                    ? `${a.surfacedInSims}개 시뮬에서 권장`
-                    : `Recommended by ${a.surfacedInSims} sim${a.surfacedInSims === 1 ? "" : "s"}`}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      )}
-    </div>
-  );
-}

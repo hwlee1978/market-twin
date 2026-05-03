@@ -170,10 +170,21 @@ export default async function ReportsPage({
 
   const totalProjects = allBuckets.length;
   const totalAnalyses = allBuckets.reduce((sum, b) => sum + b.totalAnalyses, 0);
+  const totalEnsembles = allBuckets.reduce((sum, b) => sum + b.ensembles.length, 0);
 
   return (
     <>
-      <PageHeader title={t("title")} subtitle={t("subtitle")} />
+      <PageHeader
+        title={t("title")}
+        subtitle={t("subtitle")}
+        actions={
+          totalEnsembles >= 2 ? (
+            <Link href="/analyses/compare" className="btn-ghost text-xs">
+              {locale === "ko" ? "분석 비교" : "Compare analyses"}
+            </Link>
+          ) : null
+        }
+      />
 
       <ReportsSearch initialQuery={sp.q ?? ""} />
 
