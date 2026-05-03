@@ -185,7 +185,7 @@ function EnsembleDashboard({
   locale: string;
 }) {
   void projectId;
-  const { aggregate, llm_providers, tier } = result;
+  const { aggregate, llm_providers, tier, parallel_sims } = result;
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
@@ -242,16 +242,22 @@ function EnsembleDashboard({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-500 mb-1">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-500 mb-1 flex-wrap">
             <span className="px-2 py-0.5 rounded-full bg-brand/10 text-brand font-semibold">
               {tier.toUpperCase()}
             </span>
             <span>·</span>
             <span>
-              {simCount}개 시뮬 · {effectivePersonas.toLocaleString()} effective personas
+              {simCount}{locale === "ko" ? "개 시뮬" : " sims"} · {effectivePersonas.toLocaleString()}
+              {locale === "ko" ? " 페르소나" : " personas"}
             </span>
             <span>·</span>
-            <span>{llm_providers.join(", ")}</span>
+            <ProviderLineup
+              providers={llm_providers}
+              parallelSims={parallel_sims}
+              breakdown={providerBreakdown}
+              locale={locale}
+            />
           </div>
           <h1 className="text-2xl font-semibold">앙상블 분석 결과</h1>
         </div>
@@ -496,6 +502,61 @@ function providerLabel(provider: string): string {
     default:
       return provider;
   }
+}
+
+/**
+ * Renders the provider lineup with per-provider completion counts when a
+ * sim from that provider failed. The lineup is computed from the same
+ * round-robin the runner uses, so "expected" matches what was actually
+ * scheduled. We only annotate providers that have failures — successful
+ * providers stay as plain brand names to keep the header light.
+ */
+function ProviderLineup({
+  providers,
+  parallelSims,
+  breakdown,
+  locale,
+}: {
+  providers: string[];
+  parallelSims: number;
+  breakdown: import("@/lib/simulation/ensemble").ProviderConsensus[] | undefined;
+  locale: string;
+}) {
+  // Single-provider ensemble (hypothesis/decision) — no failure attribution
+  // possible at this level, just print the lineup.
+  if (providers.length <= 1) {
+    return <span>{providers.map(providerLabel).join(", ")}</span>;
+  }
+  const expected: Record<string, number> = {};
+  for (let i = 0; i < parallelSims; i++) {
+    const p = providers[i % providers.length];
+    expected[p] = (expected[p] ?? 0) + 1;
+  }
+  const actualByProvider = new Map<string, number>(
+    (breakdown ?? []).map((b) => [b.provider, b.simCount]),
+  );
+  return (
+    <span>
+      {providers.map((p, i) => {
+        const exp = expected[p] ?? 0;
+        const actual = actualByProvider.get(p) ?? 0;
+        const failed = exp - actual;
+        return (
+          <span key={p}>
+            {i > 0 && " · "}
+            {providerLabel(p)}
+            {failed > 0 && (
+              <span className="text-warn normal-case">
+                {" "}
+                ({actual}/{exp}
+                {locale === "ko" ? " 완주" : " ok"})
+              </span>
+            )}
+          </span>
+        );
+      })}
+    </span>
+  );
 }
 
 // Mirrors the locale mapping in src/lib/report/ensemble-pdf.tsx so the

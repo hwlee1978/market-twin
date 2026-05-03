@@ -266,6 +266,42 @@ function providerLabelPdf(provider: string): string {
   }
 }
 
+/**
+ * Build the provider-lineup string with "(actual/expected)" annotations
+ * for any provider that lost sims. Mirrors ProviderLineup in EnsembleView
+ * so the cover and the dashboard tell the same story. Single-provider
+ * ensembles skip the annotation since there's no failure attribution.
+ */
+function buildLineupString(
+  providers: readonly string[],
+  parallelSims: number,
+  breakdown: EnsembleAggregate["providerBreakdown"],
+  isKo: boolean,
+): string {
+  if (providers.length <= 1) {
+    return providers.map(providerLabelPdf).join(", ");
+  }
+  const expected: Record<string, number> = {};
+  for (let i = 0; i < parallelSims; i++) {
+    const p = providers[i % providers.length];
+    expected[p] = (expected[p] ?? 0) + 1;
+  }
+  const actualMap = new Map<string, number>(
+    (breakdown ?? []).map((b) => [b.provider, b.simCount]),
+  );
+  return providers
+    .map((p) => {
+      const exp = expected[p] ?? 0;
+      const actual = actualMap.get(p) ?? 0;
+      const label = providerLabelPdf(p);
+      if (actual < exp) {
+        return `${label} (${actual}/${exp}${isKo ? " 완주" : " ok"})`;
+      }
+      return label;
+    })
+    .join(" · ");
+}
+
 interface BuildArgs {
   aggregate: EnsembleAggregate;
   productName: string;
@@ -288,13 +324,14 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     { year: "numeric", month: "short", day: "numeric" },
   );
 
+  const lineup = buildLineupString(llmProviders, parallelSims, aggregate.providerBreakdown, isKo);
   const t = isKo
     ? {
         coverEyebrow: `MARKET TWIN · ${tierLabel.toUpperCase()} ANALYSIS`,
         coverRecLabel: "추천 진출국",
         consensus: "합의도",
         confidence: { STRONG: "강함", MODERATE: "보통", WEAK: "약함" },
-        coverFooter: `${parallelSims}개 시뮬레이션 · 페르소나 ${aggregate.effectivePersonas.toLocaleString()}명 · ${llmProviders.join(", ")}`,
+        coverFooter: `${parallelSims}개 시뮬레이션 · 페르소나 ${aggregate.effectivePersonas.toLocaleString()}명 · ${lineup}`,
         bestCountryEyebrow: "01 · 추천 분포",
         bestCountryTitle: "시뮬별 1위 국가 분포",
         segmentEyebrow: "02 · 전략별 추천",
@@ -325,7 +362,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         coverRecLabel: "Recommended Market",
         consensus: "consensus",
         confidence: { STRONG: "Strong", MODERATE: "Moderate", WEAK: "Weak" },
-        coverFooter: `${parallelSims} parallel sim${parallelSims === 1 ? "" : "s"} · ${aggregate.effectivePersonas.toLocaleString()} personas · ${llmProviders.join(", ")}`,
+        coverFooter: `${parallelSims} parallel sim${parallelSims === 1 ? "" : "s"} · ${aggregate.effectivePersonas.toLocaleString()} personas · ${lineup}`,
         bestCountryEyebrow: "01 · Recommendation Distribution",
         bestCountryTitle: "Top market across all sims",
         segmentEyebrow: "02 · Strategy Picks",
