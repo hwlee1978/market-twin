@@ -493,6 +493,38 @@ function EnsembleDashboard({
   } = aggregate;
   const isKo = locale === "ko";
   const [activeTab, setActiveTab] = useState<TabKey>("summary");
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareToast, setShareToast] = useState<string | null>(null);
+
+  const generateShare = async () => {
+    if (shareBusy) return;
+    setShareBusy(true);
+    setShareToast(null);
+    try {
+      const res = await fetch(`/api/ensembles/${result.id}/share`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error(await friendlyApiError(res, isKo ? "ko" : "en"));
+      const data = (await res.json()) as { token: string; expiresAt: string };
+      const url = `${window.location.origin}/${locale}/share/ensemble/${data.token}`;
+      setShareUrl(url);
+      try {
+        await navigator.clipboard.writeText(url);
+        setShareToast(isKo ? "공유 링크를 클립보드에 복사했습니다." : "Share URL copied to clipboard.");
+      } catch {
+        // Clipboard write can fail silently in non-HTTPS contexts; URL still
+        // visible in the toast so the user can copy by hand.
+        setShareToast(isKo ? "공유 링크가 생성되었습니다." : "Share URL generated.");
+      }
+    } catch (err) {
+      setShareToast(friendlyClientError(err, isKo ? "ko" : "en"));
+    } finally {
+      setShareBusy(false);
+    }
+  };
 
   const confidenceColor =
     recommendation.confidence === "STRONG"
@@ -526,21 +558,46 @@ function EnsembleDashboard({
           <h1 className="text-2xl font-semibold">앙상블 분석 결과</h1>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          <button
-            onClick={exportPdf}
-            disabled={pdfBusy}
-            className="btn-primary disabled:opacity-60"
-          >
-            {pdfBusy ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-            {pdfBusy
-              ? locale === "ko"
-                ? "PDF 생성 중..."
-                : "Generating PDF..."
-              : locale === "ko"
-                ? "PDF 리포트 다운로드"
-                : "Download PDF report"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={generateShare}
+              disabled={shareBusy}
+              className="btn-ghost text-sm disabled:opacity-60"
+            >
+              {shareBusy
+                ? isKo
+                  ? "생성 중..."
+                  : "Generating..."
+                : isKo
+                  ? "공유 링크"
+                  : "Share link"}
+            </button>
+            <button
+              onClick={exportPdf}
+              disabled={pdfBusy}
+              className="btn-primary disabled:opacity-60"
+            >
+              {pdfBusy ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+              {pdfBusy
+                ? isKo
+                  ? "PDF 생성 중..."
+                  : "Generating PDF..."
+                : isKo
+                  ? "PDF 리포트"
+                  : "PDF report"}
+            </button>
+          </div>
           {pdfError && <p className="text-xs text-risk">{pdfError}</p>}
+          {shareToast && (
+            <p className="text-xs text-slate-600 max-w-xs break-all text-right">
+              {shareToast}
+              {shareUrl && (
+                <span className="block text-[10px] text-slate-400 mt-0.5 font-mono">
+                  {shareUrl}
+                </span>
+              )}
+            </p>
+          )}
         </div>
       </div>
 
@@ -2108,8 +2165,38 @@ function DataTab({
   locale: string;
   isKo: boolean;
 }) {
+  const exportTypes: Array<{ type: string; label: string }> = [
+    { type: "countries", label: isKo ? "국가별 점수" : "Country scores" },
+    { type: "risks", label: isKo ? "통합 리스크" : "Merged risks" },
+    { type: "actions", label: isKo ? "권장 액션" : "Recommended actions" },
+    { type: "personas", label: isKo ? "페르소나 (전체)" : "All personas" },
+  ];
   return (
     <div className="space-y-6">
+      <div>
+        <h2 className="text-base font-semibold text-slate-900 mb-3">
+          {isKo ? "데이터 내보내기 (CSV)" : "Data export (CSV)"}
+        </h2>
+        <div className="card p-4">
+          <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+            {isKo
+              ? "Excel · Google Sheets · Notion에서 바로 열 수 있는 UTF-8 CSV로 다운로드합니다. 한글 표시는 BOM이 자동 포함되어 있습니다."
+              : "Downloads as UTF-8 CSV (BOM included) — opens directly in Excel / Google Sheets / Notion."}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {exportTypes.map((e) => (
+              <a
+                key={e.type}
+                href={`/api/ensembles/${ensembleId}/export?type=${e.type}&locale=${locale}`}
+                className="text-xs px-3 py-1.5 rounded-md border border-slate-200 hover:border-brand hover:text-brand text-slate-700 transition-colors"
+              >
+                {e.label} ↓
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div>
         <h2 className="text-base font-semibold text-slate-900 mb-3">
           {isKo ? "분석 메타데이터" : "Analysis metadata"}
