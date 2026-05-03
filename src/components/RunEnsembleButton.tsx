@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useLocale } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { Sparkles, Loader2 } from "lucide-react";
+import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
 
 type Tier = "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro";
 
@@ -41,11 +42,11 @@ export function RunEnsembleButton({ projectId, className }: Props) {
           notifyEmail: notifyEmail.trim() || undefined,
         }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await friendlyApiError(res, isKo ? "ko" : "en"));
       const { ensembleId } = await res.json();
       router.push(`/projects/${projectId}/results?ensemble=${ensembleId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(friendlyClientError(err, isKo ? "ko" : "en"));
       setRunning(false);
     }
   };

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download } from "lucide-react";
 import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
+import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
 import {
   BestCountryPieChart,
   CountryIntentChart,
@@ -85,7 +86,7 @@ export function EnsembleView({
     const tick = async () => {
       try {
         const res = await fetch(`/api/ensembles/${ensembleId}/status`);
-        if (!res.ok) throw new Error(await res.text());
+        if (!res.ok) throw new Error(await friendlyApiError(res, locale === "ko" ? "ko" : "en"));
         const data = (await res.json()) as EnsembleStatus;
         if (!active) return;
         setStatus(data);
@@ -101,7 +102,7 @@ export function EnsembleView({
       } catch (err) {
         if (!active) return;
         console.error("[ensemble status]", err);
-        setError(err instanceof Error ? err.message : String(err));
+        setError(friendlyClientError(err, locale === "ko" ? "ko" : "en"));
         setTimeout(tick, 8000);
       }
     };
@@ -223,12 +224,12 @@ function EnsembleProgress({
     setCancelError(null);
     try {
       const res = await fetch(`/api/ensembles/${ensembleId}/cancel`, { method: "POST" });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await friendlyApiError(res, locale === "ko" ? "ko" : "en"));
       // The polling tick on the parent will pick up status='cancelled' on
       // its next pass and switch the view; no need to navigate here.
       setConfirmCancel(false);
     } catch (err) {
-      setCancelError(err instanceof Error ? err.message : String(err));
+      setCancelError(friendlyClientError(err, locale === "ko" ? "ko" : "en"));
     } finally {
       setCancelling(false);
     }
@@ -455,7 +456,7 @@ function EnsembleDashboard({
     setPdfError(null);
     try {
       const res = await fetch(`/api/ensembles/${result.id}/pdf?locale=${locale}`);
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await friendlyApiError(res, locale === "ko" ? "ko" : "en"));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const filename =
@@ -1604,14 +1605,14 @@ function AllPersonasModal({
     if (intentFilter === "low") params.set("maxIntent", "34");
     fetch(`/api/ensembles/${ensembleId}/personas?${params.toString()}`)
       .then(async (res) => {
-        if (!res.ok) throw new Error(await res.text());
+        if (!res.ok) throw new Error(await friendlyApiError(res, isKo ? "ko" : "en"));
         return res.json();
       })
       .then((d) => {
         if (active) setData(d);
       })
       .catch((err) => {
-        if (active) setError(err instanceof Error ? err.message : String(err));
+        if (active) setError(friendlyClientError(err, isKo ? "ko" : "en"));
       })
       .finally(() => {
         if (active) setLoading(false);

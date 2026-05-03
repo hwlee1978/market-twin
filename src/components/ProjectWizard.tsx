@@ -85,19 +85,77 @@ export function ProjectWizard({ locale }: { locale: string }) {
   // advancing the current step. Empty array = step is valid.
   // Surfacing what's missing (rather than just disabling Next) is what
   // turns a confused-grey-button moment into a self-correcting one.
+  const isKo = locale === "ko";
   const validationHints = (): string[] => {
     switch (STEPS[step]) {
       case "product": {
         const errors: string[] = [];
         if (!form.name.trim()) errors.push(tw("validation.projectName"));
         if (!form.productName.trim()) errors.push(tw("validation.productName"));
+        // Soft cap so the project / product name doesn't blow past UI
+        // truncation widths in cards / PDF cover. 200 is generous enough
+        // that legitimate brand+product strings fit ("Beauty of Joseon
+        // Relief Sun: Rice + Probiotics" is 47 chars).
+        if (form.name.trim().length > 200) {
+          errors.push(isKo ? "프로젝트 이름은 200자 이내로 작성하세요." : "Project name must be 200 chars or fewer.");
+        }
+        if (form.productName.trim().length > 200) {
+          errors.push(isKo ? "제품 이름은 200자 이내로 작성하세요." : "Product name must be 200 chars or fewer.");
+        }
         if (form.description.trim().length < 10) errors.push(tw("validation.description"));
+        if (form.description.trim().length > 4000) {
+          // Description gets quoted into the synthesis prompt; >4000 chars
+          // pushes prompt size where it adds noise without signal.
+          errors.push(isKo ? "설명은 4000자 이내로 작성하세요." : "Description must be 4000 chars or fewer.");
+        }
         return errors;
       }
-      case "pricing":
-        return parseFloat(form.basePrice) > 0 ? [] : [tw("validation.basePrice")];
-      case "countries":
-        return form.countries.length > 0 ? [] : [tw("validation.countries")];
+      case "pricing": {
+        const price = parseFloat(form.basePrice);
+        if (!Number.isFinite(price) || price <= 0) return [tw("validation.basePrice")];
+        // Sanity ceiling — anything > 100k in any currency is almost
+        // certainly a typo (one-too-many zeros), and the country-scoring
+        // model gets confused at extreme price points.
+        if (price > 100000) {
+          return [
+            isKo
+              ? "기본 가격이 비정상적으로 높습니다 (100,000 이하). 자릿수를 확인하세요."
+              : "Base price looks unrealistically high (max 100,000). Check the digits.",
+          ];
+        }
+        return [];
+      }
+      case "countries": {
+        const errors: string[] = [];
+        if (form.countries.length === 0) {
+          errors.push(tw("validation.countries"));
+          return errors;
+        }
+        // The originating country is the home market and never a target —
+        // including it in candidates would generate a wasted sim slot
+        // and a meaningless "expand into your own home" recommendation.
+        if (
+          form.originatingCountry &&
+          form.countries.includes(form.originatingCountry)
+        ) {
+          errors.push(
+            isKo
+              ? `출시 국가(${form.originatingCountry})는 후보 진출국에서 제외하세요. 출시국은 분석 대상이 아닙니다.`
+              : `Origin country (${form.originatingCountry}) cannot be a candidate market — origin is the home base, not a target.`,
+          );
+        }
+        // Soft cap — each candidate adds ~1-2 minutes to total sim time
+        // and the country-scoring stage produces noisier rankings past
+        // ~12 candidates.
+        if (form.countries.length > 12) {
+          errors.push(
+            isKo
+              ? `후보 진출국은 최대 12개까지만 분석할 수 있습니다 (현재 ${form.countries.length}개).`
+              : `At most 12 candidate markets per analysis (currently ${form.countries.length}).`,
+          );
+        }
+        return errors;
+      }
       case "competitors":
         return [];
       case "assets":
