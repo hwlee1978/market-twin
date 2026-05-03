@@ -68,6 +68,11 @@ export interface EnsembleSimSnapshot {
     profession?: string;
     gender?: string;
     incomeBand?: string;
+    /** Free-text reasons the persona would trust the product. Used by
+        the channel-mention extractor (Amazon / TikTok / etc.). */
+    trustFactors?: string[];
+    /** Free-text barriers / hesitations. Same channel-extractor input. */
+    objections?: string[];
   }>;
   /** Creative asset scoring from this sim (optional — sim may have skipped). */
   creative?: Array<{
@@ -84,6 +89,24 @@ export interface CountryStats {
   demandScore: { mean: number; median: number };
   cacEstimateUsd: { mean: number; median: number };
   competitionScore: { mean: number; median: number };
+  /**
+   * Drilldown payload — same shape as the single-sim Country tab so the
+   * ensemble UI can render identical detail panels (rationale, top
+   * objections, persona-side summary). Optional because legacy ensembles
+   * (created before this field landed) won't have it.
+   */
+  detail?: {
+    /** Up to 3 rationales sampled from per-sim CountryScore.rationale. */
+    rationaleSamples: string[];
+    /** Top 5 objections across personas in this country. */
+    topObjections: Array<{ text: string; count: number }>;
+    persona: {
+      count: number;
+      meanIntent: number;
+      highIntent: number;
+      lowIntent: number;
+    };
+  };
 }
 
 export interface SegmentRec {
@@ -143,6 +166,13 @@ export interface EnsembleAggregate {
 
   /** Persona-level summary across all sims. Optional for legacy ensembles. */
   personas?: PersonasAggregate;
+
+  /**
+   * Reference data sources cited in any sim's overview._sources. Pulled
+   * from the first sim's overview because every sim in an ensemble runs
+   * against the same project fixture. Optional for legacy ensembles.
+   */
+  sources?: string[];
 
   /** Pricing curve consensus across all sims. */
   pricing?: PricingAggregate;
@@ -209,13 +239,24 @@ export interface PersonasAggregate {
    * shows mean purchase intent and the country that segment most often
    * picks as their #1 choice. Populated only when the underlying field
    * is present on enough personas — segments with <10 members get
-   * dropped because the means become noisy.
+   * dropped because the means become noisy. Optional because legacy
+   * ensembles (created before E1) don't have it.
    */
-  segmentBreakdown: {
+  segmentBreakdown?: {
     byGender: SegmentBreakdownRow[];
     byAge: SegmentBreakdownRow[];
     byIncome: SegmentBreakdownRow[];
   };
+
+  /**
+   * Brand / channel mentions extracted from persona free-text fields
+   * (voice, trustFactors, objections). Top 15 by mention count, sorted
+   * descending. Drives the "where is the customer ALREADY shopping"
+   * channel-strategy view — high-mention channels are existing
+   * touchpoints; high-intent + high-mention is a launch priority.
+   * Optional because legacy ensembles (created before E2) don't have it.
+   */
+  channelMentions?: ChannelMentionRow[];
 }
 
 export interface SegmentBreakdownRow {
@@ -227,6 +268,18 @@ export interface SegmentBreakdownRow {
   topCountry: string;
   /** Share of this segment whose top market is `topCountry`. */
   topCountryShare: number;
+}
+
+export interface ChannelMentionRow {
+  /** Brand / channel name as displayed (e.g. "Amazon", "TikTok"). */
+  channel: string;
+  /** Persona count that mentioned this channel in voice / trust / objections. */
+  mentions: number;
+  /** Share of all personas that mentioned it (rounded percent). */
+  share: number;
+  /** Mean intent of personas who mentioned this channel — a high number
+      means the channel correlates with conversion-ready audience. */
+  meanIntent: number;
 }
 
 /**
@@ -320,34 +373,99 @@ export function aggregateEnsemble(
     consensusPercent >= 80 ? "STRONG" : consensusPercent >= 50 ? "MODERATE" : "WEAK";
 
   // ── per-country stats ──
-  type Bucket = { final: number[]; demand: number[]; cac: number[]; comp: number[] };
+  type Bucket = {
+    final: number[];
+    demand: number[];
+    cac: number[];
+    comp: number[];
+    rationales: string[];
+  };
   const buckets = new Map<string, Bucket>();
   for (const s of sims) {
     for (const c of s.countries) {
       const key = c.country.toUpperCase();
-      const b = buckets.get(key) ?? { final: [], demand: [], cac: [], comp: [] };
+      const b =
+        buckets.get(key) ?? { final: [], demand: [], cac: [], comp: [], rationales: [] };
       b.final.push(c.finalScore);
       b.demand.push(c.demandScore);
       b.cac.push(c.cacEstimateUsd);
       b.comp.push(c.competitionScore);
+      if (typeof c.rationale === "string" && c.rationale.trim().length > 0) {
+        b.rationales.push(c.rationale.trim());
+      }
       buckets.set(key, b);
     }
   }
+
+  // Per-country drilldown payload — built from the same persona pool the
+  // single-sim Country tab uses (intent stats + objection top-N) plus a
+  // small sample of per-sim rationales so the drilldown can show one
+  // representative justification without LLM-merging.
+  const personasByCountry = new Map<string, NonNullable<EnsembleSimSnapshot["personas"]>[number][]>();
+  for (const s of sims) {
+    for (const p of s.personas ?? []) {
+      const key = (p.country ?? "?").toUpperCase();
+      const arr = personasByCountry.get(key) ?? [];
+      arr.push(p);
+      personasByCountry.set(key, arr);
+    }
+  }
+
   const countryStats: CountryStats[] = [...buckets.entries()]
-    .map(([country, b]) => ({
-      country,
-      finalScore: {
-        mean: round1(mean(b.final)),
-        median: round1(median(b.final)),
-        std: round1(std(b.final)),
-        min: round1(Math.min(...b.final)),
-        max: round1(Math.max(...b.final)),
-        range: round1(Math.max(...b.final) - Math.min(...b.final)),
-      },
-      demandScore: { mean: round1(mean(b.demand)), median: round1(median(b.demand)) },
-      cacEstimateUsd: { mean: round2(mean(b.cac)), median: round2(median(b.cac)) },
-      competitionScore: { mean: round1(mean(b.comp)), median: round1(median(b.comp)) },
-    }))
+    .map(([country, b]) => {
+      const inCountry = personasByCountry.get(country) ?? [];
+      const intents = inCountry.map((p) => p.purchaseIntent);
+      // Objections aggregated across personas in this country. We dedup on
+      // raw text — duplicate "too salty" mentions are signal, not noise.
+      const objCounts = new Map<string, number>();
+      for (const p of inCountry) {
+        for (const o of p.objections ?? []) {
+          const key = o.trim();
+          if (!key) continue;
+          objCounts.set(key, (objCounts.get(key) ?? 0) + 1);
+        }
+      }
+      const topObjections = [...objCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([text, count]) => ({ text, count }));
+      // Rationale samples — pick the 3 longest unique strings as a proxy
+      // for "most informative". Cheap, deterministic, no LLM call needed.
+      const rationaleSeen = new Set<string>();
+      const rationaleSamples = b.rationales
+        .filter((r) => {
+          const k = r.slice(0, 80);
+          if (rationaleSeen.has(k)) return false;
+          rationaleSeen.add(k);
+          return true;
+        })
+        .sort((a, b) => b.length - a.length)
+        .slice(0, 3);
+      return {
+        country,
+        finalScore: {
+          mean: round1(mean(b.final)),
+          median: round1(median(b.final)),
+          std: round1(std(b.final)),
+          min: round1(Math.min(...b.final)),
+          max: round1(Math.max(...b.final)),
+          range: round1(Math.max(...b.final) - Math.min(...b.final)),
+        },
+        demandScore: { mean: round1(mean(b.demand)), median: round1(median(b.demand)) },
+        cacEstimateUsd: { mean: round2(mean(b.cac)), median: round2(median(b.cac)) },
+        competitionScore: { mean: round1(mean(b.comp)), median: round1(median(b.comp)) },
+        detail: {
+          rationaleSamples,
+          topObjections,
+          persona: {
+            count: inCountry.length,
+            meanIntent: intents.length > 0 ? Math.round(mean(intents)) : 0,
+            highIntent: inCountry.filter((p) => p.purchaseIntent >= 70).length,
+            lowIntent: inCountry.filter((p) => p.purchaseIntent < 35).length,
+          },
+        },
+      };
+    })
     .sort((a, b) => b.finalScore.median - a.finalScore.median);
 
   // ── per-segment best country ──
@@ -386,6 +504,20 @@ export function aggregateEnsemble(
   const pricing = computePricingAggregate(sims);
   const creative = computeCreativeAggregate(sims);
 
+  // ── reference data sources (stashed on overview by runner) ──
+  // All sims in an ensemble run against the same project fixture, so the
+  // sources list is identical across sims — pull from the first one that
+  // has it. _sources is deliberately untyped on Overview because runner.ts
+  // tacks it on after schema parsing for persistence.
+  let sources: string[] | undefined;
+  for (const s of sims) {
+    const ov = s.overview as { _sources?: unknown } | undefined;
+    if (ov?._sources && Array.isArray(ov._sources) && ov._sources.length > 0) {
+      sources = ov._sources.filter((x): x is string => typeof x === "string");
+      break;
+    }
+  }
+
   return {
     simCount,
     effectivePersonas,
@@ -399,6 +531,7 @@ export function aggregateEnsemble(
     segments,
     providerBreakdown,
     personas,
+    sources,
     pricing,
     creative,
     varianceAssessment: {
@@ -490,22 +623,19 @@ function computePersonasAggregate(
     5,
   );
 
-  // Demographics — ageRange comes through as a string label like "25-34"
-  // straight from the LLM, so we just bucket by literal value. Sort is
-  // numeric-first when the buckets parse cleanly.
+  // Demographics — ageRange comes through as freeform LLM strings ("25-34",
+  // "22-30", "30s", "30대" etc.). Same normalisation as the segment view
+  // so the histogram and the segment table speak the same buckets.
   const ageBucketMap = new Map<string, number>();
   for (const p of all) {
-    if (!p.ageRange) continue;
-    ageBucketMap.set(p.ageRange, (ageBucketMap.get(p.ageRange) ?? 0) + 1);
+    const bucket = normaliseAge(p.ageRange);
+    if (!bucket) continue;
+    ageBucketMap.set(bucket, (ageBucketMap.get(bucket) ?? 0) + 1);
   }
+  const ageOrder = ["<20", "20-29", "30-39", "40-49", "50-59", "60+"];
   const ageDistribution = [...ageBucketMap.entries()]
     .map(([bucket, count]) => ({ bucket, count }))
-    .sort((a, b) => {
-      const an = parseInt(a.bucket);
-      const bn = parseInt(b.bucket);
-      if (Number.isFinite(an) && Number.isFinite(bn)) return an - bn;
-      return a.bucket.localeCompare(b.bucket);
-    });
+    .sort((a, b) => ageOrder.indexOf(a.bucket) - ageOrder.indexOf(b.bucket));
 
   const profMap = new Map<string, number>();
   for (const p of all) {
@@ -530,6 +660,8 @@ function computePersonasAggregate(
     byIncome: bucketIntoSegments(all, (p) => normaliseIncome(p.incomeBand)),
   };
 
+  const channelMentions = extractChannelMentions(all);
+
   return {
     total: all.length,
     byCountry,
@@ -543,7 +675,99 @@ function computePersonasAggregate(
     ageDistribution,
     professionTopN,
     segmentBreakdown,
+    channelMentions,
   };
+}
+
+/**
+ * Curated brand / channel dictionary. Each entry maps a canonical
+ * display name to a list of substring patterns we'll match (case-
+ * insensitive). Patterns intentionally include common Korean / Latin
+ * variants and stylised spellings so the same channel matches whether
+ * the persona writes "Amazon US" or "Amazon.com" or "아마존".
+ *
+ * Add new entries here as fixtures surface them — the goal isn't an
+ * exhaustive list of every brand on Earth, just the high-frequency
+ * D2C / retail / social touchpoints relevant to K-product expansion.
+ */
+const CHANNEL_DICTIONARY: Array<{ display: string; patterns: string[] }> = [
+  { display: "Amazon", patterns: ["amazon", "아마존"] },
+  { display: "TikTok Shop", patterns: ["tiktok shop", "tiktokshop", "틱톡샵", "틱톡 샵"] },
+  { display: "TikTok", patterns: ["tiktok", "틱톡"] },
+  { display: "Instagram", patterns: ["instagram", "인스타그램", "인스타", "ig "] },
+  { display: "Sephora", patterns: ["sephora", "세포라"] },
+  { display: "Ulta", patterns: ["ulta beauty", "ulta"] },
+  { display: "YesStyle", patterns: ["yesstyle", "예스스타일"] },
+  { display: "Stylevana", patterns: ["stylevana", "스타일바나"] },
+  { display: "Olive Young", patterns: ["olive young", "oliveyoung", "올리브영"] },
+  { display: "Style Korean", patterns: ["stylekorean", "style korean"] },
+  { display: "Watsons", patterns: ["watsons", "왓슨스"] },
+  { display: "Reddit", patterns: ["reddit", "레딧", "/r/"] },
+  { display: "YouTube", patterns: ["youtube", "youtuber", "유튜브", "유튜버"] },
+  { display: "Cosme.com", patterns: ["cosme.com", "cosme.net", "@cosme", "atcosme"] },
+  { display: "Rakuten", patterns: ["rakuten", "라쿠텐"] },
+  { display: "Shopee", patterns: ["shopee", "쇼피"] },
+  { display: "Lazada", patterns: ["lazada", "라자다"] },
+  { display: "Boots", patterns: ["boots uk", "boots.com", "boots "] },
+  { display: "Cult Beauty", patterns: ["cult beauty", "cultbeauty"] },
+  { display: "Beauty Bay", patterns: ["beauty bay", "beautybay"] },
+  { display: "Qoo10", patterns: ["qoo10", "큐텐"] },
+  { display: "Coupang", patterns: ["coupang", "쿠팡"] },
+  { display: "Naver", patterns: ["naver shopping", "네이버 쇼핑", "스마트스토어", "네이버"] },
+  { display: "11st", patterns: ["11번가", "11st"] },
+  { display: "Walmart", patterns: ["walmart", "월마트"] },
+  { display: "Target", patterns: ["target.com", "target store"] },
+  { display: "Influencer", patterns: ["influencer", "인플루언서", "blogger", "블로거"] },
+];
+
+function extractChannelMentions(personas: RawPersona[]): ChannelMentionRow[] {
+  const total = personas.length;
+  if (total === 0) return [];
+
+  // For each channel, count how many personas mention it (1 mention per
+  // persona, even if the same channel appears in voice + trustFactors).
+  // Also track the intent of each mentioning persona so we can compute
+  // a per-channel mean intent — high mean intent + high mention count
+  // = the channel where conversion-ready buyers already live.
+  const stats = new Map<string, { mentions: number; intentSum: number }>();
+
+  for (const p of personas) {
+    const haystack = [
+      p.voice ?? "",
+      ...(p.trustFactors ?? []),
+      ...(p.objections ?? []),
+    ]
+      .join(" \n ")
+      .toLowerCase();
+    if (!haystack.trim()) continue;
+
+    const matched = new Set<string>();
+    for (const entry of CHANNEL_DICTIONARY) {
+      if (matched.has(entry.display)) continue;
+      for (const pat of entry.patterns) {
+        if (haystack.includes(pat)) {
+          matched.add(entry.display);
+          break;
+        }
+      }
+    }
+    for (const channel of matched) {
+      const cur = stats.get(channel) ?? { mentions: 0, intentSum: 0 };
+      cur.mentions += 1;
+      cur.intentSum += p.purchaseIntent;
+      stats.set(channel, cur);
+    }
+  }
+
+  return [...stats.entries()]
+    .map(([channel, s]) => ({
+      channel,
+      mentions: s.mentions,
+      share: Math.round((s.mentions / total) * 100),
+      meanIntent: round1(s.intentSum / s.mentions),
+    }))
+    .sort((a, b) => b.mentions - a.mentions)
+    .slice(0, 15);
 }
 
 const SEGMENT_MIN_COUNT = 10;
@@ -556,6 +780,8 @@ interface RawPersona {
   profession?: string;
   gender?: string;
   incomeBand?: string;
+  trustFactors?: string[];
+  objections?: string[];
 }
 
 function bucketIntoSegments(
@@ -613,28 +839,72 @@ function normaliseGender(g: string | undefined): string | null {
   return null;
 }
 
+// LLM ageRange comes through as freeform: "27", "25-34", "30s", "30대",
+// "22-30", "32-42" etc. If we don't normalise to a fixed bucket set, every
+// slightly different range becomes its own row and the segment view turns
+// into a 30-row mush. Strategy: collapse everything to decade buckets
+// (20-29 / 30-39 / 40-49 / 50-59 / 60+). For ranges, use the midpoint to
+// pick the bucket so "22-30" and "25-30" both land in 20-29.
 function normaliseAge(a: string | undefined): string | null {
   if (!a) return null;
   const t = a.trim();
   if (!t) return null;
-  // Already a range like "25-34", "20s", or "30대" — pass through. Numbers
-  // alone (e.g. "27") get bucketed into a decade so they aggregate with
-  // peers instead of forming singletons.
-  if (/^\d{1,2}\s*[-–]\s*\d{1,2}$/.test(t) || /\d+s$/i.test(t)) return t;
-  if (/^\d+대$/.test(t)) return t;
-  const num = parseInt(t, 10);
-  if (Number.isFinite(num) && num > 0 && num < 120) {
-    const decade = Math.floor(num / 10) * 10;
-    return `${decade}s`;
+  let center: number | null = null;
+  // Range: "22-30", "25–34" etc.
+  const rangeMatch = t.match(/^\s*(\d{1,2})\s*[-–~]\s*(\d{1,2})\s*$/);
+  if (rangeMatch) {
+    const lo = parseInt(rangeMatch[1], 10);
+    const hi = parseInt(rangeMatch[2], 10);
+    if (Number.isFinite(lo) && Number.isFinite(hi)) center = (lo + hi) / 2;
   }
-  return t;
+  if (center == null) {
+    // "30s" / "30대" — already decade-shaped.
+    const decadeMatch = t.match(/^(\d{1,2})\s*(s|대)$/i);
+    if (decadeMatch) {
+      const d = parseInt(decadeMatch[1], 10);
+      if (Number.isFinite(d)) center = d + 5;
+    }
+  }
+  if (center == null) {
+    // Single integer "27".
+    const num = parseInt(t, 10);
+    if (Number.isFinite(num) && num > 0 && num < 120) center = num;
+  }
+  if (center == null) return null;
+  if (center < 20) return "<20";
+  if (center < 30) return "20-29";
+  if (center < 40) return "30-39";
+  if (center < 50) return "40-49";
+  if (center < 60) return "50-59";
+  return "60+";
 }
 
+// LLM-emitted incomeBand strings are extremely freeform — every persona
+// gets a slightly different label like "연 ¥3.5M-¥5M (~$25-36k USD)" or
+// "$52k-$78k (이커머스 큐레이터)". Without bucketing, ~95% of values are
+// singletons and the 10-person noise floor wipes out the entire panel.
+// Strategy: extract the first $X(k) figure (works on the vast majority
+// because non-USD personas include a (~$xx USD) parenthetical), then
+// bucket into 5 coarse USD bands so groups consistently clear the floor.
 function normaliseIncome(i: string | undefined): string | null {
   if (!i) return null;
   const t = i.trim();
   if (!t) return null;
-  return t;
+  let kUsd: number | null = null;
+  const kMatch = t.match(/\$\s*(\d{1,4})(?:\s*[-–~to]+\s*\$?\s*\d{1,4})?\s*[kK]/);
+  if (kMatch) {
+    kUsd = parseInt(kMatch[1], 10);
+  } else {
+    // Try plain dollar amount with comma like "$45,000"
+    const fullMatch = t.match(/\$\s*(\d{1,3}),(\d{3})/);
+    if (fullMatch) kUsd = Math.round((parseInt(fullMatch[1], 10) * 1000 + parseInt(fullMatch[2], 10)) / 1000);
+  }
+  if (kUsd == null) return null;
+  if (kUsd < 30) return "<$30k";
+  if (kUsd < 60) return "$30-60k";
+  if (kUsd < 100) return "$60-100k";
+  if (kUsd < 150) return "$100-150k";
+  return "$150k+";
 }
 
 function computePricingAggregate(

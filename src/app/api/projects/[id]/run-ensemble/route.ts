@@ -392,6 +392,8 @@ async function aggregateAndPersist(opts: {
         profession?: string;
         gender?: string;
         incomeBand?: string;
+        trustFactors?: unknown;
+        objections?: unknown;
       };
       if (typeof rec.purchaseIntent !== "number" || !rec.country) return [];
       return [
@@ -403,6 +405,12 @@ async function aggregateAndPersist(opts: {
           profession: rec.profession,
           gender: rec.gender,
           incomeBand: rec.incomeBand,
+          trustFactors: Array.isArray(rec.trustFactors)
+            ? (rec.trustFactors as unknown[]).filter((x): x is string => typeof x === "string")
+            : undefined,
+          objections: Array.isArray(rec.objections)
+            ? (rec.objections as unknown[]).filter((x): x is string => typeof x === "string")
+            : undefined,
         },
       ];
     });

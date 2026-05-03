@@ -55,6 +55,14 @@ const TIER_BUDGET: Record<
     countriesInRanking: number;
     professions: number;
     showDemographics: boolean;
+    /** Channel/brand mention table — decision_plus 이상에서만 표시. */
+    showChannels: boolean;
+    /** Per-segment intent breakdown (gender/age/income) — decision_plus 이상. */
+    showSegments: boolean;
+    /** Per-country drilldown (rationale + objections + persona summary) — decision_plus 이상. */
+    showCountryDetail: boolean;
+    /** Top-N countries to render with full detail blocks. */
+    countryDetailLimit: number;
     showPricingCurve: boolean;
     showProviderConsensus: boolean; // gated additionally by lineup size
     showMethodology: boolean;
@@ -69,6 +77,10 @@ const TIER_BUDGET: Record<
     countriesInRanking: 5,
     professions: 6,
     showDemographics: false,
+    showChannels: false,
+    showSegments: false,
+    showCountryDetail: false,
+    countryDetailLimit: 0,
     showPricingCurve: true,
     showProviderConsensus: false,
     showMethodology: true,
@@ -82,6 +94,10 @@ const TIER_BUDGET: Record<
     countriesInRanking: 8,
     professions: 8,
     showDemographics: true,
+    showChannels: false,
+    showSegments: false,
+    showCountryDetail: false,
+    countryDetailLimit: 0,
     showPricingCurve: true,
     showProviderConsensus: false,
     showMethodology: true,
@@ -95,6 +111,10 @@ const TIER_BUDGET: Record<
     countriesInRanking: 10,
     professions: 10,
     showDemographics: true,
+    showChannels: true,
+    showSegments: true,
+    showCountryDetail: true,
+    countryDetailLimit: 3,
     showPricingCurve: true,
     showProviderConsensus: false,
     showMethodology: true,
@@ -108,6 +128,10 @@ const TIER_BUDGET: Record<
     countriesInRanking: 12,
     professions: 12,
     showDemographics: true,
+    showChannels: true,
+    showSegments: true,
+    showCountryDetail: true,
+    countryDetailLimit: 5,
     showPricingCurve: true,
     showProviderConsensus: true,
     showMethodology: true,
@@ -121,6 +145,10 @@ const TIER_BUDGET: Record<
     countriesInRanking: 12,
     professions: 12,
     showDemographics: true,
+    showChannels: true,
+    showSegments: true,
+    showCountryDetail: true,
+    countryDetailLimit: 5,
     showPricingCurve: true,
     showProviderConsensus: true,
     showMethodology: true,
@@ -1017,6 +1045,148 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     );
   };
 
+  // Per-country drilldown — same shape as the dashboard's expandable
+  // country row. Tier-gated so only decision_plus and above print this
+  // (the lighter tiers keep the report short). Render as one A4 with
+  // top-N country blocks; each block wraps={false} so a single country's
+  // section never gets split across pages.
+  const renderCountryDetailPage = () => {
+    if (!tierBudget.showCountryDetail) return null;
+    const detailed = aggregate.countryStats
+      .filter((c) => !!c.detail)
+      .slice(0, tierBudget.countryDetailLimit);
+    if (detailed.length === 0) return null;
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo ? "국가별 디테일" : "Country detail"}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? `상위 ${detailed.length}개 시장의 선정 사유 · 페르소나 요약 · 거부 요인입니다.`
+            : `Selection rationale, persona summary, and objections for the top ${detailed.length} markets.`}
+        </MText>
+
+        {detailed.map((c) => {
+          const d = c.detail;
+          if (!d) return null;
+          return (
+            <View key={c.country} style={styles.sectionBlock} wrap={false}>
+              <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+                <MText style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{c.country}</MText>
+                <MText style={{ fontSize: 9, color: C.muted }}>
+                  {isKo
+                    ? `평균 ${c.finalScore.mean.toFixed(1)} · 중앙값 ${c.finalScore.median.toFixed(1)} · CAC $${c.cacEstimateUsd.median.toFixed(2)}`
+                    : `mean ${c.finalScore.mean.toFixed(1)} · median ${c.finalScore.median.toFixed(1)} · CAC $${c.cacEstimateUsd.median.toFixed(2)}`}
+                </MText>
+              </View>
+
+              {d.rationaleSamples.length > 0 && (
+                <View style={{ marginBottom: 8 }}>
+                  <MText style={[styles.infoLabel, { marginBottom: 3 }]}>
+                    {isKo
+                      ? `선정 사유 (시뮬 샘플 ${d.rationaleSamples.length}건)`
+                      : `Rationale (${d.rationaleSamples.length} sim samples)`}
+                  </MText>
+                  {d.rationaleSamples.map((r, i) => (
+                    <MText
+                      key={i}
+                      style={{
+                        fontSize: 9,
+                        color: C.body,
+                        lineHeight: 1.5,
+                        marginBottom: 4,
+                        paddingLeft: 8,
+                        borderLeft: `1.5pt solid ${C.divider}`,
+                      }}
+                    >
+                      {r}
+                    </MText>
+                  ))}
+                </View>
+              )}
+
+              <View style={{ flexDirection: "row", gap: 14 }}>
+                <View style={{ flex: 1.4 }}>
+                  {d.topObjections.length > 0 && (
+                    <View>
+                      <MText style={[styles.infoLabel, { marginBottom: 3 }]}>
+                        {isKo ? "공통 거부 요인 TOP 5" : "Top objections"}
+                      </MText>
+                      {d.topObjections.map((o) => (
+                        <View
+                          key={o.text}
+                          style={{ flexDirection: "row", marginBottom: 2, gap: 6 }}
+                        >
+                          <MText
+                            style={{
+                              fontSize: 8,
+                              color: C.muted,
+                              minWidth: 14,
+                              textAlign: "right",
+                            }}
+                          >
+                            {String(o.count)}
+                          </MText>
+                          <MText style={{ fontSize: 9, color: C.body, flex: 1, lineHeight: 1.45 }}>
+                            {o.text}
+                          </MText>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <MText style={[styles.infoLabel, { marginBottom: 3 }]}>
+                    {isKo ? "이 국가 페르소나 요약" : "Persona summary"}
+                  </MText>
+                  {d.persona.count === 0 ? (
+                    <MText style={styles.tdMuted}>—</MText>
+                  ) : (
+                    <View style={{ gap: 2 }}>
+                      <SummaryRow
+                        label={isKo ? "페르소나 수" : "Personas"}
+                        value={d.persona.count.toLocaleString()}
+                      />
+                      <SummaryRow
+                        label={isKo ? "평균 구매의향" : "Mean intent"}
+                        value={`${d.persona.meanIntent}/100`}
+                      />
+                      <SummaryRow
+                        label={isKo ? "고의향 (≥70)" : "High (≥70)"}
+                        value={String(d.persona.highIntent)}
+                        valueColor={C.success}
+                      />
+                      <SummaryRow
+                        label={isKo ? "저의향 (<35)" : "Low (<35)"}
+                        value={String(d.persona.lowIntent)}
+                        valueColor={C.risk}
+                      />
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+          );
+        })}
+
+        {aggregate.sources && aggregate.sources.length > 0 && (
+          <View style={styles.sectionBlock}>
+            <MText style={styles.sectionEyebrow}>
+              {isKo ? "통계 근거" : "Data sources"}
+            </MText>
+            <MText style={{ fontSize: 8, color: C.muted, lineHeight: 1.5 }}>
+              {aggregate.sources.join(" · ")}
+            </MText>
+          </View>
+        )}
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
   const renderPersonasPage = () => {
     if (!aggregate.personas) return null;
     const p = aggregate.personas;
@@ -1140,7 +1310,35 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           </View>
         )}
 
-        {tierBudget.showDemographics &&
+        {tierBudget.showChannels && p.channelMentions && p.channelMentions.length > 0 && (
+          <View style={styles.sectionBlock}>
+            <MText style={styles.sectionEyebrow}>
+              {isKo ? "채널·브랜드 언급 (Top 10)" : "Channel / brand mentions"}
+            </MText>
+            <View style={styles.table}>
+              <View style={styles.tableHeader}>
+                <MText style={[styles.th, { flex: 1.5 }]}>{isKo ? "채널" : "Channel"}</MText>
+                <MText style={[styles.th, styles.colNum]}>{isKo ? "언급" : "Mentions"}</MText>
+                <MText style={[styles.th, styles.colNum]}>{isKo ? "비중" : "Share"}</MText>
+                <MText style={[styles.th, styles.colNum]}>{isKo ? "평균 의향" : "Intent"}</MText>
+              </View>
+              {p.channelMentions.slice(0, 10).map((c, i, arr) => {
+                const last = i === arr.length - 1;
+                return (
+                  <View key={c.channel} style={[styles.tableRow, last ? styles.tableRowLast : {}]}>
+                    <MText style={[styles.td, { flex: 1.5, fontWeight: 600 }]}>{c.channel}</MText>
+                    <MText style={[styles.td, styles.colNum]}>{String(c.mentions)}</MText>
+                    <MText style={[styles.tdMuted, styles.colNum]}>{`${c.share}%`}</MText>
+                    <MText style={[styles.tdMuted, styles.colNum]}>{`${c.meanIntent}%`}</MText>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {tierBudget.showSegments &&
+          p.segmentBreakdown &&
           (p.segmentBreakdown.byGender.length > 0 ||
             p.segmentBreakdown.byAge.length > 0 ||
             p.segmentBreakdown.byIncome.length > 0) && (
@@ -1632,6 +1830,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       {renderExecutiveSummaryPage()}
       {renderRecommendationPage()}
       {renderCountriesPage()}
+      {renderCountryDetailPage()}
       {renderPersonasPage()}
       {renderVoicesPage()}
       {renderPricingPage()}
@@ -1666,13 +1865,32 @@ function BulletItem({ text }: { text: string }) {
   );
 }
 
+function SummaryRow({
+  label,
+  value,
+  valueColor,
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+}) {
+  return (
+    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+      <MText style={{ fontSize: 9, color: C.muted }}>{label}</MText>
+      <MText style={{ fontSize: 9, color: valueColor ?? C.ink, fontWeight: 600 }}>
+        {value}
+      </MText>
+    </View>
+  );
+}
+
 function SegmentBlock({
   title,
   rows,
   isKo,
 }: {
   title: string;
-  rows: NonNullable<EnsembleAggregate["personas"]>["segmentBreakdown"]["byGender"];
+  rows: NonNullable<NonNullable<EnsembleAggregate["personas"]>["segmentBreakdown"]>["byGender"];
   isKo: boolean;
 }) {
   return (

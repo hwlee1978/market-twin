@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download, ChevronRight } from "lucide-react";
 import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
@@ -35,6 +35,8 @@ interface EnsembleStatus {
     ensemble_index: number | null;
   }>;
   error_message?: string | null;
+  created_at?: string | null;
+  completed_at?: string | null;
 }
 
 interface ProjectInfo {
@@ -219,6 +221,19 @@ function EnsembleProgress({
   const [cancelError, setCancelError] = useState<string | null>(null);
 
   const isKo = locale === "ko";
+  const tierLabel = tierBadgeLabel(status.tier, isKo);
+
+  // Tick once per second so the elapsed-time readout stays current. Falls
+  // back to no-op when the row hasn't recorded a created_at yet (legacy).
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!status.created_at) return;
+    const handle = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(handle);
+  }, [status.created_at]);
+  const startedMs = status.created_at ? new Date(status.created_at).getTime() : null;
+  const elapsedSec = startedMs ? Math.max(0, Math.floor((now - startedMs) / 1000)) : 0;
+  const elapsedLabel = formatElapsedHMS(elapsedSec);
   const submitCancel = async () => {
     setCancelling(true);
     setCancelError(null);
@@ -238,19 +253,25 @@ function EnsembleProgress({
   // top number ("0/25 완료") would otherwise feel frozen for several minutes.
   const activitySubline =
     counts.running > 0 || counts.pending > 0
-      ? `${counts.running}개 진행 중 · ${counts.pending}개 대기${counts.failed > 0 ? ` · ${counts.failed}개 실패` : ""}`
+      ? isKo
+        ? `${counts.running}개 진행 중 · ${counts.pending}개 대기${counts.failed > 0 ? ` · ${counts.failed}개 실패` : ""}`
+        : `${counts.running} running · ${counts.pending} pending${counts.failed > 0 ? ` · ${counts.failed} failed` : ""}`
       : null;
   return (
     <div className="max-w-2xl mx-auto py-12">
       <div className="card p-10">
         <div className="text-xs uppercase tracking-wide text-accent-600 mb-2 text-center">
-          정밀 검증 진행 중
+          {isKo ? `${tierLabel} 진행 중` : `${tierLabel} in progress`}
         </div>
         <h2 className="text-2xl font-semibold text-center mb-1">
-          {counts.completed}/{counts.total} 시뮬레이션 완료
+          {isKo
+            ? `${counts.completed}/${counts.total} 시뮬레이션 완료`
+            : `${counts.completed}/${counts.total} simulations done`}
         </h2>
         <p className="text-sm text-slate-500 text-center mb-1">
-          {status.parallel_sims}개 독립 시뮬레이션을 병렬 실행하여 신뢰도 있는 결과를 도출합니다.
+          {isKo
+            ? `${status.parallel_sims}개 독립 시뮬레이션을 병렬 실행하여 신뢰도 있는 결과를 도출합니다.`
+            : `Running ${status.parallel_sims} independent simulations in parallel for confidence-grade results.`}
         </p>
         {activitySubline && (
           <p className="text-xs text-slate-400 text-center mb-6">{activitySubline}</p>
@@ -288,7 +309,14 @@ function EnsembleProgress({
             style={{ width: `${pct}%` }}
           />
         </div>
-        <div className="mt-2 text-xs text-slate-500 text-center">{pct}%</div>
+        <div className="mt-2 flex items-baseline justify-center gap-3 text-xs text-slate-500 tabular-nums">
+          <span>{pct}%</span>
+          {startedMs && (
+            <span className="text-slate-400">
+              {isKo ? `${elapsedLabel} 경과` : `${elapsedLabel} elapsed`}
+            </span>
+          )}
+        </div>
 
         {pollError && (
           <p className="mt-4 text-xs text-warn text-center">{pollError}</p>
@@ -651,6 +679,7 @@ function EnsembleDashboard({
           bestCountryDistribution={bestCountryDistribution}
           recommendation={recommendation}
           simCount={simCount}
+          sources={aggregate.sources ?? []}
           locale={locale}
           isKo={isKo}
         />
@@ -1309,6 +1338,7 @@ function CountriesTab({
   bestCountryDistribution,
   recommendation,
   simCount,
+  sources,
   locale,
   isKo,
 }: {
@@ -1317,10 +1347,12 @@ function CountriesTab({
   bestCountryDistribution: EnsembleAggregate["bestCountryDistribution"];
   recommendation: EnsembleAggregate["recommendation"];
   simCount: number;
+  sources: string[];
   locale: string;
   isKo: boolean;
 }) {
   void locale;
+  const [expandedCountry, setExpandedCountry] = useState<string | null>(null);
   return (
     <div className="space-y-6">
       <div>
@@ -1406,10 +1438,16 @@ function CountriesTab({
         <h2 className="text-base font-semibold text-slate-900 mb-3">
           {isKo ? "국가별 점수 분포 (전체 통계)" : "Per-country full statistics"}
         </h2>
+        <p className="text-xs text-slate-500 mb-2">
+          {isKo
+            ? "행을 클릭하면 선정 사유 · 페르소나 요약 · 거부 요인을 펼칠 수 있습니다."
+            : "Click a row to expand rationale, persona summary, and objections."}
+        </p>
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
               <tr>
+                <th className="w-8 px-3 py-2" />
                 <th className="px-4 py-2 text-left">{isKo ? "국가" : "Country"}</th>
                 <th className="px-4 py-2 text-right">{isKo ? "평균 점수" : "Mean"}</th>
                 <th className="px-4 py-2 text-right">{isKo ? "중앙값" : "Median"}</th>
@@ -1421,31 +1459,155 @@ function CountriesTab({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {countryStats.map((c) => (
-                <tr key={c.country}>
-                  <td className="px-4 py-2 font-medium text-slate-900">{c.country}</td>
-                  <td className="px-4 py-2 text-right tabular-nums">{c.finalScore.mean.toFixed(1)}</td>
-                  <td className="px-4 py-2 text-right tabular-nums">{c.finalScore.median.toFixed(1)}</td>
-                  <td className="px-4 py-2 text-right tabular-nums text-slate-500">
-                    {c.finalScore.std.toFixed(1)}
-                  </td>
-                  <td className="px-4 py-2 text-right tabular-nums text-slate-500">
-                    {c.finalScore.min.toFixed(0)}–{c.finalScore.max.toFixed(0)}
-                  </td>
-                  <td className="px-4 py-2 text-right tabular-nums text-slate-500">
-                    {c.demandScore.median.toFixed(0)}
-                  </td>
-                  <td className="px-4 py-2 text-right tabular-nums text-slate-500">
-                    {c.competitionScore.median.toFixed(0)}
-                  </td>
-                  <td className="px-4 py-2 text-right tabular-nums text-slate-500">
-                    ${c.cacEstimateUsd.median.toFixed(2)}
-                  </td>
-                </tr>
-              ))}
+              {countryStats.map((c) => {
+                const isOpen = expandedCountry === c.country;
+                const hasDetail = !!c.detail;
+                return (
+                  <Fragment key={c.country}>
+                    <tr
+                      className={clsx(
+                        "transition-colors",
+                        hasDetail ? "cursor-pointer hover:bg-slate-50" : "",
+                      )}
+                      onClick={() => hasDetail && setExpandedCountry(isOpen ? null : c.country)}
+                    >
+                      <td className="px-3 py-2 text-slate-400">
+                        {hasDetail && (
+                          <ChevronRight
+                            size={14}
+                            className={clsx("transition-transform", isOpen && "rotate-90")}
+                          />
+                        )}
+                      </td>
+                      <td className="px-4 py-2 font-medium text-slate-900">{c.country}</td>
+                      <td className="px-4 py-2 text-right tabular-nums">{c.finalScore.mean.toFixed(1)}</td>
+                      <td className="px-4 py-2 text-right tabular-nums">{c.finalScore.median.toFixed(1)}</td>
+                      <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                        {c.finalScore.std.toFixed(1)}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                        {c.finalScore.min.toFixed(0)}–{c.finalScore.max.toFixed(0)}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                        {c.demandScore.median.toFixed(0)}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                        {c.competitionScore.median.toFixed(0)}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                        ${c.cacEstimateUsd.median.toFixed(2)}
+                      </td>
+                    </tr>
+                    {isOpen && c.detail && (
+                      <tr className="bg-slate-50/50">
+                        <td colSpan={9} className="px-8 py-5">
+                          <CountryDrilldown
+                            detail={c.detail}
+                            rationaleSamples={c.detail.rationaleSamples}
+                            sources={sources}
+                            isKo={isKo}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function CountryDrilldown({
+  detail,
+  rationaleSamples,
+  sources,
+  isKo,
+}: {
+  detail: NonNullable<EnsembleAggregate["countryStats"][number]["detail"]>;
+  rationaleSamples: string[];
+  sources: string[];
+  isKo: boolean;
+}) {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="lg:col-span-2 space-y-4">
+        {rationaleSamples.length > 0 && (
+          <div>
+            <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+              {isKo
+                ? `선정 사유 (시뮬 샘플 ${rationaleSamples.length}건)`
+                : `Selection rationale (${rationaleSamples.length} sim samples)`}
+            </div>
+            <ul className="space-y-2">
+              {rationaleSamples.map((r, i) => (
+                <li
+                  key={i}
+                  className="text-sm text-slate-700 leading-relaxed border-l-2 border-slate-200 pl-3 whitespace-pre-wrap"
+                >
+                  {r}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {detail.topObjections.length > 0 && (
+          <div>
+            <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-2">
+              {isKo ? "공통 거부 요인 TOP 5" : "Top objections"}
+            </div>
+            <ul className="space-y-1.5 text-sm">
+              {detail.topObjections.map((o) => (
+                <li key={o.text} className="flex items-start gap-2">
+                  <span className="badge bg-slate-100 text-slate-600 shrink-0 tabular-nums">{o.count}</span>
+                  <span className="text-slate-700">{o.text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+      <div className="space-y-4">
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-2">
+            {isKo ? "이 국가 페르소나 요약" : "Persona summary"}
+          </div>
+          {detail.persona.count === 0 ? (
+            <p className="text-xs text-slate-500">
+              {isKo ? "이 국가의 페르소나 데이터 없음." : "No personas for this country."}
+            </p>
+          ) : (
+            <ul className="space-y-1 text-sm tabular-nums">
+              <li className="flex justify-between">
+                <span className="text-slate-500">{isKo ? "페르소나 수" : "Personas"}</span>
+                <span className="text-slate-900">{detail.persona.count.toLocaleString()}</span>
+              </li>
+              <li className="flex justify-between">
+                <span className="text-slate-500">{isKo ? "평균 구매의향" : "Mean intent"}</span>
+                <span className="text-slate-900">{detail.persona.meanIntent}/100</span>
+              </li>
+              <li className="flex justify-between">
+                <span className="text-slate-500">{isKo ? "고의향 (≥70)" : "High (≥70)"}</span>
+                <span className="text-success">{detail.persona.highIntent}</span>
+              </li>
+              <li className="flex justify-between">
+                <span className="text-slate-500">{isKo ? "저의향 (<35)" : "Low (<35)"}</span>
+                <span className="text-risk">{detail.persona.lowIntent}</span>
+              </li>
+            </ul>
+          )}
+        </div>
+        {sources.length > 0 && (
+          <div>
+            <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+              {isKo ? "통계 근거" : "Data sources"}
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed">{sources.join(" · ")}</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1599,38 +1761,240 @@ function PersonasTab({
         </div>
       </div>
 
+      {/* Channel / brand mentions extracted from persona free-text
+          (voice + trustFactors + objections). High-mention + high-intent
+          channels are the existing touchpoints worth prioritising. */}
+      {personas.channelMentions && personas.channelMentions.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900 mb-2">
+            {isKo ? "채널·브랜드 언급" : "Channel / brand mentions"}
+          </h3>
+          <div className="card p-4">
+            <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+              {isKo
+                ? "페르소나가 신뢰 요인 / 거부 요인 / 코멘트에서 직접 언급한 채널입니다. 언급량과 평균 구매의향을 같이 보면 \"이미 잠재 고객이 있는 채널\"이 보입니다."
+                : "Channels personas mention in their voice / trust / objections. Mentions × intent surfaces existing-touchpoint priorities."}
+            </p>
+            <table className="w-full text-xs">
+              <thead className="text-slate-500">
+                <tr>
+                  <th className="text-left py-1 pr-2 font-medium">{isKo ? "채널" : "Channel"}</th>
+                  <th className="text-right py-1 px-1 font-medium">{isKo ? "언급" : "Mentions"}</th>
+                  <th className="text-right py-1 px-1 font-medium">{isKo ? "비중" : "Share"}</th>
+                  <th className="text-right py-1 pl-2 font-medium">{isKo ? "평균 의향" : "Mean intent"}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {personas.channelMentions.map((c) => (
+                  <tr key={c.channel}>
+                    <td className="py-1.5 pr-2 text-slate-800 font-medium">{c.channel}</td>
+                    <td className="py-1.5 px-1 text-right tabular-nums text-slate-700">
+                      {c.mentions.toLocaleString()}
+                    </td>
+                    <td className="py-1.5 px-1 text-right tabular-nums text-slate-500">{c.share}%</td>
+                    <td
+                      className={clsx(
+                        "py-1.5 pl-2 text-right tabular-nums font-semibold",
+                        c.meanIntent >= 70
+                          ? "text-success"
+                          : c.meanIntent < 35
+                            ? "text-warn"
+                            : "text-slate-700",
+                      )}
+                    >
+                      {c.meanIntent}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Segment intent breakdown — gender / age / income cuts. Each
           row buckets personas by that demographic and shows mean intent
           + which country members of that bucket most often picked.
           Buckets with <10 personas are dropped server-side so the means
           stay actionable. */}
-      {(personas.segmentBreakdown.byGender.length > 0 ||
-        personas.segmentBreakdown.byAge.length > 0 ||
-        personas.segmentBreakdown.byIncome.length > 0) && (
-        <div>
-          <h3 className="text-sm font-semibold text-slate-900 mb-2">
-            {isKo ? "세그먼트별 구매의향 (10명 이상 그룹만)" : "Intent by segment (groups ≥10 only)"}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <SegmentTable
-              title={isKo ? "성별" : "Gender"}
-              rows={personas.segmentBreakdown.byGender}
-              isKo={isKo}
-            />
-            <SegmentTable
-              title={isKo ? "연령" : "Age"}
-              rows={personas.segmentBreakdown.byAge}
-              isKo={isKo}
-            />
-            <SegmentTable
-              title={isKo ? "소득" : "Income"}
-              rows={personas.segmentBreakdown.byIncome}
-              isKo={isKo}
-            />
+      {personas.segmentBreakdown &&
+        (personas.segmentBreakdown.byGender.length > 0 ||
+          personas.segmentBreakdown.byAge.length > 0 ||
+          personas.segmentBreakdown.byIncome.length > 0) && (
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900 mb-2">
+              {isKo ? "세그먼트별 구매의향 (10명 이상 그룹만)" : "Intent by segment (groups ≥10 only)"}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <SegmentTable
+                title={isKo ? "성별" : "Gender"}
+                rows={personas.segmentBreakdown.byGender}
+                isKo={isKo}
+              />
+              <SegmentTable
+                title={isKo ? "연령" : "Age"}
+                rows={personas.segmentBreakdown.byAge}
+                isKo={isKo}
+              />
+              <SegmentTable
+                title={isKo ? "소득" : "Income"}
+                rows={personas.segmentBreakdown.byIncome}
+                isKo={isKo}
+              />
+            </div>
+            <SegmentGuide isKo={isKo} />
           </div>
-        </div>
-      )}
+        )}
     </div>
+  );
+}
+
+/**
+ * Collapsible reading-guide for the segment intent breakdown. Lives
+ * directly under the gender/age/income grid because new users routinely
+ * misread "1순위 시장" as "the country this segment most wants to buy
+ * in" — actually it's "the country this segment is most concentrated
+ * in" (persona's own home market, not a preference). Keep it closed by
+ * default so the dashboard doesn't get long, but make the open state
+ * comprehensive enough to settle interpretation questions on the spot.
+ */
+function SegmentGuide({ isKo }: { isKo: boolean }) {
+  return (
+    <details className="mt-3 group">
+      <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 select-none">
+        <ChevronRight size={12} className="transition-transform group-open:rotate-90" />
+        <span>{isKo ? "이 표 어떻게 읽나요?" : "How to read this table"}</span>
+      </summary>
+      <div className="mt-3 rounded-md border border-slate-200 bg-slate-50/60 p-4 text-xs text-slate-700 leading-relaxed space-y-4">
+        <section>
+          <div className="font-semibold text-slate-900 mb-1">
+            {isKo ? "공통 정의" : "Common definitions"}
+          </div>
+          <ul className="list-disc pl-5 space-y-0.5">
+            {isKo ? (
+              <>
+                <li>대상: 이번 앙상블에 등장한 페르소나 전체</li>
+                <li>버킷팅 — 성별: female / male / other 정규화</li>
+                <li>버킷팅 — 연령: 20-29 / 30-39 / 40-49 / 50-59 / 60+ (범위는 중간값 기준)</li>
+                <li>버킷팅 — 소득: USD 환산 후 &lt;$30k / $30-60k / $60-100k / $100-150k / $150k+</li>
+                <li>10명 미만 그룹은 제외 (means 노이즈가 커서)</li>
+              </>
+            ) : (
+              <>
+                <li>Scope: every persona in this ensemble</li>
+                <li>Gender bucketing: normalised to female / male / other</li>
+                <li>Age bucketing: 20-29 / 30-39 / 40-49 / 50-59 / 60+ (range midpoint)</li>
+                <li>Income bucketing: USD-normalised &lt;$30k / $30-60k / $60-100k / $100-150k / $150k+</li>
+                <li>Buckets with &lt;10 personas are dropped (means too noisy)</li>
+              </>
+            )}
+          </ul>
+        </section>
+
+        <section>
+          <div className="font-semibold text-slate-900 mb-1">
+            {isKo ? "컬럼 의미" : "What each column means"}
+          </div>
+          <ul className="list-disc pl-5 space-y-0.5">
+            {isKo ? (
+              <>
+                <li><span className="font-medium">그룹</span> — 위 정규화 결과 라벨</li>
+                <li><span className="font-medium">n</span> — 이 세그먼트에 속한 페르소나 수</li>
+                <li><span className="font-medium">평균</span> — 이 세그먼트의 평균 구매의향 (0-100). 70 이상 강한 관심, 35 미만 약한 관심</li>
+                <li><span className="font-medium">1순위 시장</span> — 이 세그먼트가 <span className="font-semibold text-slate-900">가장 많이 분포한 모집단 국가</span> + 해당 비중. 즉 "이 세그먼트의 페르소나 중 X%가 그 국가 출신"</li>
+              </>
+            ) : (
+              <>
+                <li><span className="font-medium">Bucket</span> — normalised label</li>
+                <li><span className="font-medium">n</span> — persona count in this segment</li>
+                <li><span className="font-medium">Mean</span> — average purchase intent (0-100). ≥70 strong, &lt;35 weak</li>
+                <li><span className="font-medium">Top market</span> — the <span className="font-semibold text-slate-900">home country</span> where this segment is most concentrated, with that share %</li>
+              </>
+            )}
+          </ul>
+        </section>
+
+        <section>
+          <div className="font-semibold text-slate-900 mb-1">
+            {isKo ? "자주 오해하는 포인트" : "Common misreadings"}
+          </div>
+          <ol className="list-decimal pl-5 space-y-1">
+            {isKo ? (
+              <>
+                <li>
+                  <span className="font-medium">"1순위 시장" ≠ "이 세그먼트가 사고 싶은 1위 국가"</span>
+                  <br />페르소나의 country 필드는 거주국 / 모집단입니다. 즉 "30-39대 페르소나가 가장 많이 발생한 국가"이지 "30-39대가 사고 싶어하는 1위 시장"이 아닙니다.
+                </li>
+                <li>
+                  <span className="font-medium">n 비율 ≠ 모집단 인구통계</span>
+                  <br />페르소나 분포는 LLM이 시뮬마다 어떻게 배치했느냐의 결과지, 실제 시장 인구비를 반영하지 않습니다.
+                </li>
+                <li>
+                  <span className="font-medium">평균 구매의향 비교 — n이 작으면 신뢰도 낮음</span>
+                  <br />n이 20 이하인 행은 큰 결론 내리지 마세요.
+                </li>
+                <li>
+                  <span className="font-medium">세그먼트 표 = 상관 신호, 인과 분석 아님</span>
+                  <br />"남성 의향이 높음"이 성별 자체의 효과인지 남성 페르소나 풀에 친화적 직군이 더 많이 배치된 결과인지 구분하지 않습니다.
+                </li>
+              </>
+            ) : (
+              <>
+                <li>
+                  <span className="font-medium">"Top market" is NOT "preferred country"</span>
+                  <br />A persona&apos;s country field is their home market, not a preference. So "Top market: TH" means "30-39 personas are most concentrated in Thailand", not "30-39 most want to buy in Thailand".
+                </li>
+                <li>
+                  <span className="font-medium">n share ≠ real population mix</span>
+                  <br />Persona distribution reflects how the LLM allocated rows per sim, not real demographics.
+                </li>
+                <li>
+                  <span className="font-medium">Don&apos;t over-read low-n means</span>
+                  <br />Rows with n ≤ 20 carry low confidence — treat as directional only.
+                </li>
+                <li>
+                  <span className="font-medium">Correlation, not causation</span>
+                  <br />Higher male intent might be the gender effect — or it might be that male personas in this run skewed toward food-creator / spice-curious professions.
+                </li>
+              </>
+            )}
+          </ol>
+        </section>
+
+        <section>
+          <div className="font-semibold text-slate-900 mb-1">
+            {isKo ? "의사결정에 쓰는 법" : "How to use this for decisions"}
+          </div>
+          <ul className="list-disc pl-5 space-y-0.5">
+            {isKo ? (
+              <>
+                <li>
+                  <span className="font-medium">광고 타기팅</span> — 평균 의향이 높고 n도 충분한 그룹 (예: 30-39대 + $30-60k) 우선.
+                </li>
+                <li>
+                  <span className="font-medium">시장 진출 우선순위</span> — 1순위 시장 비중이 한 국가에 집중된 그룹 (예: $60-100k → US 72%)은 그 국가에서 그 세그먼트를 핀포인트.
+                </li>
+                <li>
+                  <span className="font-medium">광고 제외 후보</span> — 평균 의향 &lt; 35점이고 n ≥ 50인 그룹은 예산 낭비 가능성 높음.
+                </li>
+              </>
+            ) : (
+              <>
+                <li>
+                  <span className="font-medium">Ad targeting</span> — Prioritise segments with high mean intent AND meaningful n (e.g., 30-39 + $30-60k).
+                </li>
+                <li>
+                  <span className="font-medium">Market entry sequence</span> — Segments concentrated in one country (e.g., $60-100k → US 72%) are easy to pinpoint in that market.
+                </li>
+                <li>
+                  <span className="font-medium">Suppression candidates</span> — Segments with mean &lt; 35 and n ≥ 50 are likely wasted spend.
+                </li>
+              </>
+            )}
+          </ul>
+        </section>
+      </div>
+    </details>
   );
 }
 
@@ -1640,7 +2004,7 @@ function SegmentTable({
   isKo,
 }: {
   title: string;
-  rows: NonNullable<EnsembleAggregate["personas"]>["segmentBreakdown"]["byGender"];
+  rows: NonNullable<NonNullable<EnsembleAggregate["personas"]>["segmentBreakdown"]>["byGender"];
   isKo: boolean;
 }) {
   return (
@@ -2541,6 +2905,18 @@ function segmentTooltip(id: string, isKo: boolean): string {
     default:
       return "";
   }
+}
+
+// Format seconds as H:MM:SS (drop the H block if zero) — used by the
+// progress modal so the user always has a "this has been running for X"
+// signal alongside the percentage.
+function formatElapsedHMS(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const mm = m.toString().padStart(2, "0");
+  const ss = s.toString().padStart(2, "0");
+  return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
 }
 
 // Tier badge label for the dashboard header. Mirrors the TIER_LABELS map

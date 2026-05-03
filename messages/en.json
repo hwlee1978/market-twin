@@ -469,6 +469,7 @@
       "running": "Running",
       "completed": "Completed",
       "failed": "Failed",
+      "cancelled": "Cancelled",
       "archived": "Archived"
     }
   },
