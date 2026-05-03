@@ -15,8 +15,8 @@ import {
 
 interface EnsembleStatus {
   id: string;
-  status: "pending" | "running" | "completed" | "failed";
-  tier: "hypothesis" | "decision" | "deep";
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+  tier: "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro";
   parallel_sims: number;
   per_sim_personas: number;
   counts: {
@@ -25,6 +25,7 @@ interface EnsembleStatus {
     running: number;
     pending: number;
     failed: number;
+    cancelled?: number;
   };
   sims: Array<{
     id: string;
@@ -155,7 +156,9 @@ export function EnsembleView({
       <div className="max-w-2xl mx-auto py-12">
         <div className="card text-center p-12">
           <AlertCircle className="mx-auto text-risk" size={32} />
-          <h2 className="text-xl font-semibold mt-4 mb-2">앙상블 분석 실패</h2>
+          <h2 className="text-xl font-semibold mt-4 mb-2">
+            {locale === "ko" ? "앙상블 분석 실패" : "Ensemble failed"}
+          </h2>
           <p className="text-sm text-slate-500">
             {status.error_message ?? "일부 시뮬레이션 또는 집계 단계에서 오류가 발생했습니다."}
           </p>
@@ -164,8 +167,33 @@ export function EnsembleView({
     );
   }
 
+  if (status.status === "cancelled") {
+    return (
+      <div className="max-w-2xl mx-auto py-12">
+        <div className="card text-center p-12">
+          <AlertCircle className="mx-auto text-slate-400" size={32} />
+          <h2 className="text-xl font-semibold mt-4 mb-2">
+            {locale === "ko" ? "분석이 중단되었습니다" : "Analysis cancelled"}
+          </h2>
+          <p className="text-sm text-slate-500">
+            {locale === "ko"
+              ? `사용자 요청으로 분석이 중단되었습니다. 완료된 시뮬: ${status.counts.completed}/${status.counts.total}.`
+              : `Cancelled by user. Sims completed: ${status.counts.completed}/${status.counts.total}.`}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (status.status !== "completed" || !result) {
-    return <EnsembleProgress status={status} pollError={error} locale={locale} />;
+    return (
+      <EnsembleProgress
+        status={status}
+        pollError={error}
+        locale={locale}
+        ensembleId={ensembleId}
+      />
+    );
   }
 
   return <EnsembleDashboard projectId={projectId} result={result} locale={locale} />;
@@ -176,13 +204,35 @@ function EnsembleProgress({
   status,
   pollError,
   locale,
+  ensembleId,
 }: {
   status: EnsembleStatus;
   pollError: string | null;
   locale: string;
+  ensembleId: string;
 }) {
   const { counts } = status;
   const pct = counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0;
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const isKo = locale === "ko";
+  const submitCancel = async () => {
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      const res = await fetch(`/api/ensembles/${ensembleId}/cancel`, { method: "POST" });
+      if (!res.ok) throw new Error(await res.text());
+      // The polling tick on the parent will pick up status='cancelled' on
+      // its next pass and switch the view; no need to navigate here.
+      setConfirmCancel(false);
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCancelling(false);
+    }
+  };
   // Subline gives the user a "something is moving right now" cue when the
   // top number ("0/25 완료") would otherwise feel frozen for several minutes.
   const activitySubline =
@@ -244,7 +294,82 @@ function EnsembleProgress({
         )}
 
         <NotificationToggle locale={locale} />
+
+        <div className="mt-6 pt-5 border-t border-slate-100 text-center">
+          <button
+            type="button"
+            onClick={() => setConfirmCancel(true)}
+            disabled={cancelling}
+            className="text-xs text-slate-400 hover:text-risk transition-colors"
+          >
+            {isKo ? "분석 중단" : "Cancel analysis"}
+          </button>
+        </div>
       </div>
+
+      {confirmCancel && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4"
+          onClick={() => !cancelling && setConfirmCancel(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold text-slate-900 mb-2">
+              {isKo ? "분석을 중단하시겠습니까?" : "Cancel this analysis?"}
+            </h3>
+            <p className="text-sm text-slate-600 mb-3">
+              {isKo
+                ? `${counts.completed}/${counts.total} 시뮬이 완료된 상태입니다.`
+                : `${counts.completed}/${counts.total} sims have completed.`}
+            </p>
+            {/* Make the consequences visible — bullet list with severity
+                color so the user can't miss what they're agreeing to. */}
+            <div className="rounded-lg border border-warn/30 bg-warn-soft/30 p-3 space-y-1.5">
+              <div className="flex items-start gap-2 text-sm text-slate-700">
+                <span className="text-warn font-bold shrink-0">⚠</span>
+                <span>{isKo ? "진행 중인 시뮬레이션은 즉시 멈춥니다." : "In-flight sims stop immediately."}</span>
+              </div>
+              <div className="flex items-start gap-2 text-sm text-slate-700">
+                <span className="text-warn font-bold shrink-0">⚠</span>
+                <span>{isKo ? "지금까지의 부분 결과는 저장되지 않습니다." : "Partial results are not saved."}</span>
+              </div>
+              <div className="flex items-start gap-2 text-sm text-slate-700">
+                <span className="text-warn font-bold shrink-0">⚠</span>
+                <span>{isKo ? "이 동작은 되돌릴 수 없습니다." : "This action cannot be undone."}</span>
+              </div>
+            </div>
+            {cancelError && (
+              <p className="mt-3 text-xs text-risk">{cancelError}</p>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmCancel(false)}
+                disabled={cancelling}
+                className="btn-ghost text-sm"
+              >
+                {isKo ? "계속 진행" : "Keep running"}
+              </button>
+              <button
+                type="button"
+                onClick={submitCancel}
+                disabled={cancelling}
+                className="text-sm px-3 py-1.5 rounded-md bg-risk text-white font-medium hover:bg-risk/90 disabled:opacity-60"
+              >
+                {cancelling
+                  ? isKo
+                    ? "중단 중..."
+                    : "Cancelling..."
+                  : isKo
+                    ? "분석 중단"
+                    : "Cancel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
