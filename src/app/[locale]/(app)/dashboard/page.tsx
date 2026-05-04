@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CountryChipRow } from "@/components/ui/CountryChip";
 import { DemoCard } from "@/components/onboarding/DemoCard";
+import { DashboardGuideButton } from "@/components/onboarding/DashboardGuideButton";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 
@@ -77,10 +78,17 @@ export default async function DashboardPage({
           title={t("dashboard.title")}
           subtitle={t("dashboard.subtitleReturning")}
           actions={
-            <Link href="/projects/new" className="btn-primary">
-              <Plus size={16} />
-              {t("dashboard.newProject")}
-            </Link>
+            <div className="flex items-center gap-2">
+              <DashboardGuideButton
+                isKo={locale === "ko"}
+                hasProjects
+                demoToken={process.env.NEXT_PUBLIC_DEMO_SHARE_TOKEN}
+              />
+              <Link href="/projects/new" className="btn-primary">
+                <Plus size={16} />
+                {t("dashboard.newProject")}
+              </Link>
+            </div>
           }
         />
       ) : (
@@ -91,6 +99,13 @@ export default async function DashboardPage({
               : t("dashboard.welcome")
           }
           subtitle={t("dashboard.subtitleNew")}
+          actions={
+            <DashboardGuideButton
+              isKo={locale === "ko"}
+              hasProjects={false}
+              demoToken={process.env.NEXT_PUBLIC_DEMO_SHARE_TOKEN}
+            />
+          }
         />
       )}
 

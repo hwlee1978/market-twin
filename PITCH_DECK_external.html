@@ -3,26 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Market Twin - 투자 유치 발표</title>
+    <title>AI Market Twin — 외부 공개</title>
     <link rel="icon" type="image/svg+xml" href="public/favicon.svg">
     <style>
         /* ─────────────────────────────────────────────
-           Design Tokens — single source of truth for
-           typography, color, spacing across all slides
+           Design Tokens — single source of truth
            ───────────────────────────────────────────── */
         :root {
-            /* Typography scale — tuned for 1280×960 PDF canvas (1rem = 16px) */
-            --font-display: 4rem;       /* title slide hero */
-            --font-h1: 2.4rem;          /* section heads (h2) */
-            --font-h2: 1.55rem;         /* subsection (text-content h3) */
-            --font-h3: 1.2rem;          /* card heads */
-            --font-lead: 1.3rem;        /* lead paragraph */
-            --font-body: 1.05rem;       /* body text */
-            --font-small: 0.92rem;      /* secondary text */
-            --font-micro: 0.82rem;      /* badges, metadata */
-            --font-tiny: 0.74rem;       /* pill labels */
+            --font-display: 4rem;
+            --font-h1: 2.4rem;
+            --font-h2: 1.55rem;
+            --font-h3: 1.2rem;
+            --font-lead: 1.3rem;
+            --font-body: 1.05rem;
+            --font-small: 0.92rem;
+            --font-micro: 0.82rem;
+            --font-tiny: 0.74rem;
 
-            /* Color palette */
             --bg-primary: #0f172a;
             --bg-secondary: #1e293b;
             --bg-elevated: rgba(59, 130, 246, 0.08);
@@ -45,7 +42,6 @@
             --danger: #ef4444;
             --danger-soft: #fca5a5;
 
-            /* Spacing scale */
             --space-xs: 6px;
             --space-sm: 12px;
             --space-md: 20px;
@@ -53,24 +49,16 @@
             --space-xl: 48px;
             --space-2xl: 64px;
 
-            /* Other */
             --radius-sm: 6px;
             --radius-md: 10px;
             --radius-lg: 14px;
             --line-height: 1.65;
 
-            /* Slide canvas — fixed size so every slide is the SAME page in
-               the printed PDF. 1280×720 = 16:9 standard, fits A4 landscape
-               with comfortable margins, prints crisply at 96dpi. */
             --slide-width: 1280px;
             --slide-height: 720px;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
@@ -82,12 +70,10 @@
             word-break: keep-all;
             overflow-wrap: break-word;
         }
-        /* Global Korean line-break safety */
         h1, h2, h3, h4, h5, h6, p, li, td, th, span, div {
             word-break: keep-all;
             overflow-wrap: break-word;
         }
-
 
         .presentation {
             width: var(--slide-width);
@@ -117,14 +103,8 @@
             z-index: 10;
         }
 
-        /* Content slides start from the TOP — centered alignment was clipping
-           h2 titles when content exceeded the fixed 720px canvas. Title /
-           CTA / centered slides keep .slide.active's `center` default. */
-        .slide-content.active {
-            justify-content: flex-start;
-        }
+        .slide-content.active { justify-content: flex-start; }
 
-        /* Center the deck on screens larger than the slide canvas */
         body {
             display: flex;
             align-items: center;
@@ -137,7 +117,6 @@
             to { opacity: 1; transform: translateX(0); }
         }
 
-        /* Title Slide */
         .slide-title {
             background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
             text-align: center;
@@ -171,7 +150,6 @@
             margin-top: var(--space-2xl);
         }
 
-        /* Content Slides */
         .slide-content {
             flex-direction: column;
             justify-content: flex-start;
@@ -241,7 +219,6 @@
             font-size: var(--font-body);
         }
 
-        /* Highlight card — compact callout for key value props */
         .highlight {
             background: var(--bg-elevated);
             border-left: 3px solid var(--accent);
@@ -253,7 +230,6 @@
             font-size: var(--font-h3);
             color: var(--accent-soft);
             margin: 0 0 6px 0 !important;
-            margin-top: 0 !important;
             font-weight: 600;
         }
         .highlight p {
@@ -261,49 +237,6 @@
             line-height: 1.55;
             color: var(--text-secondary);
             margin: 0;
-        }
-
-        .metric {
-            display: inline-block;
-            background: var(--bg-elevated);
-            padding: 12px 20px;
-            border-radius: var(--radius-sm);
-            margin: 6px;
-            border: 1px solid var(--border-medium);
-            font-weight: 600;
-            font-size: var(--font-small);
-            color: var(--accent);
-        }
-
-        .comparison-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: var(--space-md);
-            background: rgba(30, 41, 59, 0.8);
-            border-radius: var(--radius-md);
-            overflow: hidden;
-        }
-
-        .comparison-table th, .comparison-table td {
-            padding: 14px 16px;
-            text-align: left;
-            border-bottom: 1px solid #334155;
-            font-size: var(--font-small);
-        }
-
-        .comparison-table th {
-            background: rgba(59, 130, 246, 0.2);
-            color: var(--accent);
-            font-weight: 700;
-        }
-
-        .comparison-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .advantage {
-            color: var(--success);
-            font-weight: 600;
         }
 
         .competitive-matrix {
@@ -362,56 +295,6 @@
             line-height: 1.55;
         }
 
-        .chart {
-            background: rgba(30, 41, 59, 0.6);
-            padding: 40px;
-            border-radius: 12px;
-            border: 1px solid #334155;
-            margin-top: 30px;
-        }
-
-        .chart-title {
-            color: #93c5fd;
-            font-size: 1.4rem;
-            font-weight: 600;
-            margin-bottom: 30px;
-        }
-
-        .bar-chart {
-            display: flex;
-            align-items: flex-end;
-            gap: 20px;
-            height: 300px;
-            justify-content: space-around;
-        }
-
-        .bar {
-            flex: 1;
-            background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
-            border-radius: 8px 8px 0 0;
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            position: relative;
-            min-height: 50px;
-        }
-
-        .bar-label {
-            position: absolute;
-            bottom: -40px;
-            color: #cbd5e1;
-            font-size: 0.95rem;
-            width: 100%;
-            text-align: center;
-        }
-
-        .bar-value {
-            color: white;
-            font-weight: 600;
-            margin-bottom: 10px;
-            font-size: 1.2rem;
-        }
-
         .tech-stack {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -421,13 +304,13 @@
 
         .tech-item {
             background: var(--bg-elevated);
-            padding: 22px 20px;
+            padding: 18px 16px;
             border-radius: var(--radius-md);
             border: 1px solid var(--border-medium);
             text-align: center;
             color: var(--text-secondary);
-            font-size: var(--font-body);
-            line-height: 1.65;
+            font-size: var(--font-small);
+            line-height: 1.6;
         }
 
         .tech-item strong {
@@ -438,7 +321,6 @@
             font-weight: 600;
         }
 
-        /* Navigation */
         .nav-controls {
             position: fixed;
             bottom: 28px;
@@ -483,9 +365,7 @@
             z-index: 100;
         }
 
-        .market-size-chart {
-            margin-top: var(--space-lg);
-        }
+        .market-size-chart { margin-top: var(--space-lg); }
 
         .market-item {
             display: flex;
@@ -518,9 +398,7 @@
             font-size: var(--font-small);
         }
 
-        .revenue-timeline {
-            margin-top: var(--space-lg);
-        }
+        .revenue-timeline { margin-top: var(--space-lg); }
 
         .timeline-item {
             display: grid;
@@ -583,11 +461,6 @@
             margin-bottom: 0;
         }
 
-        .call-to-action {
-            text-align: center;
-            margin-top: var(--space-2xl);
-        }
-
         .cta-button {
             display: inline-block;
             background: linear-gradient(90deg, var(--accent), var(--accent-strong));
@@ -607,29 +480,16 @@
             box-shadow: 0 12px 30px rgba(96, 165, 250, 0.4);
         }
 
-        .full-width {
-            grid-column: 1 / -1;
-        }
-
-        .emoji {
-            font-size: 1.2em;
-            margin-right: 8px;
-        }
+        .full-width { grid-column: 1 / -1; }
 
         .content-centered {
             text-align: center;
             justify-content: center !important;
         }
 
-        .bg-blue {
-            background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
-        }
+        .bg-blue { background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%); }
+        .bg-gradient { background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%); }
 
-        .bg-gradient {
-            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-        }
-
-        /* Reusable card pattern — used for elevated content blocks */
         .card-elevated {
             background: var(--bg-elevated);
             padding: var(--space-md);
@@ -637,7 +497,6 @@
             border: 1px solid var(--border-medium);
         }
 
-        /* Section eyebrow — small uppercase label above section heading */
         .eyebrow {
             font-size: var(--font-tiny);
             font-weight: 700;
@@ -647,7 +506,6 @@
             margin-bottom: 8px;
         }
 
-        /* Subhead — used for h3 within slides outside text-content */
         .subhead {
             font-size: var(--font-h2);
             color: var(--accent);
@@ -656,11 +514,20 @@
             letter-spacing: -0.01em;
         }
 
-        /* ─────────────────────────────────────────────
-           Logo components — inline SVG referenced via
-           <use href="#logo-mark"> / <use href="#logo-full">
-           SVG symbols defined once at the top of <body>
-           ───────────────────────────────────────────── */
+        .version-badge {
+            display: inline-block;
+            background: rgba(96, 165, 250, 0.15);
+            border: 1px solid var(--accent);
+            color: var(--accent-soft);
+            padding: 4px 14px;
+            border-radius: 100px;
+            font-size: var(--font-tiny);
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-top: var(--space-md);
+        }
+
         .logo-hero {
             width: 380px;
             height: auto;
@@ -683,11 +550,6 @@
             z-index: 5;
         }
 
-        /* ─────────────────────────────────────────────
-           Print stylesheet — Ctrl/Cmd+P → Save as PDF
-           Each slide becomes ONE page, same size as
-           the screen canvas. Navigation hidden.
-           ───────────────────────────────────────────── */
         @page {
             size: 1280px 720px;
             margin: 0;
@@ -708,7 +570,6 @@
                 margin: 0;
             }
             .slide {
-                /* Force ALL slides visible, one per page */
                 display: flex !important;
                 flex-direction: column;
                 justify-content: center;
@@ -719,26 +580,15 @@
                 page-break-inside: avoid;
                 animation: none;
             }
-            .slide-content {
-                justify-content: flex-start;
-            }
-            .slide:last-of-type {
-                page-break-after: auto;
-            }
+            .slide-content { justify-content: flex-start; }
+            .slide:last-of-type { page-break-after: auto; }
             .nav-controls,
-            .slide-counter {
-                display: none !important;
-            }
-            /* Strip hover/transform that might cause repaint glitches */
-            * {
-                animation: none !important;
-                transition: none !important;
-            }
+            .slide-counter { display: none !important; }
+            * { animation: none !important; transition: none !important; }
         }
     </style>
 </head>
 <body>
-    <!-- Reusable SVG symbols — defined once, referenced via <use> -->
     <svg width="0" height="0" style="position: absolute;" aria-hidden="true">
         <defs>
             <symbol id="logo-mark" viewBox="0 0 32 32">
@@ -754,16 +604,18 @@
     </svg>
 
     <div class="presentation">
+
         <!-- Slide 1: Title -->
         <div class="slide slide-title active bg-blue">
             <svg class="logo-hero" style="color: #ffffff;" aria-label="Market Twin">
                 <use href="#logo-full"/>
             </svg>
-            <p class="subtitle">제품 출시 성공을 AI가 예측하다</p>
-            <p class="subtitle" style="font-size: 1.15rem; margin-top: var(--space-md); color: var(--text-muted); font-weight: 400;">글로벌 시장 진입을 위한 AI 기반 의사결정 플랫폼</p>
+            <p class="subtitle">K-product 해외 출시 성공 확률을 AI가 예측하다</p>
+            <p class="subtitle" style="font-size: 1.15rem; margin-top: var(--space-md); color: var(--text-muted); font-weight: 400;">한국 → 글로벌 진출 의사결정 플랫폼</p>
+            <span class="version-badge">Investor Edition</span>
             <div class="meta">
                 <p>투자 유치 발표</p>
-                <p style="margin-top: 8px;">2026년 4월</p>
+                <p style="margin-top: 8px;">2026년 5월</p>
             </div>
         </div>
 
@@ -801,7 +653,7 @@
             </div>
         </div>
 
-        <!-- Slide 2.5: Failure Case Study -->
+        <!-- Slide 3: Failure Case Study -->
         <div class="slide slide-content bg-gradient">
             <svg class="logo-corner" style="color: #ffffff;" aria-hidden="true"><use href="#logo-mark"/></svg>
             <h2>실제 사례 — 검증 부재의 대가</h2>
@@ -809,7 +661,6 @@
                 <div class="text-content">
                     <h3>이마트 중국 — 20년의 시도, 전면 철수</h3>
                     <p>1997년 상하이 1호점 → 2017년 잔여 매장 매각. <strong>한국식 매장 콘셉트를 그대로 이식</strong>한 결과 — 현지 가격 감도·신선식품 구매 패턴과의 미스매치 누적</p>
-                    <p style="font-size: 0.65rem; color: var(--text-muted); margin: -6px 0 12px;">출처: 산업통상자원부·국내 언론 보도 종합</p>
 
                     <h3>패턴은 반복된다</h3>
                     <p>현대자동차 일본 (8년 만에 승용차 철수, 2001→2009) · LG 모바일 글로벌 (26년 사업 폐쇄) — 모두 <strong>현지 소비자 사전 검증 부재</strong>가 본질</p>
@@ -839,38 +690,37 @@
             </div>
         </div>
 
-        <!-- Slide 3: Solution -->
+        <!-- Slide 4: Solution -->
         <div class="slide slide-content bg-gradient">
             <svg class="logo-corner" style="color: #ffffff;" aria-hidden="true"><use href="#logo-mark"/></svg>
             <h2>솔루션 — AI Market Twin</h2>
             <div class="section-content">
                 <div class="text-content">
                     <p style="font-size: var(--font-lead); color: var(--accent); margin-bottom: var(--space-md); font-weight: 600; line-height: 1.4;">
-                        ✨ 24시간 내, K-product 해외 진출 성공 확률 예측
+                        24시간 내, K-product 해외 진출 성공 확률 예측
                     </p>
 
                     <div class="highlight">
-                        <h3 style="margin-top: 0;">AI 페르소나 + 1인칭 보이스</h3>
+                        <h3>AI 페르소나 + 1인칭 보이스</h3>
                         <p>실제 소비자처럼 사고하는 AI 페르소나가 <strong>1인칭으로 직접 말함</strong> — 체크리스트가 아닌, 인터뷰 인용 수준의 정성 데이터</p>
                     </div>
 
                     <div class="highlight">
-                        <h3 style="margin-top: 0;">공식 통계 기반 24개국 그라운딩</h3>
-                        <p>각국 공식 통계청·산업 표준 데이터를 기반 레이어로 즉시 반영 — 페르소나 소득·문화·소비 패턴이 임의 추정이 아닌 <strong>실측 데이터로 검증</strong></p>
+                        <h3>공식 통계 기반 24개국 그라운딩</h3>
+                        <p>각국 공식 통계청 데이터를 기반 레이어로 즉시 반영 — 페르소나 소득·문화·소비 패턴이 임의 추정이 아닌 <strong>실측 데이터로 검증</strong></p>
                     </div>
 
                     <div class="highlight">
-                        <h3 style="margin-top: 0;">시각 분석</h3>
-                        <p>제품 이미지 업로드 시 AI가 시각 자료 검토 — 패키지·라벨·시각 모티프 분석으로 크리에이티브 효과 평가 + <strong>신뢰도 리스크 자동 감지</strong></p>
+                        <h3>시각 분석</h3>
+                        <p>제품 이미지 업로드 시 AI가 시각 자료 검토 — 패키지·라벨·시각 모티프 분석으로 <strong>신뢰도 리스크 자동 감지</strong></p>
                     </div>
 
                     <div class="highlight">
-                        <h3 style="margin-top: 0;">페르소나 라이브러리 자산화</h3>
+                        <h3>페르소나 라이브러리 자산화</h3>
                         <p>시뮬레이션이 누적될수록 자체 페르소나 자산이 성장 — <strong>고객이 늘수록 더 빠르고 더 정확해지는</strong> 데이터 모트(moat)</p>
                     </div>
                 </div>
                 <div class="card-elevated" style="border-color: var(--border-strong); padding: var(--space-lg);">
-                    <div style="font-size: 2.4rem; margin-bottom: var(--space-sm);">📊</div>
                     <div style="margin-bottom: var(--space-md);">
                         <strong style="color: var(--accent); font-size: var(--font-h3); font-weight: 600;">임원진용 PDF 보고서</strong>
                         <p style="color: var(--text-secondary); margin-top: 8px; font-size: var(--font-small); line-height: 1.6;">성공 확률 · 리스크 분석 · 실행 로드맵 · <strong>고객 1인칭 인용</strong> — 한눈에 보는 의사결정 자료</p>
@@ -878,32 +728,33 @@
                     <div style="border-top: 1px solid var(--border-subtle); padding-top: var(--space-sm); margin-top: var(--space-sm);">
                         <p style="color: var(--accent-soft); font-size: var(--font-small); line-height: 1.85;">
                             ✓ 성공 확률 + 최적 진출국<br>
-                            ✓ 가격·CAC·경쟁 강도 분석<br>
                             ✓ 페르소나별 1인칭 보이스<br>
+                            ✓ 세그먼트 분석 (성별·연령·소득)<br>
+                            ✓ 채널·브랜드 멘션 자동 추출<br>
                             ✓ 크리에이티브 시각 평가<br>
-                            ✓ 월별 액션 플랜 + 추천 채널
+                            ✓ 5단계 티어드 리포트
                         </p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Slide 4: Product Features -->
+        <!-- Slide 5: Product Features -->
         <div class="slide slide-content bg-gradient">
             <svg class="logo-corner" style="color: #ffffff;" aria-hidden="true"><use href="#logo-mark"/></svg>
             <h2>핵심 기능</h2>
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 14px;">
                 <div class="feature-item" style="padding: 14px 16px;">
                     <h4 style="font-size: var(--font-h3); color: var(--accent); font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em;">1인칭 페르소나 보이스</h4>
-                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.55; margin: 0;">모든 페르소나가 자기 목소리로 가격·신뢰·구매 망설임 표현 — 체크리스트가 아닌 인터뷰 인용 수준</p>
+                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.55; margin: 0;">모든 페르소나가 자기 목소리로 가격·신뢰·구매 망설임 표현 — 체크리스트가 아닌 인터뷰 인용 수준 정성 데이터</p>
                 </div>
                 <div class="feature-item" style="padding: 14px 16px;">
                     <h4 style="font-size: var(--font-h3); color: var(--accent); font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em;">시각 분석</h4>
-                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.55; margin: 0;">제품 이미지·패키지·라벨 평가 + <strong>신뢰도 훼손 시각 요소 자동 감지</strong></p>
+                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.55; margin: 0;">제품 이미지·패키지·라벨 자동 평가 — <strong>신뢰도를 훼손하는 시각 요소 자동 감지</strong></p>
                 </div>
                 <div class="feature-item" style="padding: 14px 16px;">
                     <h4 style="font-size: var(--font-h3); color: var(--accent); font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em;">페르소나 라이브러리 자산화</h4>
-                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.55; margin: 0;">시뮬 반복할수록 페르소나 자산 성장 — <strong>비용·시간 감소</strong>, 정확도 향상. 모방 어려운 데이터 모트</p>
+                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.55; margin: 0;">시뮬레이션이 반복될수록 자체 페르소나 자산 성장 — 누적될수록 <strong>비용·시간 감소</strong>, 정확도 향상</p>
                 </div>
                 <div class="feature-item" style="padding: 14px 16px;">
                     <h4 style="font-size: var(--font-h3); color: var(--accent); font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em;">24개국 공식 통계 그라운딩</h4>
@@ -911,24 +762,24 @@
                 </div>
                 <div class="feature-item" style="padding: 14px 16px;">
                     <h4 style="font-size: var(--font-h3); color: var(--accent); font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em;">카테고리별 다양성 보장</h4>
-                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.55; margin: 0;">뷰티·SaaS·식품·건강·패션·가전·리빙·IP 8개 카테고리 자체 분배 알고리즘 — LLM 쏠림 한계 극복</p>
+                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.55; margin: 0;">뷰티·SaaS·식품·건강·의류·가전·IP굿즈·리빙 8개 카테고리 다양성 분배 — 일반 LLM 쏠림 한계 극복</p>
                 </div>
                 <div class="feature-item" style="padding: 14px 16px;">
-                    <h4 style="font-size: var(--font-h3); color: var(--accent); font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em;">자동 일관성 검증</h4>
-                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.55; margin: 0;">합성 결과 별도 검증 레이어 감사 — 진출국·가격·리스크 정합성 자동 보정으로 <strong>일관된 신호</strong></p>
+                    <h4 style="font-size: var(--font-h3); color: var(--accent); font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em;">다중 LLM 교차 검증</h4>
+                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.55; margin: 0;">상위 티어는 다수 최첨단 AI 모델 교차 검증 — 단일 모델 편향 제거, 정합성 자동 보정</p>
                 </div>
                 <div class="feature-item" style="padding: 14px 16px;">
-                    <h4 style="font-size: var(--font-h3); color: var(--accent); font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em;">용도별 최적 AI 조합</h4>
-                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.55; margin: 0;">다수 최첨단 AI 모델 단계별 조합 — 깊이 분석과 빠른 처리 분리해 <strong>품질·비용 동시 최적화</strong></p>
+                    <h4 style="font-size: var(--font-h3); color: var(--accent); font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em;">5단계 티어드 시뮬레이션</h4>
+                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.55; margin: 0;">200명/1시뮬 ~ 10,000명/50시뮬 — 의사결정 단계에 맞춰 비용·깊이 선택, PDF 차등 노출</p>
                 </div>
                 <div class="feature-item" style="padding: 14px 16px;">
-                    <h4 style="font-size: var(--font-h3); color: var(--accent); font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em;">임원용 리포트 + 비교 분석</h4>
-                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.55; margin: 0;">PDF 자동 생성 (페르소나 인용 포함), A/B 시뮬레이션 비교 대시보드 — 의사결정자 즉시 활용</p>
+                    <h4 style="font-size: var(--font-h3); color: var(--accent); font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em;">멘션 추출 + 공유 리포트</h4>
+                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.55; margin: 0;">TikTok·Reddit·Amazon 등 28-브랜드 자동 추출, 30일 read-only 공유 링크, CSV·PDF 내보내기</p>
                 </div>
             </div>
         </div>
 
-        <!-- Slide 5: Market Opportunity -->
+        <!-- Slide 6: Market Opportunity -->
         <div class="slide slide-content bg-gradient">
             <svg class="logo-corner" style="color: #ffffff;" aria-hidden="true"><use href="#logo-mark"/></svg>
             <h2>시장 기회</h2>
@@ -983,311 +834,266 @@
             </div>
         </div>
 
-        <!-- Slide 6: Competitive Landscape -->
+        <!-- Slide 7: Competitive Landscape -->
         <div class="slide slide-content bg-gradient">
             <svg class="logo-corner" style="color: #ffffff;" aria-hidden="true"><use href="#logo-mark"/></svg>
             <h2>경쟁 분석 — 국내 및 해외</h2>
-            <p style="margin-bottom: var(--space-md); font-size: var(--font-body); color: var(--text-secondary); line-height: 1.6;">
-                <strong style="color: var(--accent-soft);">K-product 글로벌 진출 검증</strong> 카테고리에 직접 경쟁사 부재 — 인접 카테고리 포지셔닝은 다음과 같음
+            <p style="margin-bottom: 18px; font-size: var(--font-body); color: var(--text-secondary); line-height: 1.6;">
+                <strong style="color: var(--accent-soft);">K-product 글로벌 진출 검증</strong> 카테고리에 직접 경쟁사 부재 — 인접 카테고리 포지셔닝
             </p>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-md); margin-bottom: var(--space-md);">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 18px;">
 
-                <!-- 해외 경쟁사 -->
-                <div class="card-elevated" style="padding: var(--space-md);">
-                    <h4 style="color: var(--accent); font-size: var(--font-h3); margin-bottom: var(--space-sm); padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle); font-weight: 600;">🌍 해외 경쟁사</h4>
-
+                <div class="card-elevated" style="padding: 18px 20px;">
+                    <h4 style="color: var(--accent); font-size: var(--font-h3); margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle); font-weight: 600;">해외 경쟁사</h4>
                     <div style="margin-bottom: 12px;">
-                        <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-body); margin-bottom: 3px;">Synthetic Users (US)</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0; line-height: 1.55;">AI 페르소나 1,000명 · 일반 B2C · 1주 / $5K+</p>
+                        <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-body); margin: 0 0 2px;">Synthetic Users · Remesh</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0; line-height: 1.5;">AI 페르소나 일반 B2C · $5K~20K+</p>
                     </div>
                     <div style="margin-bottom: 12px;">
-                        <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-body); margin-bottom: 3px;">Remesh (US)</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0; line-height: 1.55;">실시간 페르소나 200–500명 · 마케팅 리서치 · $20K+</p>
-                    </div>
-                    <div style="margin-bottom: 12px;">
-                        <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-body); margin-bottom: 3px;">Yabble (NZ)</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0; line-height: 1.55;">AI 인사이트 · 제한적 페르소나 · 2–4주</p>
+                        <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-body); margin: 0 0 2px;">Yabble (NZ)</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0; line-height: 1.5;">AI 인사이트 · 2–4주</p>
                     </div>
                     <div>
-                        <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-body); margin-bottom: 3px;">Nielsen · Kantar · Ipsos</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0; line-height: 1.55;">전통 글로벌 패널 · 6개월+ / $500K+</p>
+                        <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-body); margin: 0 0 2px;">Nielsen · Kantar · Ipsos</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0; line-height: 1.5;">전통 글로벌 패널 · 6개월+ / $500K+</p>
                     </div>
                 </div>
 
-                <!-- 국내 경쟁사 -->
-                <div class="card-elevated" style="padding: var(--space-md);">
-                    <h4 style="color: var(--accent); font-size: var(--font-h3); margin-bottom: var(--space-sm); padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle); font-weight: 600;">🇰🇷 국내 경쟁사</h4>
-
+                <div class="card-elevated" style="padding: 18px 20px;">
+                    <h4 style="color: var(--accent); font-size: var(--font-h3); margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle); font-weight: 600;">국내 경쟁사</h4>
                     <div style="margin-bottom: 12px;">
-                        <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-body); margin-bottom: 3px;">Embrain (엠브레인)</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0; line-height: 1.55;">온라인 패널 조사 · 국내 시장 중심 · 1–2개월 / $20–50K</p>
+                        <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-body); margin: 0 0 2px;">Embrain · 오픈서베이</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0; line-height: 1.5;">국내 패널 · 1–8주 / $5–50K</p>
                     </div>
                     <div style="margin-bottom: 12px;">
-                        <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-body); margin-bottom: 3px;">오픈서베이</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0; line-height: 1.55;">모바일 서베이 패널 · 한국 응답자 · 1–4주 / $5–30K</p>
-                    </div>
-                    <div style="margin-bottom: 12px;">
-                        <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-body); margin-bottom: 3px;">닐슨코리아 · 칸타코리아</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0; line-height: 1.55;">글로벌 리서치 한국 지사 · 대기업 표준 · 3–6개월</p>
+                        <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-body); margin: 0 0 2px;">닐슨코리아 · 칸타코리아</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0; line-height: 1.5;">글로벌 리서치 한국 지사 · 3–6개월</p>
                     </div>
                     <div>
-                        <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-body); margin-bottom: 3px;">KOTRA · 무역협회</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0; line-height: 1.55;">정부 수출 컨설팅 · 무료~저비용 · 일반론 한계</p>
+                        <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-body); margin: 0 0 2px;">KOTRA · 무역협회</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0; line-height: 1.5;">정부 수출 컨설팅 · 일반론 한계</p>
                     </div>
                 </div>
 
-                <!-- AI Market Twin 차별화 -->
-                <div style="background: linear-gradient(180deg, rgba(96, 165, 250, 0.2) 0%, rgba(96, 165, 250, 0.08) 100%); border: 2px solid var(--accent); border-radius: var(--radius-md); padding: var(--space-md); position: relative;">
-                    <div style="position: absolute; top: -10px; left: 14px; background: var(--accent); color: var(--bg-primary); padding: 3px 10px; border-radius: 100px; font-size: var(--font-tiny); font-weight: 700;">★ OUR POSITION</div>
-                    <h4 style="color: var(--warn-soft); font-size: var(--font-h3); margin: 8px 0 var(--space-sm); padding-bottom: 8px; border-bottom: 1px solid rgba(253, 230, 138, 0.3); font-weight: 600;">⚡ AI Market Twin 차별화</h4>
-
+                <div style="background: linear-gradient(180deg, rgba(96, 165, 250, 0.2) 0%, rgba(96, 165, 250, 0.08) 100%); border: 2px solid var(--accent); border-radius: var(--radius-md); padding: 18px 20px; position: relative;">
+                    <div style="position: absolute; top: -12px; left: 16px; background: var(--accent); color: var(--bg-primary); padding: 4px 12px; border-radius: 100px; font-size: var(--font-small); font-weight: 700;">★ OUR POSITION</div>
+                    <h4 style="color: var(--warn-soft); font-size: var(--font-h3); margin: 8px 0 14px; padding-bottom: 8px; border-bottom: 1px solid rgba(253, 230, 138, 0.3); font-weight: 600;">차별화</h4>
                     <div style="margin-bottom: 10px;">
-                        <p style="color: var(--warn-soft); font-weight: 700; font-size: var(--font-body); margin-bottom: 3px;">공식 통계 그라운딩 (유일)</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0;">24개국 실측 데이터 기반</p>
+                        <p style="color: var(--warn-soft); font-weight: 700; font-size: var(--font-body); margin: 0;">공식 통계 그라운딩 (유일)</p>
                     </div>
                     <div style="margin-bottom: 10px;">
-                        <p style="color: var(--warn-soft); font-weight: 700; font-size: var(--font-body); margin-bottom: 3px;">1인칭 페르소나 보이스</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0;">체크리스트 vs 인터뷰 인용 수준</p>
+                        <p style="color: var(--warn-soft); font-weight: 700; font-size: var(--font-body); margin: 0;">1인칭 페르소나 보이스 · 시각 분석</p>
                     </div>
                     <div style="margin-bottom: 10px;">
-                        <p style="color: var(--warn-soft); font-weight: 700; font-size: var(--font-body); margin-bottom: 3px;">시각 분석</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0;">제품 이미지·패키지 자동 평가</p>
+                        <p style="color: var(--warn-soft); font-weight: 700; font-size: var(--font-body); margin: 0;">30× 빠름 · 100× 저비용</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 2px 0 0;">$300–3K, 24시간 내</p>
                     </div>
                     <div style="margin-bottom: 10px;">
-                        <p style="color: var(--warn-soft); font-weight: 700; font-size: var(--font-body); margin-bottom: 3px;">30× 빠른 속도</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0;">24시간 내 (vs 1주~6개월)</p>
-                    </div>
-                    <div style="margin-bottom: 10px;">
-                        <p style="color: var(--warn-soft); font-weight: 700; font-size: var(--font-body); margin-bottom: 3px;">100× 저렴한 비용</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0;">$300–3K (vs $20K~$500K+)</p>
-                    </div>
-                    <div style="margin-bottom: 10px;">
-                        <p style="color: var(--warn-soft); font-weight: 700; font-size: var(--font-body); margin-bottom: 3px;">데이터 모트</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0;">사용량 누적이 곧 자산</p>
+                        <p style="color: var(--warn-soft); font-weight: 700; font-size: var(--font-body); margin: 0;">데이터 모트 — 사용량=자산</p>
                     </div>
                     <div>
-                        <p style="color: var(--warn-soft); font-weight: 700; font-size: var(--font-body); margin-bottom: 3px;">K-product 특화 (유일)</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0;">한국→해외 진출 검증 전용</p>
+                        <p style="color: var(--warn-soft); font-weight: 700; font-size: var(--font-body); margin: 0;">K-product 특화 (유일)</p>
                     </div>
                 </div>
 
             </div>
 
-            <!-- Bottom strategic insight -->
-            <div style="background: rgba(74, 222, 128, 0.08); border-left: 3px solid var(--success); padding: 14px 18px; border-radius: var(--radius-sm);">
-                <p style="color: var(--text-secondary); font-size: var(--font-body); line-height: 1.7; margin: 0;">
-                    <strong style="color: var(--success);">시장 포지셔닝:</strong> 해외 경쟁사 — K-product 특화 데이터·정성 분석 부재. 국내 경쟁사 — AI 기반 다국가 시뮬레이션 기능 부재. <strong style="color: var(--accent-soft);">"K-product × AI × 24개국"</strong> 교집합에 직접 경쟁자 없는 블루오션 포지션 점유
+            <div style="background: rgba(74, 222, 128, 0.08); border-left: 3px solid var(--success); padding: 14px 20px; border-radius: var(--radius-sm);">
+                <p style="color: var(--text-secondary); font-size: var(--font-body); line-height: 1.6; margin: 0;">
+                    <strong style="color: var(--success);">시장 포지셔닝:</strong> <strong style="color: var(--accent-soft);">"K-product × AI × 24개국"</strong> 교집합에 직접 경쟁자 없는 블루오션 포지션 점유
                 </p>
             </div>
         </div>
 
-        <!-- Slide 7: Business Model -->
+        <!-- Slide 8: Business Model -->
         <div class="slide slide-content bg-gradient">
             <svg class="logo-corner" style="color: #ffffff;" aria-hidden="true"><use href="#logo-mark"/></svg>
             <h2>비즈니스 모델</h2>
-            <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(251, 191, 36, 0.12); border: 1px solid var(--warn); color: var(--warn-soft); padding: 6px 14px; border-radius: 100px; font-size: var(--font-small); font-weight: 600; margin-bottom: var(--space-md);">
-                ⚠ 향후 계획 — 현재 베타 운영 중, 가격 및 모델은 시장 검증 후 최종 확정
+            <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(251, 191, 36, 0.12); border: 1px solid var(--warn); color: var(--warn-soft); padding: 6px 14px; border-radius: 100px; font-size: var(--font-small); font-weight: 600; margin-bottom: 16px;">
+                현재 제품 폴리싱 우선 — 가격·결제는 사전 상용화 시점에 확정
             </div>
-            <div class="section-content full-width" style="grid-template-columns: 1fr 1fr; margin-bottom: var(--space-md);">
-                <div class="text-content">
-                    <h3>SaaS 구독 모델</h3>
-                    <p style="margin: var(--space-sm) 0; color: var(--text-secondary); font-size: var(--font-body); line-height: 1.7;">
-                        <strong style="color: var(--text-primary);">기본 요금:</strong><br>
-                        월 $299 ~ $2,999 (시뮬레이션 횟수와 팀 규모에 따라)
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); margin-bottom: 18px;">
+                <div class="card-elevated" style="padding: 18px 22px;">
+                    <h3 style="color: var(--accent-soft); font-size: var(--font-h3); margin: 0 0 10px; font-weight: 600;">SaaS 구독 모델 (계획)</h3>
+                    <p style="margin: 0 0 8px; color: var(--text-secondary); font-size: var(--font-body); line-height: 1.6;">
+                        <strong style="color: var(--text-primary);">기본 요금</strong> · 월 $299 ~ $2,999 (시뮬 횟수 + 팀 규모)
                     </p>
-                    <p style="margin: var(--space-sm) 0; color: var(--text-secondary); font-size: var(--font-body); line-height: 1.7;">
-                        <strong style="color: var(--text-primary);">프리미엄 기능:</strong><br>
-                        • LLM 모델 선택<br>
-                        • 고급 분석 대시보드<br>
-                        • API 접근<br>
-                        • 전용 지원
+                    <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-small); line-height: 1.55;">
+                        티어드 리포트 5단계 · 페르소나 / 시뮬 / 멀티 LLM 차등 · PDF 깊이 게이팅 · 상위 티어 API 접근
                     </p>
                 </div>
-                <div class="text-content">
-                    <h3>추가 수익 모델</h3>
-                    <p style="margin: var(--space-sm) 0; color: var(--text-secondary); font-size: var(--font-body); line-height: 1.7;">
-                        <strong style="color: var(--text-primary);">엔터프라이즈 컨설팅:</strong><br>
-                        시뮬레이션 결과 해석 및 실행 전략<br>
-                        <span style="color: var(--accent); font-weight: 600;">$50K ~ $200K</span>
+                <div class="card-elevated" style="padding: 18px 22px;">
+                    <h3 style="color: var(--accent-soft); font-size: var(--font-h3); margin: 0 0 10px; font-weight: 600;">추가 수익 모델</h3>
+                    <p style="margin: 0 0 8px; color: var(--text-secondary); font-size: var(--font-body); line-height: 1.6;">
+                        <strong style="color: var(--text-primary);">엔터프라이즈 컨설팅</strong> · <span style="color: var(--accent); font-weight: 600;">$50K ~ $200K</span> 시뮬 해석 + 실행 전략
                     </p>
-                    <p style="margin: var(--space-sm) 0; color: var(--text-secondary); font-size: var(--font-body); line-height: 1.7;">
-                        <strong style="color: var(--text-primary);">API 라이선싱:</strong><br>
-                        대형 기업 시스템 연동<br>
-                        <span style="color: var(--accent); font-weight: 600;">$500K+ 연간</span>
+                    <p style="margin: 0; color: var(--text-secondary); font-size: var(--font-body); line-height: 1.6;">
+                        <strong style="color: var(--text-primary);">API 라이선싱</strong> · <span style="color: var(--accent); font-weight: 600;">$500K+ 연간</span> 대기업 시스템 연동
                     </p>
                 </div>
             </div>
 
-            <div class="card-elevated" style="padding: var(--space-lg);">
-                <h3 style="color: var(--accent); margin-bottom: 4px; font-size: var(--font-h2); font-weight: 600;">Financial Forecast (계획)</h3>
-                <p style="color: var(--text-muted); margin-bottom: var(--space-md); font-size: var(--font-small);">아래 수치는 단계적 개발 로드맵 + 시장 검증 결과에 따라 조정 가능</p>
-                <div class="revenue-timeline">
-                    <div class="timeline-item">
-                        <div class="timeline-year">Year 1</div>
-                        <div class="timeline-bar" style="width: 50px;">
-                            <span class="market-value">$150K</span>
-                        </div>
-                        <span style="color: var(--text-secondary); font-size: var(--font-small);">(초기 고객 확보)</span>
+            <div class="card-elevated" style="padding: 18px 24px;">
+                <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px;">
+                    <h3 style="color: var(--accent); margin: 0; font-size: var(--font-h3); font-weight: 600;">Financial Forecast (계획)</h3>
+                    <p style="color: var(--text-muted); margin: 0; font-size: var(--font-small);">단계적 로드맵 + 시장 검증에 따라 조정 가능</p>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;">
+                    <div style="background: rgba(96, 165, 250, 0.06); padding: 16px 18px; border-radius: var(--radius-sm); border-left: 3px solid var(--accent);">
+                        <div style="color: var(--accent); font-weight: 700; font-size: var(--font-small); margin-bottom: 6px;">Year 1</div>
+                        <div style="color: white; font-weight: 700; font-size: 2rem; line-height: 1;">$150K</div>
+                        <div style="color: var(--text-muted); font-size: var(--font-small); margin-top: 6px;">초기 고객 확보</div>
                     </div>
-                    <div class="timeline-item">
-                        <div class="timeline-year">Year 2</div>
-                        <div class="timeline-bar" style="width: 200px;">
-                            <span class="market-value">$2.1M</span>
-                        </div>
-                        <span style="color: var(--text-secondary); font-size: var(--font-small);">(14배 성장)</span>
+                    <div style="background: rgba(96, 165, 250, 0.1); padding: 16px 18px; border-radius: var(--radius-sm); border-left: 3px solid var(--accent);">
+                        <div style="color: var(--accent); font-weight: 700; font-size: var(--font-small); margin-bottom: 6px;">Year 2</div>
+                        <div style="color: white; font-weight: 700; font-size: 2rem; line-height: 1;">$2.1M</div>
+                        <div style="color: var(--text-muted); font-size: var(--font-small); margin-top: 6px;">14× 성장</div>
                     </div>
-                    <div class="timeline-item">
-                        <div class="timeline-year">Year 3</div>
-                        <div class="timeline-bar" style="width: 400px;">
-                            <span class="market-value">$8.5M</span>
-                        </div>
-                        <span style="color: var(--text-secondary); font-size: var(--font-small);">(4배 성장)</span>
+                    <div style="background: rgba(96, 165, 250, 0.16); padding: 16px 18px; border-radius: var(--radius-sm); border-left: 3px solid var(--accent);">
+                        <div style="color: var(--accent); font-weight: 700; font-size: var(--font-small); margin-bottom: 6px;">Year 3</div>
+                        <div style="color: white; font-weight: 700; font-size: 2rem; line-height: 1;">$8.5M</div>
+                        <div style="color: var(--text-muted); font-size: var(--font-small); margin-top: 6px;">4× 성장</div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Slide 8: Technology -->
+        <!-- Slide 9: Technology (abstracted for external) -->
         <div class="slide slide-content bg-gradient">
             <svg class="logo-corner" style="color: #ffffff;" aria-hidden="true"><use href="#logo-mark"/></svg>
             <h2>기술 아키텍처</h2>
-            <p style="margin-bottom: var(--space-md); font-size: var(--font-body); color: var(--text-secondary); line-height: 1.6;">
-                <strong style="color: var(--accent);">엔터프라이즈급 기술 스택</strong> — 멀티 테넌트 격리 · 자동 일관성 검증 · 다중 AI 백엔드로 신뢰성·확장성 동시 확보
+            <p style="margin-bottom: 18px; font-size: var(--font-body); color: var(--text-secondary); line-height: 1.6;">
+                <strong style="color: var(--accent);">엔터프라이즈급 AI 엔진</strong> — 멀티 테넌트 격리 · 다중 LLM 교차 검증 · 독자 데이터 인프라
             </p>
 
-            <div class="tech-stack">
-                <div class="tech-item">
-                    <strong>프론트엔드</strong>
-                    <p>현대적 풀스택 프레임워크<br>다국어 지원 (KO/EN)<br>반응형 UI<br>실시간 진행 추적</p>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;">
+                <div class="tech-item" style="padding: 16px 18px; text-align: left;">
+                    <strong style="display: block; margin-bottom: 8px; color: var(--accent); font-size: var(--font-h3); font-weight: 600;">현대적 풀스택</strong>
+                    <p style="font-size: var(--font-small); line-height: 1.6; margin: 0;">실시간 진행 추적 · 다국어 (KO/EN) · 반응형 UI · 공유 read-only 링크</p>
                 </div>
-                <div class="tech-item">
-                    <strong>데이터 + 보안</strong>
-                    <p>엔터프라이즈급 Postgres<br>워크스페이스 격리 (RLS)<br>다중 권한 레벨<br>감사 로그</p>
+                <div class="tech-item" style="padding: 16px 18px; text-align: left;">
+                    <strong style="display: block; margin-bottom: 8px; color: var(--accent); font-size: var(--font-h3); font-weight: 600;">데이터 + 보안</strong>
+                    <p style="font-size: var(--font-small); line-height: 1.6; margin: 0;">엔터프라이즈 DB · 워크스페이스 격리 · 다중 권한 · 감사 로그 + 30일 토큰</p>
                 </div>
-                <div class="tech-item">
-                    <strong>AI 엔진</strong>
-                    <p>다수 최첨단 AI 모델 조합<br>시각 분석 통합<br>용도별 모델 분기<br>비용·품질 자동 최적화</p>
+                <div class="tech-item" style="padding: 16px 18px; text-align: left;">
+                    <strong style="display: block; margin-bottom: 8px; color: var(--accent); font-size: var(--font-h3); font-weight: 600;">AI 엔진</strong>
+                    <p style="font-size: var(--font-small); line-height: 1.6; margin: 0;">다수 최첨단 AI 모델 조합 · 시각 분석 통합 · 단계별 모델 분배 비용 최적화</p>
                 </div>
-                <div class="tech-item">
-                    <strong>시뮬레이션 파이프라인</strong>
-                    <p>다단계 검증 구조<br>페르소나 자산 재사용<br>자동 일관성 감사<br>통계적 가격 안정화</p>
+                <div class="tech-item" style="padding: 16px 18px; text-align: left;">
+                    <strong style="display: block; margin-bottom: 8px; color: var(--accent); font-size: var(--font-h3); font-weight: 600;">시뮬 파이프라인</strong>
+                    <p style="font-size: var(--font-small); line-height: 1.6; margin: 0;">5단계 티어드 · 페르소나 재사용 · 3-layer 품질 sanitizer · 자동 일관성 감사</p>
                 </div>
-                <div class="tech-item">
-                    <strong>데이터 자산</strong>
-                    <p>24개국 공식 통계 그라운딩<br>산업 카테고리 분류 체계<br>워크스페이스별 자체 자산<br>지속적 자산 누적</p>
+                <div class="tech-item" style="padding: 16px 18px; text-align: left;">
+                    <strong style="display: block; margin-bottom: 8px; color: var(--accent); font-size: var(--font-h3); font-weight: 600;">독자 데이터 인프라</strong>
+                    <p style="font-size: var(--font-small); line-height: 1.6; margin: 0;">24개국 공식 통계 그라운딩 · 8개 산업 카테고리 · 워크스페이스별 자체 자산 누적</p>
                 </div>
-                <div class="tech-item">
-                    <strong>리포트 + 운영</strong>
-                    <p>임원용 PDF (다국어)<br>페르소나 인용 섹션<br>A/B 시뮬레이션 비교 대시보드<br>운영 모니터링 콘솔</p>
+                <div class="tech-item" style="padding: 16px 18px; text-align: left;">
+                    <strong style="display: block; margin-bottom: 8px; color: var(--accent); font-size: var(--font-h3); font-weight: 600;">리포트 + 운영</strong>
+                    <p style="font-size: var(--font-small); line-height: 1.6; margin: 0;">임원용 PDF (다국어) · 채널 · 브랜드 멘션 추출 · CSV (Excel 호환) · 운영 콘솔</p>
                 </div>
             </div>
 
-            <div style="margin-top: var(--space-lg); background: rgba(59, 130, 246, 0.1); padding: 22px 28px; border-radius: var(--radius-md); border: 1px solid #3b82f6;">
-                <h3 style="color: var(--accent); font-size: var(--font-h3); font-weight: 600; margin: 0 0 10px;">엔터프라이즈급 신뢰성</h3>
-                <p style="color: var(--text-secondary); margin: 0; line-height: 1.8; font-size: var(--font-body);">
-                    • <strong style="color: var(--accent-soft);">멀티 테넌트 격리</strong>로 고객 데이터 완전 분리, 동시 사용자 무한 확장 가능<br>
-                    • <strong style="color: var(--accent-soft);">자동 일관성 검증</strong>으로 결과의 정합성을 시뮬레이션마다 보장<br>
-                    • <strong style="color: var(--accent-soft);">다중 AI 백엔드</strong> 지원으로 단일 공급자 의존 리스크 제거<br>
-                    • <strong style="color: var(--accent-soft);">API 우선 설계</strong>로 ERP/CRM 등 기존 시스템과 자연스러운 통합
+            <div style="margin-top: 18px; background: rgba(59, 130, 246, 0.1); padding: 16px 22px; border-radius: var(--radius-md); border: 1px solid #3b82f6;">
+                <h3 style="color: var(--accent); font-size: var(--font-h3); font-weight: 600; margin: 0 0 8px;">엔터프라이즈급 신뢰성</h3>
+                <p style="color: var(--text-secondary); margin: 0; line-height: 1.65; font-size: var(--font-small);">
+                    <strong style="color: var(--accent-soft);">멀티 테넌트 격리</strong>로 고객 데이터 분리 · <strong style="color: var(--accent-soft);">자동 일관성 검증</strong>으로 시뮬마다 정합성 보장 · <strong style="color: var(--accent-soft);">다중 AI 백엔드</strong>로 단일 공급자 의존 제거 · <strong style="color: var(--accent-soft);">API 우선 설계</strong>로 ERP/CRM 자연스러운 통합
                 </p>
             </div>
         </div>
 
-        <!-- Slide 8.5: Development Roadmap -->
+        <!-- Slide 10: Development Roadmap (preserved structure, status updated) -->
         <div class="slide slide-content bg-gradient">
             <svg class="logo-corner" style="color: #ffffff;" aria-hidden="true"><use href="#logo-mark"/></svg>
             <h2>제품 개발 로드맵</h2>
-            <div style="margin-bottom: var(--space-md);">
-                <p style="font-size: var(--font-lead); color: var(--accent); font-weight: 600;">AI 페르소나 엔진의 3단계 고도화 전략</p>
-                <p style="color: var(--text-secondary); margin-top: 8px; font-size: var(--font-body); line-height: 1.7;">
-                    단순한 페르소나 수 증가가 아닌, <strong style="color: var(--accent-soft);">시뮬레이션 결과의 신뢰도와 깊이</strong>를 단계적으로 업그레이드
-                </p>
+            <p style="font-size: var(--font-body); color: var(--text-secondary); margin-bottom: 18px; line-height: 1.6;">
+                <strong style="color: var(--accent);">AI 페르소나 엔진의 3단계 고도화</strong> — 페르소나 수가 아닌 <strong style="color: var(--accent-soft);">신뢰도 · 깊이</strong>를 단계적으로 업그레이드
+            </p>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;">
+
+                <!-- Phase 1 — partially live -->
+                <div style="background: rgba(74, 222, 128, 0.08); border: 2px solid var(--success); border-radius: var(--radius-md); padding: 18px 18px 16px; position: relative;">
+                    <div style="position: absolute; top: -12px; left: 16px; background: var(--success); color: var(--bg-primary); padding: 4px 12px; border-radius: 100px; font-size: var(--font-small); font-weight: 700;">✓ Phase 1 일부 라이브</div>
+                    <div style="color: var(--success); font-size: var(--font-small); font-weight: 700; letter-spacing: 0.1em; margin: 8px 0 6px;">PHASE 1 · 2026 Q2</div>
+                    <div style="display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px;">
+                        <div style="font-size: 2.2rem; font-weight: 800; color: white; line-height: 1;">500</div>
+                        <div style="color: var(--text-secondary); font-size: var(--font-small);">/시뮬 (라이브)</div>
+                    </div>
+
+                    <div style="border-top: 1px solid rgba(74, 222, 128, 0.3); padding-top: 12px;">
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0 0 8px; line-height: 1.55;"><strong style="color: var(--success);">▸ 24개국 공식 통계 그라운딩</strong> KR/US/JP/UK/VN/TH/PH/ID 등</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0 0 8px; line-height: 1.55;"><strong style="color: var(--success);">▸ 5단계 티어드 시뮬</strong> 200~10,000명 / 1~50시뮬</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0 0 8px; line-height: 1.55;"><strong style="color: var(--success);">▸ 1인칭 보이스 + 시각 분석</strong> 3-layer 품질 sanitizer</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0 0 8px; line-height: 1.55;"><strong style="color: var(--success);">▸ 다중 LLM 교차 검증</strong> 상위 티어 round-robin</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0; line-height: 1.55;"><strong style="color: var(--success);">▸ 페르소나 자산 누적</strong> 워크스페이스별 (opt-in)</p>
+                    </div>
+                </div>
+
+                <!-- Phase 2 — in progress -->
+                <div style="background: rgba(96, 165, 250, 0.08); border: 2px solid var(--accent); border-radius: var(--radius-md); padding: 18px 18px 16px; position: relative;">
+                    <div style="position: absolute; top: -12px; left: 16px; background: var(--accent); color: var(--bg-primary); padding: 4px 12px; border-radius: 100px; font-size: var(--font-small); font-weight: 700;">⚡ 개발 중</div>
+                    <div style="color: var(--accent); font-size: var(--font-small); font-weight: 700; letter-spacing: 0.1em; margin: 8px 0 6px;">PHASE 2 · 2026 Q3</div>
+                    <div style="display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px;">
+                        <div style="font-size: 2.2rem; font-weight: 800; color: white; line-height: 1;">3,000</div>
+                        <div style="color: var(--text-secondary); font-size: var(--font-small);">/시뮬 (현재 200~5,000)</div>
+                    </div>
+
+                    <div style="border-top: 1px solid rgba(96, 165, 250, 0.3); padding-top: 12px;">
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0 0 8px; line-height: 1.55;"><strong style="color: var(--accent);">▸ 플랫폼 단위 자산 공유</strong> opt-in 풀 통합</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0 0 8px; line-height: 1.55;"><strong style="color: var(--accent);">▸ 자동 자산 보강</strong> 빈 영역 정기 채움</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0 0 8px; line-height: 1.55;"><strong style="color: var(--accent);">▸ 경쟁사 DB 통합</strong> 제품 라인 비교</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0 0 8px; line-height: 1.55;"><strong style="color: var(--accent);">▸ 현지 규제 자동 매칭 확장</strong> 관세·인증·라벨링</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0; line-height: 1.55;"><strong style="color: var(--accent);">▸ 누적 자산 가치</strong> <span style="color: var(--accent-soft); font-weight: 600;">데이터 모트 본격화</span></p>
+                    </div>
+                </div>
+
+                <!-- Phase 3 -->
+                <div style="background: rgba(251, 191, 36, 0.08); border: 2px solid var(--warn); border-radius: var(--radius-md); padding: 18px 18px 16px; position: relative;">
+                    <div style="position: absolute; top: -12px; left: 16px; background: var(--warn); color: var(--bg-primary); padding: 4px 12px; border-radius: 100px; font-size: var(--font-small); font-weight: 700;">★ 목표</div>
+                    <div style="color: var(--warn); font-size: var(--font-small); font-weight: 700; letter-spacing: 0.1em; margin: 8px 0 6px;">PHASE 3 · 2027 Q3</div>
+                    <div style="display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px;">
+                        <div style="font-size: 2.2rem; font-weight: 800; color: white; line-height: 1;">10,000</div>
+                        <div style="color: var(--text-secondary); font-size: var(--font-small);">/시뮬 (3.3×)</div>
+                    </div>
+
+                    <div style="border-top: 1px solid rgba(251, 191, 36, 0.3); padding-top: 12px;">
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0 0 8px; line-height: 1.55;"><strong style="color: var(--warn);">▸ 대규모 페르소나 라이브러리</strong> 업계 최대 규모</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0 0 8px; line-height: 1.55;"><strong style="color: var(--warn);">▸ 실시간 트렌드 통합</strong> 소셜 · 검색 시그널</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0 0 8px; line-height: 1.55;"><strong style="color: var(--warn);">▸ 영상 · 패키징 멀티모달</strong> 자동 평가</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0 0 8px; line-height: 1.55;"><strong style="color: var(--warn);">▸ 산업별 특화 모델</strong> 주요 카테고리 최적화</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin: 0; line-height: 1.55;"><strong style="color: var(--warn);">▸ 엔터프라이즈 시스템 연동</strong> ERP · CRM 통합</p>
+                    </div>
+                </div>
+
             </div>
 
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-md); margin-top: var(--space-md);">
-
-                <!-- Stage 1 -->
-                <div style="background: rgba(74, 222, 128, 0.08); border: 2px solid var(--success); border-radius: var(--radius-md); padding: var(--space-md); position: relative;">
-                    <div style="position: absolute; top: -12px; left: 20px; background: var(--success); color: var(--bg-primary); padding: 3px 12px; border-radius: 100px; font-size: var(--font-small); font-weight: 700;">✓ 완료 · 라이브</div>
-                    <div style="color: var(--success); font-size: var(--font-small); font-weight: 700; letter-spacing: 0.1em; margin-bottom: 10px; margin-top: 8px;">PHASE 1 · 2026 Q2</div>
-                    <div style="font-size: 2.4rem; font-weight: 800; color: white; line-height: 1; margin-bottom: 6px;">500</div>
-                    <div style="color: var(--text-secondary); font-size: var(--font-body); margin-bottom: var(--space-md);">시뮬레이션당 페르소나 (라이브)</div>
-
-                    <div style="border-top: 1px solid rgba(74, 222, 128, 0.3); padding-top: 14px;">
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin-bottom: 10px; line-height: 1.6;"><strong style="color: var(--success); font-size: var(--font-body);">▸ 24개국 공식 통계 그라운딩</strong><br>실측 데이터 기반 페르소나</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin-bottom: 10px; line-height: 1.6;"><strong style="color: var(--success); font-size: var(--font-body);">▸ 1인칭 페르소나 보이스</strong><br>인터뷰 인용 수준 정성 데이터</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin-bottom: 10px; line-height: 1.6;"><strong style="color: var(--success); font-size: var(--font-body);">▸ 시각 분석 통합</strong><br>이미지·패키지 자동 평가</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin-bottom: 10px; line-height: 1.6;"><strong style="color: var(--success); font-size: var(--font-body);">▸ 페르소나 자산 누적</strong><br>워크스페이스별 자체 라이브러리</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin-bottom: 10px; line-height: 1.6;"><strong style="color: var(--success); font-size: var(--font-body);">▸ 자동 일관성 검증</strong><br>다단계 정합성 감사</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.6;"><strong style="color: var(--success); font-size: var(--font-body);">▸ 8개 산업 카테고리</strong><br>뷰티·SaaS·식품·건강 등</p>
-                    </div>
-                </div>
-
-                <!-- Stage 2 -->
-                <div style="background: rgba(96, 165, 250, 0.08); border: 2px solid var(--accent); border-radius: var(--radius-md); padding: var(--space-md); position: relative;">
-                    <div style="position: absolute; top: -12px; left: 20px; background: var(--accent); color: var(--bg-primary); padding: 3px 12px; border-radius: 100px; font-size: var(--font-small); font-weight: 700;">⚡ 개발 중</div>
-                    <div style="color: var(--accent); font-size: var(--font-small); font-weight: 700; letter-spacing: 0.1em; margin-bottom: 10px; margin-top: 8px;">PHASE 2 · 2026 Q3</div>
-                    <div style="font-size: 2.4rem; font-weight: 800; color: white; line-height: 1; margin-bottom: 6px;">3,000</div>
-                    <div style="color: var(--text-secondary); font-size: var(--font-body); margin-bottom: var(--space-md);">시뮬레이션당 페르소나 (<span style="color: var(--accent);">6×</span>)</div>
-
-                    <div style="border-top: 1px solid rgba(96, 165, 250, 0.3); padding-top: 14px;">
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin-bottom: 10px; line-height: 1.6;"><strong style="color: var(--accent); font-size: var(--font-body);">▸ 플랫폼 단위 자산 공유</strong><br>opt-in 기반 페르소나 풀 통합</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin-bottom: 10px; line-height: 1.6;"><strong style="color: var(--accent); font-size: var(--font-body);">▸ 자동 자산 보강</strong><br>빈 영역 정기 자동 채움</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin-bottom: 10px; line-height: 1.6;"><strong style="color: var(--accent); font-size: var(--font-body);">▸ 경쟁사 DB 통합</strong><br>제품 라인 비교 분석</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin-bottom: 10px; line-height: 1.6;"><strong style="color: var(--accent); font-size: var(--font-body);">▸ 현지 규제 자동 매칭 확장</strong><br>관세·인증·라벨링 규정 DB</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin-bottom: 10px; line-height: 1.6;"><strong style="color: var(--accent); font-size: var(--font-body);">▸ 대규모 시뮬레이션 인프라</strong><br>5,000+ 페르소나 동시 처리</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.6;"><strong style="color: var(--accent); font-size: var(--font-body);">▸ 누적 자산 가치</strong><br><span style="color: var(--accent-soft); font-weight: 600;">데이터 모트 본격화</span></p>
-                    </div>
-                </div>
-
-                <!-- Stage 3 -->
-                <div style="background: rgba(251, 191, 36, 0.08); border: 2px solid var(--warn); border-radius: var(--radius-md); padding: var(--space-md); position: relative;">
-                    <div style="position: absolute; top: -12px; left: 20px; background: var(--warn); color: var(--bg-primary); padding: 3px 12px; border-radius: 100px; font-size: var(--font-small); font-weight: 700;">★ 목표</div>
-                    <div style="color: var(--warn); font-size: var(--font-small); font-weight: 700; letter-spacing: 0.1em; margin-bottom: 10px; margin-top: 8px;">PHASE 3 · 2027 Q3</div>
-                    <div style="font-size: 2.4rem; font-weight: 800; color: white; line-height: 1; margin-bottom: 6px;">10,000</div>
-                    <div style="color: var(--text-secondary); font-size: var(--font-body); margin-bottom: var(--space-md);">시뮬레이션당 페르소나 (<span style="color: var(--warn);">3.3×</span>)</div>
-
-                    <div style="border-top: 1px solid rgba(251, 191, 36, 0.3); padding-top: 14px;">
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin-bottom: 10px; line-height: 1.6;"><strong style="color: var(--warn); font-size: var(--font-body);">▸ 대규모 페르소나 라이브러리</strong><br>업계 최대 규모 자산화</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin-bottom: 10px; line-height: 1.6;"><strong style="color: var(--warn); font-size: var(--font-body);">▸ 실시간 트렌드 통합</strong><br>소셜 시그널 · 검색 트렌드</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin-bottom: 10px; line-height: 1.6;"><strong style="color: var(--warn); font-size: var(--font-body);">▸ 영상·패키징 멀티모달</strong><br>제품 영상 · 패키지 디자인 평가</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin-bottom: 10px; line-height: 1.6;"><strong style="color: var(--warn); font-size: var(--font-body);">▸ 24개국 풀 규제 DB</strong><br>관세 · 인증 · 라벨링 · 광고법</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); margin-bottom: 10px; line-height: 1.6;"><strong style="color: var(--warn); font-size: var(--font-body);">▸ 산업별 특화 모델</strong><br>주요 카테고리 도메인 최적화</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.6;"><strong style="color: var(--warn); font-size: var(--font-body);">▸ 엔터프라이즈 시스템 연동</strong><br>ERP·CRM 등 기간계 통합</p>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- Bottom message -->
-            <div style="margin-top: var(--space-md); background: var(--bg-elevated); padding: 16px 22px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-                <h3 style="color: var(--accent); margin-bottom: 8px; font-size: var(--font-h3); font-weight: 600;">왜 단계적으로 가는가?</h3>
-                <p style="color: var(--text-secondary); line-height: 1.75; font-size: var(--font-body);">
-                    페르소나 수를 무작정 늘리는 것이 아닌, <strong style="color: var(--accent-soft);">데이터 그라운딩</strong>·<strong style="color: var(--accent-soft);">정성 인사이트 깊이</strong>·<strong style="color: var(--accent-soft);">시각 분석</strong>·<strong style="color: var(--accent-soft);">자동 검증</strong>을 단계마다 함께 강화 — Phase 1에서 이미 <strong style="color: var(--success);">상용 가능한 신뢰도</strong> 확보. 누적되는 페르소나 자산이 시뮬레이션당 비용·시간을 점진적으로 낮추는 <strong style="color: var(--accent-soft);">데이터 모트</strong>가 본 제품의 핵심 자산
+            <div style="margin-top: 16px; background: var(--bg-elevated); padding: 14px 20px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                <p style="color: var(--text-secondary); line-height: 1.6; font-size: var(--font-body); margin: 0;">
+                    <strong style="color: var(--accent);">왜 단계적으로?</strong> Phase 1 핵심 라이브 완료 → Phase 2는 자산 공유 + 대규모 시뮬로 <strong style="color: var(--success);">데이터 모트 본격화</strong>
                 </p>
             </div>
         </div>
 
-        <!-- Slide 9: Go-to-Market -->
+        <!-- Slide 11: Go-to-Market (preserved structure, Phase 1 marked current) -->
         <div class="slide slide-content bg-gradient">
             <svg class="logo-corner" style="color: #ffffff;" aria-hidden="true"><use href="#logo-mark"/></svg>
             <h2>시장 진출 전략</h2>
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px;">
                 <div class="feature-item" style="border-left: 3px solid var(--success); padding: 16px 18px;">
-                    <h4 style="color: var(--success); font-size: var(--font-h3); margin-bottom: 8px;">Phase 1</h4>
+                    <h4 style="color: var(--success); font-size: var(--font-h3); margin-bottom: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">Phase 1 <span style="font-size: var(--font-small); background: var(--success); color: var(--bg-primary); padding: 2px 10px; border-radius: 100px; font-weight: 700;">현재 진행 중</span></h4>
                     <p style="color: var(--accent-soft); font-size: var(--font-small); font-weight: 600; margin: 0 0 6px;">한국 시장 집중 · Month 1–6</p>
-                    <p style="font-size: var(--font-small); line-height: 1.55; margin: 0;"><strong>한국 K-product 브랜드</strong> B2B 세일즈 — 5개 핵심 시장(US·JP·KR·TW·ID) 검증으로 Pilot 5–10개 확보 + Case Study 구축</p>
+                    <p style="font-size: var(--font-small); line-height: 1.55; margin: 0;"><strong>한국 K-product 브랜드</strong> B2B 세일즈 — 핵심 아시아 시장 검증으로 Pilot 5–10개 + Case Study 구축. markettwin.ai 라이브 · Vercel 배포 완료</p>
                 </div>
                 <div class="feature-item" style="border-left: 3px solid var(--accent); padding: 16px 18px;">
                     <h4 style="color: var(--accent); font-size: var(--font-h3); margin-bottom: 8px;">Phase 2</h4>
                     <p style="color: var(--accent-soft); font-size: var(--font-small); font-weight: 600; margin: 0 0 6px;">일본 · 아시아 확대 · Month 7–14</p>
-                    <p style="font-size: var(--font-small); line-height: 1.55; margin: 0;"><strong>일본 + APAC</strong>(싱가포르·홍콩·호주) — 페르소나 3,000명 + 12개국 데이터. Japan Expo 컨퍼런스 · 현지 PR</p>
+                    <p style="font-size: var(--font-small); line-height: 1.55; margin: 0;"><strong>일본 + APAC</strong>(싱가포르·홍콩·호주) 확대 — 페르소나 3,000명 + 12개국 데이터. Japan Expo 등 컨퍼런스 · 현지 PR로 브랜드 인지도</p>
                 </div>
                 <div class="feature-item" style="border-left: 3px solid var(--warn); padding: 16px 18px;">
                     <h4 style="color: var(--warn); font-size: var(--font-h3); margin-bottom: 8px;">Phase 3</h4>
                     <p style="color: var(--accent-soft); font-size: var(--font-small); font-weight: 600; margin: 0 0 6px;">글로벌 · Month 15–24</p>
-                    <p style="font-size: var(--font-small); line-height: 1.55; margin: 0;"><strong>북남미·유럽</strong> 시장 진출 — 페르소나 10,000명 + 24개국 풀 커버리지 · 에디션 3.0 · 산업별 특화 + 멀티모달 분석</p>
+                    <p style="font-size: var(--font-small); line-height: 1.55; margin: 0;"><strong>북남미·유럽</strong> 진출 — 페르소나 10,000명 + 24개국 풀 커버리지로 에디션 3.0 출시. 산업별 특화 모델 · 멀티모달 분석 포함</p>
                 </div>
             </div>
 
@@ -1295,11 +1101,11 @@
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;">
                 <div class="feature-item" style="padding: 14px 18px;">
                     <strong style="color: var(--accent); font-size: var(--font-h3); font-weight: 600; display: block; margin-bottom: 6px;">B2B 세일즈</strong>
-                    <p style="font-size: var(--font-small); line-height: 1.55; margin: 0;">CPG, 전자상거래 산업 담당자 직접 아웃리치</p>
+                    <p style="font-size: var(--font-small); line-height: 1.55; margin: 0;">K-Beauty / K-Food / K-Fashion 수출 담당자 직접 아웃리치</p>
                 </div>
                 <div class="feature-item" style="padding: 14px 18px;">
                     <strong style="color: var(--accent); font-size: var(--font-h3); font-weight: 600; display: block; margin-bottom: 6px;">산업 이벤트</strong>
-                    <p style="font-size: var(--font-small); line-height: 1.55; margin: 0;">NRF, CES, 마케팅 컨퍼런스 참여 및 데모</p>
+                    <p style="font-size: var(--font-small); line-height: 1.55; margin: 0;">KOTRA 수출 박람회 · 한류 컨퍼런스 · NRF 참여 및 데모</p>
                 </div>
                 <div class="feature-item" style="padding: 14px 18px;">
                     <strong style="color: var(--accent); font-size: var(--font-h3); font-weight: 600; display: block; margin-bottom: 6px;">콘텐츠 마케팅</strong>
@@ -1308,7 +1114,7 @@
             </div>
         </div>
 
-        <!-- Slide 10: Team -->
+        <!-- Slide 12: Team -->
         <div class="slide slide-content bg-gradient">
             <svg class="logo-corner" style="color: #ffffff;" aria-hidden="true"><use href="#logo-mark"/></svg>
             <h2>팀</h2>
@@ -1333,7 +1139,7 @@
             <div class="card-elevated" style="margin-top: var(--space-lg); padding: 22px 28px;">
                 <h3 style="color: var(--accent); margin-bottom: 12px; font-size: var(--font-h2); font-weight: 600;">자문단</h3>
                 <p style="color: var(--text-secondary); font-size: var(--font-body); line-height: 1.9; margin: 0;">
-                    • 전 McKinsey 파트너 (포르츠갈)<br>
+                    • 전 McKinsey 파트너<br>
                     • 전 Nielsen 아시아 태평양 대표<br>
                     • 현 삼성전자 글로벌 전략팀 이사<br>
                     • 현 유니레버 아시아 마케팅 디렉터
@@ -1341,7 +1147,7 @@
             </div>
         </div>
 
-        <!-- Slide 11: Funding & Use of Funds -->
+        <!-- Slide 13: Funding & Use of Funds (preserved, refined) -->
         <div class="slide slide-content bg-gradient">
             <svg class="logo-corner" style="color: #ffffff;" aria-hidden="true"><use href="#logo-mark"/></svg>
             <h2>자금 조달 및 사용 계획</h2>
@@ -1352,13 +1158,13 @@
                         목표: $3M
                     </p>
                     <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.65;">
-                        18개월 간 시장 리더 위치 확보와 글로벌 확장 자금
+                        18개월 간 K-product 검증 카테고리 시장 리더 위치 확보 + 글로벌 확장 자금
                     </p>
                 </div>
                 <div class="card-elevated" style="padding: var(--space-md) var(--space-lg);">
                     <h3 style="color: var(--accent); margin-bottom: 14px; font-size: var(--font-h3); font-weight: 600;">사용 계획</h3>
-                    <p style="color: var(--text-secondary); margin-bottom: 12px; font-size: var(--font-small); line-height: 1.55;"><strong style="color: var(--text-primary);">제품 개발 40% ($1.2M)</strong><br>AI 모델 고도화, 산업별 특화</p>
-                    <p style="color: var(--text-secondary); margin-bottom: 12px; font-size: var(--font-small); line-height: 1.55;"><strong style="color: var(--text-primary);">마케팅 35% ($1.05M)</strong><br>세일즈 팀, 이벤트, 콘텐츠</p>
+                    <p style="color: var(--text-secondary); margin-bottom: 12px; font-size: var(--font-small); line-height: 1.55;"><strong style="color: var(--text-primary);">제품 개발 40% ($1.2M)</strong><br>AI 모델 고도화, 산업별 특화, 자산 공유 인프라</p>
+                    <p style="color: var(--text-secondary); margin-bottom: 12px; font-size: var(--font-small); line-height: 1.55;"><strong style="color: var(--text-primary);">마케팅 35% ($1.05M)</strong><br>K-product 세일즈 팀, 이벤트, 콘텐츠</p>
                     <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.55;"><strong style="color: var(--text-primary);">인프라/운영 25% ($750K)</strong><br>팀 확보, 보안, 인프라</p>
                 </div>
             </div>
@@ -1368,11 +1174,11 @@
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-md);">
                     <div class="feature-item">
                         <p style="color: var(--accent); font-weight: 600; margin-bottom: 8px; font-size: var(--font-h3);">Month 6</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.7;">✓ 고객 20명<br>✓ MRR $50K<br>✓ 아시아 확대</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.7;">✓ 고객 20명<br>✓ MRR $50K<br>✓ 일본·아시아 확대 착수</p>
                     </div>
                     <div class="feature-item">
                         <p style="color: var(--accent); font-weight: 600; margin-bottom: 8px; font-size: var(--font-h3);">Month 12</p>
-                        <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.7;">✓ 고객 50명<br>✓ MRR $200K<br>✓ 북미 진출</p>
+                        <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.7;">✓ 고객 50명<br>✓ MRR $200K<br>✓ Phase 2 자산 공유 라이브</p>
                     </div>
                     <div class="feature-item">
                         <p style="color: var(--accent); font-weight: 600; margin-bottom: 8px; font-size: var(--font-h3);">Month 18</p>
@@ -1382,87 +1188,39 @@
             </div>
         </div>
 
-        <!-- Slide 12: Phase 1 Targets -->
-        <div class="slide slide-content bg-gradient">
-            <svg class="logo-corner" style="color: #ffffff;" aria-hidden="true"><use href="#logo-mark"/></svg>
-            <h2>Phase 1 목표 (6개월)</h2>
-            <p style="color: var(--text-secondary); margin-bottom: var(--space-md); font-size: var(--font-body); line-height: 1.6;">
-                현재 베타 운영 중 — 아래는 Phase 1 단계에서 6개월 내 달성 목표
-            </p>
-
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-md); margin-bottom: var(--space-lg);">
-                <div style="background: var(--bg-elevated); padding: var(--space-md); border-radius: var(--radius-md); border: 2px solid var(--accent); text-align: center;">
-                    <div style="font-size: 2.2rem; color: var(--accent); font-weight: 700; line-height: 1.1; margin-bottom: 6px;">15+</div>
-                    <p style="color: var(--text-secondary); font-size: var(--font-small);">Pilot 고객사 확보</p>
-                </div>
-                <div style="background: var(--bg-elevated); padding: var(--space-md); border-radius: var(--radius-md); border: 2px solid var(--accent); text-align: center;">
-                    <div style="font-size: 2.2rem; color: var(--accent); font-weight: 700; line-height: 1.1; margin-bottom: 6px;">90%</div>
-                    <p style="color: var(--text-secondary); font-size: var(--font-small);">Pilot 만족도 목표</p>
-                </div>
-                <div style="background: var(--bg-elevated); padding: var(--space-md); border-radius: var(--radius-md); border: 2px solid var(--accent); text-align: center;">
-                    <div style="font-size: 2.2rem; color: var(--accent); font-weight: 700; line-height: 1.1; margin-bottom: 6px;">$60K</div>
-                    <p style="color: var(--text-secondary); font-size: var(--font-small);">6개월 후 MRR 목표</p>
-                </div>
-                <div style="background: var(--bg-elevated); padding: var(--space-md); border-radius: var(--radius-md); border: 2px solid var(--accent); text-align: center;">
-                    <div style="font-size: 2.2rem; color: var(--accent); font-weight: 700; line-height: 1.1; margin-bottom: 6px;">75%</div>
-                    <p style="color: var(--text-secondary); font-size: var(--font-small);">시뮬레이션 정확도</p>
-                </div>
-            </div>
-
-            <h3 class="subhead">🎯 Phase 1 핵심 마일스톤</h3>
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-sm);">
-                <div class="feature-item">
-                    <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-h3); margin-bottom: 4px;">Month 1–2 · 베타 출시</p>
-                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.6;">5개 핵심 시장(US·JP·KR·TW·ID) 라이브, 첫 3개 Pilot 회원사 온보딩</p>
-                </div>
-                <div class="feature-item">
-                    <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-h3); margin-bottom: 4px;">Month 3 · 검증 완료</p>
-                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.6;">시뮬레이션 결과 vs 실측 데이터 비교, 정확도 향상, 8개 Pilot 확보</p>
-                </div>
-                <div class="feature-item">
-                    <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-h3); margin-bottom: 4px;">Month 4–5 · 첫 매출</p>
-                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.6;">유료 전환 시작, $25K MRR 도달, 12+ Pilot 회원사 확보</p>
-                </div>
-                <div class="feature-item">
-                    <p style="color: var(--accent-soft); font-weight: 600; font-size: var(--font-h3); margin-bottom: 4px;">Month 6 · Phase 2 진입</p>
-                    <p style="color: var(--text-secondary); font-size: var(--font-small); line-height: 1.6;">$60K MRR, 15+ Pilot 회원사, 다음 단계 확장 개발 착수</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Slide 13: Risk & Mitigation -->
+        <!-- Slide 14: Risk & Mitigation -->
         <div class="slide slide-content bg-gradient">
             <svg class="logo-corner" style="color: #ffffff;" aria-hidden="true"><use href="#logo-mark"/></svg>
             <h2>리스크 및 완화 전략</h2>
             <div class="feature-grid">
                 <div class="feature-item">
                     <h4>리스크: AI 모델 정확도</h4>
-                    <p><strong>완화:</strong> 여러 LLM 모델 통합, 지속적 검증, 실제 시장 데이터와 비교 분석</p>
+                    <p><strong>완화:</strong> 다중 LLM 교차 검증, 자동 일관성 감사, 실제 시장 데이터와 비교</p>
                 </div>
                 <div class="feature-item">
                     <h4>리스크: 경쟁사 진입</h4>
-                    <p><strong>완화:</strong> 소유권 있는 데이터베이스, 24개국 특화 모델, 강력한 IP 포트폴리오</p>
+                    <p><strong>완화:</strong> 24개국 공식 통계 그라운딩 + 워크스페이스별 페르소나 자산 = 모방 어려운 데이터 모트</p>
                 </div>
                 <div class="feature-item">
                     <h4>리스크: 채택률 저조</h4>
-                    <p><strong>완화:</strong> 강력한 초기 고객 확보, 업계 컨설턴트 자문단, 직관적 UI/UX</p>
+                    <p><strong>완화:</strong> K-product 특화 포지셔닝으로 글로벌 incumbents와 정면 충돌 회피, KOTRA·무역협회 채널 활용</p>
                 </div>
                 <div class="feature-item">
                     <h4>리스크: 규제 변화</h4>
-                    <p><strong>완화:</strong> AI 윤리 준수, 데이터 프라이버시 우선, 규제 컴플라이언스 팀</p>
+                    <p><strong>완화:</strong> AI 윤리 준수, 데이터 프라이버시 우선, 워크스페이스 격리</p>
                 </div>
                 <div class="feature-item">
                     <h4>리스크: LLM 비용 상승</h4>
-                    <p><strong>완화:</strong> 멀티 모델 지원으로 유연성, 온프레미스 옵션 개발</p>
+                    <p><strong>완화:</strong> 단계별 모델 분배로 비용 최적화, 다중 백엔드 유연성, 페르소나 재사용으로 한계비용 감소</p>
                 </div>
                 <div class="feature-item">
                     <h4>리스크: 시장 수요</h4>
-                    <p><strong>완화:</strong> B2B 수요 사전 검증, 초기 고객 확보 완료, 반복적 개선</p>
+                    <p><strong>완화:</strong> Phase 1 라이브 시점 실제 검증 진행, 뷰티 카테고리 E2E 검증 완료</p>
                 </div>
             </div>
         </div>
 
-        <!-- Slide 14: Vision & Future -->
+        <!-- Slide 15: Vision -->
         <div class="slide slide-content bg-gradient">
             <svg class="logo-corner" style="color: #ffffff;" aria-hidden="true"><use href="#logo-mark"/></svg>
             <h2>장기 비전</h2>
@@ -1470,7 +1228,7 @@
                 <h3 class="subhead" style="margin-top: 0;">3년 이후: Market Twin 플랫폼 생태계</h3>
                 <div class="highlight">
                     <h3>AI Market Twin Core</h3>
-                    <p>제품 출시 시뮬레이션 플랫폼의 산업 표준</p>
+                    <p>K-product 해외 진출 검증의 산업 표준</p>
                 </div>
                 <div class="highlight">
                     <h3>Market Twin Analytics</h3>
@@ -1486,12 +1244,12 @@
                 </div>
 
                 <p style="margin-top: var(--space-lg); font-size: var(--font-lead); color: var(--accent); font-weight: 600; line-height: 1.5;">
-                    궁극의 목표: 모든 기업이 데이터 기반 글로벌 진출 결정을 할 수 있는 세상
+                    궁극의 목표: K-product가 데이터 기반 글로벌 진출 결정을 할 수 있는 세상
                 </p>
             </div>
         </div>
 
-        <!-- Slide 15: Call to Action -->
+        <!-- Slide 16: Call to Action -->
         <div class="slide bg-blue content-centered" style="justify-content: center !important;">
             <svg class="logo-cta" style="color: #ffffff;" aria-label="Market Twin">
                 <use href="#logo-full"/>
@@ -1500,14 +1258,14 @@
                 함께 시작하세요
             </h1>
             <p style="font-size: 1.4rem; color: var(--text-secondary); margin-bottom: var(--space-xl); font-weight: 300;">
-                제품 출시의 미래를 만드는 여정에 동참하세요
+                K-product 글로벌 진출의 미래를 만드는 여정에 동참하세요
             </p>
             <div style="display: flex; gap: var(--space-sm); justify-content: center;">
                 <a href="mailto:contact@markettwin.ai" class="cta-button" style="text-decoration: none; display: inline-block;">
                     연락하기
                 </a>
-                <a href="https://market-twin.vercel.app/login" target="_blank" class="cta-button" style="background: rgba(96, 165, 250, 0.2); border: 2px solid var(--accent); color: var(--accent); text-decoration: none; display: inline-block; box-shadow: none;">
-                    라이브 데모
+                <a href="https://markettwin.ai" target="_blank" class="cta-button" style="background: rgba(96, 165, 250, 0.2); border: 2px solid var(--accent); color: var(--accent); text-decoration: none; display: inline-block; box-shadow: none;">
+                    웹사이트
                 </a>
             </div>
             <div style="margin-top: var(--space-xl); color: var(--text-muted); font-size: var(--font-small);">
@@ -1516,15 +1274,15 @@
                 <p style="margin: 6px 0;">LinkedIn: linkedin.com/company/market-twin</p>
             </div>
         </div>
+
     </div>
 
-    <!-- Navigation Controls -->
     <div class="nav-controls">
         <button id="prevBtn" onclick="changeSlide(-1)">← 이전</button>
         <button id="nextBtn" onclick="changeSlide(1)">다음 →</button>
     </div>
     <div class="slide-counter">
-        <span id="currentSlide">1</span> / <span id="totalSlides">15</span>
+        <span id="currentSlide">1</span> / <span id="totalSlides">16</span>
     </div>
 
     <script>
@@ -1536,8 +1294,6 @@
             slides.forEach(slide => slide.classList.remove('active'));
             slides[n].classList.add('active');
             document.getElementById('currentSlide').textContent = n + 1;
-            
-            // Update button states
             document.getElementById('prevBtn').disabled = n === 0;
             document.getElementById('nextBtn').disabled = n === totalSlides - 1;
         }
@@ -1550,13 +1306,11 @@
             }
         }
 
-        // Keyboard navigation
         document.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowLeft') changeSlide(-1);
             if (e.key === 'ArrowRight') changeSlide(1);
         });
 
-        // Initialize
         document.getElementById('totalSlides').textContent = totalSlides;
         showSlide(0);
     </script>

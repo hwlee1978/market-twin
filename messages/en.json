@@ -235,6 +235,9 @@
     "noAccount": "Don't have an account?",
     "haveAccount": "Already have an account?",
     "or": "or",
+    "demoCtaTitle": "See a sample report in 5 seconds",
+    "demoCtaDesc": "View a real analysis without signing up",
+    "demoCtaAction": "Try it",
     "trustline": "Thousands of AI personas evaluate your K-product; AI then scores success probability per target market — gov-statistics-grounded overseas-launch validation.",
     "features": {
       "successScore": {

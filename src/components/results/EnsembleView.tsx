@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download, ChevronRight } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download, ChevronRight, HelpCircle, Lightbulb } from "lucide-react";
 import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
@@ -522,6 +522,46 @@ function EnsembleDashboard({
   const isKo = locale === "ko";
   const [activeTab, setActiveTab] = useState<TabKey>("summary");
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+
+  // Welcome / "how to read this" modal. Two trigger paths:
+  //  1. Auto-open on the user's FIRST completed ensemble (gated by
+  //     workspace_members.first_result_seen_at being null)
+  //  2. Manual re-open via the HelpCircle button in the dashboard
+  //     header — always works, regardless of dismissal state
+  // Dismissal calls POST /api/me/onboarding which is idempotent: it
+  // early-returns when first_result_seen_at is already set, so manual
+  // re-opens don't re-trigger the seen-state write.
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/me/onboarding");
+        if (!res.ok) return;
+        const data = (await res.json()) as { firstResultSeenAt: string | null };
+        if (!cancelled && data.firstResultSeenAt === null) setWelcomeOpen(true);
+      } catch {
+        // Non-fatal — modal just won't auto-fire. The HelpCircle button
+        // still opens it manually.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const dismissWelcome = async () => {
+    setWelcomeOpen(false);
+    try {
+      await fetch("/api/me/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event: "firstResultSeen" }),
+      });
+    } catch {
+      // Silently ignore — worst case the modal auto-fires once more on
+      // their next ensemble load.
+    }
+  };
   const [shareBusy, setShareBusy] = useState(false);
   const [shareToast, setShareToast] = useState<string | null>(null);
 
@@ -587,6 +627,16 @@ function EnsembleDashboard({
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setWelcomeOpen(true)}
+              className="btn-ghost text-sm inline-flex items-center gap-1.5"
+              title={isKo ? "결과 읽는 법 가이드" : "How to read this result"}
+              aria-label={isKo ? "결과 읽는 법 가이드" : "How to read this result"}
+            >
+              <HelpCircle size={14} />
+              <span>{isKo ? "도움말" : "Guide"}</span>
+            </button>
             <button
               onClick={generateShare}
               disabled={shareBusy}
@@ -720,6 +770,17 @@ function EnsembleDashboard({
       <p className="text-xs text-slate-400 text-center">
         {isKo ? "앙상블 ID" : "Ensemble ID"}: {result.id}
       </p>
+
+      {welcomeOpen && (
+        <WelcomeModal
+          isKo={isKo}
+          onDismiss={dismissWelcome}
+          onJumpTo={(tab) => {
+            setActiveTab(tab);
+            void dismissWelcome();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -898,7 +959,7 @@ function SummaryTab({
           )}
           size={18}
         />
-        <div>
+        <div className="flex-1 min-w-0">
           <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
             {isKo ? "변동성 평가" : "Variance assessment"}
           </div>
@@ -910,6 +971,39 @@ function SummaryTab({
               ? `최대 점수 변동: ${varianceAssessment.maxFinalScoreRange}점 · 평균 변동: ${varianceAssessment.meanFinalScoreRange}점`
               : `Max score range: ${varianceAssessment.maxFinalScoreRange}pt · Mean range: ${varianceAssessment.meanFinalScoreRange}pt`}
           </p>
+          <ChartGuide isKo={isKo} label={isKo ? "변동성 평가가 뭔가요?" : "What is variance assessment?"}>
+            <GuideSection title={isKo ? "왜 측정?" : "Why measure it"}>
+              <p className="m-0">
+                {isKo
+                  ? "동일한 입력으로 N번 시뮬을 돌렸을 때, 국가 점수가 시뮬마다 얼마나 흔들리는지를 측정합니다. 변동이 크면 \"한 번만 돌렸으면 잘못된 결정을 했을 수도\" 있다는 뜻."
+                  : "How much country scores wobble across the N independent sims you ran on the same inputs. High variance means \"a single sim could have led you to the wrong call\"."}
+              </p>
+            </GuideSection>
+            <GuideSection title={isKo ? "라벨 기준" : "Label thresholds"}>
+              <ul className="list-disc pl-5 space-y-0.5 m-0">
+                {isKo ? (
+                  <>
+                    <li><span className="text-success font-semibold">LOW</span> (최대 변동 ≤15점) — 결과 신뢰. 단일 시뮬도 충분했을 만큼 일관됨.</li>
+                    <li><span className="text-slate-700 font-semibold">MODERATE</span> (15–30점) — 앙상블이 의미 있는 신뢰도 추가. 단일 시뮬은 위험.</li>
+                    <li><span className="text-warn font-semibold">HIGH</span> (&gt;30점) — 시뮬마다 결과가 크게 달라짐. 앙상블 결과만 믿을 것.</li>
+                  </>
+                ) : (
+                  <>
+                    <li><span className="text-success font-semibold">LOW</span> (max range ≤15pt) — trust the result; a single sim would have been reliable.</li>
+                    <li><span className="text-slate-700 font-semibold">MODERATE</span> (15–30pt) — ensemble adds meaningful confidence; a single sim would be risky.</li>
+                    <li><span className="text-warn font-semibold">HIGH</span> (&gt;30pt) — same fixture produces very different scores per run; trust the ensemble only.</li>
+                  </>
+                )}
+              </ul>
+            </GuideSection>
+            <GuideSection title={isKo ? "HIGH일 때 뭘 해야 하나" : "What to do when HIGH"}>
+              <p className="m-0">
+                {isKo
+                  ? "더 깊은 티어(decision_plus / deep / deep_pro)로 시뮬 수를 늘려 합의도를 끌어올리거나, 입력 (페르소나 카테고리·가격·국가)을 다듬어 모호함을 줄이세요."
+                  : "Bump up to a deeper tier (decision_plus / deep / deep_pro) to add more sims and tighten consensus, or refine inputs (persona category, price, market list) to reduce ambiguity."}
+              </p>
+            </GuideSection>
+          </ChartGuide>
         </div>
       </div>
     </div>
@@ -1432,6 +1526,32 @@ function CountriesTab({
             }))}
           />
         </div>
+        <ChartGuide isKo={isKo}>
+          <GuideSection title={isKo ? "막대가 의미하는 것" : "What the bar shows"}>
+            <p className="m-0">
+              {isKo
+                ? "각 국가의 final score (수요 + 비용 효율 + 경쟁 강도 종합)을 모든 시뮬에서 평균낸 값. 막대 끝의 얇은 선은 최소~최대 범위로 시뮬 간 변동성을 보여줍니다."
+                : "Mean final score (demand + cost efficiency + competition) across every sim. The thin tail line shows min–max range — i.e., run-to-run variability."}
+            </p>
+          </GuideSection>
+          <GuideSection title={isKo ? "어떻게 활용?" : "How to use"}>
+            <ul className="list-disc pl-5 space-y-0.5 m-0">
+              {isKo ? (
+                <>
+                  <li>막대가 길고 변동선이 짧음 → 어느 시뮬에서나 일관되게 높은 점수 → 신뢰할 만한 1순위.</li>
+                  <li>막대 길이는 비슷한데 변동선이 큰 두 국가 → 시뮬에 따라 결과 갈림 → 추가 검증 필요.</li>
+                  <li>점수 자체는 0–100 스케일이지만 절대값보다 <strong>국가 간 상대 차이</strong>가 의사결정에 중요.</li>
+                </>
+              ) : (
+                <>
+                  <li>Long bar + short range → consistently high across sims → trustworthy #1.</li>
+                  <li>Two countries with similar bars but wide ranges → results split by sim → add more sims.</li>
+                  <li>Score is on a 0–100 scale but the <strong>relative gap between countries</strong> matters more than the absolute value.</li>
+                </>
+              )}
+            </ul>
+          </GuideSection>
+        </ChartGuide>
       </div>
 
       <div>
@@ -1693,6 +1813,49 @@ function PersonasTab({
         <div className="card p-4">
           <IntentHistogramChart data={personas.intentHistogram} />
         </div>
+        <ChartGuide isKo={isKo}>
+          <GuideSection title={isKo ? "0–100 스케일의 의미" : "What the 0–100 scale means"}>
+            <p className="m-0">
+              {isKo
+                ? "각 페르소나가 \"이 제품을 구매할 의향\"을 0(절대 안 산다) ~ 100(반드시 산다)으로 자기 평가한 점수의 분포. 막대 색은 강도 단계를 표시합니다."
+                : "Each persona self-rates intent from 0 (never buy) to 100 (will definitely buy). Bar color marks the intensity tier."}
+            </p>
+            <ul className="list-disc pl-5 space-y-0.5 mt-2 mb-0">
+              {isKo ? (
+                <>
+                  <li><span className="text-success font-semibold">≥70 (강한 관심)</span> — 적극적 마케팅 타깃</li>
+                  <li><span className="text-warn font-semibold">35–69 (관심 있음)</span> — 추가 설득 필요</li>
+                  <li><span className="text-risk font-semibold">&lt;35 (약한 관심)</span> — 광고 제외 후보</li>
+                </>
+              ) : (
+                <>
+                  <li><span className="text-success font-semibold">≥70 (high)</span> — active acquisition targets</li>
+                  <li><span className="text-warn font-semibold">35–69 (warm)</span> — needs more persuasion</li>
+                  <li><span className="text-risk font-semibold">&lt;35 (low)</span> — likely suppression candidates</li>
+                </>
+              )}
+            </ul>
+          </GuideSection>
+          <GuideSection title={isKo ? "분포 모양 읽기" : "Reading the shape"}>
+            <ul className="list-disc pl-5 space-y-0.5 m-0">
+              {isKo ? (
+                <>
+                  <li><strong>오른쪽 치우침</strong> — 강한 수요. 출시 추천.</li>
+                  <li><strong>중앙 봉우리</strong> — 모호함. 포지셔닝 다듬어 갈라낼 필요.</li>
+                  <li><strong>두 봉우리 (양극화)</strong> — 사랑하는 층 + 거부 층. 타깃 좁히기.</li>
+                  <li><strong>왼쪽 치우침</strong> — 시장 부적합. 페르소나 풀 / 가격 / 카테고리 재검토.</li>
+                </>
+              ) : (
+                <>
+                  <li><strong>Right-skewed</strong> — strong demand → ship it.</li>
+                  <li><strong>Middle peak</strong> — ambiguous → tighten positioning to split the audience.</li>
+                  <li><strong>Bimodal</strong> — lovers + rejectors → narrow your target.</li>
+                  <li><strong>Left-skewed</strong> — market mismatch → revisit persona pool / price / category.</li>
+                </>
+              )}
+            </ul>
+          </GuideSection>
+        </ChartGuide>
       </div>
 
       <div>
@@ -1846,6 +2009,173 @@ function PersonasTab({
           </div>
         )}
     </div>
+  );
+}
+
+/**
+ * Generic collapsible reading-guide. Used to demystify dashboard sections
+ * for first-time users — each chart that needs interpretation context
+ * gets one of these directly underneath. Closed by default so the
+ * dashboard doesn't grow vertically; expanded content goes as wide as
+ * the parent.
+ */
+function ChartGuide({
+  isKo,
+  label,
+  children,
+}: {
+  isKo: boolean;
+  /** Optional override for the trigger text. Defaults to "이 차트 어떻게 읽나요?" / "How to read this chart". */
+  label?: string;
+  children: React.ReactNode;
+}) {
+  void isKo;
+  return (
+    <details className="mt-3 group">
+      <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 select-none">
+        <ChevronRight size={12} className="transition-transform group-open:rotate-90" />
+        <span>{label ?? (isKo ? "이 차트 어떻게 읽나요?" : "How to read this chart")}</span>
+      </summary>
+      <div className="mt-3 rounded-md border border-slate-200 bg-slate-50/60 p-4 text-xs text-slate-700 leading-relaxed space-y-3">
+        {children}
+      </div>
+    </details>
+  );
+}
+
+function GuideSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <div className="font-semibold text-slate-900 mb-1">{title}</div>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * One-time welcome modal that fires the FIRST time a workspace member
+ * lands on a completed ensemble result. Three jump-to-tab cards walk
+ * the user through the canonical reading order — Recommendation →
+ * Personas → Risks. Dismissal POSTs to /api/me/onboarding so the
+ * modal never opens again for this user.
+ */
+function WelcomeModal({
+  isKo,
+  onDismiss,
+  onJumpTo,
+}: {
+  isKo: boolean;
+  onDismiss: () => void;
+  onJumpTo: (tab: TabKey) => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4"
+      onClick={onDismiss}
+    >
+      <div
+        className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="text-xs uppercase tracking-wider text-accent-600 font-semibold mb-1">
+          {isKo ? "첫 분석 결과 가이드" : "First-result guide"}
+        </div>
+        <h3 className="text-xl font-semibold text-slate-900 mb-1">
+          {isKo ? "결과 읽는 3단계" : "Three steps to read this"}
+        </h3>
+        <p className="text-sm text-slate-500 mb-5 leading-relaxed">
+          {isKo
+            ? "처음이시면 이 순서대로 보세요. 각 카드를 누르면 해당 탭으로 바로 이동합니다."
+            : "First time here? Tap a card to jump straight to that section."}
+        </p>
+
+        <div className="space-y-2 mb-6">
+          <WelcomeStep
+            num={1}
+            title={isKo ? "추천 (Summary)" : "Recommendation (Summary)"}
+            desc={
+              isKo
+                ? "어느 시장이 1순위인지 + 합의도 + 변동성 평가를 먼저 봅니다."
+                : "Start with the #1 market, consensus, and variance assessment."
+            }
+            onClick={() => onJumpTo("summary")}
+          />
+          <WelcomeStep
+            num={2}
+            title={isKo ? "페르소나 (Personas)" : "Personas"}
+            desc={
+              isKo
+                ? "왜 그 시장인가 — 구매의향 분포, 세그먼트, 채널·브랜드 멘션을 확인."
+                : "Why that market — intent distribution, segments, channels they already mention."
+            }
+            onClick={() => onJumpTo("personas")}
+          />
+          <WelcomeStep
+            num={3}
+            title={isKo ? "리스크 (Risks)" : "Risks"}
+            desc={
+              isKo
+                ? "출시 전에 반드시 봐야 할 것 — HIGH 리스크부터 우선 처리."
+                : "Must-read before launch — start with HIGH severity items."
+            }
+            onClick={() => onJumpTo("risks")}
+          />
+        </div>
+
+        <div className="flex items-start gap-2.5 rounded-md bg-accent-50 border border-accent-200 px-3.5 py-3 mb-4">
+          <Lightbulb size={16} className="text-accent shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-accent mb-1">
+              {isKo ? "팁" : "Tip"}
+            </div>
+            <p className="text-xs text-slate-700 leading-relaxed m-0">
+              {isKo
+                ? "차트 아래 \"이 차트 어떻게 읽나요?\" 링크를 누르면 컬럼·임계값·해석법을 펼쳐 볼 수 있습니다."
+                : "Every chart has a \"How to read this chart\" link below it — click to expand thresholds and interpretation."}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="btn-primary text-sm"
+          >
+            {isKo ? "확인" : "Got it"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WelcomeStep({
+  num,
+  title,
+  desc,
+  onClick,
+}: {
+  num: number;
+  title: string;
+  desc: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left flex items-start gap-3 rounded-lg border border-slate-200 hover:border-accent-300 hover:bg-accent-50/40 transition-colors p-3"
+    >
+      <span className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full bg-accent text-white text-xs font-bold">
+        {num}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-slate-900">{title}</span>
+        <span className="block text-xs text-slate-500 mt-0.5 leading-relaxed">{desc}</span>
+      </span>
+      <ChevronRight size={16} className="text-slate-400 mt-1 shrink-0" />
+    </button>
   );
 }
 
@@ -2456,6 +2786,32 @@ function PricingTab({
               : "Mean conversion probability at each price point across every sim. The peak shows where the most personas convert; a flat curve means low price sensitivity."}
           </p>
         </div>
+        <ChartGuide isKo={isKo}>
+          <GuideSection title={isKo ? "Peak conversion vs Recommended price" : "Peak conversion vs Recommended price"}>
+            <p className="m-0">
+              {isKo
+                ? "둘은 다른 개념입니다. Peak는 \"가장 많은 사람이 사는 가격\"이고 Recommended는 \"매출 = 가격 × 전환을 최대화하는 가격\"입니다. 일반적으로 Recommended > Peak — 약간 비싸도 매출 총액이 더 큼."
+                : "These are different. Peak = price where the most people convert. Recommended = price that maximises revenue (price × conversion). Recommended is usually slightly above Peak — modest price hike, more revenue."}
+            </p>
+          </GuideSection>
+          <GuideSection title={isKo ? "곡선 모양 읽기" : "Reading the shape"}>
+            <ul className="list-disc pl-5 space-y-0.5 m-0">
+              {isKo ? (
+                <>
+                  <li><strong>가파른 하락</strong> — 가격 민감도 높음. 할인 / 프로모션 효과 큼.</li>
+                  <li><strong>완만한 곡선</strong> — 가격 민감도 낮음. 프리미엄 가격 가능.</li>
+                  <li><strong>중간 50% 구간 (P25–P75)</strong> — 시뮬마다 권장가가 흔들리는 안전 범위. 이 안에서 결정하면 무난.</li>
+                </>
+              ) : (
+                <>
+                  <li><strong>Steep drop-off</strong> — high price sensitivity → discounts / promos hit hard.</li>
+                  <li><strong>Flat curve</strong> — low sensitivity → premium pricing viable.</li>
+                  <li><strong>Mid-50% band (P25–P75)</strong> — the safe zone where recommendations cluster across sims. Anything here is defensible.</li>
+                </>
+              )}
+            </ul>
+          </GuideSection>
+        </ChartGuide>
       </div>
 
       <details className="card p-4">
@@ -2550,6 +2906,39 @@ function RisksTab({
           );
         })}
       </div>
+      <ChartGuide isKo={isKo} label={isKo ? "심각도(severity)와 빈도(surfacedInSims) 어떻게 읽나요?" : "How to read severity & frequency"}>
+        <GuideSection title={isKo ? "심각도 분류" : "Severity tiers"}>
+          <ul className="list-disc pl-5 space-y-0.5 m-0">
+            {isKo ? (
+              <>
+                <li><span className="text-risk font-semibold">HIGH</span> — 출시 자체를 좌우. 미해결 시 매출/고객 신뢰에 직접 타격. 런칭 전 선결.</li>
+                <li><span className="text-warn font-semibold">MEDIUM</span> — 성과 저해. 모니터링 + Phase 2까지는 대응책 마련.</li>
+                <li><span className="text-slate-500 font-semibold">LOW</span> — 사소한 갈등. 인지만 하고 진행.</li>
+              </>
+            ) : (
+              <>
+                <li><span className="text-risk font-semibold">HIGH</span> — could derail launch. Resolve before shipping.</li>
+                <li><span className="text-warn font-semibold">MEDIUM</span> — drags performance. Monitor + plan a fix by Phase 2.</li>
+                <li><span className="text-slate-500 font-semibold">LOW</span> — minor friction. Acknowledge and proceed.</li>
+              </>
+            )}
+          </ul>
+        </GuideSection>
+        <GuideSection title={isKo ? "정렬 우선순위" : "Sort order"}>
+          <p className="m-0">
+            {isKo
+              ? "심각도 (HIGH > MED > LOW)가 1순위, 시뮬 빈도 (surfacedInSims)는 2순위. 즉 \"한 시뮬에서만 발견된 HIGH\"가 \"모든 시뮬에 등장한 LOW\"보다 위에 표시됩니다 — 빈도가 낮아도 위험 자체가 크면 우선 처리해야 하기 때문."
+              : "Severity (HIGH > MED > LOW) sorts first; frequency (surfacedInSims) is the tiebreaker. So a HIGH risk surfaced in just one sim still ranks above a LOW that hit every sim — magnitude beats frequency for triage."}
+          </p>
+        </GuideSection>
+        <GuideSection title={isKo ? "surfacedInSims 의 의미" : "What surfacedInSims tells you"}>
+          <p className="m-0">
+            {isKo
+              ? "여러 시뮬에서 같은 의미의 리스크를 발견한 횟수. 높을수록 LLM 모델이 일관되게 우려한다는 신호 — 1-2회는 노이즈일 수 있고, 5회 이상은 강한 합의."
+              : "How many sims independently flagged a semantically equivalent risk. Higher = stronger model agreement — 1–2 may be noise; 5+ is strong consensus."}
+          </p>
+        </GuideSection>
+      </ChartGuide>
     </div>
   );
 }

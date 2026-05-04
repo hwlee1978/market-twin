@@ -235,6 +235,9 @@
     "noAccount": "계정이 없으신가요?",
     "haveAccount": "이미 계정이 있으신가요?",
     "or": "또는",
+    "demoCtaTitle": "샘플 결과 5초 만에 보기",
+    "demoCtaDesc": "가입 없이 실제 분석 리포트를 바로 확인하세요",
+    "demoCtaAction": "체험",
     "trustline": "수천명의 AI 페르소나가 K-product를 평가하고, AI가 시장별 성공 확률을 분석합니다 — 정부 통계 기반으로 출시 전 해외 진출 검증.",
     "features": {
       "successScore": {
