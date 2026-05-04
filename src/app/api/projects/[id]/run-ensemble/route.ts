@@ -76,10 +76,21 @@ type ProviderName = "anthropic" | "openai" | "gemini";
  * so they're capped well above what any tier produces. If we ever push
  * past 12 sims for a single provider, revisit.
  */
+// Defaults tuned to each provider's burst tolerance. Override via env
+// when a provider is on a paid tier with higher RPM headroom or, more
+// commonly, when their free tier is throttling — e.g. set
+// LLM_GEMINI_SIM_CONCURRENCY=2 to lower Gemini below the default 4
+// during a 503 spike without a redeploy.
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
 const PROVIDER_SIM_CONCURRENCY: Record<ProviderName, number> = {
-  anthropic: 12,
-  openai: 12,
-  gemini: 4,
+  anthropic: envInt("LLM_ANTHROPIC_SIM_CONCURRENCY", 12),
+  openai: envInt("LLM_OPENAI_SIM_CONCURRENCY", 12),
+  gemini: envInt("LLM_GEMINI_SIM_CONCURRENCY", 4),
 };
 
 const RunSchema = z.object({

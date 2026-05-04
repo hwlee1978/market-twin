@@ -18,6 +18,7 @@ import type { Style } from "@react-pdf/types";
 import { splitByFont } from "./fonts";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { getCountryLabel } from "@/lib/countries";
+import { formatPrice } from "@/lib/format/price";
 
 const C = {
   brand: "#0A1F4D",
@@ -589,6 +590,24 @@ interface BuildArgs {
   } | null;
 }
 
+/**
+ * Strips characters react-pdf's bundled font can't render. Without this,
+ * an emoji like 👉 in the project description ends up as a horizontal
+ * line / tofu glyph that looks like an unintended strikethrough on the
+ * adjacent text. Conservative: targets the Extended_Pictographic range
+ * plus the variation selector / ZWJ joiners that pad multi-codepoint
+ * emoji sequences. Regular punctuation, math symbols, and CJK pass through.
+ */
+function stripUnsupportedGlyphs(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(/\p{Extended_Pictographic}/gu, "")
+    .replace(/[‍️︎]/g, "") // ZWJ + variation selectors
+    .replace(/[\u{1F1E6}-\u{1F1FF}]/gu, "") // regional indicator letters (flag emoji halves)
+    .replace(/  +/g, " ") // collapse double spaces left behind
+    .trim();
+}
+
 const TIER_DISPLAY: Record<
   TierName,
   { ko: string; en: string; eyebrowKo: string; eyebrowEn: string }
@@ -706,7 +725,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       <MText style={{ fontSize: 8, fontWeight: 600, color: C.muted, letterSpacing: 0.4 }}>
         MARKET TWIN
       </MText>
-      <MText style={{ fontSize: 8, color: C.faint }}>{productName}</MText>
+      <MText style={{ fontSize: 8, color: C.faint }}>{stripUnsupportedGlyphs(productName)}</MText>
     </View>
   );
   const pageFooter = (
@@ -721,8 +740,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     if (!project) return null;
     const fmtPrice = () => {
       if (project.base_price_cents == null) return "—";
-      const v = project.base_price_cents / 100;
-      return `${v.toFixed(2)} ${project.currency ?? "USD"}`;
+      return formatPrice(project.base_price_cents, project.currency);
     };
     const objectiveLabel = (() => {
       if (!project.objective) return "—";
@@ -748,7 +766,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         <View style={styles.infoGrid}>
           <View style={styles.infoItem}>
             <MText style={styles.infoLabel}>{isKo ? "제품" : "Product"}</MText>
-            <MText style={styles.infoValue}>{project.product_name ?? productName}</MText>
+            <MText style={styles.infoValue}>{stripUnsupportedGlyphs(project.product_name ?? productName)}</MText>
           </View>
           <View style={styles.infoItem}>
             <MText style={styles.infoLabel}>{isKo ? "카테고리" : "Category"}</MText>
@@ -775,7 +793,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           {project.description && (
             <View style={{ width: "100%", marginTop: 6 }}>
               <MText style={styles.infoLabel}>{isKo ? "설명" : "Description"}</MText>
-              <MText style={styles.infoLong}>{project.description}</MText>
+              <MText style={styles.infoLong}>{stripUnsupportedGlyphs(project.description)}</MText>
             </View>
           )}
         </View>
@@ -817,7 +835,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     const topRisk = aggregate.narrative?.mergedRisks?.[0];
     const topAction = aggregate.narrative?.mergedActions?.[0];
     const fmtPrice = (cents?: number) =>
-      typeof cents === "number" ? `$${(cents / 100).toFixed(2)}` : "—";
+      typeof cents === "number" ? formatPrice(cents, project?.currency) : "—";
     return (
       <Page size="A4" style={styles.page}>
         {pageHeader}
@@ -1437,7 +1455,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
   const renderPricingPage = () => {
     if (!aggregate.pricing) return null;
     const pr = aggregate.pricing;
-    const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+    const fmt = (cents: number) => formatPrice(cents, project?.currency);
     const peakPoint = pr.curve.reduce<typeof pr.curve[number] | null>(
       (best, p) =>
         best === null || p.meanConversionProbability > best.meanConversionProbability ? p : best,
@@ -1806,7 +1824,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         <View style={styles.coverInner}>
           <View>
             <MText style={styles.coverEyebrow}>{t.coverEyebrow}</MText>
-            <MText style={styles.coverTitle}>{productName}</MText>
+            <MText style={styles.coverTitle}>{stripUnsupportedGlyphs(productName)}</MText>
             <MText style={styles.coverProduct}>{generatedAtStr}</MText>
           </View>
           <View>

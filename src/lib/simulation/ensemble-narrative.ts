@@ -27,6 +27,7 @@ const MERGED_ACTION_SCHEMA = z.object({
   surfacedInSims: z.number().int().min(1),
 });
 const MERGE_RESPONSE_SCHEMA = z.object({
+  hotTake: z.string().max(200).optional(),
   executiveSummary: z.string(),
   mergedRisks: z.array(MERGED_RISK_SCHEMA).max(12),
   mergedActions: z.array(MERGED_ACTION_SCHEMA).max(10),
@@ -93,6 +94,9 @@ export async function mergeNarrative(
       `[ensemble narrative] merged ${sims.length} sims · ${parsed.data.mergedRisks.length} risks · ${parsed.data.mergedActions.length} actions · ${Date.now() - t0}ms`,
     );
     return {
+      hotTake: parsed.data.hotTake
+        ? rewriteSimScaleReferences(parsed.data.hotTake, perSimPersonas, totalPersonas)
+        : undefined,
       executiveSummary: rewriteSimScaleReferences(
         parsed.data.executiveSummary,
         perSimPersonas,
@@ -187,7 +191,14 @@ function buildMergePrompt(
   const guidance = isKo
     ? `통합 결과 작성 지침:
 
-1. **executiveSummary**: 모든 시뮬의 합의 narrative를 2-4문장으로 통합. 추천 진출국 + 이유 + 핵심 우려사항을 포함.
+0. **hotTake (필수, 최대 120자)**: "30초 핫테이크" — 분석 전체에서 가장 도발적이고 의사결정 가능한 한 줄 발견을 한국어로 작성. **점수가 아닌 액션**을 말하세요. 권장 진출 / 진출 회피 / 가격 재조정 / 채널 전략 등 명확한 결정을 한 줄에. 형식 예:
+   - "❌ 미국 진출 보류 — 페르소나 73%가 가격 거부, CAC 흑자전환 8개월 이상 소요"
+   - "🔥 베트남이 진짜다 — H&B 채널 미점유 + Z세대 매운맛 트렌드 동시 기회"
+   - "⚠ 일본 진출은 가능하나 가격 -20% 필수 — 그렇지 않으면 Maruchan에 잠식"
+   - "✓ 5개국 모두 STRONG — 다 가도 됨, US부터 시작해 6개월 후 확장"
+   필수 요소: (a) 이모지 1개로 톤 시그널, (b) 명사 + 동사로 결정 표현, (c) — 뒤에 핵심 이유 1-2개 (숫자 포함). 미사여구 금지. 보고서 톤이 아닌 카톡 메시지 톤.
+
+1. **executiveSummary**: 모든 시뮬의 합의 narrative를 2-4문장으로 통합. 추천 진출국 + 이유 + 핵심 우려사항을 포함. hotTake와 중복되지 않게 더 자세히.
 
 2. **mergedRisks**: 의미가 같은 리스크는 합치되, **구체성을 우선시하세요**. 같은 원인을 다룬 두 리스크가 있을 때:
    - 더 구체적이고 측정 가능한 쪽 (예: "Amazon US 미입점으로 첫 90일 매출 55% 손실")을 채택
@@ -205,7 +216,14 @@ function buildMergePrompt(
    - "200명 중", "out of 200" 같은 sim-level 카운트가 보이면 반드시 percentage-only로 바꾸거나 ensemble 총합으로 환산하세요.`
     : `Output guidance:
 
-1. **executiveSummary**: 2-4 sentence consensus across all sims. Cover the recommended market, why, and the central concern.
+0. **hotTake (required, max 120 chars)**: A "30-second hot take" — the most provocative, action-oriented finding in one English sentence. **Talk action, not score.** Examples:
+   - "❌ Skip US — 73% reject the price, CAC payback >8 mo"
+   - "🔥 Vietnam is the play — uncrowded H&B channel + Gen-Z spice trend"
+   - "⚠ Japan works only at -20% price — otherwise Maruchan eats your share"
+   - "✓ All 5 markets STRONG — go everywhere, lead with US"
+   Must have: (a) one emoji for tone, (b) noun-verb decision phrasing, (c) "—" then the 1-2 key reasons with numbers. No fluff. Sound like a Slack DM, not a consulting deck.
+
+1. **executiveSummary**: 2-4 sentence consensus across all sims. Cover the recommended market, why, and the central concern. Distinct from hotTake — go deeper.
 
 2. **mergedRisks**: collapse semantic duplicates, but **prefer specific over generic**. When two risks point at the same cause:
    - Keep the more concrete + quantified version ("Amazon US absence costs 55% of first-90-day revenue") over the abstract one ("distribution channel risk").
@@ -314,6 +332,7 @@ function zodToJsonShape() {
   return {
     type: "object",
     properties: {
+      hotTake: { type: "string" },
       executiveSummary: { type: "string" },
       mergedRisks: {
         type: "array",

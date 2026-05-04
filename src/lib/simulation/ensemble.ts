@@ -317,6 +317,17 @@ export interface CreativeAggregate {
 }
 
 export interface EnsembleNarrative {
+  /**
+   * One-sentence "30-second hot take" — the most provocative, action-
+   * oriented finding the analysis surfaced. Distinct from executiveSummary
+   * which is comprehensive; this is the headline a busy founder reads
+   * first. Format: short, punchy, opinion-bearing. Examples:
+   *   - "❌ 미국 안 가는 게 낫다 — 페르소나 73%가 가격 거부"
+   *   - "🔥 베트남이 진짜다 — H&B 채널 미점유 + Z세대 매운맛 트렌드"
+   * Optional because legacy ensembles (created before this field landed)
+   * don't have it.
+   */
+  hotTake?: string;
   /** Unified executive summary across all sims (LLM-merged). */
   executiveSummary: string;
   /**

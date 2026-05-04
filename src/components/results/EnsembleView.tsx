@@ -2,10 +2,11 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download, ChevronRight, HelpCircle, Lightbulb } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download, ChevronRight, HelpCircle, Lightbulb, MessageCircle, Send, X } from "lucide-react";
 import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
+import { formatPrice } from "@/lib/format/price";
 import {
   BestCountryPieChart,
   CountryIntentChart,
@@ -100,7 +101,13 @@ export function EnsembleView({
           }
           return; // stop polling
         }
-        if (active) setTimeout(tick, 5000);
+        // Tighten polling once all sims have reported done — the ensemble
+        // row only flips to 'completed' after aggregateAndPersist + the
+        // narrative-merge LLM call (~30-60s), and the user shouldn't
+        // wait an extra full poll cycle to see the dashboard appear.
+        const allSimsDone =
+          data.counts.total > 0 && data.counts.completed === data.counts.total;
+        if (active) setTimeout(tick, allSimsDone ? 2000 : 5000);
       } catch (err) {
         if (!active) return;
         console.error("[ensemble status]", err);
@@ -257,21 +264,42 @@ function EnsembleProgress({
         ? `${counts.running}개 진행 중 · ${counts.pending}개 대기${counts.failed > 0 ? ` · ${counts.failed}개 실패` : ""}`
         : `${counts.running} running · ${counts.pending} pending${counts.failed > 0 ? ` · ${counts.failed} failed` : ""}`
       : null;
+  // Sims-done-but-ensemble-row-still-running window: aggregateAndPersist
+  // + mergeNarrative is an LLM round-trip after the last sim finishes,
+  // so the dashboard only flips when ensemble.status='completed'. Without
+  // this state, the UI showed "5/5 완료" frozen for ~30-60s and looked
+  // hung. Surface the synthesis step explicitly so the wait is intentional.
+  const synthesizing =
+    counts.total > 0 && counts.completed === counts.total && status.status === "running";
   return (
     <div className="max-w-2xl mx-auto py-12">
       <div className="card p-10">
         <div className="text-xs uppercase tracking-wide text-accent-600 mb-2 text-center">
-          {isKo ? `${tierLabel} 진행 중` : `${tierLabel} in progress`}
+          {synthesizing
+            ? isKo
+              ? `${tierLabel} 결과 통합 중`
+              : `${tierLabel} synthesizing results`
+            : isKo
+              ? `${tierLabel} 진행 중`
+              : `${tierLabel} in progress`}
         </div>
         <h2 className="text-2xl font-semibold text-center mb-1">
-          {isKo
-            ? `${counts.completed}/${counts.total} 시뮬레이션 완료`
-            : `${counts.completed}/${counts.total} simulations done`}
+          {synthesizing
+            ? isKo
+              ? "결과 통합 중..."
+              : "Synthesizing results..."
+            : isKo
+              ? `${counts.completed}/${counts.total} 시뮬레이션 완료`
+              : `${counts.completed}/${counts.total} simulations done`}
         </h2>
         <p className="text-sm text-slate-500 text-center mb-1">
-          {isKo
-            ? `${status.parallel_sims}개 독립 시뮬레이션을 병렬 실행하여 신뢰도 있는 결과를 도출합니다.`
-            : `Running ${status.parallel_sims} independent simulations in parallel for confidence-grade results.`}
+          {synthesizing
+            ? isKo
+              ? "AI가 모든 시뮬 결과를 합성해 최종 narrative를 작성 중입니다 (보통 30~60초)."
+              : "AI is merging every sim into the final narrative (usually 30–60s)."
+            : isKo
+              ? `${status.parallel_sims}개 독립 시뮬레이션을 병렬 실행하여 신뢰도 있는 결과를 도출합니다.`
+              : `Running ${status.parallel_sims} independent simulations in parallel for confidence-grade results.`}
         </p>
         {activitySubline && (
           <p className="text-xs text-slate-400 text-center mb-6">{activitySubline}</p>
@@ -298,15 +326,15 @@ function EnsembleProgress({
         </div>
 
         {/* Aggregate progress bar — pulse the leading edge while sims are
-            still in flight so the bar visibly "breathes" even between
-            completion bumps. */}
+            still in flight (or the synthesis LLM call is running) so the
+            bar visibly "breathes" even between completion bumps. */}
         <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden">
           <div
             className={clsx(
               "h-full bg-brand transition-all duration-500",
-              counts.running > 0 && "animate-pulse",
+              (counts.running > 0 || synthesizing) && "animate-pulse",
             )}
-            style={{ width: `${pct}%` }}
+            style={{ width: `${synthesizing ? 100 : pct}%` }}
           />
         </div>
         <div className="mt-2 flex items-baseline justify-center gap-3 text-xs text-slate-500 tabular-nums">
@@ -701,6 +729,7 @@ function EnsembleDashboard({
           varianceAssessment={varianceAssessment}
           locale={locale}
           isKo={isKo}
+          hotTake={narrative?.hotTake}
         />
       )}
       {activeTab === "overview" && (
@@ -720,6 +749,7 @@ function EnsembleDashboard({
           pricing={pricing}
           personas={personas}
           locale={locale}
+          currency={result.project?.currency ?? "USD"}
         />
       )}
       {activeTab === "countries" && (
@@ -740,10 +770,15 @@ function EnsembleDashboard({
           isKo={isKo}
           locale={locale}
           ensembleId={result.id}
+          project={result.project ?? null}
         />
       )}
       {activeTab === "pricing" && (
-        <PricingTab pricing={pricing} isKo={isKo} />
+        <PricingTab
+          pricing={pricing}
+          isKo={isKo}
+          currency={result.project?.currency ?? "USD"}
+        />
       )}
       {activeTab === "risks" && (
         <RisksTab narrative={narrative} isKo={isKo} />
@@ -860,6 +895,7 @@ function SummaryTab({
   varianceAssessment,
   locale,
   isKo,
+  hotTake,
 }: {
   recommendation: EnsembleAggregate["recommendation"];
   confidenceColor: string;
@@ -874,9 +910,12 @@ function SummaryTab({
   varianceAssessment: EnsembleAggregate["varianceAssessment"];
   locale: string;
   isKo: boolean;
+  hotTake?: string;
 }) {
   return (
     <div className="space-y-6">
+      {hotTake && <HotTakeCard hotTake={hotTake} isKo={isKo} />}
+
       {project && (
         <ProjectInfoCard project={project} locale={locale} isKo={isKo} />
       )}
@@ -1028,8 +1067,7 @@ function ProjectInfoCard({
   void locale;
   const fmtPrice = () => {
     if (project.base_price_cents == null) return "—";
-    const v = project.base_price_cents / 100;
-    return `${v.toFixed(2)} ${project.currency ?? "USD"}`;
+    return formatPrice(project.base_price_cents, project.currency);
   };
   const objectiveLabel = (() => {
     if (!project.objective) return "—";
@@ -1193,6 +1231,7 @@ function OverviewTab({
   pricing,
   personas,
   locale,
+  currency,
 }: {
   narrative: EnsembleAggregate["narrative"];
   recommendation: EnsembleAggregate["recommendation"];
@@ -1209,6 +1248,7 @@ function OverviewTab({
   pricing: EnsembleAggregate["pricing"];
   personas: EnsembleAggregate["personas"];
   locale: string;
+  currency: string;
 }) {
   void locale;
   const runnerUp = bestCountryDistribution[1];
@@ -1217,7 +1257,7 @@ function OverviewTab({
   const topRisk = narrative?.mergedRisks?.[0];
   const topAction = narrative?.mergedActions?.[0];
   const fmtPrice = (cents?: number) =>
-    typeof cents === "number" ? `$${(cents / 100).toFixed(2)}` : "—";
+    typeof cents === "number" ? formatPrice(cents, currency) : "—";
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1402,6 +1442,26 @@ function OverviewTab({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * 30-second hot take — the LLM-merged provocative one-liner that sits at
+ * the very top of the Summary tab. Designed to be the first thing a busy
+ * founder reads: action-oriented decision in a single sentence, with the
+ * tone-signaling emoji the prompt asks for. Falls through silently when
+ * the field is absent (legacy ensembles created before this field landed).
+ */
+function HotTakeCard({ hotTake, isKo }: { hotTake: string; isKo: boolean }) {
+  return (
+    <div className="rounded-xl bg-gradient-to-r from-brand-50 to-accent-50 border-2 border-accent/30 p-5 shadow-sm">
+      <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-accent mb-2">
+        {isKo ? "30초 핫테이크" : "30-second hot take"}
+      </div>
+      <p className="text-lg sm:text-xl font-semibold text-slate-900 leading-snug break-keep">
+        {hotTake}
+      </p>
     </div>
   );
 }
@@ -1738,14 +1798,19 @@ function PersonasTab({
   isKo,
   locale,
   ensembleId,
+  project,
 }: {
   personas: EnsembleAggregate["personas"];
   isKo: boolean;
   locale: string;
   ensembleId: string;
+  project: ProjectInfo | null;
 }) {
   void locale;
   const [showAll, setShowAll] = useState(false);
+  const [chatPersona, setChatPersona] = useState<
+    NonNullable<EnsembleAggregate["personas"]>["topPositiveVoices"][number] | null
+  >(null);
   if (!personas) {
     return (
       <div className="card p-8 text-center text-slate-500">
@@ -1872,13 +1937,27 @@ function PersonasTab({
           title={isKo ? "긍정 페르소나의 목소리" : "Positive voices"}
           voices={personas.topPositiveVoices}
           accent="success"
+          isKo={isKo}
+          onChat={setChatPersona}
         />
         <VoiceList
           title={isKo ? "부정 페르소나의 목소리" : "Negative voices"}
           voices={personas.topNegativeVoices}
           accent="warn"
+          isKo={isKo}
+          onChat={setChatPersona}
         />
       </div>
+
+      {chatPersona && (
+        <PersonaChatModal
+          persona={chatPersona}
+          project={project}
+          locale={locale}
+          isKo={isKo}
+          onClose={() => setChatPersona(null)}
+        />
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
@@ -2647,10 +2726,14 @@ function VoiceList({
   title,
   voices,
   accent,
+  isKo,
+  onChat,
 }: {
   title: string;
   voices: NonNullable<EnsembleAggregate["personas"]>["topPositiveVoices"];
   accent: "success" | "warn";
+  isKo: boolean;
+  onChat?: (v: NonNullable<EnsembleAggregate["personas"]>["topPositiveVoices"][number]) => void;
 }) {
   return (
     <div>
@@ -2660,9 +2743,9 @@ function VoiceList({
           <div className="text-xs text-slate-400">—</div>
         ) : (
           voices.map((v, i) => (
-            <div key={i} className="text-sm">
+            <div key={i} className="text-sm group">
               <p className="text-slate-700 leading-relaxed">"{v.text}"</p>
-              <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+              <div className="text-xs text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
                 <span>{v.country}</span>
                 <span>·</span>
                 <span
@@ -2685,6 +2768,17 @@ function VoiceList({
                     <span>{v.ageRange}</span>
                   </>
                 )}
+                {onChat && (
+                  <button
+                    type="button"
+                    onClick={() => onChat(v)}
+                    className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-brand bg-brand/5 border border-brand/20 hover:bg-brand/10 transition-colors"
+                    title={isKo ? "이 페르소나에게 질문하기" : "Ask this persona"}
+                  >
+                    <MessageCircle size={11} />
+                    <span>{isKo ? "질문하기" : "Ask"}</span>
+                  </button>
+                )}
               </div>
             </div>
           ))
@@ -2694,12 +2788,231 @@ function VoiceList({
   );
 }
 
+/**
+ * Wow-factor follow-up chat with a single persona surfaced in the voice
+ * list. The user clicks "질문하기" on a voice card → modal opens with
+ * that persona's profile pinned at the top → user types follow-up
+ * questions ("왜 이 가격이 비싸다고 했어요?") → LLM responds in 1st
+ * person staying in character. Stateless on the backend; conversation
+ * history lives in this component's state and is sent every request.
+ */
+function PersonaChatModal({
+  persona,
+  project,
+  locale,
+  isKo,
+  onClose,
+}: {
+  persona: NonNullable<EnsembleAggregate["personas"]>["topPositiveVoices"][number];
+  project: ProjectInfo | null;
+  locale: string;
+  isKo: boolean;
+  onClose: () => void;
+}) {
+  const [input, setInput] = useState("");
+  const [history, setHistory] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll the transcript to the latest reply on every change.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [history, busy]);
+
+  const submit = async () => {
+    const q = input.trim();
+    if (!q || busy) return;
+    setBusy(true);
+    setError(null);
+    const nextHistory: Array<{ role: "user" | "assistant"; content: string }> = [
+      ...history,
+      { role: "user", content: q },
+    ];
+    setHistory(nextHistory);
+    setInput("");
+    try {
+      const res = await fetch("/api/persona-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          persona: {
+            voice: persona.text,
+            country: persona.country,
+            intent: persona.intent,
+            profession: persona.profession,
+            ageRange: persona.ageRange,
+          },
+          question: q,
+          // history sent EXCLUDES the just-added user message; the API
+          // appends it explicitly to the prompt
+          history: history,
+          productName: project?.product_name,
+          productCategory: project?.category ?? undefined,
+          basePrice:
+            project?.base_price_cents != null && project?.currency
+              ? `${(project.base_price_cents / 100).toLocaleString()} ${project.currency}`
+              : undefined,
+          locale,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error(await friendlyApiError(res, isKo ? "ko" : "en"));
+      }
+      const data = (await res.json()) as { reply: string };
+      setHistory([...nextHistory, { role: "assistant", content: data.reply }]);
+    } catch (err) {
+      setError(friendlyClientError(err, isKo ? "ko" : "en"));
+      // Roll back the optimistic user message on failure so the user
+      // can resend without seeing it duplicated.
+      setHistory(history);
+      setInput(q);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void submit();
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl shadow-2xl max-w-2xl w-full flex flex-col max-h-[85vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header — pinned persona profile */}
+        <div className="px-5 py-4 border-b border-slate-200 flex items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-accent mb-1">
+              {isKo ? "이 페르소나에게 질문하기" : "Ask this persona"}
+            </div>
+            <div className="text-sm font-semibold text-slate-900 flex items-center gap-2 flex-wrap">
+              <span>{persona.country}</span>
+              {persona.profession && (
+                <>
+                  <span className="text-slate-300">·</span>
+                  <span className="font-normal text-slate-700">{persona.profession}</span>
+                </>
+              )}
+              {persona.ageRange && (
+                <>
+                  <span className="text-slate-300">·</span>
+                  <span className="font-normal text-slate-700">{persona.ageRange}</span>
+                </>
+              )}
+              <span className="text-slate-300">·</span>
+              <span className="text-xs font-semibold text-brand">
+                {isKo ? "구매의향" : "intent"} {persona.intent}/100
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed line-clamp-2 italic">
+              "{persona.text}"
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-700 transition-colors"
+            aria-label={isKo ? "닫기" : "Close"}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Transcript */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 min-h-[160px]">
+          {history.length === 0 && !busy && (
+            <div className="text-xs text-slate-400 italic text-center py-6 leading-relaxed">
+              {isKo ? (
+                <>
+                  이 페르소나에게 자유롭게 질문해보세요. 예시:
+                  <br />
+                  <span className="text-slate-500">"왜 이 가격이 비싸다고 생각해요?"</span>
+                  <br />
+                  <span className="text-slate-500">"어떤 채널에서 사는 걸 선호하세요?"</span>
+                </>
+              ) : (
+                <>
+                  Ask this persona anything. Examples:
+                  <br />
+                  <span className="text-slate-500">"Why do you think the price is too high?"</span>
+                  <br />
+                  <span className="text-slate-500">"Where do you prefer to buy this kind of product?"</span>
+                </>
+              )}
+            </div>
+          )}
+          {history.map((turn, i) => (
+            <div
+              key={i}
+              className={clsx(
+                "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
+                turn.role === "user"
+                  ? "ml-auto bg-brand text-white rounded-br-sm"
+                  : "mr-auto bg-slate-100 text-slate-800 rounded-bl-sm",
+              )}
+            >
+              {turn.content}
+            </div>
+          ))}
+          {busy && (
+            <div className="mr-auto bg-slate-100 text-slate-500 rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-sm flex items-center gap-2">
+              <Loader2 size={14} className="animate-spin" />
+              <span>{isKo ? "답변 작성 중..." : "Thinking..."}</span>
+            </div>
+          )}
+          {error && (
+            <div className="text-xs text-risk bg-risk-soft/40 border border-risk/20 rounded-md px-3 py-2">
+              {error}
+            </div>
+          )}
+        </div>
+
+        {/* Input */}
+        <div className="px-5 py-3 border-t border-slate-200 flex gap-2 items-end">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder={
+              isKo ? "질문 입력 (Enter로 전송, Shift+Enter 줄바꿈)" : "Ask anything (Enter to send, Shift+Enter for newline)"
+            }
+            rows={2}
+            className="input flex-1 resize-none text-sm"
+            disabled={busy}
+          />
+          <button
+            type="button"
+            onClick={submit}
+            disabled={busy || !input.trim()}
+            className="btn-primary px-3 py-2.5 disabled:opacity-50"
+            aria-label={isKo ? "전송" : "Send"}
+          >
+            <Send size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PricingTab({
   pricing,
   isKo,
+  currency,
 }: {
   pricing: EnsembleAggregate["pricing"];
   isKo: boolean;
+  currency: string;
 }) {
   if (!pricing) {
     return (
@@ -2710,7 +3023,7 @@ function PricingTab({
       </div>
     );
   }
-  const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const fmt = (cents: number) => formatPrice(cents, currency);
   const maxConv = Math.max(...pricing.curve.map((p) => p.meanConversionProbability), 0.0001);
 
   // Best-conversion price point — surface separately from the median so

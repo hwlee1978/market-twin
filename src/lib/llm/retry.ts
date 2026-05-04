@@ -13,9 +13,22 @@
  * the call won't succeed on the next attempt and silent retries hide bugs.
  */
 
-const DEFAULT_MAX_ATTEMPTS = 3;
-const BACKOFF_MS = [1000, 3000, 9000];
+// 5 attempts × exponential backoff with jitter so a Gemini 2.5 Pro
+// "high demand" 503 spike — which can last 30-90s during peak hours —
+// doesn't kill an entire 25-sim ensemble. Earlier 3×[1s/3s/9s] = 13s
+// total wait was insufficient and routinely cost us 4-5 sims per deep
+// run. New schedule covers ~3 minutes of rolling backoff before we give
+// up. Jitter (±20%) avoids thundering herd when N parallel sims all
+// retry the same upstream at the same moment.
+const DEFAULT_MAX_ATTEMPTS = 5;
+const BACKOFF_MS = [1000, 5000, 15000, 45000, 120000];
+const JITTER_FRACTION = 0.2;
 const MAX_PARSED_WAIT_MS = 60_000;
+
+function jitter(ms: number): number {
+  const swing = ms * JITTER_FRACTION;
+  return Math.round(ms + (Math.random() * 2 - 1) * swing);
+}
 
 export type RetryContext = {
   provider: string;
@@ -38,7 +51,8 @@ export async function withLLMRetry<T>(
       if (!decision.retry || attempt === maxAttempts - 1) {
         throw err;
       }
-      const delayMs = decision.waitMs ?? BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)];
+      const baseDelay = decision.waitMs ?? BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)];
+      const delayMs = jitter(baseDelay);
       const tag = ctx.stage ? `${ctx.provider}/${ctx.stage}` : ctx.provider;
       console.warn(
         `[llm retry] ${tag} attempt ${attempt + 1}/${maxAttempts} — ${decision.reason} — waiting ${delayMs}ms`,

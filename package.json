@@ -15,6 +15,7 @@
     "fetch:reference": "tsx --env-file=.env.local scripts/fetch-reference/index.ts",
     "apply:migration": "tsx --env-file=.env.local scripts/apply-migration.ts",
     "seed:pool": "tsx --env-file=.env.local scripts/seed-pool.ts",
+    "seed:pool:bulk": "tsx --env-file=.env.local scripts/seed-pool-bulk.ts",
     "compare:voice": "tsx --env-file=.env.local scripts/compare-voice.ts",
     "validate:categories": "tsx --env-file=.env.local scripts/validate-categories.ts",
     "inventory:pool": "tsx --env-file=.env.local scripts/pool-inventory.ts",

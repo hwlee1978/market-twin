@@ -13,6 +13,32 @@ import type { FormState } from "@/lib/wizard/types";
 import { capture } from "@/lib/analytics/posthog";
 
 const STEPS = ["product", "pricing", "countries", "competitors", "assets", "review"] as const;
+
+// Per-currency "one too many zeros" ceiling. Calibrated so a luxury
+// product ($1K USD ≈ 1.4M KRW ≈ 150K JPY) still fits with comfortable
+// headroom, but obvious typos (one extra zero) get caught. Values are
+// rounded to a clean order-of-magnitude — this is a sanity check, not
+// a business rule, so precision isn't important.
+const PRICE_CEILINGS: Record<string, number> = {
+  USD: 100_000,
+  EUR: 100_000,
+  GBP: 100_000,
+  CAD: 100_000,
+  AUD: 100_000,
+  KRW: 50_000_000, // ~$37K equivalent
+  JPY: 10_000_000, // ~$67K
+  VND: 1_000_000_000, // ~$40K
+  THB: 3_000_000, // ~$85K
+  IDR: 1_000_000_000, // ~$65K
+  INR: 5_000_000, // ~$60K
+  PHP: 5_000_000, // ~$90K
+  TWD: 3_000_000, // ~$95K
+  MXN: 1_500_000, // ~$80K
+  BRL: 500_000, // ~$95K
+};
+function priceCeilingFor(currency: string): number {
+  return PRICE_CEILINGS[currency.toUpperCase()] ?? 100_000;
+}
 type StepKey = (typeof STEPS)[number];
 
 // KR is the assumed origin for the K-product export use case — it should not
@@ -113,14 +139,17 @@ export function ProjectWizard({ locale }: { locale: string }) {
       case "pricing": {
         const price = parseFloat(form.basePrice);
         if (!Number.isFinite(price) || price <= 0) return [tw("validation.basePrice")];
-        // Sanity ceiling — anything > 100k in any currency is almost
-        // certainly a typo (one-too-many zeros), and the country-scoring
-        // model gets confused at extreme price points.
-        if (price > 100000) {
+        // Currency-aware sanity ceiling. The earlier flat 100,000 cap was
+        // currency-blind — fine for USD/EUR/GBP but tripped legitimate
+        // KRW/JPY/VND prices (a $90 product is 121,900 KRW, well under
+        // any reasonable typo threshold). Use a per-currency ceiling that
+        // catches "one too many zeros" without rejecting normal pricing.
+        const ceiling = priceCeilingFor(form.currency);
+        if (price > ceiling) {
           return [
             isKo
-              ? "기본 가격이 비정상적으로 높습니다 (100,000 이하). 자릿수를 확인하세요."
-              : "Base price looks unrealistically high (max 100,000). Check the digits.",
+              ? `기본 가격이 비정상적으로 높습니다 (${form.currency} 기준 ${ceiling.toLocaleString()} 이하). 자릿수를 확인하세요.`
+              : `Base price looks unrealistically high (max ${ceiling.toLocaleString()} ${form.currency}). Check the digits.`,
           ];
         }
         return [];
