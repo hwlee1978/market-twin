@@ -828,6 +828,13 @@ function EnsembleDashboard({
           isKo={isKo}
         />
       )}
+      {activeTab === "marketProfile" && aggregate.marketProfile && (
+        <MarketProfileTab
+          profile={aggregate.marketProfile}
+          recommendedCountry={recommendation.country}
+          isKo={isKo}
+        />
+      )}
       {activeTab === "personas" && (
         <PersonasTab
           personas={personas}
@@ -890,6 +897,7 @@ type TabKey =
   | "summary"
   | "overview"
   | "countries"
+  | "marketProfile"
   | "personas"
   | "pricing"
   | "risks"
@@ -914,6 +922,11 @@ function TabsNav({
     { key: "summary", label: isKo ? "요약" : "Summary", show: true },
     { key: "overview", label: isKo ? "개요" : "Overview", show: !!aggregate.narrative?.executiveSummary },
     { key: "countries", label: isKo ? "국가" : "Countries", show: aggregate.countryStats.length > 0 },
+    {
+      key: "marketProfile",
+      label: isKo ? "시장 분석" : "Market profile",
+      show: !!aggregate.marketProfile,
+    },
     { key: "personas", label: isKo ? "페르소나" : "Personas", show: !!aggregate.personas },
     { key: "pricing", label: isKo ? "가격" : "Pricing", show: !!aggregate.pricing },
     { key: "risks", label: isKo ? "리스크" : "Risks", show: !!aggregate.narrative?.mergedRisks?.length },
@@ -2482,6 +2495,456 @@ function FunnelStrip({
           {dropoffMessage}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Market profile tab — competitor analysis, channel landscape,
+ * regulatory, pricing benchmarks, cultural insights, and GTM
+ * strategy for the recommended country. Mirrors the PDF's market
+ * profile page but rendered with web-native styling.
+ *
+ * Each section conditionally renders based on whether the LLM
+ * provided that field. Empty sections silently hide rather than
+ * showing placeholder text — better sparse than misleading.
+ */
+function MarketProfileTab({
+  profile,
+  recommendedCountry,
+  isKo,
+}: {
+  profile: NonNullable<EnsembleAggregate["marketProfile"]>;
+  recommendedCountry: string;
+  isKo: boolean;
+}) {
+  const competitors = profile.competitors ?? [];
+  const channels = profile.channels;
+  const cult = profile.culturalNotes;
+  const reg = profile.regulatory;
+  const pricing = profile.pricingBenchmarks;
+  const gtm = profile.goToMarketStrategy;
+  const ms = profile.marketSize;
+
+  const threatToneClass = (t: string) =>
+    t === "high"
+      ? "bg-risk text-white"
+      : t === "medium"
+        ? "bg-warn text-white"
+        : "bg-slate-300 text-slate-700";
+  const threatBorder = (t: string) =>
+    t === "high" ? "border-risk" : t === "medium" ? "border-warn" : "border-slate-300";
+  const sevToneClass = (s: string) =>
+    s === "high"
+      ? "bg-risk text-white"
+      : s === "medium"
+        ? "bg-warn text-white"
+        : "bg-slate-300 text-slate-700";
+  const compTypeLabel = (t: string) => {
+    if (t === "direct") return isKo ? "직접 경쟁" : "Direct";
+    if (t === "indirect") return isKo ? "간접" : "Indirect";
+    return isKo ? "대체재" : "Substitute";
+  };
+  const threatLabel = (t: string) => {
+    if (t === "high") return isKo ? "위협 높음" : "HIGH threat";
+    if (t === "medium") return isKo ? "위협 중" : "MEDIUM threat";
+    return isKo ? "위협 낮음" : "LOW threat";
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header context */}
+      <div>
+        <h2 className="text-xl font-semibold text-slate-900">
+          {isKo
+            ? `${recommendedCountry} — 시장 상황 + 경쟁자 분석`
+            : `${recommendedCountry} — Market profile + competitive analysis`}
+        </h2>
+        <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+          {isKo
+            ? "추천 진출국에 대한 시장 규모, 명명된 경쟁자, 채널 환경, 규제, 가격 벤치마크, GTM 전략 요약. 진출 의사결정의 실세계 맥락."
+            : "Recommended-market deep-dive: TAM, named competitors, channel landscape, regulatory, pricing benchmarks, and GTM strategy."}
+        </p>
+      </div>
+
+      {/* Market sizing */}
+      {ms && (ms.estimateUsd || ms.growthTrend || ms.addressableSegment) && (
+        <div className="card p-5">
+          <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-3">
+            {isKo ? "시장 규모" : "Market size"}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {ms.estimateUsd && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                  {isKo ? "TAM 추정" : "TAM"}
+                </div>
+                <div className="text-2xl font-bold text-slate-900 tabular-nums">
+                  {ms.estimateUsd}
+                </div>
+              </div>
+            )}
+            {ms.growthTrend && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                  {isKo ? "성장 추세" : "Growth trend"}
+                </div>
+                <div className="text-sm text-slate-700 leading-relaxed">{ms.growthTrend}</div>
+              </div>
+            )}
+            {ms.addressableSegment && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                  {isKo ? "도달 세그먼트" : "Addressable segment"}
+                </div>
+                <div className="text-sm text-slate-700 leading-relaxed">{ms.addressableSegment}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Competitors */}
+      {competitors.length > 0 && (
+        <div>
+          <h3 className="text-base font-semibold text-slate-900 mb-3">
+            {isKo ? "경쟁자 분석" : "Competitive landscape"}
+          </h3>
+          <div className="space-y-3">
+            {competitors.map((c, i) => (
+              <div
+                key={i}
+                className={clsx(
+                  "card p-4 border-l-4",
+                  threatBorder(c.threatLevel),
+                )}
+              >
+                <div className="flex items-baseline gap-3 flex-wrap mb-2">
+                  <span className="text-lg font-bold text-slate-900">{c.name}</span>
+                  <span className="text-xs text-slate-500">{compTypeLabel(c.type)}</span>
+                  <span
+                    className={clsx(
+                      "text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full",
+                      threatToneClass(c.threatLevel),
+                    )}
+                  >
+                    {threatLabel(c.threatLevel)}
+                  </span>
+                  {c.pricePoint && (
+                    <span className="ml-auto text-sm text-slate-700 tabular-nums font-medium">
+                      {c.pricePoint}
+                    </span>
+                  )}
+                </div>
+                {c.marketShareEstimate && (
+                  <div className="text-xs text-slate-500 mb-2">{c.marketShareEstimate}</div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {c.strengths.length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wide text-success font-bold mb-1">
+                        {isKo ? "강점" : "Strengths"}
+                      </div>
+                      <ul className="space-y-0.5">
+                        {c.strengths.map((s, idx) => (
+                          <li key={idx} className="text-sm text-slate-700 leading-snug">
+                            • {s}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {c.weaknesses.length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wide text-risk font-bold mb-1">
+                        {isKo ? "약점" : "Weaknesses"}
+                      </div>
+                      <ul className="space-y-0.5">
+                        {c.weaknesses.map((w, idx) => (
+                          <li key={idx} className="text-sm text-slate-700 leading-snug">
+                            • {w}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Pricing benchmarks */}
+      {pricing &&
+        (pricing.entryLevel || pricing.mid || pricing.premium || pricing.yourPosition) && (
+          <div>
+            <h3 className="text-base font-semibold text-slate-900 mb-3">
+              {isKo ? "현지 가격 벤치마크" : "Local pricing benchmarks"}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+              {pricing.entryLevel && (
+                <div className="card p-4">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                    {isKo ? "엔트리" : "Entry"}
+                  </div>
+                  <div className="text-base font-semibold text-slate-900 tabular-nums">
+                    {pricing.entryLevel}
+                  </div>
+                </div>
+              )}
+              {pricing.mid && (
+                <div className="card p-4">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                    {isKo ? "미드" : "Mid"}
+                  </div>
+                  <div className="text-base font-semibold text-slate-900 tabular-nums">
+                    {pricing.mid}
+                  </div>
+                </div>
+              )}
+              {pricing.premium && (
+                <div className="card p-4">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                    {isKo ? "프리미엄" : "Premium"}
+                  </div>
+                  <div className="text-base font-semibold text-slate-900 tabular-nums">
+                    {pricing.premium}
+                  </div>
+                </div>
+              )}
+            </div>
+            {pricing.yourPosition && (
+              <div className="rounded-xl border-l-4 border-brand bg-brand-50/40 p-4">
+                <div className="text-[10px] uppercase tracking-wide text-brand font-bold mb-1">
+                  {isKo ? "본 제품의 포지션" : "Your position"}
+                </div>
+                <p className="text-sm text-slate-700 leading-relaxed">{pricing.yourPosition}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+      {/* Channels */}
+      {channels &&
+        ((channels.primary?.length ?? 0) > 0 ||
+          (channels.secondary?.length ?? 0) > 0 ||
+          (channels.emerging?.length ?? 0) > 0) && (
+          <div>
+            <h3 className="text-base font-semibold text-slate-900 mb-3">
+              {isKo ? "채널 환경" : "Channel landscape"}
+            </h3>
+            <div className="card p-5 space-y-4">
+              {(["primary", "secondary", "emerging"] as const).map((tier) => {
+                const items = channels[tier] ?? [];
+                if (items.length === 0) return null;
+                const tierLabel =
+                  tier === "primary"
+                    ? isKo
+                      ? "1차 (필수)"
+                      : "Primary (must-have)"
+                    : tier === "secondary"
+                      ? isKo
+                        ? "2차 (확장)"
+                        : "Secondary (expand)"
+                      : isKo
+                        ? "신흥 (실험)"
+                        : "Emerging (test)";
+                const tierTone =
+                  tier === "primary"
+                    ? "text-success"
+                    : tier === "secondary"
+                      ? "text-brand"
+                      : "text-warn";
+                return (
+                  <div key={tier}>
+                    <div
+                      className={clsx(
+                        "text-[10px] uppercase tracking-wide font-bold mb-2",
+                        tierTone,
+                      )}
+                    >
+                      {tierLabel}
+                    </div>
+                    <ul className="space-y-1.5">
+                      {items.map((item, idx) => (
+                        <li key={idx} className="text-sm text-slate-700 leading-relaxed">
+                          • <span className="font-semibold">{item.name}</span>
+                          {item.rationale && (
+                            <span className="text-slate-500"> — {item.rationale}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+      {/* Regulatory */}
+      {reg && ((reg.barriers?.length ?? 0) > 0 || (reg.requirements?.length ?? 0) > 0) && (
+        <div>
+          <h3 className="text-base font-semibold text-slate-900 mb-3">
+            {isKo ? "규제 / 진입 장벽" : "Regulatory / entry barriers"}
+          </h3>
+          <div className="card p-5 space-y-3">
+            {(reg.barriers ?? []).map((b, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <span
+                  className={clsx(
+                    "shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full mt-0.5",
+                    sevToneClass(b.severity),
+                  )}
+                >
+                  {b.severity.toUpperCase()}
+                </span>
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">{b.name}</div>
+                  {b.description && (
+                    <div className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                      {b.description}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {(reg.requirements?.length ?? 0) > 0 && (
+              <div className="pt-3 border-t border-slate-100">
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 font-bold mb-1.5">
+                  {isKo ? "필수 요구사항" : "Required"}
+                </div>
+                <ul className="space-y-0.5">
+                  {(reg.requirements ?? []).map((r, i) => (
+                    <li key={i} className="text-sm text-slate-700">
+                      • {r}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {reg.timeToCompliance && (
+              <div className="pt-3 border-t border-slate-100 text-xs text-slate-600">
+                <span className="font-semibold">
+                  {isKo ? "준수 소요시간:" : "Time to compliance:"}
+                </span>{" "}
+                {reg.timeToCompliance}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Cultural notes */}
+      {cult &&
+        (cult.valuesAlignment ||
+          cult.purchaseBehavior ||
+          cult.languageNotes ||
+          cult.seasonality) && (
+          <div>
+            <h3 className="text-base font-semibold text-slate-900 mb-3">
+              {isKo ? "문화 / 소비자 인사이트" : "Cultural & consumer insights"}
+            </h3>
+            <div className="card p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {cult.valuesAlignment && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-bold mb-1">
+                    {isKo ? "가치관" : "Values"}
+                  </div>
+                  <p className="text-sm text-slate-700 leading-relaxed">{cult.valuesAlignment}</p>
+                </div>
+              )}
+              {cult.purchaseBehavior && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-bold mb-1">
+                    {isKo ? "구매 행동" : "Purchase behavior"}
+                  </div>
+                  <p className="text-sm text-slate-700 leading-relaxed">{cult.purchaseBehavior}</p>
+                </div>
+              )}
+              {cult.languageNotes && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-bold mb-1">
+                    {isKo ? "언어 / 네이밍" : "Language / naming"}
+                  </div>
+                  <p className="text-sm text-slate-700 leading-relaxed">{cult.languageNotes}</p>
+                </div>
+              )}
+              {cult.seasonality && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-bold mb-1">
+                    {isKo ? "시즌성" : "Seasonality"}
+                  </div>
+                  <p className="text-sm text-slate-700 leading-relaxed">{cult.seasonality}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+      {/* GTM strategy summary */}
+      {gtm &&
+        (gtm.keyMessage ||
+          gtm.primaryAudience ||
+          (gtm.differentiators?.length ?? 0) > 0 ||
+          (gtm.risks?.length ?? 0) > 0) && (
+          <div className="rounded-xl border-t-4 border-success bg-success-soft/30 p-5">
+            <div className="text-[10px] uppercase tracking-wide text-success font-bold mb-3">
+              {isKo ? "GTM 전략 요약" : "GTM strategy summary"}
+            </div>
+            <div className="space-y-4">
+              {gtm.keyMessage && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                    {isKo ? "핵심 메시지" : "Key message"}
+                  </div>
+                  <p className="text-base font-semibold text-slate-900 leading-relaxed">
+                    {gtm.keyMessage}
+                  </p>
+                </div>
+              )}
+              {gtm.primaryAudience && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                    {isKo ? "1차 타겟 (ICP)" : "Primary audience (ICP)"}
+                  </div>
+                  <p className="text-sm text-slate-700 leading-relaxed">{gtm.primaryAudience}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {(gtm.differentiators?.length ?? 0) > 0 && (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-success font-bold mb-1.5">
+                      {isKo ? "차별화 요소" : "Differentiators"}
+                    </div>
+                    <ul className="space-y-1">
+                      {(gtm.differentiators ?? []).map((d, i) => (
+                        <li key={i} className="text-sm text-slate-700 leading-snug">
+                          ✓ {d}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {(gtm.risks?.length ?? 0) > 0 && (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-risk font-bold mb-1.5">
+                      {isKo ? "주요 시장 진입 리스크" : "Market-entry risks"}
+                    </div>
+                    <ul className="space-y-1">
+                      {(gtm.risks ?? []).map((r, i) => (
+                        <li key={i} className="text-sm text-slate-700 leading-snug">
+                          ⚠ {r}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }
