@@ -5,10 +5,13 @@ import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CompareSelector } from "@/components/results/CompareSelector";
 import {
+  ActionOverlap,
   ActionPanel,
+  ChannelMentionCompare,
   CompareInfo,
   CompareKpi,
   DistributionPanel,
+  HotTakeCompare,
   RiskPanel,
   SectionTitle,
   TierBadge,
@@ -231,6 +234,14 @@ export default async function CompareEnsemblesPage({
           <p className="text-sm text-slate-800 leading-relaxed">{ctx_.insight}</p>
         </div>
       )}
+
+      <HotTakeCompare
+        aTitle={`A — ${formatEnsembleLabel(aEns, locale, isKo)}`}
+        bTitle={`B — ${formatEnsembleLabel(bEns, locale, isKo)}`}
+        a={aEns.aggregate_result?.narrative?.hotTake}
+        b={bEns.aggregate_result?.narrative?.hotTake}
+        isKo={isKo}
+      />
 
       {/* Headline KPIs */}
       <div className="card p-5">
@@ -462,6 +473,22 @@ export default async function CompareEnsemblesPage({
           </div>
         </div>
       )}
+
+      <ActionOverlap
+        aTitle="A"
+        bTitle="B"
+        aActions={aEns.aggregate_result?.narrative?.mergedActions ?? []}
+        bActions={bEns.aggregate_result?.narrative?.mergedActions ?? []}
+        isKo={isKo}
+      />
+
+      <ChannelMentionCompare
+        aTitle="A"
+        bTitle="B"
+        aChannels={aEns.aggregate_result?.personas?.channelMentions}
+        bChannels={bEns.aggregate_result?.personas?.channelMentions}
+        isKo={isKo}
+      />
     </div>
   );
 }

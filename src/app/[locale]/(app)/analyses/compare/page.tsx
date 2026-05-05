@@ -4,10 +4,13 @@ import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CompareSelector } from "@/components/results/CompareSelector";
 import {
+  ActionOverlap,
   ActionPanel,
+  ChannelMentionCompare,
   CompareInfo,
   CompareKpi,
   DistributionPanel,
+  HotTakeCompare,
   RiskPanel,
   SectionTitle,
 } from "@/components/compare/CompareCards";
@@ -226,6 +229,14 @@ export default async function CrossProjectCompare({
         )}
       </div>
 
+      <HotTakeCompare
+        aTitle={`A — ${formatLabel(aEns, locale, isKo)}`}
+        bTitle={`B — ${formatLabel(bEns, locale, isKo)}`}
+        a={aEns.aggregate_result?.narrative?.hotTake}
+        b={bEns.aggregate_result?.narrative?.hotTake}
+        isKo={isKo}
+      />
+
       {/* Recommendation comparison */}
       <div className="card p-5">
         <SectionTitle>{isKo ? "추천 비교" : "Recommendation"}</SectionTitle>
@@ -427,6 +438,22 @@ export default async function CrossProjectCompare({
           </div>
         </div>
       )}
+
+      <ActionOverlap
+        aTitle="A"
+        bTitle="B"
+        aActions={aEns.aggregate_result?.narrative?.mergedActions ?? []}
+        bActions={bEns.aggregate_result?.narrative?.mergedActions ?? []}
+        isKo={isKo}
+      />
+
+      <ChannelMentionCompare
+        aTitle="A"
+        bTitle="B"
+        aChannels={aEns.aggregate_result?.personas?.channelMentions}
+        bChannels={bEns.aggregate_result?.personas?.channelMentions}
+        isKo={isKo}
+      />
     </div>
   );
 }
