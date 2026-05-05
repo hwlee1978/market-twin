@@ -1,28 +1,27 @@
-import { setRequestLocale } from "next-intl/server";
+import { NextResponse } from "next/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { getSubscription, getMonthlyUsage } from "@/lib/billing/usage";
-import { BillingDashboard } from "@/components/billing/BillingDashboard";
 
-export default async function BillingPage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
-  const { locale } = await params;
-  setRequestLocale(locale);
+export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/billing/subscription
+ *
+ * Returns the current workspace's subscription state + month-to-date
+ * usage so the /billing page can render progress bars without
+ * duplicating the queries client-side.
+ */
+export async function GET() {
   const ctx = await getOrCreatePrimaryWorkspace();
-  if (!ctx) return null;
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const sub = await getSubscription(ctx.workspaceId);
   const usage = await getMonthlyUsage(ctx.workspaceId, sub);
 
-  // Strip non-serialisable fields (functions etc. — none here, but
-  // explicit projection keeps the client/server boundary readable).
-  const initialState = {
+  return NextResponse.json({
     plan: {
       slug: sub.plan.slug,
       name: sub.plan.name,
-      tagline: sub.plan.tagline,
       limits: sub.plan.limits,
       features: sub.plan.features,
       priceMonthly: sub.plan.priceMonthly,
@@ -41,7 +40,5 @@ export default async function BillingPage({
       cancelAtEnd: sub.cancelAtPeriodEnd,
     },
     usage,
-  };
-
-  return <BillingDashboard initial={initialState} locale={locale} />;
+  });
 }

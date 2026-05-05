@@ -8,6 +8,8 @@ import { aggregateEnsemble, type EnsembleSimSnapshot } from "@/lib/simulation/en
 import { mergeNarrative } from "@/lib/simulation/ensemble-narrative";
 import type { CountryScore } from "@/lib/simulation/schemas";
 import { notifyEnsembleComplete } from "@/lib/email/notify";
+import { canStartSim } from "@/lib/billing/plans";
+import { getSubscription, getMonthlyUsage } from "@/lib/billing/usage";
 
 // Each individual sim still fits in 800s (Vercel Pro + Fluid Compute);
 // the ensemble route itself returns immediately and orchestrates via after().
@@ -128,6 +130,28 @@ export async function POST(
   const { tier, notifyEmail, locale } = parsed.data;
   const preset = TIER_PRESETS[tier as Tier];
 
+  // Plan / quota gate. Block before we spend any LLM tokens — the user
+  // gets a clear "upgrade" response instead of a half-completed run.
+  // Service-role inside getSubscription / getMonthlyUsage; gating is
+  // hot-path so two short queries beat lazy enforcement on the runner.
+  const sub = await getSubscription(wsCtx.workspaceId);
+  const usage = await getMonthlyUsage(wsCtx.workspaceId, sub);
+  const decision = canStartSim({
+    plan: sub.plan,
+    trialActive: sub.trialActive,
+    trialSimsUsed: sub.trialSimsUsed,
+    trialSimsLimit: sub.trialSimsLimit,
+    monthSimsUsed: usage.simsUsed,
+    monthDeepSimsUsed: usage.deepSimsUsed,
+    simTier: tier as "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro",
+  });
+  if (!decision.allowed) {
+    return NextResponse.json(
+      { error: "plan_limit", reason: decision.reason, plan: sub.plan.slug },
+      { status: 402 },
+    );
+  }
+
   // Workspace ownership check on the project.
   const supabase = await createClient();
   const { data: project, error: projectErr } = await supabase
@@ -164,6 +188,17 @@ export async function POST(
       { error: ensErr?.message ?? "failed to create ensemble" },
       { status: 500 },
     );
+  }
+
+  // Trial workspaces: increment trial_sims_used so the next /run-ensemble
+  // request hits the quota. Counting at ensemble creation (not on
+  // completion) means a deliberate cancel still consumes the quota slot
+  // — matches Stripe-style "you used your free trial" semantics.
+  if (sub.plan.slug === "free_trial") {
+    await admin
+      .from("subscriptions")
+      .update({ trial_sims_used: sub.trialSimsUsed + 1 })
+      .eq("workspace_id", wsCtx.workspaceId);
   }
 
   // 2. Create N pending sim rows linked to the ensemble. Insertion order

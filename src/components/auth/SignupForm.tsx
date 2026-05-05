@@ -2,12 +2,14 @@
 
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { BarChart3, Globe2, ShieldCheck, Sparkles } from "lucide-react";
 import { LogoMark } from "@/components/ui/Logo";
 import { authErrorKey } from "@/lib/auth/error-messages";
 import { createClient } from "@/lib/supabase/client";
 import { capture } from "@/lib/analytics/posthog";
+import { getPlan, type PlanSlug } from "@/lib/billing/plans";
 
 const FEATURES = [
   { icon: BarChart3, key: "successScore" as const },
@@ -27,6 +29,7 @@ const FEATURES = [
 export function SignupForm() {
   const t = useTranslations();
   const router = useRouter();
+  const search = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
@@ -34,6 +37,21 @@ export function SignupForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+
+  // Read the plan / billing-cycle the user picked on /plans. Falls back
+  // to free_trial when the user reached /signup directly without going
+  // through the tier selector.
+  const rawPlan = search.get("plan") ?? "free_trial";
+  const planSlug: PlanSlug = (
+    rawPlan === "free_trial" ||
+    rawPlan === "starter" ||
+    rawPlan === "growth" ||
+    rawPlan === "enterprise"
+      ? rawPlan
+      : "free_trial"
+  ) as PlanSlug;
+  const cycle = (search.get("cycle") ?? "monthly") as "monthly" | "annual";
+  const plan = getPlan(planSlug);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,12 +68,22 @@ export function SignupForm() {
       tos_accepted_at: new Date().toISOString(),
       marketing_email: agreeMarketing,
     };
+    // Persist the chosen plan in the user's auth metadata so the
+    // post-confirmation handler (or the workspace bootstrap) can apply
+    // it once the user has a workspace. Free_trial is the default state
+    // already created by getOrCreatePrimaryWorkspace; paid plans need a
+    // checkout step that we'll wire up after Stripe / Toss integration.
+    const intendedPlan = {
+      slug: planSlug,
+      cycle,
+      chosen_at: new Date().toISOString(),
+    };
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        data: { consent },
+        emailRedirectTo: `${window.location.origin}/auth/callback?plan=${planSlug}&cycle=${cycle}`,
+        data: { consent, intended_plan: intendedPlan },
       },
     });
     if (error) {
@@ -67,6 +95,8 @@ export function SignupForm() {
       via: "password",
       auto_session: !!data.session,
       marketing_consent: agreeMarketing,
+      intended_plan: planSlug,
+      billing_cycle: cycle,
     });
     if (data.session) {
       // Auto-logged in — keep loading=true through navigation so the
@@ -118,7 +148,32 @@ export function SignupForm() {
 
       <div className="flex items-center justify-center p-8">
         <div className="w-full max-w-sm">
-          <h2 className="text-2xl font-semibold mb-6">{t("auth.signupTitle")}</h2>
+          <h2 className="text-2xl font-semibold mb-2">{t("auth.signupTitle")}</h2>
+
+          {/* Selected-plan banner — shows the user what they picked on
+              /plans, with a "Change" link back. Helps avoid the
+              "wait, am I signing up for the right tier?" doubt. */}
+          <div className="mb-5 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/60 px-3.5 py-2.5">
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-brand">
+                {t("auth.selectedPlan")}
+              </div>
+              <div className="text-sm font-semibold text-slate-900 truncate">
+                {plan.name}
+                {planSlug !== "free_trial" && planSlug !== "enterprise" && (
+                  <span className="ml-1.5 text-xs font-normal text-slate-500">
+                    · {cycle === "annual" ? t("auth.cycleAnnual") : t("auth.cycleMonthly")}
+                  </span>
+                )}
+              </div>
+            </div>
+            <Link
+              href="/plans"
+              className="text-xs text-brand font-medium hover:underline shrink-0"
+            >
+              {t("auth.changePlan")}
+            </Link>
+          </div>
 
           <form onSubmit={onSubmit} className="space-y-4">
             <div>

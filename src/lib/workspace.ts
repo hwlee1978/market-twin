@@ -100,6 +100,23 @@ export const getOrCreatePrimaryWorkspace = cache(
       throw memErr;
     }
 
+    // Bootstrap a free_trial subscription row alongside the workspace.
+    // 7-day window + 1 free sim, whichever comes first. Failure is
+    // non-fatal — the migration's backfill catches any orphan rows on
+    // the next deploy and the billing dashboard tolerates a missing
+    // subscription by treating it as free_trial defaults.
+    const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { error: subErr } = await admin.from("subscriptions").insert({
+      workspace_id: ws.id,
+      plan: "free_trial",
+      status: "trialing",
+      trial_ends_at: trialEndsAt,
+      trial_sims_limit: 1,
+    });
+    if (subErr && (subErr as { code?: string }).code !== "23505") {
+      console.warn(`[workspace] subscription bootstrap failed for ${ws.id}:`, subErr.message);
+    }
+
     return {
       workspaceId: ws.id,
       userId: user.id,

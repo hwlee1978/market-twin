@@ -217,6 +217,10 @@
     "loggingIn": "Signing in...",
     "signupCta": "Start free trial",
     "signingUp": "Creating account...",
+    "selectedPlan": "Selected plan",
+    "changePlan": "Change",
+    "cycleMonthly": "Monthly",
+    "cycleAnnual": "Annual",
     "consent": {
       "required": "Required",
       "optional": "Optional",
