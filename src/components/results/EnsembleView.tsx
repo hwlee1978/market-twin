@@ -740,12 +740,10 @@ function EnsembleDashboard({
                       className="w-full text-left px-4 py-3 hover:bg-slate-50"
                     >
                       <div className="text-sm font-semibold text-slate-900">
-                        {isKo ? "전체 분석 (15-25 페이지)" : "Detailed (15-25 pages)"}
+                        {detailedReportSummary(tier, isKo).title}
                       </div>
                       <div className="text-xs text-slate-500 mt-0.5">
-                        {isKo
-                          ? "Voice Wall · 소득×의향 · 직업별 · 채널 우선순위 · LLM 교차 의견"
-                          : "Voice wall · income×intent · profession · channels · cross-LLM"}
+                        {detailedReportSummary(tier, isKo).body}
                       </div>
                     </button>
                   </div>
@@ -4870,6 +4868,60 @@ function formatElapsedHMS(seconds: number): string {
 // in the project detail page and the TIER_DISPLAY map in ensemble-pdf.tsx
 // so all three surfaces (badge, list row, PDF eyebrow) print the same
 // Korean / English name.
+/**
+ * Tier-aware preview text for the detailed-report dropdown option. The
+ * page count + the feature list both grow as tier rises, so the user
+ * sees what they're getting before they download. Mirrors TIER_BUDGET
+ * in ensemble-pdf.tsx — keep these two lists in sync when adding new
+ * pages.
+ */
+function detailedReportSummary(
+  tier: string,
+  isKo: boolean,
+): { title: string; body: string } {
+  // Estimated page counts per tier — based on the actual TIER_BUDGET
+  // gates. Update if you add/remove tier-gated pages.
+  const pageRange: Record<string, string> = {
+    hypothesis: "~17p",
+    decision: "~19p",
+    decision_plus: "~22p",
+    deep: "~26p",
+    deep_pro: "~26p",
+  };
+  // Feature list per tier — only the items that this tier UNLOCKS
+  // beyond the previous tier, plus a "+ everything below" pointer.
+  const features: Record<string, { ko: string; en: string }> = {
+    hypothesis: {
+      ko: "기본 분석 (추천국 · 페르소나 · 가격 · 리스크 · 액션)",
+      en: "Core analysis (pick · personas · pricing · risks · actions)",
+    },
+    decision: {
+      ko: "+ 소득×구매의향 · 신뢰vs거부 (메시징·가격 결정 보조)",
+      en: "+ Income×intent · trust vs objection (messaging + price aid)",
+    },
+    decision_plus: {
+      ko: "+ 직업별 의향 · 채널 우선순위 · 리스크×액션 매핑 · 국가 디테일",
+      en: "+ Profession ranking · channels · risk-action mapping · country detail",
+    },
+    deep: {
+      ko: "+ 페르소나 아키타입 · 국가별 퍼널 비교 · LLM 교차 의견",
+      en: "+ Persona archetypes · funnel comparison · cross-LLM",
+    },
+    deep_pro: {
+      ko: "+ 페르소나 아키타입 · 국가별 퍼널 비교 · LLM 교차 의견 (Pro 깊이)",
+      en: "+ Archetypes · funnel comparison · cross-LLM (Pro depth)",
+    },
+  };
+  const range = pageRange[tier] ?? "";
+  const f = features[tier] ?? features.decision;
+  return {
+    title: isKo
+      ? `전체 분석 (${range}, ${tierBadgeLabel(tier, isKo)} 기준)`
+      : `Detailed (${range}, ${tierBadgeLabel(tier, isKo)} tier)`,
+    body: isKo ? f.ko : f.en,
+  };
+}
+
 function tierBadgeLabel(tier: string, isKo: boolean): string {
   const map: Record<string, { ko: string; en: string }> = {
     hypothesis: { ko: "초기검증", en: "Hypothesis" },

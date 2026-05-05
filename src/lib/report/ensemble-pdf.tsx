@@ -56,7 +56,7 @@ const TIER_BUDGET: Record<
     countriesInRanking: number;
     professions: number;
     showDemographics: boolean;
-    /** Channel/brand mention table — decision_plus 이상에서만 표시. */
+    /** Channel/brand mention table inline on personas page — decision_plus 이상. */
     showChannels: boolean;
     /** Per-segment intent breakdown (gender/age/income) — decision_plus 이상. */
     showSegments: boolean;
@@ -68,6 +68,29 @@ const TIER_BUDGET: Record<
     showProviderConsensus: boolean; // gated additionally by lineup size
     showMethodology: boolean;
     showAppendix: boolean;
+
+    // ── Tier-gated "wow" pages — added in stages so each tier above
+    //   hypothesis brings something visibly new to the report. The
+    //   gradient is intentional: lower-cost tiers stay focused so the
+    //   user perceives the higher tiers as bringing real new analysis,
+    //   not just bigger numbers on the same charts.
+
+    /** Income × intent matrix page. Decision+ — early decision aid. */
+    showIncomeIntent: boolean;
+    /** Trust factors vs Objections (recommended country) page. Decision+. */
+    showTrustVsObjection: boolean;
+    /** Per-profession intent ranking page. Decision_plus+. */
+    showProfessionRanking: boolean;
+    /** Channel mention priority page. Decision_plus+. */
+    showChannelPriority: boolean;
+    /** Risk × Action heuristic mapping page. Decision_plus+. */
+    showRiskActionMapping: boolean;
+    /** Behavioural persona archetype clustering page. Deep+. */
+    showArchetypes: boolean;
+    /** Per-country funnel comparison page. Deep+. */
+    showFunnelComparison: boolean;
+    /** Cross-LLM disagreement page. Deep+ (also requires ≥2 providers). */
+    showProviderDisagreement: boolean;
   }
 > = {
   hypothesis: {
@@ -86,6 +109,17 @@ const TIER_BUDGET: Record<
     showProviderConsensus: false,
     showMethodology: true,
     showAppendix: false,
+    // Hypothesis is the lean tier — keeps the existing 17-page report
+    // shape intact so users running cheap initial validations get a
+    // tight, focused output.
+    showIncomeIntent: false,
+    showTrustVsObjection: false,
+    showProfessionRanking: false,
+    showChannelPriority: false,
+    showRiskActionMapping: false,
+    showArchetypes: false,
+    showFunnelComparison: false,
+    showProviderDisagreement: false,
   },
   decision: {
     rank: 2,
@@ -103,6 +137,16 @@ const TIER_BUDGET: Record<
     showProviderConsensus: false,
     showMethodology: true,
     showAppendix: false,
+    // Decision adds the two highest-value decision-aid pages —
+    // income×intent (price positioning) + trust vs objection (messaging).
+    showIncomeIntent: true,
+    showTrustVsObjection: true,
+    showProfessionRanking: false,
+    showChannelPriority: false,
+    showRiskActionMapping: false,
+    showArchetypes: false,
+    showFunnelComparison: false,
+    showProviderDisagreement: false,
   },
   decision_plus: {
     rank: 3,
@@ -120,6 +164,16 @@ const TIER_BUDGET: Record<
     showProviderConsensus: false,
     showMethodology: true,
     showAppendix: true,
+    // Decision+ adds analysis-depth pages — profession breakdown +
+    // channel priority + risk-action audit. Country detail also opens.
+    showIncomeIntent: true,
+    showTrustVsObjection: true,
+    showProfessionRanking: true,
+    showChannelPriority: true,
+    showRiskActionMapping: true,
+    showArchetypes: false,
+    showFunnelComparison: false,
+    showProviderDisagreement: false,
   },
   deep: {
     rank: 4,
@@ -137,6 +191,17 @@ const TIER_BUDGET: Record<
     showProviderConsensus: true,
     showMethodology: true,
     showAppendix: true,
+    // Deep is the multi-LLM tier — adds full segmentation (archetypes),
+    // per-country funnel side-by-side, and cross-model consensus +
+    // disagreement. This is where "premium" actually unlocks.
+    showIncomeIntent: true,
+    showTrustVsObjection: true,
+    showProfessionRanking: true,
+    showChannelPriority: true,
+    showRiskActionMapping: true,
+    showArchetypes: true,
+    showFunnelComparison: true,
+    showProviderDisagreement: true,
   },
   deep_pro: {
     rank: 5,
@@ -154,6 +219,14 @@ const TIER_BUDGET: Record<
     showProviderConsensus: true,
     showMethodology: true,
     showAppendix: true,
+    showIncomeIntent: true,
+    showTrustVsObjection: true,
+    showProfessionRanking: true,
+    showChannelPriority: true,
+    showRiskActionMapping: true,
+    showArchetypes: true,
+    showFunnelComparison: true,
+    showProviderDisagreement: true,
   },
 };
 
@@ -1915,6 +1988,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * get from the headline.
    */
   const renderIncomeIntentPage = () => {
+    if (!tierBudget.showIncomeIntent) return null;
     const rows = aggregate.personas?.segmentBreakdown?.byIncome ?? [];
     if (rows.length === 0) return null;
     return (
@@ -1993,6 +2067,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * vs skeptics quickly.
    */
   const renderProfessionRankingPage = () => {
+    if (!tierBudget.showProfessionRanking) return null;
     const rows = (aggregate.personas?.professionTopN ?? []).filter(
       (r) => typeof r.meanIntent === "number",
     );
@@ -2086,6 +2161,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * "where should we actually plant our flag first?".
    */
   const renderChannelPriorityPage = () => {
+    if (!tierBudget.showChannelPriority) return null;
     const rows = aggregate.personas?.channelMentions ?? [];
     if (rows.length === 0) return null;
     // Tier-trim to the top 12 to keep the page readable; channels with
@@ -2173,6 +2249,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * to first?" with substance instead of headcounts.
    */
   const renderArchetypesPage = () => {
+    if (!tierBudget.showArchetypes) return null;
     const archetypes = aggregate.personas?.archetypes ?? [];
     if (archetypes.length === 0) return null;
     const archetypeLabels: Record<string, { ko: string; en: string; tone: string; tagline: { ko: string; en: string } }> = {
@@ -2350,6 +2427,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * risks identified, not floating in space.
    */
   const renderRiskActionMappingPage = () => {
+    if (!tierBudget.showRiskActionMapping) return null;
     const risks = aggregate.narrative?.mergedRisks?.slice(0, 5) ?? [];
     const actions = aggregate.narrative?.mergedActions?.slice(0, 8) ?? [];
     if (risks.length === 0 || actions.length === 0) return null;
@@ -2484,6 +2562,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * but click rate low" type patterns where the leak differs by market.
    */
   const renderCountryFunnelComparisonPage = () => {
+    if (!tierBudget.showFunnelComparison) return null;
     const rows = aggregate.countryStats
       .filter((c) => !!c.detail?.funnel)
       .slice(0, 8); // tier-budget alternative — 8 fits A4 cleanly
@@ -2603,6 +2682,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * and FAQ.
    */
   const renderTrustVsObjectionPage = () => {
+    if (!tierBudget.showTrustVsObjection) return null;
     const rec = aggregate.recommendation.country;
     if (!rec) return null;
     const stats = aggregate.countryStats.find(
@@ -2754,6 +2834,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * Quietly skips otherwise — no-disagreement pages are filler.
    */
   const renderProviderDisagreementPage = () => {
+    if (!tierBudget.showProviderDisagreement) return null;
     if (!aggregate.providerBreakdown || aggregate.providerBreakdown.length < 2) return null;
     // Each provider's top pick. If all top picks are the same, skip.
     const picks = aggregate.providerBreakdown.map((pb) => ({
