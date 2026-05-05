@@ -3644,6 +3644,220 @@ function PersonaChatModal({
   );
 }
 
+/**
+ * Pricing sensitivity matrix — surfaces the deterministic thresholds
+ * + ±10% what-if scenarios computed from the consensus curve. Three
+ * threshold rows (comfort ceiling / inflection / rejection floor) +
+ * two scenario rows answer the questions the curve alone doesn't:
+ *   - "Where can I price without losing demand?"
+ *   - "Where does demand break?"
+ *   - "What if I raised/lowered 10%?"
+ *
+ * Each threshold row is gated on its source field being non-null; the
+ * panel hides individual rows when the curve doesn't span the range.
+ */
+function PricingSensitivityPanel({
+  sensitivity,
+  recommendedPriceCents,
+  currency,
+  isKo,
+}: {
+  sensitivity: NonNullable<NonNullable<EnsembleAggregate["pricing"]>["sensitivity"]>;
+  recommendedPriceCents: number;
+  currency: string;
+  isKo: boolean;
+}) {
+  const fmt = (cents: number) => formatPrice(cents, currency);
+
+  const thresholds: Array<{
+    key: string;
+    label: string;
+    value: number | null;
+    tone: "success" | "warn" | "risk" | "neutral";
+    description: string;
+  }> = [
+    {
+      key: "comfort",
+      label: isKo ? "안심 상한" : "Comfort ceiling",
+      value: sensitivity.comfortCeilingCents,
+      tone: "success",
+      description: isKo
+        ? "이 가격 이하 → 50% 이상의 페르소나가 구매 (강한 수요)"
+        : "Below this price → ≥ 50% of personas convert (strong demand)",
+    },
+    {
+      key: "inflection",
+      label: isKo ? "수요 변곡점" : "Demand knee",
+      value: sensitivity.inflectionCents,
+      tone: "warn",
+      description: isKo
+        ? "이 가격에서 전환이 가장 가파르게 떨어짐 — 위로 더 올리면 수요 급락"
+        : "Conversion drops most steeply at this price — pricing above it loses demand fast",
+    },
+    {
+      key: "rejection",
+      label: isKo ? "거부 하한" : "Rejection floor",
+      value: sensitivity.rejectionFloorCents,
+      tone: "risk",
+      description: isKo
+        ? "이 가격 이상 → 페르소나의 90% 이상이 거부"
+        : "Above this price → ≥ 90% of personas reject",
+    },
+  ];
+
+  const toneClass = (tone: "success" | "warn" | "risk" | "neutral") =>
+    tone === "success"
+      ? "bg-success-soft/40 border-success/30 text-success"
+      : tone === "warn"
+        ? "bg-warn-soft/40 border-warn/30 text-warn-foreground"
+        : tone === "risk"
+          ? "bg-risk-soft/40 border-risk/30 text-risk"
+          : "bg-slate-50 border-slate-200 text-slate-700";
+
+  const visibleThresholds = thresholds.filter((t) => t.value != null);
+
+  return (
+    <div className="card p-5">
+      <h2 className="text-base font-semibold text-slate-900 mb-1">
+        {isKo ? "가격 민감도 매트릭스" : "Pricing sensitivity matrix"}
+      </h2>
+      <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+        {isKo
+          ? "가격 곡선에서 도출한 의사결정 임계점 + ±10% 시나리오 — 권장가에서 위/아래로 움직이면 어떻게 될지 미리 보기."
+          : "Decision thresholds derived from the curve + ±10% what-ifs — preview what moves up or down from the recommended price."}
+      </p>
+
+      {visibleThresholds.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+          {visibleThresholds.map((t) => (
+            <div
+              key={t.key}
+              className={clsx(
+                "rounded-lg border p-3",
+                toneClass(t.tone),
+              )}
+              title={t.description}
+            >
+              <div className="text-[10px] uppercase tracking-wide font-bold mb-1">
+                {t.label}
+              </div>
+              <div className="text-xl font-bold tabular-nums text-slate-900">
+                {fmt(t.value!)}
+              </div>
+              <p className="text-[11px] text-slate-600 mt-1.5 leading-snug">
+                {t.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Elasticity + ±10% what-if scenarios */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {sensitivity.ifPriceDown10Pct && (
+          <ScenarioCard
+            arrow="↓"
+            label={isKo ? "권장가에서 -10%" : "−10% from recommended"}
+            price={fmt(recommendedPriceCents * 0.9)}
+            scenario={sensitivity.ifPriceDown10Pct}
+            isKo={isKo}
+            isUp={false}
+          />
+        )}
+        {sensitivity.ifPriceUp10Pct && (
+          <ScenarioCard
+            arrow="↑"
+            label={isKo ? "권장가에서 +10%" : "+10% from recommended"}
+            price={fmt(recommendedPriceCents * 1.1)}
+            scenario={sensitivity.ifPriceUp10Pct}
+            isKo={isKo}
+            isUp={true}
+          />
+        )}
+      </div>
+
+      {sensitivity.elasticityAtRec != null && (
+        <div className="mt-4 pt-4 border-t border-slate-100 flex items-baseline gap-2 text-xs">
+          <span className="text-slate-500 uppercase tracking-wide font-semibold text-[10px]">
+            {isKo ? "권장가 탄력성" : "Elasticity at recommended"}
+          </span>
+          <span className="tabular-nums font-semibold text-slate-700">
+            {sensitivity.elasticityAtRec.toFixed(2)}
+          </span>
+          <span className="text-slate-500">
+            {isKo
+              ? `(가격 1% 변화 → 전환 ${Math.abs(sensitivity.elasticityAtRec).toFixed(2)}% ${sensitivity.elasticityAtRec < 0 ? "감소" : "증가"})`
+              : `(1% price change → ${Math.abs(sensitivity.elasticityAtRec).toFixed(2)}% conversion ${sensitivity.elasticityAtRec < 0 ? "drop" : "rise"})`}
+          </span>
+          <span className="ml-auto text-slate-400">
+            {Math.abs(sensitivity.elasticityAtRec) >= 1
+              ? isKo
+                ? "탄력적 (할인 효과 큼)"
+                : "Elastic (discounts move volume)"
+              : isKo
+                ? "비탄력적 (프리미엄 가능)"
+                : "Inelastic (premium pricing viable)"}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScenarioCard({
+  arrow,
+  label,
+  price,
+  scenario,
+  isKo,
+  isUp,
+}: {
+  arrow: "↑" | "↓";
+  label: string;
+  price: string;
+  scenario: { conversionPct: number; revenueIndexDelta: number };
+  isKo: boolean;
+  isUp: boolean;
+}) {
+  // Revenue delta colour: positive = green, negative = red. Different
+  // from "is this price up?" — a 10% price reduction can still grow
+  // revenue (elastic demand), and we want the user to see that clearly.
+  const revColor =
+    scenario.revenueIndexDelta > 0
+      ? "text-success"
+      : scenario.revenueIndexDelta < 0
+        ? "text-risk"
+        : "text-slate-700";
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div className="flex items-baseline gap-2 mb-1">
+        <span className={clsx("text-base font-bold", isUp ? "text-risk" : "text-success")}>
+          {arrow}
+        </span>
+        <span className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+          {label}
+        </span>
+      </div>
+      <div className="text-lg font-bold text-slate-900 tabular-nums">{price}</div>
+      <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
+        <div>
+          <div className="text-slate-500">{isKo ? "전환율" : "Conversion"}</div>
+          <div className="text-slate-900 font-semibold tabular-nums">
+            {scenario.conversionPct.toFixed(1)}%
+          </div>
+        </div>
+        <div>
+          <div className="text-slate-500">{isKo ? "매출 변화" : "Revenue Δ"}</div>
+          <div className={clsx("font-semibold tabular-nums", revColor)}>
+            {scenario.revenueIndexDelta > 0 ? "+" : ""}
+            {scenario.revenueIndexDelta.toFixed(1)}%
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PricingTab({
   pricing,
   isKo,
@@ -3765,6 +3979,15 @@ function PricingTab({
           </GuideSection>
         </ChartGuide>
       </div>
+
+      {pricing.sensitivity && (
+        <PricingSensitivityPanel
+          sensitivity={pricing.sensitivity}
+          recommendedPriceCents={pricing.recommendedPriceCents}
+          currency={currency}
+          isKo={isKo}
+        />
+      )}
 
       <details className="card p-4">
         <summary className="text-sm text-slate-600 cursor-pointer hover:text-slate-800 font-medium">

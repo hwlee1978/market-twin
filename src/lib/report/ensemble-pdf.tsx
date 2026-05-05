@@ -1746,6 +1746,20 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           </View>
         )}
 
+        {pr.sensitivity && (
+          <View style={styles.sectionBlock}>
+            <MText style={styles.sectionEyebrow}>
+              {isKo ? "가격 민감도 매트릭스" : "Pricing sensitivity matrix"}
+            </MText>
+            <PricingSensitivityBlock
+              sensitivity={pr.sensitivity}
+              recommendedPriceCents={pr.recommendedPriceCents}
+              currency={project?.currency ?? undefined}
+              isKo={isKo}
+            />
+          </View>
+        )}
+
         {pr.marginEstimate && pr.marginEstimate !== "—" && (
           <View style={styles.sectionBlock}>
             <MText style={styles.sectionEyebrow}>{isKo ? "예상 마진 분석" : "Margin analysis"}</MText>
@@ -2276,6 +2290,149 @@ function FunnelBars({
           ? `샘플 ${funnel.sample.toLocaleString()}명 · 광고→클릭→구매 전환율`
           : `${funnel.sample.toLocaleString()} personas · ad→click→buy conversion`}
       </MText>
+    </View>
+  );
+}
+
+/**
+ * Pricing sensitivity matrix as a compact 3-cell threshold strip + two
+ * scenario boxes for ±10%. Mirrors PricingSensitivityPanel in the
+ * dashboard so the PDF and the live page stay in sync.
+ */
+function PricingSensitivityBlock({
+  sensitivity,
+  recommendedPriceCents,
+  currency,
+  isKo,
+}: {
+  sensitivity: NonNullable<NonNullable<EnsembleAggregate["pricing"]>["sensitivity"]>;
+  recommendedPriceCents: number;
+  currency: string | undefined;
+  isKo: boolean;
+}) {
+  const fmt = (cents: number) => formatPrice(cents, currency);
+  const thresholds: Array<{ label: string; value: number | null; color: string; desc: string }> = [
+    {
+      label: isKo ? "안심 상한" : "Comfort ceiling",
+      value: sensitivity.comfortCeilingCents,
+      color: C.success,
+      desc: isKo ? "이 가격 이하 → 50%+ 구매" : "Below: ≥ 50% convert",
+    },
+    {
+      label: isKo ? "수요 변곡점" : "Demand knee",
+      value: sensitivity.inflectionCents,
+      color: C.warn,
+      desc: isKo ? "여기서 수요 급락" : "Steepest drop here",
+    },
+    {
+      label: isKo ? "거부 하한" : "Rejection floor",
+      value: sensitivity.rejectionFloorCents,
+      color: C.risk,
+      desc: isKo ? "이상이면 90%+ 거부" : "Above: ≥ 90% reject",
+    },
+  ];
+  const visible = thresholds.filter((t) => t.value != null);
+
+  return (
+    <View>
+      {visible.length > 0 && (
+        <View style={{ flexDirection: "row", gap: 6, marginBottom: 6 }}>
+          {visible.map((t) => (
+            <View
+              key={t.label}
+              style={{
+                flex: 1,
+                borderWidth: 1,
+                borderColor: t.color,
+                borderRadius: 4,
+                padding: 6,
+                backgroundColor: C.card,
+              }}
+            >
+              <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, marginBottom: 2 }}>
+                {t.label}
+              </MText>
+              <MText style={{ fontSize: 11, color: C.ink, fontWeight: 700 }}>
+                {fmt(t.value!)}
+              </MText>
+              <MText style={{ fontSize: 7, color: C.muted, marginTop: 1 }}>{t.desc}</MText>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {(sensitivity.ifPriceDown10Pct || sensitivity.ifPriceUp10Pct) && (
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          {sensitivity.ifPriceDown10Pct && (
+            <View
+              style={{
+                flex: 1,
+                borderWidth: 1,
+                borderColor: C.divider,
+                borderRadius: 4,
+                padding: 6,
+                backgroundColor: C.card,
+              }}
+            >
+              <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600 }}>
+                {isKo ? "권장가 −10%" : "−10% from rec"}
+              </MText>
+              <MText style={{ fontSize: 10, color: C.ink, fontWeight: 700, marginVertical: 2 }}>
+                {fmt(recommendedPriceCents * 0.9)}
+              </MText>
+              <MText style={{ fontSize: 8, color: C.body }}>
+                {isKo
+                  ? `전환 ${sensitivity.ifPriceDown10Pct.conversionPct.toFixed(1)}% · 매출 ${
+                      sensitivity.ifPriceDown10Pct.revenueIndexDelta > 0 ? "+" : ""
+                    }${sensitivity.ifPriceDown10Pct.revenueIndexDelta.toFixed(1)}%`
+                  : `Conv ${sensitivity.ifPriceDown10Pct.conversionPct.toFixed(1)}% · Rev ${
+                      sensitivity.ifPriceDown10Pct.revenueIndexDelta > 0 ? "+" : ""
+                    }${sensitivity.ifPriceDown10Pct.revenueIndexDelta.toFixed(1)}%`}
+              </MText>
+            </View>
+          )}
+          {sensitivity.ifPriceUp10Pct && (
+            <View
+              style={{
+                flex: 1,
+                borderWidth: 1,
+                borderColor: C.divider,
+                borderRadius: 4,
+                padding: 6,
+                backgroundColor: C.card,
+              }}
+            >
+              <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600 }}>
+                {isKo ? "권장가 +10%" : "+10% from rec"}
+              </MText>
+              <MText style={{ fontSize: 10, color: C.ink, fontWeight: 700, marginVertical: 2 }}>
+                {fmt(recommendedPriceCents * 1.1)}
+              </MText>
+              <MText style={{ fontSize: 8, color: C.body }}>
+                {isKo
+                  ? `전환 ${sensitivity.ifPriceUp10Pct.conversionPct.toFixed(1)}% · 매출 ${
+                      sensitivity.ifPriceUp10Pct.revenueIndexDelta > 0 ? "+" : ""
+                    }${sensitivity.ifPriceUp10Pct.revenueIndexDelta.toFixed(1)}%`
+                  : `Conv ${sensitivity.ifPriceUp10Pct.conversionPct.toFixed(1)}% · Rev ${
+                      sensitivity.ifPriceUp10Pct.revenueIndexDelta > 0 ? "+" : ""
+                    }${sensitivity.ifPriceUp10Pct.revenueIndexDelta.toFixed(1)}%`}
+              </MText>
+            </View>
+          )}
+        </View>
+      )}
+
+      {sensitivity.elasticityAtRec != null && (
+        <MText style={{ fontSize: 8, color: C.muted, marginTop: 4 }}>
+          {isKo
+            ? `권장가 탄력성 ${sensitivity.elasticityAtRec.toFixed(2)} · ${
+                Math.abs(sensitivity.elasticityAtRec) >= 1 ? "탄력적 (할인 효과 큼)" : "비탄력적 (프리미엄 가능)"
+              }`
+            : `Elasticity at rec ${sensitivity.elasticityAtRec.toFixed(2)} · ${
+                Math.abs(sensitivity.elasticityAtRec) >= 1 ? "elastic (discounts move volume)" : "inelastic (premium viable)"
+              }`}
+        </MText>
+      )}
     </View>
   );
 }

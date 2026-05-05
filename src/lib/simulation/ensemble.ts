@@ -371,6 +371,31 @@ export interface PricingAggregate {
     meanConversionProbability: number;
     sampleCount: number;
   }>;
+  /**
+   * Sensitivity analysis derived deterministically from the consensus
+   * curve — no extra LLM call. Surfaces the "where does demand break"
+   * thresholds and the elasticity the user needs to make a pricing
+   * call. All cent fields are null when the curve doesn't span enough
+   * range to determine the threshold (e.g., conversion never drops
+   * below 50% across the sampled range).
+   */
+  sensitivity?: {
+    /** Highest price at which mean conversion ≥ 0.5. The "comfort zone" cap. */
+    comfortCeilingCents: number | null;
+    /** The price (right side of the steepest-drop interval) — the demand knee. */
+    inflectionCents: number | null;
+    /** Lowest price at which mean conversion ≤ 0.1. Effective rejection floor. */
+    rejectionFloorCents: number | null;
+    /** Elasticity at the recommended price: %ΔConversion / %ΔPrice. Negative. */
+    elasticityAtRec: number | null;
+    /**
+     * What-if at base ×1.1 and ×0.9. Each entry: (conversion, revenueIndex).
+     * revenueIndex normalised to base = 1.0 so values are interpretable as
+     * "+15% revenue" etc. Null when the curve doesn't cover that price.
+     */
+    ifPriceUp10Pct: { conversionPct: number; revenueIndexDelta: number } | null;
+    ifPriceDown10Pct: { conversionPct: number; revenueIndexDelta: number } | null;
+  };
 }
 
 /** Creative asset aggregate — only present when sims provided creative scoring. */
@@ -1128,13 +1153,154 @@ function computePricingAggregate(
     }))
     .sort((a, b) => a.priceCents - b.priceCents);
 
+  const recommendedPriceCents = median(recs);
   return {
-    recommendedPriceCents: median(recs),
-    recommendedPriceMedian: median(recs),
+    recommendedPriceCents,
+    recommendedPriceMedian: recommendedPriceCents,
     recommendedPriceP25: p25,
     recommendedPriceP75: p75,
     marginEstimate,
     curve,
+    sensitivity: computePricingSensitivity(curve, recommendedPriceCents),
+  };
+}
+
+/**
+ * Pricing sensitivity analysis on the consensus curve. Pure math; no
+ * LLM. Returns thresholds (comfort ceiling / knee / rejection floor)
+ * + elasticity around the recommended point + ±10% what-if scenarios.
+ *
+ * Linear interpolation on the curve is used everywhere — sims sample
+ * 7-10 points across 0.5x to 2.0x base, so the curve is dense enough
+ * that piecewise-linear is a fine approximation. We don't fit a smooth
+ * function (overkill given LLM-generated input precision).
+ */
+function computePricingSensitivity(
+  curve: PricingAggregate["curve"],
+  recommendedPriceCents: number,
+): NonNullable<PricingAggregate["sensitivity"]> {
+  // Need at least 2 distinct points to compute anything meaningful.
+  if (curve.length < 2) {
+    return {
+      comfortCeilingCents: null,
+      inflectionCents: null,
+      rejectionFloorCents: null,
+      elasticityAtRec: null,
+      ifPriceUp10Pct: null,
+      ifPriceDown10Pct: null,
+    };
+  }
+  const sorted = [...curve].sort((a, b) => a.priceCents - b.priceCents);
+
+  // Comfort ceiling: highest price where conversion ≥ 0.5.
+  let comfortCeilingCents: number | null = null;
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    if (sorted[i].meanConversionProbability >= 0.5) {
+      comfortCeilingCents = sorted[i].priceCents;
+      break;
+    }
+  }
+
+  // Rejection floor: lowest price where conversion ≤ 0.1.
+  let rejectionFloorCents: number | null = null;
+  for (const p of sorted) {
+    if (p.meanConversionProbability <= 0.1) {
+      rejectionFloorCents = p.priceCents;
+      break;
+    }
+  }
+
+  // Inflection (the knee): adjacent pair with the largest absolute
+  // conversion drop. Returns the right-side price of that pair — the
+  // price AT WHICH demand fell. Absolute (not relative) because users
+  // care about "how much volume did I lose here", not "what fraction
+  // of remaining demand". A 0.55 → 0.32 drop (lose 23pt of conversion)
+  // is more decision-relevant than a 0.15 → 0.08 nudge near the
+  // already-dead tail of the curve, even though the latter has a
+  // bigger relative ratio.
+  let inflectionCents: number | null = null;
+  let worstAbsDrop = 0;
+  for (let i = 1; i < sorted.length; i++) {
+    const a = sorted[i - 1];
+    const b = sorted[i];
+    const absDrop = a.meanConversionProbability - b.meanConversionProbability;
+    if (absDrop > worstAbsDrop) {
+      worstAbsDrop = absDrop;
+      inflectionCents = b.priceCents;
+    }
+  }
+  // Only meaningful when the drop crossed at least 10pt of conversion.
+  if (worstAbsDrop < 0.1) inflectionCents = null;
+
+  // Linear-interpolate conversion at an arbitrary price; null when
+  // outside the sampled range.
+  const interpolate = (price: number): number | null => {
+    if (price < sorted[0].priceCents || price > sorted[sorted.length - 1].priceCents) {
+      return null;
+    }
+    for (let i = 1; i < sorted.length; i++) {
+      const a = sorted[i - 1];
+      const b = sorted[i];
+      if (price >= a.priceCents && price <= b.priceCents) {
+        if (b.priceCents === a.priceCents) return a.meanConversionProbability;
+        const t = (price - a.priceCents) / (b.priceCents - a.priceCents);
+        return (
+          a.meanConversionProbability +
+          t * (b.meanConversionProbability - a.meanConversionProbability)
+        );
+      }
+    }
+    return null;
+  };
+
+  // Elasticity at the recommended price. Use a small symmetric window
+  // (±2% if the curve allows). Numerator = %ΔConversion, denominator =
+  // %ΔPrice. Result is dimensionless and typically negative (price up
+  // → conversion down).
+  let elasticityAtRec: number | null = null;
+  const ePriceLo = recommendedPriceCents * 0.98;
+  const ePriceHi = recommendedPriceCents * 1.02;
+  const cLo = interpolate(ePriceLo);
+  const cHi = interpolate(ePriceHi);
+  const cRec = interpolate(recommendedPriceCents);
+  if (cLo != null && cHi != null && cRec != null && cRec > 0) {
+    const dCpct = (cHi - cLo) / cRec;
+    const dPpct = (ePriceHi - ePriceLo) / recommendedPriceCents;
+    if (dPpct !== 0) {
+      elasticityAtRec = Math.round((dCpct / dPpct) * 100) / 100;
+    }
+  }
+
+  // ±10% what-if. revenueIndexDelta is the revenue change vs. the
+  // recommended price's revenue (relative, signed). Helpful framing
+  // because a "10% price down → 5% conversion up" is only useful if
+  // the user knows the revenue side moved up or down.
+  const revenueAt = (price: number): number | null => {
+    const c = interpolate(price);
+    return c == null ? null : price * c;
+  };
+  const baselineRevenue = revenueAt(recommendedPriceCents);
+  const buildScenario = (price: number): NonNullable<
+    PricingAggregate["sensitivity"]
+  >["ifPriceUp10Pct"] => {
+    const c = interpolate(price);
+    if (c == null || baselineRevenue == null || baselineRevenue <= 0) return null;
+    const r = price * c;
+    return {
+      conversionPct: Math.round(c * 1000) / 10, // %, 1 decimal
+      revenueIndexDelta: Math.round(((r - baselineRevenue) / baselineRevenue) * 1000) / 10,
+    };
+  };
+  const ifPriceUp10Pct = buildScenario(recommendedPriceCents * 1.1);
+  const ifPriceDown10Pct = buildScenario(recommendedPriceCents * 0.9);
+
+  return {
+    comfortCeilingCents,
+    inflectionCents,
+    rejectionFloorCents,
+    elasticityAtRec,
+    ifPriceUp10Pct,
+    ifPriceDown10Pct,
   };
 }
 
