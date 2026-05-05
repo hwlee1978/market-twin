@@ -91,6 +91,10 @@ const TIER_BUDGET: Record<
     showFunnelComparison: boolean;
     /** Cross-LLM disagreement page. Deep+ (also requires ≥2 providers). */
     showProviderDisagreement: boolean;
+    /** Universal vs market-specific objections page. Decision+. */
+    showCommonObjections: boolean;
+    /** Champion vs Skeptic profile comparison page. Decision+. */
+    showChampionVsSkeptic: boolean;
   }
 > = {
   hypothesis: {
@@ -120,6 +124,8 @@ const TIER_BUDGET: Record<
     showArchetypes: false,
     showFunnelComparison: false,
     showProviderDisagreement: false,
+    showCommonObjections: false,
+    showChampionVsSkeptic: false,
   },
   decision: {
     rank: 2,
@@ -137,8 +143,10 @@ const TIER_BUDGET: Record<
     showProviderConsensus: false,
     showMethodology: true,
     showAppendix: false,
-    // Decision adds the two highest-value decision-aid pages —
-    // income×intent (price positioning) + trust vs objection (messaging).
+    // Decision adds the four highest-value decision-aid pages —
+    // income×intent + trust vs objection (price + messaging) plus
+    // champion-vs-skeptic + universal-vs-local objections (the
+    // visceral "where's the gap" content).
     showIncomeIntent: true,
     showTrustVsObjection: true,
     showProfessionRanking: false,
@@ -147,6 +155,8 @@ const TIER_BUDGET: Record<
     showArchetypes: false,
     showFunnelComparison: false,
     showProviderDisagreement: false,
+    showCommonObjections: true,
+    showChampionVsSkeptic: true,
   },
   decision_plus: {
     rank: 3,
@@ -174,6 +184,8 @@ const TIER_BUDGET: Record<
     showArchetypes: false,
     showFunnelComparison: false,
     showProviderDisagreement: false,
+    showCommonObjections: true,
+    showChampionVsSkeptic: true,
   },
   deep: {
     rank: 4,
@@ -202,6 +214,8 @@ const TIER_BUDGET: Record<
     showArchetypes: true,
     showFunnelComparison: true,
     showProviderDisagreement: true,
+    showCommonObjections: true,
+    showChampionVsSkeptic: true,
   },
   deep_pro: {
     rank: 5,
@@ -227,6 +241,8 @@ const TIER_BUDGET: Record<
     showArchetypes: true,
     showFunnelComparison: true,
     showProviderDisagreement: true,
+    showCommonObjections: true,
+    showChampionVsSkeptic: true,
   },
 };
 
@@ -1215,7 +1231,12 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     );
   };
 
-  const renderRecommendationPage = () => (
+  const renderRecommendationPage = () => {
+    const championQuote = pickQuote(aggregate, {
+      country: aggregate.recommendation.country,
+      polarity: "positive",
+    });
+    return (
     <Page size="A4" style={styles.page}>
       {pageHeader}
       <MText style={styles.pageTitle}>{isKo ? "추천 결정" : "Recommendation"}</MText>
@@ -1224,6 +1245,19 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           ? "시뮬 합의 기반 1순위 시장과 전략별 대안입니다."
           : "Consensus-driven primary market and strategy-specific alternatives."}
       </MText>
+
+      {championQuote && (
+        <QuoteCallout
+          quote={championQuote}
+          tone="success"
+          isKo={isKo}
+          label={
+            isKo
+              ? `${aggregate.recommendation.country} 챔피언의 목소리`
+              : `Voice from ${aggregate.recommendation.country}'s champion`
+          }
+        />
+      )}
 
       <View style={styles.sectionBlock}>
         <MText style={styles.sectionEyebrow}>{t.bestCountryEyebrow}</MText>
@@ -1278,6 +1312,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       {pageFooter}
     </Page>
   );
+  };
 
   const renderCountriesPage = () => {
     const stats = aggregate.countryStats.slice(0, tierBudget.countriesInRanking);
@@ -1766,6 +1801,11 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       null,
     );
     const maxConv = Math.max(...pr.curve.map((p) => p.meanConversionProbability), 0.0001);
+    // Negative quote for pricing — the most relevant skeptic is usually
+    // the one whose objection is price-sensitive. We approximate by just
+    // using the lowest-intent voice; in practice price objections
+    // dominate that list.
+    const priceSkepticQuote = pickQuote(aggregate, { polarity: "negative", offset: 1 });
     return (
       <Page size="A4" style={styles.page}>
         {pageHeader}
@@ -1775,6 +1815,15 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             ? "시뮬 합산 권장 가격, 50% 구간, 전환 곡선을 제공합니다."
             : "Cross-sim recommended price, mid-50% range, and conversion curve."}
         </MText>
+
+        {priceSkepticQuote && (
+          <QuoteCallout
+            quote={priceSkepticQuote}
+            tone="warn"
+            isKo={isKo}
+            label={isKo ? "가격에 민감한 페르소나" : "A price-sensitive persona"}
+          />
+        )}
 
         <View style={styles.priceHero}>
           <View>
@@ -1861,6 +1910,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
   const renderRisksPage = () => {
     if (!aggregate.narrative?.mergedRisks?.length) return null;
     const risks = aggregate.narrative.mergedRisks.slice(0, tierBudget.risks);
+    const skepticQuote = pickQuote(aggregate, { polarity: "negative" });
     return (
       <Page size="A4" style={styles.page}>
         {pageHeader}
@@ -1870,6 +1920,15 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             ? `${aggregate.simCount}개 시뮬에서 자주 등장한 리스크를 통합한 결과 — 종합 리스크 수준: ${riskLevelLabel(aggregate.narrative.overallRiskLevel, true)}.`
             : `Risks dedup'd across ${aggregate.simCount} sims — overall: ${riskLevelLabel(aggregate.narrative.overallRiskLevel, false)}.`}
         </MText>
+
+        {skepticQuote && (
+          <QuoteCallout
+            quote={skepticQuote}
+            tone="warn"
+            isKo={isKo}
+            label={isKo ? "회의론자가 본 것" : "What a skeptic flagged"}
+          />
+        )}
 
         <View>
           {risks.map((r, i, arr) => {
@@ -1904,6 +1963,15 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
   const renderActionsPage = () => {
     if (!aggregate.narrative?.mergedActions?.length) return null;
     const actions = aggregate.narrative.mergedActions.slice(0, tierBudget.actions);
+    // Champion quote with offset 1 so we don't reuse the same quote
+    // that's already on the recommendation page. Falls back to overall
+    // top if no second-best is available.
+    const motivationQuote =
+      pickQuote(aggregate, {
+        country: aggregate.recommendation.country,
+        polarity: "positive",
+        offset: 1,
+      }) ?? pickQuote(aggregate, { polarity: "positive", offset: 1 });
     return (
       <Page size="A4" style={styles.page}>
         {pageHeader}
@@ -1913,6 +1981,15 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             ? `시뮬 합의 기반 우선순위 액션 플랜입니다.`
             : `Cross-sim consensus action plan, in priority order.`}
         </MText>
+
+        {motivationQuote && (
+          <QuoteCallout
+            quote={motivationQuote}
+            tone="success"
+            isKo={isKo}
+            label={isKo ? "이 액션을 끌어낸 한 마디" : "What pushed these actions"}
+          />
+        )}
 
         <View>
           {actions.map((a, i) => {
@@ -2676,6 +2753,383 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
   };
 
   /**
+   * Cross-country common objections — top objections that surface in
+   * 2+ candidate countries. Universal blockers (= product-level
+   * issues to fix) versus country-specific blockers (= localisation
+   * issues to handle per market). Answers "what should we fix
+   * everywhere vs only here?".
+   *
+   * Picks the top frequency-ranked objections that appear in multiple
+   * countries. Each row shows the objection + which countries flagged
+   * it + total mention count.
+   */
+  const renderCommonObjectionsPage = () => {
+    if (!tierBudget.showCommonObjections) return null;
+    // Map each objection text → [countries that flagged it, total count].
+    // Use country-detail objections (already aggregated per country).
+    const cross = new Map<string, { countries: Set<string>; count: number }>();
+    for (const c of aggregate.countryStats) {
+      const objs = c.detail?.topObjections;
+      if (!objs) continue;
+      for (const o of objs) {
+        const key = o.text.trim();
+        if (!key) continue;
+        const cur = cross.get(key) ?? { countries: new Set(), count: 0 };
+        cur.countries.add(c.country);
+        cur.count += o.count;
+        cross.set(key, cur);
+      }
+    }
+    // Universal: appears in ≥2 countries. Sort by country count
+    // descending, then total mention count.
+    const universal = [...cross.entries()]
+      .map(([text, v]) => ({ text, countries: [...v.countries], count: v.count }))
+      .filter((r) => r.countries.length >= 2)
+      .sort(
+        (a, b) =>
+          b.countries.length - a.countries.length || b.count - a.count,
+      )
+      .slice(0, 10);
+    const local = [...cross.entries()]
+      .map(([text, v]) => ({ text, countries: [...v.countries], count: v.count }))
+      .filter((r) => r.countries.length === 1)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+
+    if (universal.length === 0 && local.length === 0) return null;
+
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo ? "공통 거부 vs 시장별 거부" : "Universal vs market-specific objections"}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? "여러 시장에서 동시에 등장한 거부 요인은 제품 자체의 이슈 — 한 시장에서만 보이는 거부 요인은 현지화 이슈. 두 가지를 분리하면 \"어디 먼저 손볼지\"가 명확해집니다."
+            : "Objections surfacing across multiple markets point at product-level fixes; objections in one market only are localisation issues. Separating them tells you what to address first."}
+        </MText>
+
+        <View style={styles.sectionBlock}>
+          <MText style={[styles.sectionEyebrow, { color: C.risk }]}>
+            {isKo
+              ? `공통 거부 (2개 이상 시장 — 제품 이슈)`
+              : `Universal (in ≥2 markets — product-level)`}
+          </MText>
+          {universal.length === 0 ? (
+            <MText style={{ fontSize: 9, color: C.muted, marginTop: 4 }}>
+              {isKo ? "—" : "—"}
+            </MText>
+          ) : (
+            universal.map((r) => (
+              <View
+                key={r.text}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  paddingVertical: 5,
+                  borderBottomWidth: 0.5,
+                  borderBottomColor: C.divider,
+                  gap: 8,
+                }}
+                wrap={false}
+              >
+                <View
+                  style={{
+                    width: 70,
+                    flexDirection: "row",
+                    flexWrap: "wrap",
+                    gap: 3,
+                  }}
+                >
+                  {r.countries.map((c) => (
+                    <View
+                      key={c}
+                      style={{
+                        backgroundColor: C.card,
+                        paddingHorizontal: 4,
+                        paddingVertical: 1,
+                        borderRadius: 2,
+                      }}
+                    >
+                      <MText style={{ fontSize: 7, color: C.ink, fontWeight: 600 }}>
+                        {c}
+                      </MText>
+                    </View>
+                  ))}
+                </View>
+                <MText style={{ fontSize: 9, color: C.body, flex: 1, lineHeight: 1.5 }}>
+                  {r.text}
+                </MText>
+                <MText style={{ fontSize: 8, color: C.muted, width: 36, textAlign: "right" }}>
+                  {`${r.count}회`}
+                </MText>
+              </View>
+            ))
+          )}
+        </View>
+
+        {local.length > 0 && (
+          <View style={styles.sectionBlock}>
+            <MText style={[styles.sectionEyebrow, { color: C.warn }]}>
+              {isKo
+                ? `시장별 거부 (단일 시장 — 현지화 이슈)`
+                : `Market-specific (single market — localisation)`}
+            </MText>
+            {local.map((r) => (
+              <View
+                key={r.text}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  paddingVertical: 4,
+                  borderBottomWidth: 0.5,
+                  borderBottomColor: C.divider,
+                  gap: 8,
+                }}
+                wrap={false}
+              >
+                <View
+                  style={{
+                    backgroundColor: C.card,
+                    paddingHorizontal: 4,
+                    paddingVertical: 1,
+                    borderRadius: 2,
+                    width: 36,
+                  }}
+                >
+                  <MText style={{ fontSize: 7, color: C.ink, fontWeight: 600 }}>
+                    {r.countries[0]}
+                  </MText>
+                </View>
+                <MText style={{ fontSize: 9, color: C.body, flex: 1, lineHeight: 1.5 }}>
+                  {r.text}
+                </MText>
+                <MText style={{ fontSize: 8, color: C.muted, width: 36, textAlign: "right" }}>
+                  {`${r.count}회`}
+                </MText>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <MText style={{ fontSize: 8, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
+          {isKo
+            ? "활용: 상단 \"공통\"은 제품 spec / 메시지 / 가격대로 해결 (전 시장 영향). 하단 \"시장별\"은 현지 인증, 채널 선택, 카피 번역 등으로 해결 (해당 시장 한정)."
+            : "How to use: 'Universal' calls for product/message/price fixes (affects all markets). 'Market-specific' calls for local cert / channel / copy fixes (one market only)."}
+        </MText>
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
+  /**
+   * Champion vs Skeptic profile — the strongest advocate persona vs
+   * the strongest critic, side-by-side. Quote + demographics + their
+   * trust factors / objections. Visceral comparison that maps
+   * directly to "who's our 1st customer" and "who's the bar to
+   * convert".
+   */
+  const renderChampionVsSkepticPage = () => {
+    if (!tierBudget.showChampionVsSkeptic) return null;
+    const champion = aggregate.personas?.topPositiveVoices?.[0];
+    const skeptic = aggregate.personas?.topNegativeVoices?.[0];
+    if (!champion && !skeptic) return null;
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo ? "챔피언 vs 회의론자 — 양극의 목소리" : "Champion vs Skeptic — the two poles"}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? "가장 강한 옹호자와 가장 강한 비판자를 나란히. 챔피언은 \"누구부터 팔지\"의 답이고, 회의론자는 \"무엇을 해결해야 모두를 설득할지\"의 답입니다."
+            : "Strongest advocate vs strongest critic. The champion answers 'who do we sell first?'; the skeptic answers 'what must we fix to win everyone?'."}
+        </MText>
+
+        <View style={{ flexDirection: "row", gap: 14 }}>
+          {/* Champion side */}
+          <View style={{ flex: 1 }}>
+            <View
+              style={{
+                backgroundColor: "#F0FDF4",
+                borderTopWidth: 4,
+                borderTopColor: C.success,
+                padding: 12,
+                borderRadius: 4,
+              }}
+              wrap={false}
+            >
+              <MText
+                style={{
+                  fontSize: 8,
+                  color: C.success,
+                  fontWeight: 700,
+                  letterSpacing: 0.6,
+                  marginBottom: 4,
+                }}
+              >
+                {isKo ? "챔피언 — 즉시 구매 후보" : "CHAMPION — primary 1st-buyer"}
+              </MText>
+              {champion ? (
+                <>
+                  <MText style={{ fontSize: 18, color: C.success, marginBottom: 4 }}>
+                    {"“"}
+                  </MText>
+                  <MText style={{ fontSize: 11, color: C.ink, lineHeight: 1.5, marginBottom: 8 }}>
+                    {champion.text}
+                  </MText>
+                  <View style={{ borderTopWidth: 0.5, borderTopColor: C.divider, paddingTop: 6 }}>
+                    <MText style={{ fontSize: 8, color: C.muted, marginBottom: 2 }}>
+                      {isKo ? "프로필" : "Profile"}
+                    </MText>
+                    <MText style={{ fontSize: 9, color: C.ink, fontWeight: 600 }}>
+                      {[
+                        champion.country,
+                        champion.ageRange,
+                        champion.profession,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </MText>
+                    <MText style={{ fontSize: 8, color: C.muted, marginTop: 6, marginBottom: 2 }}>
+                      {isKo ? "구매 의향" : "Purchase intent"}
+                    </MText>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      <View
+                        style={{
+                          flex: 1,
+                          height: 6,
+                          backgroundColor: C.divider,
+                          borderRadius: 3,
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: `${champion.intent}%`,
+                            height: 6,
+                            backgroundColor: C.success,
+                            borderRadius: 3,
+                          }}
+                        />
+                      </View>
+                      <MText style={{ fontSize: 9, color: C.success, fontWeight: 700 }}>
+                        {`${champion.intent}/100`}
+                      </MText>
+                    </View>
+                  </View>
+                </>
+              ) : (
+                <MText style={{ fontSize: 9, color: C.muted }}>—</MText>
+              )}
+            </View>
+          </View>
+
+          {/* Skeptic side */}
+          <View style={{ flex: 1 }}>
+            <View
+              style={{
+                backgroundColor: "#FEF2F2",
+                borderTopWidth: 4,
+                borderTopColor: C.risk,
+                padding: 12,
+                borderRadius: 4,
+              }}
+              wrap={false}
+            >
+              <MText
+                style={{
+                  fontSize: 8,
+                  color: C.risk,
+                  fontWeight: 700,
+                  letterSpacing: 0.6,
+                  marginBottom: 4,
+                }}
+              >
+                {isKo ? "회의론자 — 마지막 설득 대상" : "SKEPTIC — last to convert"}
+              </MText>
+              {skeptic ? (
+                <>
+                  <MText style={{ fontSize: 18, color: C.risk, marginBottom: 4 }}>
+                    {"“"}
+                  </MText>
+                  <MText style={{ fontSize: 11, color: C.ink, lineHeight: 1.5, marginBottom: 8 }}>
+                    {skeptic.text}
+                  </MText>
+                  <View style={{ borderTopWidth: 0.5, borderTopColor: C.divider, paddingTop: 6 }}>
+                    <MText style={{ fontSize: 8, color: C.muted, marginBottom: 2 }}>
+                      {isKo ? "프로필" : "Profile"}
+                    </MText>
+                    <MText style={{ fontSize: 9, color: C.ink, fontWeight: 600 }}>
+                      {[
+                        skeptic.country,
+                        skeptic.ageRange,
+                        skeptic.profession,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </MText>
+                    <MText style={{ fontSize: 8, color: C.muted, marginTop: 6, marginBottom: 2 }}>
+                      {isKo ? "구매 의향" : "Purchase intent"}
+                    </MText>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      <View
+                        style={{
+                          flex: 1,
+                          height: 6,
+                          backgroundColor: C.divider,
+                          borderRadius: 3,
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: `${skeptic.intent}%`,
+                            height: 6,
+                            backgroundColor: C.risk,
+                            borderRadius: 3,
+                          }}
+                        />
+                      </View>
+                      <MText style={{ fontSize: 9, color: C.risk, fontWeight: 700 }}>
+                        {`${skeptic.intent}/100`}
+                      </MText>
+                    </View>
+                  </View>
+                </>
+              ) : (
+                <MText style={{ fontSize: 9, color: C.muted }}>—</MText>
+              )}
+            </View>
+          </View>
+        </View>
+
+        <View style={{ marginTop: 14, padding: 10, backgroundColor: C.card, borderRadius: 4 }}>
+          <MText style={{ fontSize: 9, color: C.body, lineHeight: 1.6 }}>
+            {isKo
+              ? "이 두 사람의 차이를 좁히는 게 곧 GTM 전략입니다. 챔피언이 \"왜 사겠다\"고 한 이유를 카피·랜딩으로 증폭하고 (메시지 무기화), 회의론자가 \"왜 안 사겠다\"고 한 이유를 가격·인증·CS로 차단하면 (반론 무력화) 평균 의향이 위로 끌려옵니다."
+              : "Closing the gap between these two voices IS the GTM. Amplify the champion's reason for buying through copy + landing (weaponise the message), and neutralise the skeptic's reason for not buying through price + cert + CS (kill the objection). The mean intent rises."}
+          </MText>
+        </View>
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
+  /**
    * Trust factors vs Objections — for the recommended country only,
    * show top 5 of each side-by-side. Answers "what convinces vs what
    * blocks" buyers in the priority market — direct input for messaging
@@ -3208,6 +3662,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           {renderArchetypesPage()}
           {renderPersonasPage()}
           {renderVoicesPage()}
+          {renderChampionVsSkepticPage()}
+          {renderCommonObjectionsPage()}
           {renderTrustVsObjectionPage()}
           {renderPricingPage()}
           {renderRisksPage()}
@@ -3270,6 +3726,127 @@ function SummaryRow({
  * so the PDF and the dashboard look intentionally aligned. Bar colour
  * follows the same threshold (≥70 success / ≥50 warn / else risk).
  */
+/**
+ * Inline persona-quote callout for sprinkling through the body of the
+ * report. Bigger and more visually distinctive than the dense voiceCard
+ * in the dedicated voices page — designed to break up text-heavy pages
+ * and give them an emotional anchor. Tone (success / warn / brand)
+ * reflects the polarity of the quote so a reader scanning the report
+ * sees green for "champion" callouts, amber for "skeptic", brand for
+ * neutral / contextual.
+ *
+ * "Big quote mark" effect via a literal " glyph rendered at 28pt above
+ * the quote text. The bundled font supports CJK punctuation so this
+ * works in Korean. No real italic available — we lean on quote marks
+ * + size + colour for emphasis instead.
+ */
+function QuoteCallout({
+  quote,
+  tone = "brand",
+  isKo,
+  label,
+}: {
+  quote: { text: string; country: string; intent: number; profession?: string; ageRange?: string };
+  tone?: "success" | "warn" | "brand";
+  isKo: boolean;
+  /** Optional eyebrow ("페르소나의 목소리" / "한 chempion의 인용" 등). */
+  label?: string;
+}) {
+  const accent = tone === "success" ? C.success : tone === "warn" ? C.warn : C.brand;
+  const bg =
+    tone === "success"
+      ? "#F0FDF4"
+      : tone === "warn"
+        ? "#FFFBEB"
+        : "#EFF6FF";
+  return (
+    <View
+      style={{
+        backgroundColor: bg,
+        borderLeftWidth: 3,
+        borderLeftColor: accent,
+        paddingLeft: 14,
+        paddingRight: 14,
+        paddingTop: 10,
+        paddingBottom: 12,
+        marginVertical: 12,
+        borderRadius: 4,
+      }}
+      wrap={false}
+    >
+      {label && (
+        <MText
+          style={{
+            fontSize: 7,
+            color: accent,
+            fontWeight: 700,
+            letterSpacing: 0.6,
+            marginBottom: 6,
+          }}
+        >
+          {label.toUpperCase()}
+        </MText>
+      )}
+      <View style={{ flexDirection: "row", gap: 6 }}>
+        <MText style={{ fontSize: 22, color: accent, lineHeight: 1, fontWeight: 700 }}>
+          {"“"}
+        </MText>
+        <View style={{ flex: 1, paddingTop: 2 }}>
+          <MText style={{ fontSize: 11, color: C.ink, lineHeight: 1.5 }}>
+            {quote.text}
+          </MText>
+          <MText style={{ fontSize: 8, color: C.muted, marginTop: 6 }}>
+            {[
+              quote.country,
+              quote.ageRange,
+              quote.profession,
+              isKo ? `구매의향 ${quote.intent}/100` : `intent ${quote.intent}/100`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </MText>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Pick a representative quote from the aggregate, optionally biased
+ * toward a specific country and polarity. Returns null when nothing
+ * fits — caller should hide the callout in that case.
+ *
+ *   polarity "positive" → topPositiveVoices (champions)
+ *   polarity "negative" → topNegativeVoices (skeptics)
+ *
+ * Country filter does best-effort: if the country has no quote in the
+ * polarity bucket, we fall back to overall top of that polarity.
+ */
+function pickQuote(
+  aggregate: EnsembleAggregate,
+  opts: { country?: string; polarity: "positive" | "negative"; offset?: number },
+): {
+  text: string;
+  country: string;
+  intent: number;
+  profession?: string;
+  ageRange?: string;
+} | null {
+  const pool =
+    opts.polarity === "positive"
+      ? aggregate.personas?.topPositiveVoices
+      : aggregate.personas?.topNegativeVoices;
+  if (!pool || pool.length === 0) return null;
+  const offset = opts.offset ?? 0;
+  if (opts.country) {
+    const wanted = opts.country.toUpperCase();
+    const filtered = pool.filter((v) => v.country.toUpperCase() === wanted);
+    if (filtered.length > offset) return filtered[offset];
+  }
+  if (pool.length > offset) return pool[offset];
+  return pool[0];
+}
+
 /**
  * Compact horizontal bar used in the per-country funnel comparison
  * page. Each call renders one cell of a row: bar + numeric suffix.

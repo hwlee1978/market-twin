@@ -4883,10 +4883,10 @@ function detailedReportSummary(
   // gates. Update if you add/remove tier-gated pages.
   const pageRange: Record<string, string> = {
     hypothesis: "~17p",
-    decision: "~19p",
-    decision_plus: "~22p",
-    deep: "~26p",
-    deep_pro: "~26p",
+    decision: "~21p",
+    decision_plus: "~24p",
+    deep: "~28p",
+    deep_pro: "~28p",
   };
   // Feature list per tier — only the items that this tier UNLOCKS
   // beyond the previous tier, plus a "+ everything below" pointer.
@@ -4896,8 +4896,8 @@ function detailedReportSummary(
       en: "Core analysis (pick · personas · pricing · risks · actions)",
     },
     decision: {
-      ko: "+ 소득×구매의향 · 신뢰vs거부 (메시징·가격 결정 보조)",
-      en: "+ Income×intent · trust vs objection (messaging + price aid)",
+      ko: "+ 소득×의향 · 신뢰vs거부 · 챔피언vs회의론자 · 공통 거부 매트릭스 · 페이지 곳곳에 페르소나 인용",
+      en: "+ Income×intent · trust vs objection · champion vs skeptic · cross-country objections · quote callouts",
     },
     decision_plus: {
       ko: "+ 직업별 의향 · 채널 우선순위 · 리스크×액션 매핑 · 국가 디테일",
