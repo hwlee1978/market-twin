@@ -42,6 +42,16 @@ export interface EnsembleSimSnapshot {
    */
   provider?: string;
   /**
+   * If the synthesis stage failed over to a backup provider (Gemini
+   * 503 → Anthropic, etc.), this records the actual provider that
+   * produced the synthesis. The `provider` field above stays the
+   * nominal provider so the deep-tier round-robin attribution is
+   * intact at the orchestration level. Read by the aggregator's
+   * providerBreakdown so cross-model agreement reflects who really
+   * wrote the synthesis.
+   */
+  synthesisProvider?: string;
+  /**
    * Synthesis-stage narrative outputs from this sim. Carried into the
    * aggregator so a downstream LLM merge step can dedup risks across
    * sims and surface the consensus narrative — without these, the
@@ -1025,17 +1035,26 @@ function computeProviderBreakdown(
   sims: EnsembleSimSnapshot[],
   overallWinner: string | null,
 ): ProviderConsensus[] | undefined {
+  // Group by the provider that ACTUALLY produced the synthesis (which
+  // determines bestCountry), not the provider the orchestrator ASSIGNED.
+  // When a Gemini 503 spike forced failover to Anthropic, that sim's
+  // bestCountry reflects Anthropic's judgment, so cross-model agreement
+  // must attribute it to Anthropic. Falls back to `provider` for
+  // snapshots created before synthesisProvider was tracked.
+  const effectiveProvider = (s: EnsembleSimSnapshot) =>
+    s.synthesisProvider ?? s.provider;
+
   // Only meaningful when sims actually span multiple providers. A 1-provider
   // ensemble would just duplicate the top-level distribution, which adds
   // visual noise without insight.
   const present = new Set(
-    sims.map((s) => s.provider).filter((p): p is string => typeof p === "string" && p.length > 0),
+    sims.map(effectiveProvider).filter((p): p is string => typeof p === "string" && p.length > 0),
   );
   if (present.size < 2) return undefined;
 
   const byProvider = new Map<string, EnsembleSimSnapshot[]>();
   for (const s of sims) {
-    const p = s.provider ?? "unknown";
+    const p = effectiveProvider(s) ?? "unknown";
     const arr = byProvider.get(p) ?? [];
     arr.push(s);
     byProvider.set(p, arr);

@@ -393,12 +393,13 @@ async function aggregateAndPersist(opts: {
     best_country: string | null;
     status: string;
     model_provider: string | null;
+    synthesis_provider: string | null;
     simulation_results: StoredResult | StoredResult[] | null;
   };
   const { data: rawRows, error } = await admin
     .from("simulations")
     .select(
-      `id, ensemble_index, best_country, status, model_provider,
+      `id, ensemble_index, best_country, status, model_provider, synthesis_provider,
        simulation_results ( countries, personas, overview, risks, recommendations, pricing, creative )`,
     )
     .eq("ensemble_id", ensembleId);
@@ -468,6 +469,10 @@ async function aggregateAndPersist(opts: {
         countries: (result.countries ?? []) as CountryScore[],
         personaIntentByCountry: intentByCountry,
         provider: r.model_provider ?? undefined,
+        // synthesis_provider is null on rows where no failover fired —
+        // fall back to model_provider so providerBreakdown works on
+        // every sim regardless of whether the column was populated.
+        synthesisProvider: r.synthesis_provider ?? r.model_provider ?? undefined,
         overview: (result.overview ?? undefined) as EnsembleSimSnapshot["overview"],
         risks: (result.risks ?? undefined) as EnsembleSimSnapshot["risks"],
         recommendations: (result.recommendations ?? undefined) as EnsembleSimSnapshot["recommendations"],

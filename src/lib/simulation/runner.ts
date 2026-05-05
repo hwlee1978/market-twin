@@ -1,6 +1,7 @@
 import { getLLMProvider } from "@/lib/llm";
 import type { LLMProvider, LLMProviderName } from "@/lib/llm";
 import { llmCallCostCents } from "@/lib/llm/cost";
+import { withProviderFallback } from "@/lib/llm/failover";
 import {
   collectSourceAttributions,
   loadReferenceBundles,
@@ -299,9 +300,43 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
   const personaLLM = withUsageTracking(personaLLMRaw, usage);
   const countryLLM = withUsageTracking(countryLLMRaw, usage);
   const pricingLLM = withUsageTracking(pricingLLMRaw, usage);
-  const synthesisLLM = withUsageTracking(synthesisLLMRaw, usage);
+
+  // Synthesis: wrap with provider-failover so a Gemini 503 spike (or
+  // any other 5xx/429 the retry policy can't outlast) flips the
+  // remaining synthesis call to Anthropic instead of failing the
+  // whole sim. Failover triggers only when the primary's full retry
+  // budget is exhausted; the default path always goes to the assigned
+  // provider so deep-tier multi-LLM round-robin is preserved.
+  //
+  // Honest attribution: synthesisActualProvider records what really
+  // produced the output, which the aggregator surfaces in its
+  // providerBreakdown so cross-model agreement stays accurate.
+  let synthesisActualProvider: string = synthesisLLMRaw.name;
+  const synthesisLLMFalloverable = withProviderFallback(synthesisLLMRaw, {
+    stage: "synthesis",
+    simId: opts.simulationId,
+    makeFallback: () => {
+      // Fallback hierarchy: anthropic > openai > gemini. Pick the
+      // first one that's NOT the primary. Anthropic is the strongest
+      // default (Sonnet has good synthesis quality + tier-2 burst),
+      // OpenAI second. We never fall back to Gemini because it's
+      // the most likely cause of the failover firing.
+      const fallbackName = synthesisLLMRaw.name === "anthropic" ? "openai" : "anthropic";
+      return getLLMProvider({
+        stage: "synthesis",
+        provider: fallbackName,
+        // Don't pass opts.model — that's keyed to the primary's model
+        // family and would break against a different provider.
+      });
+    },
+    onFallback: ({ fallback }) => {
+      synthesisActualProvider = fallback;
+    },
+  });
+  const synthesisLLM = withUsageTracking(synthesisLLMFalloverable, usage);
   // Regulatory check uses the synthesis-tier model: this needs to be reliable
   // about real laws (e.g. e-cigarette bans). Cheap models occasionally miss.
+  // Same failover wrapper applies — regulatory failure cascades the whole sim.
   const regulatoryLLM = synthesisLLM;
 
   // Surface the per-stage model selection in the run log — operators
@@ -1229,9 +1264,20 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         total_input_tokens: usage.inputTokens,
         total_output_tokens: usage.outputTokens,
         total_cost_cents: usage.costCents,
+        // Honest synthesis attribution: null when no failover fired
+        // (assigned provider was used end-to-end); the actual fallback
+        // provider name when a 5xx forced us to switch.
+        synthesis_provider:
+          synthesisActualProvider !== synthesisLLMRaw.name ? synthesisActualProvider : null,
       })
       .eq("id", opts.simulationId)
       .neq("status", "cancelled");
+
+    if (synthesisActualProvider !== synthesisLLMRaw.name) {
+      console.warn(
+        `[sim ${opts.simulationId}] synthesis fell over: ${synthesisLLMRaw.name} → ${synthesisActualProvider}`,
+      );
+    }
 
     // Top-level wall-clock — print after persistence so the line shows up
     // last in the log stream, makes it easy to scroll back and see the total.
