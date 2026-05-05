@@ -2348,8 +2348,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                   )}
                 </View>
               </View>
-              <MText style={{ fontSize: 8, color: C.muted, marginBottom: 4, fontStyle: "italic" }}>
-                {tagline}
+              <MText style={{ fontSize: 8, color: C.muted, marginBottom: 4 }}>
+                {`— ${tagline}`}
               </MText>
 
               <View style={{ flexDirection: "row", gap: 10, marginBottom: 4 }}>
@@ -2397,7 +2397,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                     paddingTop: 4,
                   }}
                 >
-                  <MText style={{ fontSize: 9, color: C.body, fontStyle: "italic", lineHeight: 1.5 }}>
+                  <MText style={{ fontSize: 9, color: C.body, lineHeight: 1.5 }}>
                     {`"${arch.representativeQuote.text}"`}
                   </MText>
                   <MText style={{ fontSize: 7, color: C.muted, marginTop: 2 }}>
@@ -2744,13 +2744,12 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 fontSize: 8,
                 color: C.muted,
                 marginTop: 6,
-                fontStyle: "italic",
                 lineHeight: 1.5,
               }}
             >
               {isKo
-                ? "신뢰 요인은 페이지의 표·인용에서 확인하세요 — 페르소나 페이지에서 trust factor 빈도가 별도로 집계됩니다."
-                : "See the personas page for the per-country trust-factor frequency table."}
+                ? "참고: 신뢰 요인은 페르소나 페이지의 trust factor 빈도 표에서 별도로 집계됩니다."
+                : "Note: Per-country trust-factor frequencies are aggregated on the personas page."}
             </MText>
           </View>
 
