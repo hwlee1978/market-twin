@@ -415,6 +415,23 @@ export interface PricingAggregate {
   recommendedPriceP75: number;
   marginEstimate: string; // mode of per-sim values
   /**
+   * Curve-derived revenue maximum — the price point in the consensus
+   * curve where (price × meanConversionProbability) is highest.
+   * Independent of the LLM's claimed recommendedPriceCents; serves as
+   * a sanity check. When the two diverge (>10% apart), the LLM was
+   * inconsistent with its own curve — the report flags this for the
+   * user. Null when the curve has fewer than 2 points.
+   */
+  curveRevenueMaxCents?: number | null;
+  /**
+   * Whether the LLM's recommendedPriceCents agrees with the curve-
+   * derived revenue max. True when within ±10% of each other; false
+   * when they diverge meaningfully (LLM picked a different point than
+   * its own data would suggest); null when curve is too sparse to
+   * compute or this is a legacy aggregate.
+   */
+  recommendationMatchesCurve?: boolean | null;
+  /**
    * Consensus curve: average conversion probability at each price point
    * across all sims, sorted ascending by price. Sims may have slightly
    * different price grids — we bucket nearest-cent-rounded prices to
@@ -1367,6 +1384,33 @@ function computePricingAggregate(
     .sort((a, b) => a.priceCents - b.priceCents);
 
   const recommendedPriceCents = median(recs);
+
+  // Curve-derived revenue max — independent verification of the LLM's
+  // claimed recommendation. We compute argmax(price × conversion) on
+  // the consensus curve. If the LLM's "recommended" sits far from this
+  // point, it likely anchored on the base price instead of actually
+  // optimising. Also useful for the report sensitivity matrix.
+  let curveRevenueMaxCents: number | null = null;
+  let recommendationMatchesCurve: boolean | null = null;
+  if (curve.length >= 2) {
+    let bestRev = -Infinity;
+    let bestPrice = curve[0].priceCents;
+    for (const p of curve) {
+      const rev = p.priceCents * p.meanConversionProbability;
+      if (rev > bestRev) {
+        bestRev = rev;
+        bestPrice = p.priceCents;
+      }
+    }
+    curveRevenueMaxCents = bestPrice;
+    if (recommendedPriceCents > 0) {
+      const ratio = bestPrice / recommendedPriceCents;
+      // Within ±10% counts as "agrees with curve". Wider gap means
+      // the LLM is making a different call than its own data supports.
+      recommendationMatchesCurve = ratio >= 0.9 && ratio <= 1.1;
+    }
+  }
+
   return {
     recommendedPriceCents,
     recommendedPriceMedian: recommendedPriceCents,
@@ -1374,6 +1418,8 @@ function computePricingAggregate(
     recommendedPriceP75: p75,
     marginEstimate,
     curve,
+    curveRevenueMaxCents,
+    recommendationMatchesCurve,
     sensitivity: computePricingSensitivity(curve, recommendedPriceCents),
   };
 }

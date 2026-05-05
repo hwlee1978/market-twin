@@ -3964,20 +3964,70 @@ function PricingTab({
               </div>
             </div>
           </div>
-          {peakPoint && (
-            <div className="rounded-lg bg-white border border-slate-200 px-4 py-3 shrink-0 min-w-[140px]">
-              <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">
-                {isKo ? "최고 전환 가격" : "Peak conversion"}
+          <div className="flex gap-2 flex-wrap">
+            {pricing.curveRevenueMaxCents != null && (
+              <div
+                className={clsx(
+                  "rounded-lg border px-4 py-3 shrink-0 min-w-[140px]",
+                  pricing.recommendationMatchesCurve === false
+                    ? "bg-warn-soft/50 border-warn/40"
+                    : "bg-white border-slate-200",
+                )}
+                title={
+                  isKo
+                    ? "곡선 데이터에서 (가격 × 전환)이 최대가 되는 지점. 권장 가격과 차이가 크면 LLM이 곡선과 다른 판단을 한 것."
+                    : "Price point where (price × conversion) peaks on the curve. A gap with the recommended price means the LLM picked differently than its own data."
+                }
+              >
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">
+                  {isKo ? "곡선 매출 최대점" : "Curve revenue max"}
+                </div>
+                <div className="text-base font-semibold text-slate-900 tabular-nums">
+                  {fmt(pricing.curveRevenueMaxCents)}
+                </div>
+                <div
+                  className={clsx(
+                    "text-[10px]",
+                    pricing.recommendationMatchesCurve === false
+                      ? "text-warn font-semibold"
+                      : "text-slate-400",
+                  )}
+                >
+                  {pricing.recommendationMatchesCurve === false
+                    ? isKo
+                      ? "권장과 차이"
+                      : "Differs from rec"
+                    : pricing.recommendationMatchesCurve === true
+                      ? isKo
+                        ? "권장과 일치 ✓"
+                        : "Matches rec ✓"
+                      : ""}
+                </div>
               </div>
-              <div className="text-base font-semibold text-slate-900 tabular-nums">
-                {fmt(peakPoint.priceCents)}
+            )}
+            {peakPoint && (
+              <div className="rounded-lg bg-white border border-slate-200 px-4 py-3 shrink-0 min-w-[140px]">
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">
+                  {isKo ? "최고 전환 가격" : "Peak conversion"}
+                </div>
+                <div className="text-base font-semibold text-slate-900 tabular-nums">
+                  {fmt(peakPoint.priceCents)}
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {(peakPoint.meanConversionProbability * 100).toFixed(1)}%
+                </div>
               </div>
-              <div className="text-[10px] text-slate-400">
-                {(peakPoint.meanConversionProbability * 100).toFixed(1)}%
-              </div>
+            )}
+          </div>
+        </div>
+        {pricing.recommendationMatchesCurve === false &&
+          pricing.curveRevenueMaxCents != null && (
+            <div className="mt-3 text-xs text-warn-foreground bg-warn-soft/40 border border-warn/30 rounded-md px-3 py-2 leading-relaxed">
+              {isKo
+                ? `⚠ LLM이 권장한 가격(${fmt(pricing.recommendedPriceCents)})과 곡선상 매출-최대 가격(${fmt(pricing.curveRevenueMaxCents)})이 다릅니다. LLM이 기본가에 anchor했을 가능성이 있으니 곡선 데이터를 직접 검토 권장.`
+                : `⚠ LLM-recommended price (${fmt(pricing.recommendedPriceCents)}) and the curve's revenue-max point (${fmt(pricing.curveRevenueMaxCents)}) disagree. LLM may have anchored on the base price — verify against the curve data.`}
             </div>
           )}
-        </div>
       </div>
 
       {/* Margin narrative — separate row because the LLM often returns a

@@ -591,6 +591,17 @@ ${aggregate.byCountry
 
 ${languageInstruction(locale)}
 
+═══ recommendedPriceCents — DO NOT ANCHOR ON BASE PRICE ═══
+The base price (${(input.basePriceCents / 100).toFixed(2)} ${input.currency}) is INPUT context, not a default answer. Many models default to "recommended = base" without doing the math — that's a critical error.
+
+Required behaviour:
+1. Compute revenue index = priceCents × conversionProbability for EVERY curve point.
+2. Pick the price point with the **highest revenue index** as the recommended price.
+3. The recommended price MUST equal one of the priceCents values you emit in the curve (or be within ±2% of it). It must NOT default to base unless base genuinely is the curve's revenue maximum.
+4. If the persona price-sensitivity profile suggests demand is highly inelastic (mostly "low"), the revenue max is likely ABOVE base. If demand is highly elastic ("high"), it's likely BELOW base. Only rare cases land exactly at base.
+
+A consistency check the runner will apply post-emission: if your recommendedPriceCents differs from the argmax(priceCents × conversionProbability) of your own curve by more than 10%, the result will be flagged as "LLM anchored on base price" — readers will see this discrepancy in the report.
+
 Return: { "recommendedPriceCents": int, "marginEstimate": "string description (in ${LANG_NAME[locale]})", "curve": [ { priceCents, conversionProbability, estimatedRevenueIndex } ] }`;
 }
 
