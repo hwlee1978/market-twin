@@ -26,6 +26,10 @@ import {
 } from "./prompts";
 import { evaluateRegulatory } from "./regulatory";
 import { filterLocaleNative, sanitizeVoice } from "./locale-filter";
+import {
+  sanitizeChannelMismatch,
+  sanitizeChannelMismatchArray,
+} from "./country-channel";
 import { aggregatePersonas } from "./aggregate";
 import { planSlots, type PersonaSlot } from "./profession-pool";
 import {
@@ -501,6 +505,12 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     // line at the end of personas-stage tells you at-a-glance whether the
     // prompt-side defenses are holding for this run's locale × persona mix.
     let voiceSlipCount = 0;
+    // Channel-mismatch slip tracker — incremented every time the
+    // country-channel sanitizer rewrites a Korea-only / Japan-only /
+    // China-only marketplace name out of a persona who isn't from
+    // that country. Surfaces in the quality audit so we can spot
+    // prompt regressions where the LLM forgets to localise channels.
+    let channelMismatchCount = 0;
     // Concurrency scales with persona count + provider — Anthropic gets
     // the persona-count-based ladder, OpenAI/Gemini get tighter caps to
     // stay inside their TPM/burst limits. See personaBatchConcurrency().
@@ -688,13 +698,45 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
                   `"${parsed.data.voice.slice(0, 80)}"`,
               );
             }
+            // Channel sanitization runs AFTER voice sanitization so we
+            // only rewrite quotes that survived the language gate.
+            // sanitizedVoice can be null (rejected) or a string; only
+            // sanitize the string case.
+            const voiceForChannelCheck = sanitizedVoice ?? "";
+            const channelVoice = sanitizeChannelMismatch(
+              voiceForChannelCheck,
+              parsed.data.country,
+              locale,
+            );
+            if (channelVoice.replacements > 0) {
+              channelMismatchCount += channelVoice.replacements;
+              console.warn(
+                `[sim ${opts.simulationId}] channel slip rewritten (fresh, ${parsed.data.country}): ` +
+                  `${channelVoice.replacements}× in "${voiceForChannelCheck.slice(0, 80)}"`,
+              );
+            }
+            // Also scrub channel slips out of objections + trustFactors;
+            // those propagate into the country-tab top-N list and would
+            // misrepresent local market structure if a Korean channel
+            // shows up under VN.
+            const cleanedObjections = sanitizeChannelMismatchArray(
+              filterLocaleNative(parsed.data.objections, locale),
+              parsed.data.country,
+              locale,
+            );
+            const cleanedTrust = sanitizeChannelMismatchArray(
+              filterLocaleNative(parsed.data.trustFactors, locale),
+              parsed.data.country,
+              locale,
+            );
+            channelMismatchCount += cleanedObjections.replacements + cleanedTrust.replacements;
             const cleaned = {
               ...parsed.data,
               id: parsed.data.id ?? crypto.randomUUID(),
-              objections: filterLocaleNative(parsed.data.objections, locale),
-              trustFactors: filterLocaleNative(parsed.data.trustFactors, locale),
+              objections: cleanedObjections.items,
+              trustFactors: cleanedTrust.items,
               interests: filterLocaleNative(parsed.data.interests, locale),
-              voice: sanitizedVoice ?? "",
+              voice: channelVoice.sanitized || sanitizedVoice || "",
             };
             freshPairs.push({ persona: cleaned, slot: batchSlots[pi] });
           } else {
@@ -841,8 +883,8 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
             parseSkips++;
             continue;
           }
-          const trustFactors = filterLocaleNative(reaction.trustFactors, locale);
-          const objections = filterLocaleNative(reaction.objections, locale);
+          const trustFactorsLocale = filterLocaleNative(reaction.trustFactors, locale);
+          const objectionsLocale = filterLocaleNative(reaction.objections, locale);
           const sanitizedReactionVoice = sanitizeVoice(reaction.voice, locale);
           if (reaction.voice && sanitizedReactionVoice === null) {
             voiceSlipCount++;
@@ -851,7 +893,36 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
                 `"${reaction.voice.slice(0, 80)}"`,
             );
           }
-          const voice = sanitizedReactionVoice ?? "";
+          const voiceLocaleClean = sanitizedReactionVoice ?? "";
+          // Channel sanitization on the reaction path. Same shape as
+          // the fresh-persona block — voice + objections + trust pass
+          // through the country-locked-channel rewriter.
+          const channelVoiceR = sanitizeChannelMismatch(
+            voiceLocaleClean,
+            hit.base.country,
+            locale,
+          );
+          if (channelVoiceR.replacements > 0) {
+            channelMismatchCount += channelVoiceR.replacements;
+            console.warn(
+              `[sim ${opts.simulationId}] channel slip rewritten (reaction, ${hit.base.country}): ` +
+                `${channelVoiceR.replacements}× in "${voiceLocaleClean.slice(0, 80)}"`,
+            );
+          }
+          const cleanedObjectionsR = sanitizeChannelMismatchArray(
+            objectionsLocale,
+            hit.base.country,
+            locale,
+          );
+          const cleanedTrustR = sanitizeChannelMismatchArray(
+            trustFactorsLocale,
+            hit.base.country,
+            locale,
+          );
+          channelMismatchCount += cleanedObjectionsR.replacements + cleanedTrustR.replacements;
+          const trustFactors = cleanedTrustR.items;
+          const objections = cleanedObjectionsR.items;
+          const voice = channelVoiceR.sanitized || voiceLocaleClean;
           const merged = {
             id: hit.base.id,
             ageRange: hit.base.age_range,
@@ -932,8 +1003,9 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       `[sim ${opts.simulationId}] generated ${personas.length} personas — distribution: ${distributionLog}`,
     );
     console.log(
-      `[sim ${opts.simulationId}] voice slips: ${voiceSlipCount}/${personas.length} (locale=${locale})` +
-        (voiceSlipCount === 0 ? " ✓" : ""),
+      `[sim ${opts.simulationId}] voice slips: ${voiceSlipCount}/${personas.length} (locale=${locale}) · ` +
+        `channel slips rewritten: ${channelMismatchCount}` +
+        (voiceSlipCount === 0 && channelMismatchCount === 0 ? " ✓" : ""),
     );
 
     // Compress the persona pool into bounded statistical summaries before any
@@ -1364,6 +1436,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
           pricing: result.pricing ?? null,
           basePriceCents: opts.projectInput.basePriceCents ?? null,
           voiceSlipRate: personas.length > 0 ? voiceSlipCount / personas.length : null,
+          channelMismatchCount,
           synthesisFailover: synthesisActualProvider !== synthesisLLMRaw.name,
           personaCount: personas.length,
           personaCountTarget: opts.personaCount,

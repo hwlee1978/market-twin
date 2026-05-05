@@ -42,6 +42,12 @@ export interface QualityAuditInput {
   basePriceCents?: number | null;
   /** Voice-slip rate the runner already computed (0-1). null if not measured. */
   voiceSlipRate?: number | null;
+  /**
+   * Total count of channel-mismatch rewrites the runner's country-channel
+   * sanitizer applied (e.g., a Vietnamese persona who mentioned Coupang).
+   * Normalised against persona count downstream into channelMismatchRate.
+   */
+  channelMismatchCount?: number;
   /** Whether the synthesis stage fell over to a backup provider. */
   synthesisFailover: boolean;
   /** Effective persona count after generation (some may have been skipped). */
@@ -69,6 +75,14 @@ export interface QualityAuditResult {
      * fewer than 5 voiced personas — not enough sample to judge.
      */
     voiceHomogeneity: number | null;
+    /**
+     * Per-persona average count of country/channel mismatches rewritten
+     * by the runner's country-channel sanitizer. 0 = the LLM emitted
+     * country-aware channel choices throughout; >0.5 = roughly every
+     * other persona named a Korea-only/Japan-only/etc. marketplace
+     * inappropriately. Null when persona count is 0.
+     */
+    channelMismatchRate: number | null;
   };
 }
 
@@ -276,7 +290,26 @@ export function auditQuality(input: QualityAuditInput): QualityAuditResult {
     }
   }
 
-  // ── 8. Synthesis failover (informational, not penalising) ──────
+  // ── 8. Channel mismatch rate ────────────────────────────────────
+  // The runner sanitizer rewrites country-locked channel mentions
+  // (Coupang in a VN persona, Rakuten in a US persona, etc.). The
+  // value is informational unless it gets large — a sustained slip
+  // rate suggests the country-aware persona prompt regressed.
+  let channelMismatchRate: number | null = null;
+  if (input.personaCount > 0 && typeof input.channelMismatchCount === "number") {
+    channelMismatchRate = input.channelMismatchCount / input.personaCount;
+    if (channelMismatchRate >= 0.5) {
+      warnings.push({
+        code: "channel_mismatch_high",
+        severity: "warning",
+        message: `${input.channelMismatchCount} channel-mismatches rewritten (${(channelMismatchRate * 100).toFixed(0)}% of personas) — country-aware persona prompt may have regressed`,
+        value: channelMismatchRate,
+        threshold: 0.5,
+      });
+    }
+  }
+
+  // ── 9. Synthesis failover (informational, not penalising) ──────
   if (input.synthesisFailover) {
     warnings.push({
       code: "synthesis_failover",
@@ -317,6 +350,7 @@ export function auditQuality(input: QualityAuditInput): QualityAuditResult {
       priceInBand,
       synthesisFailover: input.synthesisFailover,
       voiceHomogeneity,
+      channelMismatchRate,
     },
   };
 }
@@ -390,6 +424,7 @@ export async function persistAudit(
       price_in_band: result.metrics.priceInBand,
       synthesis_failover: result.metrics.synthesisFailover,
       voice_homogeneity: result.metrics.voiceHomogeneity,
+      channel_mismatch_rate: result.metrics.channelMismatchRate,
       warnings: result.warnings,
     },
     { onConflict: "simulation_id" },
