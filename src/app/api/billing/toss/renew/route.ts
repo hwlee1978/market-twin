@@ -3,6 +3,10 @@ import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { chargeBillingKey, tossPriceKrw } from "@/lib/billing/toss";
 import { getPlan, type PlanSlug } from "@/lib/billing/plans";
+import {
+  notifyPaymentFailed,
+  notifyPaymentSucceeded,
+} from "@/lib/email/billing-notify";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -129,6 +133,13 @@ export async function GET(req: Request) {
         currency: "KRW",
         metadata: { payment_key: charge.paymentKey, order_id: orderId, renewal: true, cycle },
       });
+      void notifyPaymentSucceeded({
+        workspaceId,
+        planName: plan.name,
+        amountCents: amountKrw * 100,
+        currency: "KRW",
+        isRenewal: true,
+      });
       results.push({ workspaceId, outcome: "success" });
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
@@ -143,6 +154,12 @@ export async function GET(req: Request) {
         to_status: "past_due",
         currency: "KRW",
         metadata: { reason, renewal: true },
+      });
+      void notifyPaymentFailed({
+        workspaceId,
+        planName: getPlan(row.plan as PlanSlug).name,
+        reason,
+        currency: "KRW",
       });
       results.push({ workspaceId, outcome: "failed", reason });
     }

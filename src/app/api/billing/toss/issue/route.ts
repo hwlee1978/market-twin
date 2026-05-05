@@ -10,6 +10,7 @@ import {
   workspaceCustomerKey,
 } from "@/lib/billing/toss";
 import { getPlan } from "@/lib/billing/plans";
+import { notifyPaymentSucceeded } from "@/lib/email/billing-notify";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -134,6 +135,14 @@ export async function POST(req: Request) {
       card_company: card.cardCompany,
       card_number_masked: card.cardNumberMasked,
     },
+  });
+
+  void notifyPaymentSucceeded({
+    workspaceId: ctx.workspaceId,
+    planName: plan.name,
+    amountCents: amountKrw * 100,
+    currency: "KRW",
+    isRenewal: false,
   });
 
   return NextResponse.json({

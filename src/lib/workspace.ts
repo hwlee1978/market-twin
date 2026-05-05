@@ -1,5 +1,11 @@
 import { cache } from "react";
+import { headers } from "next/headers";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import {
+  checkTrialAbuse,
+  recordSignupAttempt,
+  clientIp,
+} from "@/lib/billing/trial-abuse";
 
 export type WorkspaceStatus = "active" | "suspended" | "archived";
 
@@ -100,21 +106,61 @@ export const getOrCreatePrimaryWorkspace = cache(
       throw memErr;
     }
 
+    // Trial-abuse check before granting the free 1-sim trial.
+    // Headers come from the Next request (Vercel populates
+    // x-forwarded-for); we run the check best-effort and downgrade
+    // the trial sim quota to 0 if the signup looks abusive. The
+    // workspace itself is still created so the user can browse the
+    // dashboard and see the upgrade prompt.
+    let abuseGrant = true;
+    let abuseReason: string | undefined;
+    let emailCanonical = user.email ?? "";
+    let emailDomain = "";
+    let ip: string | null = null;
+    try {
+      const h = await headers();
+      ip = clientIp(h);
+      const verdict = await checkTrialAbuse({ email: user.email ?? "", ip });
+      abuseGrant = verdict.grant;
+      abuseReason = verdict.reason;
+      emailCanonical = verdict.emailCanonical;
+      emailDomain = verdict.emailDomain;
+    } catch (err) {
+      // Header / DB hiccup — fail open so legitimate signups aren't blocked.
+      console.warn(`[workspace] trial-abuse check failed, defaulting to grant:`, err);
+    }
+
     // Bootstrap a free_trial subscription row alongside the workspace.
-    // 7-day window + 1 free sim, whichever comes first. Failure is
-    // non-fatal — the migration's backfill catches any orphan rows on
-    // the next deploy and the billing dashboard tolerates a missing
-    // subscription by treating it as free_trial defaults.
+    // 7-day window + 1 free sim when allowed; trial_sims_limit=0 when
+    // the abuse check denied. Failure is non-fatal — the migration's
+    // backfill catches any orphan rows on the next deploy.
     const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const { error: subErr } = await admin.from("subscriptions").insert({
       workspace_id: ws.id,
       plan: "free_trial",
       status: "trialing",
       trial_ends_at: trialEndsAt,
-      trial_sims_limit: 1,
+      trial_sims_limit: abuseGrant ? 1 : 0,
     });
     if (subErr && (subErr as { code?: string }).code !== "23505") {
       console.warn(`[workspace] subscription bootstrap failed for ${ws.id}:`, subErr.message);
+    }
+
+    // Audit trail — record every signup attempt (granted or denied)
+    // so abuse-detection rates can be tuned from real data.
+    try {
+      await recordSignupAttempt({
+        userId: user.id,
+        workspaceId: ws.id,
+        emailRaw: user.email ?? "",
+        emailCanonical,
+        emailDomain,
+        ip,
+        trialGranted: abuseGrant,
+        denialReason: abuseReason,
+      });
+    } catch (err) {
+      console.warn(`[workspace] signup-attempt logging failed:`, err);
     }
 
     return {

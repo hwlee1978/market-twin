@@ -3,6 +3,11 @@ import type Stripe from "stripe";
 import { createServiceClient } from "@/lib/supabase/server";
 import { stripe, stripeWebhookSecret } from "@/lib/billing/stripe";
 import type { PlanSlug, SubscriptionStatus } from "@/lib/billing/plans";
+import { getPlan } from "@/lib/billing/plans";
+import {
+  notifyPaymentFailed,
+  notifyPaymentSucceeded,
+} from "@/lib/email/billing-notify";
 
 export const dynamic = "force-dynamic";
 // Stripe webhooks need the raw body for signature verification; Next's
@@ -162,8 +167,21 @@ async function handleInvoicePaid(invoice: Stripe.Invoice, admin: Admin) {
   });
 
   // Refresh subscription state — period_end advances on each renewal.
-  const plan = sub.metadata?.plan as PlanSlug | undefined;
-  if (plan) await persistSubscription(workspaceId, plan, sub, admin);
+  const planSlug = sub.metadata?.plan as PlanSlug | undefined;
+  if (planSlug) await persistSubscription(workspaceId, planSlug, sub, admin);
+
+  // Receipt email. invoice.billing_reason distinguishes the first
+  // checkout charge ("subscription_create") from later renewals so the
+  // copy can match. We pass isRenewal accordingly.
+  const isRenewal = invoice.billing_reason === "subscription_cycle";
+  void notifyPaymentSucceeded({
+    workspaceId,
+    planName: planSlug ? getPlan(planSlug).name : "Subscription",
+    amountCents: invoice.amount_paid,
+    currency: invoice.currency.toUpperCase(),
+    invoiceUrl: invoice.hosted_invoice_url ?? null,
+    isRenewal,
+  });
 }
 
 async function handleInvoiceFailed(invoice: Stripe.Invoice, admin: Admin) {
@@ -188,6 +206,16 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice, admin: Admin) {
     amount_cents: invoice.amount_due,
     currency: invoice.currency.toUpperCase(),
     metadata: { invoice_id: invoice.id, subscription_id: subId },
+  });
+
+  const planSlug = sub.metadata?.plan as PlanSlug | undefined;
+  void notifyPaymentFailed({
+    workspaceId,
+    planName: planSlug ? getPlan(planSlug).name : "Subscription",
+    amountCents: invoice.amount_due,
+    currency: invoice.currency.toUpperCase(),
+    reason: invoice.last_finalization_error?.message ?? null,
+    manageUrl: invoice.hosted_invoice_url ?? null,
   });
 }
 
