@@ -49,6 +49,27 @@ export interface CountryAggregate {
   highIntentPct: number;
   lowIntentPct: number;
 
+  /**
+   * 2-stage funnel: ad impression → click-through → purchase. Built from
+   * Persona.adReaction (curiosity + wouldClick) when emitted; left null
+   * when no persona in this country carried adReaction. Each rate is a
+   * percentage of the country's persona count.
+   *
+   *   curiosityMean: mean curiosity across personas (0-100)
+   *   clickRatePct: % of personas with wouldClick=true
+   *   buyRatePct: % of personas with purchaseIntent >= 60
+   *
+   * The drop-off curiosity → click → buy is the funnel narrative we
+   * surface in the UI ("100 personas, 70 curious, 45 would click,
+   * 22 would buy").
+   */
+  funnel: {
+    curiosityMean: number;
+    clickRatePct: number;
+    buyRatePct: number;
+    sample: number; // personas in this country who emitted adReaction
+  } | null;
+
   /** Top frequency-ranked entries from each free-text array field. */
   topObjections: FreqEntry[];
   topTrustFactors: FreqEntry[];
@@ -108,6 +129,31 @@ function distribution(values: string[], n: number): DistEntry[] {
     .sort((a, b) => b[1] - a[1])
     .slice(0, n)
     .map(([value, c]) => ({ value, pct: Math.round((c / total) * 100) }));
+}
+
+/**
+ * Compute the 3-stage funnel summary from a country's personas. Returns
+ * null when no persona in the bucket emitted adReaction — common on
+ * legacy sims that pre-date the field. We never partial-compute (e.g.,
+ * "0 curious of 30 in this country" is misleading; "no signal" is
+ * honest).
+ *
+ * buyRatePct uses the same 60+ purchaseIntent threshold the rest of
+ * the dashboard treats as "would buy" — keeps the funnel consistent
+ * with the high-intent persona count surfaced elsewhere.
+ */
+function computeFunnel(personas: Persona[]): CountryAggregate["funnel"] {
+  const withAd = personas.filter((p) => !!p.adReaction);
+  if (withAd.length === 0) return null;
+  const curiositySum = withAd.reduce((s, p) => s + (p.adReaction?.curiosity ?? 0), 0);
+  const clickCount = withAd.filter((p) => p.adReaction?.wouldClick === true).length;
+  const buyCount = withAd.filter((p) => p.purchaseIntent >= 60).length;
+  return {
+    curiosityMean: Math.round((curiositySum / withAd.length) * 10) / 10,
+    clickRatePct: Math.round((clickCount / withAd.length) * 100),
+    buyRatePct: Math.round((buyCount / withAd.length) * 100),
+    sample: withAd.length,
+  };
 }
 
 function intentHistogramOf(intents: number[]): number[] {
@@ -211,6 +257,7 @@ function aggregateCountry(
       TOP_STYLES,
     ),
     priceSensitivity: sens,
+    funnel: computeFunnel(personas),
     exemplars: selectExemplars(personas, exemplarCount),
   };
 }

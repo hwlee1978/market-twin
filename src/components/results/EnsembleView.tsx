@@ -2122,6 +2122,7 @@ function CountryDrilldown({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
       <div className="lg:col-span-2 space-y-4">
+        {detail.funnel && <FunnelStrip funnel={detail.funnel} isKo={isKo} />}
         {components && (
           <CountryComponentBreakdown
             components={components}
@@ -2329,6 +2330,104 @@ function CountryComponentBreakdown({
           ? "각 항목 0–100. 경쟁·규제는 역치 (높을수록 좋음). 가장 낮은 항목에 주목 — 그 부분이 진출의 약점입니다."
           : "Each metric 0–100. Competition and regulatory are inverted (higher = better). The lowest score is your weakness — focus there."}
       </p>
+    </div>
+  );
+}
+
+/**
+ * Two-stage funnel strip — ad impression → click → buy. Reads
+ * detail.funnel which the aggregator computed from Persona.adReaction
+ * (the new schema field). Renders 3 stacked horizontal bars where
+ * each subsequent bar is the percentage of personas that survived
+ * the previous step.
+ *
+ * The buy stage uses the same ≥60 purchaseIntent threshold as the
+ * marketing-funnel "would buy" bucket. Drop-offs between stages
+ * surface where the offer is leaking — high curiosity + low buy
+ * rate means the AD is good but the OFFER isn't, etc.
+ */
+function FunnelStrip({
+  funnel,
+  isKo,
+}: {
+  funnel: NonNullable<
+    NonNullable<EnsembleAggregate["countryStats"][number]["detail"]>["funnel"]
+  >;
+  isKo: boolean;
+}) {
+  const rows = [
+    {
+      key: "curiosity",
+      label: isKo ? "광고 호기심" : "Ad curiosity",
+      value: funnel.curiosityMean,
+      tone: funnel.curiosityMean >= 60 ? "bg-success" : funnel.curiosityMean >= 40 ? "bg-warn" : "bg-risk",
+      hint: isKo ? "광고를 보고 멈춰서 봤을 페르소나 평균 점수 (0-100)" : "Mean attention score on the ad (0-100)",
+    },
+    {
+      key: "click",
+      label: isKo ? "클릭 의향" : "Click rate",
+      value: funnel.clickRatePct,
+      tone: funnel.clickRatePct >= 50 ? "bg-success" : funnel.clickRatePct >= 30 ? "bg-warn" : "bg-risk",
+      hint: isKo ? "랜딩페이지로 넘어갈 의향이 있는 페르소나 비율" : "% of personas who would tap to learn more",
+    },
+    {
+      key: "buy",
+      label: isKo ? "구매 의향" : "Buy rate",
+      value: funnel.buyRatePct,
+      tone: funnel.buyRatePct >= 40 ? "bg-success" : funnel.buyRatePct >= 25 ? "bg-warn" : "bg-risk",
+      hint: isKo ? "구매 의향 60+ (전체 페르소나의 비율)" : "% with purchase intent ≥ 60",
+    },
+  ];
+
+  // Compute drop-offs to highlight where the funnel leaks. Curiosity is
+  // 0-100, the others are %. When the click rate is far below curiosity
+  // (e.g. 65 vs 25), that's an ad-vs-landing mismatch worth flagging.
+  const dropoffMessage = (() => {
+    if (funnel.curiosityMean - funnel.clickRatePct >= 25) {
+      return isKo
+        ? "광고는 시선을 끌지만 클릭으로 이어지지 않음 → 카피·CTA 점검"
+        : "Ad catches eye but doesn't earn the click — review copy + CTA";
+    }
+    if (funnel.clickRatePct - funnel.buyRatePct >= 25) {
+      return isKo
+        ? "클릭은 받지만 구매로 이어지지 않음 → 가격·랜딩 컨텐츠 점검"
+        : "Clicks don't convert to buys — review pricing + landing content";
+    }
+    return null;
+  })();
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="flex items-baseline justify-between mb-2.5">
+        <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+          {isKo ? "구매 퍼널 (광고 → 클릭 → 구매)" : "Conversion funnel (ad → click → buy)"}
+        </div>
+        <div className="text-[11px] text-slate-500">
+          {isKo ? `샘플 ${funnel.sample.toLocaleString()}명` : `${funnel.sample.toLocaleString()} personas`}
+        </div>
+      </div>
+      <ul className="space-y-1.5">
+        {rows.map((r) => (
+          <li key={r.key} className="flex items-center gap-3 text-sm" title={r.hint}>
+            <div className="w-24 shrink-0 text-xs text-slate-600">{r.label}</div>
+            <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className={clsx("h-full transition-all", r.tone)}
+                style={{ width: `${Math.max(0, Math.min(100, r.value))}%` }}
+              />
+            </div>
+            <div className="w-12 text-right text-xs tabular-nums text-slate-600">
+              {r.key === "curiosity" ? r.value.toFixed(0) : `${r.value}%`}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {dropoffMessage && (
+        <p className="text-[11px] text-warn mt-2 leading-relaxed flex items-start gap-1.5">
+          <AlertCircle size={12} className="shrink-0 mt-0.5" />
+          {dropoffMessage}
+        </p>
+      )}
     </div>
   );
 }

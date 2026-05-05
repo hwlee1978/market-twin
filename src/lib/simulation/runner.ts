@@ -937,6 +937,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
             objections,
             purchaseIntent: reaction.purchaseIntent,
             voice,
+            adReaction: reaction.adReaction,
           };
           personas.push(merged);
           const code = (merged.country ?? "").toUpperCase();

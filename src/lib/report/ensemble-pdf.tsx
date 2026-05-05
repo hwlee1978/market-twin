@@ -1313,6 +1313,15 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 </View>
               )}
 
+              {d.funnel && (
+                <View style={{ marginBottom: 8 }}>
+                  <MText style={[styles.infoLabel, { marginBottom: 3 }]}>
+                    {isKo ? "구매 퍼널 (광고 → 클릭 → 구매)" : "Conversion funnel"}
+                  </MText>
+                  <FunnelBars funnel={d.funnel} isKo={isKo} />
+                </View>
+              )}
+
               {d.rationaleSamples.length > 0 && (
                 <View style={{ marginBottom: 8 }}>
                   <MText style={[styles.infoLabel, { marginBottom: 3 }]}>
@@ -2199,6 +2208,74 @@ function ComponentBars({
           </View>
         );
       })}
+    </View>
+  );
+}
+
+/**
+ * Conversion funnel as 3 horizontal bars (ad curiosity → click → buy).
+ * Mirrors the FunnelStrip dashboard component so the printed report
+ * and the live page tell the same story.
+ */
+function FunnelBars({
+  funnel,
+  isKo,
+}: {
+  funnel: NonNullable<
+    NonNullable<EnsembleAggregate["countryStats"][number]["detail"]>["funnel"]
+  >;
+  isKo: boolean;
+}) {
+  const rows = [
+    {
+      label: isKo ? "광고 호기심" : "Ad curiosity",
+      value: funnel.curiosityMean,
+      suffix: "/100",
+    },
+    {
+      label: isKo ? "클릭 의향" : "Click rate",
+      value: funnel.clickRatePct,
+      suffix: "%",
+    },
+    {
+      label: isKo ? "구매 의향" : "Buy rate",
+      value: funnel.buyRatePct,
+      suffix: "%",
+    },
+  ];
+  return (
+    <View style={{ gap: 3 }}>
+      {rows.map((r, idx) => {
+        const color = r.value >= 60 || (idx === 1 && r.value >= 50)
+          ? C.success
+          : r.value >= 40 || (idx >= 1 && r.value >= 25)
+            ? C.warn
+            : C.risk;
+        const pct = Math.max(0, Math.min(100, r.value));
+        return (
+          <View key={r.label} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <MText style={{ fontSize: 8, color: C.muted, width: 80 }}>{r.label}</MText>
+            <View style={{ flex: 1, height: 6, backgroundColor: C.divider, borderRadius: 3 }}>
+              <View
+                style={{
+                  width: `${pct}%`,
+                  height: 6,
+                  backgroundColor: color,
+                  borderRadius: 3,
+                }}
+              />
+            </View>
+            <MText style={{ fontSize: 8, color: C.ink, width: 36, textAlign: "right" }}>
+              {`${r.value.toFixed(idx === 0 ? 1 : 0)}${r.suffix}`}
+            </MText>
+          </View>
+        );
+      })}
+      <MText style={{ fontSize: 7, color: C.muted, marginTop: 1 }}>
+        {isKo
+          ? `샘플 ${funnel.sample.toLocaleString()}명 · 광고→클릭→구매 전환율`
+          : `${funnel.sample.toLocaleString()} personas · ad→click→buy conversion`}
+      </MText>
     </View>
   );
 }

@@ -64,6 +64,17 @@ const toLowMedHigh = (val: unknown): "low" | "medium" | "high" => {
   return "medium";
 };
 
+const toBool = (val: unknown): boolean => {
+  if (typeof val === "boolean") return val;
+  if (typeof val === "number") return val > 0;
+  if (typeof val === "string") {
+    const s = val.toLowerCase().trim();
+    if (["true", "yes", "y", "1", "would click", "would tap", "click", "예", "네", "할 것"].some((k) => s.includes(k))) return true;
+    return false;
+  }
+  return false;
+};
+
 const toIntent = (val: unknown): number => {
   if (typeof val === "number" && Number.isFinite(val)) {
     return Math.max(0, Math.min(100, val));
@@ -100,6 +111,27 @@ export const PersonaSchema = z.object({
    * asked the LLM to produce one — UI hides the quote block when empty.
    */
   voice: z.preprocess((v) => (typeof v === "string" ? v : ""), z.string()).default(""),
+  /**
+   * Ad-stage reaction — what the persona thinks SEEING THE AD/SOCIAL POST,
+   * BEFORE deciding whether to click through to learn more. This is a
+   * separate funnel step from purchaseIntent, which is post-consideration.
+   *
+   * Together they form a 3-stage conversion funnel:
+   *   1. curiosity (0-100): "did this catch my eye?"
+   *   2. wouldClick (bool): "would I tap to learn more?"
+   *   3. purchaseIntent (0-100): "after reading the details, would I buy?"
+   *
+   * Optional for backwards compat with legacy sims; the prompt always
+   * asks for it now. Lenient parsing — any malformed shape becomes
+   * undefined rather than failing the whole persona.
+   */
+  adReaction: z
+    .object({
+      curiosity: z.preprocess(toIntent, z.number().min(0).max(100)),
+      wouldClick: z.preprocess(toBool, z.boolean()),
+    })
+    .optional()
+    .catch(undefined),
 });
 export type Persona = z.infer<typeof PersonaSchema>;
 
@@ -114,6 +146,14 @@ export const PersonaReactionSchema = z.object({
   objections: z.preprocess(toStringArray, z.array(z.string())),
   purchaseIntent: z.preprocess(toIntent, z.number().min(0).max(100)),
   voice: z.preprocess((v) => (typeof v === "string" ? v : ""), z.string()).default(""),
+  /** Ad-stage reaction; same shape as PersonaSchema.adReaction. */
+  adReaction: z
+    .object({
+      curiosity: z.preprocess(toIntent, z.number().min(0).max(100)),
+      wouldClick: z.preprocess(toBool, z.boolean()),
+    })
+    .optional()
+    .catch(undefined),
 });
 export type PersonaReaction = z.infer<typeof PersonaReactionSchema>;
 

@@ -83,6 +83,11 @@ export interface EnsembleSimSnapshot {
     trustFactors?: string[];
     /** Free-text barriers / hesitations. Same channel-extractor input. */
     objections?: string[];
+    /** Ad-stage reaction (curiosity + wouldClick). Optional for legacy. */
+    adReaction?: {
+      curiosity: number;
+      wouldClick: boolean;
+    };
   }>;
   /** Creative asset scoring from this sim (optional — sim may have skipped). */
   creative?: Array<{
@@ -131,6 +136,25 @@ export interface CountryStats {
       highIntent: number;
       lowIntent: number;
     };
+    /**
+     * 2-stage funnel from ad impression to purchase, computed across
+     * the ensemble's personas in this country who emitted adReaction.
+     * Null when none did (legacy sims pre-dating the field).
+     *
+     *   curiosityMean: 0-100 mean of adReaction.curiosity
+     *   clickRatePct: % with wouldClick=true
+     *   buyRatePct: % with purchaseIntent ≥ 60 (kept consistent
+     *              with highIntent threshold elsewhere... 60 vs 70:
+     *              the funnel uses the slightly looser threshold so
+     *              it matches the buy-stage in marketing language)
+     *   sample: how many personas in this country contributed
+     */
+    funnel?: {
+      curiosityMean: number;
+      clickRatePct: number;
+      buyRatePct: number;
+      sample: number;
+    } | null;
   };
 }
 
@@ -602,6 +626,22 @@ export function aggregateEnsemble(
             highIntent: inCountry.filter((p) => p.purchaseIntent >= 70).length,
             lowIntent: inCountry.filter((p) => p.purchaseIntent < 35).length,
           },
+          funnel: (() => {
+            const withAd = inCountry.filter((p) => !!p.adReaction);
+            if (withAd.length === 0) return null;
+            const curiositySum = withAd.reduce(
+              (s, p) => s + (p.adReaction?.curiosity ?? 0),
+              0,
+            );
+            const clickCount = withAd.filter((p) => p.adReaction?.wouldClick === true).length;
+            const buyCount = withAd.filter((p) => p.purchaseIntent >= 60).length;
+            return {
+              curiosityMean: Math.round((curiositySum / withAd.length) * 10) / 10,
+              clickRatePct: Math.round((clickCount / withAd.length) * 100),
+              buyRatePct: Math.round((buyCount / withAd.length) * 100),
+              sample: withAd.length,
+            };
+          })(),
         },
       };
     })

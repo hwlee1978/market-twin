@@ -387,6 +387,13 @@ CRITICAL constraints (re-read the system prompt rules):
 - ALL text fields (profession, purchaseStyle, interests, trustFactors, objections) in the LOCALE language — even for non-${locale.toUpperCase()} personas. Do NOT switch to the country's native language.
 - incomeBand realistic for the persona's country AND life stage. A student or homemaker MUST NOT have a salary-like figure.
 - purchaseIntent (0-100) honest — distribution should include skeptics (low), neutrals, and a few champions.
+
+═══ adReaction — REQUIRED (2-stage funnel signal) ═══
+Each persona ALSO emits an "adReaction" object: { "curiosity": 0-100, "wouldClick": true/false }. This captures the **FIRST IMPRESSION** stage — what the persona thinks SEEING THE PRODUCT AD/POST in their feed, BEFORE clicking through to the landing page or reading any details. It is a separate funnel step from purchaseIntent (which is post-consideration).
+- **curiosity** (0-100): how much the ad would catch this persona's eye. 0 = scrolls past instantly. 100 = stops scrolling, reads the caption. Driven by visual, headline, and category fit with the persona's interests — NOT yet about price/specifics.
+- **wouldClick**: true if curiosity is high enough that the persona would tap to learn more. Roughly: curiosity ≥ 55 → likely true; ≤ 35 → likely false; in-between is judgment.
+- Funnel realism: **curiosity is typically HIGHER than purchaseIntent** for the same persona, because seeing-the-ad is a lower-friction commitment than buying. A persona with curiosity 40 and purchaseIntent 60 is suspicious — fix one of the two.
+- Skeptics (low purchaseIntent) often still have moderate curiosity (e.g., 35-50) — they're curious enough to glance but not buy. That's realistic.
 ${referenceSection}
 ${example}
 
@@ -400,7 +407,7 @@ Final voice self-check before emitting JSON:
 2. **Length**: KO ≤ 90 chars · EN ≤ 130 chars (aim 90–120 for headroom). Count chars; rewrite shorter if over cap by dropping hedges ("I'd want to", "before I commit"), qualifiers, or second clauses.
 Both rules are non-negotiable. Voices that violate either are CRITICAL ERRORS.
 
-Return a JSON object: { "personas": [ ...${count} persona objects, each with all 12 fields including voice ] }`;
+Return a JSON object: { "personas": [ ...${count} persona objects, each with all 12 fields including voice AND adReaction { curiosity, wouldClick } ] }`;
 }
 
 export const PERSONA_REACTION_SYSTEM = `${SYSTEM_BASE}
@@ -499,7 +506,13 @@ ${referenceSection}
 ${languageInstruction(locale)}
 
 For each persona above, return ONE reaction object in the SAME ORDER:
-{ "id": "(the id above)", "trustFactors": [1-3 strings], "objections": [1-3 strings], "purchaseIntent": 0-100, "voice": "(1-2 sentence first-person quote in the locale language)" }
+{ "id": "(the id above)", "trustFactors": [1-3 strings], "objections": [1-3 strings], "purchaseIntent": 0-100, "voice": "(1-2 sentence first-person quote in the locale language)", "adReaction": { "curiosity": 0-100, "wouldClick": true/false } }
+
+═══ adReaction — REQUIRED (2-stage funnel signal) ═══
+Same semantics as in the full-persona generation prompt: adReaction is the FIRST IMPRESSION stage — seeing the ad in their feed, BEFORE clicking through to read details. Distinct from purchaseIntent (which is post-consideration).
+- curiosity (0-100): how much the ad catches their eye, driven by visual / headline / category fit, not price specifics.
+- wouldClick: true if curiosity is high enough to tap (roughly: ≥55 likely true, ≤35 likely false).
+- **curiosity is typically HIGHER than purchaseIntent** for the same persona — seeing is a lower-friction step than buying. A persona with curiosity 40 and purchaseIntent 60 is suspicious.
 
 Final voice self-check before emitting JSON:
 1. **Language — scan every voice for forbidden script for locale "${locale}"**:

@@ -524,8 +524,22 @@ async function aggregateAndPersist(opts: {
         incomeBand?: string;
         trustFactors?: unknown;
         objections?: unknown;
+        adReaction?: unknown;
       };
       if (typeof rec.purchaseIntent !== "number" || !rec.country) return [];
+      // Defensive coercion of adReaction — single-sim fallback runs may
+      // pass shapes that differ; we only forward a clean { curiosity,
+      // wouldClick } when both fields are present and valid.
+      let adReaction: { curiosity: number; wouldClick: boolean } | undefined;
+      const ar = rec.adReaction as { curiosity?: unknown; wouldClick?: unknown } | undefined;
+      if (
+        ar &&
+        typeof ar === "object" &&
+        typeof ar.curiosity === "number" &&
+        typeof ar.wouldClick === "boolean"
+      ) {
+        adReaction = { curiosity: ar.curiosity, wouldClick: ar.wouldClick };
+      }
       return [
         {
           country: rec.country.toUpperCase(),
@@ -541,6 +555,7 @@ async function aggregateAndPersist(opts: {
           objections: Array.isArray(rec.objections)
             ? (rec.objections as unknown[]).filter((x): x is string => typeof x === "string")
             : undefined,
+          adReaction,
         },
       ];
     });
