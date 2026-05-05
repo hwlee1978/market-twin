@@ -25,7 +25,18 @@ type Cycle = "monthly" | "annual";
  *     payment step (Stripe / Toss) gets the right line item
  *   - enterprise → mailto with the user's intent in the subject
  */
-export function PlansSelector({ locale }: { locale: string }) {
+export function PlansSelector({
+  locale,
+  isLoggedIn,
+}: {
+  locale: string;
+  /**
+   * Server-detected auth state. When true, paid-plan CTAs route
+   * directly to /billing/upgrade (skipping /signup) and pass currency
+   * through so the dispatcher knows whether to use Stripe or Toss.
+   */
+  isLoggedIn?: boolean;
+}) {
   const isKo = locale === "ko";
   const [currency, setCurrency] = useState<Currency>(isKo ? "krw" : "usd");
   const [cycle, setCycle] = useState<Cycle>("monthly");
@@ -46,6 +57,7 @@ export function PlansSelector({ locale }: { locale: string }) {
             cycle={cycle}
             isKo={isKo}
             highlight={plan.slug === "growth"}
+            isLoggedIn={!!isLoggedIn}
           />
         ))}
       </div>
@@ -147,12 +159,14 @@ function PlanCard({
   cycle,
   isKo,
   highlight,
+  isLoggedIn,
 }: {
   plan: PlanDefinition;
   currency: Currency;
   cycle: Cycle;
   isKo: boolean;
   highlight: boolean;
+  isLoggedIn: boolean;
 }) {
   const monthlyCents = plan.priceMonthly[currency];
   const annualTotal = annualPrice(plan, currency);
@@ -164,12 +178,28 @@ function PlanCard({
   const priceLabel = formatPlanPrice(effectiveMonthlyCents, currency);
   const annualLabel = formatPlanPrice(annualTotal, currency);
 
-  const ctaHref =
-    plan.slug === "enterprise"
-      ? `mailto:contact@markettwin.ai?subject=${encodeURIComponent(
-          isKo ? "Enterprise 플랜 문의" : "Enterprise plan inquiry",
-        )}`
-      : `/signup?plan=${plan.slug}&cycle=${cycle}`;
+  // CTA routing matrix:
+  //   - Enterprise → always mailto sales
+  //   - Free trial → always /signup (free trial happens at workspace
+  //     creation; logged-in users are already on free trial)
+  //   - Paid plans:
+  //       logged out → /signup with plan params; user converts after
+  //       logged in → /billing/upgrade with currency, dispatcher
+  //                    routes to Stripe (USD) or Toss (KRW)
+  const ctaHref = (() => {
+    if (plan.slug === "enterprise") {
+      return `mailto:contact@markettwin.ai?subject=${encodeURIComponent(
+        isKo ? "Enterprise 플랜 문의" : "Enterprise plan inquiry",
+      )}`;
+    }
+    if (plan.slug === "free_trial") {
+      return `/signup?plan=${plan.slug}&cycle=${cycle}`;
+    }
+    if (isLoggedIn) {
+      return `/billing/upgrade?plan=${plan.slug}&cycle=${cycle}&currency=${currency}`;
+    }
+    return `/signup?plan=${plan.slug}&cycle=${cycle}`;
+  })();
 
   const ctaLabel = (() => {
     if (plan.slug === "enterprise") return isKo ? "Sales 문의" : "Contact sales";

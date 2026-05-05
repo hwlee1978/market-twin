@@ -2,6 +2,7 @@ import { setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { LogoMark } from "@/components/ui/Logo";
 import { PlansSelector } from "@/components/billing/PlansSelector";
+import { createClient } from "@/lib/supabase/server";
 
 /**
  * Pre-signup tier selection. The user lands here after clicking
@@ -21,6 +22,11 @@ export default async function PlansPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const isKo = locale === "ko";
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const isLoggedIn = !!user;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -31,10 +37,16 @@ export default async function PlansPage({
             <span className="text-lg font-semibold tracking-tight">Market Twin</span>
           </Link>
           <Link
-            href="/login"
+            href={isLoggedIn ? "/dashboard" : "/login"}
             className="text-sm text-slate-600 hover:text-brand transition-colors"
           >
-            {isKo ? "이미 계정이 있으신가요? 로그인" : "Already have an account? Sign in"}
+            {isLoggedIn
+              ? isKo
+                ? "대시보드로"
+                : "Back to dashboard"
+              : isKo
+                ? "이미 계정이 있으신가요? 로그인"
+                : "Already have an account? Sign in"}
           </Link>
         </div>
       </header>
@@ -56,7 +68,7 @@ export default async function PlansPage({
           </p>
         </div>
 
-        <PlansSelector locale={locale} />
+        <PlansSelector locale={locale} isLoggedIn={isLoggedIn} />
 
         <div className="mt-14 sm:mt-20 max-w-3xl mx-auto text-center">
           <h2 className="text-lg font-semibold text-slate-900 mb-2">
