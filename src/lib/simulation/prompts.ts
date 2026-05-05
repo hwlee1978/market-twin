@@ -534,15 +534,26 @@ ${renderAggregateForPrompt(aggregate, locale)}
 
 ${languageInstruction(locale)}
 
-Return a JSON object: { "countries": [ { country, demandScore, cacEstimateUsd, competitionScore, finalScore, rank, rationale } ] } — sorted by rank ascending (1 = best). country must be one of: ${input.candidateCountries.join(", ")}.
+Return a JSON object: { "countries": [ { country, demandScore, cacEstimateUsd, competitionScore, finalScore, rank, rationale, components } ] } — sorted by rank ascending (1 = best). country must be one of: ${input.candidateCountries.join(", ")}.
 
 ═══ SCORE SCALE (CRITICAL — common mistake) ═══
-ALL scores (demandScore, competitionScore, finalScore) are on a **0-100 scale**, NOT 0-10.
+ALL scores (demandScore, competitionScore, finalScore, and every components.* value) are on a **0-100 scale**, NOT 0-10.
 - A strong recommendation: finalScore 75-85 (NOT 7.5-8.5)
 - A weak market: finalScore 30-50 (NOT 3-5)
 - An average market: finalScore 55-70 (NOT 5.5-7)
 - cacEstimateUsd is a dollar amount (e.g. 12.50 means $12.50), NOT a score.
-If your top-ranked country has finalScore < 50, double-check — you probably accidentally used the 0-10 scale. Multiply by 10 to fix before emitting.`;
+If your top-ranked country has finalScore < 50, double-check — you probably accidentally used the 0-10 scale. Multiply by 10 to fix before emitting.
+
+═══ components — REQUIRED — 6 sub-scores 0-100 ═══
+For every country, also emit a "components" object decomposing the finalScore into six dimensions. The user reads these to understand *why* a country ranks where it does — generic "looks good" rationales aren't enough. Score each independently against the candidate market context, NOT relative to the other countries in the list:
+  - marketSize: addressable market scale (population × purchasing power × category penetration). Higher = larger reachable market.
+  - culturalFit: language alignment, brand familiarity, lifestyle/values match for this product. Higher = lower cultural translation cost.
+  - channelMatch: availability of distribution channels this product needs (e.g., relevant ecommerce platforms, retail format, cross-border logistics) AND alignment with persona channel preferences. Higher = easier to reach buyers.
+  - priceCompat: price tolerance vs local purchasing power, competitor price anchors, and persona priceSensitivity. Higher = price point lands well.
+  - competition: INVERTED — higher means LESS crowded / less dominant local incumbent. (Don't confuse with the top-level competitionScore which uses the same convention.)
+  - regulatory: INVERTED — higher means FEWER import duties / certifications / restrictions / FX or tax frictions. A blocker like food-safety registration or wholly-prohibited category should pull this below 30.
+
+finalScore should be a sensible weighted-average reflection of the components, but you can incorporate cross-component interaction (e.g., great marketSize but regulatory < 25 should drag finalScore down sharply — a launch-blocker isn't averaged away). Don't blindly arithmetic-mean the six.`;
 }
 
 export const PRICING_SYSTEM = `${SYSTEM_BASE} For pricing, model how conversion changes across price points — typically conversion drops as price rises, but not linearly. Identify the revenue-maximizing point.`;

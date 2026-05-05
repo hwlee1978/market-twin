@@ -2086,6 +2086,8 @@ function CountriesTab({
                             detail={c.detail}
                             rationaleSamples={c.detail.rationaleSamples}
                             sources={sources}
+                            components={c.components}
+                            finalScoreMean={c.finalScore.mean}
                             isKo={isKo}
                           />
                         </td>
@@ -2106,16 +2108,27 @@ function CountryDrilldown({
   detail,
   rationaleSamples,
   sources,
+  components,
+  finalScoreMean,
   isKo,
 }: {
   detail: NonNullable<EnsembleAggregate["countryStats"][number]["detail"]>;
   rationaleSamples: string[];
   sources: string[];
+  components?: NonNullable<EnsembleAggregate["countryStats"][number]["components"]>;
+  finalScoreMean: number;
   isKo: boolean;
 }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
       <div className="lg:col-span-2 space-y-4">
+        {components && (
+          <CountryComponentBreakdown
+            components={components}
+            finalScoreMean={finalScoreMean}
+            isKo={isKo}
+          />
+        )}
         {rationaleSamples.length > 0 && (
           <div>
             <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
@@ -2190,6 +2203,132 @@ function CountryDrilldown({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Per-country score decomposition. Six dimensions answer "why does this
+ * country score where it does?". Renders as a horizontal bar list — same
+ * pattern as bestCountryDistribution for visual consistency. Skipped when
+ * legacy aggregates don't carry per-component data.
+ *
+ * Rendering choice: bars (not radar) because:
+ *   - Bars give exact value at a glance, radar makes 60 vs 65 hard to read
+ *   - Bars are language-agnostic for accessibility (screen readers)
+ *   - Radar in this codebase would need a new chart dep
+ */
+function CountryComponentBreakdown({
+  components,
+  finalScoreMean,
+  isKo,
+}: {
+  components: NonNullable<EnsembleAggregate["countryStats"][number]["components"]>;
+  finalScoreMean: number;
+  isKo: boolean;
+}) {
+  const rows = [
+    {
+      key: "marketSize",
+      label: isKo ? "시장 크기" : "Market size",
+      hint: isKo
+        ? "인구 × 구매력 × 카테고리 침투율"
+        : "Population × purchasing power × category penetration",
+      value: components.marketSize.mean,
+    },
+    {
+      key: "culturalFit",
+      label: isKo ? "문화 적합" : "Cultural fit",
+      hint: isKo
+        ? "언어·라이프스타일·브랜드 친숙도"
+        : "Language, lifestyle, brand familiarity",
+      value: components.culturalFit.mean,
+    },
+    {
+      key: "channelMatch",
+      label: isKo ? "채널 매치" : "Channel match",
+      hint: isKo
+        ? "유통 채널 가용성 + 페르소나 채널 선호 일치"
+        : "Distribution availability + persona channel preference",
+      value: components.channelMatch.mean,
+    },
+    {
+      key: "priceCompat",
+      label: isKo ? "가격 수용" : "Price fit",
+      hint: isKo
+        ? "현지 구매력 + 경쟁사 가격 + 페르소나 가격민감도"
+        : "Local purchasing power + competitor anchors + price sensitivity",
+      value: components.priceCompat.mean,
+    },
+    {
+      key: "competition",
+      label: isKo ? "경쟁 (역치)" : "Competition (inv)",
+      hint: isKo
+        ? "높을수록 덜 혼잡, 지배 incumbent 부재"
+        : "Higher = less crowded / no dominant incumbent",
+      value: components.competition.mean,
+    },
+    {
+      key: "regulatory",
+      label: isKo ? "규제 (역치)" : "Regulatory (inv)",
+      hint: isKo
+        ? "높을수록 진입 장벽 적음 (관세·인증·제한)"
+        : "Higher = fewer barriers (duties, certs, restrictions)",
+      value: components.regulatory.mean,
+    },
+  ];
+
+  // Drag the eye to the lowest score — the user wants to know "what's
+  // weakest about this country?" first, not what's average.
+  const lowest = rows.reduce((a, b) => (a.value <= b.value ? a : b));
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-2">
+        <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+          {isKo ? "점수 분해 (왜 이 점수인가)" : "Score decomposition (why this score)"}
+        </div>
+        <div className="text-[11px] text-slate-500">
+          {isKo ? "최종 평균" : "Final mean"}{" "}
+          <span className="font-semibold text-slate-700 tabular-nums">
+            {finalScoreMean.toFixed(1)}
+          </span>
+        </div>
+      </div>
+      <ul className="space-y-1.5">
+        {rows.map((r) => {
+          const tone =
+            r.value >= 70 ? "bg-success" : r.value >= 50 ? "bg-warn" : "bg-risk";
+          const isLowest = r.key === lowest.key;
+          return (
+            <li key={r.key} className="flex items-center gap-3 text-sm" title={r.hint}>
+              <div
+                className={clsx(
+                  "w-28 shrink-0 text-xs flex items-center gap-1",
+                  isLowest ? "text-risk font-semibold" : "text-slate-600",
+                )}
+              >
+                {r.label}
+                {isLowest && <AlertCircle size={11} className="text-risk shrink-0" />}
+              </div>
+              <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className={clsx("h-full transition-all", tone)}
+                  style={{ width: `${Math.max(0, Math.min(100, r.value))}%` }}
+                />
+              </div>
+              <div className="w-10 text-right text-xs tabular-nums text-slate-600">
+                {r.value.toFixed(0)}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
+        {isKo
+          ? "각 항목 0–100. 경쟁·규제는 역치 (높을수록 좋음). 가장 낮은 항목에 주목 — 그 부분이 진출의 약점입니다."
+          : "Each metric 0–100. Competition and regulatory are inverted (higher = better). The lowest score is your weakness — focus there."}
+      </p>
     </div>
   );
 }
@@ -3719,6 +3858,12 @@ function ActionsTab({
                         </span>
                       </>
                     )}
+                    {a.specificity && (
+                      <>
+                        <span className="text-slate-300">·</span>
+                        <SpecificityBadge specificity={a.specificity} isKo={isKo} />
+                      </>
+                    )}
                   </div>
                 </div>
               </li>
@@ -3727,6 +3872,70 @@ function ActionsTab({
         </ol>
       </div>
     </div>
+  );
+}
+
+/**
+ * Concreteness badge on a single merged action. Shows the 0-100 score
+ * + a tooltip listing which of the 4 dimensions are present (channel /
+ * metric / timeline / measurable). Tone:
+ *   ≥ 75 → success (green) "구체적"
+ *   50-74 → warn (amber) "부분"
+ *   < 50 → risk (red) "추상적" — actionable warning to the user
+ */
+function SpecificityBadge({
+  specificity,
+  isKo,
+}: {
+  specificity: NonNullable<
+    NonNullable<EnsembleAggregate["narrative"]>["mergedActions"][number]["specificity"]
+  >;
+  isKo: boolean;
+}) {
+  const tone =
+    specificity.score >= 75
+      ? "bg-success/15 text-success"
+      : specificity.score >= 50
+        ? "bg-warn/20 text-warn-foreground"
+        : "bg-risk/15 text-risk";
+  const label =
+    specificity.score >= 75
+      ? isKo
+        ? "구체적"
+        : "Concrete"
+      : specificity.score >= 50
+        ? isKo
+          ? "부분"
+          : "Partial"
+        : isKo
+          ? "추상적"
+          : "Vague";
+  // Tooltip lists the dimensions that ARE missing — that's the actionable
+  // information ("missing channel + timeline" tells the user what to ask
+  // for next). When all four are present, simply confirm "all 4 met".
+  const missing: string[] = [];
+  if (!specificity.hasChannel) missing.push(isKo ? "채널" : "channel");
+  if (!specificity.hasMetric) missing.push(isKo ? "숫자" : "metric");
+  if (!specificity.hasTimeline) missing.push(isKo ? "타임라인" : "timeline");
+  if (!specificity.hasMeasurable) missing.push(isKo ? "측정 KPI" : "KPI");
+  const tooltip =
+    missing.length === 0
+      ? isKo
+        ? "채널 · 숫자 · 타임라인 · 측정 KPI 모두 포함"
+        : "Channel + metric + timeline + measurable KPI all present"
+      : isKo
+        ? `누락: ${missing.join(" · ")}`
+        : `Missing: ${missing.join(", ")}`;
+  return (
+    <span
+      className={clsx(
+        "px-1.5 py-0.5 rounded-full font-semibold text-[10px] tabular-nums",
+        tone,
+      )}
+      title={tooltip}
+    >
+      {label} {specificity.score}
+    </span>
   );
 }
 

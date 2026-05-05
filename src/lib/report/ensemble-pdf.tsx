@@ -1304,6 +1304,15 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 </MText>
               </View>
 
+              {c.components && (
+                <View style={{ marginBottom: 8 }}>
+                  <MText style={[styles.infoLabel, { marginBottom: 3 }]}>
+                    {isKo ? "점수 분해 (왜 이 점수인가)" : "Score decomposition"}
+                  </MText>
+                  <ComponentBars components={c.components} isKo={isKo} />
+                </View>
+              )}
+
               {d.rationaleSamples.length > 0 && (
                 <View style={{ marginBottom: 8 }}>
                   <MText style={[styles.infoLabel, { marginBottom: 3 }]}>
@@ -1801,18 +1810,56 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         </MText>
 
         <View>
-          {actions.map((a, i) => (
-            <View key={i} style={styles.actionRow} wrap={false}>
-              <MText style={styles.actionText}>
-                {`${i + 1}. ${a.action}`}
-              </MText>
-              <MText style={styles.actionMeta}>
-                {isKo
-                  ? `${a.surfacedInSims}개 시뮬에서 권장`
-                  : `Recommended by ${a.surfacedInSims} sim${a.surfacedInSims === 1 ? "" : "s"}`}
-              </MText>
-            </View>
-          ))}
+          {actions.map((a, i) => {
+            // Concreteness label — surfaced inline so PDF readers see
+            // what the dashboard sees. Tone matches the badge (≥75
+            // green, ≥50 amber, <50 red); ≥75 hides the missing-list
+            // because everything is present.
+            const spec = a.specificity;
+            const specColor = spec
+              ? spec.score >= 75
+                ? C.success
+                : spec.score >= 50
+                  ? C.warn
+                  : C.risk
+              : null;
+            const specLabel = spec
+              ? spec.score >= 75
+                ? isKo
+                  ? "구체적"
+                  : "Concrete"
+                : spec.score >= 50
+                  ? isKo
+                    ? "부분"
+                    : "Partial"
+                  : isKo
+                    ? "추상적"
+                    : "Vague"
+              : null;
+            return (
+              <View key={i} style={styles.actionRow} wrap={false}>
+                <MText style={styles.actionText}>{`${i + 1}. ${a.action}`}</MText>
+                <View style={{ flexDirection: "row", gap: 6, alignItems: "center", marginTop: 2 }}>
+                  <MText style={styles.actionMeta}>
+                    {isKo
+                      ? `${a.surfacedInSims}개 시뮬에서 권장`
+                      : `Recommended by ${a.surfacedInSims} sim${a.surfacedInSims === 1 ? "" : "s"}`}
+                  </MText>
+                  {spec && specColor && specLabel && (
+                    <MText
+                      style={{
+                        fontSize: 8,
+                        color: specColor,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {`· ${specLabel} ${spec.score}`}
+                    </MText>
+                  )}
+                </View>
+              </View>
+            );
+          })}
         </View>
 
         {pageFooter}
@@ -2103,6 +2150,55 @@ function SummaryRow({
       <MText style={{ fontSize: 9, color: valueColor ?? C.ink, fontWeight: 600 }}>
         {value}
       </MText>
+    </View>
+  );
+}
+
+/**
+ * Per-country score decomposition rendered as 6 horizontal bars.
+ * Mirrors the CountryComponentBreakdown component in EnsembleView.tsx
+ * so the PDF and the dashboard look intentionally aligned. Bar colour
+ * follows the same threshold (≥70 success / ≥50 warn / else risk).
+ */
+function ComponentBars({
+  components,
+  isKo,
+}: {
+  components: NonNullable<EnsembleAggregate["countryStats"][number]["components"]>;
+  isKo: boolean;
+}) {
+  const rows = [
+    { label: isKo ? "시장 크기" : "Market size", value: components.marketSize.mean },
+    { label: isKo ? "문화 적합" : "Cultural fit", value: components.culturalFit.mean },
+    { label: isKo ? "채널 매치" : "Channel match", value: components.channelMatch.mean },
+    { label: isKo ? "가격 수용" : "Price fit", value: components.priceCompat.mean },
+    { label: isKo ? "경쟁 (역치)" : "Competition (inv)", value: components.competition.mean },
+    { label: isKo ? "규제 (역치)" : "Regulatory (inv)", value: components.regulatory.mean },
+  ];
+  return (
+    <View style={{ gap: 3 }}>
+      {rows.map((r) => {
+        const color = r.value >= 70 ? C.success : r.value >= 50 ? C.warn : C.risk;
+        const pct = Math.max(0, Math.min(100, r.value));
+        return (
+          <View key={r.label} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <MText style={{ fontSize: 8, color: C.muted, width: 80 }}>{r.label}</MText>
+            <View style={{ flex: 1, height: 6, backgroundColor: C.divider, borderRadius: 3 }}>
+              <View
+                style={{
+                  width: `${pct}%`,
+                  height: 6,
+                  backgroundColor: color,
+                  borderRadius: 3,
+                }}
+              />
+            </View>
+            <MText style={{ fontSize: 8, color: C.ink, width: 22, textAlign: "right" }}>
+              {r.value.toFixed(0)}
+            </MText>
+          </View>
+        );
+      })}
     </View>
   );
 }

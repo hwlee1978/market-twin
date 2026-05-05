@@ -100,6 +100,21 @@ export interface CountryStats {
   cacEstimateUsd: { mean: number; median: number };
   competitionScore: { mean: number; median: number };
   /**
+   * Per-component score decomposition averaged across sims. Six
+   * dimensions answer "what's driving the finalScore?" — UI shows them
+   * as a radar chart in the Countries tab. Optional: legacy sims
+   * predating the components prompt won't carry per-component data,
+   * and we'd rather render a simpler card than a half-empty radar.
+   */
+  components?: {
+    marketSize: { mean: number; median: number };
+    culturalFit: { mean: number; median: number };
+    channelMatch: { mean: number; median: number };
+    priceCompat: { mean: number; median: number };
+    competition: { mean: number; median: number };
+    regulatory: { mean: number; median: number };
+  };
+  /**
    * Drilldown payload — same shape as the single-sim Country tab so the
    * ensemble UI can render identical detail panels (rationale, top
    * objections, persona-side summary). Optional because legacy ensembles
@@ -388,6 +403,17 @@ export interface EnsembleNarrative {
     surfacedInSims: number;
     impact?: number;
     effort?: number;
+    /**
+     * Heuristic concreteness audit attached post-merge by
+     * ensemble-narrative. Optional for legacy narratives.
+     */
+    specificity?: {
+      hasChannel: boolean;
+      hasMetric: boolean;
+      hasTimeline: boolean;
+      hasMeasurable: boolean;
+      score: number;
+    };
   }>;
   /** Aggregate riskLevel across sims — defaults to mode of per-sim values. */
   overallRiskLevel: "low" | "medium" | "high";
@@ -428,19 +454,50 @@ export function aggregateEnsemble(
     cac: number[];
     comp: number[];
     rationales: string[];
+    /** Per-component samples — only populated for sims that emitted them. */
+    components: {
+      marketSize: number[];
+      culturalFit: number[];
+      channelMatch: number[];
+      priceCompat: number[];
+      competition: number[];
+      regulatory: number[];
+    };
   };
+  const newBucket = (): Bucket => ({
+    final: [],
+    demand: [],
+    cac: [],
+    comp: [],
+    rationales: [],
+    components: {
+      marketSize: [],
+      culturalFit: [],
+      channelMatch: [],
+      priceCompat: [],
+      competition: [],
+      regulatory: [],
+    },
+  });
   const buckets = new Map<string, Bucket>();
   for (const s of sims) {
     for (const c of s.countries) {
       const key = c.country.toUpperCase();
-      const b =
-        buckets.get(key) ?? { final: [], demand: [], cac: [], comp: [], rationales: [] };
+      const b = buckets.get(key) ?? newBucket();
       b.final.push(c.finalScore);
       b.demand.push(c.demandScore);
       b.cac.push(c.cacEstimateUsd);
       b.comp.push(c.competitionScore);
       if (typeof c.rationale === "string" && c.rationale.trim().length > 0) {
         b.rationales.push(c.rationale.trim());
+      }
+      if (c.components) {
+        b.components.marketSize.push(c.components.marketSize);
+        b.components.culturalFit.push(c.components.culturalFit);
+        b.components.channelMatch.push(c.components.channelMatch);
+        b.components.priceCompat.push(c.components.priceCompat);
+        b.components.competition.push(c.components.competition);
+        b.components.regulatory.push(c.components.regulatory);
       }
       buckets.set(key, b);
     }
@@ -490,6 +547,38 @@ export function aggregateEnsemble(
         })
         .sort((a, b) => b.length - a.length)
         .slice(0, 3);
+      // Components are aggregated only when at least one sim emitted them
+      // (avoid showing a radar of all-zeros for legacy data). Threshold of
+      // 1 — even a single signal is better than dropping the section.
+      const hasComponents = b.components.marketSize.length > 0;
+      const components = hasComponents
+        ? {
+            marketSize: {
+              mean: round1(mean(b.components.marketSize)),
+              median: round1(median(b.components.marketSize)),
+            },
+            culturalFit: {
+              mean: round1(mean(b.components.culturalFit)),
+              median: round1(median(b.components.culturalFit)),
+            },
+            channelMatch: {
+              mean: round1(mean(b.components.channelMatch)),
+              median: round1(median(b.components.channelMatch)),
+            },
+            priceCompat: {
+              mean: round1(mean(b.components.priceCompat)),
+              median: round1(median(b.components.priceCompat)),
+            },
+            competition: {
+              mean: round1(mean(b.components.competition)),
+              median: round1(median(b.components.competition)),
+            },
+            regulatory: {
+              mean: round1(mean(b.components.regulatory)),
+              median: round1(median(b.components.regulatory)),
+            },
+          }
+        : undefined;
       return {
         country,
         finalScore: {
@@ -503,6 +592,7 @@ export function aggregateEnsemble(
         demandScore: { mean: round1(mean(b.demand)), median: round1(median(b.demand)) },
         cacEstimateUsd: { mean: round2(mean(b.cac)), median: round2(median(b.cac)) },
         competitionScore: { mean: round1(mean(b.comp)), median: round1(median(b.comp)) },
+        components,
         detail: {
           rationaleSamples,
           topObjections,

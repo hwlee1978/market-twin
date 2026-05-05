@@ -118,6 +118,34 @@ export const PersonaReactionSchema = z.object({
 export type PersonaReaction = z.infer<typeof PersonaReactionSchema>;
 
 // ─── Country scoring ───────────────────────────────────────────
+/**
+ * Decomposition of finalScore into 6 weighted components. The user-facing
+ * polish — instead of just seeing "Japan 62%", they see what's driving
+ * that number (channelMatch high, regulatory low, etc.). Optional on the
+ * schema for backwards compat with legacy single-sim runs that landed
+ * before this field existed; the prompt always asks for it now.
+ *
+ * Each component is 0-100, same scale as finalScore. The LLM is told
+ * finalScore should be a sensible weighted average of these — not
+ * mechanically recomputed, since cross-component interactions matter
+ * (e.g., great market size with terrible regulatory = launch blocked).
+ */
+export const CountryScoreComponentsSchema = z.object({
+  /** Addressable market scale (population × purchasing power × category penetration). */
+  marketSize: z.number().min(0).max(100),
+  /** Cultural alignment — language, brand familiarity, lifestyle fit. */
+  culturalFit: z.number().min(0).max(100),
+  /** Channel availability and persona-channel alignment for this product. */
+  channelMatch: z.number().min(0).max(100),
+  /** Price tolerance vs local purchasing power and competitor anchors. */
+  priceCompat: z.number().min(0).max(100),
+  /** Competitive intensity — INVERTED so higher = less crowded (better). */
+  competition: z.number().min(0).max(100),
+  /** Regulatory friction — INVERTED so higher = fewer blockers (better). */
+  regulatory: z.number().min(0).max(100),
+});
+export type CountryScoreComponents = z.infer<typeof CountryScoreComponentsSchema>;
+
 export const CountryScoreSchema = z.object({
   country: z.string(),
   demandScore: z.number().min(0).max(100),
@@ -126,6 +154,7 @@ export const CountryScoreSchema = z.object({
   finalScore: z.number().min(0).max(100),
   rank: z.number().int().min(1),
   rationale: z.string(),
+  components: CountryScoreComponentsSchema.optional(),
 });
 export type CountryScore = z.infer<typeof CountryScoreSchema>;
 

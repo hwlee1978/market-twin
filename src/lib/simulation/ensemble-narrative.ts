@@ -22,6 +22,31 @@ const MERGED_RISK_SCHEMA = z.object({
   severity: z.enum(["low", "medium", "high"]),
   surfacedInSims: z.number().int().min(1),
 });
+/**
+ * Concreteness audit on a single action. Computed heuristically post-LLM
+ * (regex + keyword match) so we have a deterministic check on whether
+ * the merge model actually followed the "be specific" rule. Fields are
+ * booleans rather than a single score so the UI can show *why* an
+ * action looks vague — e.g., "missing timeline".
+ *
+ * Scoring is plain count×25 (0/25/50/75/100). Below 50 = vague;
+ * the UI surfaces a warning badge so users don't quote unactionable
+ * "improve marketing in Japan"-style items.
+ */
+const ACTION_SPECIFICITY_SCHEMA = z.object({
+  /** Mentions a specific channel/platform/medium (TikTok, Coupang, Naver Smart Store…). */
+  hasChannel: z.boolean(),
+  /** Contains a quantity — budget, %, count, units. */
+  hasMetric: z.boolean(),
+  /** Contains a deadline or time window (Q3, 30 days, by Aug…). */
+  hasTimeline: z.boolean(),
+  /** Names a measurable outcome (CTR, conversion, NPS, GMV…). */
+  hasMeasurable: z.boolean(),
+  /** Sum × 25 → 0/25/50/75/100. Convenience for UI sort and threshold display. */
+  score: z.number().int().min(0).max(100),
+});
+export type ActionSpecificity = z.infer<typeof ACTION_SPECIFICITY_SCHEMA>;
+
 const MERGED_ACTION_SCHEMA = z.object({
   action: z.string(),
   surfacedInSims: z.number().int().min(1),
@@ -39,6 +64,11 @@ const MERGED_ACTION_SCHEMA = z.object({
    * Quick-Wins / Strategic / Marginal / Avoid 2x2 matrix.
    */
   effort: z.number().int().min(1).max(3).optional(),
+  /**
+   * Heuristic concreteness audit, attached post-merge. Optional because
+   * legacy ensembles predate the audit; UI hides the badge when absent.
+   */
+  specificity: ACTION_SPECIFICITY_SCHEMA.optional(),
 });
 const MERGE_RESPONSE_SCHEMA = z.object({
   hotTake: z.string().max(200).optional(),
@@ -76,6 +106,7 @@ export async function mergeNarrative(
       mergedActions: (s.recommendations?.actionPlan ?? []).map((action) => ({
         action,
         surfacedInSims: 1,
+        specificity: assessActionSpecificity(action),
       })),
       overallRiskLevel: s.overview?.riskLevel ?? "medium",
     };
@@ -120,12 +151,16 @@ export async function mergeNarrative(
         ...r,
         description: rewriteSimScaleReferences(r.description, perSimPersonas, totalPersonas),
       })),
-      mergedActions: parsed.data.mergedActions.map((a) => ({
-        ...a,
-        action: rewriteSimScaleReferences(a.action, perSimPersonas, totalPersonas),
-        impact: a.impact,
-        effort: a.effort,
-      })),
+      mergedActions: parsed.data.mergedActions.map((a) => {
+        const rewritten = rewriteSimScaleReferences(a.action, perSimPersonas, totalPersonas);
+        return {
+          ...a,
+          action: rewritten,
+          impact: a.impact,
+          effort: a.effort,
+          specificity: assessActionSpecificity(rewritten),
+        };
+      }),
       overallRiskLevel,
     };
   } catch (err) {
@@ -226,6 +261,13 @@ function buildMergePrompt(
 
 3. **mergedActions**: 의미가 같은 액션은 합치되 **실행 가능한 구체성**을 우선시. 같은 의도의 두 액션 중 더 명확한 채널/타임라인/숫자를 가진 쪽을 채택. surfacedInSims 기록. 정렬: 권장 빈도 + 실행 우선순위. 최대 10개.
 
+   ⚠ **구체성 4요소 강제 (가능한 모두 포함)**: 각 액션은 다음 4가지를 가능하면 모두 포함하도록 다시 쓰세요. 원본 sim 결과에 정보가 있으면 그대로 가져오고, 없으면 다른 sim에서 보완. 4가지 모두 없으면 액션 자체를 버리고 더 구체적인 다른 항목으로 교체:
+     (a) **채널/플랫폼/매체**: 쿠팡, 네이버 스마트스토어, 올리브영, TikTok 등 — 추상적 "디지털 마케팅"이 아닌 구체적 이름
+     (b) **숫자**: 예산 (만원/USD), 비율 (%), 수량 (회/건/명), 임팩트 추정치 — 적어도 하나
+     (c) **타임라인**: D+30, Q3, 90일 이내, 출시 전 8주 등 — 명확한 기한
+     (d) **측정 가능 결과**: 전환율, GMV, CAC, 재구매율 등 추적할 KPI
+   ❌ 거절: "일본에서 마케팅 강화", "현지화 개선", "브랜딩 차별화" 같은 추상 명령어. 이런 항목은 더 구체적인 액션으로 다시 쓰거나 빼세요. 사용자는 이걸 보고 다음주에 무엇을 할지 결정합니다 — "마케팅 강화하자"로는 결정이 안 됩니다.
+
    **각 액션마다 impact + effort 점수 부여 (필수)**:
    - **impact** (1-3): 1=점진적 개선 (포장 카피 미세조정 등), 2=의미 있는 차이 (채널 추가, 가격 5-10% 조정), 3=출시 자체를 좌우 (FDA 인증, 주력 채널 결정, 가격 ±20%+).
    - **effort** (1-3): 1=며칠 내 (콘텐츠 작성, A/B 테스트), 2=몇 주 (파트너 미팅, 패키지 재디자인), 3=수개월 또는 신규 파트너 필요 (인증, 유통망 신규 구축).
@@ -256,6 +298,13 @@ function buildMergePrompt(
    - Max 12. Drop entries that are pure category labels with no specific cause.
 
 3. **mergedActions**: collapse semantic duplicates, prefer the action with the most actionable specificity (concrete channel / timeline / numbers). Set surfacedInSims to count. Sort by frequency + execution priority. Max 10.
+
+   ⚠ **Concreteness — every action SHOULD ideally contain all 4 of**: rewrite each action so it includes as many of the four as possible. Pull data from the source sim's outputs; cross-reference other sims to fill gaps. If none of the four are present, drop the action and surface a more specific one instead:
+     (a) **channel/platform/medium**: a named one — Coupang, Naver Smart Store, Olive Young, TikTok, Amazon — NOT abstract "digital marketing"
+     (b) **a number**: budget (KRW / USD), percent, count, target uplift — at least one quantitative anchor
+     (c) **timeline**: D+30, Q3, within 90 days, 8 weeks before launch — explicit horizon
+     (d) **measurable outcome**: conversion rate, GMV, CAC, repeat-purchase rate — a KPI that can be tracked
+   ❌ Reject: "strengthen Japan marketing", "improve localisation", "differentiate branding". Rewrite or drop. The user reads this list to decide what to do next week — "strengthen marketing" doesn't survive that test.
 
    **Required: score impact + effort per action**:
    - **impact** (1-3): 1=incremental polish (caption tweak), 2=meaningful change (added channel, ±5-10% price), 3=launch-defining (FDA cert, pivotal channel choice, ±20%+ price).
@@ -294,10 +343,14 @@ function narrativeFromRawSnapshots(
       severity: r.severity,
       surfacedInSims: 1,
     })),
-    mergedActions: (best?.recommendations?.actionPlan ?? []).slice(0, 10).map((action) => ({
-      action: rewriteSimScaleReferences(action, perSim, totalPersonas),
-      surfacedInSims: 1,
-    })),
+    mergedActions: (best?.recommendations?.actionPlan ?? []).slice(0, 10).map((action) => {
+      const rewritten = rewriteSimScaleReferences(action, perSim, totalPersonas);
+      return {
+        action: rewritten,
+        surfacedInSims: 1,
+        specificity: assessActionSpecificity(rewritten),
+      };
+    }),
     overallRiskLevel,
   };
 }
@@ -351,6 +404,75 @@ export function rewriteSimScaleReferences(
     "of all personas ($1)",
   );
   return out;
+}
+
+/**
+ * Heuristic concreteness audit on an action string. Runs after the LLM
+ * merge as a deterministic check — the prompt asks the model to be
+ * specific, but we don't trust it to self-score. Each dimension is a
+ * regex/keyword match; a positive hit elevates the score by 25 (max 100).
+ *
+ * Why heuristic, not another LLM call:
+ *   1. Cost: free, runs on every action
+ *   2. Determinism: same string → same score, easier to debug
+ *   3. Robustness: even when the merge LLM ignores the rule, we still
+ *      flag generic outputs in the UI
+ *
+ * Misses are acceptable (false-positives where score = 100 but action
+ * is fluff); the goal is to catch the WORST cases — "improve marketing
+ * in Japan" type — and surface a "vague" badge on those. Bilingual
+ * (KR + EN) since the merge runs in either locale.
+ */
+export function assessActionSpecificity(action: string): ActionSpecificity {
+  const text = action.toLowerCase();
+
+  // Channels — platforms, marketplaces, retailers, ad networks. Mixing
+  // KR+global because actions reference specific local channels in
+  // both languages. Word-boundaries kept loose (Korean has no spaces).
+  const channelTokens = [
+    // Korean / regional
+    "쿠팡", "네이버", "11번가", "카카오", "카카오톡", "카카오톡채널", "라인", "인스타", "유튜브", "틱톡",
+    "올리브영", "다이소", "이마트", "롯데", "신세계", "지마켓", "옥션", "당근", "무신사", "29cm",
+    "스마트스토어", "브랜드스토어", "라방", "라이브커머스", "쿠캣", "포카리", "마켓컬리", "오아시스",
+    // Channels (generic but specific enough)
+    "리테일", "도매", "자체몰", "공식몰",
+    // Global
+    "amazon", "tiktok", "instagram", "facebook", "youtube", "google ads", "meta", "shopee",
+    "lazada", "qoo10", "rakuten", "etsy", "shopify", "tmall", "taobao", "wechat", "douyin",
+    "wholefoods", "costco", "walmart", "target", "sephora", "ulta", "kickstarter", "indiegogo",
+    "linkedin", "reddit", "x.com", "twitter", "threads", "naver",
+  ];
+  const hasChannel = channelTokens.some((t) => text.includes(t));
+
+  // Metrics — any digit + currency/quantity unit, or % anywhere.
+  const hasMetric =
+    /[0-9][\d,.]*\s*(?:원|만원|억원|만|천만|krw|usd|\$|€|￥|jpy|cny|%|개|건|회|배|x|만건|뷰|view|impression|click|gmv|이상|미만|이내)/i.test(
+      action,
+    ) ||
+    /(?:^|\s)[0-9][\d,.]*\s*%/.test(action) ||
+    /\b[0-9][\d,.]*\s*[kKmM](?:\s|$)/.test(action);
+
+  // Timeline — explicit deadline or duration.
+  const hasTimeline =
+    /(?:Q[1-4]|FY?\d{2,4}|H[12]|d-?\d|d\+\d|\d+\s*(?:일|주|개월|년|month|months|week|weeks|day|days|year|years|qtr|quarter|q1|q2|q3|q4)|by\s+\w+\s*\d{2,4}|within\s+\d|next\s+\d|by\s+(?:end\s+of\s+)?(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec))/i.test(
+      action,
+    ) ||
+    /(?:오는|이내|까지|내|개월\s*이내|주\s*이내|일\s*이내)/.test(action);
+
+  // Measurable — names a tracked metric (conversion / lift / retention etc.)
+  const hasMeasurable =
+    /(?:전환율|클릭률|구매전환|장바구니|이탈률|체류|검색량|점유율|재구매|재방문|신규|매출|gmv|arpu|aov|ltv|cac|roi|roas|ctr|cvr|cpa|cpm|cpc|nps|csat|retention|conversion|engagement|recall|awareness|net\s*promoter|repeat|reach|impressions|sessions|signups?|installs?)/i.test(
+      action,
+    );
+
+  const hits = [hasChannel, hasMetric, hasTimeline, hasMeasurable].filter(Boolean).length;
+  return {
+    hasChannel,
+    hasMetric,
+    hasTimeline,
+    hasMeasurable,
+    score: hits * 25,
+  };
 }
 
 // react-pdf doesn't accept Zod schemas directly in its jsonSchema slot;
