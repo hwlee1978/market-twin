@@ -95,6 +95,12 @@ const TIER_BUDGET: Record<
     showCommonObjections: boolean;
     /** Champion vs Skeptic profile comparison page. Decision+. */
     showChampionVsSkeptic: boolean;
+    /** Go / No-Go verdict synthesis page. Decision+. */
+    showGoNoGo: boolean;
+    /** Country decision matrix (every candidate compared). Decision+. */
+    showCountryDecisionMatrix: boolean;
+    /** 30/60/90 phased execution plan. Decision+. */
+    showExecutionTimeline: boolean;
   }
 > = {
   hypothesis: {
@@ -126,6 +132,9 @@ const TIER_BUDGET: Record<
     showProviderDisagreement: false,
     showCommonObjections: false,
     showChampionVsSkeptic: false,
+    showGoNoGo: false,
+    showCountryDecisionMatrix: false,
+    showExecutionTimeline: false,
   },
   decision: {
     rank: 2,
@@ -157,6 +166,9 @@ const TIER_BUDGET: Record<
     showProviderDisagreement: false,
     showCommonObjections: true,
     showChampionVsSkeptic: true,
+    showGoNoGo: true,
+    showCountryDecisionMatrix: true,
+    showExecutionTimeline: true,
   },
   decision_plus: {
     rank: 3,
@@ -186,6 +198,9 @@ const TIER_BUDGET: Record<
     showProviderDisagreement: false,
     showCommonObjections: true,
     showChampionVsSkeptic: true,
+    showGoNoGo: true,
+    showCountryDecisionMatrix: true,
+    showExecutionTimeline: true,
   },
   deep: {
     rank: 4,
@@ -216,6 +231,9 @@ const TIER_BUDGET: Record<
     showProviderDisagreement: true,
     showCommonObjections: true,
     showChampionVsSkeptic: true,
+    showGoNoGo: true,
+    showCountryDecisionMatrix: true,
+    showExecutionTimeline: true,
   },
   deep_pro: {
     rank: 5,
@@ -243,6 +261,9 @@ const TIER_BUDGET: Record<
     showProviderDisagreement: true,
     showCommonObjections: true,
     showChampionVsSkeptic: true,
+    showGoNoGo: true,
+    showCountryDecisionMatrix: true,
+    showExecutionTimeline: true,
   },
 };
 
@@ -1225,6 +1246,596 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             />
           </View>
         </View>
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
+  /**
+   * Go / No-Go verdict — synthesises confidence score + recommendation
+   * strength + risk level into a single decision. The most "decision-
+   * critical" page in the report: a CEO can land on this page and
+   * walk away with an answer plus the conditions that would change it.
+   *
+   * Verdict logic:
+   *   - GO: confidence ≥ 75 AND recommendation confidence STRONG/MODERATE
+   *         AND no critical quality warnings
+   *   - CAUTION: confidence 60-74 OR recommendation WEAK, but no
+   *              quarantining warnings
+   *   - NO-GO: confidence < 60 OR systemic critical warnings present
+   *
+   * Falls back gracefully when quality data is missing (legacy
+   * ensembles): defaults to CAUTION with a "data missing" note.
+   */
+  const renderGoNoGoVerdictPage = () => {
+    if (!tierBudget.showGoNoGo) return null;
+    const conf = aggregate.quality?.confidenceScore;
+    const recConf = aggregate.recommendation.confidence;
+    const riskLevel = aggregate.narrative?.overallRiskLevel ?? "medium";
+    const criticalWarnings =
+      aggregate.quality?.systemicWarnings?.filter((w) => w.severity === "critical") ?? [];
+
+    type Verdict = "go" | "caution" | "nogo";
+    let verdict: Verdict;
+    if (typeof conf === "number") {
+      if (conf >= 75 && recConf !== "WEAK" && criticalWarnings.length === 0) verdict = "go";
+      else if (conf < 60 || criticalWarnings.length > 0) verdict = "nogo";
+      else verdict = "caution";
+    } else {
+      verdict = "caution";
+    }
+
+    const verdictMeta: Record<Verdict, { label: { ko: string; en: string }; tone: string; bg: string; tagline: { ko: string; en: string } }> = {
+      go: {
+        label: { ko: "GO — 진출 권장", en: "GO — proceed with launch" },
+        tone: C.success,
+        bg: "#F0FDF4",
+        tagline: {
+          ko: "데이터가 일관된 합의를 보입니다. 액션 플랜대로 진행하세요.",
+          en: "Data shows strong consensus. Execute the action plan.",
+        },
+      },
+      caution: {
+        label: { ko: "주의 — 조건부 진출", en: "CAUTION — conditional go" },
+        tone: C.warn,
+        bg: "#FFFBEB",
+        tagline: {
+          ko: "신호는 긍정적이나 핵심 조건 충족 후 진행 — 검증 마일스톤 설정 권장.",
+          en: "Signal is positive but condition checks needed — set validation milestones.",
+        },
+      },
+      nogo: {
+        label: { ko: "NO-GO — 진출 보류", en: "NO-GO — defer launch" },
+        tone: C.risk,
+        bg: "#FEF2F2",
+        tagline: {
+          ko: "현 데이터로는 진출 결정 불가. 핵심 블로커 해결 후 재시뮬 권장.",
+          en: "Current data doesn't support launch. Resolve blockers and re-validate.",
+        },
+      },
+    };
+    const v = verdictMeta[verdict];
+    const labelText = isKo ? v.label.ko : v.label.en;
+    const tagline = isKo ? v.tagline.ko : v.tagline.en;
+
+    // Conditions that, if met, would move verdict UP one notch.
+    // Computed from the same signals that drove the verdict.
+    const conditions: string[] = [];
+    if (verdict !== "go") {
+      if (typeof conf === "number" && conf < 75) {
+        conditions.push(
+          isKo
+            ? `결과 신뢰도를 75+로 올림 (현재 ${conf}, 더 많은 시뮬 / Deep tier 검증)`
+            : `Lift confidence to 75+ (currently ${conf} — more sims / Deep tier validation)`,
+        );
+      }
+      if (recConf === "WEAK") {
+        conditions.push(
+          isKo
+            ? `추천국 합의도 강화 (현재 WEAK — 시뮬 간 의견 분산)`
+            : `Strengthen recommendation consensus (currently WEAK — sims disagree)`,
+        );
+      }
+      if (riskLevel === "high") {
+        conditions.push(
+          isKo
+            ? `종합 리스크 수준을 medium 이하로 낮춤 (Top 리스크 해결)`
+            : `Bring overall risk to medium or below (resolve top risks)`,
+        );
+      }
+      for (const w of criticalWarnings.slice(0, 2)) {
+        conditions.push(
+          isKo
+            ? `시스템적 경고 해소: ${w.message}`
+            : `Resolve systemic warning: ${w.message}`,
+        );
+      }
+    }
+
+    // Critical signals — facts that the verdict depends on. Render
+    // 4-6 of them so the reader sees WHY the verdict landed where it did.
+    const signals: Array<{ label: string; value: string; status: "ok" | "warn" | "fail" }> = [];
+    if (typeof conf === "number") {
+      signals.push({
+        label: isKo ? "결과 신뢰도" : "Result confidence",
+        value: `${conf}/100`,
+        status: conf >= 75 ? "ok" : conf >= 60 ? "warn" : "fail",
+      });
+    }
+    signals.push({
+      label: isKo ? "추천 합의도" : "Recommendation strength",
+      value: `${aggregate.recommendation.consensusPercent}% (${recConf})`,
+      status: recConf === "STRONG" ? "ok" : recConf === "MODERATE" ? "warn" : "fail",
+    });
+    signals.push({
+      label: isKo ? "종합 리스크" : "Overall risk",
+      value: riskLevel.toUpperCase(),
+      status: riskLevel === "low" ? "ok" : riskLevel === "medium" ? "warn" : "fail",
+    });
+    if (criticalWarnings.length > 0) {
+      signals.push({
+        label: isKo ? "시스템적 경고" : "Systemic warnings",
+        value: isKo ? `${criticalWarnings.length}건 critical` : `${criticalWarnings.length} critical`,
+        status: "fail",
+      });
+    }
+    signals.push({
+      label: isKo ? "추천 시장" : "Target market",
+      value: aggregate.recommendation.country,
+      status: "ok",
+    });
+    if (aggregate.pricing?.recommendedPriceCents) {
+      signals.push({
+        label: isKo ? "권장 가격" : "Recommended price",
+        value: formatPrice(aggregate.pricing.recommendedPriceCents, project?.currency ?? undefined),
+        status: "ok",
+      });
+    }
+
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo ? "Go / No-Go 판정" : "Go / No-Go decision"}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? "이 페이지는 분석 전체를 한 줄로 요약합니다. 데이터에 기반한 진출 권장 + 그 결정이 바뀌려면 어떤 조건이 충족돼야 하는지."
+            : "One-page synthesis of the entire analysis: data-driven verdict + the conditions that would change it."}
+        </MText>
+
+        {/* Verdict hero */}
+        <View
+          style={{
+            backgroundColor: v.bg,
+            borderTopWidth: 5,
+            borderTopColor: v.tone,
+            padding: 18,
+            borderRadius: 4,
+            marginBottom: 14,
+          }}
+          wrap={false}
+        >
+          <MText
+            style={{
+              fontSize: 8,
+              color: v.tone,
+              fontWeight: 700,
+              letterSpacing: 0.8,
+              marginBottom: 4,
+            }}
+          >
+            {isKo ? "데이터 기반 판정" : "DATA-DRIVEN VERDICT"}
+          </MText>
+          <MText style={{ fontSize: 22, color: v.tone, fontWeight: 700, marginBottom: 6 }}>
+            {labelText}
+          </MText>
+          <MText style={{ fontSize: 10, color: C.body, lineHeight: 1.5 }}>
+            {tagline}
+          </MText>
+        </View>
+
+        {/* Critical signals */}
+        <View style={styles.sectionBlock}>
+          <MText style={styles.sectionEyebrow}>
+            {isKo ? "이 판정의 근거 신호" : "Signals supporting this verdict"}
+          </MText>
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: 6,
+              marginTop: 4,
+            }}
+          >
+            {signals.map((s, i) => {
+              const tone =
+                s.status === "ok" ? C.success : s.status === "warn" ? C.warn : C.risk;
+              return (
+                <View
+                  key={i}
+                  style={{
+                    width: "48%",
+                    backgroundColor: C.card,
+                    borderLeftWidth: 2,
+                    borderLeftColor: tone,
+                    padding: 8,
+                    borderRadius: 3,
+                  }}
+                  wrap={false}
+                >
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600 }}>
+                    {s.label}
+                  </MText>
+                  <MText
+                    style={{
+                      fontSize: 11,
+                      color: tone,
+                      fontWeight: 700,
+                      marginTop: 2,
+                    }}
+                  >
+                    {s.value}
+                  </MText>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Conditions — when verdict is below GO, list what would
+            move the needle. */}
+        {conditions.length > 0 && (
+          <View style={styles.sectionBlock}>
+            <MText style={[styles.sectionEyebrow, { color: v.tone }]}>
+              {isKo
+                ? `판정을 ${verdict === "nogo" ? "주의 / GO" : "GO"}로 이동시키는 조건`
+                : `Conditions to move verdict to ${verdict === "nogo" ? "Caution / Go" : "Go"}`}
+            </MText>
+            {conditions.map((c, i) => (
+              <View
+                key={i}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  paddingVertical: 4,
+                  gap: 8,
+                }}
+                wrap={false}
+              >
+                <MText style={{ fontSize: 10, color: v.tone, fontWeight: 700, width: 16 }}>
+                  {`${i + 1}.`}
+                </MText>
+                <MText style={{ fontSize: 9, color: C.body, flex: 1, lineHeight: 1.5 }}>
+                  {c}
+                </MText>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
+  /**
+   * Country decision matrix — every candidate country in one table
+   * with the columns that matter for picking: final score, components
+   * snapshot, top blocker, recommendation level (GO / CAUTION / NO-GO).
+   * Designed so a reader can compare all markets at once instead of
+   * paging back and forth between per-country drilldowns.
+   */
+  const renderCountryDecisionMatrixPage = () => {
+    if (!tierBudget.showCountryDecisionMatrix) return null;
+    const stats = aggregate.countryStats.slice(0, 10);
+    if (stats.length === 0) return null;
+
+    // Per-country verdict logic. Final score thresholds are
+    // intentionally conservative — "GO" requires meaningful confidence,
+    // not just being the best of a bad bunch.
+    const perCountryVerdict = (
+      finalMean: number,
+      regulatory: number | null,
+    ): { label: { ko: string; en: string }; tone: string } => {
+      if (regulatory != null && regulatory < 30) {
+        return {
+          label: { ko: "NO-GO (규제)", en: "NO-GO (regulatory)" },
+          tone: C.risk,
+        };
+      }
+      if (finalMean >= 70)
+        return { label: { ko: "GO", en: "GO" }, tone: C.success };
+      if (finalMean >= 55)
+        return { label: { ko: "주의", en: "CAUTION" }, tone: C.warn };
+      return { label: { ko: "NO-GO", en: "NO-GO" }, tone: C.risk };
+    };
+
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo ? "국가 의사결정 매트릭스" : "Country decision matrix"}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? "후보 국가 전체를 한 표에. 점수 · 채널 · 규제 · 최대 블로커 · 진출 권장도까지 — 시장 간 직접 비교."
+            : "All candidate markets in one table. Score · channel · regulatory · top blocker · go-rating — direct cross-market comparison."}
+        </MText>
+
+        <View
+          style={{
+            flexDirection: "row",
+            paddingHorizontal: 4,
+            paddingBottom: 4,
+            borderBottomWidth: 1,
+            borderBottomColor: C.divider,
+          }}
+        >
+          <MText style={{ fontSize: 7, color: C.muted, fontWeight: 700, width: 36 }}>
+            {isKo ? "국가" : "Country"}
+          </MText>
+          <MText
+            style={{ fontSize: 7, color: C.muted, fontWeight: 700, width: 40, textAlign: "right" }}
+          >
+            {isKo ? "점수" : "Score"}
+          </MText>
+          <MText
+            style={{ fontSize: 7, color: C.muted, fontWeight: 700, width: 40, textAlign: "right" }}
+          >
+            {isKo ? "채널" : "Channel"}
+          </MText>
+          <MText
+            style={{ fontSize: 7, color: C.muted, fontWeight: 700, width: 40, textAlign: "right" }}
+          >
+            {isKo ? "규제" : "Reg."}
+          </MText>
+          <MText style={{ fontSize: 7, color: C.muted, fontWeight: 700, flex: 1, paddingLeft: 6 }}>
+            {isKo ? "최대 블로커" : "Top blocker"}
+          </MText>
+          <MText
+            style={{ fontSize: 7, color: C.muted, fontWeight: 700, width: 70, textAlign: "right" }}
+          >
+            {isKo ? "판정" : "Verdict"}
+          </MText>
+        </View>
+
+        {stats.map((c) => {
+          const final = c.finalScore.mean;
+          const channel = c.components?.channelMatch.mean ?? null;
+          const reg = c.components?.regulatory.mean ?? null;
+          const topBlocker = c.detail?.topObjections?.[0]?.text ?? "—";
+          const verdict = perCountryVerdict(final, reg);
+          const verdictLabel = isKo ? verdict.label.ko : verdict.label.en;
+
+          const numTone = (n: number | null) =>
+            n == null ? C.muted : n >= 65 ? C.success : n >= 50 ? C.warn : C.risk;
+
+          return (
+            <View
+              key={c.country}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingVertical: 6,
+                borderBottomWidth: 0.5,
+                borderBottomColor: C.divider,
+              }}
+              wrap={false}
+            >
+              <MText style={{ fontSize: 10, color: C.ink, fontWeight: 700, width: 36 }}>
+                {c.country}
+              </MText>
+              <MText
+                style={{
+                  fontSize: 10,
+                  color: numTone(final),
+                  fontWeight: 700,
+                  width: 40,
+                  textAlign: "right",
+                }}
+              >
+                {final.toFixed(0)}
+              </MText>
+              <MText
+                style={{
+                  fontSize: 9,
+                  color: numTone(channel),
+                  width: 40,
+                  textAlign: "right",
+                }}
+              >
+                {channel != null ? channel.toFixed(0) : "—"}
+              </MText>
+              <MText
+                style={{
+                  fontSize: 9,
+                  color: numTone(reg),
+                  width: 40,
+                  textAlign: "right",
+                }}
+              >
+                {reg != null ? reg.toFixed(0) : "—"}
+              </MText>
+              <MText
+                style={{
+                  fontSize: 8,
+                  color: C.body,
+                  flex: 1,
+                  paddingLeft: 6,
+                  lineHeight: 1.4,
+                }}
+              >
+                {topBlocker.length > 65 ? topBlocker.slice(0, 64) + "…" : topBlocker}
+              </MText>
+              <View
+                style={{
+                  backgroundColor: verdict.tone,
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  borderRadius: 3,
+                  width: 70,
+                  alignItems: "center",
+                }}
+              >
+                <MText style={{ fontSize: 8, color: "#FFFFFF", fontWeight: 700 }}>
+                  {verdictLabel}
+                </MText>
+              </View>
+            </View>
+          );
+        })}
+
+        <MText style={{ fontSize: 7, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>
+          {isKo
+            ? "메타: 점수 / 채널 / 규제 모두 0-100 (높을수록 좋음). 규제 30 미만은 launch-blocker로 자동 NO-GO. 판정은 finalScore + 규제 종합 — 70+ GO / 55-69 주의 / 그 외 NO-GO."
+            : "Meta: score/channel/regulatory all 0-100 (higher = better). Regulatory <30 auto-flags NO-GO. Verdict combines finalScore + regulatory — 70+ GO / 55-69 CAUTION / else NO-GO."}
+        </MText>
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
+  /**
+   * 30 / 60 / 90 day execution timeline — recommended actions sorted
+   * onto a phased roadmap. Effort 1 (days) → Phase 1 foundation,
+   * effort 2 (weeks) → Phase 2 validation, effort 3 (months) → Phase 3
+   * scale. Within each phase, sorted by impact descending.
+   *
+   * Concrete answer to "what do I do Monday morning?".
+   */
+  const renderExecutionTimelinePage = () => {
+    if (!tierBudget.showExecutionTimeline) return null;
+    const actions = aggregate.narrative?.mergedActions ?? [];
+    if (actions.length === 0) return null;
+
+    type Phase = { id: 1 | 2 | 3; label: { ko: string; en: string }; period: string; tone: string };
+    const phases: Phase[] = [
+      {
+        id: 1,
+        label: { ko: "Phase 1 — 기반 구축", en: "Phase 1 — Foundation" },
+        period: "0-30",
+        tone: C.success,
+      },
+      {
+        id: 2,
+        label: { ko: "Phase 2 — 검증", en: "Phase 2 — Validation" },
+        period: "30-60",
+        tone: C.brand,
+      },
+      {
+        id: 3,
+        label: { ko: "Phase 3 — 확장", en: "Phase 3 — Scale" },
+        period: "60-90+",
+        tone: C.warn,
+      },
+    ];
+
+    // Group actions by effort score. Actions without effort scores
+    // default to phase 2 (medium / unknown).
+    const grouped: Record<1 | 2 | 3, typeof actions> = { 1: [], 2: [], 3: [] };
+    for (const a of actions) {
+      const e = (a.effort ?? 2) as 1 | 2 | 3;
+      grouped[e].push(a);
+    }
+    // Sort each phase by impact descending so the highest-leverage
+    // action lands at the top of its phase.
+    for (const id of [1, 2, 3] as const) {
+      grouped[id].sort((a, b) => (b.impact ?? 2) - (a.impact ?? 2));
+    }
+
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo ? "30 / 60 / 90일 실행 타임라인" : "30 / 60 / 90 execution timeline"}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? "권장 액션을 effort 기준으로 단계별 배치. Phase 1은 출시 후 한 달 내 완료, Phase 2는 검증 마일스톤, Phase 3는 본격 확장."
+            : "Recommended actions placed by effort: Phase 1 done in 30d, Phase 2 = validation milestones, Phase 3 = scale."}
+        </MText>
+
+        {phases.map((phase) => {
+          const items = grouped[phase.id];
+          return (
+            <View key={phase.id} style={{ marginBottom: 12 }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "baseline",
+                  borderBottomWidth: 2,
+                  borderBottomColor: phase.tone,
+                  paddingBottom: 4,
+                  marginBottom: 6,
+                }}
+              >
+                <MText style={{ fontSize: 11, color: phase.tone, fontWeight: 700 }}>
+                  {isKo ? phase.label.ko : phase.label.en}
+                </MText>
+                <MText style={{ fontSize: 9, color: C.muted, marginLeft: 8 }}>
+                  {`Day ${phase.period}`}
+                </MText>
+                <MText style={{ fontSize: 8, color: C.muted, marginLeft: "auto" }}>
+                  {isKo ? `${items.length}개 액션` : `${items.length} actions`}
+                </MText>
+              </View>
+
+              {items.length === 0 ? (
+                <MText style={{ fontSize: 8, color: C.muted, marginLeft: 6 }}>
+                  {isKo ? "이 단계에 배치된 액션 없음" : "No actions assigned to this phase"}
+                </MText>
+              ) : (
+                items.map((a, i) => {
+                  const impactBadge =
+                    a.impact === 3
+                      ? { tone: C.risk, label: isKo ? "결정적" : "Pivotal" }
+                      : a.impact === 1
+                        ? { tone: C.muted, label: isKo ? "경미" : "Minor" }
+                        : { tone: C.warn, label: isKo ? "중요" : "Material" };
+                  return (
+                    <View
+                      key={i}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "flex-start",
+                        paddingVertical: 4,
+                        gap: 8,
+                      }}
+                      wrap={false}
+                    >
+                      <View
+                        style={{
+                          backgroundColor: impactBadge.tone,
+                          paddingHorizontal: 4,
+                          paddingVertical: 1,
+                          borderRadius: 2,
+                          width: 50,
+                          alignItems: "center",
+                        }}
+                      >
+                        <MText style={{ fontSize: 7, color: "#FFFFFF", fontWeight: 700 }}>
+                          {impactBadge.label}
+                        </MText>
+                      </View>
+                      <MText style={{ fontSize: 9, color: C.body, flex: 1, lineHeight: 1.5 }}>
+                        {a.action}
+                      </MText>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          );
+        })}
+
+        <MText style={{ fontSize: 7, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>
+          {isKo
+            ? "메타: 액션이 한 phase에 너무 몰리면 — 모두 effort 1이면 \"빠르지만 임팩트 작은\" 일이 많고, effort 3이면 30일 내 가시 성과 어려움. 전 phase에 골고루 분포되도록 액션 plan 검토 권장."
+            : "Meta: too many actions in one phase = imbalance. All effort 1 = lots of fast low-impact work; all effort 3 = no early wins. Review for balanced distribution."}
+        </MText>
 
         {pageFooter}
       </Page>
@@ -3658,11 +4269,14 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       {coverPage}
 
       {variant === "executive" ? (
-        // Executive deck: 1-page brief + recommendation + actions/risks +
-        // pricing. Skip drilldowns / per-persona / provider consensus /
-        // variance / appendix — they belong in the detailed report.
+        // Executive deck: 1-page brief + verdict + recommendation +
+        // actions/risks + pricing. Skip drilldowns / per-persona /
+        // provider consensus / variance / appendix — they belong in
+        // the detailed report. Go/No-Go is the most decision-critical
+        // page so it lands right after the brief.
         <>
           {renderOnePageBriefPage()}
+          {renderGoNoGoVerdictPage()}
           {renderRecommendationPage()}
           {renderActionsPage()}
           {renderRisksPage()}
@@ -3673,9 +4287,12 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         // narrative arc — context → recommendation → drilldown → support.
         <>
           {renderOnePageBriefPage()}
+          {renderGoNoGoVerdictPage()}
           {renderProjectInfoPage()}
           {renderExecutiveSummaryPage()}
           {renderRecommendationPage()}
+          {renderCountryDecisionMatrixPage()}
+          {renderExecutionTimelinePage()}
           {renderCountriesPage()}
           {renderCountryDetailPage()}
           {renderCountryFunnelComparisonPage()}
