@@ -101,7 +101,22 @@ const RunSchema = z.object({
     .default("decision"),
   notifyEmail: z.string().email().optional(),
   locale: z.enum(["ko", "en"]).default("ko"),
+  /**
+   * When set, this run is a "free rerun" of an existing ensemble that
+   * scored below the confidence threshold. Skips the plan/quota gate
+   * and trial-sim counter — the original ensemble already paid for
+   * the slot. Validated server-side: parent must belong to the same
+   * workspace, must have low confidence, must not already have a
+   * child rerun, and must not itself be a free rerun (no chains).
+   * Tier is forced to the parent's tier so the rerun is comparable.
+   */
+  parentEnsembleId: z.string().uuid().optional(),
 });
+
+const FREE_RERUN_CONFIDENCE_THRESHOLD = (() => {
+  const env = Number(process.env.FREE_RERUN_CONFIDENCE_THRESHOLD);
+  return Number.isFinite(env) && env >= 0 && env <= 100 ? env : 60;
+})();
 
 /**
  * POST /api/projects/:id/run-ensemble
@@ -127,29 +142,94 @@ export async function POST(
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const { tier, notifyEmail, locale } = parsed.data;
+  let { tier, notifyEmail, locale } = parsed.data;
+  const { parentEnsembleId } = parsed.data;
+
+  // Free rerun validation. Set isFreeRerun = true ONLY when every gate
+  // below passes. We can't trust the client; treat the body flag as a
+  // request, not an authorisation.
+  let isFreeRerun = false;
+  if (parentEnsembleId) {
+    const adminCheck = createServiceClient();
+    const { data: parent } = await adminCheck
+      .from("ensembles")
+      .select("id, workspace_id, tier, status, is_free_rerun, aggregate_result")
+      .eq("id", parentEnsembleId)
+      .maybeSingle();
+    if (!parent) {
+      return NextResponse.json({ error: "parent_not_found" }, { status: 404 });
+    }
+    if (parent.workspace_id !== wsCtx.workspaceId) {
+      return NextResponse.json({ error: "parent_wrong_workspace" }, { status: 403 });
+    }
+    if (parent.is_free_rerun) {
+      // No chains — a rerun can't itself spawn a free rerun.
+      return NextResponse.json({ error: "parent_already_rerun" }, { status: 400 });
+    }
+    if (parent.status !== "completed") {
+      return NextResponse.json({ error: "parent_not_completed" }, { status: 400 });
+    }
+    // Confidence gate: parent's quality must be below threshold for the
+    // free rerun to make sense. Cheaper than re-running quality logic;
+    // we read the rolled-up score off aggregate_result.quality.
+    const parentAgg = parent.aggregate_result as { quality?: { confidenceScore?: number } } | null;
+    const parentConfidence = parentAgg?.quality?.confidenceScore ?? null;
+    if (parentConfidence == null) {
+      return NextResponse.json({ error: "parent_no_quality" }, { status: 400 });
+    }
+    if (parentConfidence >= FREE_RERUN_CONFIDENCE_THRESHOLD) {
+      return NextResponse.json(
+        {
+          error: "confidence_above_threshold",
+          parentConfidence,
+          threshold: FREE_RERUN_CONFIDENCE_THRESHOLD,
+        },
+        { status: 400 },
+      );
+    }
+    // No existing child rerun (partial unique index also enforces this,
+    // but explicit check gives a friendlier error message).
+    const { data: existingChild } = await adminCheck
+      .from("ensembles")
+      .select("id")
+      .eq("parent_ensemble_id", parentEnsembleId)
+      .maybeSingle();
+    if (existingChild) {
+      return NextResponse.json(
+        { error: "already_rerun_used", existingId: existingChild.id },
+        { status: 409 },
+      );
+    }
+    // Force tier to parent's so the rerun is directly comparable.
+    tier = parent.tier as typeof tier;
+    isFreeRerun = true;
+  }
+
   const preset = TIER_PRESETS[tier as Tier];
 
   // Plan / quota gate. Block before we spend any LLM tokens — the user
   // gets a clear "upgrade" response instead of a half-completed run.
   // Service-role inside getSubscription / getMonthlyUsage; gating is
   // hot-path so two short queries beat lazy enforcement on the runner.
+  // Free reruns bypass — the original sim already paid for the slot.
   const sub = await getSubscription(wsCtx.workspaceId);
-  const usage = await getMonthlyUsage(wsCtx.workspaceId, sub);
-  const decision = canStartSim({
-    plan: sub.plan,
-    trialActive: sub.trialActive,
-    trialSimsUsed: sub.trialSimsUsed,
-    trialSimsLimit: sub.trialSimsLimit,
-    monthSimsUsed: usage.simsUsed,
-    monthDeepSimsUsed: usage.deepSimsUsed,
-    simTier: tier as "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro",
-  });
-  if (!decision.allowed) {
-    return NextResponse.json(
-      { error: "plan_limit", reason: decision.reason, plan: sub.plan.slug },
-      { status: 402 },
-    );
+  if (!isFreeRerun) {
+    const usage = await getMonthlyUsage(wsCtx.workspaceId, sub);
+    const decision = canStartSim({
+      plan: sub.plan,
+      trialActive: sub.trialActive,
+      trialSimsUsed: sub.trialSimsUsed,
+      trialSimsLimit: sub.trialSimsLimit,
+      monthSimsUsed: usage.simsUsed,
+      monthDeepSimsUsed: usage.deepSimsUsed,
+      simTier: tier as "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro",
+    });
+    if (!decision.allowed) {
+      return NextResponse.json(
+        { error: "plan_limit", reason: decision.reason, plan: sub.plan.slug },
+        { status: 402 },
+      );
+    }
   }
 
   // Workspace ownership check on the project.
@@ -180,6 +260,8 @@ export async function POST(
       llm_providers: preset.llmProviders,
       status: "running",
       notify_email: notifyEmail ?? null,
+      is_free_rerun: isFreeRerun,
+      parent_ensemble_id: isFreeRerun ? parentEnsembleId : null,
     })
     .select("id")
     .single();
@@ -194,7 +276,8 @@ export async function POST(
   // request hits the quota. Counting at ensemble creation (not on
   // completion) means a deliberate cancel still consumes the quota slot
   // — matches Stripe-style "you used your free trial" semantics.
-  if (sub.plan.slug === "free_trial") {
+  // Free reruns skip this — the original sim already paid for the slot.
+  if (sub.plan.slug === "free_trial" && !isFreeRerun) {
     await admin
       .from("subscriptions")
       .update({ trial_sims_used: sub.trialSimsUsed + 1 })

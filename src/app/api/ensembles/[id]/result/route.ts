@@ -24,7 +24,7 @@ export async function GET(
   const { data: ensemble, error } = await supabase
     .from("ensembles")
     .select(
-      "id, project_id, status, tier, parallel_sims, per_sim_personas, llm_providers, aggregate_result, created_at, completed_at, error_message",
+      "id, project_id, status, tier, parallel_sims, per_sim_personas, llm_providers, aggregate_result, created_at, completed_at, error_message, is_free_rerun, parent_ensemble_id",
     )
     .eq("id", id)
     .eq("workspace_id", wsCtx.workspaceId)
@@ -32,6 +32,16 @@ export async function GET(
   if (error || !ensemble) {
     return NextResponse.json({ error: "ensemble not found" }, { status: 404 });
   }
+
+  // Whether this ensemble has already spawned its one allowed free rerun
+  // (used by the UI to hide the CTA). Cheap point lookup against the
+  // partial unique index on parent_ensemble_id.
+  const { data: childRerun } = await supabase
+    .from("ensembles")
+    .select("id")
+    .eq("parent_ensemble_id", ensemble.id)
+    .eq("is_free_rerun", true)
+    .maybeSingle();
 
   if (ensemble.status !== "completed" && ensemble.status !== "failed") {
     return NextResponse.json(
@@ -70,5 +80,8 @@ export async function GET(
     completed_at: ensemble.completed_at,
     aggregate: ensemble.aggregate_result,
     project: project ?? null,
+    is_free_rerun: ensemble.is_free_rerun ?? false,
+    parent_ensemble_id: ensemble.parent_ensemble_id ?? null,
+    child_rerun_id: childRerun?.id ?? null,
   });
 }

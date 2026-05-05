@@ -2,7 +2,8 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download, ChevronRight, HelpCircle, Lightbulb, MessageCircle, Send, X } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download, ChevronRight, HelpCircle, Lightbulb, MessageCircle, Send, X, RefreshCw, Gift } from "lucide-react";
+import { useRouter } from "@/i18n/navigation";
 import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
@@ -54,6 +55,7 @@ interface ProjectInfo {
 
 interface EnsembleResult {
   id: string;
+  project_id?: string;
   tier: string;
   parallel_sims: number;
   per_sim_personas: number;
@@ -62,6 +64,9 @@ interface EnsembleResult {
   created_at?: string;
   completed_at?: string | null;
   project?: ProjectInfo | null;
+  is_free_rerun?: boolean;
+  parent_ensemble_id?: string | null;
+  child_rerun_id?: string | null;
 }
 
 export function EnsembleView({
@@ -498,7 +503,6 @@ function EnsembleDashboard({
   result: EnsembleResult;
   locale: string;
 }) {
-  void projectId;
   const { aggregate, llm_providers, tier, parallel_sims } = result;
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
@@ -731,6 +735,11 @@ function EnsembleDashboard({
           isKo={isKo}
           hotTake={narrative?.hotTake}
           quality={aggregate.quality ?? undefined}
+          ensembleId={result.id}
+          projectId={projectId}
+          isFreeRerun={result.is_free_rerun ?? false}
+          parentEnsembleId={result.parent_ensemble_id ?? null}
+          childRerunId={result.child_rerun_id ?? null}
         />
       )}
       {activeTab === "overview" && (
@@ -898,6 +907,11 @@ function SummaryTab({
   locale,
   isKo,
   hotTake,
+  ensembleId,
+  projectId,
+  isFreeRerun,
+  parentEnsembleId,
+  childRerunId,
 }: {
   recommendation: EnsembleAggregate["recommendation"];
   confidenceColor: string;
@@ -914,12 +928,48 @@ function SummaryTab({
   isKo: boolean;
   hotTake?: string;
   quality?: NonNullable<EnsembleAggregate["quality"]>;
+  ensembleId: string;
+  projectId: string;
+  isFreeRerun: boolean;
+  parentEnsembleId: string | null;
+  childRerunId: string | null;
 }) {
+  // Free-rerun threshold mirrors the server-side gate. Kept hardcoded
+  // here rather than threaded through the API so the badge logic stays
+  // co-located with the UI; the server will still 400 if the user
+  // somehow forces a rerun above threshold.
+  const FREE_RERUN_THRESHOLD = 60;
+  const showFreeRerunCta =
+    !!quality &&
+    quality.confidenceScore < FREE_RERUN_THRESHOLD &&
+    !isFreeRerun &&
+    !childRerunId;
+
   return (
     <div className="space-y-6">
+      {isFreeRerun && parentEnsembleId && (
+        <FreeRerunBadge parentId={parentEnsembleId} locale={locale} isKo={isKo} />
+      )}
+
       {hotTake && <HotTakeCard hotTake={hotTake} isKo={isKo} />}
 
       {quality && <QualityBanner quality={quality} isKo={isKo} />}
+
+      {showFreeRerunCta && quality && (
+        <FreeRerunCta
+          confidence={quality.confidenceScore}
+          threshold={FREE_RERUN_THRESHOLD}
+          ensembleId={ensembleId}
+          projectId={projectId}
+          tier={tier}
+          locale={locale}
+          isKo={isKo}
+        />
+      )}
+
+      {childRerunId && (
+        <ChildRerunNotice rerunId={childRerunId} locale={locale} isKo={isKo} />
+      )}
 
       {project && (
         <ProjectInfoCard project={project} locale={locale} isKo={isKo} />
@@ -1564,6 +1614,241 @@ function QualityBanner({
             </ul>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Free-rerun CTA. Renders only when:
+ *   - confidenceScore is below threshold (default 60), AND
+ *   - this ensemble isn't itself a rerun, AND
+ *   - no child rerun has been spawned yet
+ *
+ * Same inputs, same tier — the user just gets a fresh persona sample
+ * on the house. Confirmation modal explains the offer up front so the
+ * user doesn't burn quota by accident clicking through.
+ */
+function FreeRerunCta({
+  confidence,
+  threshold,
+  ensembleId,
+  projectId,
+  tier,
+  locale,
+  isKo,
+}: {
+  confidence: number;
+  threshold: number;
+  ensembleId: string;
+  projectId: string;
+  tier: string;
+  locale: string;
+  isKo: boolean;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const startRerun = async () => {
+    if (busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/run-ensemble`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tier,
+          locale,
+          parentEnsembleId: ensembleId,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error(await friendlyApiError(res, isKo ? "ko" : "en"));
+      }
+      const data = (await res.json()) as { ensembleId: string };
+      router.push(`/projects/${projectId}/results?ensemble=${data.ensembleId}`);
+    } catch (e) {
+      setErr(friendlyClientError(e, isKo ? "ko" : "en"));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="rounded-xl border-2 border-dashed border-accent/50 bg-gradient-to-br from-accent-50/40 to-brand-50/30 p-5">
+        <div className="flex items-start gap-4 flex-col sm:flex-row">
+          <div className="shrink-0 inline-flex items-center justify-center w-12 h-12 rounded-full bg-accent/10 text-accent">
+            <Gift size={22} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-accent mb-1">
+              {isKo ? "무료 재실행 가능" : "Free rerun available"}
+            </div>
+            <h3 className="text-base sm:text-lg font-semibold text-slate-900">
+              {isKo
+                ? `신뢰도가 낮습니다 (${confidence}점 / 기준 ${threshold}점)`
+                : `Low confidence (${confidence} / threshold ${threshold})`}
+            </h3>
+            <p className="text-sm text-slate-600 mt-1.5 leading-relaxed">
+              {isKo
+                ? "동일한 입력으로 한 번 더 실행해 결과를 검증해 보세요. 쿼터에 차감되지 않으며 추가 비용도 없습니다."
+                : "Run the same analysis once more to validate the result. It won't count against your quota — no extra charge."}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            disabled={busy}
+            className="btn-primary shrink-0 inline-flex items-center gap-2 disabled:opacity-60"
+          >
+            <RefreshCw size={14} />
+            {isKo ? "무료로 재실행" : "Rerun for free"}
+          </button>
+        </div>
+        {err && <p className="text-xs text-risk mt-3">{err}</p>}
+      </div>
+
+      {open && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4"
+          onClick={() => !busy && setOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-accent/10 text-accent">
+                <Gift size={18} />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900">
+                {isKo ? "무료 재실행 확인" : "Confirm free rerun"}
+              </h3>
+            </div>
+            <ul className="space-y-2 text-sm text-slate-700 mb-5">
+              <li className="flex gap-2">
+                <CheckCircle2 size={16} className="text-success shrink-0 mt-0.5" />
+                <span>
+                  {isKo
+                    ? "동일한 제품·국가·티어로 새 페르소나 표본을 다시 추출합니다."
+                    : "Same product, countries, and tier — with a fresh persona sample."}
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <CheckCircle2 size={16} className="text-success shrink-0 mt-0.5" />
+                <span>
+                  {isKo
+                    ? "월 쿼터/체험 한도에 차감되지 않습니다."
+                    : "Doesn't count against your monthly quota or trial limit."}
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <AlertCircle size={16} className="text-warn shrink-0 mt-0.5" />
+                <span>
+                  {isKo
+                    ? "이 분석당 1회만 가능합니다. 재실행 결과에 대해서는 추가 무료 재실행이 제공되지 않습니다."
+                    : "One free rerun per analysis. The rerun itself is not eligible for another free rerun."}
+                </span>
+              </li>
+            </ul>
+            {err && <p className="text-xs text-risk mb-3">{err}</p>}
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                disabled={busy}
+                className="btn-ghost text-sm disabled:opacity-60"
+              >
+                {isKo ? "취소" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                onClick={startRerun}
+                disabled={busy}
+                className="btn-primary text-sm inline-flex items-center gap-2 disabled:opacity-60"
+              >
+                {busy ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    {isKo ? "시작 중..." : "Starting..."}
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw size={14} />
+                    {isKo ? "재실행 시작" : "Start rerun"}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
+ * Inline notice on the parent ensemble showing that the free rerun
+ * has already been used (and linking to it). Rendered in place of
+ * FreeRerunCta once a child rerun exists.
+ */
+function ChildRerunNotice({
+  rerunId,
+  locale,
+  isKo,
+}: {
+  rerunId: string;
+  locale: string;
+  isKo: boolean;
+}) {
+  void locale;
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 flex items-start gap-3">
+      <RefreshCw size={16} className="text-slate-500 shrink-0 mt-0.5" />
+      <div className="flex-1 text-sm text-slate-700">
+        <span className="font-medium">
+          {isKo ? "무료 재실행 이미 사용됨" : "Free rerun already used"}
+        </span>
+        <span className="text-slate-500 ml-2 text-xs font-mono">
+          → {rerunId.slice(0, 8)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Badge shown at the top of a free-rerun result page so the user
+ * knows this is a rerun (not a fresh run) and what triggered it.
+ */
+function FreeRerunBadge({
+  parentId,
+  locale,
+  isKo,
+}: {
+  parentId: string;
+  locale: string;
+  isKo: boolean;
+}) {
+  void locale;
+  return (
+    <div className="rounded-xl border border-accent/30 bg-accent-50/50 p-3 flex items-center gap-3">
+      <Gift size={16} className="text-accent shrink-0" />
+      <div className="flex-1 text-sm text-slate-700">
+        <span className="font-medium text-accent">
+          {isKo ? "무료 재실행 분석" : "Free rerun analysis"}
+        </span>
+        <span className="text-slate-500 ml-2">
+          {isKo ? "원본 신뢰도 부족으로 동일 입력 재검증" : "rerun of a low-confidence parent"}
+        </span>
+        <span className="text-slate-400 ml-2 text-xs font-mono">
+          ← {parentId.slice(0, 8)}
+        </span>
       </div>
     </div>
   );
