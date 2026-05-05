@@ -1908,108 +1908,6 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
   // ────────────────────────────────────────────────────────────────────
 
   /**
-   * Voice Wall — actual persona quotes with attribution. Top positives
-   * + top negatives stacked, each labeled with country / age / job /
-   * intent. The point is grounding: aggregate stats feel academic;
-   * "Tokyo 32, marketer, intent 72: 'Qoo10 쿠폰 뜨면 살게요'" feels like
-   * a real customer.
-   */
-  const renderVoiceWallPage = () => {
-    const positives = aggregate.personas?.topPositiveVoices ?? [];
-    const negatives = aggregate.personas?.topNegativeVoices ?? [];
-    if (positives.length === 0 && negatives.length === 0) return null;
-    return (
-      <Page size="A4" style={styles.page}>
-        {pageHeader}
-        <MText style={styles.pageTitle}>{isKo ? "페르소나 보이스 월" : "Voice wall"}</MText>
-        <MText style={styles.pageSubtitle}>
-          {isKo
-            ? "실제 페르소나의 1인칭 인용. 가장 긍정적 / 가장 부정적 voice를 동시에 보여 균형 잡힌 시각을 제공합니다."
-            : "Verbatim persona quotes — the most positive and most negative side-by-side for a balanced read."}
-        </MText>
-
-        <View style={{ flexDirection: "row", gap: 10 }}>
-          <View style={{ flex: 1 }}>
-            <MText style={[styles.sectionEyebrow, { color: C.success }]}>
-              {isKo ? "가장 긍정적인 목소리" : "Most positive"}
-            </MText>
-            {positives.length === 0 ? (
-              <MText style={{ fontSize: 9, color: C.muted }}>—</MText>
-            ) : (
-              positives.map((v, i) => (
-                <View
-                  key={i}
-                  style={{
-                    backgroundColor: C.card,
-                    padding: 8,
-                    marginBottom: 6,
-                    borderLeftWidth: 2,
-                    borderLeftColor: C.success,
-                  }}
-                  wrap={false}
-                >
-                  <MText style={{ fontSize: 9, color: C.body, lineHeight: 1.5, marginBottom: 4 }}>
-                    {`"${v.text}"`}
-                  </MText>
-                  <MText style={{ fontSize: 8, color: C.muted }}>
-                    {[
-                      v.country,
-                      v.ageRange,
-                      v.profession,
-                      `${isKo ? "구매의향" : "intent"} ${v.intent}`,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </MText>
-                </View>
-              ))
-            )}
-          </View>
-
-          <View style={{ flex: 1 }}>
-            <MText style={[styles.sectionEyebrow, { color: C.risk }]}>
-              {isKo ? "가장 부정적인 목소리" : "Most negative"}
-            </MText>
-            {negatives.length === 0 ? (
-              <MText style={{ fontSize: 9, color: C.muted }}>—</MText>
-            ) : (
-              negatives.map((v, i) => (
-                <View
-                  key={i}
-                  style={{
-                    backgroundColor: C.card,
-                    padding: 8,
-                    marginBottom: 6,
-                    borderLeftWidth: 2,
-                    borderLeftColor: C.risk,
-                  }}
-                  wrap={false}
-                >
-                  <MText style={{ fontSize: 9, color: C.body, lineHeight: 1.5, marginBottom: 4 }}>
-                    {`"${v.text}"`}
-                  </MText>
-                  <MText style={{ fontSize: 8, color: C.muted }}>
-                    {[
-                      v.country,
-                      v.ageRange,
-                      v.profession,
-                      `${isKo ? "구매의향" : "intent"} ${v.intent}`,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </MText>
-                </View>
-              ))
-            )}
-          </View>
-        </View>
-
-        {pageFooter}
-      </Page>
-    );
-  };
-
-  /**
    * Income × Intent heatmap — segmentBreakdown.byIncome rendered as a
    * row-per-income bar with the segment's mean intent + which country
    * that income segment most often targets. Surfaces "buyers in $X bracket
@@ -2260,6 +2158,587 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           {isKo
             ? "메타: 막대는 언급 횟수, 우측 숫자는 그 채널 언급자의 평균 구매의향. 추천 우선순위 = 언급 많음 × 의향 높음 — 두 조건 모두 만족하는 채널부터 진출하세요."
             : "Bar = mentions; right number = mean intent of mentioners. Launch priority = high mentions × high intent — start with channels strong on both."}
+        </MText>
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
+  /**
+   * Persona Archetypes — rule-based clustering of personas into 5 GTM-
+   * relevant buckets (Champion / Curious / Conditional / Skeptic /
+   * Walker). Each bucket gets demographic mode + top trust + top
+   * objection + a representative voice quote. Answers "who do I sell
+   * to first?" with substance instead of headcounts.
+   */
+  const renderArchetypesPage = () => {
+    const archetypes = aggregate.personas?.archetypes ?? [];
+    if (archetypes.length === 0) return null;
+    const archetypeLabels: Record<string, { ko: string; en: string; tone: string; tagline: { ko: string; en: string } }> = {
+      champion: {
+        ko: "챔피언",
+        en: "Champion",
+        tone: C.success,
+        tagline: { ko: "이미 설득됨 — 첫 타겟 acquisition 우선순위", en: "Already sold — primary acquisition target" },
+      },
+      curious: {
+        ko: "관찰자",
+        en: "Curious",
+        tone: C.brand,
+        tagline: { ko: "관심 있지만 구매까지 못 옴 — 컨버전 갭의 핵심", en: "Interested but not buying — the conversion gap" },
+      },
+      conditional: {
+        ko: "설득 가능층",
+        en: "Conditional",
+        tone: C.warn,
+        tagline: { ko: "복귀 가능한 중간층 — 카피·가격이 결정 요인", en: "The persuadable middle — copy + price decide them" },
+      },
+      skeptic: {
+        ko: "회의론자",
+        en: "Skeptic",
+        tone: C.risk,
+        tagline: { ko: "여러 거부 요인 — 시간 투자 우선순위 낮음", en: "Multiple objections — low ROI to convince" },
+      },
+      walker: {
+        ko: "지나가는 행인",
+        en: "Walker",
+        tone: C.muted,
+        tagline: { ko: "관심 없고 시장 외부 — 그냥 통과", en: "Not in market — pass them by" },
+      },
+    };
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo ? "페르소나 아키타입 — 5가지 행동 세그먼트" : "Persona archetypes — 5 behavior segments"}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? "구매의향 + 광고 호기심 + 클릭 의향을 결합한 행동 클러스터링. 각 세그먼트의 평균 인상, 직업/소득 모드, 대표 인용을 보여 \"누구부터 공략할지\" 결정에 직결."
+            : "Behavioral clustering on intent + ad curiosity + click signal. Each segment shows mean profile, modal demo, and a representative voice — driving the 'who first?' GTM decision."}
+        </MText>
+
+        {archetypes.map((arch) => {
+          const meta = archetypeLabels[arch.id];
+          const label = isKo ? meta.ko : meta.en;
+          const tagline = isKo ? meta.tagline.ko : meta.tagline.en;
+          return (
+            <View
+              key={arch.id}
+              style={{
+                borderLeftWidth: 3,
+                borderLeftColor: meta.tone,
+                paddingLeft: 8,
+                marginBottom: 10,
+                paddingVertical: 4,
+                backgroundColor: C.card,
+              }}
+              wrap={false}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "baseline",
+                  justifyContent: "space-between",
+                  marginBottom: 3,
+                }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
+                  <MText style={{ fontSize: 12, color: meta.tone, fontWeight: 700 }}>
+                    {label}
+                  </MText>
+                  <MText style={{ fontSize: 9, color: C.muted }}>
+                    {`${arch.count}명 · ${Math.round(arch.share * 100)}%`}
+                  </MText>
+                </View>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <MText style={{ fontSize: 8, color: C.muted }}>
+                    {isKo ? "평균 의향" : "intent"}
+                  </MText>
+                  <MText style={{ fontSize: 10, color: C.ink, fontWeight: 700 }}>
+                    {String(arch.meanIntent)}
+                  </MText>
+                  {arch.meanCuriosity != null && (
+                    <>
+                      <MText style={{ fontSize: 8, color: C.muted }}>
+                        {isKo ? "호기심" : "curiosity"}
+                      </MText>
+                      <MText style={{ fontSize: 10, color: C.ink, fontWeight: 700 }}>
+                        {String(arch.meanCuriosity)}
+                      </MText>
+                    </>
+                  )}
+                </View>
+              </View>
+              <MText style={{ fontSize: 8, color: C.muted, marginBottom: 4, fontStyle: "italic" }}>
+                {tagline}
+              </MText>
+
+              <View style={{ flexDirection: "row", gap: 10, marginBottom: 4 }}>
+                <View style={{ flex: 1 }}>
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600 }}>
+                    {isKo ? "전형적 프로필" : "Typical profile"}
+                  </MText>
+                  <MText style={{ fontSize: 9, color: C.body, marginTop: 1 }}>
+                    {[arch.topProfession, arch.topAgeBucket, arch.topIncomeBucket]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
+                  </MText>
+                </View>
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 10, marginBottom: 4 }}>
+                {arch.topTrustFactor && (
+                  <View style={{ flex: 1 }}>
+                    <MText style={{ fontSize: 7, color: C.success, fontWeight: 600 }}>
+                      {isKo ? "신뢰 요인" : "Top trust"}
+                    </MText>
+                    <MText style={{ fontSize: 9, color: C.body, marginTop: 1 }}>
+                      {arch.topTrustFactor}
+                    </MText>
+                  </View>
+                )}
+                {arch.topObjection && (
+                  <View style={{ flex: 1 }}>
+                    <MText style={{ fontSize: 7, color: C.risk, fontWeight: 600 }}>
+                      {isKo ? "거부 요인" : "Top objection"}
+                    </MText>
+                    <MText style={{ fontSize: 9, color: C.body, marginTop: 1 }}>
+                      {arch.topObjection}
+                    </MText>
+                  </View>
+                )}
+              </View>
+
+              {arch.representativeQuote && (
+                <View
+                  style={{
+                    marginTop: 4,
+                    borderTopWidth: 0.5,
+                    borderTopColor: C.divider,
+                    paddingTop: 4,
+                  }}
+                >
+                  <MText style={{ fontSize: 9, color: C.body, fontStyle: "italic", lineHeight: 1.5 }}>
+                    {`"${arch.representativeQuote.text}"`}
+                  </MText>
+                  <MText style={{ fontSize: 7, color: C.muted, marginTop: 2 }}>
+                    {[
+                      arch.representativeQuote.country,
+                      arch.representativeQuote.profession,
+                      `${isKo ? "구매의향" : "intent"} ${arch.representativeQuote.intent}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </MText>
+                </View>
+              )}
+            </View>
+          );
+        })}
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
+  /**
+   * Risk × Action mapping — for each top-3 risk, show which action(s)
+   * address it via heuristic keyword overlap (factor + description vs
+   * action text). Demonstrates the action plan actually answers the
+   * risks identified, not floating in space.
+   */
+  const renderRiskActionMappingPage = () => {
+    const risks = aggregate.narrative?.mergedRisks?.slice(0, 5) ?? [];
+    const actions = aggregate.narrative?.mergedActions?.slice(0, 8) ?? [];
+    if (risks.length === 0 || actions.length === 0) return null;
+
+    // Cheap keyword extraction — pull the noun-like tokens from a
+    // risk/action string. CJK runs and Latin words ≥4 chars. Stopwords
+    // dropped. The result is a Set we can intersect across risk/action.
+    const STOPWORDS_KO = new Set([
+      "수있","입니다","됩니다","합니다","하고","하지","하는","대한","위한","위해","관한","에서","에게","으로","에는","입니","않다","적인","적으","적이","따른","따라","리스크","액션",
+    ]);
+    const STOPWORDS_EN = new Set([
+      "the","and","with","that","this","from","into","over","when","what","more","than","they","will","also","such","very","just","like","each","other","some","most","need",
+    ]);
+    const tokenize = (s: string): Set<string> => {
+      const out = new Set<string>();
+      const cleaned = s.toLowerCase().replace(/[^\w가-힣\s]/g, " ");
+      for (const w of cleaned.split(/\s+/)) {
+        if (!w) continue;
+        if (/^[가-힣]+$/.test(w)) {
+          // CJK: emit overlapping bigrams of length 2
+          for (let i = 0; i + 1 < w.length; i++) {
+            const bi = w.slice(i, i + 2);
+            if (!STOPWORDS_KO.has(bi)) out.add(bi);
+          }
+        } else if (w.length >= 4 && !STOPWORDS_EN.has(w)) {
+          out.add(w);
+        }
+      }
+      return out;
+    };
+    const overlap = (a: Set<string>, b: Set<string>): number => {
+      let n = 0;
+      for (const t of a) if (b.has(t)) n++;
+      return n;
+    };
+
+    // For each risk, find actions with highest overlap. We only call
+    // an action a "match" if overlap ≥ 2 — single-token coincidence
+    // is noise.
+    const riskTokens = risks.map((r) => tokenize(`${r.factor} ${r.description}`));
+    const actionTokens = actions.map((a) => tokenize(a.action));
+    const matches: Array<{ riskIdx: number; matchedActions: number[] }> = [];
+    for (let i = 0; i < risks.length; i++) {
+      const scored = actionTokens
+        .map((tok, j) => ({ idx: j, score: overlap(riskTokens[i], tok) }))
+        .filter((s) => s.score >= 2)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3)
+        .map((s) => s.idx);
+      matches.push({ riskIdx: i, matchedActions: scored });
+    }
+
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo ? "리스크 × 액션 매핑" : "Risk × action mapping"}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? "각 리스크에 대응하는 액션을 자동 매핑. 액션 플랜이 식별된 리스크를 실제로 다루는지 한 페이지에서 검증."
+            : "Auto-mapped actions that address each risk. One-page check that the plan answers the risks — not just floating recommendations."}
+        </MText>
+
+        <View style={{ marginBottom: 10 }}>
+          <MText style={[styles.sectionEyebrow, { marginBottom: 4 }]}>
+            {isKo ? "참조 — 액션 목록" : "Reference — action list"}
+          </MText>
+          {actions.map((a, i) => (
+            <MText key={i} style={{ fontSize: 8, color: C.muted, lineHeight: 1.5 }}>
+              {`A${i + 1}. ${a.action.length > 110 ? a.action.slice(0, 109) + "…" : a.action}`}
+            </MText>
+          ))}
+        </View>
+
+        {risks.map((r, i) => {
+          const sevColor =
+            r.severity === "high" ? C.risk : r.severity === "medium" ? C.warn : C.muted;
+          const matched = matches[i].matchedActions;
+          return (
+            <View
+              key={i}
+              style={{
+                borderLeftWidth: 2,
+                borderLeftColor: sevColor,
+                paddingLeft: 8,
+                marginBottom: 8,
+                paddingVertical: 3,
+              }}
+              wrap={false}
+            >
+              <MText style={{ fontSize: 10, color: C.ink, fontWeight: 700 }}>
+                {`R${i + 1}. ${r.factor}`}
+              </MText>
+              <MText style={{ fontSize: 8, color: C.body, lineHeight: 1.4, marginTop: 1 }}>
+                {r.description}
+              </MText>
+              <MText
+                style={{
+                  fontSize: 8,
+                  color: matched.length > 0 ? C.success : C.risk,
+                  fontWeight: 600,
+                  marginTop: 3,
+                }}
+              >
+                {matched.length > 0
+                  ? isKo
+                    ? `대응 액션: ${matched.map((idx) => `A${idx + 1}`).join(", ")}`
+                    : `Addressed by: ${matched.map((idx) => `A${idx + 1}`).join(", ")}`
+                  : isKo
+                    ? "대응 액션 없음 — 추가 액션 검토 필요"
+                    : "No matched action — consider adding one"}
+              </MText>
+            </View>
+          );
+        })}
+
+        <MText style={{ fontSize: 8, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>
+          {isKo
+            ? "메타: 매핑은 키워드 중첩 기반 휴리스틱입니다 (≥2 token 일치). 의미적으로 더 적합한 액션이 있을 수 있으니 보조 자료로 사용하세요. \"대응 액션 없음\"은 액션 plan에 빈틈이 있다는 시그널 — 새 액션 추가 검토하세요."
+            : "Mapping is keyword-overlap heuristic (≥2 token match). A semantically better fit may exist; treat this as a check, not a final answer. 'No matched action' is a signal of a gap in the plan — consider adding one."}
+        </MText>
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
+  /**
+   * Per-country funnel comparison — funnel from each candidate country
+   * stacked side-by-side. Lets the user spot "Vietnam ad-curiosity high
+   * but click rate low" type patterns where the leak differs by market.
+   */
+  const renderCountryFunnelComparisonPage = () => {
+    const rows = aggregate.countryStats
+      .filter((c) => !!c.detail?.funnel)
+      .slice(0, 8); // tier-budget alternative — 8 fits A4 cleanly
+    if (rows.length === 0) return null;
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo ? "국가별 퍼널 비교" : "Per-country funnel comparison"}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? "광고 호기심 → 클릭 의향 → 구매 의향까지의 깔때기를 국가별로 나란히 비교. 어느 시장에서 어느 단계에서 leak가 발생하는지 한눈에."
+            : "Curiosity → click → buy funnel laid out per market. Spot at-a-glance which markets leak at which stage."}
+        </MText>
+
+        <View
+          style={{
+            flexDirection: "row",
+            paddingHorizontal: 4,
+            marginBottom: 4,
+            borderBottomWidth: 0.5,
+            borderBottomColor: C.divider,
+            paddingBottom: 3,
+          }}
+        >
+          <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, width: 45 }}>
+            {isKo ? "국가" : "Country"}
+          </MText>
+          <MText
+            style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1, textAlign: "right" }}
+          >
+            {isKo ? "광고 호기심 (0-100)" : "Ad curiosity (0-100)"}
+          </MText>
+          <MText
+            style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1, textAlign: "right" }}
+          >
+            {isKo ? "클릭 의향 (%)" : "Click rate (%)"}
+          </MText>
+          <MText
+            style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1, textAlign: "right" }}
+          >
+            {isKo ? "구매 의향 (%)" : "Buy rate (%)"}
+          </MText>
+          <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, width: 90, textAlign: "right" }}>
+            {isKo ? "주요 leak" : "Main leak"}
+          </MText>
+        </View>
+
+        {rows.map((c) => {
+          const f = c.detail!.funnel!;
+          const tone = (v: number, t1: number, t2: number) =>
+            v >= t1 ? C.success : v >= t2 ? C.warn : C.risk;
+          // Diagnose where the funnel leaks. If curiosity high but click
+          // low → ad copy issue. If click high but buy low → landing
+          // page / pricing issue. Otherwise just say "balanced".
+          const leak =
+            f.curiosityMean - f.clickRatePct >= 25
+              ? isKo
+                ? "광고→클릭"
+                : "ad→click"
+              : f.clickRatePct - f.buyRatePct >= 25
+                ? isKo
+                  ? "클릭→구매"
+                  : "click→buy"
+                : isKo
+                  ? "균형"
+                  : "balanced";
+          return (
+            <View
+              key={c.country}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingVertical: 4,
+                borderBottomWidth: 0.5,
+                borderBottomColor: C.divider,
+              }}
+              wrap={false}
+            >
+              <MText style={{ fontSize: 9, color: C.ink, fontWeight: 600, width: 45 }}>
+                {c.country}
+              </MText>
+              <MiniBar value={f.curiosityMean} max={100} color={tone(f.curiosityMean, 60, 40)} suffix={`${f.curiosityMean.toFixed(0)}`} />
+              <MiniBar value={f.clickRatePct} max={100} color={tone(f.clickRatePct, 50, 30)} suffix={`${f.clickRatePct}%`} />
+              <MiniBar value={f.buyRatePct} max={100} color={tone(f.buyRatePct, 40, 25)} suffix={`${f.buyRatePct}%`} />
+              <MText
+                style={{
+                  fontSize: 8,
+                  color: leak === (isKo ? "균형" : "balanced") ? C.success : C.warn,
+                  fontWeight: 600,
+                  width: 90,
+                  textAlign: "right",
+                }}
+              >
+                {leak}
+              </MText>
+            </View>
+          );
+        })}
+
+        <MText style={{ fontSize: 8, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
+          {isKo
+            ? "메타: \"광고→클릭\" leak = 카피·CTA 점검. \"클릭→구매\" leak = 가격·랜딩 컨텐츠 점검. 같은 제품도 시장마다 leak 위치가 다름 → 시장별 채널 전략 차별화 근거."
+            : "Read: 'ad→click' leak = revisit copy/CTA. 'click→buy' leak = revisit pricing/landing. Same product, different leak by market — basis for differentiated channel strategy."}
+        </MText>
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
+  /**
+   * Trust factors vs Objections — for the recommended country only,
+   * show top 5 of each side-by-side. Answers "what convinces vs what
+   * blocks" buyers in the priority market — direct input for messaging
+   * and FAQ.
+   */
+  const renderTrustVsObjectionPage = () => {
+    const rec = aggregate.recommendation.country;
+    if (!rec) return null;
+    const stats = aggregate.countryStats.find(
+      (c) => c.country.toUpperCase() === rec.toUpperCase(),
+    );
+    const objections = stats?.detail?.topObjections ?? [];
+    // Trust factors aren't aggregated per country in CountryStats.detail,
+    // so we pull from the byCountry persona aggregate. May be undefined
+    // on legacy ensembles.
+    const personasInCountry = aggregate.personas?.byCountry?.find(
+      (b) => b.country.toUpperCase() === rec.toUpperCase(),
+    );
+    if (objections.length === 0 && !personasInCountry) return null;
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo
+            ? `${rec} — 무엇이 설득하고 무엇이 막는가`
+            : `${rec} — What convinces vs what blocks`}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? "추천 진출국 페르소나의 신뢰 요인 vs 거부 요인 Top 5. 메시징, FAQ, 안심 신호 디자인의 직접 input."
+            : "Top trust factors and top objections from personas in the recommended market — direct input for messaging, FAQ, and reassurance design."}
+        </MText>
+
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <View
+            style={{
+              flex: 1,
+              borderLeftWidth: 3,
+              borderLeftColor: C.success,
+              paddingLeft: 8,
+            }}
+          >
+            <MText
+              style={{
+                fontSize: 11,
+                color: C.success,
+                fontWeight: 700,
+                marginBottom: 6,
+              }}
+            >
+              {isKo ? "신뢰 요인 (설득의 지렛대)" : "Trust factors (the levers)"}
+            </MText>
+            <MText style={{ fontSize: 8, color: C.muted, marginBottom: 8 }}>
+              {isKo ? "이걸 강조하면 의향 상승" : "Emphasize these → intent rises"}
+            </MText>
+            <MText style={{ fontSize: 9, color: C.body, lineHeight: 1.6 }}>
+              {personasInCountry?.count
+                ? isKo
+                  ? `(이 국가 페르소나 ${personasInCountry.count}명 평균 의향 ${personasInCountry.meanIntent}/100)`
+                  : `(${personasInCountry.count} personas in this market, mean intent ${personasInCountry.meanIntent}/100)`
+                : ""}
+            </MText>
+            <MText
+              style={{
+                fontSize: 8,
+                color: C.muted,
+                marginTop: 6,
+                fontStyle: "italic",
+                lineHeight: 1.5,
+              }}
+            >
+              {isKo
+                ? "신뢰 요인은 페이지의 표·인용에서 확인하세요 — 페르소나 페이지에서 trust factor 빈도가 별도로 집계됩니다."
+                : "See the personas page for the per-country trust-factor frequency table."}
+            </MText>
+          </View>
+
+          <View
+            style={{
+              flex: 1,
+              borderLeftWidth: 3,
+              borderLeftColor: C.risk,
+              paddingLeft: 8,
+            }}
+          >
+            <MText
+              style={{
+                fontSize: 11,
+                color: C.risk,
+                fontWeight: 700,
+                marginBottom: 6,
+              }}
+            >
+              {isKo ? "거부 요인 Top 5 (막는 벽)" : "Top 5 objections (the walls)"}
+            </MText>
+            <MText style={{ fontSize: 8, color: C.muted, marginBottom: 8 }}>
+              {isKo ? "이걸 못 풀면 의향 하락" : "Fail to address → intent drops"}
+            </MText>
+            {objections.length === 0 ? (
+              <MText style={{ fontSize: 9, color: C.muted }}>—</MText>
+            ) : (
+              objections.map((o, i) => (
+                <View
+                  key={i}
+                  style={{
+                    flexDirection: "row",
+                    marginBottom: 4,
+                    gap: 6,
+                  }}
+                  wrap={false}
+                >
+                  <MText
+                    style={{
+                      fontSize: 9,
+                      color: C.muted,
+                      width: 18,
+                      textAlign: "right",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {String(o.count)}
+                  </MText>
+                  <MText
+                    style={{
+                      fontSize: 9,
+                      color: C.body,
+                      flex: 1,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {o.text}
+                  </MText>
+                </View>
+              ))
+            )}
+          </View>
+        </View>
+
+        <MText style={{ fontSize: 8, color: C.muted, marginTop: 12, lineHeight: 1.5 }}>
+          {isKo
+            ? "활용 가이드: 신뢰 요인 Top 3 → 랜딩 hero 카피 / FAQ. 거부 요인 Top 3 → 안심 배지 (인증·환불·CS) + 사회적 증거 (리뷰·인플루언서)로 직접 무력화. 양쪽 모두 답변 못한 페이지 = 의향 = 0."
+            : "Use this: Top 3 trust → landing hero copy + FAQ. Top 3 objections → reassurance badges (cert, returns, CS) + social proof (reviews, influencers) to defuse directly. A page that answers neither side will hold intent at zero."}
         </MText>
 
         {pageFooter}
@@ -2642,15 +3121,18 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           {renderRecommendationPage()}
           {renderCountriesPage()}
           {renderCountryDetailPage()}
-          {renderVoiceWallPage()}
+          {renderCountryFunnelComparisonPage()}
           {renderIncomeIntentPage()}
           {renderProfessionRankingPage()}
           {renderChannelPriorityPage()}
+          {renderArchetypesPage()}
           {renderPersonasPage()}
           {renderVoicesPage()}
+          {renderTrustVsObjectionPage()}
           {renderPricingPage()}
           {renderRisksPage()}
           {renderActionsPage()}
+          {renderRiskActionMappingPage()}
           {renderProviderConsensusPage()}
           {renderProviderDisagreementPage()}
           {renderVariancePage()}
@@ -2708,6 +3190,42 @@ function SummaryRow({
  * so the PDF and the dashboard look intentionally aligned. Bar colour
  * follows the same threshold (≥70 success / ≥50 warn / else risk).
  */
+/**
+ * Compact horizontal bar used in the per-country funnel comparison
+ * page. Each call renders one cell of a row: bar + numeric suffix.
+ * Designed to fit 4-5 across a row at A4 width.
+ */
+function MiniBar({
+  value,
+  max,
+  color,
+  suffix,
+}: {
+  value: number;
+  max: number;
+  color: string;
+  suffix: string;
+}) {
+  const pct = Math.max(0, Math.min(100, (value / max) * 100));
+  return (
+    <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 4, marginRight: 4 }}>
+      <View style={{ flex: 1, height: 6, backgroundColor: C.divider, borderRadius: 3 }}>
+        <View
+          style={{
+            width: `${pct}%`,
+            height: 6,
+            backgroundColor: color,
+            borderRadius: 3,
+          }}
+        />
+      </View>
+      <MText style={{ fontSize: 8, color: C.ink, width: 32, textAlign: "right" }}>
+        {suffix}
+      </MText>
+    </View>
+  );
+}
+
 function ComponentBars({
   components,
   isKo,

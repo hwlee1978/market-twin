@@ -333,6 +333,44 @@ export interface PersonasAggregate {
    * Optional because legacy ensembles (created before E2) don't have it.
    */
   channelMentions?: ChannelMentionRow[];
+
+  /**
+   * Behavioral archetypes — rule-based clustering of personas into
+   * decision-relevant segments. Five archetypes: Champion / Curious /
+   * Conditional / Skeptic / Walker. Each carries demographic +
+   * decision-pattern stats so the report can answer "who do I sell
+   * to first?" with substance instead of bare percentages.
+   * Optional for legacy ensembles.
+   */
+  archetypes?: PersonaArchetype[];
+}
+
+export interface PersonaArchetype {
+  /** Internal id used for translation lookup. */
+  id: "champion" | "curious" | "conditional" | "skeptic" | "walker";
+  /** Display label (locale-agnostic — UI translates the id). */
+  label: string;
+  count: number;
+  /** Share of all personas, 0-1. */
+  share: number;
+  /** Mean purchaseIntent within this archetype. */
+  meanIntent: number;
+  /** Mean adReaction.curiosity (0-100), null when archetype lacks adReaction signal. */
+  meanCuriosity: number | null;
+  /** Top profession + age + income in this archetype (mode of bucket). */
+  topProfession: string | null;
+  topAgeBucket: string | null;
+  topIncomeBucket: string | null;
+  /** Top trust factor + top objection (most-mentioned within the archetype). */
+  topTrustFactor: string | null;
+  topObjection: string | null;
+  /** One representative quote — the highest-conviction voice in the archetype. */
+  representativeQuote: {
+    text: string;
+    country: string;
+    intent: number;
+    profession?: string;
+  } | null;
 }
 
 export interface SegmentBreakdownRow {
@@ -883,6 +921,7 @@ function computePersonasAggregate(
   };
 
   const channelMentions = extractChannelMentions(all);
+  const archetypes = computeArchetypes(all);
 
   return {
     total: all.length,
@@ -898,7 +937,139 @@ function computePersonasAggregate(
     professionTopN,
     segmentBreakdown,
     channelMentions,
+    archetypes,
   };
+}
+
+/**
+ * Persona archetype clustering — rule-based, no ML.
+ *
+ * The five buckets are picked to map cleanly to GTM decisions:
+ *   - Champion: high intent + curious + would click → primary acquisition target
+ *   - Curious: high curiosity but low intent → ad-budget audience, conversion gap
+ *   - Conditional: middle intent → the persuadable middle, where copy/price moves the needle
+ *   - Skeptic: low intent + multiple objections → don't waste cycles
+ *   - Walker: low curiosity + low intent → pass them by entirely
+ *
+ * Personas without adReaction (legacy) get bucketed by intent alone:
+ *   - intent ≥ 70 → champion
+ *   - intent 50-69 → conditional
+ *   - intent 35-49 → skeptic
+ *   - intent < 35 → walker
+ *
+ * Returns archetypes sorted by count descending, dropping any whose
+ * count is < 3 (too small to be a real segment).
+ */
+function computeArchetypes(
+  personas: NonNullable<EnsembleSimSnapshot["personas"]>,
+): PersonaArchetype[] {
+  type Slot = NonNullable<EnsembleSimSnapshot["personas"]>[number];
+  const buckets: Record<PersonaArchetype["id"], Slot[]> = {
+    champion: [],
+    curious: [],
+    conditional: [],
+    skeptic: [],
+    walker: [],
+  };
+
+  for (const p of personas) {
+    const intent = p.purchaseIntent;
+    const ar = p.adReaction;
+    if (ar) {
+      // Full 5-bucket logic when we have curiosity/click signal.
+      if (intent >= 70 && ar.wouldClick) buckets.champion.push(p);
+      else if (ar.curiosity >= 60 && intent < 50) buckets.curious.push(p);
+      else if (intent >= 50 && intent < 70) buckets.conditional.push(p);
+      else if (intent < 35 && ar.curiosity < 40) buckets.walker.push(p);
+      else buckets.skeptic.push(p);
+    } else {
+      // Intent-only fallback for legacy personas.
+      if (intent >= 70) buckets.champion.push(p);
+      else if (intent >= 50) buckets.conditional.push(p);
+      else if (intent >= 35) buckets.skeptic.push(p);
+      else buckets.walker.push(p);
+    }
+  }
+
+  const total = personas.length;
+  const labels: Record<PersonaArchetype["id"], string> = {
+    champion: "Champion",
+    curious: "Curious",
+    conditional: "Conditional",
+    skeptic: "Skeptic",
+    walker: "Walker",
+  };
+
+  const out: PersonaArchetype[] = [];
+  for (const id of Object.keys(buckets) as PersonaArchetype["id"][]) {
+    const slot = buckets[id];
+    if (slot.length < 3) continue;
+    const intents = slot.map((p) => p.purchaseIntent);
+    const meanIntent = Math.round(intents.reduce((a, b) => a + b, 0) / intents.length);
+    const curiosities = slot
+      .map((p) => p.adReaction?.curiosity)
+      .filter((c): c is number => typeof c === "number");
+    const meanCuriosity =
+      curiosities.length > 0
+        ? Math.round(curiosities.reduce((a, b) => a + b, 0) / curiosities.length)
+        : null;
+
+    // Top demographic in bucket — simple mode of bucket field.
+    const modeOf = <T extends string>(items: Array<T | undefined | null>): T | null => {
+      const m = new Map<T, number>();
+      for (const it of items) {
+        if (!it) continue;
+        m.set(it, (m.get(it) ?? 0) + 1);
+      }
+      const arr = [...m.entries()].sort((a, b) => b[1] - a[1]);
+      return arr[0]?.[0] ?? null;
+    };
+    const topProfession = modeOf(slot.map((p) => p.profession));
+    const topAgeBucket = modeOf(slot.map((p) => normaliseAge(p.ageRange)));
+    const topIncomeBucket = modeOf(slot.map((p) => normaliseIncome(p.incomeBand)));
+
+    // Top trust factor / objection — concatenate then count.
+    const topTrustFactor = modeOf(slot.flatMap((p) => p.trustFactors ?? []));
+    const topObjection = modeOf(slot.flatMap((p) => p.objections ?? []));
+
+    // Representative quote — sort within bucket by intent (desc for
+    // positive archetypes, asc for negatives) so the most "convicted"
+    // voice in the segment surfaces. Falls back to any non-empty quote.
+    const positiveSign = id === "champion" || id === "conditional" || id === "curious";
+    const sorted = [...slot].sort((a, b) =>
+      positiveSign ? b.purchaseIntent - a.purchaseIntent : a.purchaseIntent - b.purchaseIntent,
+    );
+    const repPersona = sorted.find(
+      (p) => typeof p.voice === "string" && p.voice.trim().length >= 8,
+    );
+    const representativeQuote = repPersona?.voice
+      ? {
+          text: repPersona.voice,
+          country: repPersona.country,
+          intent: repPersona.purchaseIntent,
+          profession: repPersona.profession,
+        }
+      : null;
+
+    out.push({
+      id,
+      label: labels[id],
+      count: slot.length,
+      share: total > 0 ? slot.length / total : 0,
+      meanIntent,
+      meanCuriosity,
+      topProfession,
+      topAgeBucket,
+      topIncomeBucket,
+      topTrustFactor,
+      topObjection,
+      representativeQuote,
+    });
+  }
+
+  // Sort by count desc — the largest archetype is usually the one the
+  // user should focus on first.
+  return out.sort((a, b) => b.count - a.count);
 }
 
 /**
