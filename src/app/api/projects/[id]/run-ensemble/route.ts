@@ -6,6 +6,7 @@ import { runSimulation } from "@/lib/simulation/runner";
 import type { ProjectInput } from "@/lib/simulation/schemas";
 import { aggregateEnsemble, type EnsembleSimSnapshot } from "@/lib/simulation/ensemble";
 import { mergeNarrative } from "@/lib/simulation/ensemble-narrative";
+import { buildMarketProfile } from "@/lib/simulation/market-profile";
 import type { CountryScore } from "@/lib/simulation/schemas";
 import { notifyEnsembleComplete } from "@/lib/email/notify";
 import { canStartSim } from "@/lib/billing/plans";
@@ -31,11 +32,16 @@ const TIER_PRESETS = {
     parallelSims: 1,
     perSimPersonas: 200,
     llmProviders: ["anthropic"] as const,
+    // Market profile = extra LLM call for recommended-country
+    // competitor/channel/regulatory deep-dive. Gated to Decision+
+    // because hypothesis is the lean exploratory tier.
+    marketProfile: false,
   },
   decision: {
     parallelSims: 5,
     perSimPersonas: 200,
     llmProviders: ["anthropic"] as const,
+    marketProfile: true,
   },
   decision_plus: {
     // 15 sims still fits a single Anthropic provider's burst tolerance
@@ -44,11 +50,13 @@ const TIER_PRESETS = {
     parallelSims: 15,
     perSimPersonas: 200,
     llmProviders: ["anthropic"] as const,
+    marketProfile: true,
   },
   deep: {
     parallelSims: 25,
     perSimPersonas: 200,
     llmProviders: ["anthropic", "openai", "gemini"] as const,
+    marketProfile: true,
   },
   deep_pro: {
     // 50 sims × 200 personas. Anthropic 17 + OpenAI 17 + Gemini 16 round-
@@ -60,6 +68,7 @@ const TIER_PRESETS = {
     parallelSims: 50,
     perSimPersonas: 200,
     llmProviders: ["anthropic", "openai", "gemini"] as const,
+    marketProfile: true,
   },
 } as const;
 type Tier = keyof typeof TIER_PRESETS;
@@ -409,6 +418,8 @@ export async function POST(
         ensembleId,
         productName: project.product_name,
         locale,
+        projectInput,
+        wantMarketProfile: preset.marketProfile,
       });
       if (aggregate) {
         await notifyEnsembleComplete({
@@ -457,8 +468,20 @@ async function aggregateAndPersist(opts: {
   ensembleId: string;
   productName: string;
   locale: "ko" | "en";
+  /**
+   * Project input — passed through to the market-profile LLM call so
+   * it can ground the analysis in actual product context (price,
+   * category, description). Null-safe: if absent, market profile
+   * generation is skipped.
+   */
+  projectInput?: ProjectInput;
+  /**
+   * Tier flag for whether to run the market-profile LLM call.
+   * Decision tier and above enable it; hypothesis stays lean.
+   */
+  wantMarketProfile?: boolean;
 }) {
-  const { ensembleId, productName, locale } = opts;
+  const { ensembleId, productName, locale, projectInput, wantMarketProfile } = opts;
   const admin = createServiceClient();
 
   type StoredResult = {
@@ -596,6 +619,20 @@ async function aggregateAndPersist(opts: {
       locale,
     });
     if (narrative) aggregate.narrative = narrative;
+  }
+
+  // Market profile for the recommended country — single LLM call
+  // producing structured competitor / channel / regulatory / pricing
+  // intelligence. Gated to Decision tier and above via the
+  // wantMarketProfile flag from TIER_PRESETS. Best-effort: failure
+  // here is non-fatal.
+  if (snapshots.length > 0 && wantMarketProfile && projectInput) {
+    const marketProfile = await buildMarketProfile({
+      input: projectInput,
+      aggregate,
+      locale,
+    });
+    if (marketProfile) aggregate.marketProfile = marketProfile;
   }
 
   // Roll up per-sim quality audits into an ensemble-level summary.

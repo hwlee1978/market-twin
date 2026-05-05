@@ -4933,10 +4933,10 @@ function detailedReportSummary(
   // gates. Update if you add/remove tier-gated pages.
   const pageRange: Record<string, string> = {
     hypothesis: "~17p",
-    decision: "~24p",
-    decision_plus: "~27p",
-    deep: "~31p",
-    deep_pro: "~31p",
+    decision: "~25p",
+    decision_plus: "~28p",
+    deep: "~32p",
+    deep_pro: "~32p",
   };
   // Feature list per tier — only the items that this tier UNLOCKS
   // beyond the previous tier, plus a "+ everything below" pointer.
@@ -4946,8 +4946,8 @@ function detailedReportSummary(
       en: "Core analysis (pick · personas · pricing · risks · actions)",
     },
     decision: {
-      ko: "+ Go/No-Go 판정 · 국가 의사결정 매트릭스 · 30/60/90 실행 타임라인 · 챔피언vs회의론자 · 페르소나 인용 콜아웃",
-      en: "+ Go/No-Go verdict · country decision matrix · 30/60/90 timeline · champion vs skeptic · quote callouts",
+      ko: "+ Go/No-Go 판정 · 시장 상황+경쟁자 분석 · 국가 의사결정 매트릭스 · 30/60/90 실행 타임라인 · 챔피언vs회의론자",
+      en: "+ Go/No-Go verdict · market profile + competitors · country decision matrix · 30/60/90 timeline · champion vs skeptic",
     },
     decision_plus: {
       ko: "+ 직업별 의향 · 채널 우선순위 · 리스크×액션 매핑 · 국가 디테일",

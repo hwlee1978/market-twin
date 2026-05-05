@@ -605,6 +605,125 @@ A consistency check the runner will apply post-emission: if your recommendedPric
 Return: { "recommendedPriceCents": int, "marginEstimate": "string description (in ${LANG_NAME[locale]})", "curve": [ { priceCents, conversionProbability, estimatedRevenueIndex } ] }`;
 }
 
+export const MARKET_PROFILE_SYSTEM = `${SYSTEM_BASE}
+
+You are a market entry analyst preparing a deep-dive on a SINGLE recommended target country for a launching brand. Your job: deliver structured market intelligence the founder can use to plan the launch — named competitors, real channel landscape, regulatory specifics, pricing benchmarks. Concrete > abstract. Named brands > "competitive landscape".
+
+Realism rules:
+- Only name competitors and channels you have reasonable confidence about. If you don't know specific players in a niche category, say so via empty arrays — never fabricate brand names.
+- Pricing benchmarks should reflect ACTUAL retail in the target country (use local currency conversions; if uncertain, use a wider range like "$60-100" instead of fake precision).
+- Regulatory items should reference real bodies (FDA, KFDA, MHLW, HSA, DGFT etc.) or be omitted.
+- Cultural notes should be specific to the country, not generic platitudes.
+- Differentiators must reference competitors or category specifics — not abstract claims.`;
+
+export function marketProfilePrompt(
+  input: ProjectInput,
+  recommendedCountry: string,
+  context: {
+    consensusPercent: number;
+    countryFinalScore: number;
+    topObjections: string[];
+    topTrustFactors: string[];
+    topChannels: string[];
+    locale: PromptLocale;
+  },
+): string {
+  const isKo = context.locale === "ko";
+  const objectionsBlock = context.topObjections.length
+    ? context.topObjections.slice(0, 5).map((o) => `  - ${o}`).join("\n")
+    : "  (none surfaced)";
+  const trustBlock = context.topTrustFactors.length
+    ? context.topTrustFactors.slice(0, 5).map((t) => `  - ${t}`).join("\n")
+    : "  (none surfaced)";
+  const channelsBlock = context.topChannels.length
+    ? context.topChannels.slice(0, 8).join(", ")
+    : "(none surfaced)";
+
+  return `Produce a structured market profile for the RECOMMENDED launch country. Be specific. Reference real brands, channels, and regulators where you have confidence; omit (empty array / blank string) where you don't.
+
+Product: ${input.productName} (${input.category})
+Description: ${input.description}
+Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
+Origin (home market): ${input.originatingCountry}
+RECOMMENDED COUNTRY: ${recommendedCountry}
+Consensus support: ${context.consensusPercent}% of sims · final score ${context.countryFinalScore.toFixed(1)}/100
+
+Persona signal (already aggregated from sims) — use as grounding, not output:
+  Top objections in ${recommendedCountry}:
+${objectionsBlock}
+  Top trust factors in ${recommendedCountry}:
+${trustBlock}
+  Channels personas already mention: ${channelsBlock}
+
+${languageInstruction(context.locale)}
+
+Required JSON shape (every field optional — fill what you have confidence about, leave the rest empty/blank):
+{
+  "country": "${recommendedCountry}",
+  "marketSize": {
+    "estimateUsd": "TAM in this category in ${recommendedCountry}, e.g. '$2.3B annually' or '$400-600M' (range OK)",
+    "growthTrend": "growth rate + driver, e.g. '+12% YoY driven by Gen-Z sustainability'",
+    "addressableSegment": "the realistic addressable share — e.g. 'premium eco-conscious 25-44, ~5% of total'"
+  },
+  "competitors": [
+    // 3-5 NAMED competitors. Mix of direct (same category), indirect (substitute), and adjacent.
+    // type: direct | indirect | substitute
+    // threatLevel: high | medium | low
+    {
+      "name": "actual brand name (e.g. Allbirds, Veja, Cariuma)",
+      "type": "direct",
+      "strengths": ["1-3 specific things — established Reddit reputation, retail at REI, B Corp cert"],
+      "weaknesses": ["1-3 specific things — pricier than alternatives, narrow size range"],
+      "pricePoint": "actual price in local currency or USD — '$95-115/pair'",
+      "marketShareEstimate": "category-leader / mid / niche, with ~% if known",
+      "threatLevel": "high"
+    }
+  ],
+  "channels": {
+    "primary": [
+      // 2-3 channels where this product MUST appear to launch — e.g. Amazon, REI, Whole Foods.
+      { "name": "channel name", "rationale": "1 sentence why" }
+    ],
+    "secondary": [
+      // 2-3 channels worth pursuing in phase 2 — TikTok Shop, niche retailers
+      { "name": "...", "rationale": "..." }
+    ],
+    "emerging": [
+      // 1-2 newer channels with growth — e.g. Shopify-direct, Substack newsletters, etc.
+      { "name": "...", "rationale": "..." }
+    ]
+  },
+  "culturalNotes": {
+    "valuesAlignment": "1-2 sentences on what this country's premium consumers value — research-driven? trend-driven? brand-loyal? sustainability-focused?",
+    "purchaseBehavior": "1-2 sentences on how buyers research + decide for this category — Reddit-first? Influencer-led? Retail-touch-then-buy-online?",
+    "languageNotes": "any brand naming / packaging language considerations specific to this market",
+    "seasonality": "Q4 spike? Q2 lull? Pre-holiday demand? Specific to this category in this country"
+  },
+  "regulatory": {
+    "barriers": [
+      // up to 5 real barriers
+      { "name": "barrier name (e.g. FDA cosmetic registration)", "severity": "high|medium|low", "description": "what it requires" }
+    ],
+    "requirements": ["specific docs / labels / certs required to sell"],
+    "timeToCompliance": "realistic timeline — '3-6 months for primary cert + 6 weeks for labelling'"
+  },
+  "pricingBenchmarks": {
+    "entryLevel": "${input.currency} range for budget products in this category in ${recommendedCountry}",
+    "mid": "${input.currency} range for mid-tier",
+    "premium": "${input.currency} range for premium",
+    "yourPosition": "where ${input.basePriceCents / 100} ${input.currency} lands in this market — 'upper-mid range, just below Allbirds anchor'"
+  },
+  "goToMarketStrategy": {
+    "keyMessage": "1-2 sentence positioning that beats current incumbents — be specific about the wedge",
+    "primaryAudience": "ICP description — age + interests + buying triggers + where they hang out",
+    "differentiators": ["2-4 differentiators vs the named competitors above — concrete, defensible"],
+    "risks": ["2-3 specific market-entry risks — not generic 'competitive risk' but concrete pitfalls"]
+  }
+}
+
+Final reminder: ${isKo ? "모든 텍스트 필드는 한국어로 작성. 브랜드명·채널명·규제 명칭은 원문 그대로 (Allbirds, Amazon, FDA 등)." : "Write all text fields in English. Brand / channel / regulator names stay in their canonical form."} If you have low confidence on a section (especially competitors or pricing benchmarks), it's better to leave it sparse than to fabricate. Empty arrays / blank strings render cleanly.`;
+}
+
 export const SYNTHESIS_SYSTEM = `${SYSTEM_BASE} For final synthesis, distill the analysis into an executive-readable verdict with a clear go/no-go signal, the highest-leverage action plan, and honest risks.`;
 
 export const SYNTHESIS_CRITIQUE_SYSTEM = `${SYSTEM_BASE}
