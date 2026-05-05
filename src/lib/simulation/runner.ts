@@ -256,6 +256,35 @@ function aggregateCountryScores(
     const closest = [...rows].sort(
       (a, b) => Math.abs(a.finalScore - medFinal) - Math.abs(b.finalScore - medFinal),
     )[0];
+    // Components: median per dimension across rows that emitted them.
+    // Earlier this function silently dropped components — single-sim
+    // ensembles then had no decomposition because aggregator-side
+    // averaging downstream had nothing to fold over. Now we reconstruct
+    // the median per axis so even Hypothesis tier carries the breakdown.
+    const rowsWithComponents = rows.filter((r) => r.components);
+    const components =
+      rowsWithComponents.length > 0
+        ? {
+            marketSize: Math.round(
+              median(rowsWithComponents.map((r) => r.components!.marketSize)),
+            ),
+            culturalFit: Math.round(
+              median(rowsWithComponents.map((r) => r.components!.culturalFit)),
+            ),
+            channelMatch: Math.round(
+              median(rowsWithComponents.map((r) => r.components!.channelMatch)),
+            ),
+            priceCompat: Math.round(
+              median(rowsWithComponents.map((r) => r.components!.priceCompat)),
+            ),
+            competition: Math.round(
+              median(rowsWithComponents.map((r) => r.components!.competition)),
+            ),
+            regulatory: Math.round(
+              median(rowsWithComponents.map((r) => r.components!.regulatory)),
+            ),
+          }
+        : undefined;
     aggregated.push({
       country,
       demandScore: Math.round(medDemand),
@@ -264,6 +293,7 @@ function aggregateCountryScores(
       finalScore: Math.round(medFinal * 10) / 10,
       rank: 0, // re-assigned below
       rationale: closest.rationale,
+      components,
     });
   }
   aggregated.sort((a, b) => b.finalScore - a.finalScore);
@@ -973,6 +1003,21 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     }
     const countryScores =
       countrySamples.length > 0 ? aggregateCountryScores(countrySamples) : [];
+    // Diagnostic: how many of the LLM's country samples actually emitted
+    // the components decomposition? If this is consistently 0 in prod
+    // logs, the prompt isn't getting through and we need to push the
+    // instruction harder (or wrap a critique pass that re-emits).
+    if (countrySamples.length > 0) {
+      const totalCountries = countrySamples.reduce((n, s) => n + s.length, 0);
+      const withComponents = countrySamples.reduce(
+        (n, s) => n + s.filter((c) => !!c.components).length,
+        0,
+      );
+      console.log(
+        `[sim ${opts.simulationId}] country components emitted: ${withComponents}/${totalCountries} ` +
+          `(${totalCountries > 0 ? Math.round((withComponents / totalCountries) * 100) : 0}%)`,
+      );
+    }
     if (countrySamples.length > 0) {
       // Show per-sample bestCountry across the 3 calls so it's obvious in the
       // log when the LLM was internally inconsistent vs converged.

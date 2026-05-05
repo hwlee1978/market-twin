@@ -154,7 +154,11 @@ export const CountryScoreSchema = z.object({
   finalScore: z.number().min(0).max(100),
   rank: z.number().int().min(1),
   rationale: z.string(),
-  components: CountryScoreComponentsSchema.optional(),
+  // .catch(undefined) means a malformed components (string, partial object,
+  // wrong type) is silently dropped instead of poisoning the whole country
+  // parse. Without it, a single bad components blob from the LLM would
+  // sink the entire country sample and we'd lose all scoring data.
+  components: CountryScoreComponentsSchema.optional().catch(undefined),
 });
 export type CountryScore = z.infer<typeof CountryScoreSchema>;
 
