@@ -130,6 +130,14 @@ export interface CountryStats {
     rationaleSamples: string[];
     /** Top 5 objections across personas in this country. */
     topObjections: Array<{ text: string; count: number }>;
+    /**
+     * Top 5 trust factors mentioned by personas in this country —
+     * the in-country positive counterpart to topObjections. Used by
+     * the "trust vs objection" report page to show what convinces
+     * vs what blocks side-by-side. Optional for legacy ensembles
+     * predating the field.
+     */
+    topTrustFactors?: Array<{ text: string; count: number }>;
     persona: {
       count: number;
       meanIntent: number;
@@ -630,6 +638,21 @@ export function aggregateEnsemble(
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
         .map(([text, count]) => ({ text, count }));
+      // Same shape for trust factors — feeds the in-country trust-vs-
+      // objection page in the report. Without this, the trust column
+      // was rendering as a placeholder.
+      const trustCounts = new Map<string, number>();
+      for (const p of inCountry) {
+        for (const t of p.trustFactors ?? []) {
+          const key = t.trim();
+          if (!key) continue;
+          trustCounts.set(key, (trustCounts.get(key) ?? 0) + 1);
+        }
+      }
+      const topTrustFactors = [...trustCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([text, count]) => ({ text, count }));
       // Rationale samples — pick the 3 longest unique strings as a proxy
       // for "most informative". Cheap, deterministic, no LLM call needed.
       const rationaleSeen = new Set<string>();
@@ -691,6 +714,7 @@ export function aggregateEnsemble(
         detail: {
           rationaleSamples,
           topObjections,
+          topTrustFactors,
           persona: {
             count: inCountry.length,
             meanIntent: intents.length > 0 ? Math.round(mean(intents)) : 0,

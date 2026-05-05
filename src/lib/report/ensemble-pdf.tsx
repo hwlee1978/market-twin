@@ -3143,13 +3143,11 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       (c) => c.country.toUpperCase() === rec.toUpperCase(),
     );
     const objections = stats?.detail?.topObjections ?? [];
-    // Trust factors aren't aggregated per country in CountryStats.detail,
-    // so we pull from the byCountry persona aggregate. May be undefined
-    // on legacy ensembles.
+    const trustFactors = stats?.detail?.topTrustFactors ?? [];
     const personasInCountry = aggregate.personas?.byCountry?.find(
       (b) => b.country.toUpperCase() === rec.toUpperCase(),
     );
-    if (objections.length === 0 && !personasInCountry) return null;
+    if (objections.length === 0 && trustFactors.length === 0 && !personasInCountry) return null;
     return (
       <Page size="A4" style={styles.page}>
         {pageHeader}
@@ -3186,25 +3184,50 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             <MText style={{ fontSize: 8, color: C.muted, marginBottom: 8 }}>
               {isKo ? "이걸 강조하면 의향 상승" : "Emphasize these → intent rises"}
             </MText>
-            <MText style={{ fontSize: 9, color: C.body, lineHeight: 1.6 }}>
-              {personasInCountry?.count
-                ? isKo
-                  ? `(이 국가 페르소나 ${personasInCountry.count}명 평균 의향 ${personasInCountry.meanIntent}/100)`
-                  : `(${personasInCountry.count} personas in this market, mean intent ${personasInCountry.meanIntent}/100)`
-                : ""}
-            </MText>
-            <MText
-              style={{
-                fontSize: 8,
-                color: C.muted,
-                marginTop: 6,
-                lineHeight: 1.5,
-              }}
-            >
-              {isKo
-                ? "참고: 신뢰 요인은 페르소나 페이지의 trust factor 빈도 표에서 별도로 집계됩니다."
-                : "Note: Per-country trust-factor frequencies are aggregated on the personas page."}
-            </MText>
+            {trustFactors.length === 0 ? (
+              <MText style={{ fontSize: 9, color: C.muted }}>—</MText>
+            ) : (
+              trustFactors.map((t, i) => (
+                <View
+                  key={i}
+                  style={{
+                    flexDirection: "row",
+                    marginBottom: 4,
+                    gap: 6,
+                  }}
+                  wrap={false}
+                >
+                  <MText
+                    style={{
+                      fontSize: 9,
+                      color: C.muted,
+                      width: 18,
+                      textAlign: "right",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {String(t.count)}
+                  </MText>
+                  <MText
+                    style={{
+                      fontSize: 9,
+                      color: C.body,
+                      flex: 1,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {t.text}
+                  </MText>
+                </View>
+              ))
+            )}
+            {personasInCountry?.count != null && (
+              <MText style={{ fontSize: 8, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>
+                {isKo
+                  ? `이 국가 페르소나 ${personasInCountry.count}명 · 평균 의향 ${personasInCountry.meanIntent}/100`
+                  : `${personasInCountry.count} personas · mean intent ${personasInCountry.meanIntent}/100`}
+              </MText>
+            )}
           </View>
 
           <View
