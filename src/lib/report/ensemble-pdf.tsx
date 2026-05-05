@@ -588,6 +588,15 @@ interface BuildArgs {
     originating_country?: string | null;
     candidate_countries?: string[] | null;
   } | null;
+  /**
+   * "executive" — 2-3 page condensed decision deck (hot take + recommendation
+   *               + top actions/risks + price + funnel snapshot).
+   * "detailed" — full analyst-grade report with every drilldown page
+   *              (default; existing behaviour).
+   * Routed inside buildEnsemblePdf to either renderExecutiveDoc or the
+   * existing render path.
+   */
+  variant?: "executive" | "detailed";
 }
 
 /**
@@ -1890,6 +1899,486 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     );
   };
 
+  // ────────────────────────────────────────────────────────────────────
+  // "Wow factor" pages — only included in the detailed variant. Each one
+  // expands a slice of the aggregate that the regular pages only graze.
+  // Designed to give a reader the "I didn't know we had this data"
+  // reaction. All gracefully render nothing when their underlying field
+  // is missing (legacy aggregates).
+  // ────────────────────────────────────────────────────────────────────
+
+  /**
+   * Voice Wall — actual persona quotes with attribution. Top positives
+   * + top negatives stacked, each labeled with country / age / job /
+   * intent. The point is grounding: aggregate stats feel academic;
+   * "Tokyo 32, marketer, intent 72: 'Qoo10 쿠폰 뜨면 살게요'" feels like
+   * a real customer.
+   */
+  const renderVoiceWallPage = () => {
+    const positives = aggregate.personas?.topPositiveVoices ?? [];
+    const negatives = aggregate.personas?.topNegativeVoices ?? [];
+    if (positives.length === 0 && negatives.length === 0) return null;
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>{isKo ? "페르소나 보이스 월" : "Voice wall"}</MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? "실제 페르소나의 1인칭 인용. 가장 긍정적 / 가장 부정적 voice를 동시에 보여 균형 잡힌 시각을 제공합니다."
+            : "Verbatim persona quotes — the most positive and most negative side-by-side for a balanced read."}
+        </MText>
+
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <MText style={[styles.sectionEyebrow, { color: C.success }]}>
+              {isKo ? "가장 긍정적인 목소리" : "Most positive"}
+            </MText>
+            {positives.length === 0 ? (
+              <MText style={{ fontSize: 9, color: C.muted }}>—</MText>
+            ) : (
+              positives.map((v, i) => (
+                <View
+                  key={i}
+                  style={{
+                    backgroundColor: C.card,
+                    padding: 8,
+                    marginBottom: 6,
+                    borderLeftWidth: 2,
+                    borderLeftColor: C.success,
+                  }}
+                  wrap={false}
+                >
+                  <MText style={{ fontSize: 9, color: C.body, lineHeight: 1.5, marginBottom: 4 }}>
+                    {`"${v.text}"`}
+                  </MText>
+                  <MText style={{ fontSize: 8, color: C.muted }}>
+                    {[
+                      v.country,
+                      v.ageRange,
+                      v.profession,
+                      `${isKo ? "구매의향" : "intent"} ${v.intent}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </MText>
+                </View>
+              ))
+            )}
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <MText style={[styles.sectionEyebrow, { color: C.risk }]}>
+              {isKo ? "가장 부정적인 목소리" : "Most negative"}
+            </MText>
+            {negatives.length === 0 ? (
+              <MText style={{ fontSize: 9, color: C.muted }}>—</MText>
+            ) : (
+              negatives.map((v, i) => (
+                <View
+                  key={i}
+                  style={{
+                    backgroundColor: C.card,
+                    padding: 8,
+                    marginBottom: 6,
+                    borderLeftWidth: 2,
+                    borderLeftColor: C.risk,
+                  }}
+                  wrap={false}
+                >
+                  <MText style={{ fontSize: 9, color: C.body, lineHeight: 1.5, marginBottom: 4 }}>
+                    {`"${v.text}"`}
+                  </MText>
+                  <MText style={{ fontSize: 8, color: C.muted }}>
+                    {[
+                      v.country,
+                      v.ageRange,
+                      v.profession,
+                      `${isKo ? "구매의향" : "intent"} ${v.intent}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </MText>
+                </View>
+              ))
+            )}
+          </View>
+        </View>
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
+  /**
+   * Income × Intent heatmap — segmentBreakdown.byIncome rendered as a
+   * row-per-income bar with the segment's mean intent + which country
+   * that income segment most often targets. Surfaces "buyers in $X bracket
+   * gravitate toward Y country" — a price-positioning insight you can't
+   * get from the headline.
+   */
+  const renderIncomeIntentPage = () => {
+    const rows = aggregate.personas?.segmentBreakdown?.byIncome ?? [];
+    if (rows.length === 0) return null;
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo ? "소득대 × 구매의향 매트릭스" : "Income × intent matrix"}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? "소득대별 평균 구매의향과 그 세그먼트가 가장 많이 선택한 시장. 가격 포지셔닝 결정에 직접 사용."
+            : "Mean purchase intent per income bracket and the country each bracket most often chooses. Drives price positioning."}
+        </MText>
+
+        <View style={styles.sectionBlock}>
+          {rows.map((r) => {
+            const tone =
+              r.meanIntent >= 65 ? C.success : r.meanIntent >= 50 ? C.warn : C.risk;
+            return (
+              <View
+                key={r.bucket}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingVertical: 6,
+                  borderBottomWidth: 0.5,
+                  borderBottomColor: C.divider,
+                }}
+                wrap={false}
+              >
+                <MText style={{ fontSize: 10, color: C.ink, fontWeight: 600, width: 110 }}>
+                  {r.bucket}
+                </MText>
+                <View style={{ flex: 1, height: 10, backgroundColor: C.divider, borderRadius: 5 }}>
+                  <View
+                    style={{
+                      width: `${Math.max(0, Math.min(100, r.meanIntent))}%`,
+                      height: 10,
+                      backgroundColor: tone,
+                      borderRadius: 5,
+                    }}
+                  />
+                </View>
+                <MText style={{ fontSize: 9, color: C.ink, width: 60, textAlign: "right" }}>
+                  {`${r.meanIntent}/100`}
+                </MText>
+                <MText style={{ fontSize: 8, color: C.muted, width: 80 }}>
+                  {`n=${r.count}`}
+                </MText>
+                <MText style={{ fontSize: 8, color: C.muted, width: 100 }}>
+                  {isKo
+                    ? `→ ${r.topCountry} (${r.topCountryShare}%)`
+                    : `→ ${r.topCountry} (${r.topCountryShare}%)`}
+                </MText>
+              </View>
+            );
+          })}
+        </View>
+
+        <MText style={{ fontSize: 8, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>
+          {isKo
+            ? "메타: 막대 색상은 의향 임계점입니다. 65+ 강 / 50-64 보통 / 50 미만 약. \"→ 국가\"는 그 소득대 페르소나가 가장 많이 #1로 꼽은 시장."
+            : "Bar tone: 65+ strong / 50-64 moderate / <50 weak. \"→ country\" = the market this income bracket most often picks as #1."}
+        </MText>
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
+  /**
+   * Profession ranking — top 10 professions with mean intent.
+   * Surfaces direction-of-fit for ad targeting and ICP refinement.
+   * Each row colour-coded by intent so the eye lands on champions
+   * vs skeptics quickly.
+   */
+  const renderProfessionRankingPage = () => {
+    const rows = (aggregate.personas?.professionTopN ?? []).filter(
+      (r) => typeof r.meanIntent === "number",
+    );
+    if (rows.length === 0) return null;
+    // Re-sort by mean intent descending so champions land at the top.
+    // The aggregator sorts by count for the dashboard table; for the
+    // PDF we want "who LOVES this product" up top.
+    const sorted = [...rows].sort((a, b) => (b.meanIntent ?? 0) - (a.meanIntent ?? 0));
+    const overallMean = aggregate.personas?.intentMean ?? 0;
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo ? "직업별 구매의향 랭킹" : "Intent by profession"}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? `어떤 직업군이 이 제품을 가장 좋아하고 가장 회의적인지. 전체 평균 ${overallMean.toFixed(1)}/100 대비 위/아래 표시.`
+            : `Which jobs love this product, which doubt it. Bar tone marks variance vs the overall mean (${overallMean.toFixed(1)}).`}
+        </MText>
+
+        <View style={styles.sectionBlock}>
+          {sorted.map((r) => {
+            const intent = r.meanIntent ?? 0;
+            const delta = intent - overallMean;
+            const tone = intent >= 65 ? C.success : intent >= 50 ? C.warn : C.risk;
+            return (
+              <View
+                key={r.profession}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingVertical: 5,
+                  borderBottomWidth: 0.5,
+                  borderBottomColor: C.divider,
+                }}
+                wrap={false}
+              >
+                <MText style={{ fontSize: 9, color: C.ink, width: 150 }}>
+                  {r.profession}
+                </MText>
+                <MText style={{ fontSize: 8, color: C.muted, width: 36, textAlign: "right" }}>
+                  {`n=${r.count}`}
+                </MText>
+                <View style={{ flex: 1, height: 8, backgroundColor: C.divider, borderRadius: 4 }}>
+                  <View
+                    style={{
+                      width: `${Math.max(0, Math.min(100, intent))}%`,
+                      height: 8,
+                      backgroundColor: tone,
+                      borderRadius: 4,
+                    }}
+                  />
+                </View>
+                <MText style={{ fontSize: 9, color: C.ink, width: 36, textAlign: "right" }}>
+                  {`${intent}`}
+                </MText>
+                <MText
+                  style={{
+                    fontSize: 8,
+                    color: delta > 0 ? C.success : delta < 0 ? C.risk : C.muted,
+                    width: 50,
+                    textAlign: "right",
+                    fontWeight: 600,
+                  }}
+                >
+                  {`${delta > 0 ? "+" : ""}${delta.toFixed(1)}`}
+                </MText>
+              </View>
+            );
+          })}
+        </View>
+
+        <MText style={{ fontSize: 8, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>
+          {isKo
+            ? "메타: 마지막 컬럼은 전체 평균 대비 편차 (+면 챔피언, −면 회의자). 페이드 광고 타겟팅 / ICP 정의에 활용하세요."
+            : "Final column = delta vs overall mean (+ champion, − skeptic). Use for paid-ads targeting and ICP refinement."}
+        </MText>
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
+  /**
+   * Channel mention priority — extracted brand/channel names from
+   * persona free-text, ranked by mention count. Each row has the mean
+   * intent of personas who mentioned it: high mention + high intent =
+   * launch-priority touchpoint. This is the page that answers
+   * "where should we actually plant our flag first?".
+   */
+  const renderChannelPriorityPage = () => {
+    const rows = aggregate.personas?.channelMentions ?? [];
+    if (rows.length === 0) return null;
+    // Tier-trim to the top 12 to keep the page readable; channels with
+    // <2 mentions are noise for a channel-priority recommendation.
+    const top = rows.filter((r) => r.mentions >= 2).slice(0, 12);
+    if (top.length === 0) return null;
+    const maxMentions = Math.max(...top.map((r) => r.mentions));
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo ? "채널 우선순위" : "Channel priority"}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? "페르소나의 voice/objection/trust factor에서 자동 추출한 채널 언급 빈도. 우측 숫자는 그 채널을 언급한 페르소나의 평균 구매의향 — 높을수록 진출 우선순위."
+            : "Channel names auto-extracted from persona voice / objections / trust factors. Right-side number = mean intent of personas who mentioned it; higher = stronger launch priority."}
+        </MText>
+
+        <View style={styles.sectionBlock}>
+          {top.map((r) => {
+            const intentTone =
+              r.meanIntent >= 65 ? C.success : r.meanIntent >= 50 ? C.warn : C.risk;
+            return (
+              <View
+                key={r.channel}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingVertical: 5,
+                  borderBottomWidth: 0.5,
+                  borderBottomColor: C.divider,
+                }}
+                wrap={false}
+              >
+                <MText style={{ fontSize: 10, color: C.ink, width: 130, fontWeight: 600 }}>
+                  {r.channel}
+                </MText>
+                <View style={{ flex: 1, height: 8, backgroundColor: C.divider, borderRadius: 4 }}>
+                  <View
+                    style={{
+                      width: `${(r.mentions / maxMentions) * 100}%`,
+                      height: 8,
+                      backgroundColor: C.brand,
+                      borderRadius: 4,
+                    }}
+                  />
+                </View>
+                <MText style={{ fontSize: 9, color: C.ink, width: 70, textAlign: "right" }}>
+                  {isKo ? `${r.mentions}회 (${r.share}%)` : `${r.mentions} · ${r.share}%`}
+                </MText>
+                <MText
+                  style={{
+                    fontSize: 9,
+                    color: intentTone,
+                    width: 60,
+                    textAlign: "right",
+                    fontWeight: 600,
+                  }}
+                >
+                  {`${isKo ? "의향" : "intent"} ${r.meanIntent}`}
+                </MText>
+              </View>
+            );
+          })}
+        </View>
+
+        <MText style={{ fontSize: 8, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>
+          {isKo
+            ? "메타: 막대는 언급 횟수, 우측 숫자는 그 채널 언급자의 평균 구매의향. 추천 우선순위 = 언급 많음 × 의향 높음 — 두 조건 모두 만족하는 채널부터 진출하세요."
+            : "Bar = mentions; right number = mean intent of mentioners. Launch priority = high mentions × high intent — start with channels strong on both."}
+        </MText>
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
+  /**
+   * Cross-LLM disagreement — when 2+ providers disagreed on the
+   * recommended country, surface the split with each provider's pick
+   * and the reason inferable from their support count. Only renders
+   * when ≥2 providers AND the providers picked different bestCountries.
+   * Quietly skips otherwise — no-disagreement pages are filler.
+   */
+  const renderProviderDisagreementPage = () => {
+    if (!aggregate.providerBreakdown || aggregate.providerBreakdown.length < 2) return null;
+    // Each provider's top pick. If all top picks are the same, skip.
+    const picks = aggregate.providerBreakdown.map((pb) => ({
+      provider: pb.provider,
+      simCount: pb.simCount,
+      top: pb.bestCountryDistribution[0],
+      agreement: pb.agreementWithOverallPercent,
+      runnerUp: pb.bestCountryDistribution[1],
+    }));
+    const uniqueTopCountries = new Set(picks.map((p) => p.top?.country).filter(Boolean));
+    if (uniqueTopCountries.size < 2) return null;
+
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo ? "LLM 교차 의견 차이 — 모델별 추천 분기점" : "Cross-model disagreement"}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? "모델끼리 의견이 갈린 지점. 단일 모델 편향이 아닌, 진짜 데이터 모호성에서 비롯된 분기점입니다 — 각 모델이 무엇을 우선시했는지 비교해 보세요."
+            : "Where the LLMs split. Not single-model bias — a genuine data ambiguity. Compare what each model weighted to see why."}
+        </MText>
+
+        <View style={styles.sectionBlock}>
+          {picks.map((p) => {
+            const top = p.top;
+            const ru = p.runnerUp;
+            const tone =
+              p.agreement >= 75 ? C.success : p.agreement >= 50 ? C.warn : C.risk;
+            return (
+              <View
+                key={p.provider}
+                style={{
+                  borderWidth: 1,
+                  borderColor: tone,
+                  borderRadius: 4,
+                  padding: 8,
+                  marginBottom: 8,
+                  backgroundColor: C.card,
+                }}
+                wrap={false}
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "baseline",
+                    justifyContent: "space-between",
+                    marginBottom: 4,
+                  }}
+                >
+                  <MText style={{ fontSize: 10, color: C.ink, fontWeight: 700 }}>
+                    {`${providerLabelPdf(p.provider)} · ${p.simCount} sims`}
+                  </MText>
+                  <MText style={{ fontSize: 8, color: tone, fontWeight: 600 }}>
+                    {isKo
+                      ? `전체 합의 일치 ${p.agreement}%`
+                      : `${p.agreement}% aligned with overall`}
+                  </MText>
+                </View>
+                <View style={{ flexDirection: "row", gap: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600 }}>
+                      {isKo ? "이 모델의 1순위" : "This model's pick"}
+                    </MText>
+                    <MText style={{ fontSize: 13, color: C.ink, fontWeight: 700, marginTop: 2 }}>
+                      {top?.country ?? "—"}
+                    </MText>
+                    {top && (
+                      <MText style={{ fontSize: 8, color: C.muted, marginTop: 2 }}>
+                        {`${top.percent}% ${isKo ? "이 모델 시뮬에서 1위" : "of this model's sims"}`}
+                      </MText>
+                    )}
+                  </View>
+                  {ru && (
+                    <View style={{ flex: 1 }}>
+                      <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600 }}>
+                        {isKo ? "차순위" : "Runner-up"}
+                      </MText>
+                      <MText style={{ fontSize: 11, color: C.body, marginTop: 2 }}>
+                        {ru.country}
+                      </MText>
+                      <MText style={{ fontSize: 8, color: C.muted, marginTop: 2 }}>
+                        {`${ru.percent}%`}
+                      </MText>
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        <MText style={{ fontSize: 8, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>
+          {isKo
+            ? "해석 가이드: 합의 일치 50% 미만인 모델은 \"전체 합의에서 멀리 떨어진 의견\"을 가지고 있습니다. 그 모델의 1순위가 합리적 시나리오일 수 있으니 이유를 검토하세요. 75% 이상은 강한 합의 — 추가 검증 불필요."
+            : "Read the agreement %: < 50% means this model dissented from the room — its pick is a credible alt-scenario worth examining. ≥ 75% means strong consensus — no further verification needed."}
+        </MText>
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
   const renderProviderConsensusPage = () => {
     if (!tierBudget.showProviderConsensus) return null;
     if (!aggregate.providerBreakdown || aggregate.providerBreakdown.length < 2) return null;
@@ -2091,47 +2580,83 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     );
   };
 
+  // Variant fork. The executive deck reuses the same renderers but
+  // selects a tighter page set + a different cover; the detailed
+  // report keeps the existing comprehensive layout. Both share every
+  // helper component below — the variant boundary is purely the page
+  // ordering.
+  const variant = args.variant ?? "detailed";
+
+  const coverPage = (
+    <Page size="A4" style={styles.coverPage}>
+      <View style={styles.coverInner}>
+        <View>
+          <MText style={styles.coverEyebrow}>
+            {variant === "executive"
+              ? `${t.coverEyebrow} · ${isKo ? "임원용" : "EXECUTIVE"}`
+              : t.coverEyebrow}
+          </MText>
+          <MText style={styles.coverTitle}>{stripUnsupportedGlyphs(productName)}</MText>
+          <MText style={styles.coverProduct}>{generatedAtStr}</MText>
+        </View>
+        <View>
+          <View style={styles.coverRecCard}>
+            <MText style={styles.coverRecLabel}>{t.coverRecLabel}</MText>
+            <MText style={styles.coverRecCountry}>{recCountryLabel}</MText>
+            <Text style={styles.coverRecMeta}>
+              <Text style={{ fontWeight: 700 }}>{aggregate.recommendation.consensusPercent}%</Text>
+              <Text>{` ${t.consensus} · `}</Text>
+              <Text style={{ fontWeight: 700, color: confidenceColor === C.success ? "#86EFAC" : confidenceColor === C.warn ? "#FEF08A" : "#FCA5A5" }}>
+                {t.confidence[aggregate.recommendation.confidence]}
+              </Text>
+            </Text>
+          </View>
+          <MText style={styles.coverFooter}>{t.coverFooter}</MText>
+        </View>
+      </View>
+    </Page>
+  );
+
   const doc = (
     <Document>
-      {/* COVER */}
-      <Page size="A4" style={styles.coverPage}>
-        <View style={styles.coverInner}>
-          <View>
-            <MText style={styles.coverEyebrow}>{t.coverEyebrow}</MText>
-            <MText style={styles.coverTitle}>{stripUnsupportedGlyphs(productName)}</MText>
-            <MText style={styles.coverProduct}>{generatedAtStr}</MText>
-          </View>
-          <View>
-            <View style={styles.coverRecCard}>
-              <MText style={styles.coverRecLabel}>{t.coverRecLabel}</MText>
-              <MText style={styles.coverRecCountry}>{recCountryLabel}</MText>
-              <Text style={styles.coverRecMeta}>
-                <Text style={{ fontWeight: 700 }}>{aggregate.recommendation.consensusPercent}%</Text>
-                <Text>{` ${t.consensus} · `}</Text>
-                <Text style={{ fontWeight: 700, color: confidenceColor === C.success ? "#86EFAC" : confidenceColor === C.warn ? "#FEF08A" : "#FCA5A5" }}>
-                  {t.confidence[aggregate.recommendation.confidence]}
-                </Text>
-              </Text>
-            </View>
-            <MText style={styles.coverFooter}>{t.coverFooter}</MText>
-          </View>
-        </View>
-      </Page>
+      {coverPage}
 
-      {renderOnePageBriefPage()}
-      {renderProjectInfoPage()}
-      {renderExecutiveSummaryPage()}
-      {renderRecommendationPage()}
-      {renderCountriesPage()}
-      {renderCountryDetailPage()}
-      {renderPersonasPage()}
-      {renderVoicesPage()}
-      {renderPricingPage()}
-      {renderRisksPage()}
-      {renderActionsPage()}
-      {renderProviderConsensusPage()}
-      {renderVariancePage()}
-      {renderAppendixPage()}
+      {variant === "executive" ? (
+        // Executive deck: 1-page brief + recommendation + actions/risks +
+        // pricing. Skip drilldowns / per-persona / provider consensus /
+        // variance / appendix — they belong in the detailed report.
+        <>
+          {renderOnePageBriefPage()}
+          {renderRecommendationPage()}
+          {renderActionsPage()}
+          {renderRisksPage()}
+          {renderPricingPage()}
+        </>
+      ) : (
+        // Detailed report: every page, in the order that gives a
+        // narrative arc — context → recommendation → drilldown → support.
+        <>
+          {renderOnePageBriefPage()}
+          {renderProjectInfoPage()}
+          {renderExecutiveSummaryPage()}
+          {renderRecommendationPage()}
+          {renderCountriesPage()}
+          {renderCountryDetailPage()}
+          {renderVoiceWallPage()}
+          {renderIncomeIntentPage()}
+          {renderProfessionRankingPage()}
+          {renderChannelPriorityPage()}
+          {renderPersonasPage()}
+          {renderVoicesPage()}
+          {renderPricingPage()}
+          {renderRisksPage()}
+          {renderActionsPage()}
+          {renderProviderConsensusPage()}
+          {renderProviderDisagreementPage()}
+          {renderVariancePage()}
+          {renderAppendixPage()}
+        </>
+      )}
     </Document>
   );
 

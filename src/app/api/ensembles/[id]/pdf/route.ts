@@ -22,6 +22,13 @@ export async function GET(
   const { id } = await ctx.params;
   const url = new URL(req.url);
   const locale = (url.searchParams.get("locale") ?? "ko") === "en" ? "en" : "ko";
+  // variant switch — "executive" delivers a 2-3 page decision-deck PDF;
+  // "detailed" (default) delivers the full analyst-grade report with
+  // every drilldown page. Default to detailed so existing share/save
+  // flows keep producing the comprehensive report.
+  const variantRaw = url.searchParams.get("variant") ?? "detailed";
+  const variant: "executive" | "detailed" =
+    variantRaw === "executive" ? "executive" : "detailed";
 
   const wsCtx = await getOrCreatePrimaryWorkspace();
   if (!wsCtx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -73,12 +80,17 @@ export async function GET(
     generatedAt: ensemble.completed_at ? new Date(ensemble.completed_at) : new Date(),
     ensembleId: ensemble.id,
     project: project ?? null,
+    variant,
   });
+
+  // Filename suffix tells the user which variant they downloaded so
+  // saved copies on disk don't get confused.
+  const variantSuffix = variant === "executive" ? "exec" : "detail";
 
   return new NextResponse(buffer as unknown as BodyInit, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="market-twin-ensemble-${ensemble.id.slice(0, 8)}.pdf"`,
+      "Content-Disposition": `attachment; filename="market-twin-${variantSuffix}-${ensemble.id.slice(0, 8)}.pdf"`,
     },
   });
 }

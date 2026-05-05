@@ -504,25 +504,30 @@ function EnsembleDashboard({
   locale: string;
 }) {
   const { aggregate, llm_providers, tier, parallel_sims } = result;
-  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState<"executive" | "detailed" | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfMenuOpen, setPdfMenuOpen] = useState(false);
 
   // Same blob-fetch pattern as ResultsDashboard.exportPdf — lets us show
   // an inline error if generation fails instead of opening a tab to a
-  // raw JSON 4xx page.
-  const exportPdf = async () => {
+  // raw JSON 4xx page. The variant param forks server-side to a 2-3
+  // page executive deck or the full analyst-grade detailed report.
+  const exportPdf = async (variant: "executive" | "detailed") => {
     if (pdfBusy) return;
-    setPdfBusy(true);
+    setPdfBusy(variant);
     setPdfError(null);
+    setPdfMenuOpen(false);
     try {
-      const res = await fetch(`/api/ensembles/${result.id}/pdf?locale=${locale}`);
+      const res = await fetch(
+        `/api/ensembles/${result.id}/pdf?locale=${locale}&variant=${variant}`,
+      );
       if (!res.ok) throw new Error(await friendlyApiError(res, locale === "ko" ? "ko" : "en"));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const filename =
         res.headers
           .get("content-disposition")
-          ?.match(/filename="?([^"]+)"?/)?.[1] ?? `market-twin-ensemble-${result.id.slice(0, 8)}.pdf`;
+          ?.match(/filename="?([^"]+)"?/)?.[1] ?? `market-twin-${variant}-${result.id.slice(0, 8)}.pdf`;
       const a = document.createElement("a");
       a.href = url;
       a.download = filename;
@@ -534,7 +539,7 @@ function EnsembleDashboard({
       console.error("[ensemble pdf]", err);
       setPdfError(locale === "ko" ? "PDF 생성에 실패했습니다." : "Couldn't generate PDF.");
     } finally {
-      setPdfBusy(false);
+      setPdfBusy(null);
     }
   };
   const {
@@ -682,20 +687,71 @@ function EnsembleDashboard({
                   ? "공유 링크"
                   : "Share link"}
             </button>
-            <button
-              onClick={exportPdf}
-              disabled={pdfBusy}
-              className="btn-primary disabled:opacity-60"
-            >
-              {pdfBusy ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-              {pdfBusy
-                ? isKo
-                  ? "PDF 생성 중..."
-                  : "Generating PDF..."
-                : isKo
-                  ? "PDF 리포트"
-                  : "PDF report"}
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setPdfMenuOpen((v) => !v)}
+                disabled={!!pdfBusy}
+                className="btn-primary disabled:opacity-60 inline-flex items-center gap-2"
+                aria-haspopup="menu"
+                aria-expanded={pdfMenuOpen}
+              >
+                {pdfBusy ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                {pdfBusy
+                  ? isKo
+                    ? `PDF 생성 중 (${pdfBusy === "executive" ? "임원용" : "전체"})...`
+                    : `Generating PDF (${pdfBusy})...`
+                  : isKo
+                    ? "PDF 리포트 ▾"
+                    : "PDF report ▾"}
+              </button>
+              {pdfMenuOpen && !pdfBusy && (
+                <>
+                  {/* Click-outside scrim — relies on portal-free overlap; an
+                      explicit invisible backdrop captures the next click and
+                      closes the menu. Keeps the dropdown self-contained. */}
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setPdfMenuOpen(false)}
+                  />
+                  <div
+                    role="menu"
+                    className="absolute right-0 mt-1 w-72 z-20 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => exportPdf("executive")}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100"
+                    >
+                      <div className="text-sm font-semibold text-slate-900">
+                        {isKo ? "임원용 (2-3 페이지)" : "Executive (2-3 pages)"}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {isKo
+                          ? "Hot take · 추천국 · 핵심 액션 · 가격"
+                          : "Hot take · pick · key actions · price"}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => exportPdf("detailed")}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50"
+                    >
+                      <div className="text-sm font-semibold text-slate-900">
+                        {isKo ? "전체 분석 (15-25 페이지)" : "Detailed (15-25 pages)"}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {isKo
+                          ? "Voice Wall · 소득×의향 · 직업별 · 채널 우선순위 · LLM 교차 의견"
+                          : "Voice wall · income×intent · profession · channels · cross-LLM"}
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
           {pdfError && <p className="text-xs text-risk">{pdfError}</p>}
           {shareToast && (

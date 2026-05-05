@@ -300,7 +300,15 @@ export interface PersonasAggregate {
   }>;
   /** Demographic distributions — useful for the report and any ad-targeting follow-up. */
   ageDistribution: Array<{ bucket: string; count: number }>;
-  professionTopN: Array<{ profession: string; count: number }>;
+  /**
+   * Top professions by count + mean purchase intent within that profession.
+   * meanIntent surfaces "which jobs love or hate this product" — a signal
+   * that's invisible in the headline aggregate. Optional: legacy
+   * aggregates from before the meanIntent field was added carry only
+   * { profession, count }; the UI/PDF treats meanIntent as undefined
+   * gracefully.
+   */
+  professionTopN: Array<{ profession: string; count: number; meanIntent?: number }>;
 
   /**
    * Segment-level intent breakdown. Each cut (gender / age / income)
@@ -841,13 +849,23 @@ function computePersonasAggregate(
     .map(([bucket, count]) => ({ bucket, count }))
     .sort((a, b) => ageOrder.indexOf(a.bucket) - ageOrder.indexOf(b.bucket));
 
-  const profMap = new Map<string, number>();
+  // Per-profession aggregation: count + mean intent. The mean lets the
+  // PDF show "Designers loved it (78), Engineers skeptical (52)" — a
+  // signal the headline aggregate hides.
+  const profStats = new Map<string, { count: number; intentSum: number }>();
   for (const p of all) {
     if (!p.profession) continue;
-    profMap.set(p.profession, (profMap.get(p.profession) ?? 0) + 1);
+    const cur = profStats.get(p.profession) ?? { count: 0, intentSum: 0 };
+    cur.count += 1;
+    cur.intentSum += p.purchaseIntent ?? 0;
+    profStats.set(p.profession, cur);
   }
-  const professionTopN = [...profMap.entries()]
-    .map(([profession, count]) => ({ profession, count }))
+  const professionTopN = [...profStats.entries()]
+    .map(([profession, s]) => ({
+      profession,
+      count: s.count,
+      meanIntent: Math.round(s.intentSum / s.count),
+    }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 12);
 
