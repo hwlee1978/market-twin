@@ -15,6 +15,7 @@ interface QualityRow {
   income_drift_pct: number | null;
   price_in_band: boolean | null;
   synthesis_failover: boolean | null;
+  voice_homogeneity: number | null;
   warnings: Array<{ code: string; severity: string; message: string }> | null;
 }
 
@@ -52,7 +53,7 @@ export default async function AdminSimQualityPage({
   const { data: rawQuality } = await admin
     .from("simulation_quality")
     .select(
-      "simulation_id, workspace_id, audited_at, confidence_score, quarantined, voice_slip_rate, country_score_range, profession_diversity, income_drift_pct, price_in_band, synthesis_failover, warnings",
+      "simulation_id, workspace_id, audited_at, confidence_score, quarantined, voice_slip_rate, country_score_range, profession_diversity, income_drift_pct, price_in_band, synthesis_failover, voice_homogeneity, warnings",
     )
     .gte("audited_at", since30d)
     .order("audited_at", { ascending: false })

@@ -32,8 +32,8 @@ export interface QualityWarning {
 export interface QualityAuditInput {
   simulationId: string;
   workspaceId: string;
-  /** Personas the sim emitted (pre-aggregation). Reaction fields ignored. */
-  personas: Pick<Persona, "country" | "incomeBand" | "profession" | "purchaseIntent">[];
+  /** Personas the sim emitted (pre-aggregation). Reaction fields ignored except voice. */
+  personas: Pick<Persona, "country" | "incomeBand" | "profession" | "purchaseIntent" | "voice">[];
   /** Country-score sample medians (already aggregated). */
   countries: CountryScore[];
   /** Pricing aggregate output. */
@@ -62,6 +62,13 @@ export interface QualityAuditResult {
     incomeDriftPct: number;
     priceInBand: boolean;
     synthesisFailover: boolean;
+    /**
+     * Fraction of voice quotes that have at least one near-duplicate
+     * (token-set Jaccard ≥ 0.7) elsewhere in the same sim. 0 = every
+     * quote unique; 1 = every quote paraphrases another. null when
+     * fewer than 5 voiced personas — not enough sample to judge.
+     */
+    voiceHomogeneity: number | null;
   };
 }
 
@@ -216,7 +223,60 @@ export function auditQuality(input: QualityAuditInput): QualityAuditResult {
     });
   }
 
-  // ── 7. Synthesis failover (informational, not penalising) ──────
+  // ── 7. Voice homogeneity ────────────────────────────────────────
+  // Detects sims where the LLM produced 30 personas but their quotes
+  // are all paraphrases of each other ("맘에 들어요", "정말 좋아요",
+  // "괜찮네요"…). Useful as a quality signal because the cosmetic
+  // "30 personas" implies diversity that doesn't actually exist.
+  // Algorithm: bigram-set Jaccard between every pair of voices.
+  // A voice is "near-duplicate" if it has ≥1 sibling with similarity
+  // ≥ 0.4. The 0.4 threshold isn't arbitrary — bigram tokenisation
+  // fragments shared phrases, so direct paraphrases land around
+  // 0.4-0.55. Tighter would miss obvious "맘에 들어요" repetition;
+  // looser would false-positive sims with shared product vocabulary.
+  // Skipped when fewer than 5 voiced personas — too small to judge,
+  // and Hypothesis tier ensembles often hit that floor.
+  const NEAR_DUP_THRESHOLD = 0.4;
+  const voicedPersonas = input.personas.filter(
+    (p) => typeof p.voice === "string" && p.voice.trim().length >= 8,
+  );
+  let voiceHomogeneity: number | null = null;
+  if (voicedPersonas.length >= 5) {
+    const tokens = voicedPersonas.map((p) => tokenize(p.voice ?? ""));
+    let nearDupCount = 0;
+    for (let i = 0; i < tokens.length; i++) {
+      let foundDup = false;
+      for (let j = 0; j < tokens.length; j++) {
+        if (i === j) continue;
+        if (jaccard(tokens[i], tokens[j]) >= NEAR_DUP_THRESHOLD) {
+          foundDup = true;
+          break;
+        }
+      }
+      if (foundDup) nearDupCount++;
+    }
+    voiceHomogeneity = nearDupCount / tokens.length;
+
+    if (voiceHomogeneity >= 0.5) {
+      warnings.push({
+        code: "voice_homogeneous_critical",
+        severity: "critical",
+        message: `${(voiceHomogeneity * 100).toFixed(0)}% of persona quotes have a near-duplicate sibling — voice diversity broke; the 'N personas' headline is misleading`,
+        value: voiceHomogeneity,
+        threshold: 0.5,
+      });
+    } else if (voiceHomogeneity >= 0.3) {
+      warnings.push({
+        code: "voice_homogeneous_warning",
+        severity: "warning",
+        message: `${(voiceHomogeneity * 100).toFixed(0)}% of persona quotes are near-paraphrases — moderate voice repetition`,
+        value: voiceHomogeneity,
+        threshold: 0.3,
+      });
+    }
+  }
+
+  // ── 8. Synthesis failover (informational, not penalising) ──────
   if (input.synthesisFailover) {
     warnings.push({
       code: "synthesis_failover",
@@ -256,8 +316,53 @@ export function auditQuality(input: QualityAuditInput): QualityAuditResult {
       incomeDriftPct,
       priceInBand,
       synthesisFailover: input.synthesisFailover,
+      voiceHomogeneity,
     },
   };
+}
+
+/**
+ * Tokeniser for voice-homogeneity detection. Drops punctuation, lowercases,
+ * splits on whitespace and CJK character boundaries (since Korean/Japanese
+ * doesn't space-separate). Filters single-character tokens to avoid
+ * inflating Jaccard with stop-particles like "은", "는", "이", "가".
+ *
+ * Bigram-based would be more accurate but pure unigrams are good enough
+ * for catching the "all 30 personas say 좋아요" failure mode that
+ * matters here — the goal isn't semantic dedup, it's flagging when the
+ * LLM produces obvious-template output.
+ */
+function tokenize(s: string): Set<string> {
+  const cleaned = s
+    .toLowerCase()
+    .replace(/["'`'']/g, "")
+    .replace(/[.,!?…·~()\[\]{}<>「」『』、。:;\-—–]/g, " ");
+  // Split on whitespace; further split CJK runs into single chars then
+  // re-glue 2-char windows. Cheaper than a real morphological analyser.
+  const out = new Set<string>();
+  for (const word of cleaned.split(/\s+/)) {
+    if (!word) continue;
+    if (/^[ㄱ-ㆎ가-힣一-鿿぀-ゟ゠-ヿ]+$/.test(word)) {
+      // CJK run → emit overlapping bigrams (length 2 windows). 1-char
+      // tokens drop because they're typically particles/affixes.
+      for (let i = 0; i + 1 < word.length; i++) {
+        out.add(word.slice(i, i + 2));
+      }
+    } else {
+      // Latin / mixed — emit as-is if at least 2 chars long.
+      if (word.length >= 2) out.add(word);
+    }
+  }
+  return out;
+}
+
+/** Token-set Jaccard. Returns 0 when either side is empty. */
+function jaccard(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let inter = 0;
+  for (const t of a) if (b.has(t)) inter++;
+  const union = a.size + b.size - inter;
+  return union === 0 ? 0 : inter / union;
 }
 
 /**
@@ -284,6 +389,7 @@ export async function persistAudit(
       income_drift_pct: result.metrics.incomeDriftPct,
       price_in_band: result.metrics.priceInBand,
       synthesis_failover: result.metrics.synthesisFailover,
+      voice_homogeneity: result.metrics.voiceHomogeneity,
       warnings: result.warnings,
     },
     { onConflict: "simulation_id" },
