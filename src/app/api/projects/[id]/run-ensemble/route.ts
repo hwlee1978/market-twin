@@ -500,6 +500,65 @@ async function aggregateAndPersist(opts: {
     if (narrative) aggregate.narrative = narrative;
   }
 
+  // Roll up per-sim quality audits into an ensemble-level summary.
+  // The runner audited each sim individually; here we read those rows
+  // and compute a single confidence_score + flag list for the
+  // aggregate. The result-page hero displays the rollup; the per-sim
+  // detail is available via /admin/sim-quality.
+  if (snapshots.length > 0) {
+    try {
+      const simIds = snapshots.map((s) => s.simulationId);
+      const { data: qualityRows } = await admin
+        .from("simulation_quality")
+        .select("simulation_id, confidence_score, quarantined, warnings")
+        .in("simulation_id", simIds);
+
+      type QualityRow = {
+        simulation_id: string;
+        confidence_score: number;
+        quarantined: boolean;
+        warnings: Array<{ code: string; severity: string; message: string }> | null;
+      };
+      const rows = (qualityRows ?? []) as QualityRow[];
+      if (rows.length > 0) {
+        const meanConfidence = Math.round(
+          rows.reduce((s, r) => s + r.confidence_score, 0) / rows.length,
+        );
+        const quarantinedCount = rows.filter((r) => r.quarantined).length;
+        // Aggregate distinct warning codes that appeared in ≥30% of sims —
+        // those are systemic, not per-sim noise.
+        const codeCounts = new Map<string, { count: number; severity: string; message: string }>();
+        for (const r of rows) {
+          for (const w of r.warnings ?? []) {
+            const existing = codeCounts.get(w.code);
+            if (existing) existing.count++;
+            else codeCounts.set(w.code, { count: 1, severity: w.severity, message: w.message });
+          }
+        }
+        const systemicWarnings = [...codeCounts.entries()]
+          .filter(([, v]) => v.count / rows.length >= 0.3)
+          .map(([code, v]) => ({
+            code,
+            severity: v.severity,
+            message: v.message,
+            simShare: Math.round((v.count / rows.length) * 100),
+          }));
+
+        // Stuff quality summary onto the aggregate so the dashboard
+        // can read it without an extra fetch. EnsembleAggregate type
+        // already tolerates extra fields because it's plain JSON in DB.
+        (aggregate as unknown as Record<string, unknown>).quality = {
+          confidenceScore: meanConfidence,
+          simCount: rows.length,
+          quarantinedCount,
+          systemicWarnings,
+        };
+      }
+    } catch (err) {
+      console.warn(`[ensemble ${ensembleId}] quality rollup failed (non-fatal):`, err);
+    }
+  }
+
   await admin
     .from("ensembles")
     .update({

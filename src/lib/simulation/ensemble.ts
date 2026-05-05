@@ -197,6 +197,25 @@ export interface EnsembleAggregate {
     label: "low" | "moderate" | "high";
     note: string;
   };
+
+  /**
+   * Quality audit rollup. Per-sim audits live in simulation_quality;
+   * this is the ensemble-level summary the result-page hero reads
+   * to show a single confidence score + systemic warning list.
+   * Optional because legacy ensembles (created before audit shipped)
+   * don't have it.
+   */
+  quality?: {
+    confidenceScore: number;
+    simCount: number;
+    quarantinedCount: number;
+    systemicWarnings: Array<{
+      code: string;
+      severity: string;
+      message: string;
+      simShare: number;
+    }>;
+  };
 }
 
 /**

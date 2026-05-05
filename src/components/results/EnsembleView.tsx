@@ -730,6 +730,7 @@ function EnsembleDashboard({
           locale={locale}
           isKo={isKo}
           hotTake={narrative?.hotTake}
+          quality={aggregate.quality ?? undefined}
         />
       )}
       {activeTab === "overview" && (
@@ -893,6 +894,7 @@ function SummaryTab({
   completedAt,
   project,
   varianceAssessment,
+  quality,
   locale,
   isKo,
   hotTake,
@@ -911,10 +913,13 @@ function SummaryTab({
   locale: string;
   isKo: boolean;
   hotTake?: string;
+  quality?: NonNullable<EnsembleAggregate["quality"]>;
 }) {
   return (
     <div className="space-y-6">
       {hotTake && <HotTakeCard hotTake={hotTake} isKo={isKo} />}
+
+      {quality && <QualityBanner quality={quality} isKo={isKo} />}
 
       {project && (
         <ProjectInfoCard project={project} locale={locale} isKo={isKo} />
@@ -1453,6 +1458,117 @@ function OverviewTab({
  * tone-signaling emoji the prompt asks for. Falls through silently when
  * the field is absent (legacy ensembles created before this field landed).
  */
+/**
+ * Quality banner showing the ensemble's confidence score and any
+ * systemic warnings that surfaced in ≥30% of sims. Sits right under
+ * the hot take so the user reads "what we recommend → how confident
+ * are we" in one glance.
+ *
+ * Color logic:
+ *   confidence ≥ 80 → success (green)
+ *   60-79          → neutral (amber)
+ *   < 60           → risk (red)
+ *
+ * Quarantine banner (separate red callout) fires when even one sim
+ * tripped a critical sanity check — explicit + scary so the user
+ * never silently builds a launch on garbage.
+ */
+function QualityBanner({
+  quality,
+  isKo,
+}: {
+  quality: NonNullable<EnsembleAggregate["quality"]>;
+  isKo: boolean;
+}) {
+  const score = quality.confidenceScore;
+  const tone = score >= 80 ? "success" : score >= 60 ? "warn" : "risk";
+  const toneClasses = {
+    success: "bg-success-soft/40 border-success/30 text-slate-900",
+    warn: "bg-warn-soft/40 border-warn/30 text-slate-900",
+    risk: "bg-risk-soft/40 border-risk/30 text-slate-900",
+  };
+  const scoreClasses = {
+    success: "text-success",
+    warn: "text-warn",
+    risk: "text-risk",
+  };
+  const iconClass = scoreClasses[tone];
+
+  return (
+    <div className={clsx("rounded-xl border p-4 sm:p-5", toneClasses[tone])}>
+      <div className="flex items-start sm:items-center gap-4 flex-col sm:flex-row">
+        <div className="flex items-center gap-3">
+          <div
+            className={clsx(
+              "shrink-0 inline-flex items-center justify-center w-14 h-14 rounded-full bg-white border-2 font-bold text-2xl tabular-nums",
+              tone === "success"
+                ? "border-success"
+                : tone === "warn"
+                  ? "border-warn"
+                  : "border-risk",
+              iconClass,
+            )}
+          >
+            {score}
+          </div>
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">
+              {isKo ? "결과 신뢰도" : "Result confidence"}
+            </div>
+            <div className="text-sm sm:text-base font-semibold mt-0.5">
+              {tone === "success"
+                ? isKo
+                  ? "신뢰할 만한 결과"
+                  : "Trustworthy result"
+                : tone === "warn"
+                  ? isKo
+                    ? "참고용 — 추가 검증 권장"
+                    : "Use as guidance — consider another run"
+                  : isKo
+                    ? "신뢰도 낮음 — 결과 해석 시 주의"
+                    : "Low confidence — interpret with care"}
+            </div>
+            <div className="text-xs text-slate-600 mt-1">
+              {isKo
+                ? `${quality.simCount}개 시뮬 평균 · ${quality.quarantinedCount}개 격리`
+                : `${quality.simCount}-sim mean · ${quality.quarantinedCount} quarantined`}
+            </div>
+          </div>
+        </div>
+        {quality.systemicWarnings.length > 0 && (
+          <div className="flex-1 sm:border-l sm:border-slate-300/40 sm:pl-4 w-full">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+              {isKo ? "시스템적 경고" : "Systemic warnings"}
+            </div>
+            <ul className="space-y-1 text-xs text-slate-700 leading-relaxed">
+              {quality.systemicWarnings.slice(0, 3).map((w) => (
+                <li key={w.code} className="flex items-start gap-1.5">
+                  <span
+                    className={clsx(
+                      "shrink-0 mt-0.5 w-1.5 h-1.5 rounded-full",
+                      w.severity === "critical"
+                        ? "bg-risk"
+                        : w.severity === "warning"
+                          ? "bg-warn"
+                          : "bg-slate-400",
+                    )}
+                  />
+                  <span>
+                    {w.message}{" "}
+                    <span className="text-slate-400">
+                      ({isKo ? `${w.simShare}% 시뮬에서` : `${w.simShare}% of sims`})
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function HotTakeCard({ hotTake, isKo }: { hotTake: string; isKo: boolean }) {
   return (
     <div className="rounded-xl bg-gradient-to-r from-brand-50 to-accent-50 border-2 border-accent/30 p-5 shadow-sm">

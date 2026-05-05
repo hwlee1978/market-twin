@@ -879,6 +879,7 @@
       "billing": "결제",
       "models": "모델 관리",
       "health": "시스템 상태",
+      "simQuality": "품질 감사",
       "audit": "감사 로그"
     },
     "overview": {

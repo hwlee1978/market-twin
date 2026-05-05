@@ -879,6 +879,7 @@
       "billing": "Billing",
       "models": "Models",
       "health": "System Health",
+      "simQuality": "Quality Audit",
       "audit": "Audit Logs"
     },
     "overview": {

@@ -28,6 +28,7 @@ const NAV = [
   { href: "/admin/billing", icon: CreditCard, key: "billing" as const },
   { href: "/admin/models", icon: Cpu, key: "models" as const },
   { href: "/admin/health", icon: Activity, key: "health" as const },
+  { href: "/admin/sim-quality", icon: ShieldCheck, key: "simQuality" as const },
   { href: "/admin/audit", icon: ClipboardList, key: "audit" as const },
 ];
 

@@ -2,6 +2,7 @@ import { getLLMProvider } from "@/lib/llm";
 import type { LLMProvider, LLMProviderName } from "@/lib/llm";
 import { llmCallCostCents } from "@/lib/llm/cost";
 import { withProviderFallback } from "@/lib/llm/failover";
+import { auditQuality, persistAudit } from "@/lib/quality/audit";
 import {
   collectSourceAttributions,
   loadReferenceBundles,
@@ -1303,6 +1304,38 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         .from("projects")
         .update({ status: "completed" })
         .eq("id", simRow.project_id);
+    }
+
+    // Quality audit — runs after persistence so a critical bug in
+    // the audit module can never roll back a successful sim. Best-
+    // effort: try/catch swallows any failure and logs.
+    if (simRow?.workspace_id) {
+      try {
+        const audit = auditQuality({
+          simulationId: opts.simulationId,
+          workspaceId: simRow.workspace_id,
+          personas,
+          countries: countryScores,
+          pricing: result.pricing ?? null,
+          basePriceCents: opts.projectInput.basePriceCents ?? null,
+          voiceSlipRate: personas.length > 0 ? voiceSlipCount / personas.length : null,
+          synthesisFailover: synthesisActualProvider !== synthesisLLMRaw.name,
+          personaCount: personas.length,
+          personaCountTarget: opts.personaCount,
+        });
+        await persistAudit(
+          { simulationId: opts.simulationId, workspaceId: simRow.workspace_id },
+          audit,
+        );
+        if (audit.warnings.length > 0) {
+          console.warn(
+            `[sim ${opts.simulationId}] quality audit: confidence=${audit.confidenceScore}, ` +
+              `quarantined=${audit.quarantined}, warnings=${audit.warnings.length}`,
+          );
+        }
+      } catch (err) {
+        console.warn(`[sim ${opts.simulationId}] quality audit failed (non-fatal):`, err);
+      }
     }
 
     // Notify after persistence so the email link always resolves to a
