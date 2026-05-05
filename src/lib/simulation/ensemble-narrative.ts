@@ -25,6 +25,20 @@ const MERGED_RISK_SCHEMA = z.object({
 const MERGED_ACTION_SCHEMA = z.object({
   action: z.string(),
   surfacedInSims: z.number().int().min(1),
+  /**
+   * Estimated revenue/positioning impact. 1 = small (incremental
+   * polish), 2 = meaningful (channel choice, packaging), 3 = pivotal
+   * (kills/saves the launch). Scored by the merge LLM at synthesis
+   * time; falls back to 2 (medium) when the field is missing on
+   * legacy narratives.
+   */
+  impact: z.number().int().min(1).max(3).optional(),
+  /**
+   * Implementation effort. 1 = days, 2 = weeks, 3 = months/needs new
+   * partner. Used together with impact to bucket actions on the
+   * Quick-Wins / Strategic / Marginal / Avoid 2x2 matrix.
+   */
+  effort: z.number().int().min(1).max(3).optional(),
 });
 const MERGE_RESPONSE_SCHEMA = z.object({
   hotTake: z.string().max(200).optional(),
@@ -109,6 +123,8 @@ export async function mergeNarrative(
       mergedActions: parsed.data.mergedActions.map((a) => ({
         ...a,
         action: rewriteSimScaleReferences(a.action, perSimPersonas, totalPersonas),
+        impact: a.impact,
+        effort: a.effort,
       })),
       overallRiskLevel,
     };
@@ -210,6 +226,12 @@ function buildMergePrompt(
 
 3. **mergedActions**: 의미가 같은 액션은 합치되 **실행 가능한 구체성**을 우선시. 같은 의도의 두 액션 중 더 명확한 채널/타임라인/숫자를 가진 쪽을 채택. surfacedInSims 기록. 정렬: 권장 빈도 + 실행 우선순위. 최대 10개.
 
+   **각 액션마다 impact + effort 점수 부여 (필수)**:
+   - **impact** (1-3): 1=점진적 개선 (포장 카피 미세조정 등), 2=의미 있는 차이 (채널 추가, 가격 5-10% 조정), 3=출시 자체를 좌우 (FDA 인증, 주력 채널 결정, 가격 ±20%+).
+   - **effort** (1-3): 1=며칠 내 (콘텐츠 작성, A/B 테스트), 2=몇 주 (파트너 미팅, 패키지 재디자인), 3=수개월 또는 신규 파트너 필요 (인증, 유통망 신규 구축).
+   - 두 점수 모두 정수. 모호한 액션이면 둘 다 2 (medium)로.
+   - 사용자는 이 점수로 액션을 Quick-Wins (impact↑ effort↓) / Strategic (둘 다 ↑) / Marginal (둘 다 ↓) / Avoid (impact↓ effort↑) 4사분면에 배치합니다.
+
 4. **숫자 표현 규칙 (필수)**: per-sim 출력의 숫자는 시뮬당 ${perSimPersonas}명 풀 기준입니다. 통합 narrative는 전체 ${totalPersonas.toLocaleString()}명 풀 기준으로 작성해야 합니다.
    - "X명, 전체 ${perSimPersonas}명 중 Y%" 같은 표현은 절대 그대로 옮기지 마세요.
    - 비율(Y%)만 유지하거나, 전체 풀로 환산해 다시 쓰세요. 예) "전체 페르소나의 44.5%" 또는 "${totalPersonas.toLocaleString()}명 중 약 ${Math.round(totalPersonas * 0.445).toLocaleString()}명 (44.5%)"
@@ -234,6 +256,12 @@ function buildMergePrompt(
    - Max 12. Drop entries that are pure category labels with no specific cause.
 
 3. **mergedActions**: collapse semantic duplicates, prefer the action with the most actionable specificity (concrete channel / timeline / numbers). Set surfacedInSims to count. Sort by frequency + execution priority. Max 10.
+
+   **Required: score impact + effort per action**:
+   - **impact** (1-3): 1=incremental polish (caption tweak), 2=meaningful change (added channel, ±5-10% price), 3=launch-defining (FDA cert, pivotal channel choice, ±20%+ price).
+   - **effort** (1-3): 1=days (content, A/B test), 2=weeks (partner meeting, package redesign), 3=months or needs new partner (certification, building new distribution).
+   - Both integers. Use 2 (medium) for ambiguous calls.
+   - Users will plot actions on a Quick-Wins (impact↑ effort↓) / Strategic (both↑) / Marginal (both↓) / Avoid (impact↓ effort↑) 2x2.
 
 4. **Number-rewrite rule (mandatory)**: per-sim outputs reference each sim's ${perSimPersonas}-persona pool. The merged narrative must reference the ensemble-wide pool of ${totalPersonas.toLocaleString()}.
    - Never copy phrases like "X out of ${perSimPersonas}" or "Y, ${perSimPersonas}명 중" verbatim.
@@ -354,6 +382,8 @@ function zodToJsonShape() {
           properties: {
             action: { type: "string" },
             surfacedInSims: { type: "integer", minimum: 1 },
+            impact: { type: "integer", minimum: 1, maximum: 3 },
+            effort: { type: "integer", minimum: 1, maximum: 3 },
           },
           required: ["action", "surfacedInSims"],
         },

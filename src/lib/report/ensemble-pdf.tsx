@@ -736,6 +736,210 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
   );
 
   // ── helper renderers (closed over t / styles / aggregate) ──────────────
+
+  /**
+   * One-page executive brief — the "30-second view" that lets a busy
+   * exec read the recommendation, the hot take, and the must-act risks
+   * without scrolling. Sits at the very front of the report so even a
+   * reader who only skims page 1 walks away with a decision.
+   *
+   * Tier gating: hypothesis (1 sim) and decision (5 sims) skip this
+   * page — the hot take and consensus signals need ≥15 sims to be
+   * meaningful. decision_plus / deep / deep_pro all show it.
+   */
+  const renderOnePageBriefPage = () => {
+    if (!tierBudget.showAppendix) return null; // appendix flag doubles as "richer-tier" signal
+    const narrative = aggregate.narrative;
+    const recommendation = aggregate.recommendation;
+    const variance = aggregate.varianceAssessment;
+    if (!narrative) return null;
+
+    const confidenceColor =
+      recommendation.confidence === "STRONG"
+        ? C.success
+        : recommendation.confidence === "MODERATE"
+          ? C.warn
+          : C.risk;
+
+    const topRisks = (narrative.mergedRisks ?? []).slice(0, 3);
+    const topActions = (narrative.mergedActions ?? []).slice(0, 3);
+
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+
+        <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+          <MText style={{ fontSize: 9, fontWeight: 700, color: C.brand, letterSpacing: 0.6, textTransform: "uppercase" }}>
+            {isKo ? "30초 브리핑" : "30-second brief"}
+          </MText>
+          <MText style={{ fontSize: 8, color: C.muted }}>
+            {`${aggregate.simCount} sims · ${aggregate.effectivePersonas.toLocaleString()} personas · ${tierDisplay.en}`}
+          </MText>
+        </View>
+        <MText style={[styles.pageTitle, { fontSize: 22, marginBottom: 14 }]}>
+          {stripUnsupportedGlyphs(project?.product_name ?? productName)}
+        </MText>
+
+        {/* Hot take — biggest text on the page so it's the first thing
+            the eye lands on. Wrap in a tinted bg so it reads as a
+            distinct "headline" element vs body text. */}
+        {narrative.hotTake && (
+          <View
+            style={{
+              backgroundColor: "#F0F7FF",
+              borderLeftWidth: 4,
+              borderLeftColor: C.brand,
+              padding: 14,
+              borderRadius: 6,
+              marginBottom: 16,
+            }}
+          >
+            <MText style={{ fontSize: 13.5, lineHeight: 1.5, color: C.ink, fontWeight: 600 }}>
+              {stripUnsupportedGlyphs(narrative.hotTake)}
+            </MText>
+          </View>
+        )}
+
+        {/* 3-column KPI strip: recommended market / variance / overall risk */}
+        <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
+          <View style={[styles.kpiCard, { flex: 1 }]}>
+            <MText style={styles.kpiLabel}>{isKo ? "추천 진출국" : "Recommended"}</MText>
+            <MText style={[styles.kpiValue, { color: confidenceColor }]}>
+              {recommendation.country}
+            </MText>
+            <MText style={styles.kpiSub}>
+              {`${recommendation.consensusPercent}% ${isKo ? "합의" : "consensus"} · ${recommendation.confidence}`}
+            </MText>
+          </View>
+          <View style={[styles.kpiCard, { flex: 1 }]}>
+            <MText style={styles.kpiLabel}>{isKo ? "변동성" : "Variance"}</MText>
+            <MText style={[styles.kpiValue, { color: variance.label === "high" ? C.warn : variance.label === "moderate" ? C.muted : C.success }]}>
+              {variance.label.toUpperCase()}
+            </MText>
+            <MText style={styles.kpiSub}>
+              {isKo
+                ? `최대 ${variance.maxFinalScoreRange}점`
+                : `max range ${variance.maxFinalScoreRange}pt`}
+            </MText>
+          </View>
+          <View style={[styles.kpiCard, { flex: 1 }]}>
+            <MText style={styles.kpiLabel}>{isKo ? "종합 리스크" : "Risk level"}</MText>
+            <MText
+              style={[
+                styles.kpiValue,
+                {
+                  color:
+                    narrative.overallRiskLevel === "high"
+                      ? C.risk
+                      : narrative.overallRiskLevel === "medium"
+                        ? C.warn
+                        : C.success,
+                },
+              ]}
+            >
+              {narrative.overallRiskLevel.toUpperCase()}
+            </MText>
+            <MText style={styles.kpiSub}>
+              {`${topRisks.length} ${isKo ? "주요 리스크" : "top risks"}`}
+            </MText>
+          </View>
+        </View>
+
+        {/* Two-column grid: top risks + top actions */}
+        <View style={{ flexDirection: "row", gap: 14, marginBottom: 14 }}>
+          <View style={{ flex: 1 }}>
+            <MText style={styles.sectionEyebrow}>
+              {isKo ? `핵심 리스크 (Top ${topRisks.length})` : `Top risks (${topRisks.length})`}
+            </MText>
+            {topRisks.length === 0 ? (
+              <MText style={styles.tdMuted}>—</MText>
+            ) : (
+              topRisks.map((r, i) => (
+                <View
+                  key={i}
+                  style={{
+                    marginBottom: 8,
+                    paddingLeft: 8,
+                    borderLeftWidth: 2,
+                    borderLeftColor:
+                      r.severity === "high" ? C.risk : r.severity === "medium" ? C.warn : C.muted,
+                  }}
+                >
+                  <MText
+                    style={{
+                      fontSize: 7.5,
+                      fontWeight: 700,
+                      letterSpacing: 0.5,
+                      color:
+                        r.severity === "high" ? C.risk : r.severity === "medium" ? C.warn : C.muted,
+                    }}
+                  >
+                    {r.severity.toUpperCase()}
+                  </MText>
+                  <MText style={{ fontSize: 9.5, color: C.ink, fontWeight: 600, marginTop: 1 }}>
+                    {stripUnsupportedGlyphs(r.factor)}
+                  </MText>
+                </View>
+              ))
+            )}
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <MText style={styles.sectionEyebrow}>
+              {isKo ? `1순위 액션 (Top ${topActions.length})` : `Top actions (${topActions.length})`}
+            </MText>
+            {topActions.length === 0 ? (
+              <MText style={styles.tdMuted}>—</MText>
+            ) : (
+              topActions.map((a, i) => (
+                <View
+                  key={i}
+                  style={{
+                    marginBottom: 8,
+                    flexDirection: "row",
+                    gap: 6,
+                  }}
+                >
+                  <MText
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: C.brand,
+                      minWidth: 14,
+                    }}
+                  >
+                    {`${i + 1}.`}
+                  </MText>
+                  <MText style={{ fontSize: 9.5, color: C.ink, lineHeight: 1.45, flex: 1 }}>
+                    {stripUnsupportedGlyphs(a.action)}
+                  </MText>
+                </View>
+              ))
+            )}
+          </View>
+        </View>
+
+        {/* Footer pointer — tells reader the rest of the report is just below */}
+        <View
+          style={{
+            marginTop: "auto",
+            paddingTop: 12,
+            borderTopWidth: 0.5,
+            borderTopColor: C.divider,
+          }}
+        >
+          <MText style={{ fontSize: 8.5, color: C.muted, lineHeight: 1.5 }}>
+            {isKo
+              ? "본 페이지는 30초 안에 결정 가능한 요약입니다. 다음 페이지부터 프로젝트 컨텍스트, 국가별 점수, 페르소나 분석, 가격 분석, 리스크/액션 상세, 멀티 LLM 합의도가 이어집니다."
+              : "This is the decision-in-30-seconds summary. The pages that follow break out project context, country scoring, persona analysis, pricing, full risk / action detail, and multi-LLM consensus."}
+          </MText>
+        </View>
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
   const renderProjectInfoPage = () => {
     if (!project) return null;
     const fmtPrice = () => {
@@ -1844,6 +2048,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         </View>
       </Page>
 
+      {renderOnePageBriefPage()}
       {renderProjectInfoPage()}
       {renderExecutiveSummaryPage()}
       {renderRecommendationPage()}

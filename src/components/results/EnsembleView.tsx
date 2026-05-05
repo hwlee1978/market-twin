@@ -3270,23 +3270,280 @@ function ActionsTab({
       </div>
     );
   }
-  return (
-    <ol className="card divide-y divide-slate-100">
-      {narrative.mergedActions.map((a, i) => (
-        <li key={i} className="p-4 flex gap-3 items-start">
-          <div className="shrink-0 w-6 text-sm font-bold text-brand">{i + 1}.</div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm text-slate-700 leading-relaxed">{a.action}</p>
-            <div className="text-xs text-slate-400 mt-1">
-              {isKo
-                ? `${a.surfacedInSims}개 시뮬에서 권장`
-                : `Recommended by ${a.surfacedInSims} sim${a.surfacedInSims === 1 ? "" : "s"}`}
-            </div>
-          </div>
-        </li>
-      ))}
-    </ol>
+  // Surface the priority matrix only when at least one action has
+  // impact/effort scores — legacy narratives (pre-F-batch) skip the
+  // matrix and fall back to the plain ranked list.
+  const hasScores = narrative.mergedActions.some(
+    (a) => typeof a.impact === "number" && typeof a.effort === "number",
   );
+
+  return (
+    <div className="space-y-6">
+      {hasScores && <ActionPriorityMatrix actions={narrative.mergedActions} isKo={isKo} />}
+      <div>
+        {hasScores && (
+          <h2 className="text-base font-semibold text-slate-900 mb-2">
+            {isKo ? "전체 액션 (우선순위 정렬)" : "All actions (sorted)"}
+          </h2>
+        )}
+        <ol className="card divide-y divide-slate-100">
+          {narrative.mergedActions.map((a, i) => {
+            const quad = quadrantFor(a.impact, a.effort);
+            return (
+              <li key={i} className="p-4 flex gap-3 items-start">
+                <div className="shrink-0 w-6 text-sm font-bold text-brand">{i + 1}.</div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-slate-700 leading-relaxed">{a.action}</p>
+                  <div className="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                    <span>
+                      {isKo
+                        ? `${a.surfacedInSims}개 시뮬에서 권장`
+                        : `Recommended by ${a.surfacedInSims} sim${a.surfacedInSims === 1 ? "" : "s"}`}
+                    </span>
+                    {quad && (
+                      <>
+                        <span className="text-slate-300">·</span>
+                        <span
+                          className={clsx(
+                            "px-1.5 py-0.5 rounded-full font-semibold text-[10px]",
+                            quad.badgeClass,
+                          )}
+                        >
+                          {quad.label[isKo ? "ko" : "en"]}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {isKo
+                            ? `영향 ${a.impact} · 난이도 ${a.effort}`
+                            : `impact ${a.impact} · effort ${a.effort}`}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 2×2 priority matrix for the merged action list. X-axis = effort
+ * (left = easy, right = hard); Y-axis = impact (top = high). Quick
+ * wins land top-left and get highlighted because that's what most
+ * teams should sequence first.
+ *
+ * Each action is a small dot positioned by its (impact, effort) score.
+ * Multiple actions in the same cell stack vertically — we don't try
+ * to scatter them precisely because the underlying scores are 1-3
+ * integers, not continuous, so jitter would imply false precision.
+ */
+function ActionPriorityMatrix({
+  actions,
+  isKo,
+}: {
+  actions: NonNullable<EnsembleAggregate["narrative"]>["mergedActions"];
+  isKo: boolean;
+}) {
+  // Index actions by their target cell (impact × effort), preserving
+  // their position in the sorted list so the dot label can show "1."
+  // matching the list below.
+  const cells = new Map<string, Array<{ idx: number; action: string }>>();
+  actions.forEach((a, i) => {
+    if (typeof a.impact !== "number" || typeof a.effort !== "number") return;
+    const key = `${a.impact}-${a.effort}`;
+    const arr = cells.get(key) ?? [];
+    arr.push({ idx: i + 1, action: a.action });
+    cells.set(key, arr);
+  });
+
+  const QUADS: Array<{
+    cells: Array<[number, number]>; // [impact, effort] pairs
+    label: { ko: string; en: string };
+    bg: string;
+    border: string;
+    text: string;
+  }> = [
+    {
+      // Quick wins: high impact (2-3) + low effort (1)
+      cells: [
+        [3, 1],
+        [2, 1],
+      ],
+      label: { ko: "Quick Wins", en: "Quick Wins" },
+      bg: "bg-success-soft/40",
+      border: "border-success/30",
+      text: "text-success",
+    },
+    {
+      // Strategic: high impact (3) + medium-high effort (2-3)
+      cells: [
+        [3, 2],
+        [3, 3],
+      ],
+      label: { ko: "Strategic", en: "Strategic" },
+      bg: "bg-accent-50/50",
+      border: "border-accent/30",
+      text: "text-accent",
+    },
+    {
+      // Marginal: low-medium impact (1-2) + low-medium effort (1-2)
+      cells: [
+        [1, 1],
+        [2, 2],
+      ],
+      label: { ko: "Marginal", en: "Marginal" },
+      bg: "bg-slate-50",
+      border: "border-slate-200",
+      text: "text-slate-500",
+    },
+    {
+      // Avoid: low impact + high effort
+      cells: [
+        [1, 2],
+        [1, 3],
+        [2, 3],
+      ],
+      label: { ko: "Avoid", en: "Avoid" },
+      bg: "bg-warn-soft/30",
+      border: "border-warn/30",
+      text: "text-warn",
+    },
+  ];
+
+  function quadFor(impact: number, effort: number) {
+    return QUADS.find((q) => q.cells.some(([i, e]) => i === impact && e === effort));
+  }
+
+  return (
+    <div>
+      <h2 className="text-base font-semibold text-slate-900 mb-2">
+        {isKo ? "액션 우선순위 매트릭스" : "Action priority matrix"}
+      </h2>
+      <p className="text-xs text-slate-500 leading-relaxed mb-3 break-keep">
+        {isKo
+          ? "각 액션을 영향도 × 실행 난이도로 배치합니다. 좌상단 (영향 큼 + 쉬움)부터 시작하세요."
+          : "Each action plotted by impact × effort. Start with the top-left (high impact + low effort)."}
+      </p>
+      <div className="card p-3 sm:p-5">
+        <div className="grid grid-cols-[auto_1fr_1fr_1fr] grid-rows-[1fr_1fr_1fr_auto] gap-2 min-h-[280px]">
+          {/* Row labels (impact axis, top to bottom: 3 → 1) */}
+          {[3, 2, 1].map((impact) => (
+            <Fragment key={`row-${impact}`}>
+              <div className="text-[10px] text-slate-500 font-semibold tracking-wider flex items-center justify-end pr-2">
+                {impact === 3
+                  ? isKo
+                    ? "영향 ↑"
+                    : "Impact ↑"
+                  : impact === 1
+                    ? isKo
+                      ? "영향 ↓"
+                      : "Impact ↓"
+                    : ""}
+              </div>
+              {[1, 2, 3].map((effort) => {
+                const items = cells.get(`${impact}-${effort}`) ?? [];
+                const q = quadFor(impact, effort);
+                return (
+                  <div
+                    key={`cell-${impact}-${effort}`}
+                    className={clsx(
+                      "rounded-md border p-2 min-h-[72px]",
+                      q?.bg ?? "bg-slate-50",
+                      q?.border ?? "border-slate-200",
+                    )}
+                  >
+                    {q && items.length > 0 && (
+                      <div className={clsx("text-[9px] font-bold uppercase tracking-wider mb-1.5", q.text)}>
+                        {q.label[isKo ? "ko" : "en"]}
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      {items.map((it) => (
+                        <div
+                          key={`${it.idx}`}
+                          className="flex items-start gap-1.5"
+                          title={it.action}
+                        >
+                          <span
+                            className={clsx(
+                              "shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold",
+                              q
+                                ? `${q.bg} ${q.text} border ${q.border}`
+                                : "bg-slate-100 text-slate-600 border border-slate-200",
+                            )}
+                          >
+                            {it.idx}
+                          </span>
+                          <span className="text-[11px] text-slate-700 leading-snug truncate">
+                            {it.action}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </Fragment>
+          ))}
+          {/* Bottom row: x-axis labels */}
+          <div />
+          <div className="text-[10px] text-slate-500 font-semibold tracking-wider text-center">
+            {isKo ? "쉬움 (며칠)" : "Easy (days)"}
+          </div>
+          <div className="text-[10px] text-slate-500 font-semibold tracking-wider text-center">
+            {isKo ? "보통 (몇 주)" : "Medium (weeks)"}
+          </div>
+          <div className="text-[10px] text-slate-500 font-semibold tracking-wider text-center">
+            {isKo ? "어려움 (몇 달)" : "Hard (months)"}
+          </div>
+        </div>
+        <div className="mt-3 text-[10px] text-slate-400 text-center">
+          {isKo ? "← 실행 난이도 →" : "← Effort →"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function quadrantFor(
+  impact?: number,
+  effort?: number,
+):
+  | {
+      label: { ko: string; en: string };
+      badgeClass: string;
+    }
+  | null {
+  if (typeof impact !== "number" || typeof effort !== "number") return null;
+  // High impact + low effort = Quick Win
+  if (impact >= 2 && effort === 1) {
+    return {
+      label: { ko: "Quick Win", en: "Quick Win" },
+      badgeClass: "bg-success-soft text-success",
+    };
+  }
+  // High impact + medium-hard = Strategic
+  if (impact === 3 && effort >= 2) {
+    return {
+      label: { ko: "Strategic", en: "Strategic" },
+      badgeClass: "bg-accent/15 text-accent",
+    };
+  }
+  // Low impact + high effort = Avoid
+  if (impact === 1 && effort >= 2) {
+    return {
+      label: { ko: "Avoid", en: "Avoid" },
+      badgeClass: "bg-warn-soft text-warn",
+    };
+  }
+  // Everything else = Marginal
+  return {
+    label: { ko: "Marginal", en: "Marginal" },
+    badgeClass: "bg-slate-100 text-slate-500",
+  };
 }
 
 function DataTab({

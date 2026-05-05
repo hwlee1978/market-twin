@@ -356,10 +356,19 @@ export interface EnsembleNarrative {
   /**
    * Action items deduped across sims, in rough priority order (most
    * frequently mentioned first when the LLM can rank them).
+   *
+   * impact / effort: 1-3 each, scored by the merge-narrative LLM. Used
+   * by the dashboard's priority matrix to plot actions on the
+   * Quick-Wins / Strategic / Marginal / Avoid 2x2. Optional because
+   * legacy narratives (created before this field) don't have them —
+   * the UI falls back to (2, 2) "medium" placement so all actions
+   * still render somewhere.
    */
   mergedActions: Array<{
     action: string;
     surfacedInSims: number;
+    impact?: number;
+    effort?: number;
   }>;
   /** Aggregate riskLevel across sims — defaults to mode of per-sim values. */
   overallRiskLevel: "low" | "medium" | "high";
