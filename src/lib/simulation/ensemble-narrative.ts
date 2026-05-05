@@ -274,6 +274,12 @@ function buildMergePrompt(
    - 두 점수 모두 정수. 모호한 액션이면 둘 다 2 (medium)로.
    - 사용자는 이 점수로 액션을 Quick-Wins (impact↑ effort↓) / Strategic (둘 다 ↑) / Marginal (둘 다 ↓) / Avoid (impact↓ effort↑) 4사분면에 배치합니다.
 
+   ⚠ **점수에 variance 강제 (필수)**: 모든 액션을 effort=2, impact=2로 똑같이 매기는 건 lazy default — 실제로 액션 plan은 "당장 할 일 (며칠)" + "이번 분기 일 (몇 주)" + "장기 결정 (몇 개월)"이 섞여 있어야 자연스럽습니다.
+     • 액션 ${Math.max(3, Math.ceil(0.3 * 10))}개 이상이면 **최소 1개의 effort=1 (Quick Win)**과 **최소 1개의 effort=3 (Strategic / 장기)**을 포함시키세요.
+     • 액션 텍스트에 "즉시", "출시 후 30일", "다음 달", "next week"가 있으면 effort=1 가능성 큼.
+     • 액션 텍스트에 "수개월", "Q3-Q4", "2027 상반기", "인증 취득"이 있으면 effort=3 가능성 큼.
+     • impact도 마찬가지로 분산 — 모든 액션이 똑같이 "중요"한 plan은 plan이 아닙니다. 1개 정도는 결정적(3), 1-2개는 경미한 polish(1)로.
+
 4. **숫자 표현 규칙 (필수)**: per-sim 출력의 숫자는 시뮬당 ${perSimPersonas}명 풀 기준입니다. 통합 narrative는 전체 ${totalPersonas.toLocaleString()}명 풀 기준으로 작성해야 합니다.
    - "X명, 전체 ${perSimPersonas}명 중 Y%" 같은 표현은 절대 그대로 옮기지 마세요.
    - 비율(Y%)만 유지하거나, 전체 풀로 환산해 다시 쓰세요. 예) "전체 페르소나의 44.5%" 또는 "${totalPersonas.toLocaleString()}명 중 약 ${Math.round(totalPersonas * 0.445).toLocaleString()}명 (44.5%)"
@@ -311,6 +317,12 @@ function buildMergePrompt(
    - **effort** (1-3): 1=days (content, A/B test), 2=weeks (partner meeting, package redesign), 3=months or needs new partner (certification, building new distribution).
    - Both integers. Use 2 (medium) for ambiguous calls.
    - Users will plot actions on a Quick-Wins (impact↑ effort↓) / Strategic (both↑) / Marginal (both↓) / Avoid (impact↓ effort↑) 2x2.
+
+   ⚠ **Force variance in the scores**: rating every action effort=2 / impact=2 is a lazy default — a real action plan mixes "do this week" + "do this quarter" + "long-term bet". Distribute accordingly:
+     • With 3+ actions, include **at least one effort=1 (Quick Win)** and **at least one effort=3 (Strategic / long-term)**.
+     • Cues for effort=1: "immediately", "within 30 days", "next week", "A/B test now".
+     • Cues for effort=3: "months", "Q3-Q4", "first half 2027", "obtain certification".
+     • Same with impact — at least one action should be 3 (launch-defining) and 1-2 should be 1 (minor polish).
 
 4. **Number-rewrite rule (mandatory)**: per-sim outputs reference each sim's ${perSimPersonas}-persona pool. The merged narrative must reference the ensemble-wide pool of ${totalPersonas.toLocaleString()}.
    - Never copy phrases like "X out of ${perSimPersonas}" or "Y, ${perSimPersonas}명 중" verbatim.

@@ -1733,15 +1733,59 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       },
     ];
 
-    // Group actions by effort score. Actions without effort scores
-    // default to phase 2 (medium / unknown).
-    const grouped: Record<1 | 2 | 3, typeof actions> = { 1: [], 2: [], 3: [] };
+    // Group actions by effort score. The LLM is supposed to set this
+    // 1/2/3 per the merge prompt, but in practice it often defaults
+    // most actions to effort=2 — leaving Phase 1 and Phase 3 empty.
+    // Detect that imbalance and fall back to a leverage-balanced
+    // 1/3 split. Honest signal beats lazy LLM defaults.
+    const byEffort: Record<1 | 2 | 3, typeof actions> = { 1: [], 2: [], 3: [] };
     for (const a of actions) {
       const e = (a.effort ?? 2) as 1 | 2 | 3;
-      grouped[e].push(a);
+      byEffort[e].push(a);
     }
-    // Sort each phase by impact descending so the highest-leverage
-    // action lands at the top of its phase.
+
+    // "Imbalanced" = at least one phase empty AND we have ≥3 actions
+    // (otherwise an empty phase is genuine, not a labelling bug).
+    const emptyCount =
+      (byEffort[1].length === 0 ? 1 : 0) +
+      (byEffort[2].length === 0 ? 1 : 0) +
+      (byEffort[3].length === 0 ? 1 : 0);
+    const useFallback = actions.length >= 3 && emptyCount >= 1;
+
+    let grouped: Record<1 | 2 | 3, typeof actions>;
+    if (useFallback) {
+      // Leverage = impact × 10 − effort. High-impact + low-effort
+      // (Quick Win) lands at top; high-impact + high-effort
+      // (Strategic) lands middle-to-late; low-impact lands later.
+      const sorted = [...actions].sort((a, b) => {
+        const aL = (a.impact ?? 2) * 10 - (a.effort ?? 2);
+        const bL = (b.impact ?? 2) * 10 - (b.effort ?? 2);
+        return bL - aL;
+      });
+      const n = sorted.length;
+      const p1End = Math.max(1, Math.ceil(n / 3));
+      const p2End = Math.max(p1End + 1, Math.ceil((n * 2) / 3));
+      grouped = {
+        1: sorted.slice(0, p1End),
+        2: sorted.slice(p1End, p2End),
+        3: sorted.slice(p2End),
+      };
+      // Honour explicit effort=3 markers — if the LLM DID flag a
+      // months-long action, keep it in Phase 3 even if the leverage
+      // sort would have placed it earlier.
+      for (const id of [1, 2] as const) {
+        for (let i = grouped[id].length - 1; i >= 0; i--) {
+          if (grouped[id][i].effort === 3) {
+            grouped[3].push(grouped[id].splice(i, 1)[0]);
+          }
+        }
+      }
+    } else {
+      grouped = byEffort;
+    }
+
+    // Sort each phase by impact desc so the highest-leverage action
+    // surfaces first within its phase.
     for (const id of [1, 2, 3] as const) {
       grouped[id].sort((a, b) => (b.impact ?? 2) - (a.impact ?? 2));
     }
@@ -1832,9 +1876,13 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         })}
 
         <MText style={{ fontSize: 7, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>
-          {isKo
-            ? "메타: 액션이 한 phase에 너무 몰리면 — 모두 effort 1이면 \"빠르지만 임팩트 작은\" 일이 많고, effort 3이면 30일 내 가시 성과 어려움. 전 phase에 골고루 분포되도록 액션 plan 검토 권장."
-            : "Meta: too many actions in one phase = imbalance. All effort 1 = lots of fast low-impact work; all effort 3 = no early wins. Review for balanced distribution."}
+          {useFallback
+            ? isKo
+              ? "메타: LLM이 모든 액션을 동일한 effort로 분류해 phase 1/3이 비어 있었습니다. 영향력(impact) × 난이도(effort) leverage 기준으로 자동 재분배했습니다 — Quick Win이 phase 1, 장기 strategic이 phase 3로 이동. 액션 텍스트의 명시 일정(예: \"2027년 상반기\")이 phase 표시와 다르면 텍스트를 우선 신뢰하세요."
+              : "Meta: the LLM rated all actions with the same effort, leaving Phase 1/3 empty. We auto-redistributed by leverage (impact × low-effort) — Quick Wins to Phase 1, strategic bets to Phase 3. If an action's text mentions an explicit date that contradicts its phase, trust the text."
+            : isKo
+              ? "메타: 액션이 한 phase에 너무 몰리면 — 모두 effort 1이면 \"빠르지만 임팩트 작은\" 일이 많고, effort 3이면 30일 내 가시 성과 어려움. 전 phase에 골고루 분포되도록 액션 plan 검토 권장."
+              : "Meta: too many actions in one phase = imbalance. All effort 1 = lots of fast low-impact work; all effort 3 = no early wins. Review for balanced distribution."}
         </MText>
 
         {pageFooter}
