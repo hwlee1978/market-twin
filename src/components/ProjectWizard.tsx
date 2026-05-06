@@ -64,12 +64,25 @@ export function ProjectWizard({ locale }: { locale: string }) {
     basePrice: "",
     currency: "USD",
     objective: "conversion",
-    // Default origin = KR — the K-product export positioning. Long-term this
-    // will get JP / TW / SEA defaults too as we expand into "JP→Global" etc.
-    originatingCountry: "KR",
+    // Default origin — KR for the Korean locale (K-product export
+    // positioning) and US for the English locale (global "any-origin →
+    // any-target" framing). The simulator handles all 24 origin
+    // countries equally; this default just biases the empty-state
+    // toward each locale's primary user base. User can change to any
+    // of the 24 supported origins regardless of locale.
+    originatingCountry: locale === "ko" ? "KR" : "US",
     // Pre-select the export-focused preset (foreign markets only — origin
     // is tracked separately above). User can change either independently.
-    countries: RECOMMENDED_PRESET,
+    // Filter out the default origin so the preset never overlaps with
+    // it (e.g., US-origin English default shouldn't include US in
+    // candidates).
+    countries: RECOMMENDED_PRESET.filter(
+      (c) => c !== (locale === "ko" ? "KR" : "US"),
+    ).concat(
+      // English default fills the dropped slot with GB so the preset
+      // stays at 3 candidates and showcases multi-region targeting.
+      locale === "ko" ? [] : ["GB"],
+    ),
     competitorUrls: "",
     assetDescriptions: "",
     assetUrls: "",
