@@ -21,11 +21,24 @@ export interface BuildMarketProfileOpts {
   locale: "ko" | "en";
 }
 
+export interface BuildMarketProfileResult {
+  profile?: MarketProfile;
+  /**
+   * Failure reason — populated when profile is undefined. Lets callers
+   * surface the actual error to the user instead of opaque "generation
+   * failed". Original best-effort behaviour preserved (caller can
+   * still ignore the reason and treat as non-fatal).
+   */
+  error?: string;
+}
+
 export async function buildMarketProfile(
   opts: BuildMarketProfileOpts,
-): Promise<MarketProfile | undefined> {
+): Promise<BuildMarketProfileResult> {
   const recommendedCountry = opts.aggregate.recommendation?.country;
-  if (!recommendedCountry) return undefined;
+  if (!recommendedCountry) {
+    return { error: "no recommendation country on aggregate" };
+  }
 
   // Pull the recommended country's stats out of the aggregate so we
   // can pass top objections / trust factors / channels as grounding
@@ -65,15 +78,27 @@ export async function buildMarketProfile(
       // we get a country object back.
       jsonSchema: { type: "object", properties: { country: { type: "string" } } },
       temperature: 0.4,
-      maxTokens: 4096,
+      // 8192 because the full profile (3-6 competitors × 6 fields each
+      // + regulatory barriers + channels in 3 tiers + cultural notes
+      // + GTM strategy) easily fills 5K tokens in Korean. 4K was
+      // truncating the JSON mid-string in some cases.
+      maxTokens: 8192,
     });
+    if (!res.json) {
+      console.warn(
+        `[market profile] LLM returned no JSON. Raw text head:`,
+        (res.text ?? "").slice(0, 300),
+      );
+      return { error: "LLM returned no parseable JSON (possibly truncated)" };
+    }
     const parsed = MarketProfileSchema.safeParse(res.json);
     if (!parsed.success) {
-      console.warn(
-        "[market profile] schema validation failed:",
-        parsed.error.flatten(),
-      );
-      return undefined;
+      const flat = parsed.error.flatten();
+      console.warn("[market profile] schema validation failed:", flat);
+      const fieldErrors = Object.keys(flat.fieldErrors).join(", ");
+      return {
+        error: `schema validation failed${fieldErrors ? ` (fields: ${fieldErrors})` : ""}`,
+      };
     }
     console.log(
       `[market profile] generated for ${recommendedCountry} · ` +
@@ -81,10 +106,10 @@ export async function buildMarketProfile(
         `${(parsed.data.regulatory?.barriers ?? []).length} regulatory barriers · ` +
         `${Date.now() - t0}ms`,
     );
-    return parsed.data;
+    return { profile: parsed.data };
   } catch (err) {
-    // Non-fatal — the report is still useful without this section.
-    console.warn(`[market profile] LLM call failed (non-fatal):`, err);
-    return undefined;
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[market profile] LLM call failed:`, msg);
+    return { error: `LLM call failed: ${msg}` };
   }
 }

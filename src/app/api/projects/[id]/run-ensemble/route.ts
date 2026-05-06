@@ -627,12 +627,12 @@ async function aggregateAndPersist(opts: {
   // wantMarketProfile flag from TIER_PRESETS. Best-effort: failure
   // here is non-fatal.
   if (snapshots.length > 0 && wantMarketProfile && projectInput) {
-    const marketProfile = await buildMarketProfile({
+    const result = await buildMarketProfile({
       input: projectInput,
       aggregate,
       locale,
     });
-    if (marketProfile) aggregate.marketProfile = marketProfile;
+    if (result.profile) aggregate.marketProfile = result.profile;
   }
 
   // Roll up per-sim quality audits into an ensemble-level summary.

@@ -83,10 +83,10 @@ export async function POST(
     (aggregate.recommendation?.country ?? "");
   const locale: "ko" | "en" = /[ㄱ-힝]/.test(sampleText) ? "ko" : "en";
 
-  const profile = await buildMarketProfile({ input: projectInput, aggregate, locale });
-  if (!profile) {
+  const result = await buildMarketProfile({ input: projectInput, aggregate, locale });
+  if (!result.profile) {
     return NextResponse.json(
-      { error: "market profile generation failed" },
+      { error: result.error ?? "market profile generation failed" },
       { status: 502 },
     );
   }
@@ -94,7 +94,7 @@ export async function POST(
   // Persist the enriched aggregate back. Use service client so the
   // update bypasses RLS — workspace check above already authorised.
   const admin = createServiceClient();
-  const updatedAggregate = { ...aggregate, marketProfile: profile };
+  const updatedAggregate = { ...aggregate, marketProfile: result.profile };
   const { error: updateErr } = await admin
     .from("ensembles")
     .update({ aggregate_result: updatedAggregate })
@@ -106,5 +106,5 @@ export async function POST(
     );
   }
 
-  return NextResponse.json({ ok: true, marketProfile: profile });
+  return NextResponse.json({ ok: true, marketProfile: result.profile });
 }
