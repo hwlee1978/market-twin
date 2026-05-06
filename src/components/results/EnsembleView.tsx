@@ -4543,19 +4543,62 @@ function PricingTab({
               </div>
             )}
           </div>
-          {peakPoint && (
-            <div className="rounded-lg bg-white border border-slate-200 px-4 py-3 shrink-0 min-w-[140px]">
-              <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">
-                {isKo ? "최고 전환 가격" : "Peak conversion"}
+          <div className="flex gap-2 flex-wrap">
+            {/* Independent verification tile — shows the curve's revenue-max
+                point alongside the headline so the user sees that the
+                recommendation is data-supported, not just "happens to equal
+                the input". Green ✓ when LLM-rec and curve-max agree, amber
+                ⚠ when they don't (the auto-correction case). */}
+            {effectiveCurveMax != null && (
+              <div
+                className={clsx(
+                  "rounded-lg border px-4 py-3 shrink-0 min-w-[140px]",
+                  recComputedMatchesCurve === true
+                    ? "bg-success-soft/40 border-success/30"
+                    : "bg-warn-soft/40 border-warn/30",
+                )}
+                title={
+                  isKo
+                    ? "곡선 데이터에서 (가격 × 전환)이 최대가 되는 지점 — monotonic 가정 적용. LLM의 권장가와 일치하면 ✓, 다르면 ⚠."
+                    : "Where (price × conversion) peaks on the curve under monotonic assumption. ✓ if matches LLM rec; ⚠ if differs."
+                }
+              >
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">
+                  {isKo ? "곡선 매출 최대점" : "Curve revenue max"}
+                </div>
+                <div className="text-base font-semibold text-slate-900 tabular-nums">
+                  {fmt(effectiveCurveMax)}
+                </div>
+                <div
+                  className={clsx(
+                    "text-[10px] font-semibold",
+                    recComputedMatchesCurve === true ? "text-success" : "text-warn",
+                  )}
+                >
+                  {recComputedMatchesCurve === true
+                    ? isKo
+                      ? "권장가와 일치 ✓"
+                      : "Matches rec ✓"
+                    : isKo
+                      ? "권장가와 차이"
+                      : "Differs from rec"}
+                </div>
               </div>
-              <div className="text-base font-semibold text-slate-900 tabular-nums">
-                {fmt(peakPoint.priceCents)}
+            )}
+            {peakPoint && (
+              <div className="rounded-lg bg-white border border-slate-200 px-4 py-3 shrink-0 min-w-[140px]">
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">
+                  {isKo ? "최고 전환 가격" : "Peak conversion"}
+                </div>
+                <div className="text-base font-semibold text-slate-900 tabular-nums">
+                  {fmt(peakPoint.priceCents)}
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {(peakPoint.meanConversionProbability * 100).toFixed(1)}%
+                </div>
               </div>
-              <div className="text-[10px] text-slate-400">
-                {(peakPoint.meanConversionProbability * 100).toFixed(1)}%
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
