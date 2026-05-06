@@ -18,11 +18,12 @@
    * fallbacks per platform (Windows / Mac / cross-platform Noto)
    * → generic sans-serif. Browser falls through font-by-font until
    * it finds one that has the glyph. */
-  --font-sans: "Pretendard Variable", "Pretendard", ui-sans-serif, system-ui,
-    -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR",
-    "Noto Sans CJK KR", "Noto Sans CJK SC", "Noto Sans CJK TC",
-    "Microsoft YaHei", "Microsoft JhengHei", "PingFang SC",
-    "Hiragino Sans GB", "Heiti SC", sans-serif;
+  --font-sans: "Pretendard Variable", "Pretendard", "Noto Sans TC",
+    "Noto Sans SC", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR",
+    "Noto Sans CJK SC", "Noto Sans CJK TC", "Microsoft YaHei",
+    "Microsoft JhengHei", "PingFang SC", "Hiragino Sans GB", "Heiti SC",
+    sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
 
   /* Brand — Deep Blue scale */

@@ -5594,9 +5594,9 @@ function detailedReportSummary(
   const pageRange: Record<string, string> = {
     hypothesis: "~17p",
     decision: "~25p",
-    decision_plus: "~28p",
-    deep: "~32p",
-    deep_pro: "~32p",
+    decision_plus: "~30p",
+    deep: "~34p",
+    deep_pro: "~34p",
   };
   // Feature list per tier — only the items that this tier UNLOCKS
   // beyond the previous tier, plus a "+ everything below" pointer.
@@ -5610,8 +5610,8 @@ function detailedReportSummary(
       en: "+ Go/No-Go verdict · market profile + competitors · country decision matrix · 30/60/90 timeline · champion vs skeptic",
     },
     decision_plus: {
-      ko: "+ 직업별 의향 · 채널 우선순위 · 리스크×액션 매핑 · 국가 디테일",
-      en: "+ Profession ranking · channels · risk-action mapping · country detail",
+      ko: "+ 투자 요구치+ROI · 추천 견고성 분석 · 직업별 의향 · 채널 우선순위 · 리스크×액션",
+      en: "+ Investment+ROI · recommendation robustness · profession · channels · risk-action",
     },
     deep: {
       ko: "+ 페르소나 아키타입 · 국가별 퍼널 비교 · LLM 교차 의견",

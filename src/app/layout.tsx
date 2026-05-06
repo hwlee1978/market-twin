@@ -34,6 +34,25 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.css"
         />
+        {/*
+         * Noto Sans CJK (Simplified + Traditional Chinese) from Google
+         * Fonts — Pretendard ships Korean + Latin only, so Chinese
+         * brand names (誠品, 蝦皮台灣, momo購物 etc.) emitted by the
+         * market-profile LLM render as broken glyphs / accent-fallback
+         * artifacts on Windows without the Microsoft CJK fonts. Loading
+         * Noto SC + TC via Google Fonts guarantees coverage on every
+         * platform without requiring user-side font installs.
+         *
+         * Display: optional so initial render doesn't block on the
+         * font payload (text shows in Pretendard fallback first, then
+         * upgrades when CJK font lands — better TTFB than swap).
+         */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&family=Noto+Sans+TC:wght@400;700&display=optional"
+        />
       </head>
       <body>{children}</body>
     </html>

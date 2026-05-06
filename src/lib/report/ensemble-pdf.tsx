@@ -107,6 +107,10 @@ const TIER_BUDGET: Record<
     showExecutionTimeline: boolean;
     /** Recommended-country market profile (competitors, channels, regulatory). Decision+. */
     showMarketProfile: boolean;
+    /** Investment + ROI projection (volume tiers, break-even). Decision_plus+. */
+    showInvestmentROI: boolean;
+    /** Recommendation robustness + sensitivity. Decision_plus+. */
+    showSensitivityAnalysis: boolean;
   }
 > = {
   hypothesis: {
@@ -142,6 +146,8 @@ const TIER_BUDGET: Record<
     showCountryDecisionMatrix: false,
     showExecutionTimeline: false,
     showMarketProfile: false,
+    showInvestmentROI: false,
+    showSensitivityAnalysis: false,
   },
   decision: {
     rank: 2,
@@ -177,6 +183,10 @@ const TIER_BUDGET: Record<
     showCountryDecisionMatrix: true,
     showExecutionTimeline: true,
     showMarketProfile: true,
+    // Decision tier intentionally LACKS investment ROI + sensitivity
+    // — those are Decision+ exclusives so the tier ladder feels real.
+    showInvestmentROI: false,
+    showSensitivityAnalysis: false,
   },
   decision_plus: {
     rank: 3,
@@ -210,6 +220,10 @@ const TIER_BUDGET: Record<
     showCountryDecisionMatrix: true,
     showExecutionTimeline: true,
     showMarketProfile: true,
+    // Decision+ unlocks investment ROI + sensitivity analysis — the
+    // tier-exclusive decision-critical content.
+    showInvestmentROI: true,
+    showSensitivityAnalysis: true,
   },
   deep: {
     rank: 4,
@@ -244,6 +258,8 @@ const TIER_BUDGET: Record<
     showCountryDecisionMatrix: true,
     showExecutionTimeline: true,
     showMarketProfile: true,
+    showInvestmentROI: true,
+    showSensitivityAnalysis: true,
   },
   deep_pro: {
     rank: 5,
@@ -275,6 +291,8 @@ const TIER_BUDGET: Record<
     showCountryDecisionMatrix: true,
     showExecutionTimeline: true,
     showMarketProfile: true,
+    showInvestmentROI: true,
+    showSensitivityAnalysis: true,
   },
 };
 
@@ -3739,6 +3757,465 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * action text). Demonstrates the action plan actually answers the
    * risks identified, not floating in space.
    */
+  /**
+   * Investment + ROI projection — Decision+ exclusive. Pure math from
+   * existing aggregate data (no LLM call). Shows the user concrete
+   * marketing budget tiers + revenue projection so they can plan
+   * spend in absolute terms instead of "high recommendation, go".
+   *
+   * Inputs used (all already in aggregate):
+   *   - recommendedPriceCents (price per unit)
+   *   - countryStats[recommended].cacEstimateUsd (CAC per country)
+   *   - personas.highIntentCount / total (conversion proxy)
+   *
+   * Volume tiers (100 / 1,000 / 10,000) chosen so users see linear
+   * scaling — first tier is "MVP launch", second "real product
+   * traction", third "scale".
+   */
+  const renderInvestmentROIPage = () => {
+    if (!tierBudget.showInvestmentROI) return null;
+    if (!aggregate.pricing || !aggregate.personas) return null;
+    const recCountry = aggregate.recommendation.country;
+    const recCountryStats = aggregate.countryStats.find(
+      (c) => c.country.toUpperCase() === recCountry.toUpperCase(),
+    );
+    const cacUsd = recCountryStats?.cacEstimateUsd.mean ?? null;
+    if (cacUsd == null) return null;
+
+    const fmt = (cents: number) => formatPrice(cents, project?.currency);
+    // CAC stored in USD across the schema; convert to project currency
+    // via fixed rate (matches the snapshot in competitor-prices.ts).
+    const usdToTarget: Record<string, number> = {
+      USD: 1, KRW: 1390, JPY: 152, CNY: 7.2, TWD: 32, HKD: 7.8,
+      SGD: 1.35, THB: 36, VND: 25500, IDR: 16200, MYR: 4.7, PHP: 58,
+      INR: 84, GBP: 0.79, EUR: 0.93, CAD: 1.4, AUD: 1.55,
+    };
+    const targetCurrency = (project?.currency ?? "USD").toUpperCase();
+    const usdRate = usdToTarget[targetCurrency] ?? 1;
+    const cacInTargetCents = Math.round(cacUsd * 100 * usdRate);
+
+    const headlinePrice =
+      aggregate.pricing.curveRevenueMaxCents != null &&
+      aggregate.pricing.recommendationMatchesCurve === false
+        ? aggregate.pricing.curveRevenueMaxCents
+        : aggregate.pricing.recommendedPriceCents;
+
+    // High-intent ratio — proxy for "what fraction of impressions
+    // become customers". Conservative: we use highIntent (≥70) as
+    // the conversion baseline, knowing real conversion is typically
+    // a small fraction of expressed intent.
+    const totalPersonas = aggregate.personas.total;
+    const highIntentRatio =
+      totalPersonas > 0 ? aggregate.personas.highIntentCount / totalPersonas : 0;
+
+    // Three volume tiers + 3 confidence scenarios per tier
+    const volumeTiers = [100, 1000, 10000];
+    const scenarioFactor = { pessimistic: 0.7, base: 1.0, optimistic: 1.3 };
+
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo ? "투자 요구치 + ROI 추정" : "Investment + ROI projection"}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? `추천 시장 ${recCountry} 기준. 각 볼륨 티어별 마케팅 예산 + 예상 매출 + 시나리오별 변동. 실제 결과는 ±30% 변동 가능.`
+            : `Based on the recommended market ${recCountry}. Marketing budget + projected revenue per volume tier, with optimistic / base / pessimistic scenarios. Actual outcomes can vary ±30%.`}
+        </MText>
+
+        <View style={styles.sectionBlock}>
+          <MText style={styles.sectionEyebrow}>
+            {isKo ? "주요 입력값" : "Key inputs"}
+          </MText>
+          <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+            <View style={{ flex: 1, padding: 8, backgroundColor: C.card, borderRadius: 4 }}>
+              <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600 }}>
+                {isKo ? "단가" : "Unit price"}
+              </MText>
+              <MText style={{ fontSize: 11, color: C.ink, fontWeight: 700, marginTop: 2 }}>
+                {fmt(headlinePrice)}
+              </MText>
+            </View>
+            <View style={{ flex: 1, padding: 8, backgroundColor: C.card, borderRadius: 4 }}>
+              <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600 }}>
+                {isKo ? "CAC (고객 획득 비용)" : "CAC"}
+              </MText>
+              <MText style={{ fontSize: 11, color: C.ink, fontWeight: 700, marginTop: 2 }}>
+                {fmt(cacInTargetCents)}
+              </MText>
+              <MText style={{ fontSize: 7, color: C.muted, marginTop: 1 }}>
+                {`($${cacUsd.toFixed(2)})`}
+              </MText>
+            </View>
+            <View style={{ flex: 1, padding: 8, backgroundColor: C.card, borderRadius: 4 }}>
+              <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600 }}>
+                {isKo ? "고의향 비율" : "High-intent ratio"}
+              </MText>
+              <MText style={{ fontSize: 11, color: C.ink, fontWeight: 700, marginTop: 2 }}>
+                {`${(highIntentRatio * 100).toFixed(1)}%`}
+              </MText>
+              <MText style={{ fontSize: 7, color: C.muted, marginTop: 1 }}>
+                {isKo
+                  ? `구매의향 70+ ${aggregate.personas.highIntentCount}/${totalPersonas}명`
+                  : `${aggregate.personas.highIntentCount}/${totalPersonas} personas`}
+              </MText>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.sectionBlock}>
+          <MText style={styles.sectionEyebrow}>
+            {isKo ? "볼륨 티어별 투자 + 매출" : "Investment + revenue per volume tier"}
+          </MText>
+
+          <View style={{ flexDirection: "row", paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: C.divider }}>
+            <MText style={{ fontSize: 7, color: C.muted, fontWeight: 700, width: 70 }}>
+              {isKo ? "고객 수" : "Customers"}
+            </MText>
+            <MText style={{ fontSize: 7, color: C.muted, fontWeight: 700, flex: 1, textAlign: "right" }}>
+              {isKo ? "마케팅 예산" : "Marketing"}
+            </MText>
+            <MText style={{ fontSize: 7, color: C.muted, fontWeight: 700, flex: 1, textAlign: "right" }}>
+              {isKo ? "예상 매출 (기본)" : "Revenue (base)"}
+            </MText>
+            <MText style={{ fontSize: 7, color: C.muted, fontWeight: 700, flex: 1, textAlign: "right" }}>
+              {isKo ? "비관 / 낙관" : "Pess / Opt"}
+            </MText>
+            <MText style={{ fontSize: 7, color: C.muted, fontWeight: 700, width: 60, textAlign: "right" }}>
+              {isKo ? "마케팅:매출" : "M:R ratio"}
+            </MText>
+          </View>
+
+          {volumeTiers.map((vol) => {
+            const marketing = cacInTargetCents * vol;
+            const revenueBase = headlinePrice * vol;
+            const revenuePess = Math.round(revenueBase * scenarioFactor.pessimistic);
+            const revenueOpt = Math.round(revenueBase * scenarioFactor.optimistic);
+            const ratio = revenueBase > 0 ? marketing / revenueBase : 0;
+            const ratioColor =
+              ratio < 0.3 ? C.success : ratio < 0.6 ? C.warn : C.risk;
+            return (
+              <View
+                key={vol}
+                style={{
+                  flexDirection: "row",
+                  paddingVertical: 6,
+                  alignItems: "center",
+                  borderBottomWidth: 0.5,
+                  borderBottomColor: C.divider,
+                }}
+                wrap={false}
+              >
+                <MText style={{ fontSize: 11, color: C.ink, fontWeight: 700, width: 70 }}>
+                  {vol.toLocaleString()}
+                </MText>
+                <MText style={{ fontSize: 9, color: C.body, flex: 1, textAlign: "right" }}>
+                  {fmt(marketing)}
+                </MText>
+                <MText style={{ fontSize: 10, color: C.ink, fontWeight: 700, flex: 1, textAlign: "right" }}>
+                  {fmt(revenueBase)}
+                </MText>
+                <MText style={{ fontSize: 8, color: C.muted, flex: 1, textAlign: "right" }}>
+                  {`${fmt(revenuePess)} / ${fmt(revenueOpt)}`}
+                </MText>
+                <MText
+                  style={{
+                    fontSize: 9,
+                    color: ratioColor,
+                    fontWeight: 700,
+                    width: 60,
+                    textAlign: "right",
+                  }}
+                >
+                  {`${(ratio * 100).toFixed(0)}%`}
+                </MText>
+              </View>
+            );
+          })}
+        </View>
+
+        <View style={styles.sectionBlock}>
+          <MText style={styles.sectionEyebrow}>
+            {isKo ? "Break-even 추정" : "Break-even math"}
+          </MText>
+          <View style={{ padding: 10, backgroundColor: C.card, borderRadius: 4 }}>
+            <MText style={{ fontSize: 9, color: C.body, lineHeight: 1.5 }}>
+              {(() => {
+                // Assume gross margin range 30-50% for premium goods.
+                // Break-even volume = fixed marketing spend / gross profit per unit
+                // For simplicity: gross profit = price × marginPct - CAC
+                const marginLow = 0.3;
+                const marginHigh = 0.5;
+                const profitPerUnitLow = headlinePrice * marginLow - cacInTargetCents;
+                const profitPerUnitHigh = headlinePrice * marginHigh - cacInTargetCents;
+                if (profitPerUnitLow <= 0) {
+                  return isKo
+                    ? `⚠ 추천가(${fmt(headlinePrice)})에서 30% 마진을 가정했을 때 단위당 이익이 음수입니다 — CAC(${fmt(cacInTargetCents)})가 단가 × 30%(${fmt(Math.round(headlinePrice * 0.3))})보다 큼. 가격 인상 또는 CAC 축소 없이는 break-even 불가.`
+                    : `⚠ At the recommended price (${fmt(headlinePrice)}) with 30% margin, profit per unit is negative — CAC (${fmt(cacInTargetCents)}) exceeds price × 30% (${fmt(Math.round(headlinePrice * 0.3))}). Break-even impossible without price increase or CAC reduction.`;
+                }
+                return isKo
+                  ? `30% 마진 가정: 단위당 이익 ${fmt(profitPerUnitLow)} (CAC 차감 후). 50% 마진이면 ${fmt(profitPerUnitHigh)}. 첫 1,000명 마케팅비(${fmt(cacInTargetCents * 1000)}) 회수에는 단위당 ${fmt(cacInTargetCents)}/이익 ${fmt(profitPerUnitLow)} = 약 ${Math.ceil(cacInTargetCents / profitPerUnitLow * 1000).toLocaleString()}명 (보수적 30% 마진 기준).`
+                  : `At 30% margin: profit/unit ${fmt(profitPerUnitLow)} (after CAC). At 50% margin: ${fmt(profitPerUnitHigh)}. To recoup the marketing spend for 1,000 customers (${fmt(cacInTargetCents * 1000)}), at 30% margin you need ~${Math.ceil(cacInTargetCents / profitPerUnitLow * 1000).toLocaleString()} customers — that's the conservative break-even.`;
+              })()}
+            </MText>
+          </View>
+        </View>
+
+        <MText style={{ fontSize: 7, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>
+          {isKo
+            ? "메타: 위 추정치는 페르소나 시그널 기반의 단순 모델 — 실제 CAC는 채널/시즌/광고 효율에 따라 ±50% 변동 가능. 실 투자 전 첫 100명 대상 small-batch test로 검증 권장."
+            : "Meta: estimates are first-order from persona signal. Real CAC varies ±50% with channel/season/ad efficiency. Run a 100-customer small-batch test to validate before scaling."}
+        </MText>
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
+  /**
+   * Recommendation robustness / sensitivity analysis — Decision+
+   * exclusive. Shows whether the recommended country is a strong
+   * pick or a fragile one. Pure math.
+   *
+   * Components:
+   *   1. Gap to runner-up (finalScore margin) — wider = more robust
+   *   2. Per-component vulnerability — which dimension is closest
+   *      to flipping the recommendation if it drops 10pt
+   *   3. Confidence overlay — confidenceScore from quality audit
+   *
+   * Answers "how confident should I be in this pick?" with concrete
+   * numbers, not just the headline confidence label.
+   */
+  const renderSensitivityAnalysisPage = () => {
+    if (!tierBudget.showSensitivityAnalysis) return null;
+    const stats = aggregate.countryStats;
+    if (stats.length < 2) return null;
+    // Top two countries
+    const sorted = [...stats].sort((a, b) => b.finalScore.mean - a.finalScore.mean);
+    const top = sorted[0];
+    const runnerUp = sorted[1];
+    const gap = top.finalScore.mean - runnerUp.finalScore.mean;
+    const gapPct = top.finalScore.mean > 0 ? (gap / top.finalScore.mean) * 100 : 0;
+
+    // Component vulnerabilities for top country — which 10pt drop
+    // would bring it below runner-up?
+    const topComp = top.components;
+    const vulnerableDim: Array<{
+      label: { ko: string; en: string };
+      score: number;
+      wouldFlip: boolean;
+    }> = topComp
+      ? [
+          {
+            label: { ko: "시장 크기", en: "Market size" },
+            score: topComp.marketSize.mean,
+            wouldFlip: gap < 10 && topComp.marketSize.mean - 10 + (top.finalScore.mean - 10) < runnerUp.finalScore.mean,
+          },
+          {
+            label: { ko: "문화 적합", en: "Cultural fit" },
+            score: topComp.culturalFit.mean,
+            wouldFlip: gap < 10,
+          },
+          {
+            label: { ko: "채널 매치", en: "Channel match" },
+            score: topComp.channelMatch.mean,
+            wouldFlip: gap < 10,
+          },
+          {
+            label: { ko: "가격 수용", en: "Price fit" },
+            score: topComp.priceCompat.mean,
+            wouldFlip: gap < 10,
+          },
+          {
+            label: { ko: "경쟁 (역치)", en: "Competition (inv)" },
+            score: topComp.competition.mean,
+            wouldFlip: gap < 10,
+          },
+          {
+            label: { ko: "규제 (역치)", en: "Regulatory (inv)" },
+            score: topComp.regulatory.mean,
+            wouldFlip: gap < 10 || topComp.regulatory.mean < 40,
+          },
+        ]
+      : [];
+
+    // Robustness verdict
+    let robustnessLabel: { ko: string; en: string };
+    let robustnessTone: string;
+    if (gap >= 15) {
+      robustnessLabel = { ko: "매우 견고", en: "Very robust" };
+      robustnessTone = C.success;
+    } else if (gap >= 8) {
+      robustnessLabel = { ko: "견고", en: "Robust" };
+      robustnessTone = C.success;
+    } else if (gap >= 4) {
+      robustnessLabel = { ko: "보통", en: "Moderate" };
+      robustnessTone = C.warn;
+    } else {
+      robustnessLabel = { ko: "취약", en: "Fragile" };
+      robustnessTone = C.risk;
+    }
+
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo ? "추천 견고성 + 민감도 분석" : "Recommendation robustness + sensitivity"}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? "추천 시장이 흔들리지 않는지 검증. 1순위와 2순위의 점수 격차, 각 component dimension의 취약성, 어떤 변동에서 추천이 flip될지 분석."
+            : "Stress-test the recommendation. How wide is the gap to the runner-up, which component dimensions are vulnerable, and what changes would flip the call."}
+        </MText>
+
+        {/* Robustness hero */}
+        <View
+          style={{
+            backgroundColor: C.card,
+            borderTopWidth: 4,
+            borderTopColor: robustnessTone,
+            padding: 14,
+            borderRadius: 4,
+            marginBottom: 12,
+          }}
+          wrap={false}
+        >
+          <MText
+            style={{ fontSize: 8, color: robustnessTone, fontWeight: 700, letterSpacing: 0.6, marginBottom: 4 }}
+          >
+            {isKo ? "추천 견고성" : "RECOMMENDATION ROBUSTNESS"}
+          </MText>
+          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 12, marginBottom: 6 }}>
+            <MText style={{ fontSize: 22, color: robustnessTone, fontWeight: 700 }}>
+              {isKo ? robustnessLabel.ko : robustnessLabel.en}
+            </MText>
+            <MText style={{ fontSize: 11, color: C.body }}>
+              {isKo
+                ? `1순위(${top.country}) ${top.finalScore.mean.toFixed(1)}점 vs 2순위(${runnerUp.country}) ${runnerUp.finalScore.mean.toFixed(1)}점 — 격차 ${gap.toFixed(1)}점 (${gapPct.toFixed(0)}%)`
+                : `Top (${top.country}) ${top.finalScore.mean.toFixed(1)} vs runner-up (${runnerUp.country}) ${runnerUp.finalScore.mean.toFixed(1)} — gap ${gap.toFixed(1)}pt (${gapPct.toFixed(0)}%)`}
+            </MText>
+          </View>
+          <MText style={{ fontSize: 9, color: C.body, lineHeight: 1.5 }}>
+            {gap >= 15
+              ? isKo
+                ? "1순위가 충분히 앞서 있어 component 변동에 영향받기 어려움. 추가 검증 우선순위 낮음 — 진출 결정 가능."
+                : "Top country is far enough ahead that component-level shifts won't flip it. Low priority for further validation — proceed with launch."
+              : gap >= 8
+                ? isKo
+                  ? "1순위가 앞서 있으나 큰 component 변동(15pt+)이 발생하면 flip 가능성 있음. 핵심 component(아래) 추가 검증 권장."
+                  : "Top is ahead but a significant component shift (15pt+) could flip the call. Validate the key components (below)."
+                : gap >= 4
+                  ? isKo
+                    ? "격차가 좁아 추천이 흔들릴 수 있음. 1순위 진출 전 핵심 가정 (가격, 채널, 규제) 별도 확인 강력 권장."
+                    : "Gap is tight — recommendation could flip with modest changes. Strongly recommend verifying key assumptions (pricing, channel, regulatory) before commit."
+                  : isKo
+                    ? "1순위와 2순위가 사실상 동률. 단일 추천보다 두 시장 동시 진출 또는 추가 시뮬 검증을 통한 격차 확보 권장."
+                    : "Top and runner-up are statistically tied. Consider parallel launch or additional sims to widen the gap before committing to a single market."}
+          </MText>
+        </View>
+
+        {/* Component vulnerability table */}
+        {vulnerableDim.length > 0 && (
+          <View style={styles.sectionBlock}>
+            <MText style={styles.sectionEyebrow}>
+              {isKo ? `${top.country}의 component별 취약성` : `${top.country} component vulnerability`}
+            </MText>
+            <MText style={{ fontSize: 8, color: C.muted, lineHeight: 1.4, marginBottom: 6 }}>
+              {isKo
+                ? "각 항목이 10pt 하락 시 추천이 2순위로 flip되는지 표시. 점수가 낮은 항목 = 더 취약."
+                : "Whether a 10pt drop in each component would flip the recommendation to the runner-up. Lower score = more vulnerable."}
+            </MText>
+            {vulnerableDim
+              .sort((a, b) => a.score - b.score)
+              .map((d, i) => {
+                const tone = d.score >= 65 ? C.success : d.score >= 50 ? C.warn : C.risk;
+                return (
+                  <View
+                    key={i}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      paddingVertical: 4,
+                      borderBottomWidth: 0.5,
+                      borderBottomColor: C.divider,
+                      gap: 8,
+                    }}
+                    wrap={false}
+                  >
+                    <MText style={{ fontSize: 9, color: C.ink, fontWeight: 600, width: 110 }}>
+                      {isKo ? d.label.ko : d.label.en}
+                    </MText>
+                    <View style={{ flex: 1, height: 6, backgroundColor: C.divider, borderRadius: 3 }}>
+                      <View
+                        style={{
+                          width: `${Math.max(0, Math.min(100, d.score))}%`,
+                          height: 6,
+                          backgroundColor: tone,
+                          borderRadius: 3,
+                        }}
+                      />
+                    </View>
+                    <MText style={{ fontSize: 9, color: tone, fontWeight: 700, width: 36, textAlign: "right" }}>
+                      {d.score.toFixed(0)}
+                    </MText>
+                    <MText
+                      style={{
+                        fontSize: 8,
+                        color: d.wouldFlip ? C.risk : C.muted,
+                        width: 80,
+                        textAlign: "right",
+                        fontWeight: d.wouldFlip ? 700 : 400,
+                      }}
+                    >
+                      {d.wouldFlip
+                        ? isKo
+                          ? "10pt↓ → flip"
+                          : "10pt↓ → flip"
+                        : isKo
+                          ? "안정"
+                          : "stable"}
+                    </MText>
+                  </View>
+                );
+              })}
+          </View>
+        )}
+
+        {/* Confidence overlay */}
+        {aggregate.quality?.confidenceScore != null && (
+          <View style={styles.sectionBlock}>
+            <MText style={styles.sectionEyebrow}>
+              {isKo ? "결과 신뢰도 overlay" : "Confidence overlay"}
+            </MText>
+            <View style={{ padding: 10, backgroundColor: C.card, borderRadius: 4 }}>
+              <MText style={{ fontSize: 9, color: C.body, lineHeight: 1.5 }}>
+                {(() => {
+                  const conf = aggregate.quality!.confidenceScore;
+                  if (conf >= 75 && gap >= 8) {
+                    return isKo
+                      ? `결과 신뢰도 ${conf}점 + 견고한 격차(${gap.toFixed(1)}pt). 추천을 의사결정에 사용 가능 — 추가 검증 우선순위 낮음.`
+                      : `Confidence ${conf} + robust gap (${gap.toFixed(1)}pt). Recommendation is decision-ready — low priority for further validation.`;
+                  }
+                  if (conf < 60 && gap < 4) {
+                    return isKo
+                      ? `⚠ 결과 신뢰도 ${conf}점 + 격차 거의 없음(${gap.toFixed(1)}pt). 무료 재실행 또는 더 높은 tier 시뮬로 검증 강력 권장. 현 추천만으로 진출 결정 위험.`
+                      : `⚠ Confidence ${conf} + tight gap (${gap.toFixed(1)}pt). Strongly recommend a free rerun or higher-tier sim before committing.`;
+                  }
+                  return isKo
+                    ? `결과 신뢰도 ${conf}점 + 격차 ${gap.toFixed(1)}pt. 일반적 검증 절차 (액션 plan 실행 + 첫 100명 small-batch test)로 충분.`
+                    : `Confidence ${conf} + gap ${gap.toFixed(1)}pt. Standard validation path (execute action plan + run a 100-customer pilot) is sufficient.`;
+                })()}
+              </MText>
+            </View>
+          </View>
+        )}
+
+        {pageFooter}
+      </Page>
+    );
+  };
+
   const renderRiskActionMappingPage = () => {
     if (!tierBudget.showRiskActionMapping) return null;
     const risks = aggregate.narrative?.mergedRisks?.slice(0, 5) ?? [];
@@ -4935,6 +5412,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           {renderPricingPage()}
           {renderRisksPage()}
           {renderActionsPage()}
+          {renderInvestmentROIPage()}
+          {renderSensitivityAnalysisPage()}
           {renderRiskActionMappingPage()}
           {renderProviderConsensusPage()}
           {renderProviderDisagreementPage()}
