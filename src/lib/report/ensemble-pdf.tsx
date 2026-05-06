@@ -17,6 +17,7 @@ import {
 import type { Style } from "@react-pdf/types";
 import { splitByFont } from "./fonts";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
+import { computePricingSensitivity } from "@/lib/simulation/pricing-sensitivity";
 import { getCountryLabel } from "@/lib/countries";
 import { formatPrice } from "@/lib/format/price";
 
@@ -3067,19 +3068,32 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           </View>
         )}
 
-        {pr.sensitivity && (
-          <View style={styles.sectionBlock}>
-            <MText style={styles.sectionEyebrow}>
-              {isKo ? "가격 민감도 매트릭스" : "Pricing sensitivity matrix"}
-            </MText>
-            <PricingSensitivityBlock
-              sensitivity={pr.sensitivity}
-              recommendedPriceCents={pr.recommendedPriceCents}
-              currency={project?.currency ?? undefined}
-              isKo={isKo}
-            />
-          </View>
-        )}
+        {(() => {
+          // When auto-correction triggers, recompute sensitivity against
+          // the corrected baseline so ±10% scenarios anchor on the
+          // headline price the user is reading, not the LLM's stale
+          // anchored value.
+          const effectiveBaseline = wasCorrected
+            ? pr.curveRevenueMaxCents!
+            : pr.recommendedPriceCents;
+          const effectiveSensitivity = wasCorrected
+            ? computePricingSensitivity(pr.curve, effectiveBaseline)
+            : pr.sensitivity;
+          if (!effectiveSensitivity) return null;
+          return (
+            <View style={styles.sectionBlock}>
+              <MText style={styles.sectionEyebrow}>
+                {isKo ? "가격 민감도 매트릭스" : "Pricing sensitivity matrix"}
+              </MText>
+              <PricingSensitivityBlock
+                sensitivity={effectiveSensitivity}
+                recommendedPriceCents={effectiveBaseline}
+                currency={project?.currency ?? undefined}
+                isKo={isKo}
+              />
+            </View>
+          );
+        })()}
 
         {pr.marginEstimate && pr.marginEstimate !== "—" && !wasCorrected && (
           <View style={styles.sectionBlock}>

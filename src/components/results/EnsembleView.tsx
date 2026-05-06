@@ -8,6 +8,7 @@ import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
 import { formatPrice } from "@/lib/format/price";
+import { computePricingSensitivity } from "@/lib/simulation/pricing-sensitivity";
 import {
   BestCountryPieChart,
   CountryIntentChart,
@@ -4616,14 +4617,24 @@ function PricingTab({
         </ChartGuide>
       </div>
 
-      {pricing.sensitivity && (
-        <PricingSensitivityPanel
-          sensitivity={pricing.sensitivity}
-          recommendedPriceCents={pricing.recommendedPriceCents}
-          currency={currency}
-          isKo={isKo}
-        />
-      )}
+      {(() => {
+        // When auto-correction kicks in, recompute sensitivity against
+        // the corrected price — the persisted sensitivity uses the
+        // LLM's anchor-biased baseline, which would show ±10%
+        // scenarios from the wrong starting point.
+        const effectiveSensitivity = wasCorrected
+          ? computePricingSensitivity(pricing.curve, headlinePriceCents)
+          : pricing.sensitivity;
+        if (!effectiveSensitivity) return null;
+        return (
+          <PricingSensitivityPanel
+            sensitivity={effectiveSensitivity}
+            recommendedPriceCents={headlinePriceCents}
+            currency={currency}
+            isKo={isKo}
+          />
+        );
+      })()}
 
       <details className="card p-4">
         <summary className="text-sm text-slate-600 cursor-pointer hover:text-slate-800 font-medium">
