@@ -854,6 +854,7 @@ function EnsembleDashboard({
       {activeTab === "pricing" && (
         <PricingTab
           pricing={pricing}
+          basePriceCents={result.project?.base_price_cents ?? null}
           isKo={isKo}
           currency={result.project?.currency ?? "USD"}
         />
@@ -4482,10 +4483,15 @@ function ScenarioCard({
 
 function PricingTab({
   pricing,
+  basePriceCents,
   isKo,
   currency,
 }: {
   pricing: EnsembleAggregate["pricing"];
+  /** User-input base price — used to surface the user-input vs
+      curve-max vs LLM-rec relationship explicitly. Nullable for
+      legacy projects. */
+  basePriceCents: number | null;
   isKo: boolean;
   currency: string;
 }) {
@@ -4530,6 +4536,43 @@ function PricingTab({
       ? effectiveCurveMax
       : pricing.recommendedPriceCents;
   const wasCorrected = headlinePriceCents !== pricing.recommendedPriceCents;
+
+  // Three-way relationship between user-input base price, LLM
+  // recommendation, and curve revenue max. Used to drive a clear
+  // "are these all the same?" message that addresses the common
+  // user concern: "did you just hand back my input?".
+  const within2pct = (a: number, b: number) =>
+    a > 0 && Math.abs(a / b - 1) <= 0.02;
+  const baseEqRec =
+    basePriceCents != null && within2pct(basePriceCents, pricing.recommendedPriceCents);
+  const baseEqCurve =
+    basePriceCents != null &&
+    effectiveCurveMax != null &&
+    within2pct(basePriceCents, effectiveCurveMax);
+  const recEqCurve = recComputedMatchesCurve === true;
+  const allThreeAlign = baseEqRec && baseEqCurve && recEqCurve;
+  const baseAlignsButLLMNot = baseEqCurve && !baseEqRec;
+
+  // Top revenue index points — let the user verify themselves that
+  // the "curve max" is genuinely the highest-revenue point. Compute
+  // revenue index = price × meanConversionProbability per curve
+  // point (using monotonic envelope for honesty), sort desc, top 5.
+  const sortedAsc = [...pricing.curve].sort(
+    (a, b) => a.priceCents - b.priceCents,
+  );
+  let runningMin = Infinity;
+  const envelopeRevenue = sortedAsc.map((p) => {
+    runningMin = Math.min(runningMin, p.meanConversionProbability);
+    return {
+      priceCents: p.priceCents,
+      conv: runningMin,
+      revenueIndex: p.priceCents * runningMin,
+    };
+  });
+  const topRevenue = [...envelopeRevenue]
+    .sort((a, b) => b.revenueIndex - a.revenueIndex)
+    .slice(0, 5);
+  const maxRevenue = topRevenue[0]?.revenueIndex ?? 0;
 
   return (
     <div className="space-y-6">
@@ -4624,6 +4667,145 @@ function PricingTab({
           </div>
         </div>
       </div>
+
+      {/* Three-way relationship — explicit "did the LLM just give back
+          your input?" answer. Renders only when basePriceCents is
+          known. Different message for each alignment pattern so
+          users always get a clear interpretation of what they're
+          looking at. */}
+      {basePriceCents != null && (
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-3">
+            {isKo ? "본인 입력가 vs 분석 결과" : "Your input vs analysis"}
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                {isKo ? "본인 입력 가격" : "Your input"}
+              </div>
+              <div className="text-base font-bold text-slate-900 tabular-nums">
+                {fmt(basePriceCents)}
+              </div>
+            </div>
+            <div className="rounded-lg border border-brand/30 bg-brand-50/40 px-4 py-3">
+              <div className="text-[10px] uppercase tracking-wide text-brand font-semibold mb-1">
+                {isKo ? "LLM 추천" : "LLM rec"}
+              </div>
+              <div className="text-base font-bold text-slate-900 tabular-nums">
+                {fmt(pricing.recommendedPriceCents)}
+              </div>
+              {baseEqRec && (
+                <div className="text-[10px] text-slate-500 mt-0.5">
+                  {isKo ? "본인 입력가와 일치" : "matches input"}
+                </div>
+              )}
+            </div>
+            {effectiveCurveMax != null && (
+              <div className="rounded-lg border border-success/30 bg-success-soft/30 px-4 py-3">
+                <div className="text-[10px] uppercase tracking-wide text-success font-semibold mb-1">
+                  {isKo ? "곡선 매출 최대점" : "Curve max"}
+                </div>
+                <div className="text-base font-bold text-slate-900 tabular-nums">
+                  {fmt(effectiveCurveMax)}
+                </div>
+                {baseEqCurve && (
+                  <div className="text-[10px] text-slate-500 mt-0.5">
+                    {isKo ? "본인 입력가와 일치" : "matches input"}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          {/* Interpretation message — varies by alignment pattern */}
+          <div
+            className={clsx(
+              "rounded-md px-3 py-2.5 text-sm leading-relaxed",
+              allThreeAlign
+                ? "bg-success-soft/40 border border-success/30 text-slate-800"
+                : baseAlignsButLLMNot
+                  ? "bg-warn-soft/40 border border-warn/30 text-slate-800"
+                  : !baseEqCurve && !baseEqRec
+                    ? "bg-brand-50/40 border border-brand/20 text-slate-800"
+                    : "bg-slate-50 border border-slate-200 text-slate-700",
+            )}
+          >
+            {allThreeAlign
+              ? isKo
+                ? `✓ 세 값이 모두 ±2% 이내 일치합니다. 본인이 입력한 가격이 곡선 매출 최대점이고 LLM도 같은 결론에 도달 — 가격 설정이 잘 됐다는 강한 신호입니다. (LLM이 anchor했을 가능성도 있으나 곡선 데이터가 독립적으로 확인.)`
+                : `✓ All three values agree within ±2%. Your input is the curve revenue max, and the LLM landed on the same answer — strong signal that your pricing is well-calibrated. (LLM anchor bias is possible but the curve confirms independently.)`
+              : baseAlignsButLLMNot
+                ? isKo
+                  ? `⚠ 곡선상 매출 최대점은 본인 입력가(${fmt(basePriceCents)})와 일치하지만, LLM이 다른 가격(${fmt(pricing.recommendedPriceCents)})을 추천. 곡선 데이터에 따르면 본인 입력가가 더 적절.`
+                  : `⚠ The curve max matches your input (${fmt(basePriceCents)}), but the LLM recommended a different price (${fmt(pricing.recommendedPriceCents)}). The curve data suggests your input is more optimal.`
+                : !baseEqCurve && !baseEqRec
+                  ? isKo
+                    ? `분석 결과가 본인 입력가(${fmt(basePriceCents)})와 다른 가격(${fmt(headlinePriceCents)})을 권장. 시뮬 데이터 기반 가격으로 변경 검토 권장.`
+                    : `Analysis recommends a different price (${fmt(headlinePriceCents)}) than your input (${fmt(basePriceCents)}). Consider adjusting based on the simulation data.`
+                  : isKo
+                    ? `세 값이 부분적으로 일치. 아래 매출 인덱스 표에서 실제 매출 최대점을 직접 확인하세요.`
+                    : `Partial alignment. Verify against the revenue index table below.`}
+          </div>
+        </div>
+      )}
+
+      {/* Top revenue index — transparency: let the user see WHY
+          the curve max is what it is. We compute revenue =
+          price × monotonic-envelope conversion per point, sort
+          descending, show top 5. The bar makes the gap between
+          #1 and runner-ups visually obvious. */}
+      {topRevenue.length >= 2 && (
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-1">
+            {isKo ? "매출 인덱스 Top 5" : "Top 5 revenue index"}
+          </h3>
+          <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+            {isKo
+              ? "각 가격대의 (가격 × 전환율). 가장 높은 값이 매출 최대 — 본인이 직접 검증 가능. monotonic envelope 적용으로 노이즈 bump 제외."
+              : "Revenue index (price × conversion) per price point — verify the curve max yourself. Monotonic envelope removes high-price noise bumps."}
+          </p>
+          <div className="space-y-1.5">
+            {topRevenue.map((r, i) => {
+              const pct = maxRevenue > 0 ? (r.revenueIndex / maxRevenue) * 100 : 0;
+              const isTop = i === 0;
+              return (
+                <div key={r.priceCents} className="flex items-center gap-3 text-sm">
+                  <div
+                    className={clsx(
+                      "w-6 text-center text-xs font-bold tabular-nums",
+                      isTop ? "text-success" : "text-slate-400",
+                    )}
+                  >
+                    {isTop ? "★" : `${i + 1}`}
+                  </div>
+                  <div className="w-24 shrink-0 font-medium text-slate-900 tabular-nums">
+                    {fmt(r.priceCents)}
+                  </div>
+                  <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className={clsx(
+                        "h-full transition-all",
+                        isTop ? "bg-success" : "bg-slate-300",
+                      )}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <div className="w-16 text-right text-xs text-slate-500 tabular-nums">
+                    {`${(r.conv * 100).toFixed(1)}%`}
+                  </div>
+                  <div className="w-24 text-right text-xs text-slate-700 tabular-nums font-medium">
+                    {fmt(Math.round(r.revenueIndex))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-slate-400 mt-3">
+            {isKo
+              ? "열: 가격 / 전환율 (envelope) / 매출 인덱스. ★ = 매출 최대점."
+              : "Cols: price / envelope conversion / revenue index. ★ = revenue max."}
+          </p>
+        </div>
+      )}
 
       {/* Competitor price anchors — extracted at sim time from user-
           provided URLs. Shown alongside the recommendation so users
