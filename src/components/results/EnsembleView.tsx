@@ -12,6 +12,7 @@ import {
   computePricingSensitivity,
   computeCurveRevenueMaxCents,
 } from "@/lib/simulation/pricing-sensitivity";
+import { analyzeIncomeIntent } from "@/lib/simulation/segment-analysis";
 import {
   BestCountryPieChart,
   CountryIntentChart,
@@ -5368,6 +5369,113 @@ function DecisionAidTab({
           )}
         </div>
       )}
+
+      {/* ── Income × Intent matrix + analysis ─────────────────── */}
+      {(() => {
+        const incomeRows = aggregate.personas?.segmentBreakdown?.byIncome ?? [];
+        if (incomeRows.length === 0) return null;
+        const analysis = analyzeIncomeIntent(incomeRows, isKo ? "ko" : "en");
+        const overallMean =
+          incomeRows.reduce((s, r) => s + r.meanIntent * r.count, 0) /
+          Math.max(1, incomeRows.reduce((s, r) => s + r.count, 0));
+        const headlineColorClass =
+          analysis.tone === "success"
+            ? "text-success border-success"
+            : analysis.tone === "warn"
+              ? "text-warn border-warn"
+              : analysis.tone === "risk"
+                ? "text-risk border-risk"
+                : "text-brand border-brand";
+        return (
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900 mb-1">
+              {isKo ? "소득대 × 구매의향 매트릭스" : "Income × intent matrix"}
+            </h2>
+            <p className="text-sm text-slate-500 leading-relaxed mb-4">
+              {isKo
+                ? "소득대별 평균 구매의향과 그 세그먼트가 가장 많이 선택한 시장. 가격 포지셔닝 결정에 직접 사용."
+                : "Mean intent per income bracket and the country each bracket most often picks. Drives price positioning."}
+            </p>
+            <div className="card overflow-hidden mb-5">
+              <div className="divide-y divide-slate-100">
+                {incomeRows.map((r) => {
+                  const tone =
+                    r.meanIntent >= 65
+                      ? "bg-success"
+                      : r.meanIntent >= 50
+                        ? "bg-warn"
+                        : "bg-risk";
+                  return (
+                    <div
+                      key={r.bucket}
+                      className="flex items-center gap-3 px-5 py-3 text-sm"
+                    >
+                      <div className="w-28 shrink-0 font-medium text-slate-700">
+                        {r.bucket}
+                      </div>
+                      <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={clsx("h-full transition-all", tone)}
+                          style={{ width: `${Math.max(0, Math.min(100, r.meanIntent))}%` }}
+                        />
+                      </div>
+                      <div className="w-16 text-right text-slate-700 tabular-nums font-medium">
+                        {r.meanIntent.toFixed(1)}/100
+                      </div>
+                      <div className="w-20 text-right text-xs text-slate-500 tabular-nums">
+                        n={r.count}
+                      </div>
+                      <div className="w-32 text-right text-xs text-slate-600">
+                        → {r.topCountry} ({r.topCountryShare}%)
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-500 mb-4">
+              {isKo
+                ? `메타: 막대 색은 의향 임계점입니다 (65+ 강 / 50-64 보통 / 50 미만 약). 전체 평균 ${overallMean.toFixed(1)}/100.`
+                : `Bar tone: 65+ strong / 50-64 moderate / <50 weak. Overall mean ${overallMean.toFixed(1)}/100.`}
+            </p>
+
+            {/* Analysis commentary */}
+            {analysis.bullets.length > 0 && (
+              <div className="card p-5">
+                <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-3">
+                  {isKo ? "분석 해석" : "Analysis"}
+                </div>
+                <div
+                  className={clsx(
+                    "border-l-3 pl-4 mb-4 py-1",
+                    headlineColorClass.split(" ").pop(),
+                  )}
+                  style={{ borderLeftWidth: 3 }}
+                >
+                  <div
+                    className={clsx(
+                      "text-base font-semibold leading-relaxed",
+                      headlineColorClass.split(" ")[0],
+                    )}
+                  >
+                    {analysis.headline}
+                  </div>
+                </div>
+                <ol className="space-y-2.5">
+                  {analysis.bullets.map((b, i) => (
+                    <li key={i} className="flex gap-2 text-sm text-slate-700 leading-relaxed">
+                      <span className="text-slate-400 font-medium tabular-nums shrink-0">
+                        {i + 1}.
+                      </span>
+                      <span>{b.replace(/\*\*/g, "")}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

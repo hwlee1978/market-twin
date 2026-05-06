@@ -21,6 +21,7 @@ import {
   computePricingSensitivity,
   computeCurveRevenueMaxCents,
 } from "@/lib/simulation/pricing-sensitivity";
+import { analyzeIncomeIntent } from "@/lib/simulation/segment-analysis";
 import { getCountryLabel } from "@/lib/countries";
 import { formatPrice } from "@/lib/format/price";
 
@@ -3385,6 +3386,65 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             ? "메타: 막대 색상은 의향 임계점입니다. 65+ 강 / 50-64 보통 / 50 미만 약. \"→ 국가\"는 그 소득대 페르소나가 가장 많이 #1로 꼽은 시장."
             : "Bar tone: 65+ strong / 50-64 moderate / <50 weak. \"→ country\" = the market this income bracket most often picks as #1."}
         </MText>
+
+        {/* Analysis commentary — deterministic interpretation of the
+            table above. Surfaces the trend, the champion segment, the
+            country-shift insight, and a strategic headline. */}
+        {(() => {
+          const analysis = analyzeIncomeIntent(rows, isKo ? "ko" : "en");
+          if (analysis.bullets.length === 0) return null;
+          const headlineColor =
+            analysis.tone === "success"
+              ? C.success
+              : analysis.tone === "warn"
+                ? C.warn
+                : analysis.tone === "risk"
+                  ? C.risk
+                  : C.brand;
+          return (
+            <View style={[styles.sectionBlock, { marginTop: 12 }]} wrap={false}>
+              <MText style={[styles.sectionEyebrow, { marginBottom: 4 }]}>
+                {isKo ? "분석 해석" : "Analysis"}
+              </MText>
+              <View
+                style={{
+                  borderLeftWidth: 3,
+                  borderLeftColor: headlineColor,
+                  paddingLeft: 10,
+                  paddingVertical: 6,
+                  marginBottom: 8,
+                }}
+              >
+                <MText
+                  style={{
+                    fontSize: 10,
+                    color: C.ink,
+                    fontWeight: 700,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {analysis.headline}
+                </MText>
+              </View>
+              {analysis.bullets.map((b, i) => (
+                <View
+                  key={i}
+                  style={{ flexDirection: "row", gap: 6, marginBottom: 4 }}
+                  wrap={false}
+                >
+                  <MText style={{ fontSize: 9, color: C.muted, width: 12 }}>
+                    {`${i + 1}.`}
+                  </MText>
+                  <MText
+                    style={{ fontSize: 9, color: C.body, flex: 1, lineHeight: 1.5 }}
+                  >
+                    {b}
+                  </MText>
+                </View>
+              ))}
+            </View>
+          );
+        })()}
 
         {pageFooter}
       </Page>
