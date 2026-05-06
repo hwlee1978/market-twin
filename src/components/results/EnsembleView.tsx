@@ -4839,10 +4839,22 @@ function DecisionAidTab({
   };
   const usdRate = usdToTarget[currency.toUpperCase()] ?? 1;
   const cacInTargetCents = cacUsd != null ? Math.round(cacUsd * 100 * usdRate) : null;
+  // Headline price uses the SAME monotonic-envelope recomputation as
+  // PricingTab — persisted curveRevenueMaxCents was the legacy naive
+  // argmax that picked high-price noise bumps. Recompute on render to
+  // stay in sync across legacy + new ensembles.
+  const recomputedCurveMax = aggregate.pricing
+    ? computeCurveRevenueMaxCents(aggregate.pricing.curve) ??
+      aggregate.pricing.curveRevenueMaxCents ??
+      null
+    : null;
+  const matchesCurve =
+    aggregate.pricing && recomputedCurveMax != null && aggregate.pricing.recommendedPriceCents > 0
+      ? Math.abs(recomputedCurveMax / aggregate.pricing.recommendedPriceCents - 1) <= 0.1
+      : null;
   const headlinePrice =
-    aggregate.pricing?.curveRevenueMaxCents != null &&
-    aggregate.pricing.recommendationMatchesCurve === false
-      ? aggregate.pricing.curveRevenueMaxCents
+    matchesCurve === false && recomputedCurveMax != null
+      ? recomputedCurveMax
       : aggregate.pricing?.recommendedPriceCents ?? 0;
   const totalPersonas = aggregate.personas?.total ?? 0;
   const highIntentRatio =
