@@ -9,8 +9,20 @@
  */
 
 @theme {
+  /* Pretendard ships Korean + Latin only — no Chinese / Japanese
+   * glyphs. Without explicit CJK fallbacks, Traditional Chinese
+   * brand names like 蝦皮台灣 / momo購物 (which the market-profile LLM
+   * emits) render as tofu / zero-width / overlapped glyphs on
+   * systems whose default sans doesn't cover those ranges.
+   * Order: Korean-optimized first (Pretendard) → CJK Simp / Trad
+   * fallbacks per platform (Windows / Mac / cross-platform Noto)
+   * → generic sans-serif. Browser falls through font-by-font until
+   * it finds one that has the glyph. */
   --font-sans: "Pretendard Variable", "Pretendard", ui-sans-serif, system-ui,
-    -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR",
+    "Noto Sans CJK KR", "Noto Sans CJK SC", "Noto Sans CJK TC",
+    "Microsoft YaHei", "Microsoft JhengHei", "PingFang SC",
+    "Hiragino Sans GB", "Heiti SC", sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
 
   /* Brand — Deep Blue scale */
