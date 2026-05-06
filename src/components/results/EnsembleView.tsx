@@ -4590,7 +4590,7 @@ function PricingTab({
           {isKo ? "가격–전환 곡선" : "Price–conversion curve"}
         </h2>
         <div className="card p-4">
-          <PricingCurveChart data={pricing.curve} />
+          <PricingCurveChart data={pricing.curve} currency={currency} />
           <p className="text-xs text-slate-500 mt-3 leading-relaxed">
             {isKo
               ? "각 가격대에서 모든 시뮬의 평균 전환 확률입니다. 곡선의 정점이 가장 많은 페르소나가 구매로 이어진 지점이며, 곡선이 완만하면 가격 민감도가 낮음을 의미합니다."

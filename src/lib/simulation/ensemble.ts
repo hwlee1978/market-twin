@@ -1370,13 +1370,32 @@ function computePricingAggregate(
   const marginEstimate =
     [...marginCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
 
-  // Bucket curve points by nearest cent. Sims may pick slightly different
-  // price grids; we collapse exact-match prices and average the conversion
-  // probability across sims that hit that price.
+  // Bucket curve points proportionally — sims pick slightly different
+  // price grids (e.g. $134.09 vs $134.39) which exact-match bucketing
+  // leaves as separate points, producing a noisy curve. We compute a
+  // bucket width from the actual price range so ~15-20 buckets span
+  // the curve, collapsing nearby points.
+  const allPricePoints = present.flatMap((s) =>
+    s.pricing!.curve.map((p) => p.priceCents),
+  );
+  let bucketSize = 1;
+  if (allPricePoints.length > 1) {
+    const minP = Math.min(...allPricePoints);
+    const maxP = Math.max(...allPricePoints);
+    const range = maxP - minP;
+    // Target ~15 buckets across the range. Rounded to a "nice" power-of-10
+    // multiplier so bucket boundaries are readable (e.g. snap to nearest
+    // ₩1,000 / $0.10 / etc.). Floor at 1 cent so we never divide by zero.
+    bucketSize = Math.max(1, Math.round(range / 15));
+    // Snap to a nice round multiple — biggest power of 10 that fits.
+    const magnitude = Math.pow(10, Math.floor(Math.log10(bucketSize)));
+    bucketSize = Math.max(magnitude, Math.round(bucketSize / magnitude) * magnitude);
+  }
+
   const curveBuckets = new Map<number, { sum: number; count: number }>();
   for (const s of present) {
     for (const point of s.pricing!.curve) {
-      const key = point.priceCents;
+      const key = Math.round(point.priceCents / bucketSize) * bucketSize;
       const cur = curveBuckets.get(key) ?? { sum: 0, count: 0 };
       cur.sum += point.conversionProbability;
       cur.count += 1;

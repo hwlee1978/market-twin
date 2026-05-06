@@ -26,6 +26,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { formatPrice } from "@/lib/format/price";
 
 const COLORS = {
   brand: "#0A1F4D",
@@ -179,11 +180,15 @@ export function CountryScoreChart({
 
 export function PricingCurveChart({
   data,
+  currency = "USD",
 }: {
   data: Array<{ priceCents: number; meanConversionProbability: number; sampleCount: number }>;
+  /** ISO currency code from the project — drives the X-axis label format.
+      Defaults to USD for legacy callers that haven't been updated yet. */
+  currency?: string;
 }) {
   const enriched = data.map((d) => ({
-    price: `$${(d.priceCents / 100).toFixed(2)}`,
+    price: formatPrice(d.priceCents, currency),
     priceCents: d.priceCents,
     conv: Math.round(d.meanConversionProbability * 1000) / 10, // %
     n: d.sampleCount,
