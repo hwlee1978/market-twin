@@ -2106,7 +2106,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           const final = c.finalScore.mean;
           const channel = c.components?.channelMatch.mean ?? null;
           const reg = c.components?.regulatory.mean ?? null;
-          const topBlocker = c.detail?.topObjections?.[0]?.text ?? "—";
+          const topBlocker = pickMarketBlocker(c.detail?.topObjections);
           const verdict = perCountryVerdict(final, reg);
           const verdictLabel = isKo ? verdict.label.ko : verdict.label.en;
 
@@ -5108,6 +5108,47 @@ function pickQuote(
  * page. Each call renders one cell of a row: bar + numeric suffix.
  * Designed to fit 4-5 across a row at A4 width.
  */
+/**
+ * Pick the most decision-relevant blocker from a country's objection
+ * list. The aggregator's top-objection is just frequency-based, which
+ * lets persona-product mismatch noise ("이 제품은 성인용이라 아이 신발
+ * 찾는 나에겐 무관") rise to the top when a persona was the wrong ICP
+ * for the product. Those aren't market blockers — they're sample-
+ * generation noise.
+ *
+ * Strategy: walk the top-N objections, skip ones matching mismatch
+ * patterns (persona's category mismatch, "no interest", "not the
+ * target", etc.), return the first remaining. Falls back to the
+ * raw top-1 if all are filtered out — better some content than none.
+ */
+function pickMarketBlocker(
+  objections: Array<{ text: string; count: number }> | undefined,
+): string {
+  if (!objections || objections.length === 0) return "—";
+  const isMismatchNoise = (text: string): boolean => {
+    const t = text.toLowerCase();
+    // Korean mismatch patterns — persona explicitly says product
+    // doesn't fit their category / target / interest.
+    if (
+      /아이\s*신발|어린이|유아|성인용|구매\s*동기\s*자체가\s*없음|타겟\s*아님|관심\s*없음|내\s*카테고리\s*아님|이미\s*충분히\s*가지고|제품\s*불필요/.test(
+        text,
+      )
+    ) return true;
+    // English mismatch patterns
+    if (
+      /\b(not for me|no interest|wrong fit for me|not the target|don'?t need|already have enough|kids?'? shoes?|not in market for|outside my category)\b/.test(
+        t,
+      )
+    ) return true;
+    return false;
+  };
+  for (const o of objections) {
+    if (!isMismatchNoise(o.text)) return o.text;
+  }
+  // All filtered → still surface top-1 so the column isn't empty.
+  return objections[0].text;
+}
+
 function MiniBar({
   value,
   max,
