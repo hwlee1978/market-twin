@@ -199,6 +199,12 @@ export const CountryScoreSchema = z.object({
   // parse. Without it, a single bad components blob from the LLM would
   // sink the entire country sample and we'd lose all scoring data.
   components: CountryScoreComponentsSchema.optional().catch(undefined),
+  // Within-sim std of finalScore across the LLM resampling rolls (3-5).
+  // Populated by aggregateCountryScores; absent on raw samples and
+  // legacy data. Lets the ensemble combine within-sim noise with
+  // across-sim variance via law of total variance.
+  finalScoreStd: z.number().nonnegative().optional(),
+  finalScoreSampleN: z.number().int().nonnegative().optional(),
 });
 export type CountryScore = z.infer<typeof CountryScoreSchema>;
 
@@ -240,6 +246,12 @@ export const PricingResultSchema = z.object({
       }),
     )
     .optional(),
+  // Within-sim std of recommendedPriceCents across the LLM resampling
+  // rolls (default 5). Captured at runner aggregation time; absent on
+  // legacy data. Lets the ensemble surface true LLM noise even when
+  // across-sim sims all happen to converge on the same value.
+  recommendedPriceStd: z.number().nonnegative().optional(),
+  recommendedPriceSampleN: z.number().int().nonnegative().optional(),
 });
 export type PricingResult = z.infer<typeof PricingResultSchema>;
 

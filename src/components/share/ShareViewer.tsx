@@ -183,7 +183,18 @@ export function ShareViewer({
               {segments.map((seg) => (
                 <div key={seg.id} className="card p-4">
                   <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-                    {seg.labelKo}
+                    {(() => {
+                      // Same locale fallback as EnsembleView.segmentLabel —
+                      // older aggregates persist seg.labelKo in Korean only.
+                      if (isKo) return seg.labelKo;
+                      switch (seg.id) {
+                        case "volume": return "Speed first (HIGHEST DEMAND)";
+                        case "cac": return "Cost efficient (LOWEST CAC)";
+                        case "competition": return "Avoid competition (LOWEST COMPETITION)";
+                        case "overall": return "Balanced (HIGHEST FINALSCORE)";
+                        default: return seg.labelKo;
+                      }
+                    })()}
                   </div>
                   <div className="flex items-baseline gap-2">
                     <div className="text-xl font-semibold text-slate-900">{seg.bestCountry}</div>

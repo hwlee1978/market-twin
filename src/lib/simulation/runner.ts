@@ -251,9 +251,16 @@ function aggregateCountryScores(
       byCountry.set(key, arr);
     }
   }
+  const stdDev = (xs: number[]): number => {
+    if (xs.length < 2) return 0;
+    const m = xs.reduce((a, b) => a + b, 0) / xs.length;
+    return Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / xs.length);
+  };
   const aggregated: z.infer<typeof CountryScoreSchema>[] = [];
   for (const [country, rows] of byCountry.entries()) {
-    const medFinal = median(rows.map((r) => r.finalScore));
+    const finals = rows.map((r) => r.finalScore);
+    const medFinal = median(finals);
+    const stdFinal = stdDev(finals);
     const medDemand = median(rows.map((r) => r.demandScore));
     const medCAC = median(rows.map((r) => r.cacEstimateUsd));
     const medCompetition = median(rows.map((r) => r.competitionScore));
@@ -297,6 +304,8 @@ function aggregateCountryScores(
       cacEstimateUsd: Math.round(medCAC * 100) / 100,
       competitionScore: Math.round(medCompetition),
       finalScore: Math.round(medFinal * 10) / 10,
+      finalScoreStd: Math.round(stdFinal * 100) / 100,
+      finalScoreSampleN: rows.length,
       rank: 0, // re-assigned below
       rationale: closest.rationale,
       components,
@@ -1222,11 +1231,29 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         (a, b) => a.recommendedPriceCents - b.recommendedPriceCents,
       );
       const medianIdx = Math.floor(pricingCandidates.length / 2);
+      // Within-sim std of recommended price across the resampling rolls.
+      // When sims later collapse to identical medians (LLMs love
+      // psychological-anchor prices like $49.95) this is the only
+      // surface where true LLM noise is visible.
+      const candidatePrices = pricingCandidates.map((c) => c.recommendedPriceCents);
+      const candidateMean =
+        candidatePrices.reduce((a, b) => a + b, 0) / candidatePrices.length;
+      const candidateStd =
+        candidatePrices.length < 2
+          ? 0
+          : Math.sqrt(
+              candidatePrices.reduce(
+                (a, b) => a + (b - candidateMean) ** 2,
+                0,
+              ) / candidatePrices.length,
+            );
       // Attach range + competitor metadata to the chosen median candidate
       // so the persisted pricing carries the context (used by UI / PDF
       // to display the basis for the recommendation).
       const enriched = {
         ...pricingCandidates[medianIdx],
+        recommendedPriceStd: Math.round(candidateStd),
+        recommendedPriceSampleN: pricingCandidates.length,
         range: {
           minCents: pricingRange.minCents,
           maxCents: pricingRange.maxCents,

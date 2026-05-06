@@ -20,6 +20,7 @@ import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import {
   computePricingSensitivity,
   computeCurveRevenueMaxCents,
+  getDisplayPriceCents,
 } from "@/lib/simulation/pricing-sensitivity";
 import { analyzeIncomeIntent } from "@/lib/simulation/segment-analysis";
 import { getCountryLabel } from "@/lib/countries";
@@ -1209,11 +1210,28 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           <MText style={styles.sectionEyebrow}>{isKo ? "핵심 발견" : "Key findings"}</MText>
           <View style={{ marginTop: 6 }}>
             <BulletItem
-              text={
-                isKo
-                  ? `${recCountryLabel} 진출이 합의 우위 (${aggregate.recommendation.consensusPercent}% / ${aggregate.recommendation.confidence})${winnerStats ? ` — 평균 점수 ${winnerStats.finalScore.mean.toFixed(0)}, 표준편차 ${winnerStats.finalScore.std.toFixed(1)}` : ""}.`
-                  : `${recCountryLabel} leads consensus (${aggregate.recommendation.consensusPercent}% / ${aggregate.recommendation.confidence})${winnerStats ? ` — mean ${winnerStats.finalScore.mean.toFixed(0)}, std ${winnerStats.finalScore.std.toFixed(1)}` : ""}.`
-              }
+              text={(() => {
+                const fs = winnerStats?.finalScore;
+                const headKo = `${recCountryLabel} 진출이 합의 우위 (${aggregate.recommendation.consensusPercent}% / ${aggregate.recommendation.confidence})`;
+                const headEn = `${recCountryLabel} leads consensus (${aggregate.recommendation.consensusPercent}% / ${aggregate.recommendation.confidence})`;
+                if (!fs) return isKo ? `${headKo}.` : `${headEn}.`;
+                const acrossZero = fs.std < 0.05;
+                const within = fs.withinSimStdMean;
+                if (acrossZero) {
+                  const noise =
+                    within && within > 0
+                      ? isKo
+                        ? `, 시뮬 내부 noise ±${within.toFixed(1)}`
+                        : `, within-sim noise ±${within.toFixed(1)}`
+                      : "";
+                  return isKo
+                    ? `${headKo} — 모든 시뮬이 ${fs.mean.toFixed(0)}점으로 수렴${noise}.`
+                    : `${headEn} — all sims converged on ${fs.mean.toFixed(0)}${noise}.`;
+                }
+                return isKo
+                  ? `${headKo} — 평균 점수 ${fs.mean.toFixed(0)}, 표준편차 ${fs.std.toFixed(1)}.`
+                  : `${headEn} — mean ${fs.mean.toFixed(0)}, std ${fs.std.toFixed(1)}.`;
+              })()}
             />
             {runnerUp && (
               <BulletItem
@@ -1235,11 +1253,32 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             )}
             {aggregate.pricing && (
               <BulletItem
-                text={
-                  isKo
-                    ? `권장 가격 ${fmtPrice(aggregate.pricing.recommendedPriceCents)} (시뮬 50% 구간 ${fmtPrice(aggregate.pricing.recommendedPriceP25)}–${fmtPrice(aggregate.pricing.recommendedPriceP75)}).`
-                    : `Recommended price ${fmtPrice(aggregate.pricing.recommendedPriceCents)} (mid-50% ${fmtPrice(aggregate.pricing.recommendedPriceP25)}–${fmtPrice(aggregate.pricing.recommendedPriceP75)}).`
-                }
+                text={(() => {
+                  const p = aggregate.pricing!;
+                  // Headline price stays in sync with the Pricing analysis
+                  // page via the shared helper — auto-corrects when LLM is
+                  // anchored on the base price.
+                  const { displayCents } = getDisplayPriceCents(
+                    p.recommendedPriceCents,
+                    p.curve,
+                    p.curveRevenueMaxCents,
+                  );
+                  const unanimous = p.recommendedPriceUnanimousAt;
+                  const within = p.recommendedPriceWithinSimStdMean ?? 0;
+                  if (unanimous != null && unanimous > 0) {
+                    const noise = within > 0
+                      ? (isKo
+                          ? `, 시뮬 내부 noise ±${fmtPrice(within)}`
+                          : `, within-sim noise ±${fmtPrice(within)}`)
+                      : "";
+                    return isKo
+                      ? `권장 가격 ${fmtPrice(displayCents)} — 모든 시뮬이 ${fmtPrice(unanimous)}로 수렴${noise}.`
+                      : `Recommended price ${fmtPrice(displayCents)} — all sims converged on ${fmtPrice(unanimous)}${noise}.`;
+                  }
+                  return isKo
+                    ? `권장 가격 ${fmtPrice(displayCents)} (시뮬 50% 구간 ${fmtPrice(p.recommendedPriceP25)}–${fmtPrice(p.recommendedPriceP75)}).`
+                    : `Recommended price ${fmtPrice(displayCents)} (mid-50% ${fmtPrice(p.recommendedPriceP25)}–${fmtPrice(p.recommendedPriceP75)}).`;
+                })()}
               />
             )}
             {aggregate.personas && (
@@ -1416,9 +1455,17 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       status: "ok",
     });
     if (aggregate.pricing?.recommendedPriceCents) {
+      // Use shared helper so this signal stays in sync with the Pricing
+      // analysis page. Otherwise the verdict shows $49.95 (raw LLM) while
+      // the Pricing page shows $56 (curve revenue max), confusing the user.
+      const { displayCents } = getDisplayPriceCents(
+        aggregate.pricing.recommendedPriceCents,
+        aggregate.pricing.curve,
+        aggregate.pricing.curveRevenueMaxCents,
+      );
       signals.push({
         label: isKo ? "권장 가격" : "Recommended price",
-        value: formatPrice(aggregate.pricing.recommendedPriceCents, project?.currency ?? undefined),
+        value: formatPrice(displayCents, project?.currency ?? undefined),
         status: "ok",
       });
     }
@@ -2475,9 +2522,22 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 ? `$${seg.alternative.value.toFixed(2)}`
                 : seg.alternative.value.toFixed(1)
               : null;
+            // Localised label — older aggregates have seg.labelKo in
+            // Korean only. Mirror EnsembleView.segmentLabel for the EN side.
+            const segLabelText = isKo
+              ? seg.labelKo
+              : seg.id === "volume"
+                ? "Speed first (HIGHEST DEMAND)"
+                : seg.id === "cac"
+                  ? "Cost efficient (LOWEST CAC)"
+                  : seg.id === "competition"
+                    ? "Avoid competition (LOWEST COMPETITION)"
+                    : seg.id === "overall"
+                      ? "Balanced (HIGHEST FINALSCORE)"
+                      : seg.labelKo;
             return (
               <View key={seg.id} style={styles.segCard} wrap={false}>
-                <MText style={styles.segLabel}>{seg.labelKo}</MText>
+                <MText style={styles.segLabel}>{segLabelText}</MText>
                 <MText style={styles.segCountry}>{seg.bestCountry}</MText>
                 <MText style={styles.segValue}>{valueText}</MText>
                 {seg.alternative && altText && (

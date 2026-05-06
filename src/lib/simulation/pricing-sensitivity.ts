@@ -53,6 +53,39 @@ export function computeCurveRevenueMaxCents(
   return bestPrice;
 }
 
+/**
+ * Single source of truth for "what price should the user actually see?".
+ *
+ * The LLM emits a `recommendedPriceCents`, but it sometimes anchors on
+ * the user's input price instead of the curve's actual revenue-max
+ * point. When that happens the dashboard's Pricing tab and the PDF's
+ * Pricing analysis page surface the curve value as the headline; every
+ * other surface (Go/No-Go signals, Summary key findings, Decision Aid
+ * card) needs the SAME number or the report contradicts itself.
+ *
+ * Returns the curve revenue max when it diverges from the LLM rec by
+ * more than ±10%, otherwise the LLM rec. Matches the inline logic at
+ * EnsembleView.tsx:4578 and ensemble-pdf.tsx:3033.
+ */
+export function getDisplayPriceCents(
+  llmRecCents: number,
+  curve: SensitivityCurvePoint[],
+  persistedCurveRevenueMaxCents?: number | null,
+): { displayCents: number; wasCorrected: boolean; curveRevenueMaxCents: number | null } {
+  const recomputed =
+    computeCurveRevenueMaxCents(curve) ?? persistedCurveRevenueMaxCents ?? null;
+  const matchesCurve =
+    recomputed != null && llmRecCents > 0
+      ? Math.abs(recomputed / llmRecCents - 1) <= 0.1
+      : null;
+  const wasCorrected = matchesCurve === false && recomputed != null;
+  return {
+    displayCents: wasCorrected ? recomputed! : llmRecCents,
+    wasCorrected,
+    curveRevenueMaxCents: recomputed,
+  };
+}
+
 export interface PricingSensitivity {
   comfortCeilingCents: number | null;
   inflectionCents: number | null;

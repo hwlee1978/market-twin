@@ -11,6 +11,7 @@ import { formatPrice } from "@/lib/format/price";
 import {
   computePricingSensitivity,
   computeCurveRevenueMaxCents,
+  getDisplayPriceCents,
 } from "@/lib/simulation/pricing-sensitivity";
 import { analyzeIncomeIntent } from "@/lib/simulation/segment-analysis";
 import {
@@ -166,7 +167,9 @@ export function EnsembleView({
     return (
       <div className="max-w-3xl mx-auto py-12 text-center">
         <Loader2 className="animate-spin mx-auto" size={32} />
-        <p className="mt-4 text-sm text-slate-500">앙상블 상태 로딩 중...</p>
+        <p className="mt-4 text-sm text-slate-500">
+          {locale === "ko" ? "앙상블 상태 로딩 중..." : "Loading ensemble status..."}
+        </p>
       </div>
     );
   }
@@ -665,7 +668,9 @@ function EnsembleDashboard({
               locale={locale}
             />
           </div>
-          <h1 className="text-2xl font-semibold">앙상블 분석 결과</h1>
+          <h1 className="text-2xl font-semibold">
+            {locale === "ko" ? "앙상블 분석 결과" : "Ensemble analysis"}
+          </h1>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
           <div className="flex items-center gap-2">
@@ -1451,23 +1456,51 @@ function OverviewTab({
           <li className="flex gap-3">
             <span className="shrink-0 text-brand font-bold">·</span>
             <span>
-              {isKo ? (
-                <>
-                  <span className="font-semibold text-slate-900">{recommendation.country}</span>
-                  {" "}진출이 합의 우위 ({recommendation.consensusPercent}% / {recommendation.confidence})
-                  {winnerStats &&
-                    ` — 평균 점수 ${winnerStats.finalScore.mean.toFixed(0)}, 표준편차 ${winnerStats.finalScore.std.toFixed(1)}`}
-                  .
-                </>
-              ) : (
-                <>
-                  <span className="font-semibold text-slate-900">{recommendation.country}</span>
-                  {" "}leads consensus ({recommendation.consensusPercent}% / {recommendation.confidence})
-                  {winnerStats &&
-                    ` — mean score ${winnerStats.finalScore.mean.toFixed(0)}, std ${winnerStats.finalScore.std.toFixed(1)}`}
-                  .
-                </>
-              )}
+              {(() => {
+                // Two cases for the suffix after the consensus line:
+                //  1. across-sim std = 0 → all per-sim medians collapsed to
+                //     the same number (clear-winner LLM convergence). Show
+                //     "unanimous" + within-sim noise if available.
+                //  2. otherwise → traditional "mean X, std Y" reading.
+                const fs = winnerStats?.finalScore;
+                if (!fs) return null;
+                const acrossZero = fs.std < 0.05;
+                const withinStd = fs.withinSimStdMean;
+                if (acrossZero) {
+                  const noise =
+                    withinStd && withinStd > 0
+                      ? isKo
+                        ? `, 시뮬 내부 noise ±${withinStd.toFixed(1)}`
+                        : `, within-sim noise ±${withinStd.toFixed(1)}`
+                      : "";
+                  return isKo ? (
+                    <>
+                      <span className="font-semibold text-slate-900">{recommendation.country}</span>
+                      {" "}진출이 합의 우위 ({recommendation.consensusPercent}% / {recommendation.confidence})
+                      {` — 모든 시뮬이 ${fs.mean.toFixed(0)}점으로 수렴${noise}`}.
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-semibold text-slate-900">{recommendation.country}</span>
+                      {" "}leads consensus ({recommendation.consensusPercent}% / {recommendation.confidence})
+                      {` — all sims converged on ${fs.mean.toFixed(0)}${noise}`}.
+                    </>
+                  );
+                }
+                return isKo ? (
+                  <>
+                    <span className="font-semibold text-slate-900">{recommendation.country}</span>
+                    {" "}진출이 합의 우위 ({recommendation.consensusPercent}% / {recommendation.confidence})
+                    {` — 평균 점수 ${fs.mean.toFixed(0)}, 표준편차 ${fs.std.toFixed(1)}`}.
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold text-slate-900">{recommendation.country}</span>
+                    {" "}leads consensus ({recommendation.consensusPercent}% / {recommendation.confidence})
+                    {` — mean score ${fs.mean.toFixed(0)}, std ${fs.std.toFixed(1)}`}.
+                  </>
+                );
+              })()}
             </span>
           </li>
           {runnerUp && (
@@ -1494,9 +1527,31 @@ function OverviewTab({
             <li className="flex gap-3">
               <span className="shrink-0 text-brand font-bold">·</span>
               <span>
-                {isKo
-                  ? `권장 가격 ${fmtPrice(pricing.recommendedPriceCents)} (시뮬 50% 구간 ${fmtPrice(pricing.recommendedPriceP25)}–${fmtPrice(pricing.recommendedPriceP75)}).`
-                  : `Recommended price ${fmtPrice(pricing.recommendedPriceCents)} (mid-50% range ${fmtPrice(pricing.recommendedPriceP25)}–${fmtPrice(pricing.recommendedPriceP75)}).`}
+                {(() => {
+                  // Headline price stays in sync with the Pricing tab via
+                  // the shared helper — auto-corrects when LLM is anchored
+                  // on the base price.
+                  const { displayCents } = getDisplayPriceCents(
+                    pricing.recommendedPriceCents,
+                    pricing.curve,
+                    pricing.curveRevenueMaxCents,
+                  );
+                  const unanimous = pricing.recommendedPriceUnanimousAt;
+                  const withinStd = pricing.recommendedPriceWithinSimStdMean ?? 0;
+                  if (unanimous != null && unanimous > 0) {
+                    const noise = withinStd > 0
+                      ? (isKo
+                          ? `, 시뮬 내부 noise ±${fmtPrice(withinStd)}`
+                          : `, within-sim noise ±${fmtPrice(withinStd)}`)
+                      : "";
+                    return isKo
+                      ? `권장 가격 ${fmtPrice(displayCents)} — 모든 시뮬이 ${fmtPrice(unanimous)}로 수렴${noise}.`
+                      : `Recommended price ${fmtPrice(displayCents)} — all sims converged on ${fmtPrice(unanimous)}${noise}.`;
+                  }
+                  return isKo
+                    ? `권장 가격 ${fmtPrice(displayCents)} (시뮬 50% 구간 ${fmtPrice(pricing.recommendedPriceP25)}–${fmtPrice(pricing.recommendedPriceP75)}).`
+                    : `Recommended price ${fmtPrice(displayCents)} (mid-50% range ${fmtPrice(pricing.recommendedPriceP25)}–${fmtPrice(pricing.recommendedPriceP75)}).`;
+                })()}
               </span>
             </li>
           )}
@@ -2020,7 +2075,7 @@ function CountriesTab({
           {segments.map((seg) => (
             <div key={seg.id} className="card p-4">
               <div className="text-xs uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1.5">
-                <span>{seg.labelKo}</span>
+                <span>{segmentLabel(seg.id, isKo)}</span>
                 <span
                   className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-slate-200 text-slate-500 text-[10px] font-bold cursor-help"
                   title={segmentTooltip(seg.id, isKo)}
@@ -4597,9 +4652,20 @@ function PricingTab({
                 {fmt(headlinePriceCents)}
               </div>
               <div className="text-sm text-slate-500">
-                {isKo
-                  ? `중간 50%: ${fmt(pricing.recommendedPriceP25)} – ${fmt(pricing.recommendedPriceP75)}`
-                  : `Mid-50%: ${fmt(pricing.recommendedPriceP25)} – ${fmt(pricing.recommendedPriceP75)}`}
+                {(() => {
+                  const unanimous = pricing.recommendedPriceUnanimousAt;
+                  const withinStd = pricing.recommendedPriceWithinSimStdMean ?? 0;
+                  if (unanimous != null && unanimous > 0) {
+                    const noise = withinStd > 0 ? ` · within-sim noise ±${fmt(withinStd)}` : "";
+                    const noiseKo = withinStd > 0 ? ` · 시뮬 내부 noise ±${fmt(withinStd)}` : "";
+                    return isKo
+                      ? `5개 시뮬 모두 ${fmt(unanimous)}로 수렴${noiseKo}`
+                      : `All sims converged on ${fmt(unanimous)}${noise}`;
+                  }
+                  return isKo
+                    ? `중간 50%: ${fmt(pricing.recommendedPriceP25)} – ${fmt(pricing.recommendedPriceP75)}`
+                    : `Mid-50%: ${fmt(pricing.recommendedPriceP25)} – ${fmt(pricing.recommendedPriceP75)}`;
+                })()}
               </div>
             </div>
             {wasCorrected && (
@@ -6228,6 +6294,40 @@ function MetaRow({
  * dense enough that "수요 우선" alone doesn't tell a non-analyst why
  * they should consider that market.
  */
+/**
+ * Locale-aware segment header label. Uses `seg.id` (stable enum) instead
+ * of `seg.labelKo` so existing aggregates persisted with hardcoded Korean
+ * labels render correctly in the English locale too.
+ */
+function segmentLabel(id: string, isKo: boolean): string {
+  if (isKo) {
+    switch (id) {
+      case "volume":
+        return "속도 우선 (HIGHEST DEMAND)";
+      case "cac":
+        return "비용 효율 (LOWEST CAC)";
+      case "competition":
+        return "경쟁 회피 (LOWEST COMPETITION)";
+      case "overall":
+        return "종합 점수 (HIGHEST FINALSCORE)";
+      default:
+        return "";
+    }
+  }
+  switch (id) {
+    case "volume":
+      return "Speed first (HIGHEST DEMAND)";
+    case "cac":
+      return "Cost efficient (LOWEST CAC)";
+    case "competition":
+      return "Avoid competition (LOWEST COMPETITION)";
+    case "overall":
+      return "Balanced (HIGHEST FINALSCORE)";
+    default:
+      return "";
+  }
+}
+
 function segmentTooltip(id: string, isKo: boolean): string {
   if (isKo) {
     switch (id) {

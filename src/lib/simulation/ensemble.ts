@@ -104,7 +104,25 @@ export interface EnsembleSimSnapshot {
 
 export interface CountryStats {
   country: string;
-  finalScore: { mean: number; median: number; std: number; min: number; max: number; range: number };
+  finalScore: {
+    mean: number;
+    median: number;
+    /** Across-sim std — captures cross-run variance. Often 0 when the
+     *  per-sim medians collapse to the same number (clear-winner cases
+     *  with low LLM temperature). */
+    std: number;
+    min: number;
+    max: number;
+    range: number;
+    /** Mean of within-sim std across sims — captures LLM-roll noise
+     *  inside each sim. Surfaces real uncertainty even when across-sim
+     *  std is 0. Absent when no sim emitted finalScoreStd (legacy data). */
+    withinSimStdMean?: number;
+    /** Combined std via law of total variance: sqrt(E[withinVar] + Var[means]).
+     *  This is the "true" noise level of the ensemble's recommended score.
+     *  Falls back to across-sim std when within-sim data is absent. */
+    combinedStd?: number;
+  };
   demandScore: { mean: number; median: number };
   cacEstimateUsd: { mean: number; median: number };
   competitionScore: { mean: number; median: number };
@@ -426,6 +444,20 @@ export interface PricingAggregate {
   recommendedPriceMedian: number;
   recommendedPriceP25: number;
   recommendedPriceP75: number;
+  /** Across-sim std of recommendedPriceCents. Often 0 when LLMs
+   *  converge on a psychological-anchor price ($49.95, $99) regardless
+   *  of persona seed. */
+  recommendedPriceAcrossSimStd?: number;
+  /** Mean of within-sim recommendedPriceStd across sims — captures
+   *  per-sim LLM-roll noise. Surfaces real uncertainty even when
+   *  across-sim std is 0. Absent when no sim emitted the field. */
+  recommendedPriceWithinSimStdMean?: number;
+  /** Combined std via law of total variance — true ensemble noise. */
+  recommendedPriceCombinedStd?: number;
+  /** Number of sims whose pricing all-converged on the same value
+   *  (used by UI to show "all N sims converged on $X" instead of a
+   *  zero-width range). */
+  recommendedPriceUnanimousAt?: number | null;
   marginEstimate: string; // mode of per-sim values
   /**
    * Curve-derived revenue maximum — the price point in the consensus
@@ -608,6 +640,10 @@ export function aggregateEnsemble(
   // ── per-country stats ──
   type Bucket = {
     final: number[];
+    /** Per-sim within-sim std of finalScore (computed at runner aggregate
+     *  step). Used by ensemble to combine within-sim and across-sim
+     *  variance via law of total variance. */
+    finalStds: number[];
     demand: number[];
     cac: number[];
     comp: number[];
@@ -624,6 +660,7 @@ export function aggregateEnsemble(
   };
   const newBucket = (): Bucket => ({
     final: [],
+    finalStds: [],
     demand: [],
     cac: [],
     comp: [],
@@ -643,6 +680,13 @@ export function aggregateEnsemble(
       const key = c.country.toUpperCase();
       const b = buckets.get(key) ?? newBucket();
       b.final.push(c.finalScore);
+      // Within-sim std emitted by runner.aggregateCountryScores since
+      // 2026-05-06. Older sims lack the field — skip rather than push 0
+      // so downstream knows the difference between "no data" and "true 0".
+      const stdField = (c as { finalScoreStd?: number }).finalScoreStd;
+      if (typeof stdField === "number" && Number.isFinite(stdField)) {
+        b.finalStds.push(stdField);
+      }
       b.demand.push(c.demandScore);
       b.cac.push(c.cacEstimateUsd);
       b.comp.push(c.competitionScore);
@@ -752,15 +796,33 @@ export function aggregateEnsemble(
             },
           }
         : undefined;
+      // Within-sim std of finalScore — populated by runner.ts since
+      // 2026-05-06. Combine with across-sim std via law of total variance:
+      //   Var_total = E[Var_within] + Var[Mean_across]
+      // so combinedStd is the "true" ensemble noise level. Falls back to
+      // across-sim std when no sim carries within-sim data (legacy).
+      const withinStds = b.finalStds ?? [];
+      const acrossStd = std(b.final);
+      const withinSimStdMean =
+        withinStds.length > 0 ? mean(withinStds) : undefined;
+      const combinedStd =
+        withinSimStdMean !== undefined
+          ? Math.sqrt(
+              mean(withinStds.map((s) => s * s)) + acrossStd * acrossStd,
+            )
+          : undefined;
       return {
         country,
         finalScore: {
           mean: round1(mean(b.final)),
           median: round1(median(b.final)),
-          std: round1(std(b.final)),
+          std: round1(acrossStd),
           min: round1(Math.min(...b.final)),
           max: round1(Math.max(...b.final)),
           range: round1(Math.max(...b.final) - Math.min(...b.final)),
+          withinSimStdMean:
+            withinSimStdMean !== undefined ? round1(withinSimStdMean) : undefined,
+          combinedStd: combinedStd !== undefined ? round1(combinedStd) : undefined,
         },
         demandScore: { mean: round1(mean(b.demand)), median: round1(median(b.demand)) },
         cacEstimateUsd: { mean: round2(mean(b.cac)), median: round2(median(b.cac)) },
@@ -1390,6 +1452,31 @@ function computePricingAggregate(
   const p25 = sortedRecs[Math.floor(sortedRecs.length * 0.25)] ?? sortedRecs[0];
   const p75 = sortedRecs[Math.floor(sortedRecs.length * 0.75)] ?? sortedRecs[sortedRecs.length - 1];
 
+  // Variance breakdown — across-sim, within-sim (LLM rolls), and the
+  // combined "true noise" via law of total variance. Lets the UI show
+  // honest uncertainty even when LLMs converge on identical psychological
+  // anchor prices ($49.95) across all sims.
+  const acrossSimStd = std(recs);
+  type PricingWithStd = NonNullable<EnsembleSimSnapshot["pricing"]> & {
+    recommendedPriceStd?: number;
+  };
+  const withinStds = present
+    .map((s) => (s.pricing as PricingWithStd).recommendedPriceStd)
+    .filter((x): x is number => typeof x === "number" && Number.isFinite(x));
+  const recommendedPriceWithinSimStdMean =
+    withinStds.length > 0 ? mean(withinStds) : undefined;
+  const recommendedPriceCombinedStd =
+    recommendedPriceWithinSimStdMean !== undefined
+      ? Math.sqrt(
+          mean(withinStds.map((s) => s * s)) + acrossSimStd * acrossSimStd,
+        )
+      : undefined;
+  // When all sims landed on the exact same recommended price, capture
+  // it so the UI can render "All N sims converged on $X" instead of a
+  // confusing zero-width "$X – $X" range.
+  const allSame = recs.length > 1 && recs.every((r) => r === recs[0]);
+  const recommendedPriceUnanimousAt = allSame ? recs[0] : null;
+
   // Mode of margin estimates.
   const marginCounts = new Map<string, number>();
   for (const s of present) {
@@ -1485,6 +1572,16 @@ function computePricingAggregate(
     recommendedPriceMedian: recommendedPriceCents,
     recommendedPriceP25: p25,
     recommendedPriceP75: p75,
+    recommendedPriceAcrossSimStd: Math.round(acrossSimStd),
+    recommendedPriceWithinSimStdMean:
+      recommendedPriceWithinSimStdMean !== undefined
+        ? Math.round(recommendedPriceWithinSimStdMean)
+        : undefined,
+    recommendedPriceCombinedStd:
+      recommendedPriceCombinedStd !== undefined
+        ? Math.round(recommendedPriceCombinedStd)
+        : undefined,
+    recommendedPriceUnanimousAt,
     marginEstimate,
     curve,
     curveRevenueMaxCents,
