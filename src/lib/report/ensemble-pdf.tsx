@@ -3854,10 +3854,22 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     const usdRate = usdToTarget[targetCurrency] ?? 1;
     const cacInTargetCents = Math.round(cacUsd * 100 * usdRate);
 
+    // Recompute curve max via the shared monotonic-envelope helper —
+    // legacy ensembles persisted naive-argmax values that picked
+    // high-price noise bumps (e.g. ₩280k from a 25%-conv bump
+    // between two 19%-conv neighbours). Render-time recompute keeps
+    // PDF and dashboard aligned.
+    const recomputedCurveMax =
+      computeCurveRevenueMaxCents(aggregate.pricing.curve) ??
+      aggregate.pricing.curveRevenueMaxCents ??
+      null;
+    const matchesCurveLocal =
+      recomputedCurveMax != null && aggregate.pricing.recommendedPriceCents > 0
+        ? Math.abs(recomputedCurveMax / aggregate.pricing.recommendedPriceCents - 1) <= 0.1
+        : null;
     const headlinePrice =
-      aggregate.pricing.curveRevenueMaxCents != null &&
-      aggregate.pricing.recommendationMatchesCurve === false
-        ? aggregate.pricing.curveRevenueMaxCents
+      matchesCurveLocal === false && recomputedCurveMax != null
+        ? recomputedCurveMax
         : aggregate.pricing.recommendedPriceCents;
 
     // High-intent ratio — proxy for "what fraction of impressions
