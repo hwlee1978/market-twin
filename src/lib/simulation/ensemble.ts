@@ -445,6 +445,31 @@ export interface PricingAggregate {
    */
   recommendationMatchesCurve?: boolean | null;
   /**
+   * Pricing range metadata propagated from per-sim results. Captures
+   * which window the LLM was told to sample (default 0.5x-2.0x base,
+   * or wider/narrower based on persona sensitivity + competitor
+   * anchors). Surfaced in the UI/PDF so users see WHY the curve
+   * spans the prices it does. Optional for legacy aggregates.
+   */
+  range?: {
+    minCents: number;
+    maxCents: number;
+    rationale: string[];
+  };
+  /**
+   * Competitor retail prices that anchored the pricing analysis,
+   * extracted from user-provided URLs at sim time. Picked from the
+   * first sim's pricing.competitorPrices since extraction is per-
+   * project (same URLs, same answers). Optional / empty when no
+   * competitor URLs were provided or extraction yielded nothing.
+   */
+  competitorPrices?: Array<{
+    url: string;
+    priceCents: number;
+    productName?: string;
+    sourceCurrency?: string;
+  }>;
+  /**
    * Consensus curve: average conversion probability at each price point
    * across all sims, sorted ascending by price. Sims may have slightly
    * different price grids — we bucket nearest-cent-rounded prices to
@@ -1434,6 +1459,27 @@ function computePricingAggregate(
     recommendationMatchesCurve = ratio >= 0.9 && ratio <= 1.1;
   }
 
+  // Range + competitor metadata are project-level (same across sims);
+  // pull from the first sim that emitted them.
+  type PricingWithMeta = NonNullable<EnsembleSimSnapshot["pricing"]> & {
+    range?: { minCents: number; maxCents: number; rationale: string[] };
+    competitorPrices?: Array<{
+      url: string;
+      priceCents: number;
+      productName?: string;
+      sourceCurrency?: string;
+    }>;
+  };
+  const firstWithMeta = present.find(
+    (s) => (s.pricing as PricingWithMeta | undefined)?.range,
+  );
+  const range = (firstWithMeta?.pricing as PricingWithMeta | undefined)?.range;
+  const firstWithCompetitors = present.find(
+    (s) => ((s.pricing as PricingWithMeta | undefined)?.competitorPrices ?? []).length > 0,
+  );
+  const competitorPrices = (firstWithCompetitors?.pricing as PricingWithMeta | undefined)
+    ?.competitorPrices;
+
   return {
     recommendedPriceCents,
     recommendedPriceMedian: recommendedPriceCents,
@@ -1443,6 +1489,8 @@ function computePricingAggregate(
     curve,
     curveRevenueMaxCents,
     recommendationMatchesCurve,
+    range,
+    competitorPrices,
     sensitivity: computePricingSensitivityShared(curve, recommendedPriceCents),
   };
 }

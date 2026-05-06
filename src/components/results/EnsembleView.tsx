@@ -4602,6 +4602,68 @@ function PricingTab({
         </div>
       </div>
 
+      {/* Competitor price anchors — extracted at sim time from user-
+          provided URLs. Shown alongside the recommendation so users
+          see the basis (real retail prices), not just LLM intuition. */}
+      {pricing.competitorPrices && pricing.competitorPrices.length > 0 && (
+        <div className="card p-5">
+          <div className="flex items-baseline justify-between mb-3">
+            <h3 className="text-sm font-semibold text-slate-900">
+              {isKo ? "경쟁사 retail 가격 (anchor 데이터)" : "Competitor retail prices (anchor data)"}
+            </h3>
+            <span className="text-xs text-slate-500">
+              {isKo
+                ? `${pricing.competitorPrices.length}개 URL에서 추출`
+                : `Extracted from ${pricing.competitorPrices.length} URL${pricing.competitorPrices.length === 1 ? "" : "s"}`}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {pricing.competitorPrices.map((c, i) => (
+              <div key={i} className="flex items-center gap-3 text-sm border-l-2 border-slate-200 pl-3">
+                <div className="w-24 font-semibold text-slate-900 tabular-nums shrink-0">
+                  {fmt(c.priceCents)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  {c.productName && (
+                    <div className="text-slate-700 truncate">{c.productName}</div>
+                  )}
+                  <a
+                    href={c.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="text-xs text-slate-400 truncate block hover:text-brand transition-colors"
+                  >
+                    {c.url}
+                  </a>
+                </div>
+                {c.sourceCurrency && c.sourceCurrency.toUpperCase() !== currency.toUpperCase() && (
+                  <div className="text-[10px] text-slate-400 shrink-0">
+                    {isKo ? `원화 ${c.sourceCurrency}` : `from ${c.sourceCurrency}`}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-500 mt-3 leading-relaxed">
+            {isKo
+              ? "사용자가 입력한 competitor URL에서 자동 추출. 이 가격대를 anchor 삼아 LLM이 가격 곡선을 생성했습니다."
+              : "Auto-extracted from competitor URLs you provided. The pricing curve was anchored against these real retail prices."}
+          </p>
+        </div>
+      )}
+
+      {/* Pricing range rationale — visible when range was dynamically
+          adjusted from the default 0.5x-2.0x band. */}
+      {pricing.range && pricing.range.rationale && pricing.range.rationale.length > 0 && (
+        <div className="rounded-lg border border-brand/20 bg-brand-50/40 px-4 py-3 text-xs text-slate-700 leading-relaxed">
+          <span className="font-semibold text-brand mr-1.5">
+            {isKo ? "가격 곡선 탐색 범위:" : "Curve range:"}
+          </span>
+          {fmt(pricing.range.minCents)} – {fmt(pricing.range.maxCents)}
+          <span className="text-slate-500 ml-2">— {pricing.range.rationale.join("; ")}</span>
+        </div>
+      )}
+
       {/* Margin narrative — separate row because the LLM often returns a
           multi-sentence rationale here, which would overflow the hero
           metric strip and make the card unreadable. Hidden when the

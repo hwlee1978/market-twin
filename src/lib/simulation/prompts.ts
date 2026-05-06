@@ -571,12 +571,51 @@ finalScore should be a sensible weighted-average reflection of the components, b
 
 export const PRICING_SYSTEM = `${SYSTEM_BASE} For pricing, model how conversion changes across price points — typically conversion drops as price rises, but not linearly. Identify the revenue-maximizing point.`;
 
+export interface PricingRangeContext {
+  minCents: number;
+  maxCents: number;
+  rationale: string[];
+}
+
+export interface CompetitorPriceContext {
+  url: string;
+  priceCents: number;
+  productName?: string;
+}
+
 export function pricingPrompt(
   input: ProjectInput,
   aggregate: SimulationAggregate,
   locale: PromptLocale = "en",
+  range?: PricingRangeContext,
+  competitorPrices?: CompetitorPriceContext[],
 ): string {
-  return `Generate a pricing curve for this product. Sample 7-10 price points around the base price (from 0.5x to 2.0x). For each point, estimate conversion probability (0-1) and a revenue index (price * conversion, normalized).
+  // Range defaults to 0.5x-2.0x of base if not provided (legacy callers).
+  const minCents = range?.minCents ?? Math.round(input.basePriceCents * 0.5);
+  const maxCents = range?.maxCents ?? Math.round(input.basePriceCents * 2.0);
+  const rangeReason = range?.rationale.join("; ") ?? "";
+
+  // Competitor pricing context — string block for the prompt. Only
+  // included when at least one URL extraction succeeded.
+  const competitorBlock =
+    competitorPrices && competitorPrices.length > 0
+      ? `
+
+═══ COMPETITOR RETAIL PRICES (extracted from user-provided URLs) ═══
+Real retail prices from competitors. The recommended price should be informed by where these land — pricing significantly above the highest competitor needs justification (premium positioning), and below the lowest needs justification (entry-tier positioning):
+
+${competitorPrices
+  .map(
+    (c) =>
+      `  ${(c.priceCents / 100).toFixed(2)} ${input.currency}${c.productName ? ` — ${c.productName}` : ""} (${c.url})`,
+  )
+  .join("\n")}
+
+Use these as anchors. The pricing curve should COVER this competitive band, and recommended price should reference whether the product is positioned above / within / below the competitive set.`
+      : "";
+
+  return `Generate a pricing curve for this product. Sample 7-10 price points across the range ${(minCents / 100).toFixed(2)} ${input.currency} to ${(maxCents / 100).toFixed(2)} ${input.currency}. For each point, estimate conversion probability (0-1) and a revenue index (price * conversion, normalized).
+${rangeReason ? `Range rationale: ${rangeReason}` : ""}
 
 Product: ${input.productName} (${input.category})
 Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
@@ -588,6 +627,7 @@ ${aggregate.byCountry
       `  ${c.country}: low=${c.priceSensitivity.low} / med=${c.priceSensitivity.medium} / high=${c.priceSensitivity.high} (n=${c.count}, mean intent ${c.intentMean})`,
   )
   .join("\n")}
+${competitorBlock}
 
 ${languageInstruction(locale)}
 
@@ -598,7 +638,7 @@ Required behaviour:
 1. Compute revenue index = priceCents × conversionProbability for EVERY curve point.
 2. Pick the price point with the **highest revenue index** as the recommended price.
 3. The recommended price MUST equal one of the priceCents values you emit in the curve (or be within ±2% of it). It must NOT default to base unless base genuinely is the curve's revenue maximum.
-4. If the persona price-sensitivity profile suggests demand is highly inelastic (mostly "low"), the revenue max is likely ABOVE base. If demand is highly elastic ("high"), it's likely BELOW base. Only rare cases land exactly at base.
+4. If the persona price-sensitivity profile suggests demand is highly inelastic (mostly "low"), the revenue max is likely ABOVE base. If demand is highly elastic ("high"), it's likely BELOW base. Only rare cases land exactly at base.${competitorPrices && competitorPrices.length > 0 ? `\n5. Use competitor prices above as a reality check — if your recommended is wildly off (e.g., 2x+ above max competitor for non-luxury, or ½ below min competitor for non-budget), reconsider.` : ""}
 
 A consistency check the runner will apply post-emission: if your recommendedPriceCents differs from the argmax(priceCents × conversionProbability) of your own curve by more than 10%, the result will be flagged as "LLM anchored on base price" — readers will see this discrepancy in the report.
 

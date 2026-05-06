@@ -30,6 +30,8 @@ import {
   sanitizeChannelMismatch,
   sanitizeChannelMismatchArray,
 } from "./country-channel";
+import { extractCompetitorPrices } from "./competitor-prices";
+import { computePricingRange } from "./pricing-range";
 import { aggregatePersonas } from "./aggregate";
 import { planSlots, type PersonaSlot } from "./profession-pool";
 import {
@@ -1122,6 +1124,51 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     // single-call — synthesis variance is mitigated separately via lower temp.
     await updateStage("pricing");
     const tPricing = Date.now();
+
+    // Stage 3a: extract competitor prices from user-provided URLs.
+    // Best-effort — failed fetches / no-price extractions are skipped,
+    // not fatal. Whatever we get becomes anchor data for the pricing
+    // prompt (real market prices > LLM intuition).
+    let competitorPriceResults: Awaited<ReturnType<typeof extractCompetitorPrices>> = [];
+    if (opts.projectInput.competitorUrls.length > 0) {
+      const tComp = Date.now();
+      try {
+        competitorPriceResults = await extractCompetitorPrices({
+          urls: opts.projectInput.competitorUrls,
+          productCategory: opts.projectInput.category,
+          targetCurrency: opts.projectInput.currency,
+          locale: locale === "ko" ? "ko" : "en",
+        });
+        const ok = competitorPriceResults.filter((r) => r.status === "extracted");
+        console.log(
+          `[sim ${opts.simulationId}] competitor prices: ${ok.length}/${competitorPriceResults.length} extracted in ${((Date.now() - tComp) / 1000).toFixed(1)}s` +
+            (ok.length > 0
+              ? ` — ${ok.map((r) => `${r.productName ?? "?"}=${r.priceCents}`).join(" / ")}`
+              : ""),
+        );
+      } catch (err) {
+        // Non-fatal — pricing stage continues without competitor anchor.
+        console.warn(`[sim ${opts.simulationId}] competitor extraction failed:`, err);
+      }
+    }
+    const competitorAnchorPrices = competitorPriceResults
+      .filter((r) => r.status === "extracted" && r.priceCents != null)
+      .map((r) => r.priceCents!);
+
+    // Stage 3b: dynamic pricing range based on persona sensitivity +
+    // competitor anchors. Replaces the hardcoded 0.5x-2.0x default.
+    const pricingRange = computePricingRange({
+      basePriceCents: opts.projectInput.basePriceCents,
+      priceSensitivity: aggregate.overall.priceSensitivity,
+      competitorPriceCents: competitorAnchorPrices,
+    });
+    if (pricingRange.rationale.length > 0) {
+      console.log(
+        `[sim ${opts.simulationId}] pricing range: ${pricingRange.minCents}-${pricingRange.maxCents} ` +
+          `(${pricingRange.rationale.join("; ")})`,
+      );
+    }
+
     // Same 3 → 5 bump as country scoring; pricing variance has the same
     // outlier sensitivity (one sample suggesting $9 when median is $25
     // shouldn't move the recommendation much). Env override mirrors
@@ -1131,7 +1178,19 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       if (Number.isFinite(env) && env > 0 && env <= 9) return Math.floor(env);
       return 5;
     })();
-    const pricingPromptText = pricingPrompt(projectInput, aggregate, locale);
+    const pricingPromptText = pricingPrompt(
+      projectInput,
+      aggregate,
+      locale,
+      pricingRange,
+      competitorPriceResults
+        .filter((r) => r.status === "extracted")
+        .map((r) => ({
+          url: r.url,
+          priceCents: r.priceCents!,
+          productName: r.productName,
+        })),
+    );
     const pricingResps = await Promise.all(
       Array.from({ length: PRICING_SAMPLES }, () =>
         pricingLLM.generate({
@@ -1163,7 +1222,26 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         (a, b) => a.recommendedPriceCents - b.recommendedPriceCents,
       );
       const medianIdx = Math.floor(pricingCandidates.length / 2);
-      pricing = PricingResultSchema.safeParse(pricingCandidates[medianIdx]);
+      // Attach range + competitor metadata to the chosen median candidate
+      // so the persisted pricing carries the context (used by UI / PDF
+      // to display the basis for the recommendation).
+      const enriched = {
+        ...pricingCandidates[medianIdx],
+        range: {
+          minCents: pricingRange.minCents,
+          maxCents: pricingRange.maxCents,
+          rationale: pricingRange.rationale,
+        },
+        competitorPrices: competitorPriceResults
+          .filter((r) => r.status === "extracted" && r.priceCents != null)
+          .map((r) => ({
+            url: r.url,
+            priceCents: r.priceCents!,
+            productName: r.productName,
+            sourceCurrency: r.sourceCurrency,
+          })),
+      };
+      pricing = PricingResultSchema.safeParse(enriched);
       console.log(
         `[sim ${opts.simulationId}] pricing samples: ${pricingCandidates
           .map((p) => `$${(p.recommendedPriceCents / 100).toFixed(2)}`)

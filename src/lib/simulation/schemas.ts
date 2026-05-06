@@ -212,6 +212,34 @@ export const PricingResultSchema = z.object({
   recommendedPriceCents: z.number().int().nonnegative(),
   marginEstimate: z.string(),
   curve: z.array(PricingPointSchema),
+  /**
+   * Pricing-range metadata captured at sim time. Optional because
+   * legacy results predate the dynamic-range stage. The curve itself
+   * is emitted within this range.
+   */
+  range: z
+    .object({
+      minCents: z.number().int().nonnegative(),
+      maxCents: z.number().int().nonnegative(),
+      rationale: z.array(z.string()).default([]),
+    })
+    .optional(),
+  /**
+   * Competitor retail prices extracted from user-provided URLs at
+   * sim time. Used as anchor data for the pricing prompt; surfaced
+   * in the report so users see the basis for the recommendation.
+   * Optional / empty when extraction yielded nothing.
+   */
+  competitorPrices: z
+    .array(
+      z.object({
+        url: z.string(),
+        priceCents: z.number().int().nonnegative(),
+        productName: z.string().optional(),
+        sourceCurrency: z.string().optional(),
+      }),
+    )
+    .optional(),
 });
 export type PricingResult = z.infer<typeof PricingResultSchema>;
 
