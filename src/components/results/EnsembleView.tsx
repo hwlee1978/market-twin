@@ -773,6 +773,7 @@ function EnsembleDashboard({
         active={activeTab}
         onChange={setActiveTab}
         aggregate={aggregate}
+        tier={tier}
         isKo={isKo}
       />
 
@@ -857,6 +858,13 @@ function EnsembleDashboard({
           currency={result.project?.currency ?? "USD"}
         />
       )}
+      {activeTab === "decisionAid" && (
+        <DecisionAidTab
+          aggregate={aggregate}
+          currency={result.project?.currency ?? "USD"}
+          isKo={isKo}
+        />
+      )}
       {activeTab === "risks" && (
         <RisksTab narrative={narrative} isKo={isKo} />
       )}
@@ -906,6 +914,7 @@ type TabKey =
   | "marketProfile"
   | "personas"
   | "pricing"
+  | "decisionAid"
   | "risks"
   | "actions"
   | "data";
@@ -914,11 +923,14 @@ function TabsNav({
   active,
   onChange,
   aggregate,
+  tier,
   isKo,
 }: {
   active: TabKey;
   onChange: (k: TabKey) => void;
   aggregate: EnsembleAggregate;
+  /** Tier of the ensemble — used to gate decision-aid tab to Decision+. */
+  tier: string;
   isKo: boolean;
 }) {
   // Hide tabs that have no underlying data so we don't show an empty
@@ -939,6 +951,17 @@ function TabsNav({
     },
     { key: "personas", label: isKo ? "페르소나" : "Personas", show: !!aggregate.personas },
     { key: "pricing", label: isKo ? "가격" : "Pricing", show: !!aggregate.pricing },
+    {
+      // Decision-aid tab: investment + ROI projection and recommendation
+      // robustness. Gated to Decision+ tier and above to mirror the PDF's
+      // tier-exclusive content. Hides on hypothesis / decision tier so
+      // the tier ladder feels meaningful in the UI just like in the PDF.
+      key: "decisionAid",
+      label: isKo ? "의사결정" : "Decision aid",
+      show:
+        (tier === "decision_plus" || tier === "deep" || tier === "deep_pro") &&
+        aggregate.countryStats.length > 0,
+    },
     { key: "risks", label: isKo ? "리스크" : "Risks", show: !!aggregate.narrative?.mergedRisks?.length },
     { key: "actions", label: isKo ? "추천 액션" : "Actions", show: !!aggregate.narrative?.mergedActions?.length },
     { key: "data", label: isKo ? "데이터" : "Data", show: true },
@@ -4781,6 +4804,376 @@ function PricingTab({
           ))}
         </div>
       </details>
+    </div>
+  );
+}
+
+/**
+ * Decision-aid tab — Decision+ tier exclusive. Mirrors the two
+ * decision-critical PDF pages (Investment + ROI projection,
+ * Recommendation robustness + sensitivity) with the same math but
+ * web-native styling. No new aggregations — pure derivations from
+ * the persisted aggregate.
+ */
+function DecisionAidTab({
+  aggregate,
+  currency,
+  isKo,
+}: {
+  aggregate: EnsembleAggregate;
+  currency: string;
+  isKo: boolean;
+}) {
+  const fmt = (cents: number) => formatPrice(cents, currency);
+  const recCountry = aggregate.recommendation.country;
+  const recCountryStats = aggregate.countryStats.find(
+    (c) => c.country.toUpperCase() === recCountry.toUpperCase(),
+  );
+
+  // ── Investment + ROI computation ────────────────────────────────
+  const cacUsd = recCountryStats?.cacEstimateUsd.mean ?? null;
+  const usdToTarget: Record<string, number> = {
+    USD: 1, KRW: 1390, JPY: 152, CNY: 7.2, TWD: 32, HKD: 7.8,
+    SGD: 1.35, THB: 36, VND: 25500, IDR: 16200, MYR: 4.7, PHP: 58,
+    INR: 84, GBP: 0.79, EUR: 0.93, CAD: 1.4, AUD: 1.55,
+  };
+  const usdRate = usdToTarget[currency.toUpperCase()] ?? 1;
+  const cacInTargetCents = cacUsd != null ? Math.round(cacUsd * 100 * usdRate) : null;
+  const headlinePrice =
+    aggregate.pricing?.curveRevenueMaxCents != null &&
+    aggregate.pricing.recommendationMatchesCurve === false
+      ? aggregate.pricing.curveRevenueMaxCents
+      : aggregate.pricing?.recommendedPriceCents ?? 0;
+  const totalPersonas = aggregate.personas?.total ?? 0;
+  const highIntentRatio =
+    totalPersonas > 0 && aggregate.personas?.highIntentCount != null
+      ? aggregate.personas.highIntentCount / totalPersonas
+      : 0;
+  const volumeTiers = [100, 1000, 10000];
+  const showInvestment = cacInTargetCents != null && headlinePrice > 0;
+
+  // ── Robustness / sensitivity ───────────────────────────────────
+  const sortedStats = [...aggregate.countryStats].sort(
+    (a, b) => b.finalScore.mean - a.finalScore.mean,
+  );
+  const top = sortedStats[0];
+  const runnerUp = sortedStats[1];
+  const showRobustness = !!top && !!runnerUp;
+  const gap = showRobustness ? top.finalScore.mean - runnerUp.finalScore.mean : 0;
+  const gapPct =
+    showRobustness && top.finalScore.mean > 0
+      ? (gap / top.finalScore.mean) * 100
+      : 0;
+  const robustnessLabel: { ko: string; en: string; tone: string } = (() => {
+    if (gap >= 15) return { ko: "매우 견고", en: "Very robust", tone: "success" };
+    if (gap >= 8) return { ko: "견고", en: "Robust", tone: "success" };
+    if (gap >= 4) return { ko: "보통", en: "Moderate", tone: "warn" };
+    return { ko: "취약", en: "Fragile", tone: "risk" };
+  })();
+  const toneClass: Record<string, string> = {
+    success: "text-success",
+    warn: "text-warn",
+    risk: "text-risk",
+  };
+  const toneBg: Record<string, string> = {
+    success: "border-success/40 bg-success-soft/30",
+    warn: "border-warn/40 bg-warn-soft/30",
+    risk: "border-risk/40 bg-risk-soft/30",
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* ── Investment + ROI ──────────────────────────────────── */}
+      {showInvestment && (
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900 mb-1">
+            {isKo ? "투자 요구치 + ROI 추정" : "Investment + ROI projection"}
+          </h2>
+          <p className="text-sm text-slate-500 leading-relaxed mb-4">
+            {isKo
+              ? `추천 시장 ${recCountry} 기준. 각 볼륨 티어별 마케팅 예산 + 예상 매출 + 시나리오별 변동. 실제 결과는 ±30% 변동 가능.`
+              : `Based on the recommended market ${recCountry}. Marketing budget + projected revenue per volume tier, with optimistic / base / pessimistic scenarios.`}
+          </p>
+
+          {/* Key inputs */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+            <div className="card p-4">
+              <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                {isKo ? "단가" : "Unit price"}
+              </div>
+              <div className="text-xl font-bold text-slate-900 tabular-nums">
+                {fmt(headlinePrice)}
+              </div>
+            </div>
+            <div className="card p-4">
+              <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                {isKo ? "CAC (고객 획득 비용)" : "CAC"}
+              </div>
+              <div className="text-xl font-bold text-slate-900 tabular-nums">
+                {fmt(cacInTargetCents!)}
+              </div>
+              <div className="text-[11px] text-slate-400 mt-0.5">
+                {`($${cacUsd!.toFixed(2)})`}
+              </div>
+            </div>
+            <div className="card p-4">
+              <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                {isKo ? "고의향 비율" : "High-intent ratio"}
+              </div>
+              <div className="text-xl font-bold text-slate-900 tabular-nums">
+                {`${(highIntentRatio * 100).toFixed(1)}%`}
+              </div>
+              <div className="text-[11px] text-slate-400 mt-0.5">
+                {isKo
+                  ? `구매의향 70+ ${aggregate.personas?.highIntentCount ?? 0}/${totalPersonas}명`
+                  : `${aggregate.personas?.highIntentCount ?? 0}/${totalPersonas} personas`}
+              </div>
+            </div>
+          </div>
+
+          {/* Volume tier table */}
+          <div className="card overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-2 text-left">{isKo ? "고객 수" : "Customers"}</th>
+                  <th className="px-4 py-2 text-right">{isKo ? "마케팅 예산" : "Marketing"}</th>
+                  <th className="px-4 py-2 text-right">{isKo ? "예상 매출 (기본)" : "Revenue (base)"}</th>
+                  <th className="px-4 py-2 text-right">{isKo ? "비관 / 낙관" : "Pess / Opt"}</th>
+                  <th className="px-4 py-2 text-right">{isKo ? "마케팅:매출" : "M:R ratio"}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {volumeTiers.map((vol) => {
+                  const marketing = cacInTargetCents! * vol;
+                  const revenueBase = headlinePrice * vol;
+                  const revenuePess = Math.round(revenueBase * 0.7);
+                  const revenueOpt = Math.round(revenueBase * 1.3);
+                  const ratio = revenueBase > 0 ? marketing / revenueBase : 0;
+                  const ratioColor =
+                    ratio < 0.3 ? "text-success" : ratio < 0.6 ? "text-warn" : "text-risk";
+                  return (
+                    <tr key={vol}>
+                      <td className="px-4 py-3 font-bold text-slate-900 tabular-nums">
+                        {vol.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right text-slate-700 tabular-nums">
+                        {fmt(marketing)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-slate-900 tabular-nums">
+                        {fmt(revenueBase)}
+                      </td>
+                      <td className="px-4 py-3 text-right text-xs text-slate-500 tabular-nums">
+                        {fmt(revenuePess)} / {fmt(revenueOpt)}
+                      </td>
+                      <td
+                        className={clsx(
+                          "px-4 py-3 text-right font-bold tabular-nums",
+                          ratioColor,
+                        )}
+                      >
+                        {`${(ratio * 100).toFixed(0)}%`}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Break-even math */}
+          <div className="card p-4 mt-4">
+            <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">
+              {isKo ? "Break-even 추정" : "Break-even math"}
+            </div>
+            <p className="text-sm text-slate-700 leading-relaxed">
+              {(() => {
+                const marginLow = 0.3;
+                const profitPerUnitLow = headlinePrice * marginLow - cacInTargetCents!;
+                const profitPerUnitHigh = headlinePrice * 0.5 - cacInTargetCents!;
+                if (profitPerUnitLow <= 0) {
+                  return isKo
+                    ? `⚠ 추천가(${fmt(headlinePrice)})에서 30% 마진을 가정했을 때 단위당 이익이 음수입니다 — CAC(${fmt(cacInTargetCents!)})가 단가 × 30%(${fmt(Math.round(headlinePrice * 0.3))})보다 큼. 가격 인상 또는 CAC 축소 없이는 break-even 불가.`
+                    : `⚠ At the recommended price (${fmt(headlinePrice)}) with 30% margin, profit per unit is negative — CAC (${fmt(cacInTargetCents!)}) exceeds price × 30%. Break-even impossible without a price increase or CAC reduction.`;
+                }
+                const breakeven = Math.ceil((cacInTargetCents! / profitPerUnitLow) * 1000);
+                return isKo
+                  ? `30% 마진 가정: 단위당 이익 ${fmt(profitPerUnitLow)} (CAC 차감 후). 50% 마진이면 ${fmt(profitPerUnitHigh)}. 첫 1,000명 마케팅비(${fmt(cacInTargetCents! * 1000)}) 회수에는 약 ${breakeven.toLocaleString()}명 필요 (보수적 30% 마진 기준).`
+                  : `At 30% margin: profit/unit ${fmt(profitPerUnitLow)}. At 50%: ${fmt(profitPerUnitHigh)}. To recoup the 1,000-customer marketing spend (${fmt(cacInTargetCents! * 1000)}), conservative break-even at 30% margin = ~${breakeven.toLocaleString()} customers.`;
+              })()}
+            </p>
+          </div>
+
+          <p className="text-[11px] text-slate-500 mt-3 leading-relaxed">
+            {isKo
+              ? "메타: 위 추정치는 페르소나 시그널 기반의 단순 모델 — 실제 CAC는 채널/시즌/광고 효율에 따라 ±50% 변동 가능. 실 투자 전 첫 100명 대상 small-batch test로 검증 권장."
+              : "Meta: estimates are first-order from persona signal. Real CAC varies ±50% with channel/season/ad efficiency. Run a 100-customer small-batch test to validate before scaling."}
+          </p>
+        </div>
+      )}
+
+      {/* ── Recommendation robustness + sensitivity ──────────── */}
+      {showRobustness && (
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900 mb-1">
+            {isKo ? "추천 견고성 + 민감도 분석" : "Recommendation robustness + sensitivity"}
+          </h2>
+          <p className="text-sm text-slate-500 leading-relaxed mb-4">
+            {isKo
+              ? "추천 시장이 흔들리지 않는지 검증. 1순위와 2순위의 점수 격차, 각 component dimension의 취약성, 어떤 변동에서 추천이 flip될지 분석."
+              : "Stress-test the recommendation. Gap to runner-up, per-component vulnerability, and what changes would flip the call."}
+          </p>
+
+          {/* Robustness hero */}
+          <div
+            className={clsx(
+              "rounded-xl border-t-4 p-5",
+              toneBg[robustnessLabel.tone],
+              robustnessLabel.tone === "success"
+                ? "border-success"
+                : robustnessLabel.tone === "warn"
+                  ? "border-warn"
+                  : "border-risk",
+            )}
+          >
+            <div
+              className={clsx(
+                "text-[10px] uppercase tracking-wide font-bold mb-2",
+                toneClass[robustnessLabel.tone],
+              )}
+            >
+              {isKo ? "추천 견고성" : "RECOMMENDATION ROBUSTNESS"}
+            </div>
+            <div className="flex items-baseline flex-wrap gap-3 mb-3">
+              <span
+                className={clsx(
+                  "text-3xl font-bold",
+                  toneClass[robustnessLabel.tone],
+                )}
+              >
+                {isKo ? robustnessLabel.ko : robustnessLabel.en}
+              </span>
+              <span className="text-sm text-slate-700">
+                {isKo
+                  ? `1순위(${top.country}) ${top.finalScore.mean.toFixed(1)}점 vs 2순위(${runnerUp.country}) ${runnerUp.finalScore.mean.toFixed(1)}점 — 격차 ${gap.toFixed(1)}점 (${gapPct.toFixed(0)}%)`
+                  : `Top (${top.country}) ${top.finalScore.mean.toFixed(1)} vs runner-up (${runnerUp.country}) ${runnerUp.finalScore.mean.toFixed(1)} — gap ${gap.toFixed(1)}pt (${gapPct.toFixed(0)}%)`}
+              </span>
+            </div>
+            <p className="text-sm text-slate-700 leading-relaxed">
+              {gap >= 15
+                ? isKo
+                  ? "1순위가 충분히 앞서 있어 component 변동에 영향받기 어려움. 추가 검증 우선순위 낮음 — 진출 결정 가능."
+                  : "Top is far enough ahead that component shifts won't flip it. Low priority for further validation — proceed with launch."
+                : gap >= 8
+                  ? isKo
+                    ? "1순위가 앞서 있으나 큰 component 변동(15pt+)이 발생하면 flip 가능성 있음. 핵심 component(아래) 추가 검증 권장."
+                    : "Top is ahead but a 15pt+ component shift could flip the call. Validate the key components below."
+                  : gap >= 4
+                    ? isKo
+                      ? "격차가 좁아 추천이 흔들릴 수 있음. 1순위 진출 전 핵심 가정 (가격, 채널, 규제) 별도 확인 강력 권장."
+                      : "Gap is tight — recommendation could flip with modest changes. Strongly verify key assumptions before commit."
+                    : isKo
+                      ? "1순위와 2순위가 사실상 동률. 단일 추천보다 두 시장 동시 진출 또는 추가 시뮬 검증을 통한 격차 확보 권장."
+                      : "Top and runner-up are statistically tied. Consider parallel launch or additional sims to widen the gap."}
+            </p>
+          </div>
+
+          {/* Component vulnerability table */}
+          {top.components && (
+            <div className="card overflow-hidden mt-5">
+              <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
+                <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold">
+                  {isKo ? `${top.country}의 component별 취약성` : `${top.country} component vulnerability`}
+                </div>
+                <div className="text-[11px] text-slate-500 mt-1">
+                  {isKo
+                    ? "각 항목이 10pt 하락 시 추천이 2순위로 flip되는지 표시. 점수가 낮은 항목 = 더 취약."
+                    : "Whether a 10pt drop in each component would flip the recommendation. Lower score = more vulnerable."}
+                </div>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {(() => {
+                  const dims = [
+                    { label: { ko: "시장 크기", en: "Market size" }, score: top.components!.marketSize.mean },
+                    { label: { ko: "문화 적합", en: "Cultural fit" }, score: top.components!.culturalFit.mean },
+                    { label: { ko: "채널 매치", en: "Channel match" }, score: top.components!.channelMatch.mean },
+                    { label: { ko: "가격 수용", en: "Price fit" }, score: top.components!.priceCompat.mean },
+                    { label: { ko: "경쟁 (역치)", en: "Competition (inv)" }, score: top.components!.competition.mean },
+                    { label: { ko: "규제 (역치)", en: "Regulatory (inv)" }, score: top.components!.regulatory.mean },
+                  ].sort((a, b) => a.score - b.score);
+                  return dims.map((d, i) => {
+                    const wouldFlip = gap < 10 || (d.label.en.startsWith("Reg") && d.score < 40);
+                    const tone =
+                      d.score >= 65 ? "bg-success" : d.score >= 50 ? "bg-warn" : "bg-risk";
+                    const textTone =
+                      d.score >= 65 ? "text-success" : d.score >= 50 ? "text-warn" : "text-risk";
+                    return (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 px-5 py-3 text-sm"
+                      >
+                        <div className="w-32 shrink-0 font-medium text-slate-700">
+                          {isKo ? d.label.ko : d.label.en}
+                        </div>
+                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={clsx("h-full transition-all", tone)}
+                            style={{ width: `${Math.max(0, Math.min(100, d.score))}%` }}
+                          />
+                        </div>
+                        <div className={clsx("w-12 text-right font-bold tabular-nums", textTone)}>
+                          {d.score.toFixed(0)}
+                        </div>
+                        <div
+                          className={clsx(
+                            "w-24 text-right text-xs font-semibold",
+                            wouldFlip ? "text-risk" : "text-slate-400",
+                          )}
+                        >
+                          {wouldFlip
+                            ? isKo
+                              ? "10pt↓ → flip"
+                              : "10pt↓ → flip"
+                            : isKo
+                              ? "안정"
+                              : "stable"}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* Confidence overlay */}
+          {aggregate.quality?.confidenceScore != null && (
+            <div className="card p-4 mt-5">
+              <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">
+                {isKo ? "결과 신뢰도 overlay" : "Confidence overlay"}
+              </div>
+              <p className="text-sm text-slate-700 leading-relaxed">
+                {(() => {
+                  const conf = aggregate.quality!.confidenceScore;
+                  if (conf >= 75 && gap >= 8) {
+                    return isKo
+                      ? `결과 신뢰도 ${conf}점 + 견고한 격차(${gap.toFixed(1)}pt). 추천을 의사결정에 사용 가능 — 추가 검증 우선순위 낮음.`
+                      : `Confidence ${conf} + robust gap (${gap.toFixed(1)}pt). Recommendation is decision-ready — low priority for further validation.`;
+                  }
+                  if (conf < 60 && gap < 4) {
+                    return isKo
+                      ? `⚠ 결과 신뢰도 ${conf}점 + 격차 거의 없음(${gap.toFixed(1)}pt). 무료 재실행 또는 더 높은 tier 시뮬로 검증 강력 권장.`
+                      : `⚠ Confidence ${conf} + tight gap (${gap.toFixed(1)}pt). Strongly recommend a free rerun or higher-tier sim before committing.`;
+                  }
+                  return isKo
+                    ? `결과 신뢰도 ${conf}점 + 격차 ${gap.toFixed(1)}pt. 일반적 검증 절차(액션 plan 실행 + 첫 100명 small-batch test)로 충분.`
+                    : `Confidence ${conf} + gap ${gap.toFixed(1)}pt. Standard validation path is sufficient.`;
+                })()}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
