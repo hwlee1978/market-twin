@@ -2960,6 +2960,10 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       null,
     );
     const maxConv = Math.max(...pr.curve.map((p) => p.meanConversionProbability), 0.0001);
+    // Pre-compute the auto-correction state at the top of the function
+    // so multiple sections (hero + margin analysis) can reference it.
+    const wasCorrected =
+      pr.recommendationMatchesCurve === false && pr.curveRevenueMaxCents != null;
     // Negative quote for pricing — the most relevant skeptic is usually
     // the one whose objection is price-sensitive. We approximate by just
     // using the lowest-intent voice; in practice price objections
@@ -2990,8 +2994,6 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             value as the headline; the LLM number becomes a small
             annotation. */}
         {(() => {
-          const wasCorrected =
-            pr.recommendationMatchesCurve === false && pr.curveRevenueMaxCents != null;
           const headlineCents = wasCorrected
             ? pr.curveRevenueMaxCents!
             : pr.recommendedPriceCents;
@@ -3079,12 +3081,33 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           </View>
         )}
 
-        {pr.marginEstimate && pr.marginEstimate !== "—" && (
+        {pr.marginEstimate && pr.marginEstimate !== "—" && !wasCorrected && (
           <View style={styles.sectionBlock}>
             <MText style={styles.sectionEyebrow}>{isKo ? "예상 마진 분석" : "Margin analysis"}</MText>
             <View style={styles.summaryBox}>
               <MText style={{ fontSize: 10, color: C.body, lineHeight: 1.6 }}>
                 {pr.marginEstimate}
+              </MText>
+            </View>
+          </View>
+        )}
+
+        {wasCorrected && pr.marginEstimate && (
+          <View style={styles.sectionBlock}>
+            <MText style={styles.sectionEyebrow}>{isKo ? "예상 마진 분석" : "Margin analysis"}</MText>
+            <View
+              style={{
+                backgroundColor: "#F1F5F9",
+                padding: 10,
+                borderLeftWidth: 2,
+                borderLeftColor: C.muted,
+                borderRadius: 4,
+              }}
+            >
+              <MText style={{ fontSize: 9, color: C.muted, lineHeight: 1.5 }}>
+                {isKo
+                  ? `LLM 마진 분석은 기본가(${fmt(pr.recommendedPriceCents)}) anchor 가정 하에 작성되어 보정된 권장가(${fmt(pr.curveRevenueMaxCents!)})와 모순됩니다. 보정된 권장가 기준 마진 분석은 새 시뮬에서 LLM이 anchor를 벗어나야 신뢰 가능 — 현재 분석은 표시 생략.`
+                  : `The LLM margin analysis was written assuming the base price (${fmt(pr.recommendedPriceCents)}) was optimal, contradicting the auto-corrected recommended price (${fmt(pr.curveRevenueMaxCents!)}). Skipped here; a margin analysis grounded in the corrected price requires a fresh sim with the LLM not anchored on base.`}
               </MText>
             </View>
           </View>

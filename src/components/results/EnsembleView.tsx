@@ -4548,14 +4548,30 @@ function PricingTab({
 
       {/* Margin narrative — separate row because the LLM often returns a
           multi-sentence rationale here, which would overflow the hero
-          metric strip and make the card unreadable. */}
-      {pricing.marginEstimate && pricing.marginEstimate !== "—" && (
+          metric strip and make the card unreadable. Hidden when the
+          headline price was auto-corrected because the LLM wrote this
+          narrative assuming base = optimal, which now contradicts the
+          corrected recommendation. */}
+      {pricing.marginEstimate && pricing.marginEstimate !== "—" && !wasCorrected && (
         <div className="card p-5">
           <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">
             {isKo ? "예상 마진 분석" : "Margin analysis"}
           </div>
           <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
             {pricing.marginEstimate}
+          </p>
+        </div>
+      )}
+
+      {wasCorrected && pricing.marginEstimate && (
+        <div className="card p-5 bg-slate-50 border-slate-200">
+          <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">
+            {isKo ? "예상 마진 분석" : "Margin analysis"}
+          </div>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            {isKo
+              ? `LLM 마진 분석은 기본가(${fmt(pricing.recommendedPriceCents)}) anchor 가정 하에 작성되어 보정된 권장가(${fmt(pricing.curveRevenueMaxCents!)})와 모순됩니다. 보정된 권장가 기준 마진 분석은 새 시뮬에서 LLM이 anchor를 벗어나야 신뢰 가능 — 현재 분석은 표시 생략.`
+              : `The LLM margin analysis was written assuming the base price (${fmt(pricing.recommendedPriceCents)}) was optimal, which contradicts the auto-corrected recommendation (${fmt(pricing.curveRevenueMaxCents!)}). Skipped — a fresh sim with the LLM not anchored on base would produce a margin analysis grounded in the corrected price.`}
           </p>
         </div>
       )}
