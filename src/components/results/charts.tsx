@@ -187,7 +187,39 @@ export function PricingCurveChart({
       Defaults to USD for legacy callers that haven't been updated yet. */
   currency?: string;
 }) {
-  const enriched = data.map((d) => ({
+  // Client-side re-bucketing. Aggregator-side bucketing was added later,
+  // so existing ensembles still carry noisy curves with adjacent points
+  // (₩134,090 + ₩134,390 etc.). We re-collapse on render to ~12-15
+  // smooth buckets regardless of when the data was persisted. Same
+  // proportional-window algorithm as the aggregator.
+  const bucketed = (() => {
+    if (data.length === 0) return [];
+    const prices = data.map((d) => d.priceCents);
+    const minP = Math.min(...prices);
+    const maxP = Math.max(...prices);
+    const range = maxP - minP;
+    if (range <= 0) return data;
+    let bucketSize = Math.max(1, Math.round(range / 15));
+    const magnitude = Math.pow(10, Math.floor(Math.log10(bucketSize)));
+    bucketSize = Math.max(magnitude, Math.round(bucketSize / magnitude) * magnitude);
+    const buckets = new Map<number, { sum: number; count: number; n: number }>();
+    for (const d of data) {
+      const key = Math.round(d.priceCents / bucketSize) * bucketSize;
+      const cur = buckets.get(key) ?? { sum: 0, count: 0, n: 0 };
+      cur.sum += d.meanConversionProbability;
+      cur.count += 1;
+      cur.n += d.sampleCount;
+      buckets.set(key, cur);
+    }
+    return [...buckets.entries()]
+      .map(([priceCents, v]) => ({
+        priceCents,
+        meanConversionProbability: v.sum / v.count,
+        sampleCount: v.n,
+      }))
+      .sort((a, b) => a.priceCents - b.priceCents);
+  })();
+  const enriched = bucketed.map((d) => ({
     price: formatPrice(d.priceCents, currency),
     priceCents: d.priceCents,
     conv: Math.round(d.meanConversionProbability * 1000) / 10, // %

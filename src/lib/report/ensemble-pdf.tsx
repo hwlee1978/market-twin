@@ -2984,83 +2984,59 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           />
         )}
 
-        <View style={styles.priceHero}>
-          <View>
-            <MText style={styles.kpiLabel}>{isKo ? "권장 가격 (중앙값)" : "Recommended"}</MText>
-            <View style={{ flexDirection: "row", alignItems: "baseline" }}>
-              <MText style={styles.priceBig}>{fmt(pr.recommendedPriceCents)}</MText>
-              <MText style={styles.priceMeta}>
-                {isKo
-                  ? `중간 50%: ${fmt(pr.recommendedPriceP25)}–${fmt(pr.recommendedPriceP75)}`
-                  : `Mid-50%: ${fmt(pr.recommendedPriceP25)}–${fmt(pr.recommendedPriceP75)}`}
-              </MText>
-            </View>
-          </View>
-          <View style={{ alignItems: "flex-end", flexDirection: "row", gap: 12 }}>
-            {pr.curveRevenueMaxCents != null && (
-              <View style={{ alignItems: "flex-end" }}>
+        {/* Auto-corrected headline price — same logic as the dashboard.
+            When the LLM-claimed recommendation diverges from the curve's
+            revenue-max point, we trust the data and surface the curve
+            value as the headline; the LLM number becomes a small
+            annotation. */}
+        {(() => {
+          const wasCorrected =
+            pr.recommendationMatchesCurve === false && pr.curveRevenueMaxCents != null;
+          const headlineCents = wasCorrected
+            ? pr.curveRevenueMaxCents!
+            : pr.recommendedPriceCents;
+          return (
+            <View style={styles.priceHero}>
+              <View style={{ flex: 1 }}>
                 <MText style={styles.kpiLabel}>
-                  {isKo ? "곡선 매출 최대점" : "Curve max"}
-                </MText>
-                <MText
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: pr.recommendationMatchesCurve === false ? C.warn : C.ink,
-                  }}
-                >
-                  {fmt(pr.curveRevenueMaxCents)}
-                </MText>
-                <MText
-                  style={[
-                    styles.priceMeta,
-                    pr.recommendationMatchesCurve === false ? { color: C.warn } : {},
-                  ]}
-                >
-                  {pr.recommendationMatchesCurve === false
+                  {wasCorrected
                     ? isKo
-                      ? "권장과 차이"
-                      : "≠ rec"
-                    : pr.recommendationMatchesCurve === true
-                      ? isKo
-                        ? "일치 ✓"
-                        : "matches ✓"
-                      : ""}
+                      ? "권장 가격 (곡선 매출 최대점)"
+                      : "Recommended (curve revenue max)"
+                    : isKo
+                      ? "권장 가격 (중앙값)"
+                      : "Recommended"}
                 </MText>
+                <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+                  <MText style={styles.priceBig}>{fmt(headlineCents)}</MText>
+                  <MText style={styles.priceMeta}>
+                    {isKo
+                      ? `중간 50%: ${fmt(pr.recommendedPriceP25)}–${fmt(pr.recommendedPriceP75)}`
+                      : `Mid-50%: ${fmt(pr.recommendedPriceP25)}–${fmt(pr.recommendedPriceP75)}`}
+                  </MText>
+                </View>
+                {wasCorrected && (
+                  <MText style={{ fontSize: 8, color: C.muted, marginTop: 4, lineHeight: 1.4 }}>
+                    {isKo
+                      ? `LLM 안내가는 ${fmt(pr.recommendedPriceCents)}였으나 기본가 anchor로 보여 곡선 매출 최대점으로 자동 보정.`
+                      : `LLM said ${fmt(pr.recommendedPriceCents)}, but appeared anchored on base — auto-corrected to curve revenue max.`}
+                  </MText>
+                )}
               </View>
-            )}
-            {peakPoint && (
-              <View style={{ alignItems: "flex-end" }}>
-                <MText style={styles.kpiLabel}>{isKo ? "최고 전환 가격" : "Peak conversion"}</MText>
-                <MText style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>
-                  {fmt(peakPoint.priceCents)}
-                </MText>
-                <MText style={styles.priceMeta}>
-                  {`${(peakPoint.meanConversionProbability * 100).toFixed(1)}%`}
-                </MText>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {pr.recommendationMatchesCurve === false && pr.curveRevenueMaxCents != null && (
-          <View
-            style={{
-              backgroundColor: "#FFFBEB",
-              borderLeftWidth: 3,
-              borderLeftColor: C.warn,
-              padding: 10,
-              marginVertical: 8,
-              borderRadius: 4,
-            }}
-          >
-            <MText style={{ fontSize: 9, color: C.body, lineHeight: 1.5 }}>
-              {isKo
-                ? `⚠ LLM 권장가(${fmt(pr.recommendedPriceCents)})와 곡선 매출-최대 가격(${fmt(pr.curveRevenueMaxCents)})이 다릅니다. LLM이 기본가에 anchor했을 가능성 — 곡선 데이터를 직접 검토하고, 매출 최대화가 목표라면 ${fmt(pr.curveRevenueMaxCents)} 쪽으로 이동 검토.`
-                : `⚠ LLM-recommended price (${fmt(pr.recommendedPriceCents)}) and the curve's revenue-max point (${fmt(pr.curveRevenueMaxCents)}) disagree. LLM may have anchored on the base price. Verify against the curve and consider shifting toward ${fmt(pr.curveRevenueMaxCents)} if revenue-max is the goal.`}
-            </MText>
-          </View>
-        )}
+              {peakPoint && (
+                <View style={{ alignItems: "flex-end" }}>
+                  <MText style={styles.kpiLabel}>{isKo ? "최고 전환 가격" : "Peak conversion"}</MText>
+                  <MText style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>
+                    {fmt(peakPoint.priceCents)}
+                  </MText>
+                  <MText style={styles.priceMeta}>
+                    {`${(peakPoint.meanConversionProbability * 100).toFixed(1)}%`}
+                  </MText>
+                </View>
+              )}
+            </View>
+          );
+        })()}
 
         {tierBudget.showPricingCurve && pr.curve.length > 0 && (
           <View style={styles.sectionBlock}>
