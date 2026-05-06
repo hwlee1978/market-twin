@@ -8,7 +8,10 @@ import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
 import { formatPrice } from "@/lib/format/price";
-import { computePricingSensitivity } from "@/lib/simulation/pricing-sensitivity";
+import {
+  computePricingSensitivity,
+  computeCurveRevenueMaxCents,
+} from "@/lib/simulation/pricing-sensitivity";
 import {
   BestCountryPieChart,
   CountryIntentChart,
@@ -4487,12 +4490,21 @@ function PricingTab({
   // Auto-corrected recommended price — when the curve's revenue-max
   // point disagrees with what the LLM claimed, trust the data. The
   // LLM tends to anchor on the input base price; the curve is what
-  // it actually generated, so the argmax is more honest. We surface
-  // the corrected number as the headline and keep the LLM's claim
-  // as a small annotation underneath.
+  // it actually generated, so the argmax is more honest.
+  //
+  // We RECOMPUTE curveRevenueMaxCents at render time using the
+  // monotonic-envelope helper. Legacy ensembles persisted a naive-
+  // argmax value that picked up high-price noise bumps as "max".
+  // Render-time recompute fixes those without re-aggregating.
+  const recomputedCurveMax = computeCurveRevenueMaxCents(pricing.curve);
+  const effectiveCurveMax = recomputedCurveMax ?? pricing.curveRevenueMaxCents;
+  const recComputedMatchesCurve =
+    effectiveCurveMax != null && pricing.recommendedPriceCents > 0
+      ? Math.abs(effectiveCurveMax / pricing.recommendedPriceCents - 1) <= 0.1
+      : null;
   const headlinePriceCents =
-    pricing.recommendationMatchesCurve === false && pricing.curveRevenueMaxCents != null
-      ? pricing.curveRevenueMaxCents
+    recComputedMatchesCurve === false && effectiveCurveMax != null
+      ? effectiveCurveMax
       : pricing.recommendedPriceCents;
   const wasCorrected = headlinePriceCents !== pricing.recommendedPriceCents;
 
@@ -4571,8 +4583,8 @@ function PricingTab({
           </div>
           <p className="text-xs text-slate-500 leading-relaxed">
             {isKo
-              ? `LLM 마진 분석은 기본가(${fmt(pricing.recommendedPriceCents)}) anchor 가정 하에 작성되어 보정된 권장가(${fmt(pricing.curveRevenueMaxCents!)})와 모순됩니다. 보정된 권장가 기준 마진 분석은 새 시뮬에서 LLM이 anchor를 벗어나야 신뢰 가능 — 현재 분석은 표시 생략.`
-              : `The LLM margin analysis was written assuming the base price (${fmt(pricing.recommendedPriceCents)}) was optimal, which contradicts the auto-corrected recommendation (${fmt(pricing.curveRevenueMaxCents!)}). Skipped — a fresh sim with the LLM not anchored on base would produce a margin analysis grounded in the corrected price.`}
+              ? `LLM 마진 분석은 기본가(${fmt(pricing.recommendedPriceCents)}) anchor 가정 하에 작성되어 보정된 권장가(${fmt(headlinePriceCents)})와 모순됩니다. 보정된 권장가 기준 마진 분석은 새 시뮬에서 LLM이 anchor를 벗어나야 신뢰 가능 — 현재 분석은 표시 생략.`
+              : `The LLM margin analysis was written assuming the base price (${fmt(pricing.recommendedPriceCents)}) was optimal, which contradicts the auto-corrected recommendation (${fmt(headlinePriceCents)}). Skipped — a fresh sim with the LLM not anchored on base would produce a margin analysis grounded in the corrected price.`}
           </p>
         </div>
       )}

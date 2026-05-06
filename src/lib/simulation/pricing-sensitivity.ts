@@ -18,6 +18,41 @@ export interface SensitivityCurvePoint {
   meanConversionProbability: number;
 }
 
+/**
+ * Compute the curve's revenue-max price under a monotonic-decreasing
+ * assumption. Real demand curves are non-increasing (conv falls as
+ * price rises), but the LLM occasionally produces noise bumps at
+ * high prices (e.g., conv 19% at ₩240k → 25% at ₩280k → 19% at
+ * ₩300k). A naive argmax latches onto the bump.
+ *
+ * Fix: walk the curve in price-ascending order, taking the running
+ * min of conversion (the "monotonic envelope"). Compute revenue
+ * against that envelope. Bumps get capped at the prior point's
+ * effective conversion and lose the false revenue spike.
+ *
+ * Both server (aggregator) and client (UI / PDF render) call this
+ * — server-side computation persists into aggregate, client-side
+ * fixes legacy aggregates that were stored with the naive argmax.
+ */
+export function computeCurveRevenueMaxCents(
+  curve: SensitivityCurvePoint[],
+): number | null {
+  if (curve.length < 2) return null;
+  const sortedAsc = [...curve].sort((a, b) => a.priceCents - b.priceCents);
+  let runningMinConv = Infinity;
+  let bestRev = -Infinity;
+  let bestPrice = sortedAsc[0].priceCents;
+  for (const p of sortedAsc) {
+    runningMinConv = Math.min(runningMinConv, p.meanConversionProbability);
+    const rev = p.priceCents * runningMinConv;
+    if (rev > bestRev) {
+      bestRev = rev;
+      bestPrice = p.priceCents;
+    }
+  }
+  return bestPrice;
+}
+
 export interface PricingSensitivity {
   comfortCeilingCents: number | null;
   inflectionCents: number | null;

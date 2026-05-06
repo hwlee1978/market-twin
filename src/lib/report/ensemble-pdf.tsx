@@ -17,7 +17,10 @@ import {
 import type { Style } from "@react-pdf/types";
 import { splitByFont } from "./fonts";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
-import { computePricingSensitivity } from "@/lib/simulation/pricing-sensitivity";
+import {
+  computePricingSensitivity,
+  computeCurveRevenueMaxCents,
+} from "@/lib/simulation/pricing-sensitivity";
 import { getCountryLabel } from "@/lib/countries";
 import { formatPrice } from "@/lib/format/price";
 
@@ -2961,10 +2964,18 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       null,
     );
     const maxConv = Math.max(...pr.curve.map((p) => p.meanConversionProbability), 0.0001);
-    // Pre-compute the auto-correction state at the top of the function
-    // so multiple sections (hero + margin analysis) can reference it.
+    // Recompute curveRevenueMax at render time using the monotonic-
+    // envelope helper. Legacy ensembles persisted a naive-argmax value
+    // that picked high-price noise bumps; render-time recompute fixes
+    // those without re-aggregating.
+    const recomputedCurveMax =
+      computeCurveRevenueMaxCents(pr.curve) ?? pr.curveRevenueMaxCents;
+    const recComputedMatchesCurve =
+      recomputedCurveMax != null && pr.recommendedPriceCents > 0
+        ? Math.abs(recomputedCurveMax / pr.recommendedPriceCents - 1) <= 0.1
+        : null;
     const wasCorrected =
-      pr.recommendationMatchesCurve === false && pr.curveRevenueMaxCents != null;
+      recComputedMatchesCurve === false && recomputedCurveMax != null;
     // Negative quote for pricing — the most relevant skeptic is usually
     // the one whose objection is price-sensitive. We approximate by just
     // using the lowest-intent voice; in practice price objections
@@ -2996,7 +3007,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             annotation. */}
         {(() => {
           const headlineCents = wasCorrected
-            ? pr.curveRevenueMaxCents!
+            ? recomputedCurveMax!
             : pr.recommendedPriceCents;
           return (
             <View style={styles.priceHero}>
@@ -3074,7 +3085,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           // headline price the user is reading, not the LLM's stale
           // anchored value.
           const effectiveBaseline = wasCorrected
-            ? pr.curveRevenueMaxCents!
+            ? recomputedCurveMax!
             : pr.recommendedPriceCents;
           const effectiveSensitivity = wasCorrected
             ? computePricingSensitivity(pr.curve, effectiveBaseline)
@@ -3120,8 +3131,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             >
               <MText style={{ fontSize: 9, color: C.muted, lineHeight: 1.5 }}>
                 {isKo
-                  ? `LLM 마진 분석은 기본가(${fmt(pr.recommendedPriceCents)}) anchor 가정 하에 작성되어 보정된 권장가(${fmt(pr.curveRevenueMaxCents!)})와 모순됩니다. 보정된 권장가 기준 마진 분석은 새 시뮬에서 LLM이 anchor를 벗어나야 신뢰 가능 — 현재 분석은 표시 생략.`
-                  : `The LLM margin analysis was written assuming the base price (${fmt(pr.recommendedPriceCents)}) was optimal, contradicting the auto-corrected recommended price (${fmt(pr.curveRevenueMaxCents!)}). Skipped here; a margin analysis grounded in the corrected price requires a fresh sim with the LLM not anchored on base.`}
+                  ? `LLM 마진 분석은 기본가(${fmt(pr.recommendedPriceCents)}) anchor 가정 하에 작성되어 보정된 권장가(${fmt(recomputedCurveMax!)})와 모순됩니다. 보정된 권장가 기준 마진 분석은 새 시뮬에서 LLM이 anchor를 벗어나야 신뢰 가능 — 현재 분석은 표시 생략.`
+                  : `The LLM margin analysis was written assuming the base price (${fmt(pr.recommendedPriceCents)}) was optimal, contradicting the auto-corrected recommended price (${fmt(recomputedCurveMax!)}). Skipped here; a margin analysis grounded in the corrected price requires a fresh sim with the LLM not anchored on base.`}
               </MText>
             </View>
           </View>

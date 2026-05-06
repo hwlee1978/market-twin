@@ -9,7 +9,10 @@
  */
 
 import type { CountryScore, Overview, Risk, Recommendation, PricingResult, MarketProfile } from "./schemas";
-import { computePricingSensitivity as computePricingSensitivityShared } from "./pricing-sensitivity";
+import {
+  computePricingSensitivity as computePricingSensitivityShared,
+  computeCurveRevenueMaxCents,
+} from "./pricing-sensitivity";
 
 /* ────────────────────────────────── stats helpers ─── */
 function median(xs: number[]): number {
@@ -1419,25 +1422,16 @@ function computePricingAggregate(
   // the consensus curve. If the LLM's "recommended" sits far from this
   // point, it likely anchored on the base price instead of actually
   // optimising. Also useful for the report sensitivity matrix.
-  let curveRevenueMaxCents: number | null = null;
+  // Compute curve revenue max via the shared helper — uses a monotonic-
+  // decreasing envelope to ignore high-price noise bumps the LLM
+  // occasionally produces. See pricing-sensitivity.ts for details.
+  const curveRevenueMaxCents = computeCurveRevenueMaxCents(curve);
   let recommendationMatchesCurve: boolean | null = null;
-  if (curve.length >= 2) {
-    let bestRev = -Infinity;
-    let bestPrice = curve[0].priceCents;
-    for (const p of curve) {
-      const rev = p.priceCents * p.meanConversionProbability;
-      if (rev > bestRev) {
-        bestRev = rev;
-        bestPrice = p.priceCents;
-      }
-    }
-    curveRevenueMaxCents = bestPrice;
-    if (recommendedPriceCents > 0) {
-      const ratio = bestPrice / recommendedPriceCents;
-      // Within ±10% counts as "agrees with curve". Wider gap means
-      // the LLM is making a different call than its own data supports.
-      recommendationMatchesCurve = ratio >= 0.9 && ratio <= 1.1;
-    }
+  if (curveRevenueMaxCents != null && recommendedPriceCents > 0) {
+    const ratio = curveRevenueMaxCents / recommendedPriceCents;
+    // Within ±10% counts as "agrees with curve". Wider gap means
+    // the LLM is making a different call than its own data supports.
+    recommendationMatchesCurve = ratio >= 0.9 && ratio <= 1.1;
   }
 
   return {
