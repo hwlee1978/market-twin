@@ -828,10 +828,12 @@ function EnsembleDashboard({
           isKo={isKo}
         />
       )}
-      {activeTab === "marketProfile" && aggregate.marketProfile && (
+      {activeTab === "marketProfile" && (
         <MarketProfileTab
           profile={aggregate.marketProfile}
           recommendedCountry={recommendation.country}
+          ensembleId={result.id}
+          locale={locale}
           isKo={isKo}
         />
       )}
@@ -923,9 +925,13 @@ function TabsNav({
     { key: "overview", label: isKo ? "개요" : "Overview", show: !!aggregate.narrative?.executiveSummary },
     { key: "countries", label: isKo ? "국가" : "Countries", show: aggregate.countryStats.length > 0 },
     {
+      // Always visible when the ensemble has persona data — we render
+      // either the profile or a "generate" empty-state CTA inside the
+      // tab. This way users with legacy ensembles can backfill on
+      // demand without re-running the simulation.
       key: "marketProfile",
       label: isKo ? "시장 분석" : "Market profile",
-      show: !!aggregate.marketProfile,
+      show: aggregate.countryStats.length > 0,
     },
     { key: "personas", label: isKo ? "페르소나" : "Personas", show: !!aggregate.personas },
     { key: "pricing", label: isKo ? "가격" : "Pricing", show: !!aggregate.pricing },
@@ -2512,12 +2518,84 @@ function FunnelStrip({
 function MarketProfileTab({
   profile,
   recommendedCountry,
+  ensembleId,
+  locale,
   isKo,
 }: {
-  profile: NonNullable<EnsembleAggregate["marketProfile"]>;
+  profile: EnsembleAggregate["marketProfile"];
   recommendedCountry: string;
+  ensembleId: string;
+  locale: string;
   isKo: boolean;
 }) {
+  void locale;
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const generate = async () => {
+    if (busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/ensembles/${ensembleId}/market-profile`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error(await friendlyApiError(res, isKo ? "ko" : "en"));
+      // Refresh the page so the result API re-fetches with the
+      // newly persisted marketProfile.
+      router.refresh();
+      // The page-level state is set from the polling effect on
+      // first load. After router.refresh() the effect doesn't
+      // re-run because status hasn't changed; the simplest fix
+      // is a full reload to re-seed the result hook.
+      window.location.reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  };
+
+  // Empty state — no profile yet. Offer a one-click backfill.
+  if (!profile) {
+    return (
+      <div className="card p-12 text-center max-w-2xl mx-auto">
+        <Lightbulb size={32} className="text-brand mx-auto mb-3" />
+        <h2 className="text-xl font-semibold text-slate-900 mb-2">
+          {isKo
+            ? `${recommendedCountry} 시장 상황 + 경쟁자 분석을 생성하세요`
+            : `Generate market profile for ${recommendedCountry}`}
+        </h2>
+        <p className="text-sm text-slate-500 leading-relaxed mb-6 max-w-md mx-auto">
+          {isKo
+            ? "추천 진출국에 대한 시장 규모, 명명된 경쟁자, 채널 환경, 규제, 가격 벤치마크, GTM 전략을 한 번의 LLM 호출로 채워줍니다. 약 30초-1분 소요."
+            : "Fill in market size, named competitors, channels, regulatory, pricing benchmarks, and GTM strategy via a single LLM call. Takes about 30-60 seconds."}
+        </p>
+        <button
+          type="button"
+          onClick={generate}
+          disabled={busy}
+          className="btn-primary inline-flex items-center gap-2 disabled:opacity-60"
+        >
+          {busy ? <Loader2 size={16} className="animate-spin" /> : <Lightbulb size={16} />}
+          {busy
+            ? isKo
+              ? "생성 중... (LLM 호출)"
+              : "Generating... (LLM call)"
+            : isKo
+              ? "시장 분석 생성"
+              : "Generate market profile"}
+        </button>
+        {err && <p className="text-xs text-risk mt-4">{err}</p>}
+        <p className="text-[11px] text-slate-400 mt-6 leading-relaxed">
+          {isKo
+            ? "이 ensemble은 시장 분석 기능이 도입되기 전 만들어졌어 자동으로 채워지지 않았습니다. 새로 생성된 시뮬은 자동으로 포함됩니다."
+            : "This ensemble was created before the market profile feature was added. New simulations include it automatically."}
+        </p>
+      </div>
+    );
+  }
+
   const competitors = profile.competitors ?? [];
   const channels = profile.channels;
   const cult = profile.culturalNotes;
