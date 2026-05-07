@@ -3160,14 +3160,10 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         : null;
     const wasCorrected =
       recComputedMatchesCurve === false && recomputedCurveMax != null;
-    // Negative quote for pricing — the most relevant skeptic is usually
-    // Filter to voices that actually mention price/cost vocabulary —
-    // the prior offset:1 fallback was surfacing category-mismatch voices
-    // ("vape near a baby is inappropriate") as the "price-sensitive
-    // persona" since the negative-voice pool is sorted by low intent
-    // regardless of objection content. pickQuote falls back to any
-    // negative voice (still mismatch-noise filtered) when no
-    // price-content match exists.
+    // Negative quote for the pricing callout — must actually mention
+    // price/cost vocabulary. pickQuote returns null if no price-content
+    // match exists (rather than surfacing an unrelated low-intent voice
+    // under a "price-sensitive" label), and the callout simply hides.
     const priceSkepticQuote = pickQuote(aggregate, {
       polarity: "negative",
       filter: isPriceObjectionText,
@@ -6161,10 +6157,17 @@ function pickQuote(
   // doesn't apply to me") aren't useful as product feedback regardless
   // of polarity, and they crowd out actually-actionable feedback.
   const cleanPool = pool.filter((v) => !isPersonaMismatchNoise(v.text));
-  // Apply caller's content filter when provided; fall back to the
-  // unfiltered cleanPool if nothing matches (better some quote than none).
-  const matched = opts.filter ? cleanPool.filter((v) => opts.filter!(v.text)) : cleanPool;
-  const finalPool = matched.length > 0 ? matched : cleanPool;
+  // When a content filter is supplied (e.g. price vocabulary for the
+  // "price-sensitive persona" callout), the caller is asserting the
+  // quote MUST be on-topic. Falling back to the unfiltered pool would
+  // surface a pregnant-nurse quote ("doctors would tell me to stop")
+  // under a "price-sensitive" label, which is exactly the mislabeling
+  // we are trying to avoid. So: if a filter is provided and nothing
+  // matches, return null and let the caller hide the callout.
+  const finalPool = opts.filter
+    ? cleanPool.filter((v) => opts.filter!(v.text))
+    : cleanPool;
+  if (finalPool.length === 0) return null;
   if (opts.country) {
     const wanted = opts.country.toUpperCase();
     const filtered = finalPool.filter((v) => v.country.toUpperCase() === wanted);
