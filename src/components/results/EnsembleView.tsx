@@ -15,6 +15,12 @@ import {
 } from "@/lib/simulation/pricing-sensitivity";
 import { analyzeIncomeIntent } from "@/lib/simulation/segment-analysis";
 import {
+  COMPONENT_LABEL,
+  COMPONENT_STRESS_SCENARIOS,
+  flipThresholdPt,
+  type ComponentKey,
+} from "@/lib/decision-aid/stress-scenarios";
+import {
   BestCountryPieChart,
   CountryIntentChart,
   CountryScoreChart,
@@ -57,6 +63,17 @@ interface ProjectInfo {
   objective: string | null;
   originating_country: string | null;
   candidate_countries: string[] | null;
+  /** Resolved competitor list — user-named + LLM-discovered, with
+   *  per-entry source attribution. Empty for legacy projects created
+   *  before the resolver shipped. */
+  competitors_resolved?: Array<{
+    name: string;
+    url: string;
+    source: "user" | "llm";
+    reason?: string;
+  }> | null;
+  /** Verbatim names the user typed in the wizard. */
+  competitor_names_user?: string[] | null;
 }
 
 interface EnsembleResult {
@@ -864,6 +881,7 @@ function EnsembleDashboard({
           pricing={pricing}
           basePriceCents={result.project?.base_price_cents ?? null}
           simCount={simCount}
+          competitorsResolved={result.project?.competitors_resolved ?? null}
           isKo={isKo}
           currency={result.project?.currency ?? "USD"}
         />
@@ -4642,6 +4660,7 @@ function PricingTab({
   pricing,
   basePriceCents,
   simCount,
+  competitorsResolved,
   isKo,
   currency,
 }: {
@@ -4654,6 +4673,16 @@ function PricingTab({
    *  hypothesis-tier branch where the "all sims converged" framing is
    *  misleading and we just want to show the price + within-sim noise. */
   simCount: number;
+  /** Resolved competitor list with source attribution (user-named vs
+   *  AI-discovered). Used to group competitor-price rows so the user
+   *  always sees which competitors they themselves added vs which ones
+   *  the AI suggested. Nullable for legacy projects. */
+  competitorsResolved?: Array<{
+    name: string;
+    url: string;
+    source: "user" | "llm";
+    reason?: string;
+  }> | null;
   isKo: boolean;
   currency: string;
 }) {
@@ -5095,19 +5124,33 @@ function PricingTab({
           failed), surface an empty-state card explaining why instead
           of silently hiding — the user wonders where the data went. */}
       {pricing.competitorPrices && pricing.competitorPrices.length > 0 ? (
-        <div className="card p-5">
-          <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-900">
-              {isKo ? "경쟁사 retail 가격 (anchor 데이터)" : "Competitor retail prices (anchor data)"}
-            </h3>
-            <span className="text-xs text-slate-500">
-              {isKo
-                ? `${pricing.competitorPrices.length}개 URL에서 추출`
-                : `Extracted from ${pricing.competitorPrices.length} URL${pricing.competitorPrices.length === 1 ? "" : "s"}`}
-            </span>
-          </div>
-          <div className="space-y-2">
-            {pricing.competitorPrices.map((c, i) => (
+        (() => {
+          // Group extracted prices by attribution source. Each price
+          // row's URL is matched against competitors_resolved to find
+          // its origin (user-named or LLM-discovered). Rows that don't
+          // match (legacy projects without resolved data, OR LLM
+          // suggested URL that differs from the extracted URL) fall
+          // into "unknown" — rendered alongside user rows since both
+          // are pre-resolver inputs.
+          const sourceByUrl = new Map<string, "user" | "llm">();
+          const reasonByUrl = new Map<string, string>();
+          (competitorsResolved ?? []).forEach((c) => {
+            if (c.url) {
+              sourceByUrl.set(c.url, c.source);
+              if (c.reason) reasonByUrl.set(c.url, c.reason);
+            }
+          });
+          type Price = NonNullable<typeof pricing.competitorPrices>[number];
+          const userRows: Price[] = [];
+          const llmRows: Price[] = [];
+          for (const p of pricing.competitorPrices) {
+            const src = sourceByUrl.get(p.url);
+            if (src === "llm") llmRows.push(p);
+            else userRows.push(p);
+          }
+          const renderRow = (c: Price, i: number) => {
+            const reason = reasonByUrl.get(c.url);
+            return (
               <div key={i} className="flex items-center gap-3 text-sm border-l-2 border-slate-200 pl-3">
                 <div className="w-24 font-semibold text-slate-900 tabular-nums shrink-0">
                   {fmt(c.priceCents)}
@@ -5124,6 +5167,11 @@ function PricingTab({
                   >
                     {c.url}
                   </a>
+                  {reason && (
+                    <div className="text-[11px] text-slate-500 italic mt-0.5">
+                      {isKo ? "AI 발굴 이유: " : "AI rationale: "}{reason}
+                    </div>
+                  )}
                 </div>
                 {c.sourceCurrency && c.sourceCurrency.toUpperCase() !== currency.toUpperCase() && (
                   <div className="text-[10px] text-slate-400 shrink-0">
@@ -5131,14 +5179,44 @@ function PricingTab({
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-          <p className="text-[11px] text-slate-500 mt-3 leading-relaxed">
-            {isKo
-              ? "사용자가 입력한 competitor URL에서 자동 추출. 이 가격대를 anchor 삼아 LLM이 가격 곡선을 생성했습니다."
-              : "Auto-extracted from competitor URLs you provided. The pricing curve was anchored against these real retail prices."}
-          </p>
-        </div>
+            );
+          };
+          return (
+            <div className="card p-5">
+              <div className="flex items-baseline justify-between mb-3">
+                <h3 className="text-sm font-semibold text-slate-900">
+                  {isKo ? "경쟁사 retail 가격 (anchor 데이터)" : "Competitor retail prices (anchor data)"}
+                </h3>
+                <span className="text-xs text-slate-500">
+                  {isKo
+                    ? `${pricing.competitorPrices.length}개 URL에서 추출`
+                    : `Extracted from ${pricing.competitorPrices.length} URL${pricing.competitorPrices.length === 1 ? "" : "s"}`}
+                </span>
+              </div>
+              {userRows.length > 0 && (
+                <div className="mb-4">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-2">
+                    {isKo ? `사용자 입력 (${userRows.length})` : `Your input (${userRows.length})`}
+                  </div>
+                  <div className="space-y-2">{userRows.map(renderRow)}</div>
+                </div>
+              )}
+              {llmRows.length > 0 && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-brand font-semibold mb-2">
+                    {isKo ? `AI 발굴 (${llmRows.length})` : `AI-discovered (${llmRows.length})`}
+                  </div>
+                  <div className="space-y-2">{llmRows.map(renderRow)}</div>
+                </div>
+              )}
+              <p className="text-[11px] text-slate-500 mt-3 leading-relaxed">
+                {isKo
+                  ? "사용자 입력 이름(또는 URL)과 AI가 추가 발굴한 경쟁사 URL에서 자동 추출. 이 가격대를 anchor 삼아 LLM이 가격 곡선을 생성했습니다."
+                  : "Auto-extracted from URLs resolved from your input names and from AI-discovered competitors. The pricing curve was anchored against these real retail prices."}
+              </p>
+            </div>
+          );
+        })()
       ) : (
         <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 p-4">
           <div className="flex items-start gap-3">
@@ -5727,66 +5805,114 @@ function DecisionAidTab({
             </p>
           </div>
 
-          {/* Component vulnerability table */}
+          {/* Component vulnerability — concrete stress scenarios per
+              component. Replaces the prior generic "10pt → flip"
+              annotation with: (1) accurate flip threshold (gap × 6,
+              from equal-weight assumption), (2) named plausible
+              scenarios with estimated drops, (3) per-scenario flip
+              determination, (4) cumulative worst-case across scenarios. */}
           {top.components && (
             <div className="card overflow-hidden mt-5">
               <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
                 <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold">
                   {isKo ? `${top.country}의 component별 취약성` : `${top.country} component vulnerability`}
                 </div>
-                <div className="text-[11px] text-slate-500 mt-1">
-                  {isKo
-                    ? "각 항목이 10pt 하락 시 추천이 2순위로 flip되는지 표시. 점수가 낮은 항목 = 더 취약."
-                    : "Whether a 10pt drop in each component would flip the recommendation. Lower score = more vulnerable."}
+                <div className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                  {(() => {
+                    const threshold = Math.round(flipThresholdPt(gap));
+                    return isKo
+                      ? `2순위까지의 격차가 ${gap.toFixed(1)}pt. 6개 component 균등 가중 가정 시, 한 component가 단독으로 ${threshold}pt 하락하면 추천이 flip. 아래는 각 component의 plausible stress 시나리오 — 추정 drop이 임계값을 넘으면 단독으로 flip 발생.`
+                      : `Gap to runner-up is ${gap.toFixed(1)}pt. Under equal-weight components (1/6 each), a single component must drop ${threshold}pt for the recommendation to flip. Each row lists plausible stress scenarios with estimated drop — if any single scenario exceeds the threshold, it alone would flip the call.`;
+                  })()}
                 </div>
               </div>
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-slate-100 px-5 py-3 space-y-3">
                 {(() => {
-                  const dims = [
-                    { label: { ko: "시장 크기", en: "Market size" }, score: top.components!.marketSize.mean },
-                    { label: { ko: "문화 적합", en: "Cultural fit" }, score: top.components!.culturalFit.mean },
-                    { label: { ko: "채널 매치", en: "Channel match" }, score: top.components!.channelMatch.mean },
-                    { label: { ko: "가격 수용", en: "Price fit" }, score: top.components!.priceCompat.mean },
-                    { label: { ko: "경쟁 (역치)", en: "Competition (inv)" }, score: top.components!.competition.mean },
-                    { label: { ko: "규제 (역치)", en: "Regulatory (inv)" }, score: top.components!.regulatory.mean },
-                  ].sort((a, b) => a.score - b.score);
-                  return dims.map((d, i) => {
-                    const wouldFlip = gap < 10 || (d.label.en.startsWith("Reg") && d.score < 40);
+                  const threshold = flipThresholdPt(gap);
+                  const dims: Array<{ key: ComponentKey; score: number }> = (
+                    [
+                      { key: "marketSize", score: top.components!.marketSize.mean },
+                      { key: "culturalFit", score: top.components!.culturalFit.mean },
+                      { key: "channelMatch", score: top.components!.channelMatch.mean },
+                      { key: "priceCompat", score: top.components!.priceCompat.mean },
+                      { key: "competition", score: top.components!.competition.mean },
+                      { key: "regulatory", score: top.components!.regulatory.mean },
+                    ] as Array<{ key: ComponentKey; score: number }>
+                  ).sort((a, b) => a.score - b.score);
+                  return dims.map((d) => {
+                    const label = COMPONENT_LABEL[d.key];
+                    const scenarios = COMPONENT_STRESS_SCENARIOS[d.key];
                     const tone =
                       d.score >= 65 ? "bg-success" : d.score >= 50 ? "bg-warn" : "bg-risk";
                     const textTone =
                       d.score >= 65 ? "text-success" : d.score >= 50 ? "text-warn" : "text-risk";
+                    const cumulative = scenarios.reduce((s, sc) => s + sc.dropPt, 0);
+                    const cumulativeFlips = cumulative >= threshold;
                     return (
-                      <div
-                        key={i}
-                        className="flex items-center gap-3 px-5 py-3 text-sm"
-                      >
-                        <div className="w-32 shrink-0 font-medium text-slate-700">
-                          {isKo ? d.label.ko : d.label.en}
+                      <div key={d.key} className="pt-2 first:pt-0">
+                        {/* Header row — same compact look as before. */}
+                        <div className="flex items-center gap-3 text-sm mb-2">
+                          <div className="w-36 shrink-0 font-medium text-slate-700">
+                            {isKo ? label.ko : label.en}
+                          </div>
+                          <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className={clsx("h-full transition-all", tone)}
+                              style={{ width: `${Math.max(0, Math.min(100, d.score))}%` }}
+                            />
+                          </div>
+                          <div className={clsx("w-12 text-right font-bold tabular-nums", textTone)}>
+                            {d.score.toFixed(0)}
+                          </div>
                         </div>
-                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            className={clsx("h-full transition-all", tone)}
-                            style={{ width: `${Math.max(0, Math.min(100, d.score))}%` }}
-                          />
-                        </div>
-                        <div className={clsx("w-12 text-right font-bold tabular-nums", textTone)}>
-                          {d.score.toFixed(0)}
-                        </div>
-                        <div
-                          className={clsx(
-                            "w-24 text-right text-xs font-semibold",
-                            wouldFlip ? "text-risk" : "text-slate-400",
-                          )}
-                        >
-                          {wouldFlip
-                            ? isKo
-                              ? "10pt↓ → flip"
-                              : "10pt↓ → flip"
-                            : isKo
-                              ? "안정"
-                              : "stable"}
-                        </div>
+                        {/* Scenario rows — concrete content. */}
+                        <ul className="ml-36 space-y-1">
+                          {scenarios.map((sc, j) => {
+                            const flips = sc.dropPt >= threshold;
+                            return (
+                              <li
+                                key={j}
+                                className="flex items-center gap-2 text-[11px] text-slate-600 leading-relaxed"
+                              >
+                                <span className="shrink-0 text-slate-400">•</span>
+                                <span className="flex-1">{isKo ? sc.ko : sc.en}</span>
+                                <span className="shrink-0 tabular-nums text-slate-500 w-12 text-right">
+                                  −{sc.dropPt}pt
+                                </span>
+                                <span
+                                  className={clsx(
+                                    "shrink-0 w-12 text-right font-semibold",
+                                    flips ? "text-risk" : "text-slate-400",
+                                  )}
+                                >
+                                  {flips
+                                    ? isKo ? "→ flip" : "→ flip"
+                                    : isKo ? "안정" : "stable"}
+                                </span>
+                              </li>
+                            );
+                          })}
+                          {/* Cumulative worst-case — multiple scenarios stacking. */}
+                          <li className="flex items-center gap-2 text-[11px] leading-relaxed pt-1 border-t border-dashed border-slate-200 mt-1">
+                            <span className="shrink-0 text-slate-400">∑</span>
+                            <span className="flex-1 text-slate-700 italic">
+                              {isKo ? "동시 다발 (누적 worst case)" : "All hit simultaneously (cumulative worst case)"}
+                            </span>
+                            <span className="shrink-0 tabular-nums text-slate-500 w-12 text-right">
+                              −{cumulative}pt
+                            </span>
+                            <span
+                              className={clsx(
+                                "shrink-0 w-12 text-right font-semibold",
+                                cumulativeFlips ? "text-risk" : "text-slate-400",
+                              )}
+                            >
+                              {cumulativeFlips
+                                ? isKo ? "→ flip" : "→ flip"
+                                : isKo ? "안정" : "stable"}
+                            </span>
+                          </li>
+                        </ul>
                       </div>
                     );
                   });

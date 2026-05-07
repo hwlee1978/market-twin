@@ -21,6 +21,13 @@ export interface FormState {
    */
   originatingCountry: string;
   countries: string[];
+  /**
+   * Free-text competitor names (one per textarea line). Wizard sends
+   * these to the server, which runs an LLM resolver to find URLs and
+   * add 2-3 more competitors. Lower-friction than asking users to
+   * paste URLs they don't have.
+   */
+  competitorNames: string;
   competitorUrls: string;
   /**
    * Creative concept descriptions (one per line in the textarea). Empty

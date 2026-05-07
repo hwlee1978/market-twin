@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { COUNTRIES } from "@/lib/countries";
 import { clsx } from "clsx";
-import { AlertCircle, Check, Info, Loader2, Search, Sparkles } from "lucide-react";
+import { AlertCircle, Check, Info, Loader2, Search, Sparkles, Upload, X as XIcon } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CountryChipRow } from "@/components/ui/CountryChip";
 import { WIZARD_TEMPLATES } from "@/lib/wizard/templates";
@@ -83,6 +83,7 @@ export function ProjectWizard({ locale }: { locale: string }) {
       // stays at 3 candidates and showcases multi-region targeting.
       locale === "ko" ? [] : ["GB"],
     ),
+    competitorNames: "",
     competitorUrls: "",
     assetDescriptions: "",
     assetUrls: "",
@@ -93,6 +94,99 @@ export function ProjectWizard({ locale }: { locale: string }) {
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
+
+  // Uploaded creative-asset images. Each item is the result of a POST
+  // to /api/upload/creative-asset (or an in-flight upload). At submit
+  // time, the successfully-uploaded URLs are merged with any URLs the
+  // user pasted into the manual textarea below the uploader.
+  type UploadedItem = {
+    /** Local id for React keys + removal. */
+    id: string;
+    /** Original filename for display. */
+    name: string;
+    /** Storage path returned by the API (used for delete on remove). */
+    path?: string;
+    /** Public URL — only present once upload succeeds. */
+    url?: string;
+    /** Preview data-URL for thumbnails (rendered before upload finishes). */
+    previewDataUrl?: string;
+    status: "uploading" | "done" | "error";
+    error?: string;
+  };
+  const [uploads, setUploads] = useState<UploadedItem[]>([]);
+
+  const handleFiles = async (files: FileList | File[]) => {
+    const list = Array.from(files);
+    if (list.length === 0) return;
+    // Push placeholders first so the UI shows progress immediately.
+    const placeholders: UploadedItem[] = list.map((f) => ({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: f.name,
+      status: "uploading",
+    }));
+    setUploads((prev) => [...prev, ...placeholders]);
+    // Generate local preview thumbnails so the user sees the image
+    // before the network round-trip completes. Updates state inline.
+    list.forEach((f, i) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        if (typeof result !== "string") return;
+        setUploads((prev) =>
+          prev.map((u) =>
+            u.id === placeholders[i].id ? { ...u, previewDataUrl: result } : u,
+          ),
+        );
+      };
+      reader.readAsDataURL(f);
+    });
+    // Upload each file in parallel; update state per-file as each
+    // resolves. Server enforces the 4 MB / image-type limits.
+    await Promise.all(
+      list.map(async (file, i) => {
+        try {
+          const fd = new FormData();
+          fd.append("file", file);
+          const res = await fetch("/api/upload/creative-asset", {
+            method: "POST",
+            body: fd,
+          });
+          const json = await res.json();
+          if (!res.ok) {
+            throw new Error(json.error ?? "upload failed");
+          }
+          setUploads((prev) =>
+            prev.map((u) =>
+              u.id === placeholders[i].id
+                ? { ...u, status: "done", url: json.url, path: json.path }
+                : u,
+            ),
+          );
+        } catch (err) {
+          setUploads((prev) =>
+            prev.map((u) =>
+              u.id === placeholders[i].id
+                ? {
+                    ...u,
+                    status: "error",
+                    error: err instanceof Error ? err.message : String(err),
+                  }
+                : u,
+            ),
+          );
+        }
+      }),
+    );
+  };
+
+  const removeUpload = (id: string) => {
+    // Local-only removal — the storage object lingers until project
+    // deletion or a future cleanup pass. Trade-off: avoids needing
+    // another API round-trip just to keep the UI snappy. Not
+    // user-visible since the URL never reaches the project record
+    // unless they submit.
+    setUploads((prev) => prev.filter((u) => u.id !== id));
+  };
 
   const toggleCountry = (code: string) =>
     setForm((f) => ({
@@ -257,11 +351,26 @@ export function ProjectWizard({ locale }: { locale: string }) {
         return matches.map((u) => u.replace(/[.,;:!?)\]]+$/, ""));
       };
       const competitorUrls = extractUrls(form.competitorUrls);
+      // Names: split on newline, trim, drop empties + accidental URLs
+      // (which belong in competitorUrls). One name per line.
+      const competitorNames = form.competitorNames
+        .split(/\n/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .filter((s) => !/^https?:\/\//i.test(s));
       const assetDescriptions = form.assetDescriptions
         .split(/\n/)
         .map((s) => s.trim())
         .filter(Boolean);
-      const assetUrls = extractUrls(form.assetUrls);
+      // Merge two sources for assetUrls: (a) URLs from successful
+      // file uploads, (b) URLs the user pasted manually into the
+      // power-user textarea. Dedup with a Set so they don't double-
+      // count when a user uploads then pastes the same returned URL.
+      const uploadedUrls = uploads
+        .filter((u) => u.status === "done" && u.url)
+        .map((u) => u.url!);
+      const manualUrls = extractUrls(form.assetUrls);
+      const assetUrls = Array.from(new Set([...uploadedUrls, ...manualUrls]));
 
       const res = await fetch("/api/projects", {
         method: "POST",
@@ -276,7 +385,9 @@ export function ProjectWizard({ locale }: { locale: string }) {
           objective: form.objective,
           originatingCountry: form.originatingCountry,
           candidateCountries: form.countries,
+          competitorNames,
           competitorUrls,
+          locale,
           assetDescriptions,
           assetUrls,
         }),
@@ -540,19 +651,38 @@ export function ProjectWizard({ locale }: { locale: string }) {
         )}
 
         {stepKey === "competitors" && (
-          <Field
-            label={tw("fields.competitorUrls")}
-            hint={tw("hints.competitorUrls")}
-            optional
-          >
-            <textarea
-              className="input min-h-[140px] font-mono text-xs leading-relaxed"
-              placeholder={"https://competitor1.com\nhttps://competitor2.com"}
-              value={form.competitorUrls}
-              onChange={(e) => update("competitorUrls", e.target.value)}
-            />
-            <p className="mt-1.5 text-xs text-slate-500">{tw("competitorUrlsFormat")}</p>
-          </Field>
+          <>
+            <Field
+              label={tw("fields.competitorNames")}
+              hint={tw("hints.competitorNames")}
+              optional
+            >
+              <textarea
+                className="input min-h-[120px] leading-relaxed"
+                placeholder={tw("placeholders.competitorNames")}
+                value={form.competitorNames}
+                onChange={(e) => update("competitorNames", e.target.value)}
+              />
+            </Field>
+
+            <Field
+              label={tw("fields.competitorUrls")}
+              hint={tw("hints.competitorUrls")}
+              optional
+            >
+              <textarea
+                className="input min-h-[80px] font-mono text-xs leading-relaxed"
+                placeholder={"https://competitor1.com\nhttps://competitor2.com"}
+                value={form.competitorUrls}
+                onChange={(e) => update("competitorUrls", e.target.value)}
+              />
+              <p className="mt-1.5 text-xs text-slate-500">{tw("competitorUrlsFormat")}</p>
+            </Field>
+
+            <div className="rounded-md border border-brand/20 bg-brand-50/40 px-3 py-2.5 text-xs text-slate-700 leading-relaxed">
+              {tw("competitorResolverHint")}
+            </div>
+          </>
         )}
 
         {stepKey === "assets" && (
@@ -570,13 +700,96 @@ export function ProjectWizard({ locale }: { locale: string }) {
               />
             </Field>
 
+            {/* Primary creative-image input — file upload. Most users
+                don't have hosted mockups pre-launch, so we accept files
+                directly and host them on Supabase Storage. The legacy
+                URL textarea below is kept behind a disclosure for power
+                users who already have public URLs. */}
+            <Field
+              label={tw("fields.assetUploads")}
+              hint={tw("hints.assetUploads")}
+              optional
+            >
+              <label className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 hover:border-brand/60 hover:bg-brand-50/30 transition-colors cursor-pointer px-6 py-8 text-center">
+                <Upload size={20} className="text-slate-400 mb-2" />
+                <span className="text-sm font-medium text-slate-700">
+                  {tw("assetUploadsCta")}
+                </span>
+                <span className="text-[11px] text-slate-500 mt-1">
+                  {tw("assetUploadsLimits")}
+                </span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files) handleFiles(e.target.files);
+                    // Reset value so re-selecting the same file fires onChange.
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+
+              {uploads.length > 0 && (
+                <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {uploads.map((u) => (
+                    <div
+                      key={u.id}
+                      className="relative rounded-md border border-slate-200 bg-white overflow-hidden group"
+                    >
+                      {u.previewDataUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={u.previewDataUrl}
+                          alt={u.name}
+                          className="w-full aspect-video object-cover bg-slate-100"
+                        />
+                      ) : (
+                        <div className="w-full aspect-video bg-slate-100" />
+                      )}
+                      {/* Status overlay */}
+                      {u.status === "uploading" && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-white/70">
+                          <Loader2 size={18} className="animate-spin text-brand" />
+                        </div>
+                      )}
+                      {u.status === "error" && (
+                        <div
+                          className="absolute inset-0 flex items-center justify-center bg-risk-soft/80 px-2 text-center text-[10px] text-risk leading-snug"
+                          title={u.error}
+                        >
+                          {u.error ?? "upload failed"}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeUpload(u.id)}
+                        className="absolute top-1 right-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white"
+                        aria-label="Remove"
+                      >
+                        <XIcon size={11} />
+                      </button>
+                      <div className="text-[10px] text-slate-500 px-2 py-1 truncate" title={u.name}>
+                        {u.name}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Field>
+
+            {/* URL alternative — equal-status sibling to the file
+                uploader. Some users already have hosted CDN URLs and
+                prefer pasting them directly; both inputs feed the same
+                downstream pipeline (assetUrls array on the project). */}
             <Field
               label={tw("fields.assetUrls")}
               hint={tw("hints.assetUrls")}
               optional
             >
               <textarea
-                className="input min-h-[100px] font-mono text-xs leading-relaxed"
+                className="input min-h-[80px] font-mono text-xs leading-relaxed"
                 placeholder={
                   "https://images.example.com/hero.jpg\nhttps://cdn.example.com/banner.png"
                 }
@@ -585,8 +798,8 @@ export function ProjectWizard({ locale }: { locale: string }) {
               />
             </Field>
 
-            {form.assetUrls.trim().length === 0 && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 leading-relaxed">
+            {uploads.length === 0 && form.assetUrls.trim().length === 0 && (
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-600 leading-relaxed">
                 {tw("assetUrlsAccuracyHint")}
               </div>
             )}

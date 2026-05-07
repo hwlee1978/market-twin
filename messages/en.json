@@ -329,7 +329,7 @@
         },
         "assets": {
           "title": "Creative",
-          "description": "Describe ad / content concepts in plain text. Adding image URLs unlocks vision-powered visual analysis for higher accuracy."
+          "description": "Test ad concepts before producing them. Describe each idea in plain text — AI personas evaluate fit per market and surface specific strengths and weaknesses, so you know which to greenlight."
         },
         "review": {
           "title": "Review & Run",
@@ -346,16 +346,19 @@
         "objective": "Launch objective",
         "originatingCountry": "Origin (home market)",
         "countries": "Target markets",
+        "competitorNames": "Competitor product names",
         "competitorUrls": "Competitor URLs",
         "assets": "Images / videos",
         "assetDescriptions": "Creative concepts",
-        "assetUrls": "Image URLs (optional)"
+        "assetUploads": "Upload mockup images (optional)",
+        "assetUrls": "Or paste image URLs (optional)"
       },
       "placeholders": {
         "projectName": "e.g. 2026 Global Launch — Wireless Earbuds",
         "productName": "e.g. AcousticPro Buds X1",
         "description": "e.g. Active noise-canceling wireless earbuds with 8h battery, IPX5 sweat resistance. Targeting commuters and remote workers. Available in matte black, sage, ivory.",
-        "assetDescriptions": "Examples:\nHero video — morning routine concept\nInstagram carousel — minimalist still life\n3-min demo video — user testimonial interviews"
+        "assetDescriptions": "Examples:\nHero video — morning routine concept\nInstagram carousel — minimalist still life\n3-min demo video — user testimonial interviews",
+        "competitorNames": "Examples:\nKosterina\nBrightland\nFrescobaldi Laudemio"
       },
       "hints": {
         "projectName": "Internal identifier. Shown on the simulation result page.",
@@ -365,9 +368,11 @@
         "objective": "Pick the #1 KPI for this launch. Persona scenarios and channel recommendations adjust accordingly.",
         "originatingCountry": "Where the company is based and runs operations. Simulation evaluates candidate markets as cross-border export targets relative to this origin. Pick from 24 supported origins.",
         "countries": "Pick at least 1 target market for overseas expansion. We recommend ≤5 to keep cost and runtime manageable.",
-        "competitorUrls": "One URL per line. Competitor pages help with pricing and positioning context.",
-        "assetDescriptions": "Describe each concept on its own line (e.g. \"Hero video — morning routine\"). Text-only is fine for analysis.",
-        "assetUrls": "Public-access image URLs (one per line). When provided, Anthropic vision inspects the actual images and lifts evaluation accuracy."
+        "competitorNames": "Type competitor product or brand names (one per line). The AI will find their URLs and suggest 2-3 more competitors you might not know about.",
+        "competitorUrls": "Optional — only if you already have specific URLs you want analysed. Otherwise leave blank; the AI finds URLs from the names above.",
+        "assetDescriptions": "What you'd run as ads (or are considering). One concept per line — rough descriptions are fine, finished visuals not required. Each gets a 0-100 fit score plus market-specific strengths and weaknesses in your results.",
+        "assetUploads": "Drop mockup images here if you have them. Vision-AI inspects each visual to sharpen the analysis. Either this or URLs below — pick whichever is easier; both work equally.",
+        "assetUrls": "Already-hosted CDN / Imgur / Drive URLs (one per line). Identical effect to uploading the file directly. Skip if you uploaded above. URLs must be publicly accessible."
       },
       "validation": {
         "projectName": "Enter a project name",
@@ -405,7 +410,11 @@
       "countriesSearchPlaceholder": "Search countries (US, Japan, ...)",
       "countriesCount": "{n} countries selected",
       "competitorUrlsFormat": "One URL per line.",
-      "assetUrlsAccuracyHint": "💡 Without image URLs, evaluation runs from text descriptions only. Add at least one publicly-accessible image URL so Anthropic vision can inspect the actual visuals — creative scores and strength/weakness analysis become noticeably more accurate.",
+      "competitorResolverHint": "💡 The AI resolves URLs for the names you typed and adds 2-3 more relevant competitors. Adds ~3-8 seconds to project creation. Results are split into \"your input\" and \"AI-discovered\" so you always see attribution.",
+      "assetUrlsAccuracyHint": "💡 Text descriptions work great for pre-production validation. Uploads are optional — add them later when you have mockups for sharper visual analysis.",
+      "assetUploadsCta": "Click to choose mockup images (or drag in)",
+      "assetUploadsLimits": "JPG / PNG / WebP / GIF · up to 4 MB each",
+      "assetUrlsToggle": "Already have hosted URLs? Paste them here",
       "personaCount": {
         "label": "Persona count",
         "hint": "Higher count = more accurate, but takes longer.",
