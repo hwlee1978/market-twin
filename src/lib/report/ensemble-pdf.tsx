@@ -3050,7 +3050,16 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 {p.segmentBreakdown.byIncome.length > 0 && (
                   <SegmentBlock
                     title={isKo ? "소득" : "Income"}
-                    rows={p.segmentBreakdown.byIncome}
+                    rows={[...p.segmentBreakdown.byIncome].sort((a, b) => {
+                      const order: Record<string, number> = {
+                        "<$30k": 0,
+                        "$30-60k": 1,
+                        "$60-100k": 2,
+                        "$100-150k": 3,
+                        "$150k+": 4,
+                      };
+                      return (order[a.bucket] ?? 99) - (order[b.bucket] ?? 99);
+                    })}
                     isKo={isKo}
                   />
                 )}
@@ -3493,8 +3502,18 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    */
   const renderIncomeIntentPage = () => {
     if (!tierBudget.showIncomeIntent) return null;
-    const rows = aggregate.personas?.segmentBreakdown?.byIncome ?? [];
-    if (rows.length === 0) return null;
+    const rowsRaw = aggregate.personas?.segmentBreakdown?.byIncome ?? [];
+    if (rowsRaw.length === 0) return null;
+    const incomeOrder: Record<string, number> = {
+      "<$30k": 0,
+      "$30-60k": 1,
+      "$60-100k": 2,
+      "$100-150k": 3,
+      "$150k+": 4,
+    };
+    const rows = [...rowsRaw].sort(
+      (a, b) => (incomeOrder[a.bucket] ?? 99) - (incomeOrder[b.bucket] ?? 99),
+    );
     return (
       <Page size="A4" style={styles.page}>
         {pageHeader}
