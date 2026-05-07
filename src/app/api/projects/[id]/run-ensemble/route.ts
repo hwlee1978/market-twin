@@ -47,12 +47,17 @@ const TIER_PRESETS = {
   decision_plus: {
     // Cross-LLM consensus at moderate depth. Round-robin across the
     // providers array — repeating "anthropic" three times yields a
-    // 9 Anthropic / 3 OpenAI / 3 Gemini split over the 15 sims, which
+    // 9 Anthropic / 3 OpenAI / 3 xAI split over the 15 sims, which
     // keeps Anthropic dominant for voice quality (Sonnet wins the
     // voice-A/B verified in compare:voice script) while still pulling
-    // in cross-LLM signal at meaningful weight. Pure 5/5/5 split would
-    // dilute voice quality below the bar; pure Anthropic was leaving
-    // ~35% cost savings on the table for no analytical benefit.
+    // in cross-LLM signal at meaningful weight.
+    //
+    // History note: xAI replaced Gemini here on 2026-05-08 after Gemini
+    // sims were shipping 60-96 personas vs the 200 target — partial
+    // responses + 503s on the persona batch endpoint. Grok-4 sits in
+    // the same price tier as Sonnet ($3/$15) but actually returns full
+    // batches; cost is slightly higher than Gemini but the persona-count
+    // recovery is worth the trade.
     parallelSims: 15,
     perSimPersonas: 200,
     llmProviders: [
@@ -60,7 +65,7 @@ const TIER_PRESETS = {
       "anthropic",
       "anthropic",
       "openai",
-      "gemini",
+      "xai",
     ] as const,
     marketProfile: true,
   },
@@ -84,7 +89,7 @@ const TIER_PRESETS = {
   },
 } as const;
 type Tier = keyof typeof TIER_PRESETS;
-type ProviderName = "anthropic" | "openai" | "gemini";
+type ProviderName = "anthropic" | "openai" | "gemini" | "xai";
 
 /**
  * Maximum sims per provider running concurrently within a single ensemble.
@@ -114,6 +119,10 @@ const PROVIDER_SIM_CONCURRENCY: Record<ProviderName, number> = {
   anthropic: envInt("LLM_ANTHROPIC_SIM_CONCURRENCY", 12),
   openai: envInt("LLM_OPENAI_SIM_CONCURRENCY", 12),
   gemini: envInt("LLM_GEMINI_SIM_CONCURRENCY", 4),
+  // xAI: starting cap-12 like Anthropic / OpenAI. Grok-4's published
+  // tier-2 burst tolerance handles 15 concurrent chat completions; if
+  // we see 5xx clusters in production, lower via env override.
+  xai: envInt("LLM_XAI_SIM_CONCURRENCY", 12),
 };
 
 const RunSchema = z.object({

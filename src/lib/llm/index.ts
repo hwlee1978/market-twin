@@ -1,6 +1,7 @@
 import { AnthropicProvider } from "./anthropic";
 import { GeminiProvider } from "./gemini";
 import { OpenAIProvider } from "./openai";
+import { XaiProvider } from "./xai";
 import type { LLMProvider, LLMProviderName } from "./types";
 
 export type { LLMProvider, LLMProviderName, LLMRequest, LLMResponse } from "./types";
@@ -57,6 +58,16 @@ const PROVIDER_STAGE_DEFAULTS: Record<LLMProviderName, Record<SimulationStage, s
     // (consumer 5TB plan) does NOT cover this.
     synthesis: "gemini-2.5-pro",
   },
+  xai: {
+    // Grok-4 across all stages — pricing parity with Sonnet ($3/$15 per
+    // 1M tok) so there's no cost-tier reason to drop to a smaller model.
+    // Grok-3-mini exists for high-volume stages but the persona-batch
+    // reliability we're hiring xAI for sits on the larger model.
+    personas: "grok-4",
+    countries: "grok-4",
+    pricing: "grok-4",
+    synthesis: "grok-4",
+  },
 };
 
 /**
@@ -93,6 +104,8 @@ export function getLLMProvider(opts: ProviderOptions = {}): LLMProvider {
       return new OpenAIProvider(model ?? PROVIDER_STAGE_DEFAULTS.openai.synthesis);
     case "gemini":
       return new GeminiProvider(model ?? PROVIDER_STAGE_DEFAULTS.gemini.synthesis);
+    case "xai":
+      return new XaiProvider(model ?? PROVIDER_STAGE_DEFAULTS.xai.synthesis);
     default:
       throw new Error(`Unknown LLM provider: ${provider}`);
   }

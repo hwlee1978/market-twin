@@ -33,6 +33,12 @@ const PRICE_TABLE: Record<string, Record<string, PriceUsdPerMTok>> = {
     "gemini-2.5-pro": { input: 1.25, output: 5 },
     "gemini-2.5-flash": { input: 0.075, output: 0.3 },
   },
+  xai: {
+    // Grok-4 sits in the same price tier as Sonnet 4.6.
+    "grok-4": { input: 3, output: 15 },
+    "grok-3": { input: 3, output: 15 },
+    "grok-3-mini": { input: 0.3, output: 0.5 },
+  },
 };
 
 const PROVIDER_FALLBACK: Record<string, PriceUsdPerMTok> = {
@@ -42,6 +48,7 @@ const PROVIDER_FALLBACK: Record<string, PriceUsdPerMTok> = {
   anthropic: { input: 3, output: 15 },
   openai: { input: 2.5, output: 10 },
   gemini: { input: 1.25, output: 5 },
+  xai: { input: 3, output: 15 },
 };
 
 /**

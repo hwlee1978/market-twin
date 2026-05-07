@@ -24,6 +24,7 @@
     "backfill:surfaced": "tsx --env-file=.env.local scripts/backfill-surfaced-counts.ts",
     "inspect:objections": "tsx --env-file=.env.local scripts/inspect-objections.ts",
     "inspect:today": "tsx --env-file=.env.local scripts/inspect-today.ts",
+    "inspect:ensemble": "tsx --env-file=.env.local scripts/inspect-ensemble.ts",
     "analyze:ensemble": "tsx --env-file=.env.local scripts/ensemble-analysis.ts",
     "ensemble:run": "tsx --env-file=.env.local scripts/run-ensemble.ts",
     "smoke:ensemble-pdf": "tsx --env-file=.env.local scripts/smoke-ensemble-pdf.ts",
