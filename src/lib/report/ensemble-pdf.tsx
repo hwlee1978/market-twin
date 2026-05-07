@@ -4552,9 +4552,9 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                     <MText
                       style={{
                         fontSize: 7,
-                        color: C.body,
+                        color: C.muted,
                         flex: 1,
-                        fontStyle: "italic",
+                        fontWeight: 600,
                         lineHeight: 1.4,
                       }}
                     >
