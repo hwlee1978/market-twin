@@ -861,6 +861,7 @@ function EnsembleDashboard({
         <PricingTab
           pricing={pricing}
           basePriceCents={result.project?.base_price_cents ?? null}
+          simCount={simCount}
           isKo={isKo}
           currency={result.project?.currency ?? "USD"}
         />
@@ -1457,33 +1458,52 @@ function OverviewTab({
             <span className="shrink-0 text-brand font-bold">·</span>
             <span>
               {(() => {
-                // Two cases for the suffix after the consensus line:
-                //  1. across-sim std = 0 → all per-sim medians collapsed to
-                //     the same number (clear-winner LLM convergence). Show
-                //     "unanimous" + within-sim noise if available.
-                //  2. otherwise → traditional "mean X, std Y" reading.
+                // Three cases for the suffix after the consensus line:
+                //  1. simCount === 1 (hypothesis tier) → "all sims" framing
+                //     reads weird with one sim, and the consensus-100% header
+                //     already says it. Just show the score + within-sim
+                //     noise from the LLM resampling rolls.
+                //  2. across-sim std = 0 with simCount > 1 → all per-sim
+                //     medians collapsed to the same number (clear-winner
+                //     LLM convergence). Show "unanimous" + within-sim noise.
+                //  3. otherwise → traditional "mean X, std Y" reading.
                 const fs = winnerStats?.finalScore;
                 if (!fs) return null;
-                const acrossZero = fs.std < 0.05;
                 const withinStd = fs.withinSimStdMean;
-                if (acrossZero) {
-                  const noise =
-                    withinStd && withinStd > 0
-                      ? isKo
-                        ? `, 시뮬 내부 noise ±${withinStd.toFixed(1)}`
-                        : `, within-sim noise ±${withinStd.toFixed(1)}`
-                      : "";
+                const noiseSuffix =
+                  withinStd && withinStd > 0
+                    ? isKo
+                      ? `, 시뮬 내부 noise ±${withinStd.toFixed(1)}`
+                      : `, within-sim noise ±${withinStd.toFixed(1)}`
+                    : "";
+                if (simCount === 1) {
                   return isKo ? (
                     <>
                       <span className="font-semibold text-slate-900">{recommendation.country}</span>
                       {" "}진출이 합의 우위 ({recommendation.consensusPercent}% / {recommendation.confidence})
-                      {` — 모든 시뮬이 ${fs.mean.toFixed(0)}점으로 수렴${noise}`}.
+                      {` — 점수 ${fs.mean.toFixed(0)}점${noiseSuffix}`}.
                     </>
                   ) : (
                     <>
                       <span className="font-semibold text-slate-900">{recommendation.country}</span>
                       {" "}leads consensus ({recommendation.consensusPercent}% / {recommendation.confidence})
-                      {` — all sims converged on ${fs.mean.toFixed(0)}${noise}`}.
+                      {` — score ${fs.mean.toFixed(0)}${noiseSuffix}`}.
+                    </>
+                  );
+                }
+                const acrossZero = fs.std < 0.05;
+                if (acrossZero) {
+                  return isKo ? (
+                    <>
+                      <span className="font-semibold text-slate-900">{recommendation.country}</span>
+                      {" "}진출이 합의 우위 ({recommendation.consensusPercent}% / {recommendation.confidence})
+                      {` — 모든 시뮬이 ${fs.mean.toFixed(0)}점으로 수렴${noiseSuffix}`}.
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-semibold text-slate-900">{recommendation.country}</span>
+                      {" "}leads consensus ({recommendation.consensusPercent}% / {recommendation.confidence})
+                      {` — all sims converged on ${fs.mean.toFixed(0)}${noiseSuffix}`}.
                     </>
                   );
                 }
@@ -1538,6 +1558,19 @@ function OverviewTab({
                   );
                   const unanimous = pricing.recommendedPriceUnanimousAt;
                   const withinStd = pricing.recommendedPriceWithinSimStdMean ?? 0;
+                  const noiseSuffix = withinStd > 0
+                    ? (isKo
+                        ? ` · 시뮬 내부 noise ±${fmtPrice(withinStd)}`
+                        : ` · within-sim noise ±${fmtPrice(withinStd)}`)
+                    : "";
+                  // Hypothesis tier (1 sim): the "all sims converged" framing
+                  // is misleading and the legacy mid-50% range collapses to
+                  // "$X – $X". Show price + within-sim noise only.
+                  if (simCount === 1) {
+                    return isKo
+                      ? `권장 가격 ${fmtPrice(displayCents)}${noiseSuffix}.`
+                      : `Recommended price ${fmtPrice(displayCents)}${noiseSuffix}.`;
+                  }
                   if (unanimous != null && unanimous > 0) {
                     const noise = withinStd > 0
                       ? (isKo
@@ -4540,6 +4573,7 @@ function ScenarioCard({
 function PricingTab({
   pricing,
   basePriceCents,
+  simCount,
   isKo,
   currency,
 }: {
@@ -4548,6 +4582,10 @@ function PricingTab({
       curve-max vs LLM-rec relationship explicitly. Nullable for
       legacy projects. */
   basePriceCents: number | null;
+  /** Sim count from the parent ensemble — drives the 1-sim
+   *  hypothesis-tier branch where the "all sims converged" framing is
+   *  misleading and we just want to show the price + within-sim noise. */
+  simCount: number;
   isKo: boolean;
   currency: string;
 }) {
@@ -4655,12 +4693,20 @@ function PricingTab({
                 {(() => {
                   const unanimous = pricing.recommendedPriceUnanimousAt;
                   const withinStd = pricing.recommendedPriceWithinSimStdMean ?? 0;
-                  if (unanimous != null && unanimous > 0) {
-                    const noise = withinStd > 0 ? ` · within-sim noise ±${fmt(withinStd)}` : "";
-                    const noiseKo = withinStd > 0 ? ` · 시뮬 내부 noise ±${fmt(withinStd)}` : "";
+                  const noise = withinStd > 0 ? ` · within-sim noise ±${fmt(withinStd)}` : "";
+                  const noiseKo = withinStd > 0 ? ` · 시뮬 내부 noise ±${fmt(withinStd)}` : "";
+                  // Hypothesis tier (1 sim): show within-sim noise only —
+                  // the "all sims converged" framing is misleading and
+                  // the legacy mid-50% range collapses to "$X – $X".
+                  if (simCount === 1) {
                     return isKo
-                      ? `5개 시뮬 모두 ${fmt(unanimous)}로 수렴${noiseKo}`
-                      : `All sims converged on ${fmt(unanimous)}${noise}`;
+                      ? `시뮬 내부 noise ${withinStd > 0 ? `±${fmt(withinStd)}` : "0"}`
+                      : `Within-sim noise ${withinStd > 0 ? `±${fmt(withinStd)}` : "0"}`;
+                  }
+                  if (unanimous != null && unanimous > 0) {
+                    return isKo
+                      ? `${simCount}개 시뮬 모두 ${fmt(unanimous)}로 수렴${noiseKo}`
+                      : `All ${simCount} sims converged on ${fmt(unanimous)}${noise}`;
                   }
                   return isKo
                     ? `중간 50%: ${fmt(pricing.recommendedPriceP25)} – ${fmt(pricing.recommendedPriceP75)}`

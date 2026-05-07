@@ -1215,15 +1215,22 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 const headKo = `${recCountryLabel} 진출이 합의 우위 (${aggregate.recommendation.consensusPercent}% / ${aggregate.recommendation.confidence})`;
                 const headEn = `${recCountryLabel} leads consensus (${aggregate.recommendation.consensusPercent}% / ${aggregate.recommendation.confidence})`;
                 if (!fs) return isKo ? `${headKo}.` : `${headEn}.`;
-                const acrossZero = fs.std < 0.05;
                 const within = fs.withinSimStdMean;
+                const noise =
+                  within && within > 0
+                    ? isKo
+                      ? `, 시뮬 내부 noise ±${within.toFixed(1)}`
+                      : `, within-sim noise ±${within.toFixed(1)}`
+                    : "";
+                // Hypothesis tier (1 sim): "all sims" framing reads weird;
+                // just show the score + within-sim noise from LLM rolls.
+                if (aggregate.simCount === 1) {
+                  return isKo
+                    ? `${headKo} — 점수 ${fs.mean.toFixed(0)}점${noise}.`
+                    : `${headEn} — score ${fs.mean.toFixed(0)}${noise}.`;
+                }
+                const acrossZero = fs.std < 0.05;
                 if (acrossZero) {
-                  const noise =
-                    within && within > 0
-                      ? isKo
-                        ? `, 시뮬 내부 noise ±${within.toFixed(1)}`
-                        : `, within-sim noise ±${within.toFixed(1)}`
-                      : "";
                   return isKo
                     ? `${headKo} — 모든 시뮬이 ${fs.mean.toFixed(0)}점으로 수렴${noise}.`
                     : `${headEn} — all sims converged on ${fs.mean.toFixed(0)}${noise}.`;
@@ -1265,6 +1272,18 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                   );
                   const unanimous = p.recommendedPriceUnanimousAt;
                   const within = p.recommendedPriceWithinSimStdMean ?? 0;
+                  const noiseSuffix = within > 0
+                    ? (isKo
+                        ? ` · 시뮬 내부 noise ±${fmtPrice(within)}`
+                        : ` · within-sim noise ±${fmtPrice(within)}`)
+                    : "";
+                  // Hypothesis tier (1 sim): "all sims converged" framing
+                  // is misleading; legacy mid-50% range collapses to "$X – $X".
+                  if (aggregate.simCount === 1) {
+                    return isKo
+                      ? `권장 가격 ${fmtPrice(displayCents)}${noiseSuffix}.`
+                      : `Recommended price ${fmtPrice(displayCents)}${noiseSuffix}.`;
+                  }
                   if (unanimous != null && unanimous > 0) {
                     const noise = within > 0
                       ? (isKo
@@ -3103,9 +3122,27 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 <View style={{ flexDirection: "row", alignItems: "baseline" }}>
                   <MText style={styles.priceBig}>{fmt(headlineCents)}</MText>
                   <MText style={styles.priceMeta}>
-                    {isKo
-                      ? `중간 50%: ${fmt(pr.recommendedPriceP25)}–${fmt(pr.recommendedPriceP75)}`
-                      : `Mid-50%: ${fmt(pr.recommendedPriceP25)}–${fmt(pr.recommendedPriceP75)}`}
+                    {(() => {
+                      const unanimous = pr.recommendedPriceUnanimousAt;
+                      const within = pr.recommendedPriceWithinSimStdMean ?? 0;
+                      const noise = within > 0 ? ` · within-sim noise ±${fmt(within)}` : "";
+                      const noiseKo = within > 0 ? ` · 시뮬 내부 noise ±${fmt(within)}` : "";
+                      // Hypothesis tier (1 sim): no "all sims" framing,
+                      // no zero-width mid-50% range — within-sim noise only.
+                      if (aggregate.simCount === 1) {
+                        return isKo
+                          ? `시뮬 내부 noise ${within > 0 ? `±${fmt(within)}` : "0"}`
+                          : `Within-sim noise ${within > 0 ? `±${fmt(within)}` : "0"}`;
+                      }
+                      if (unanimous != null && unanimous > 0) {
+                        return isKo
+                          ? `${aggregate.simCount}개 시뮬 모두 ${fmt(unanimous)}로 수렴${noiseKo}`
+                          : `All ${aggregate.simCount} sims converged on ${fmt(unanimous)}${noise}`;
+                      }
+                      return isKo
+                        ? `중간 50%: ${fmt(pr.recommendedPriceP25)}–${fmt(pr.recommendedPriceP75)}`
+                        : `Mid-50%: ${fmt(pr.recommendedPriceP25)}–${fmt(pr.recommendedPriceP75)}`;
+                    })()}
                   </MText>
                 </View>
                 {wasCorrected && (

@@ -1473,8 +1473,11 @@ function computePricingAggregate(
       : undefined;
   // When all sims landed on the exact same recommended price, capture
   // it so the UI can render "All N sims converged on $X" instead of a
-  // confusing zero-width "$X – $X" range.
-  const allSame = recs.length > 1 && recs.every((r) => r === recs[0]);
+  // confusing zero-width "$X – $X" range. Also fires for the single-sim
+  // case (hypothesis tier) — there the UI suppresses the "all sims"
+  // framing via simCount === 1, but we still need the value here so the
+  // legacy mid-50% bullet ("$X – $X") doesn't reappear.
+  const allSame = recs.length >= 1 && recs.every((r) => r === recs[0]);
   const recommendedPriceUnanimousAt = allSame ? recs[0] : null;
 
   // Mode of margin estimates.
