@@ -5,11 +5,14 @@
 import * as Sentry from "@sentry/nextjs";
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+const environment =
+  process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.NODE_ENV ?? "development";
 
-if (dsn) {
+// Skip dev — see sentry.server.config.ts for the rationale.
+if (dsn && environment !== "development") {
   Sentry.init({
     dsn,
-    environment: process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.NODE_ENV ?? "development",
+    environment,
     tracesSampleRate: 0.05,
     // Session Replay disabled at v0.1 — eats event quota fast and we
     // don't have the bandwidth to actually review replays yet. Flip

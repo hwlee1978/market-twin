@@ -4,11 +4,18 @@
 import * as Sentry from "@sentry/nextjs";
 
 const dsn = process.env.SENTRY_DSN;
+const environment =
+  process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "development";
 
-if (dsn) {
+// Skip init in local development — `npm run dev` PDF/runtime errors
+// were filling the Sentry feed and obscuring real production issues
+// (e.g. a stale dev-server held an old italic-font code path that
+// raised "Could not resolve font" only on localhost). Production +
+// preview deployments still report normally.
+if (dsn && environment !== "development") {
   Sentry.init({
     dsn,
-    environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "development",
+    environment,
     // Tracing samples ~5% of server transactions. Bump if we ever need
     // to debug a specific perf regression — at v0.1 traffic this gives
     // enough signal without burning the 5K-event/month free tier.

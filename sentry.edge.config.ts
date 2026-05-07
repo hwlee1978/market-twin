@@ -4,11 +4,14 @@
 import * as Sentry from "@sentry/nextjs";
 
 const dsn = process.env.SENTRY_DSN;
+const environment =
+  process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "development";
 
-if (dsn) {
+// Skip dev — see sentry.server.config.ts for the rationale.
+if (dsn && environment !== "development") {
   Sentry.init({
     dsn,
-    environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "development",
+    environment,
     tracesSampleRate: 0.05,
     sendDefaultPii: false,
   });
