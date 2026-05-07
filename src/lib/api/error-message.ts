@@ -59,6 +59,50 @@ export async function friendlyApiError(
     return statusCopy ?? (isKo ? "알 수 없는 오류" : "Unknown error");
   }
 
+  // Plan limit (status 402): server emits {error: "plan_limit", reason,
+  // plan} where `reason` is one of the canStartSim() codes. Map each to
+  // localised, action-oriented copy instead of dumping the raw code.
+  if (res.status === 402) {
+    let reason = "";
+    try {
+      const parsed = JSON.parse(raw);
+      reason = typeof parsed?.reason === "string" ? parsed.reason : "";
+    } catch {
+      // fall through to generic plan-limit copy below
+    }
+    const reasonMap: Record<string, { ko: string; en: string }> = {
+      trial_expired: {
+        ko: "체험 기간이 종료되었습니다. 결제 플랜을 활성화하면 시뮬을 계속 실행할 수 있습니다.",
+        en: "Your trial has ended. Activate a paid plan to keep running sims.",
+      },
+      trial_sim_quota_exhausted: {
+        ko: "체험 기간 내 시뮬 횟수를 모두 사용했습니다. 결제 플랜을 활성화해 주세요.",
+        en: "Trial sim quota used up. Activate a paid plan to continue.",
+      },
+      month_sim_quota_exhausted: {
+        ko: "이번 달 시뮬 한도를 모두 사용했습니다. 다음 달 갱신을 기다리거나 플랜을 업그레이드하세요.",
+        en: "Monthly sim quota used up. Wait for next month or upgrade your plan.",
+      },
+      month_deep_quota_exhausted: {
+        ko: "이번 달 Triangulated tier 한도를 모두 사용했습니다. 다음 달 갱신을 기다리거나 더 높은 플랜으로 업그레이드하세요.",
+        en: "Monthly Triangulated tier quota used up. Wait for next month or upgrade.",
+      },
+      deep_requires_growth: {
+        ko: "Triangulated tier는 Growth 이상 플랜에서 사용 가능합니다. 더 낮은 tier(Hypothesis / Consensus / Consensus+)를 선택하거나 플랜을 업그레이드하세요.",
+        en: "Triangulated tier requires the Growth plan or higher. Pick a lower tier (Hypothesis / Consensus / Consensus+) or upgrade your plan.",
+      },
+      deep_pro_requires_enterprise: {
+        ko: "Triangulated Pro tier는 Enterprise 플랜에서만 사용 가능합니다.",
+        en: "Triangulated Pro tier is only available on the Enterprise plan.",
+      },
+    };
+    const mapped = reasonMap[reason];
+    if (mapped) return isKo ? mapped.ko : mapped.en;
+    return isKo
+      ? `플랜 한도 초과${reason ? ` (${reason})` : ""}. 플랜 페이지에서 한도를 확인하세요.`
+      : `Plan limit reached${reason ? ` (${reason})` : ""}. Check your plan settings.`;
+  }
+
   const detail = parseDetail(raw);
   if (detail && statusCopy) {
     // Status copy as the headline, server detail as the parenthetical.

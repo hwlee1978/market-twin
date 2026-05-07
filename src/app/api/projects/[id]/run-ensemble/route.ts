@@ -11,6 +11,7 @@ import type { CountryScore } from "@/lib/simulation/schemas";
 import { notifyEnsembleComplete } from "@/lib/email/notify";
 import { canStartSim } from "@/lib/billing/plans";
 import { getSubscription, getMonthlyUsage } from "@/lib/billing/usage";
+import { getAdminContext } from "@/lib/admin";
 
 // Each individual sim still fits in 800s (Vercel Pro + Fluid Compute);
 // the ensemble route itself returns immediately and orchestrates via after().
@@ -221,8 +222,12 @@ export async function POST(
   // Service-role inside getSubscription / getMonthlyUsage; gating is
   // hot-path so two short queries beat lazy enforcement on the runner.
   // Free reruns bypass — the original sim already paid for the slot.
+  // Super admins also bypass — internal staff (founder / ops) should
+  // run any tier without burning paid quota or hitting plan-tier gates.
   const sub = await getSubscription(wsCtx.workspaceId);
-  if (!isFreeRerun) {
+  const adminCtx = await getAdminContext();
+  const isSuperAdmin = adminCtx?.role === "super";
+  if (!isFreeRerun && !isSuperAdmin) {
     const usage = await getMonthlyUsage(wsCtx.workspaceId, sub);
     const decision = canStartSim({
       plan: sub.plan,
