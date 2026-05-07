@@ -770,6 +770,28 @@ function stripUnsupportedGlyphs(text: string): string {
     .trim();
 }
 
+/**
+ * Picks a cover-title font size that keeps the product name on a single
+ * line. The cover frame is A4 (595pt) minus 56pt padding on each side =
+ * 483pt of usable width. Pretendard SemiBold averages ~0.6em per Latin
+ * char; CJK glyphs are wider so we weight Hangul / kana / CJK at 1.6×.
+ * Default 28pt drops in steps to 16pt for very long names — anything
+ * past ~46 weighted chars gets the smallest size and may still wrap,
+ * but that's by far better than mid-word hyphenation at 28pt.
+ */
+function fitCoverTitleSize(text: string): number {
+  let weight = 0;
+  for (const ch of text) {
+    weight += /[가-힯぀-ヿ一-鿿]/.test(ch) ? 1.6 : 1;
+  }
+  if (weight <= 18) return 28;
+  if (weight <= 24) return 24;
+  if (weight <= 30) return 22;
+  if (weight <= 38) return 20;
+  if (weight <= 46) return 18;
+  return 16;
+}
+
 const TIER_DISPLAY: Record<
   TierName,
   { ko: string; en: string; eyebrowKo: string; eyebrowEn: string }
@@ -5910,7 +5932,14 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
               ? `${t.coverEyebrow} · ${isKo ? "임원용" : "EXECUTIVE"}`
               : t.coverEyebrow}
           </MText>
-          <MText style={styles.coverTitle}>{stripUnsupportedGlyphs(productName)}</MText>
+          <MText
+            style={[
+              styles.coverTitle,
+              { fontSize: fitCoverTitleSize(productName) },
+            ]}
+          >
+            {stripUnsupportedGlyphs(productName)}
+          </MText>
           <MText style={styles.coverProduct}>{generatedAtStr}</MText>
         </View>
         <View>
