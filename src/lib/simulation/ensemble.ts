@@ -13,6 +13,7 @@ import {
   computePricingSensitivity as computePricingSensitivityShared,
   computeCurveRevenueMaxCents,
 } from "./pricing-sensitivity";
+import { tokenize, overlapCoefficient } from "./surfaced-recount";
 
 /* ────────────────────────────────── stats helpers ─── */
 function median(xs: number[]): number {
@@ -1636,37 +1637,93 @@ function computeCreativeAggregate(
   const present = sims.filter((s) => s.creative && s.creative.length > 0);
   if (present.length === 0) return undefined;
 
-  // Group per-asset across sims. We key by lowercased assetName so a sim
-  // that varied case doesn't fragment the bucket.
-  const byAsset = new Map<
-    string,
+  // Cluster assets by name similarity instead of exact-key bucketing.
+  // The LLM emits a wide variety of names for the same underlying
+  // concept ("Cherry Cola" / "체리콜라" / "체리 콜라" / "Cherry Cola 팟
+  // 패키지 — 레드·블랙 클래식 컬러"). Lowercasing alone left them as
+  // separate keys and the dashboard showed 5 product variants as ~25
+  // entries.
+  //
+  // Approach: tokenise each name (KO+EN, with Hangul bigrams for
+  // morphology resilience) and union-find pairs with overlap-coefficient
+  // ≥ 0.5. Threshold high enough to keep distinct flavors separate
+  // ("Cherry Cola" vs "Peachy Plum" share no content tokens) but loose
+  // enough to merge naming variations of the same concept.
+  type AssetEntry = {
+    assetName: string;
+    score: number;
+    strengths: string[];
+    weaknesses: string[];
+    tokens: Set<string>;
+  };
+  const entries: AssetEntry[] = [];
+  for (const s of present) {
+    for (const a of s.creative!) {
+      entries.push({
+        assetName: a.assetName,
+        score: a.score,
+        strengths: a.strengths,
+        weaknesses: a.weaknesses,
+        tokens: tokenize(a.assetName),
+      });
+    }
+  }
+  // Union-find by overlap-coefficient ≥ 0.5 on tokenised names.
+  const parent = entries.map((_, i) => i);
+  const find = (x: number): number => {
+    while (parent[x] !== x) {
+      parent[x] = parent[parent[x]];
+      x = parent[x];
+    }
+    return x;
+  };
+  const union = (a: number, b: number) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent[ra] = rb;
+  };
+  for (let i = 0; i < entries.length; i++) {
+    for (let j = i + 1; j < entries.length; j++) {
+      if (overlapCoefficient(entries[i].tokens, entries[j].tokens) >= 0.5) {
+        union(i, j);
+      }
+    }
+  }
+  // Bucket by cluster root.
+  const byCluster = new Map<
+    number,
     {
-      assetName: string;
+      names: Map<string, number>; // name → frequency for picking display
       scores: number[];
       strengths: Map<string, number>;
       weaknesses: Map<string, number>;
     }
   >();
-  for (const s of present) {
-    for (const a of s.creative!) {
-      const key = a.assetName.toLowerCase();
-      const cur = byAsset.get(key) ?? {
-        assetName: a.assetName,
-        scores: [] as number[],
-        strengths: new Map<string, number>(),
-        weaknesses: new Map<string, number>(),
-      };
-      cur.scores.push(a.score);
-      for (const x of a.strengths) cur.strengths.set(x, (cur.strengths.get(x) ?? 0) + 1);
-      for (const x of a.weaknesses) cur.weaknesses.set(x, (cur.weaknesses.get(x) ?? 0) + 1);
-      byAsset.set(key, cur);
-    }
+  for (let i = 0; i < entries.length; i++) {
+    const root = find(i);
+    const e = entries[i];
+    const cur = byCluster.get(root) ?? {
+      names: new Map<string, number>(),
+      scores: [] as number[],
+      strengths: new Map<string, number>(),
+      weaknesses: new Map<string, number>(),
+    };
+    cur.names.set(e.assetName, (cur.names.get(e.assetName) ?? 0) + 1);
+    cur.scores.push(e.score);
+    for (const x of e.strengths) cur.strengths.set(x, (cur.strengths.get(x) ?? 0) + 1);
+    for (const x of e.weaknesses) cur.weaknesses.set(x, (cur.weaknesses.get(x) ?? 0) + 1);
+    byCluster.set(root, cur);
   }
 
   return {
-    assets: [...byAsset.values()]
+    assets: [...byCluster.values()]
       .map((a) => ({
-        assetName: a.assetName,
+        // Display name = most-frequent variant in the cluster, ties
+        // broken by shortest (concise > verbose for headlines).
+        assetName: [...a.names.entries()].sort((x, y) => {
+          if (y[1] !== x[1]) return y[1] - x[1];
+          return x[0].length - y[0].length;
+        })[0][0],
         meanScore: round1(mean(a.scores)),
         topStrengths: [...a.strengths.entries()]
           .map(([point, n]) => ({ point, surfacedInSims: n }))
