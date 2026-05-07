@@ -1659,7 +1659,22 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     // NOT trigger failure side effects: row is already 'cancelled', operators
     // don't need a notification, and we shouldn't downgrade status to 'failed'.
     if (message === CANCELLED_ERR) {
-      console.log(`[sim ${opts.simulationId}] cancelled by user — pipeline aborted`);
+      console.log(
+        `[sim ${opts.simulationId}] cancelled by user after $${(usage.costCents / 100).toFixed(2)} of LLM spend`,
+      );
+      // Persist the partial token / cost numbers so admin/billing can
+      // count the spend that actually happened. Without this, cancelled
+      // sims show null cost and the rollup undercounts the Anthropic
+      // invoice by the LLM tokens we already burned through. We don't
+      // override status (already 'cancelled') — only the usage columns.
+      await supabase
+        .from("simulations")
+        .update({
+          total_input_tokens: usage.inputTokens,
+          total_output_tokens: usage.outputTokens,
+          total_cost_cents: usage.costCents,
+        })
+        .eq("id", opts.simulationId);
       return undefined as unknown as SimulationResult;
     }
     // Don't overwrite current_stage here — leave it pointing at whatever
@@ -1668,9 +1683,18 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     // signal is lost if every failed row reports current_stage='failed'.
     // .neq("status", "cancelled") so a cancel that landed mid-flight isn't
     // silently rewritten to 'failed'.
+    // Same usage-persistence rationale as the cancellation path: a sim
+    // that failed at synthesis still consumed full persona-stage tokens,
+    // and pretending it cost $0 in the billing rollup is just wrong.
     await supabase
       .from("simulations")
-      .update({ status: "failed", error_message: message })
+      .update({
+        status: "failed",
+        error_message: message,
+        total_input_tokens: usage.inputTokens,
+        total_output_tokens: usage.outputTokens,
+        total_cost_cents: usage.costCents,
+      })
       .eq("id", opts.simulationId)
       .neq("status", "cancelled");
 

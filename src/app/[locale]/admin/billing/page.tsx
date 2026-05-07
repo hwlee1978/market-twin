@@ -10,6 +10,8 @@ interface SimRow {
   total_output_tokens: number | null;
   total_cost_cents: number | null;
   completed_at: string | null;
+  started_at: string | null;
+  status: string;
   model_provider: string | null;
 }
 
@@ -47,23 +49,28 @@ export default async function AdminBillingPage({
   last30Start.setDate(last30Start.getDate() - 30);
   last30Start.setHours(0, 0, 0, 0);
 
+  // Pull every billable sim row in the window — completed AND
+  // cancelled/failed — because the runner now persists partial token
+  // costs on the cancel/fail path. Splitting them in the rollup tells
+  // the operator how much they're losing to abandoned runs (which
+  // still cost real LLM dollars but produce no usable output).
+  // Filter on started_at (set at runner entry) instead of completed_at
+  // so cancelled/failed rows aren't excluded by a missing completed_at.
   const [{ data: thisMonthSims }, { data: last30Sims }, { data: workspaces }] =
     await Promise.all([
       admin
         .from("simulations")
         .select(
-          "id, workspace_id, total_input_tokens, total_output_tokens, total_cost_cents, completed_at, model_provider",
+          "id, workspace_id, total_input_tokens, total_output_tokens, total_cost_cents, completed_at, started_at, status, model_provider",
         )
-        .eq("status", "completed")
-        .gte("completed_at", monthStart.toISOString())
+        .gte("started_at", monthStart.toISOString())
         .not("total_cost_cents", "is", null),
       admin
         .from("simulations")
         .select(
-          "id, workspace_id, total_input_tokens, total_output_tokens, total_cost_cents, completed_at, model_provider",
+          "id, workspace_id, total_input_tokens, total_output_tokens, total_cost_cents, completed_at, started_at, status, model_provider",
         )
-        .eq("status", "completed")
-        .gte("completed_at", last30Start.toISOString())
+        .gte("started_at", last30Start.toISOString())
         .not("total_cost_cents", "is", null),
       admin.from("workspaces").select("id, name"),
     ]);
@@ -79,14 +86,33 @@ export default async function AdminBillingPage({
   const sum = (rows: SimRow[], key: keyof SimRow) =>
     rows.reduce((s, r) => s + ((r[key] as number | null) ?? 0), 0);
 
-  const monthTotalCents = sum(monthRows, "total_cost_cents");
+  // Split rollups by status so the wasted-spend slice is visible.
+  // "completed" = useful spend (produced a result the user could use)
+  // "cancelled" + "failed" = wasted spend (LLM tokens burned, no
+  //                          usable output — typically user cancel
+  //                          mid-run or pipeline exception).
+  const isWasted = (s: string) => s === "cancelled" || s === "failed";
+  const monthCompletedRows = monthRows.filter((r) => r.status === "completed");
+  const monthWastedRows = monthRows.filter((r) => isWasted(r.status));
+
+  const monthCompletedCents = sum(monthCompletedRows, "total_cost_cents");
+  const monthWastedCents = sum(monthWastedRows, "total_cost_cents");
+  const monthTotalCents = monthCompletedCents + monthWastedCents;
   const monthInputTokens = sum(monthRows, "total_input_tokens");
   const monthOutputTokens = sum(monthRows, "total_output_tokens");
-  const monthSimCount = monthRows.length;
+  const monthCompletedSimCount = monthCompletedRows.length;
+  const monthWastedSimCount = monthWastedRows.length;
 
+  const recent30CompletedRows = recent30Rows.filter((r) => r.status === "completed");
   const recent30TotalCents = sum(recent30Rows, "total_cost_cents");
-  const recent30SimCount = recent30Rows.length;
-  const recent30AvgCents = recent30SimCount > 0 ? Math.round(recent30TotalCents / recent30SimCount) : 0;
+  const recent30CompletedCents = sum(recent30CompletedRows, "total_cost_cents");
+  const recent30CompletedCount = recent30CompletedRows.length;
+  // Avg / sim is computed against COMPLETED only — that's the useful
+  // unit-cost benchmark for plan pricing math. Including cancelled
+  // sims would dilute the average since cancelled rows often persist
+  // far below the full per-sim cost.
+  const recent30AvgCents =
+    recent30CompletedCount > 0 ? Math.round(recent30CompletedCents / recent30CompletedCount) : 0;
 
   // Top-spending workspaces this month.
   const byWorkspace = new Map<string, { sims: number; cents: number; tokens: number }>();
@@ -123,16 +149,25 @@ export default async function AdminBillingPage({
         <h1 className="text-2xl font-semibold">{isKo ? "비용 / 사용량" : "Billing & usage"}</h1>
         <p className="text-sm text-slate-500 mt-1">
           {isKo
-            ? "성공한 시뮬레이션 기준 LLM 토큰 사용량과 비용을 워크스페이스별로 집계합니다. 실패·취소·구버전(컬럼 없음) 시뮬은 제외됩니다."
-            : "Token usage + cost aggregated from successful sims. Failed / cancelled / pre-migration sims are excluded."}
+            ? "완료·취소·실패 시뮬의 LLM 토큰 사용량과 비용을 집계합니다. 취소/실패 sim도 토큰은 이미 소비됐으므로 별도 집계해 \"낭비된 비용\" 으로 표시합니다."
+            : "Token usage + cost across completed / cancelled / failed sims. Cancelled & failed sims still burned LLM tokens, surfaced separately as \"wasted spend\"."}
         </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
-          label={isKo ? "이번 달 비용" : "Spend this month"}
-          value={formatCentsUsd(monthTotalCents)}
-          hint={isKo ? `${monthSimCount}개 시뮬` : `${monthSimCount} sims`}
+          label={isKo ? "이번 달 비용 (완료)" : "Completed spend (this month)"}
+          value={formatCentsUsd(monthCompletedCents)}
+          hint={isKo ? `${monthCompletedSimCount}개 시뮬` : `${monthCompletedSimCount} sims`}
+        />
+        <KpiCard
+          label={isKo ? "이번 달 낭비된 비용" : "Wasted spend (this month)"}
+          value={formatCentsUsd(monthWastedCents)}
+          hint={
+            isKo
+              ? `${monthWastedSimCount}개 취소·실패 (전체 ${monthTotalCents > 0 ? Math.round((monthWastedCents / monthTotalCents) * 100) : 0}%)`
+              : `${monthWastedSimCount} cancelled/failed (${monthTotalCents > 0 ? Math.round((monthWastedCents / monthTotalCents) * 100) : 0}% of total)`
+          }
         />
         <KpiCard
           label={isKo ? "이번 달 토큰" : "Tokens this month"}
@@ -140,14 +175,9 @@ export default async function AdminBillingPage({
           hint={`${(monthInputTokens / 1000).toFixed(0)}k in / ${(monthOutputTokens / 1000).toFixed(0)}k out`}
         />
         <KpiCard
-          label={isKo ? "최근 30일 비용" : "Spend last 30 days"}
-          value={formatCentsUsd(recent30TotalCents)}
-          hint={isKo ? `${recent30SimCount}개 시뮬` : `${recent30SimCount} sims`}
-        />
-        <KpiCard
-          label={isKo ? "시뮬당 평균" : "Avg cost / sim"}
+          label={isKo ? "시뮬당 평균 (완료)" : "Avg cost / sim (completed)"}
           value={formatCentsUsd(recent30AvgCents)}
-          hint={isKo ? "최근 30일" : "Last 30 days"}
+          hint={isKo ? `최근 30일 · ${recent30CompletedCount}개` : `Last 30 days · ${recent30CompletedCount} sims`}
         />
       </div>
 
