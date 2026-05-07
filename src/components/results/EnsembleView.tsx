@@ -2275,7 +2275,6 @@ function CountriesTab({
                           <CountryDrilldown
                             detail={c.detail}
                             rationaleSamples={c.detail.rationaleSamples}
-                            sources={sources}
                             components={c.components}
                             finalScoreMean={c.finalScore.mean}
                             isKo={isKo}
@@ -2290,6 +2289,30 @@ function CountriesTab({
           </table>
         </div>
       </div>
+
+      {/* Project-wide reference data sources — flat list of every gov-stats
+          and competitor-IR source consulted across all candidate markets.
+          Lives at the tab footer (not inside per-country drilldown) because
+          the underlying `aggregate.sources` is a project-wide Set, not
+          country-tagged. Showing it under one country's expand row would
+          imply otherwise. */}
+      {sources.length > 0 && (
+        <div>
+          <h2 className="text-base font-semibold text-slate-900 mb-3">
+            {isKo ? "통계 근거" : "Data sources"}
+          </h2>
+          <div className="card p-4">
+            <p className="text-xs text-slate-500 leading-relaxed mb-2">
+              {isKo
+                ? "이번 분석에서 검토한 모든 후보국에 사용된 정부 통계·시장 조사·IR 자료 통합 목록입니다."
+                : "Combined list of every government statistic, market study, and IR source consulted across all candidate markets in this analysis."}
+            </p>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              {sources.join(" · ")}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2297,14 +2320,12 @@ function CountriesTab({
 function CountryDrilldown({
   detail,
   rationaleSamples,
-  sources,
   components,
   finalScoreMean,
   isKo,
 }: {
   detail: NonNullable<EnsembleAggregate["countryStats"][number]["detail"]>;
   rationaleSamples: string[];
-  sources: string[];
   components?: NonNullable<EnsembleAggregate["countryStats"][number]["components"]>;
   finalScoreMean: number;
   isKo: boolean;
@@ -2385,14 +2406,6 @@ function CountryDrilldown({
             </ul>
           )}
         </div>
-        {sources.length > 0 && (
-          <div>
-            <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
-              {isKo ? "통계 근거" : "Data sources"}
-            </div>
-            <p className="text-xs text-slate-500 leading-relaxed">{sources.join(" · ")}</p>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -2572,16 +2585,28 @@ function FunnelStrip({
   // Compute drop-offs to highlight where the funnel leaks. Curiosity is
   // 0-100, the others are %. When the click rate is far below curiosity
   // (e.g. 65 vs 25), that's an ad-vs-landing mismatch worth flagging.
-  const dropoffMessage = (() => {
-    if (funnel.curiosityMean - funnel.clickRatePct >= 25) {
-      return isKo
-        ? "광고는 시선을 끌지만 클릭으로 이어지지 않음 → 카피·CTA 점검"
-        : "Ad catches eye but doesn't earn the click — review copy + CTA";
+  const dropoffMessage: { text: string; tooltip: string } | null = (() => {
+    const curiosityClickGap = funnel.curiosityMean - funnel.clickRatePct;
+    const clickBuyGap = funnel.clickRatePct - funnel.buyRatePct;
+    if (curiosityClickGap >= 25) {
+      return {
+        text: isKo
+          ? "광고는 시선을 끌지만 클릭으로 이어지지 않음 → 카피·CTA 점검"
+          : "Ad catches eye but doesn't earn the click — review copy + CTA",
+        tooltip: isKo
+          ? `광고 호기심(${funnel.curiosityMean.toFixed(0)}) − 클릭률(${funnel.clickRatePct.toFixed(0)}%) = ${curiosityClickGap.toFixed(0)}p. 25p 이상 차이가 나면 경고가 뜹니다 — 광고에 시선은 끌지만 다음 행동이 안 일어나는 패턴이라, 카피·CTA의 다음-행동 hook을 강화하세요.`
+          : `Ad curiosity (${funnel.curiosityMean.toFixed(0)}) − click rate (${funnel.clickRatePct.toFixed(0)}%) = ${curiosityClickGap.toFixed(0)}pp. Triggers at ≥25pp. Ad catches eye but the next-action hook is weak — sharpen copy and CTA.`,
+      };
     }
-    if (funnel.clickRatePct - funnel.buyRatePct >= 25) {
-      return isKo
-        ? "클릭은 받지만 구매로 이어지지 않음 → 가격·랜딩 컨텐츠 점검"
-        : "Clicks don't convert to buys — review pricing + landing content";
+    if (clickBuyGap >= 25) {
+      return {
+        text: isKo
+          ? "클릭은 받지만 구매로 이어지지 않음 → 가격·랜딩 컨텐츠 점검"
+          : "Clicks don't convert to buys — review pricing + landing content",
+        tooltip: isKo
+          ? `클릭률(${funnel.clickRatePct.toFixed(0)}%) − 구매률(${funnel.buyRatePct.toFixed(0)}%) = ${clickBuyGap.toFixed(0)}p. 25p 이상 차이가 나면 경고가 뜹니다 — 광고는 통하지만 랜딩에서 이탈하는 패턴이라, 가격 정당화·가치제안·신뢰 신호(리뷰·인증·보증)를 점검하세요.`
+          : `Click rate (${funnel.clickRatePct.toFixed(0)}%) − buy rate (${funnel.buyRatePct.toFixed(0)}%) = ${clickBuyGap.toFixed(0)}pp. Triggers at ≥25pp. Ad lands but landing page loses them — review price justification, value prop, and trust signals (reviews, certs, guarantee).`,
+      };
     }
     return null;
   })();
@@ -2615,7 +2640,15 @@ function FunnelStrip({
       {dropoffMessage && (
         <p className="text-[11px] text-warn mt-2 leading-relaxed flex items-start gap-1.5">
           <AlertCircle size={12} className="shrink-0 mt-0.5" />
-          {dropoffMessage}
+          <span>
+            {dropoffMessage.text}
+            <span
+              className="ml-1.5 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-warn/15 text-warn text-[9px] font-bold cursor-help align-middle"
+              title={dropoffMessage.tooltip}
+            >
+              ?
+            </span>
+          </span>
         </p>
       )}
     </div>
