@@ -30,6 +30,12 @@ import {
   overlapCoefficient,
   isPersonaMismatchNoise,
 } from "@/lib/simulation/surfaced-recount";
+import {
+  COMPONENT_LABEL,
+  COMPONENT_STRESS_SCENARIOS,
+  flipThresholdPt,
+  type ComponentKey,
+} from "@/lib/decision-aid/stress-scenarios";
 
 const C = {
   brand: "#0A1F4D",
@@ -4314,47 +4320,28 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     const gap = top.finalScore.mean - runnerUp.finalScore.mean;
     const gapPct = top.finalScore.mean > 0 ? (gap / top.finalScore.mean) * 100 : 0;
 
-    // Component vulnerabilities for top country — which 10pt drop
-    // would bring it below runner-up?
+    // Component vulnerabilities for top country — uses the dashboard's
+    // stress-scenario library so PDF and dashboard show the same
+    // analysis. Generic "10pt → flip" placeholder replaced with
+    // mathematically-correct flip threshold (gap × 6 under equal-
+    // weight assumption) and named adverse scenarios per component.
     const topComp = top.components;
     const vulnerableDim: Array<{
-      label: { ko: string; en: string };
+      key: ComponentKey;
       score: number;
-      wouldFlip: boolean;
     }> = topComp
-      ? [
-          {
-            label: { ko: "시장 크기", en: "Market size" },
-            score: topComp.marketSize.mean,
-            wouldFlip: gap < 10 && topComp.marketSize.mean - 10 + (top.finalScore.mean - 10) < runnerUp.finalScore.mean,
-          },
-          {
-            label: { ko: "문화 적합", en: "Cultural fit" },
-            score: topComp.culturalFit.mean,
-            wouldFlip: gap < 10,
-          },
-          {
-            label: { ko: "채널 매치", en: "Channel match" },
-            score: topComp.channelMatch.mean,
-            wouldFlip: gap < 10,
-          },
-          {
-            label: { ko: "가격 수용", en: "Price fit" },
-            score: topComp.priceCompat.mean,
-            wouldFlip: gap < 10,
-          },
-          {
-            label: { ko: "경쟁 (역치)", en: "Competition (inv)" },
-            score: topComp.competition.mean,
-            wouldFlip: gap < 10,
-          },
-          {
-            label: { ko: "규제 (역치)", en: "Regulatory (inv)" },
-            score: topComp.regulatory.mean,
-            wouldFlip: gap < 10 || topComp.regulatory.mean < 40,
-          },
-        ]
+      ? (
+          [
+            { key: "marketSize", score: topComp.marketSize.mean },
+            { key: "culturalFit", score: topComp.culturalFit.mean },
+            { key: "channelMatch", score: topComp.channelMatch.mean },
+            { key: "priceCompat", score: topComp.priceCompat.mean },
+            { key: "competition", score: topComp.competition.mean },
+            { key: "regulatory", score: topComp.regulatory.mean },
+          ] as Array<{ key: ComponentKey; score: number }>
+        ).sort((a, b) => a.score - b.score)
       : [];
+    const flipThreshold = flipThresholdPt(gap);
 
     // Robustness verdict
     let robustnessLabel: { ko: string; en: string };
@@ -4431,7 +4418,10 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           </MText>
         </View>
 
-        {/* Component vulnerability table */}
+        {/* Component vulnerability — concrete stress scenarios per
+            component (mirrors dashboard layout). Replaces the generic
+            "10pt drop" with mathematically-correct flip threshold and
+            named adverse scenarios with magnitude estimates. */}
         {vulnerableDim.length > 0 && (
           <View style={styles.sectionBlock}>
             <MText style={styles.sectionEyebrow}>
@@ -4439,30 +4429,47 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             </MText>
             <MText style={{ fontSize: 8, color: C.muted, lineHeight: 1.4, marginBottom: 6 }}>
               {isKo
-                ? "각 항목이 10pt 하락 시 추천이 2순위로 flip되는지 표시. 점수가 낮은 항목 = 더 취약."
-                : "Whether a 10pt drop in each component would flip the recommendation to the runner-up. Lower score = more vulnerable."}
+                ? `2순위까지의 격차가 ${gap.toFixed(1)}pt. 6개 component 균등 가중 가정 시, 한 component가 단독으로 ${Math.round(flipThreshold)}pt 하락하면 추천이 flip. 아래 시나리오의 추정 drop이 임계값을 넘으면 단독 flip 발생.`
+                : `Gap to runner-up is ${gap.toFixed(1)}pt. Under equal-weight components (1/6 each), a single component must drop ${Math.round(flipThreshold)}pt for the recommendation to flip. Each scenario shows the estimated drop and whether it alone exceeds the threshold.`}
             </MText>
-            {vulnerableDim
-              .sort((a, b) => a.score - b.score)
-              .map((d, i) => {
-                const tone = d.score >= 65 ? C.success : d.score >= 50 ? C.warn : C.risk;
-                return (
+            {vulnerableDim.map((d) => {
+              const label = COMPONENT_LABEL[d.key];
+              const scenarios = COMPONENT_STRESS_SCENARIOS[d.key];
+              const tone = d.score >= 65 ? C.success : d.score >= 50 ? C.warn : C.risk;
+              const cumulative = scenarios.reduce((s, sc) => s + sc.dropPt, 0);
+              const cumulativeFlips = cumulative >= flipThreshold;
+              return (
+                <View
+                  key={d.key}
+                  style={{
+                    paddingVertical: 5,
+                    borderBottomWidth: 0.5,
+                    borderBottomColor: C.divider,
+                  }}
+                  wrap={false}
+                >
+                  {/* Component header row */}
                   <View
-                    key={i}
                     style={{
                       flexDirection: "row",
                       alignItems: "center",
-                      paddingVertical: 4,
-                      borderBottomWidth: 0.5,
-                      borderBottomColor: C.divider,
                       gap: 8,
+                      marginBottom: 3,
                     }}
-                    wrap={false}
                   >
-                    <MText style={{ fontSize: 9, color: C.ink, fontWeight: 600, width: 110 }}>
-                      {isKo ? d.label.ko : d.label.en}
+                    <MText
+                      style={{ fontSize: 9, color: C.ink, fontWeight: 600, width: 110 }}
+                    >
+                      {isKo ? label.ko : label.en}
                     </MText>
-                    <View style={{ flex: 1, height: 6, backgroundColor: C.divider, borderRadius: 3 }}>
+                    <View
+                      style={{
+                        flex: 1,
+                        height: 6,
+                        backgroundColor: C.divider,
+                        borderRadius: 3,
+                      }}
+                    >
                       <View
                         style={{
                           width: `${Math.max(0, Math.min(100, d.score))}%`,
@@ -4472,29 +4479,109 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                         }}
                       />
                     </View>
-                    <MText style={{ fontSize: 9, color: tone, fontWeight: 700, width: 36, textAlign: "right" }}>
+                    <MText
+                      style={{
+                        fontSize: 9,
+                        color: tone,
+                        fontWeight: 700,
+                        width: 36,
+                        textAlign: "right",
+                      }}
+                    >
                       {d.score.toFixed(0)}
+                    </MText>
+                  </View>
+                  {/* Scenario rows */}
+                  {scenarios.map((sc, j) => {
+                    const flips = sc.dropPt >= flipThreshold;
+                    return (
+                      <View
+                        key={j}
+                        style={{
+                          flexDirection: "row",
+                          paddingLeft: 118,
+                          gap: 6,
+                          marginTop: 1,
+                        }}
+                      >
+                        <MText style={{ fontSize: 7, color: C.muted, width: 8 }}>•</MText>
+                        <MText
+                          style={{ fontSize: 7, color: C.body, flex: 1, lineHeight: 1.4 }}
+                        >
+                          {isKo ? sc.ko : sc.en}
+                        </MText>
+                        <MText
+                          style={{
+                            fontSize: 7,
+                            color: C.muted,
+                            width: 32,
+                            textAlign: "right",
+                          }}
+                        >
+                          {`−${sc.dropPt}pt`}
+                        </MText>
+                        <MText
+                          style={{
+                            fontSize: 7,
+                            color: flips ? C.risk : C.muted,
+                            width: 32,
+                            textAlign: "right",
+                            fontWeight: flips ? 700 : 400,
+                          }}
+                        >
+                          {flips
+                            ? isKo ? "→ flip" : "→ flip"
+                            : isKo ? "안정" : "stable"}
+                        </MText>
+                      </View>
+                    );
+                  })}
+                  {/* Cumulative worst case */}
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      paddingLeft: 118,
+                      gap: 6,
+                      marginTop: 2,
+                      paddingTop: 2,
+                      borderTopWidth: 0.25,
+                      borderTopColor: C.divider,
+                    }}
+                  >
+                    <MText style={{ fontSize: 7, color: C.muted, width: 8 }}>∑</MText>
+                    <MText
+                      style={{
+                        fontSize: 7,
+                        color: C.body,
+                        flex: 1,
+                        fontStyle: "italic",
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {isKo ? "동시 다발 (누적 worst case)" : "All hit simultaneously (worst case)"}
+                    </MText>
+                    <MText
+                      style={{ fontSize: 7, color: C.muted, width: 32, textAlign: "right" }}
+                    >
+                      {`−${cumulative}pt`}
                     </MText>
                     <MText
                       style={{
-                        fontSize: 8,
-                        color: d.wouldFlip ? C.risk : C.muted,
-                        width: 80,
+                        fontSize: 7,
+                        color: cumulativeFlips ? C.risk : C.muted,
+                        width: 32,
                         textAlign: "right",
-                        fontWeight: d.wouldFlip ? 700 : 400,
+                        fontWeight: cumulativeFlips ? 700 : 400,
                       }}
                     >
-                      {d.wouldFlip
-                        ? isKo
-                          ? "10pt↓ → flip"
-                          : "10pt↓ → flip"
-                        : isKo
-                          ? "안정"
-                          : "stable"}
+                      {cumulativeFlips
+                        ? isKo ? "→ flip" : "→ flip"
+                        : isKo ? "안정" : "stable"}
                     </MText>
                   </View>
-                );
-              })}
+                </View>
+              );
+            })}
           </View>
         )}
 
