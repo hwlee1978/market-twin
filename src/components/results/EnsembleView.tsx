@@ -2402,12 +2402,24 @@ function CountryDrilldown({
               {isKo ? "공통 거부 요인 TOP 5" : "Top objections"}
             </div>
             <ul className="space-y-1.5 text-sm">
-              {detail.topObjections.map((o) => (
+              {detail.topObjections.map((o) => {
+                // Count = clustered objection-instances. Showing as
+                // % of country's persona pool makes the magnitude
+                // immediately readable (e.g. "68%" reads as "most
+                // personas raised this concern").
+                const sharePct =
+                  detail.persona.count > 0
+                    ? Math.round((o.count / detail.persona.count) * 100)
+                    : null;
+                return (
                 <li key={o.text} className="flex items-start gap-2">
-                  <span className="badge bg-slate-100 text-slate-600 shrink-0 tabular-nums">{o.count}</span>
+                  <span className="badge bg-slate-100 text-slate-600 shrink-0 tabular-nums">
+                    {sharePct != null ? `${sharePct}%` : o.count}
+                  </span>
                   <span className="text-slate-700">{o.text}</span>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </div>
         )}

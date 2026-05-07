@@ -2768,26 +2768,40 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                       <MText style={[styles.infoLabel, { marginBottom: 3 }]}>
                         {isKo ? "공통 거부 요인 TOP 5" : "Top objections"}
                       </MText>
-                      {d.topObjections.map((o) => (
-                        <View
-                          key={o.text}
-                          style={{ flexDirection: "row", marginBottom: 2, gap: 6 }}
-                        >
-                          <MText
-                            style={{
-                              fontSize: 8,
-                              color: C.muted,
-                              minWidth: 14,
-                              textAlign: "right",
-                            }}
+                      {d.topObjections.map((o) => {
+                        // Count = clustered objection-instances; persona
+                        // count = unique-persona denominator. Many
+                        // personas emit 2-3 strings each, so the count
+                        // can be greater than the persona count
+                        // semantically (multiple mentions per persona)
+                        // OR less (when each persona only raised it
+                        // once). Showing % share of personas makes the
+                        // magnitude readable.
+                        const sharePct =
+                          d.persona.count > 0
+                            ? Math.round((o.count / d.persona.count) * 100)
+                            : null;
+                        return (
+                          <View
+                            key={o.text}
+                            style={{ flexDirection: "row", marginBottom: 2, gap: 6 }}
                           >
-                            {String(o.count)}
-                          </MText>
-                          <MText style={{ fontSize: 9, color: C.body, flex: 1, lineHeight: 1.45 }}>
-                            {o.text}
-                          </MText>
-                        </View>
-                      ))}
+                            <MText
+                              style={{
+                                fontSize: 8,
+                                color: C.muted,
+                                minWidth: 38,
+                                textAlign: "right",
+                              }}
+                            >
+                              {sharePct != null ? `${sharePct}%` : String(o.count)}
+                            </MText>
+                            <MText style={{ fontSize: 9, color: C.body, flex: 1, lineHeight: 1.45 }}>
+                              {o.text}
+                            </MText>
+                          </View>
+                        );
+                      })}
                     </View>
                   )}
                 </View>
@@ -5412,39 +5426,44 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             {trustFactors.length === 0 ? (
               <MText style={{ fontSize: 9, color: C.muted }}>—</MText>
             ) : (
-              trustFactors.map((t, i) => (
-                <View
-                  key={i}
-                  style={{
-                    flexDirection: "row",
-                    marginBottom: 4,
-                    gap: 6,
-                  }}
-                  wrap={false}
-                >
-                  <MText
+              trustFactors.map((t, i) => {
+                const denom = personasInCountry?.count ?? 0;
+                const sharePct =
+                  denom > 0 ? Math.round((t.count / denom) * 100) : null;
+                return (
+                  <View
+                    key={i}
                     style={{
-                      fontSize: 9,
-                      color: C.muted,
-                      width: 18,
-                      textAlign: "right",
-                      fontWeight: 700,
+                      flexDirection: "row",
+                      marginBottom: 4,
+                      gap: 6,
                     }}
+                    wrap={false}
                   >
-                    {String(t.count)}
-                  </MText>
-                  <MText
-                    style={{
-                      fontSize: 9,
-                      color: C.body,
-                      flex: 1,
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {t.text}
-                  </MText>
-                </View>
-              ))
+                    <MText
+                      style={{
+                        fontSize: 9,
+                        color: C.muted,
+                        width: 36,
+                        textAlign: "right",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {sharePct != null ? `${sharePct}%` : String(t.count)}
+                    </MText>
+                    <MText
+                      style={{
+                        fontSize: 9,
+                        color: C.body,
+                        flex: 1,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {t.text}
+                    </MText>
+                  </View>
+                );
+              })
             )}
             {personasInCountry?.count != null && (
               <MText style={{ fontSize: 8, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>
@@ -5479,39 +5498,44 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             {objections.length === 0 ? (
               <MText style={{ fontSize: 9, color: C.muted }}>—</MText>
             ) : (
-              objections.map((o, i) => (
-                <View
-                  key={i}
-                  style={{
-                    flexDirection: "row",
-                    marginBottom: 4,
-                    gap: 6,
-                  }}
-                  wrap={false}
-                >
-                  <MText
+              objections.map((o, i) => {
+                const denom = personasInCountry?.count ?? 0;
+                const sharePct =
+                  denom > 0 ? Math.round((o.count / denom) * 100) : null;
+                return (
+                  <View
+                    key={i}
                     style={{
-                      fontSize: 9,
-                      color: C.muted,
-                      width: 18,
-                      textAlign: "right",
-                      fontWeight: 700,
+                      flexDirection: "row",
+                      marginBottom: 4,
+                      gap: 6,
                     }}
+                    wrap={false}
                   >
-                    {String(o.count)}
-                  </MText>
-                  <MText
-                    style={{
-                      fontSize: 9,
-                      color: C.body,
-                      flex: 1,
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {o.text}
-                  </MText>
-                </View>
-              ))
+                    <MText
+                      style={{
+                        fontSize: 9,
+                        color: C.muted,
+                        width: 36,
+                        textAlign: "right",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {sharePct != null ? `${sharePct}%` : String(o.count)}
+                    </MText>
+                    <MText
+                      style={{
+                        fontSize: 9,
+                        color: C.body,
+                        flex: 1,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {o.text}
+                    </MText>
+                  </View>
+                );
+              })
             )}
           </View>
         </View>
