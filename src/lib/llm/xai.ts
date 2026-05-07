@@ -16,16 +16,29 @@ import { withLLMRetry } from "./retry";
 
 const XAI_BASE_URL = "https://api.x.ai/v1";
 
+// Per-request timeout (ms). Default OpenAI SDK timeout is 10 min, which
+// is way too generous for our use case — a hung Grok call would block a
+// sim slot for the full duration. 90s lets us fail fast and let
+// withLLMRetry rotate through up to 5 attempts before giving up.
+const XAI_REQUEST_TIMEOUT_MS = 90_000;
+
 export class XaiProvider implements LLMProvider {
   readonly name = "xai" as const;
   readonly model: string;
   private client: OpenAI;
 
-  constructor(model: string = "grok-4") {
+  constructor(model: string = "grok-3") {
+    // Default "grok-3" rather than "grok-4": Grok-4 is a reasoning model
+    // and routinely takes 1-5 min per call, blowing past the SDK timeout
+    // on persona-batch workloads. Grok-3 is non-reasoning, structured-
+    // output friendly, and lands in the same price tier as Sonnet.
+    // Override per-stage via LLM_<STAGE>_MODEL=grok-4 if a synthesis
+    // call genuinely needs the reasoning lift.
     this.model = model;
     this.client = new OpenAI({
       apiKey: process.env.XAI_API_KEY,
       baseURL: XAI_BASE_URL,
+      timeout: XAI_REQUEST_TIMEOUT_MS,
     });
   }
 

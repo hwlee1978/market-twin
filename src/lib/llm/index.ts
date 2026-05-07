@@ -59,14 +59,16 @@ const PROVIDER_STAGE_DEFAULTS: Record<LLMProviderName, Record<SimulationStage, s
     synthesis: "gemini-2.5-pro",
   },
   xai: {
-    // Grok-4 across all stages — pricing parity with Sonnet ($3/$15 per
-    // 1M tok) so there's no cost-tier reason to drop to a smaller model.
-    // Grok-3-mini exists for high-volume stages but the persona-batch
-    // reliability we're hiring xAI for sits on the larger model.
-    personas: "grok-4",
-    countries: "grok-4",
-    pricing: "grok-4",
-    synthesis: "grok-4",
+    // Grok-3 (non-reasoning) across all stages. Grok-4 is the reasoning
+    // model and takes 1-5 min per call — that pinned persona batches
+    // against the SDK timeout on first deploy. Grok-3 is fast and
+    // structured-output friendly, same $3/$15 price tier. If a future
+    // run needs Grok-4's reasoning lift on synthesis, override via
+    // LLM_SYNTHESIS_MODEL=grok-4 — but it's off the default path.
+    personas: "grok-3",
+    countries: "grok-3",
+    pricing: "grok-3",
+    synthesis: "grok-3",
   },
 };
 

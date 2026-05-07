@@ -89,6 +89,16 @@ function classify(err: unknown): RetryDecision {
   if (status === 503 || status === 502 || status === 500 || status === 504) {
     return { retry: true, reason: `${status} transient upstream` };
   }
+  // No HTTP status but the SDK threw — typically connection-layer
+  // failures (request timeout, ECONNRESET, socket hang up). Worth a
+  // retry: a retried call against a different worker / fresh socket
+  // often succeeds. xAI's Grok flagged this when the persona-batch
+  // call timed out on Grok-4 (reasoning model overran the SDK's
+  // 10-minute default timeout) — without this branch the timeout
+  // failed the whole sim instead of letting backoff kick in.
+  if (status === undefined && /timed out|timeout|econn|socket hang up|fetch failed|network/i.test(message)) {
+    return { retry: true, reason: `connection error: ${message.slice(0, 80)}` };
+  }
   return { retry: false, reason: `non-retryable (status=${status ?? "?"})` };
 }
 
