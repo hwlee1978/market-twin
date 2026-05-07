@@ -2898,11 +2898,22 @@ function MarketProfileTab({
                 <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
                   {isKo ? "TAM 추정" : "TAM"}
                 </div>
-                {/* text-balance: auto-balance line widths so multi-line
-                    bold numbers don't end with a single orphan word.
-                    LLM sometimes crams a parenthetical clarification
-                    into this field; keep it readable either way. */}
-                <div className="text-2xl font-bold text-slate-900 tabular-nums text-balance break-keep">
+                {/* Length-aware sizing: a 6-char headline like "$3.5B"
+                    deserves the 2xl bold treatment, but with Tavily-grounded
+                    estimates the LLM tends to inline source citations and
+                    methodology notes ("...로 추정 (스니커 카테고리 단독
+                    기준...)"). At 250+ chars that loud size becomes a wall
+                    of bold text. Three steps: headline / subhead / body. */}
+                <div
+                  className={clsx(
+                    "text-slate-900 text-balance break-keep",
+                    ms.estimateUsd.length <= 50
+                      ? "text-2xl font-bold tabular-nums"
+                      : ms.estimateUsd.length <= 130
+                        ? "text-base font-semibold leading-snug"
+                        : "text-sm font-medium leading-relaxed",
+                  )}
+                >
                   {ms.estimateUsd}
                 </div>
               </div>

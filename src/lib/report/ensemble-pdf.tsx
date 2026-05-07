@@ -1736,9 +1736,28 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                   <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600 }}>
                     {isKo ? "TAM 추정" : "TAM"}
                   </MText>
-                  <MText style={{ fontSize: 12, color: C.ink, fontWeight: 700, marginTop: 2 }}>
-                    {mp.marketSize.estimateUsd}
-                  </MText>
+                  {(() => {
+                    // Match the dashboard's length-aware sizing — short
+                    // figures get the 12pt bold headline treatment; long
+                    // prose-with-source-citations drops to 9pt body so the
+                    // wall of bold text doesn't dominate the card.
+                    const len = mp.marketSize.estimateUsd!.length;
+                    const fontSize = len <= 50 ? 12 : len <= 130 ? 10 : 9;
+                    const fontWeight = len <= 50 ? 700 : 600;
+                    return (
+                      <MText
+                        style={{
+                          fontSize,
+                          color: C.ink,
+                          fontWeight,
+                          marginTop: 2,
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {mp.marketSize.estimateUsd}
+                      </MText>
+                    );
+                  })()}
                 </View>
                 {mp.marketSize.growthTrend && (
                   <View style={{ flex: 1 }}>

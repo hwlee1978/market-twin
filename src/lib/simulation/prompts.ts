@@ -799,9 +799,9 @@ Required JSON shape (every field optional — fill what you have confidence abou
 {
   "country": "${recommendedCountry}",
   "marketSize": {
-    "estimateUsd": "TAM in this category in ${recommendedCountry}, e.g. '$2.3B annually' or '$400-600M' (range OK)",
-    "growthTrend": "growth rate + driver, e.g. '+12% YoY driven by Gen-Z sustainability'",
-    "addressableSegment": "the realistic addressable share — e.g. 'premium eco-conscious 25-44, ~5% of total'"
+    "estimateUsd": "SHORT TAM figure ONLY — '$2.3B annually' or '$400-600M (premium segment)'. Max 60 chars. Do NOT inline source citations or methodology prose; the system attaches source URLs separately, and growthTrend / addressableSegment are for context. A pure figure-with-light-qualifier is what this field is for.",
+    "growthTrend": "growth rate + 1-line driver, e.g. '+12% YoY, Gen-Z sustainability demand'. Max 100 chars.",
+    "addressableSegment": "the realistic addressable share — e.g. 'premium eco-conscious 25-44, ~5% of total'. Max 120 chars."
   },
   "competitors": [
     // 3-5 NAMED competitors. Mix of direct (same category), indirect (substitute), and adjacent.
