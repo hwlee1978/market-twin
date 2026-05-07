@@ -851,6 +851,7 @@ function EnsembleDashboard({
           bestCountryDistribution={bestCountryDistribution}
           recommendation={recommendation}
           simCount={simCount}
+          effectivePersonas={effectivePersonas}
           sources={aggregate.sources ?? []}
           locale={locale}
           isKo={isKo}
@@ -2104,6 +2105,7 @@ function CountriesTab({
   bestCountryDistribution,
   recommendation,
   simCount,
+  effectivePersonas,
   sources,
   locale,
   isKo,
@@ -2113,6 +2115,9 @@ function CountriesTab({
   bestCountryDistribution: EnsembleAggregate["bestCountryDistribution"];
   recommendation: EnsembleAggregate["recommendation"];
   simCount: number;
+  /** Ensemble-wide persona count — passed down to CountryDrilldown
+   *  for the "personas / total (N%)" share annotation. */
+  effectivePersonas: number;
   sources: string[];
   locale: string;
   isKo: boolean;
@@ -2298,6 +2303,7 @@ function CountriesTab({
                             rationaleSamples={c.detail.rationaleSamples}
                             components={c.components}
                             finalScoreMean={c.finalScore.mean}
+                            totalPersonas={effectivePersonas}
                             isKo={isKo}
                           />
                         </td>
@@ -2343,12 +2349,16 @@ function CountryDrilldown({
   rationaleSamples,
   components,
   finalScoreMean,
+  totalPersonas,
   isKo,
 }: {
   detail: NonNullable<EnsembleAggregate["countryStats"][number]["detail"]>;
   rationaleSamples: string[];
   components?: NonNullable<EnsembleAggregate["countryStats"][number]["components"]>;
   finalScoreMean: number;
+  /** Ensemble-wide effective persona count — denominator for the
+   *  per-country share-of-pool annotation. */
+  totalPersonas: number;
   isKo: boolean;
 }) {
   return (
@@ -2411,26 +2421,52 @@ function CountryDrilldown({
             <p className="text-xs text-slate-500">
               {isKo ? "이 국가의 페르소나 데이터 없음." : "No personas for this country."}
             </p>
-          ) : (
-            <ul className="space-y-1 text-sm tabular-nums">
-              <li className="flex justify-between">
-                <span className="text-slate-500">{isKo ? "페르소나 수" : "Personas"}</span>
-                <span className="text-slate-900">{detail.persona.count.toLocaleString()}</span>
-              </li>
-              <li className="flex justify-between">
-                <span className="text-slate-500">{isKo ? "평균 구매의향" : "Mean intent"}</span>
-                <span className="text-slate-900">{detail.persona.meanIntent}/100</span>
-              </li>
-              <li className="flex justify-between">
-                <span className="text-slate-500">{isKo ? "고의향 (≥70)" : "High (≥70)"}</span>
-                <span className="text-success">{detail.persona.highIntent}</span>
-              </li>
-              <li className="flex justify-between">
-                <span className="text-slate-500">{isKo ? "저의향 (<35)" : "Low (<35)"}</span>
-                <span className="text-risk">{detail.persona.lowIntent}</span>
-              </li>
-            </ul>
-          )}
+          ) : (() => {
+            const sharePct =
+              totalPersonas > 0
+                ? ((detail.persona.count / totalPersonas) * 100).toFixed(1)
+                : null;
+            const highIntentPct =
+              detail.persona.count > 0
+                ? (detail.persona.highIntent / detail.persona.count) * 100
+                : 0;
+            const lowAbsoluteDemand = highIntentPct < 5;
+            return (
+              <>
+                <ul className="space-y-1 text-sm tabular-nums">
+                  <li className="flex justify-between">
+                    <span className="text-slate-500">{isKo ? "페르소나 수" : "Personas"}</span>
+                    <span className="text-slate-900">
+                      {sharePct
+                        ? `${detail.persona.count.toLocaleString()} / ${totalPersonas.toLocaleString()} (${sharePct}%)`
+                        : detail.persona.count.toLocaleString()}
+                    </span>
+                  </li>
+                  <li className="flex justify-between">
+                    <span className="text-slate-500">{isKo ? "평균 구매의향" : "Mean intent"}</span>
+                    <span className="text-slate-900">{detail.persona.meanIntent}/100</span>
+                  </li>
+                  <li className="flex justify-between">
+                    <span className="text-slate-500">{isKo ? "고의향 (≥70)" : "High (≥70)"}</span>
+                    <span className="text-success">
+                      {detail.persona.highIntent} ({highIntentPct.toFixed(1)}%)
+                    </span>
+                  </li>
+                  <li className="flex justify-between">
+                    <span className="text-slate-500">{isKo ? "저의향 (<35)" : "Low (<35)"}</span>
+                    <span className="text-risk">{detail.persona.lowIntent}</span>
+                  </li>
+                </ul>
+                {lowAbsoluteDemand && (
+                  <p className="text-[11px] text-risk leading-relaxed mt-2">
+                    {isKo
+                      ? `⚠ 고의향 비율 ${highIntentPct.toFixed(1)}% (5% 미만) — 상대 순위는 1위지만 절대 수요는 매우 낮음. 진출 결정 전 추가 검증 권장.`
+                      : `⚠ High-intent share ${highIntentPct.toFixed(1)}% (<5%) — top-ranked market but absolute demand is thin. Verify before commit.`}
+                  </p>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
     </div>

@@ -2797,28 +2797,64 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                   </MText>
                   {d.persona.count === 0 ? (
                     <MText style={styles.tdMuted}>—</MText>
-                  ) : (
-                    <View style={{ gap: 2 }}>
-                      <SummaryRow
-                        label={isKo ? "페르소나 수" : "Personas"}
-                        value={d.persona.count.toLocaleString()}
-                      />
-                      <SummaryRow
-                        label={isKo ? "평균 구매의향" : "Mean intent"}
-                        value={`${d.persona.meanIntent}/100`}
-                      />
-                      <SummaryRow
-                        label={isKo ? "고의향 (≥70)" : "High (≥70)"}
-                        value={String(d.persona.highIntent)}
-                        valueColor={C.success}
-                      />
-                      <SummaryRow
-                        label={isKo ? "저의향 (<35)" : "Low (<35)"}
-                        value={String(d.persona.lowIntent)}
-                        valueColor={C.risk}
-                      />
-                    </View>
-                  )}
+                  ) : (() => {
+                    // Share-of-pool context lets the user judge whether
+                    // the country sample is "thin" (single-market split
+                    // among many candidates) or anomalously low.
+                    const totalPersonas = aggregate.effectivePersonas ?? 0;
+                    const sharePct =
+                      totalPersonas > 0
+                        ? ((d.persona.count / totalPersonas) * 100).toFixed(1)
+                        : null;
+                    const personasValue = sharePct
+                      ? `${d.persona.count.toLocaleString()} / ${totalPersonas.toLocaleString()} (${sharePct}%)`
+                      : d.persona.count.toLocaleString();
+                    // Absolute-demand alarm: high-intent share <5% means
+                    // even the recommended market has a very thin
+                    // "would actually buy" cohort. Flag explicitly so
+                    // the relative ranking doesn't read as endorsement.
+                    const highIntentPct =
+                      d.persona.count > 0
+                        ? (d.persona.highIntent / d.persona.count) * 100
+                        : 0;
+                    const lowAbsoluteDemand = highIntentPct < 5;
+                    return (
+                      <View style={{ gap: 2 }}>
+                        <SummaryRow
+                          label={isKo ? "페르소나 수" : "Personas"}
+                          value={personasValue}
+                        />
+                        <SummaryRow
+                          label={isKo ? "평균 구매의향" : "Mean intent"}
+                          value={`${d.persona.meanIntent}/100`}
+                        />
+                        <SummaryRow
+                          label={isKo ? "고의향 (≥70)" : "High (≥70)"}
+                          value={`${d.persona.highIntent} (${highIntentPct.toFixed(1)}%)`}
+                          valueColor={C.success}
+                        />
+                        <SummaryRow
+                          label={isKo ? "저의향 (<35)" : "Low (<35)"}
+                          value={String(d.persona.lowIntent)}
+                          valueColor={C.risk}
+                        />
+                        {lowAbsoluteDemand && (
+                          <MText
+                            style={{
+                              fontSize: 7,
+                              color: C.risk,
+                              marginTop: 4,
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            {isKo
+                              ? `⚠ 고의향 비율 ${highIntentPct.toFixed(1)}% (5% 미만) — 상대 순위 1위지만 절대 수요 매우 낮음. 진출 결정 전 추가 검증 권장.`
+                              : `⚠ High-intent share ${highIntentPct.toFixed(1)}% (<5%) — top-ranked market but absolute demand is thin. Verify before commit.`}
+                          </MText>
+                        )}
+                      </View>
+                    );
+                  })()}
                 </View>
               </View>
             </View>
