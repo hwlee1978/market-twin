@@ -1223,11 +1223,22 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     // a different currency scale than the project's input currency — most
     // commonly when the recommended country uses a different currency
     // (e.g. KRW-input project recommending TW returned prices in TWD,
-    // showing as ₩3,300 instead of ₩116,900). Bound: rec must land in
-    // [base × 0.3, base × 5]. Out-of-bound: try the candidate's own curve
-    // revenue max — if THAT is in bounds, the recommended was the bad
-    // pick; replace. Otherwise the whole emission was off-scale; drop
-    // the candidate.
+    // showing as ₩3,300 instead of ₩116,900). Bound: every emitted price
+    // (recommendedPriceCents AND each curve.priceCents) must land in
+    // [base × 0.3, base × 5].
+    //
+    // Curve filtering matters as much as the headline check. The display
+    // pipeline auto-corrects to the curve's revenue max when LLM rec
+    // diverges from it by >10% — so a sane rec + a single off-scale
+    // curve point produces an off-scale headline (real Le Mouton run
+    // showed ₩186k rec but ₩2.8M headline because one curve point had
+    // priceCents in 100× scale).
+    //
+    // Strategy per candidate:
+    //   1. Filter curve points to in-bounds only
+    //   2. If <2 points remain, the whole emission was off-scale — drop
+    //   3. If rec is in bounds, keep with filtered curve
+    //   4. Else try filtered-curve revenue max as the rec; drop if still bad
     const basePriceCents = projectInput.basePriceCents;
     if (basePriceCents > 0 && pricingCandidates.length > 0) {
       const lowBound = basePriceCents * 0.3;
@@ -1235,27 +1246,44 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       const inBounds = (n: number) => n >= lowBound && n <= highBound;
       const correctedCandidates: Array<z.infer<typeof PricingResultSchema>> = [];
       for (const cand of pricingCandidates) {
+        const filteredCurve = cand.curve.filter((p) => inBounds(p.priceCents));
+        const droppedCurvePoints = cand.curve.length - filteredCurve.length;
+        if (filteredCurve.length < 2) {
+          console.warn(
+            `[sim ${opts.simulationId}] pricing candidate dropped — only ${filteredCurve.length}/${cand.curve.length} curve points in [${lowBound}, ${highBound}]; likely currency-scale error`,
+          );
+          continue;
+        }
+        if (droppedCurvePoints > 0) {
+          console.warn(
+            `[sim ${opts.simulationId}] pricing candidate kept after dropping ${droppedCurvePoints} off-scale curve point(s)`,
+          );
+        }
         if (inBounds(cand.recommendedPriceCents)) {
-          correctedCandidates.push(cand);
+          correctedCandidates.push({ ...cand, curve: filteredCurve });
           continue;
         }
         // Map LLM curve (conversionProbability) to the shared helper's
         // shape (meanConversionProbability) — the helper is also used
         // post-aggregation where points carry mean across sims.
         const curveMax = computeCurveRevenueMaxCents(
-          cand.curve.map((p) => ({
+          filteredCurve.map((p) => ({
             priceCents: p.priceCents,
             meanConversionProbability: p.conversionProbability,
           })),
         );
         if (curveMax != null && inBounds(curveMax)) {
           console.warn(
-            `[sim ${opts.simulationId}] pricing candidate out of bounds (${cand.recommendedPriceCents} cents vs base ${basePriceCents}); replacing rec with curve revenue max (${curveMax} cents)`,
+            `[sim ${opts.simulationId}] pricing rec out of bounds (${cand.recommendedPriceCents} cents vs base ${basePriceCents}); replacing rec with filtered-curve revenue max (${curveMax} cents)`,
           );
-          correctedCandidates.push({ ...cand, recommendedPriceCents: curveMax });
+          correctedCandidates.push({
+            ...cand,
+            curve: filteredCurve,
+            recommendedPriceCents: curveMax,
+          });
         } else {
           console.warn(
-            `[sim ${opts.simulationId}] pricing candidate dropped — both rec (${cand.recommendedPriceCents}) and curve max (${curveMax}) out of [${lowBound}, ${highBound}]; likely currency-scale error`,
+            `[sim ${opts.simulationId}] pricing candidate dropped — rec (${cand.recommendedPriceCents}) out of bounds and filtered-curve max (${curveMax}) didn't recover it`,
           );
         }
       }
