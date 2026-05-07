@@ -4282,20 +4282,20 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                     borderBottomColor: C.divider,
                   }}
                 >
-                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 2.2 }}>
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1.9 }}>
                     {isKo ? "시나리오" : "Scenario"}
                   </MText>
-                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 0.8, textAlign: "right" }}>
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 0.7, textAlign: "right" }}>
                     {isKo ? "마진" : "Margin"}
                   </MText>
-                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1.1, textAlign: "right" }}>
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1.0, textAlign: "right" }}>
                     {isKo ? "단위 gross" : "Gross/unit"}
                   </MText>
-                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1.3, textAlign: "right" }}>
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1.2, textAlign: "right" }}>
                     {isKo ? "단위 net" : "Net/unit"}
                   </MText>
-                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1.3, textAlign: "right" }}>
-                    {isKo ? "1k BE" : "BE @ 1k"}
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1.8, textAlign: "right" }}>
+                    {isKo ? "1,000명 회수 BE (개)" : "BE units @ 1k CAC"}
                   </MText>
                 </View>
                 {scenarios.map((s, i) => {
@@ -4316,13 +4316,13 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                         borderTopColor: C.divider,
                       }}
                     >
-                      <MText style={{ fontSize: 9, color: C.body, flex: 2.2 }}>
+                      <MText style={{ fontSize: 9, color: C.body, flex: 1.9 }}>
                         {isKo ? s.labelKo : s.labelEn}
                       </MText>
-                      <MText style={{ fontSize: 9, color: C.body, flex: 0.8, textAlign: "right" }}>
+                      <MText style={{ fontSize: 9, color: C.body, flex: 0.7, textAlign: "right" }}>
                         {`${s.marginPct}%`}
                       </MText>
-                      <MText style={{ fontSize: 9, color: C.body, flex: 1.1, textAlign: "right" }}>
+                      <MText style={{ fontSize: 9, color: C.body, flex: 1.0, textAlign: "right" }}>
                         {fmt(grossPerUnit)}
                       </MText>
                       <MText
@@ -4330,13 +4330,13 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                           fontSize: 9,
                           color: netPerUnit > 0 ? C.success : C.risk,
                           fontWeight: 600,
-                          flex: 1.3,
+                          flex: 1.2,
                           textAlign: "right",
                         }}
                       >
                         {fmt(netPerUnit)}
                       </MText>
-                      <MText style={{ fontSize: 9, color: C.body, flex: 1.3, textAlign: "right" }}>
+                      <MText style={{ fontSize: 9, color: C.body, flex: 1.8, textAlign: "right" }}>
                         {breakEvenN != null
                           ? breakEvenN.toLocaleString()
                           : isKo
@@ -4361,6 +4361,11 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                       : "LTV not modeled — if actual LTV > unit price ×1.3, BE above is conservative."}
                   </MText>
                 </View>
+                <MText style={{ fontSize: 7, color: C.muted, lineHeight: 1.4, marginTop: 4 }}>
+                  {isKo
+                    ? "1,000명 회수 BE = 1,000명 분의 CAC 예산을 단위 net으로 회수하는 데 필요한 판매 수량 (= CAC × 1,000 ÷ 단위 net)."
+                    : "BE units @ 1k CAC = sales needed to recover a 1,000-customer CAC budget at the per-unit net contribution (= CAC × 1,000 ÷ net/unit)."}
+                </MText>
               </View>
             );
           })()}
