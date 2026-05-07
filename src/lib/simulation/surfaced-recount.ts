@@ -153,3 +153,61 @@ export function recountSurfacedInSims(
   }
   return Math.max(1, count);
 }
+
+/**
+ * Cluster a flat list of strings (e.g. persona objections, trust
+ * factors) by token-overlap similarity. Returns one entry per cluster
+ * with the most-frequent surface form as the representative and the
+ * total count of members.
+ *
+ * Used for per-country objections / trustFactors aggregation where
+ * exact-text dedup over-fragments natural-language variations of the
+ * same concern. Threshold defaults to 0.5 — objections tend to share
+ * specific anchor terms (brand name, regulator, price) that survive
+ * paraphrasing.
+ */
+export function clusterStrings(
+  items: string[],
+  threshold = 0.5,
+): Array<{ text: string; count: number }> {
+  if (items.length === 0) return [];
+  const tokenSets = items.map((s) => tokenize(s));
+  const parent = items.map((_, i) => i);
+  const find = (x: number): number => {
+    while (parent[x] !== x) {
+      parent[x] = parent[parent[x]];
+      x = parent[x];
+    }
+    return x;
+  };
+  const union = (a: number, b: number) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent[ra] = rb;
+  };
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      if (overlapCoefficient(tokenSets[i], tokenSets[j]) >= threshold) {
+        union(i, j);
+      }
+    }
+  }
+  const byCluster = new Map<number, Map<string, number>>();
+  for (let i = 0; i < items.length; i++) {
+    const root = find(i);
+    const inner = byCluster.get(root) ?? new Map<string, number>();
+    inner.set(items[i], (inner.get(items[i]) ?? 0) + 1);
+    byCluster.set(root, inner);
+  }
+  return [...byCluster.values()].map((inner) => {
+    let total = 0;
+    for (const c of inner.values()) total += c;
+    // Representative = most-frequent surface form, ties broken by
+    // shortest (concise reads better in the UI list).
+    const rep = [...inner.entries()].sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return a[0].length - b[0].length;
+    })[0][0];
+    return { text: rep, count: total };
+  });
+}

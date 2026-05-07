@@ -13,7 +13,7 @@ import {
   computePricingSensitivity as computePricingSensitivityShared,
   computeCurveRevenueMaxCents,
 } from "./pricing-sensitivity";
-import { tokenize, overlapCoefficient } from "./surfaced-recount";
+import { tokenize, overlapCoefficient, clusterStrings } from "./surfaced-recount";
 
 /* ────────────────────────────────── stats helpers ─── */
 function median(xs: number[]): number {
@@ -742,35 +742,31 @@ export function aggregateEnsemble(
     .map(([country, b]) => {
       const inCountry = personasByCountry.get(country) ?? [];
       const intents = inCountry.map((p) => p.purchaseIntent);
-      // Objections aggregated across personas in this country. We dedup on
-      // raw text — duplicate "too salty" mentions are signal, not noise.
-      const objCounts = new Map<string, number>();
+      // Objections aggregated across personas in this country. Each
+      // persona phrases the same concern with different wording, so
+      // exact-text dedup over-fragments — every concern shows count=1.
+      // Use fuzzy token-overlap clustering instead: "Nicorette 패치 대비
+      // $20 비용 부담" and "Nicorette 패치/껌 대비 비용이 비쌈" cluster.
+      const allObjections: string[] = [];
       for (const p of inCountry) {
         for (const o of p.objections ?? []) {
-          const key = o.trim();
-          if (!key) continue;
-          objCounts.set(key, (objCounts.get(key) ?? 0) + 1);
+          const t = o.trim();
+          if (t) allObjections.push(t);
         }
       }
-      const topObjections = [...objCounts.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([text, count]) => ({ text, count }));
-      // Same shape for trust factors — feeds the in-country trust-vs-
-      // objection page in the report. Without this, the trust column
-      // was rendering as a placeholder.
-      const trustCounts = new Map<string, number>();
+      const topObjections = clusterStrings(allObjections, 0.5)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+      const allTrust: string[] = [];
       for (const p of inCountry) {
         for (const t of p.trustFactors ?? []) {
-          const key = t.trim();
-          if (!key) continue;
-          trustCounts.set(key, (trustCounts.get(key) ?? 0) + 1);
+          const tt = t.trim();
+          if (tt) allTrust.push(tt);
         }
       }
-      const topTrustFactors = [...trustCounts.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([text, count]) => ({ text, count }));
+      const topTrustFactors = clusterStrings(allTrust, 0.5)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
       // Rationale samples — pick the 3 longest unique strings as a proxy
       // for "most informative". Cheap, deterministic, no LLM call needed.
       const rationaleSeen = new Set<string>();
