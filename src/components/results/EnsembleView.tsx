@@ -2898,20 +2898,18 @@ function MarketProfileTab({
                 <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
                   {isKo ? "TAM 추정" : "TAM"}
                 </div>
-                {/* Length-aware sizing: a 6-char headline like "$3.5B"
-                    deserves the 2xl bold treatment, but with Tavily-grounded
-                    estimates the LLM tends to inline source citations and
-                    methodology notes ("...로 추정 (스니커 카테고리 단독
-                    기준...)"). At 250+ chars that loud size becomes a wall
-                    of bold text. Three steps: headline / subhead / body. */}
+                {/* Length-aware sizing: a short ≤50-char figure like "$3.5B
+                    annually" still deserves the bold-headline treatment.
+                    Anything longer (Tavily-grounded estimates often run as
+                    full-paragraph prose) renders in the same body style as
+                    the sibling growthTrend / addressableSegment columns
+                    so the three sit visually balanced as a unified block. */}
                 <div
                   className={clsx(
-                    "text-slate-900 text-balance break-keep",
+                    "text-balance break-keep",
                     ms.estimateUsd.length <= 50
-                      ? "text-2xl font-bold tabular-nums"
-                      : ms.estimateUsd.length <= 130
-                        ? "text-base font-semibold leading-snug"
-                        : "text-sm font-medium leading-relaxed",
+                      ? "text-2xl font-bold tabular-nums text-slate-900"
+                      : "text-sm text-slate-700 leading-relaxed",
                   )}
                 >
                   {ms.estimateUsd}

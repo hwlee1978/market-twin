@@ -1737,19 +1737,19 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                     {isKo ? "TAM 추정" : "TAM"}
                   </MText>
                   {(() => {
-                    // Match the dashboard's length-aware sizing — short
-                    // figures get the 12pt bold headline treatment; long
-                    // prose-with-source-citations drops to 9pt body so the
-                    // wall of bold text doesn't dominate the card.
+                    // Short ≤50-char figures keep the 12pt bold headline
+                    // treatment. Anything longer (Tavily-grounded prose)
+                    // renders in the same 9pt body style as the sibling
+                    // growthTrend / addressableSegment columns so the
+                    // three sit visually balanced as a unified row.
                     const len = mp.marketSize.estimateUsd!.length;
-                    const fontSize = len <= 50 ? 12 : len <= 130 ? 10 : 9;
-                    const fontWeight = len <= 50 ? 700 : 600;
+                    const isShort = len <= 50;
                     return (
                       <MText
                         style={{
-                          fontSize,
-                          color: C.ink,
-                          fontWeight,
+                          fontSize: isShort ? 12 : 9,
+                          color: isShort ? C.ink : C.body,
+                          fontWeight: isShort ? 700 : 400,
                           marginTop: 2,
                           lineHeight: 1.5,
                         }}
@@ -1769,12 +1769,17 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                     </MText>
                   </View>
                 )}
+                {mp.marketSize.addressableSegment && (
+                  <View style={{ flex: 1 }}>
+                    <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600 }}>
+                      {isKo ? "도달 세그먼트" : "Addressable"}
+                    </MText>
+                    <MText style={{ fontSize: 9, color: C.body, marginTop: 2, lineHeight: 1.5 }}>
+                      {mp.marketSize.addressableSegment}
+                    </MText>
+                  </View>
+                )}
               </View>
-              {mp.marketSize.addressableSegment && (
-                <MText style={{ fontSize: 8, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>
-                  {`${isKo ? "도달 세그먼트: " : "Addressable: "}${mp.marketSize.addressableSegment}`}
-                </MText>
-              )}
               {(mp.marketSize.citations?.length ?? 0) > 0 ? (
                 <View style={{ marginTop: 6, gap: 2 }}>
                   <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600 }}>
