@@ -80,6 +80,45 @@ export function tokenize(text: string): Set<string> {
   return tokens;
 }
 
+/**
+ * Country / regulator / city tokens that should be stripped when
+ * doing CROSS-COUNTRY semantic comparisons. Per-country objections
+ * naturally embed their own market's anchors ("프랑스 ANSM 절차" vs
+ * "영국 MHRA 절차") — without stripping, the same conceptual concern
+ * shows zero token overlap and never clusters across markets.
+ *
+ * Within-country comparisons should NOT use this stripping; the
+ * baseline tokenize() is correct there.
+ */
+const GEO_STRIP_TOKENS = new Set<string>([
+  // Country names — Korean
+  "한국", "한국산", "프랑스", "영국", "독일", "일본", "중국", "미국",
+  "캐나다", "이탈리아", "스페인", "네덜란드", "호주", "싱가포르",
+  "말레이시아", "필리핀", "인도", "베트남", "태국", "인도네시아",
+  "브라질", "멕시코", "사우디", "uae",
+  // Country codes / English
+  "kr", "fr", "gb", "uk", "de", "jp", "cn", "us", "usa", "ca", "it", "es",
+  "nl", "au", "sg", "my", "ph", "in", "vn", "th", "id", "br", "mx", "sa",
+  "korea", "france", "britain", "germany", "japan", "china", "america",
+  "canada", "italy", "spain", "australia",
+  // Regulators
+  "ansm", "mhra", "bfarm", "fda", "kfda", "mfds", "bpom", "mhlw", "pmda",
+  "efsa", "tga", "cfia", "fsa", "anvisa", "nmpa",
+  // Major cities (some objections cite city names)
+  "파리", "리옹", "보르도", "런던", "맨체스터", "베를린", "도쿄",
+  "오사카", "북경", "상하이", "베이징", "자카르타", "방콕", "하노이",
+  "마닐라", "쿠알라룸푸르", "싱가포르",
+]);
+
+/** Tokenise + drop geo anchors. Used only for cross-country matching. */
+export function tokenizeStripGeo(text: string): Set<string> {
+  const base = tokenize(text);
+  for (const t of [...base]) {
+    if (GEO_STRIP_TOKENS.has(t)) base.delete(t);
+  }
+  return base;
+}
+
 export function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   if (a.size === 0 || b.size === 0) return 0;
   let intersection = 0;

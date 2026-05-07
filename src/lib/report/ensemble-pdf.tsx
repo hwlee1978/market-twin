@@ -27,6 +27,7 @@ import { getCountryLabel } from "@/lib/countries";
 import { formatPrice } from "@/lib/format/price";
 import {
   tokenize,
+  tokenizeStripGeo,
   overlapCoefficient,
   isPersonaMismatchNoise,
 } from "@/lib/simulation/surfaced-recount";
@@ -4908,7 +4909,12 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     }
 
     // Token-overlap union-find clustering on the cross-country list.
-    const tokenSets = allEntries.map((e) => tokenize(e.text));
+    // Strip geo tokens (country names, regulators, major cities) before
+    // matching — same conceptual concern phrased with different
+    // local anchors ("프랑스 ANSM 절차" vs "영국 MHRA 절차") would
+    // otherwise show zero overlap. Lower threshold (0.4) since the
+    // stripped sets are smaller and less forgiving of partial matches.
+    const tokenSets = allEntries.map((e) => tokenizeStripGeo(e.text));
     const parentArr = allEntries.map((_, i) => i);
     const find = (x: number): number => {
       while (parentArr[x] !== x) {
@@ -4924,7 +4930,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     };
     for (let i = 0; i < allEntries.length; i++) {
       for (let j = i + 1; j < allEntries.length; j++) {
-        if (overlapCoefficient(tokenSets[i], tokenSets[j]) >= 0.5) {
+        if (overlapCoefficient(tokenSets[i], tokenSets[j]) >= 0.4) {
           union(i, j);
         }
       }
