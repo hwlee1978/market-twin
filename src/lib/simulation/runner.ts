@@ -31,6 +31,7 @@ import {
   sanitizeChannelMismatchArray,
 } from "./country-channel";
 import { extractCompetitorPrices } from "./competitor-prices";
+import { computeCurveRevenueMaxCents } from "./pricing-sensitivity";
 import { computePricingRange } from "./pricing-range";
 import { aggregatePersonas } from "./aggregate";
 import { planSlots, type PersonaSlot } from "./profession-pool";
@@ -1217,6 +1218,49 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     for (const resp of pricingResps) {
       const parsed = PricingResultSchema.safeParse(resp.json);
       if (parsed.success) pricingCandidates.push(parsed.data);
+    }
+    // Currency-scale sanity correction. LLMs occasionally emit prices in
+    // a different currency scale than the project's input currency — most
+    // commonly when the recommended country uses a different currency
+    // (e.g. KRW-input project recommending TW returned prices in TWD,
+    // showing as ₩3,300 instead of ₩116,900). Bound: rec must land in
+    // [base × 0.3, base × 5]. Out-of-bound: try the candidate's own curve
+    // revenue max — if THAT is in bounds, the recommended was the bad
+    // pick; replace. Otherwise the whole emission was off-scale; drop
+    // the candidate.
+    const basePriceCents = projectInput.basePriceCents;
+    if (basePriceCents > 0 && pricingCandidates.length > 0) {
+      const lowBound = basePriceCents * 0.3;
+      const highBound = basePriceCents * 5;
+      const inBounds = (n: number) => n >= lowBound && n <= highBound;
+      const correctedCandidates: Array<z.infer<typeof PricingResultSchema>> = [];
+      for (const cand of pricingCandidates) {
+        if (inBounds(cand.recommendedPriceCents)) {
+          correctedCandidates.push(cand);
+          continue;
+        }
+        // Map LLM curve (conversionProbability) to the shared helper's
+        // shape (meanConversionProbability) — the helper is also used
+        // post-aggregation where points carry mean across sims.
+        const curveMax = computeCurveRevenueMaxCents(
+          cand.curve.map((p) => ({
+            priceCents: p.priceCents,
+            meanConversionProbability: p.conversionProbability,
+          })),
+        );
+        if (curveMax != null && inBounds(curveMax)) {
+          console.warn(
+            `[sim ${opts.simulationId}] pricing candidate out of bounds (${cand.recommendedPriceCents} cents vs base ${basePriceCents}); replacing rec with curve revenue max (${curveMax} cents)`,
+          );
+          correctedCandidates.push({ ...cand, recommendedPriceCents: curveMax });
+        } else {
+          console.warn(
+            `[sim ${opts.simulationId}] pricing candidate dropped — both rec (${cand.recommendedPriceCents}) and curve max (${curveMax}) out of [${lowBound}, ${highBound}]; likely currency-scale error`,
+          );
+        }
+      }
+      pricingCandidates.length = 0;
+      pricingCandidates.push(...correctedCandidates);
     }
     let pricing: ReturnType<typeof PricingResultSchema.safeParse>;
     if (pricingCandidates.length === 0) {

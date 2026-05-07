@@ -657,6 +657,16 @@ ${competitorBlock}
 
 ${languageInstruction(locale)}
 
+═══ CURRENCY LOCK — non-negotiable ═══
+ALL price values you emit (recommendedPriceCents AND every curve.priceCents)
+MUST be in **${input.currency} cents** — i.e., the integer value × 100 in
+${input.currency}, the project's input currency. This is true even if you
+recommend a country whose local currency is different (e.g., recommending
+TW for a KRW-input project: emit prices as KRW cents, NOT TWD).
+DO NOT silently convert to a different currency. If recommendedPriceCents
+ends up < 30% or > 500% of the base price (${(input.basePriceCents / 100).toFixed(2)} ${input.currency}),
+you are almost certainly emitting the wrong scale — recompute.
+
 ═══ recommendedPriceCents — DO NOT ANCHOR ON BASE PRICE ═══
 The base price (${(input.basePriceCents / 100).toFixed(2)} ${input.currency}) is INPUT context, not a default answer. Many models default to "recommended = base" without doing the math — that's a critical error.
 
