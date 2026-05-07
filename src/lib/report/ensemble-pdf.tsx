@@ -3079,10 +3079,17 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     const wasCorrected =
       recComputedMatchesCurve === false && recomputedCurveMax != null;
     // Negative quote for pricing — the most relevant skeptic is usually
-    // the one whose objection is price-sensitive. We approximate by just
-    // using the lowest-intent voice; in practice price objections
-    // dominate that list.
-    const priceSkepticQuote = pickQuote(aggregate, { polarity: "negative", offset: 1 });
+    // Filter to voices that actually mention price/cost vocabulary —
+    // the prior offset:1 fallback was surfacing category-mismatch voices
+    // ("vape near a baby is inappropriate") as the "price-sensitive
+    // persona" since the negative-voice pool is sorted by low intent
+    // regardless of objection content. pickQuote falls back to any
+    // negative voice (still mismatch-noise filtered) when no
+    // price-content match exists.
+    const priceSkepticQuote = pickQuote(aggregate, {
+      polarity: "negative",
+      filter: isPriceObjectionText,
+    });
     return (
       <Page size="A4" style={styles.page}>
         {pageHeader}
@@ -5939,7 +5946,16 @@ function QuoteCallout({
  */
 function pickQuote(
   aggregate: EnsembleAggregate,
-  opts: { country?: string; polarity: "positive" | "negative"; offset?: number },
+  opts: {
+    country?: string;
+    polarity: "positive" | "negative";
+    offset?: number;
+    /** Optional content filter — first voice whose text matches the
+     *  predicate wins. Used by the price-sensitivity callout to avoid
+     *  surfacing a category-mismatch voice ("vape near a baby is
+     *  inappropriate") as if it were a price objection. */
+    filter?: (text: string) => boolean;
+  },
 ): {
   text: string;
   country: string;
@@ -5953,13 +5969,43 @@ function pickQuote(
       : aggregate.personas?.topNegativeVoices;
   if (!pool || pool.length === 0) return null;
   const offset = opts.offset ?? 0;
+  // Always strip persona-mismatch noise — these voices ("not for me /
+  // doesn't apply to me") aren't useful as product feedback regardless
+  // of polarity, and they crowd out actually-actionable feedback.
+  const cleanPool = pool.filter((v) => !isPersonaMismatchNoise(v.text));
+  // Apply caller's content filter when provided; fall back to the
+  // unfiltered cleanPool if nothing matches (better some quote than none).
+  const matched = opts.filter ? cleanPool.filter((v) => opts.filter!(v.text)) : cleanPool;
+  const finalPool = matched.length > 0 ? matched : cleanPool;
   if (opts.country) {
     const wanted = opts.country.toUpperCase();
-    const filtered = pool.filter((v) => v.country.toUpperCase() === wanted);
+    const filtered = finalPool.filter((v) => v.country.toUpperCase() === wanted);
     if (filtered.length > offset) return filtered[offset];
   }
-  if (pool.length > offset) return pool[offset];
-  return pool[0];
+  if (finalPool.length > offset) return finalPool[offset];
+  return finalPool[0] ?? null;
+}
+
+/**
+ * Price-vocabulary heuristic — used to verify a "price-sensitive
+ * persona" callout actually quotes someone complaining about price,
+ * not category fit or some unrelated angle. Bilingual KO + EN.
+ */
+function isPriceObjectionText(text: string): boolean {
+  const t = text.toLowerCase();
+  if (
+    /가격|비용|비싸|비쌈|비싸|부담|저렴|가성비|비용\s*효율|예산|월정액|구독\s*비|단가|할인|세일|반복\s*구매\s*비용|소모품|총\s*비용|연간\s*비용|매월/.test(
+      text,
+    )
+  ) return true;
+  if (
+    /\b(price|pricing|cost|costly|expensive|cheap|affordable|budget|spend|spending|monthly fee|subscription cost|recurring|refill|cheaper|pricier|too high)\b/.test(
+      t,
+    )
+  ) return true;
+  // Currency / number patterns — "$20", "€15", "₩50000", "20,000원"
+  if (/[$€£￥¥₩]\s*\d|\d[,.]?\d*\s*원|\d+\s*달러/.test(text)) return true;
+  return false;
 }
 
 /**
