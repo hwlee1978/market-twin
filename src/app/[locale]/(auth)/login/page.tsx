@@ -63,9 +63,9 @@ export default function LoginPage() {
           <LogoMark size={22} />
           <span className="text-xl font-semibold tracking-tight">Market Twin</span>
         </Link>
-        <div className="space-y-8 max-w-md">
+        <div className="space-y-8 max-w-xl">
           <div>
-            <h1 className="text-[2rem] font-bold leading-[1.2] tracking-tight whitespace-nowrap">
+            <h1 className="text-[2rem] font-bold leading-[1.2] tracking-tight break-keep whitespace-pre-line">
               {t("common.tagline")}
             </h1>
             <p className="mt-5 text-brand-100 leading-relaxed break-keep">
