@@ -45,12 +45,23 @@ const TIER_PRESETS = {
     marketProfile: true,
   },
   decision_plus: {
-    // 15 sims still fits a single Anthropic provider's burst tolerance
-    // (Tier 2 absorbs the wave), so we don't need to bring in OpenAI /
-    // Gemini at this depth. Multi-LLM stays a Deep-only feature.
+    // Cross-LLM consensus at moderate depth. Round-robin across the
+    // providers array — repeating "anthropic" three times yields a
+    // 9 Anthropic / 3 OpenAI / 3 Gemini split over the 15 sims, which
+    // keeps Anthropic dominant for voice quality (Sonnet wins the
+    // voice-A/B verified in compare:voice script) while still pulling
+    // in cross-LLM signal at meaningful weight. Pure 5/5/5 split would
+    // dilute voice quality below the bar; pure Anthropic was leaving
+    // ~35% cost savings on the table for no analytical benefit.
     parallelSims: 15,
     perSimPersonas: 200,
-    llmProviders: ["anthropic"] as const,
+    llmProviders: [
+      "anthropic",
+      "anthropic",
+      "anthropic",
+      "openai",
+      "gemini",
+    ] as const,
     marketProfile: true,
   },
   deep: {
@@ -272,7 +283,12 @@ export async function POST(
       tier,
       parallel_sims: preset.parallelSims,
       per_sim_personas: preset.perSimPersonas,
-      llm_providers: preset.llmProviders,
+      // Dedupe so the displayed provider list (joined via ", " in
+      // analyses/compare and other UI) doesn't show "anthropic,
+      // anthropic, anthropic, openai, gemini" for weighted-round-robin
+      // tiers. The weighted array still drives sim assignment below;
+      // only the metadata column gets the deduped view.
+      llm_providers: Array.from(new Set(preset.llmProviders)),
       status: "running",
       notify_email: notifyEmail ?? null,
       is_free_rerun: isFreeRerun,

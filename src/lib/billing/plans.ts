@@ -115,10 +115,13 @@ const FREE_TRIAL: PlanDefinition = {
   support: { ko: "커뮤니티", en: "Community" },
 };
 
-// Pricing built from a 100% margin (price = worst-case LLM cost × 2) using
-// per-tier ensemble cost: Hypothesis $0.90 / Consensus $4 / Consensus+ $36 /
-// Triangulated $100 (5,000 personas, 5 internal sims × multi-LLM). All
-// caps below assume the user maxes the highest-tier slots first.
+// Pricing built from a 200% margin (price = worst-case LLM cost × 3) using
+// real per-ensemble cost (admin/billing snapshot 2026-05-08, +30% buffer):
+//   Hypothesis $3 / Consensus $14 / Consensus+ $27 / Triangulated $31.
+// Consensus+ runs as weighted multi-LLM (9 Anthropic + 3 OpenAI + 3 Gemini)
+// — cuts cost ~35% vs single-LLM 15-sim while keeping voice quality
+// dominated by Sonnet. All worst-case math assumes the user maxes the
+// highest-tier slots first.
 const STARTER: PlanDefinition = {
   slug: "starter",
   name: "Starter",
@@ -128,8 +131,8 @@ const STARTER: PlanDefinition = {
   },
   selfServe: true,
   order: 1,
-  // Worst case: 5 × Consensus = $20. 100% margin = $40 / ₩52,000.
-  priceMonthly: { usd: 4000, krw: 5200000 },
+  // Worst case: 5 × Consensus = $70. 200% margin = $210 / ₩290,000.
+  priceMonthly: { usd: 21000, krw: 29000000 },
   limits: {
     simsPerMonth: 5,
     decisionPlusSimsPerMonth: 0,
@@ -161,9 +164,9 @@ const VALIDATOR: PlanDefinition = {
   },
   selfServe: true,
   order: 2,
-  // Worst case: 3 × Consensus+ + 7 × Consensus = $108 + $28 = $136.
-  // 100% margin = $272 / ₩360,000.
-  priceMonthly: { usd: 27200, krw: 36000000 },
+  // Worst case: 3 × Consensus+ + 7 × Consensus = $81 + $98 = $179.
+  // 200% margin = $537 / ₩690,000.
+  priceMonthly: { usd: 53000, krw: 69000000 },
   limits: {
     simsPerMonth: 10,
     decisionPlusSimsPerMonth: 3,
@@ -196,8 +199,8 @@ const GROWTH: PlanDefinition = {
   selfServe: true,
   order: 3,
   // Worst case: 3 × Triangulated + 5 × Consensus+ + 12 × Consensus
-  // = $300 + $180 + $48 = $528. 100% margin = $1,056 / ₩1,400,000.
-  priceMonthly: { usd: 105600, krw: 140000000 },
+  // = $93 + $135 + $168 = $396. 200% margin = $1,188 / ₩1,490,000.
+  priceMonthly: { usd: 114000, krw: 149000000 },
   limits: {
     simsPerMonth: 20,
     decisionPlusSimsPerMonth: 5,
