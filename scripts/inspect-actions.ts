@@ -93,6 +93,31 @@ async function main() {
       console.log(`  ${i + 1}. [LLM=${a.surfacedInSims} / Algo=${recount}${flag}] ${head}`);
     });
     console.log();
+
+    // Risks recount — same algorithm applied to factor+description.
+    const aggMerged = aggregate as {
+      narrative?: { mergedRisks?: Array<{ factor: string; description: string; surfacedInSims: number }> };
+    } | null;
+    const mergedRisks = aggMerged?.narrative?.mergedRisks ?? [];
+    if (mergedRisks.length > 0) {
+      console.log("=".repeat(72));
+      console.log(`MERGED RISKS (${mergedRisks.length}) — LLM count vs Algorithm recount`);
+      console.log("=".repeat(72));
+      const perSimRisks = sims.rows.map((s) =>
+        (s.risks ?? []).map((r) => `${r.factor} ${r.description}`),
+      );
+      const perSimRiskFactors = sims.rows.map((s) =>
+        (s.risks ?? []).map((r) => r.factor),
+      );
+      mergedRisks.forEach((r, i) => {
+        const merged = `${r.factor} ${r.description}`;
+        const recountFull = recountSurfacedInSims(merged, perSimRisks);
+        const recountFactor = recountSurfacedInSims(r.factor, perSimRiskFactors, 0.15);
+        const head = r.factor.length > 100 ? r.factor.slice(0, 100) + "..." : r.factor;
+        console.log(`  ${i + 1}. [LLM=${r.surfacedInSims} / Algo(full)=${recountFull} / Algo(factor)=${recountFactor}] ${head}`);
+      });
+      console.log();
+    }
   } finally {
     await c.end();
   }
