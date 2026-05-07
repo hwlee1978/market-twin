@@ -2945,32 +2945,14 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           </View>
         )}
 
-        {tierBudget.showChannels && p.channelMentions && p.channelMentions.length > 0 && (
-          <View style={styles.sectionBlock}>
-            <MText style={styles.sectionEyebrow}>
-              {isKo ? "채널·브랜드 언급 (Top 10)" : "Channel / brand mentions"}
-            </MText>
-            <View style={styles.table}>
-              <View style={styles.tableHeader}>
-                <MText style={[styles.th, { flex: 1.5 }]}>{isKo ? "채널" : "Channel"}</MText>
-                <MText style={[styles.th, styles.colNum]}>{isKo ? "언급" : "Mentions"}</MText>
-                <MText style={[styles.th, styles.colNum]}>{isKo ? "비중" : "Share"}</MText>
-                <MText style={[styles.th, styles.colNum]}>{isKo ? "평균 의향" : "Intent"}</MText>
-              </View>
-              {p.channelMentions.slice(0, 10).map((c, i, arr) => {
-                const last = i === arr.length - 1;
-                return (
-                  <View key={c.channel} style={[styles.tableRow, last ? styles.tableRowLast : {}]}>
-                    <MText style={[styles.td, { flex: 1.5, fontWeight: 600 }]}>{c.channel}</MText>
-                    <MText style={[styles.td, styles.colNum]}>{String(c.mentions)}</MText>
-                    <MText style={[styles.tdMuted, styles.colNum]}>{`${c.share}%`}</MText>
-                    <MText style={[styles.tdMuted, styles.colNum]}>{`${c.meanIntent}%`}</MText>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        )}
+        {/* Channel/brand mentions table previously rendered here was a
+            verbatim duplicate of the dedicated "Channel priority" page
+            (renderChannelPriorityPage) — both pull from
+            aggregate.personas.channelMentions and ship together on
+            decision_plus+. The dedicated page has a bar visualisation,
+            priority framing, and Top 12; keeping that one and dropping
+            the inline table avoids the side-by-side duplication the
+            user flagged in PDF review. */}
 
         {tierBudget.showSegments &&
           p.segmentBreakdown &&
