@@ -2369,6 +2369,11 @@ function CountryDrilldown({
                 ? `선정 사유 (시뮬 샘플 ${rationaleSamples.length}건)`
                 : `Selection rationale (${rationaleSamples.length} sim samples)`}
             </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed mb-2">
+              {isKo
+                ? "각 sim이 emit한 원문 그대로 — 본문 내 수치(가격·CAC·기간 등)는 해당 sim의 자체 추정치이며 위 헤더의 합산 평균과 차이가 있을 수 있습니다."
+                : "Verbatim from each sim — internal numbers (price / CAC / timelines) reflect that sim's own estimate and may differ from the aggregate above."}
+            </p>
             <ul className="space-y-2">
               {rationaleSamples.map((r, i) => (
                 <li

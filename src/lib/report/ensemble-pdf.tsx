@@ -2735,6 +2735,13 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                       ? `선정 사유 (시뮬 샘플 ${d.rationaleSamples.length}건)`
                       : `Rationale (${d.rationaleSamples.length} sim samples)`}
                   </MText>
+                  <MText
+                    style={{ fontSize: 7, color: C.muted, marginBottom: 4, lineHeight: 1.4 }}
+                  >
+                    {isKo
+                      ? "각 sim이 emit한 원문 그대로 — 본문 내 수치(가격·CAC·기간 등)는 해당 sim의 자체 추정치이며 위 헤더의 합산 평균과 차이가 있을 수 있습니다."
+                      : "Verbatim from each sim — internal numbers (price / CAC / timelines) reflect that sim's own estimate and may differ from the aggregate above."}
+                  </MText>
                   {d.rationaleSamples.map((r, i) => (
                     <MText
                       key={i}
