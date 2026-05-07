@@ -25,6 +25,11 @@ import {
 import { analyzeIncomeIntent } from "@/lib/simulation/segment-analysis";
 import { getCountryLabel } from "@/lib/countries";
 import { formatPrice } from "@/lib/format/price";
+import {
+  tokenize,
+  overlapCoefficient,
+  isPersonaMismatchNoise,
+} from "@/lib/simulation/surfaced-recount";
 
 const C = {
   brand: "#0A1F4D",
@@ -4782,33 +4787,88 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    */
   const renderCommonObjectionsPage = () => {
     if (!tierBudget.showCommonObjections) return null;
-    // Map each objection text → [countries that flagged it, total count].
-    // Use country-detail objections (already aggregated per country).
-    const cross = new Map<string, { countries: Set<string>; count: number }>();
+    // Cross-country aggregation. Per-country topObjections are already
+    // fuzzy-clustered (clusterStrings in ensemble.ts), but cross-country
+    // matching requires another pass — slight wording differences
+    // between countries' top entries shouldn't fragment the universal
+    // list. Approach: collect every per-country objection (with the
+    // country tag), filter persona-mismatch noise, then fuzzy-cluster
+    // again across all countries with the same overlap algorithm.
+    const allEntries: Array<{ text: string; country: string; count: number }> = [];
     for (const c of aggregate.countryStats) {
       const objs = c.detail?.topObjections;
       if (!objs) continue;
       for (const o of objs) {
         const key = o.text.trim();
         if (!key) continue;
-        const cur = cross.get(key) ?? { countries: new Set(), count: 0 };
-        cur.countries.add(c.country);
-        cur.count += o.count;
-        cross.set(key, cur);
+        if (isPersonaMismatchNoise(key)) continue;
+        allEntries.push({ text: key, country: c.country, count: o.count });
       }
     }
+
+    // Token-overlap union-find clustering on the cross-country list.
+    const tokenSets = allEntries.map((e) => tokenize(e.text));
+    const parentArr = allEntries.map((_, i) => i);
+    const find = (x: number): number => {
+      while (parentArr[x] !== x) {
+        parentArr[x] = parentArr[parentArr[x]];
+        x = parentArr[x];
+      }
+      return x;
+    };
+    const union = (a: number, b: number) => {
+      const ra = find(a);
+      const rb = find(b);
+      if (ra !== rb) parentArr[ra] = rb;
+    };
+    for (let i = 0; i < allEntries.length; i++) {
+      for (let j = i + 1; j < allEntries.length; j++) {
+        if (overlapCoefficient(tokenSets[i], tokenSets[j]) >= 0.5) {
+          union(i, j);
+        }
+      }
+    }
+    const byCluster = new Map<
+      number,
+      { texts: Map<string, number>; countries: Set<string>; count: number }
+    >();
+    for (let i = 0; i < allEntries.length; i++) {
+      const root = find(i);
+      const e = allEntries[i];
+      const cur = byCluster.get(root) ?? {
+        texts: new Map<string, number>(),
+        countries: new Set<string>(),
+        count: 0,
+      };
+      cur.texts.set(e.text, (cur.texts.get(e.text) ?? 0) + e.count);
+      cur.countries.add(e.country);
+      cur.count += e.count;
+      byCluster.set(root, cur);
+    }
+    // Pick representative text per cluster — most-mentioned variant,
+    // ties broken by shortest.
+    const clustered = [...byCluster.values()].map((c) => {
+      const rep = [...c.texts.entries()].sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1];
+        return a[0].length - b[0].length;
+      })[0][0];
+      return {
+        text: rep,
+        countries: [...c.countries],
+        count: c.count,
+      };
+    });
+
     // Universal: appears in ≥2 countries. Sort by country count
     // descending, then total mention count.
-    const universal = [...cross.entries()]
-      .map(([text, v]) => ({ text, countries: [...v.countries], count: v.count }))
+    const universal = clustered
       .filter((r) => r.countries.length >= 2)
       .sort(
         (a, b) =>
           b.countries.length - a.countries.length || b.count - a.count,
       )
       .slice(0, 10);
-    const local = [...cross.entries()]
-      .map(([text, v]) => ({ text, countries: [...v.countries], count: v.count }))
+    const local = clustered
       .filter((r) => r.countries.length === 1)
       .sort((a, b) => b.count - a.count)
       .slice(0, 6);
@@ -5159,7 +5219,12 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     const stats = aggregate.countryStats.find(
       (c) => c.country.toUpperCase() === rec.toUpperCase(),
     );
-    const objections = stats?.detail?.topObjections ?? [];
+    // Strip persona-mismatch noise ("non-smoker, this product isn't for
+    // me" type objections) — same filter as elsewhere. Trust factors
+    // don't suffer the same pattern; left untouched.
+    const objections = (stats?.detail?.topObjections ?? []).filter(
+      (o) => !isPersonaMismatchNoise(o.text),
+    );
     const trustFactors = stats?.detail?.topTrustFactors ?? [];
     const personasInCountry = aggregate.personas?.byCountry?.find(
       (b) => b.country.toUpperCase() === rec.toUpperCase(),
@@ -5919,43 +5984,8 @@ function pickMarketBlocker(
   objections: Array<{ text: string; count: number }> | undefined,
 ): string {
   if (!objections || objections.length === 0) return "—";
-  const isMismatchNoise = (text: string): boolean => {
-    const t = text.toLowerCase();
-    // Korean mismatch patterns — persona explicitly says product
-    // doesn't fit their category / target / interest. The shape is
-    // "{persona-trait}이므로 {category}와 무관" — we want to keep
-    // genuine market blockers (regulatory, pricing, channel) and
-    // drop "this persona just isn't in the target audience".
-    if (
-      /아이\s*신발|어린이|유아|성인용|구매\s*동기\s*자체가\s*없음|타겟\s*아님|관심\s*없음|내\s*카테고리\s*아님|이미\s*충분히\s*가지고|제품\s*불필요/.test(
-        text,
-      )
-    ) return true;
-    // Smoking-cessation / vape category-mismatch noise: persona is a
-    // non-smoker / vegan / unrelated lifestyle and so the product
-    // doesn't apply to them. Valid persona objection but useless as
-    // a "market blocker" — same persona type exists in every market
-    // and isn't telling us anything geo-specific.
-    if (
-      /비흡연자|흡연\s*경험\s*없|흡연\s*안\s*함|니코틴\s*제품\s*자체.*소비.*않|제품\s*자체.*소비.*않|타깃\s*자체.*해당.*않|카테고리\s*자체.*해당.*없|자신과\s*무관|본인.*해당.*없|개인적.*해당.*없/.test(
-        text,
-      )
-    ) return true;
-    // English mismatch patterns
-    if (
-      /\b(not for me|no interest|wrong fit for me|not the target|don'?t need|already have enough|kids?'? shoes?|not in market for|outside my category)\b/.test(
-        t,
-      )
-    ) return true;
-    if (
-      /\b(non-smoker|never smoked|don'?t smoke|doesn'?t apply to me|category doesn'?t apply|product (?:isn'?t|is not) for me|outside (?:my|the) target)\b/.test(
-        t,
-      )
-    ) return true;
-    return false;
-  };
   for (const o of objections) {
-    if (!isMismatchNoise(o.text)) return o.text;
+    if (!isPersonaMismatchNoise(o.text)) return o.text;
   }
   // All filtered → still surface top-1 so the column isn't empty.
   return objections[0].text;

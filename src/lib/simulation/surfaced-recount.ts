@@ -155,6 +155,45 @@ export function recountSurfacedInSims(
 }
 
 /**
+ * Detects "I'm not in the target audience" objections that aren't real
+ * market blockers — same persona type exists in every market sample
+ * and the same objection ranks #1 across many markets, drowning out
+ * actually-actionable geo-specific blockers (regulatory, pricing,
+ * channel). Used by both the source-side aggregator (to filter before
+ * clustering) and the PDF render layer (defence-in-depth on legacy
+ * data that didn't go through source-side filtering).
+ */
+export function isPersonaMismatchNoise(text: string): boolean {
+  const t = text.toLowerCase();
+  // Korean mismatch — generic "not for me" patterns.
+  if (
+    /아이\s*신발|어린이|유아|성인용|구매\s*동기\s*자체가\s*없음|타겟\s*아님|관심\s*없음|내\s*카테고리\s*아님|이미\s*충분히\s*가지고|제품\s*불필요/.test(
+      text,
+    )
+  ) return true;
+  // Korean cessation/vape category-mismatch — non-smoker, vegan,
+  // doesn't consume nicotine. Persona type, not market blocker.
+  if (
+    /비흡연자|흡연\s*경험\s*없|흡연\s*안\s*함|니코틴\s*제품\s*자체.*소비.*않|제품\s*자체.*소비.*않|타깃\s*자체.*해당.*않|카테고리\s*자체.*해당.*없|자신과\s*무관|본인.*해당.*없|개인적.*해당.*없|구매\s*동기\s*자체.*없|흡연자\s*가\s*아니|브랜드\s*이미지.*정면\s*충돌|절대\s*추천\s*불가/.test(
+      text,
+    )
+  ) return true;
+  // English mismatch patterns — generic.
+  if (
+    /\b(not for me|no interest|wrong fit for me|not the target|don'?t need|already have enough|kids?'? shoes?|not in market for|outside my category)\b/.test(
+      t,
+    )
+  ) return true;
+  // English cessation/vape mismatch.
+  if (
+    /\b(non-smoker|never smoked|don'?t smoke|doesn'?t apply to me|category doesn'?t apply|product (?:isn'?t|is not) for me|outside (?:my|the) target)\b/.test(
+      t,
+    )
+  ) return true;
+  return false;
+}
+
+/**
  * Cluster a flat list of strings (e.g. persona objections, trust
  * factors) by token-overlap similarity. Returns one entry per cluster
  * with the most-frequent surface form as the representative and the

@@ -13,7 +13,12 @@ import {
   computePricingSensitivity as computePricingSensitivityShared,
   computeCurveRevenueMaxCents,
 } from "./pricing-sensitivity";
-import { tokenize, overlapCoefficient, clusterStrings } from "./surfaced-recount";
+import {
+  tokenize,
+  overlapCoefficient,
+  clusterStrings,
+  isPersonaMismatchNoise,
+} from "./surfaced-recount";
 
 /* ────────────────────────────────── stats helpers ─── */
 function median(xs: number[]): number {
@@ -751,7 +756,11 @@ export function aggregateEnsemble(
       for (const p of inCountry) {
         for (const o of p.objections ?? []) {
           const t = o.trim();
-          if (t) allObjections.push(t);
+          // Drop persona-mismatch noise ("non-smoker, this isn't for
+          // me") at source — these aren't market blockers, just
+          // out-of-target personas. Filtering BEFORE clustering avoids
+          // both fragmenting the signal and surfacing noise.
+          if (t && !isPersonaMismatchNoise(t)) allObjections.push(t);
         }
       }
       const topObjections = clusterStrings(allObjections, 0.5)
