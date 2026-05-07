@@ -20,6 +20,7 @@
     "validate:categories": "tsx --env-file=.env.local scripts/validate-categories.ts",
     "inventory:pool": "tsx --env-file=.env.local scripts/pool-inventory.ts",
     "inspect:sim": "tsx --env-file=.env.local scripts/inspect-sim.ts",
+    "inspect:actions": "tsx --env-file=.env.local scripts/inspect-actions.ts",
     "analyze:ensemble": "tsx --env-file=.env.local scripts/ensemble-analysis.ts",
     "ensemble:run": "tsx --env-file=.env.local scripts/run-ensemble.ts",
     "smoke:ensemble-pdf": "tsx --env-file=.env.local scripts/smoke-ensemble-pdf.ts",

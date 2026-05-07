@@ -863,6 +863,7 @@ function EnsembleDashboard({
           ensembleId={result.id}
           basePriceCents={result.project?.base_price_cents ?? null}
           currency={result.project?.currency ?? "USD"}
+          tier={tier}
           locale={locale}
           isKo={isKo}
         />
@@ -2691,6 +2692,7 @@ function MarketProfileTab({
   ensembleId,
   basePriceCents,
   currency,
+  tier,
   locale,
   isKo,
 }: {
@@ -2702,6 +2704,11 @@ function MarketProfileTab({
    *  anchored yourPosition on the input price). */
   basePriceCents: number | null;
   currency: string;
+  /** Ensemble tier — drives the empty-state copy. Hypothesis skips
+   *  market-profile generation by design (cost), so the empty state
+   *  there should explain "tier-gated, click to backfill" rather than
+   *  the misleading "feature was introduced after this sim". */
+  tier: string;
   locale: string;
   isKo: boolean;
 }) {
@@ -2765,9 +2772,13 @@ function MarketProfileTab({
         </button>
         {err && <p className="text-xs text-risk mt-4">{err}</p>}
         <p className="text-[11px] text-slate-400 mt-6 leading-relaxed">
-          {isKo
-            ? "이 ensemble은 시장 분석 기능이 도입되기 전 만들어졌어 자동으로 채워지지 않았습니다. 새로 생성된 시뮬은 자동으로 포함됩니다."
-            : "This ensemble was created before the market profile feature was added. New simulations include it automatically."}
+          {tier === "hypothesis"
+            ? isKo
+              ? "Hypothesis tier는 비용 절감을 위해 시장 분석을 자동 생성하지 않습니다. 위 버튼으로 바로 생성하거나, Consensus tier 이상으로 다시 돌리면 자동 포함됩니다."
+              : "Hypothesis tier skips market-profile generation by design (cost). Click the button above to fill it in now, or rerun on Consensus tier or higher to include it automatically."
+            : isKo
+              ? "이 ensemble의 시장 분석이 아직 채워지지 않았습니다. 위 버튼으로 즉시 생성하거나, 새로 시뮬을 돌리면 자동 포함됩니다."
+              : "Market profile hasn't been generated for this ensemble yet. Click the button above to backfill it now, or run a new simulation to include it automatically."}
         </p>
       </div>
     );

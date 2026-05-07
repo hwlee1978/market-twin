@@ -15,6 +15,7 @@
 import { z } from "zod";
 import { getLLMProvider } from "@/lib/llm";
 import type { EnsembleSimSnapshot, EnsembleNarrative } from "./ensemble";
+import { recountSurfacedInSims } from "./surfaced-recount";
 
 const MERGED_RISK_SCHEMA = z.object({
   factor: z.string(),
@@ -138,6 +139,52 @@ export async function mergeNarrative(
     console.log(
       `[ensemble narrative] merged ${sims.length} sims · ${parsed.data.mergedRisks.length} risks · ${parsed.data.mergedActions.length} actions · ${Date.now() - t0}ms`,
     );
+
+    // Algorithmic surfacedInSims recount — the merge LLM consistently
+    // under-counts (collapses items semantically but assigns
+    // surfacedInSims=1 even when 4-5 sims independently surfaced the
+    // same root cause). We don't trust its count: walk each merged
+    // text and Jaccard-match against every per-sim raw item to compute
+    // the true cross-sim support count.
+    const perSimActionPlans: string[][] = sims.map(
+      (s) => s.recommendations?.actionPlan ?? [],
+    );
+    const perSimRiskTexts: string[][] = sims.map((s) =>
+      (s.risks ?? []).map((r) => `${r.factor} ${r.description}`),
+    );
+
+    const mergedRisks = parsed.data.mergedRisks.map((r) => {
+      const merged = `${r.factor} ${r.description}`;
+      const recount = recountSurfacedInSims(merged, perSimRiskTexts);
+      if (recount !== r.surfacedInSims) {
+        console.log(
+          `[ensemble narrative] risk recount: LLM said ${r.surfacedInSims}, algorithm says ${recount} — using ${recount} ("${r.factor.slice(0, 40)}")`,
+        );
+      }
+      return {
+        ...r,
+        description: rewriteSimScaleReferences(r.description, perSimPersonas, totalPersonas),
+        surfacedInSims: recount,
+      };
+    });
+    const mergedActions = parsed.data.mergedActions.map((a) => {
+      const rewritten = rewriteSimScaleReferences(a.action, perSimPersonas, totalPersonas);
+      const recount = recountSurfacedInSims(a.action, perSimActionPlans);
+      if (recount !== a.surfacedInSims) {
+        console.log(
+          `[ensemble narrative] action recount: LLM said ${a.surfacedInSims}, algorithm says ${recount} — using ${recount} ("${a.action.slice(0, 40)}")`,
+        );
+      }
+      return {
+        ...a,
+        action: rewritten,
+        impact: a.impact,
+        effort: a.effort,
+        specificity: assessActionSpecificity(rewritten),
+        surfacedInSims: recount,
+      };
+    });
+
     return {
       hotTake: parsed.data.hotTake
         ? rewriteSimScaleReferences(parsed.data.hotTake, perSimPersonas, totalPersonas)
@@ -147,20 +194,8 @@ export async function mergeNarrative(
         perSimPersonas,
         totalPersonas,
       ),
-      mergedRisks: parsed.data.mergedRisks.map((r) => ({
-        ...r,
-        description: rewriteSimScaleReferences(r.description, perSimPersonas, totalPersonas),
-      })),
-      mergedActions: parsed.data.mergedActions.map((a) => {
-        const rewritten = rewriteSimScaleReferences(a.action, perSimPersonas, totalPersonas);
-        return {
-          ...a,
-          action: rewritten,
-          impact: a.impact,
-          effort: a.effort,
-          specificity: assessActionSpecificity(rewritten),
-        };
-      }),
+      mergedRisks,
+      mergedActions,
       overallRiskLevel,
     };
   } catch (err) {
