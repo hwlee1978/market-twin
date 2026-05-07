@@ -2,6 +2,7 @@ import type { ProjectInput } from "./schemas";
 import type { SimulationAggregate } from "./aggregate";
 import { renderAggregateForPrompt } from "./aggregate";
 import type { PersonaSlot } from "./profession-pool";
+import { buildChannelCostsBlock } from "@/lib/reference/channel-costs";
 
 export type PromptLocale = "ko" | "en";
 
@@ -532,6 +533,15 @@ export function countryPrompt(
   aggregate: SimulationAggregate,
   locale: PromptLocale = "en",
 ): string {
+  // Channel-cost grounding block — built per candidate country so the
+  // LLM anchors cacEstimateUsd on real industry medians (Meta CPM,
+  // Google CPC, country index) instead of free-styling. Without this
+  // block CAC was just LLM intuition; with it, the LLM is asked to
+  // show its work via the new cacRationale field.
+  const channelCostsBlock = input.candidateCountries
+    .map((country) => `[${country}]\n${buildChannelCostsBlock(country, input.category)}`)
+    .join("\n\n");
+
   return `Rank these candidate OVERSEAS-EXPANSION TARGET MARKETS for launching the product below. The company is based in ${input.originatingCountry} (the origin / home market) and is validating overseas expansion — score each candidate as an EXPORT TARGET, not as a domestic market. The persona stats below are the bounded grounding signal — read them carefully (intent histograms, top objections, top trust signals, profession mix per country) before incorporating market structure (competition, CAC realism, regulatory friction, cultural fit, distance from origin).
 
 CRITICAL: Only include countries from the candidate list. Do NOT add countries that are not in the list. Do NOT include the origin (${input.originatingCountry}) in the ranking — it is the home market, not a target.
@@ -545,9 +555,25 @@ Candidate target markets (ONLY these allowed): ${input.candidateCountries.join("
 
 ${renderAggregateForPrompt(aggregate, locale)}
 
+═══ CAC GROUNDING — CHANNEL COSTS PER CANDIDATE COUNTRY ═══
+Use these medians as the basis for cacEstimateUsd. Do NOT free-style a number — start from the channel mix you'd realistically run for this category and arithmetic from there.
+
+${channelCostsBlock}
+
+CAC formula:
+  blended_CPM_or_CPC × your_assumed_channel_mix / (CTR × CVR × funnel_friction)
+
+Persona-derived funnel signal (already aggregated above):
+  CTR ≈ click rate from intent histogram (use channel-typical if not derivable)
+  CVR ≈ buy rate from intent ≥60 ratio
+
+For each country, emit cacRationale (string) showing your work — example:
+  "Mix: 60% Meta IG @ CPM $12 + 30% Google Search @ CPC $1.4 + 10% TikTok @ CPM $10. Funnel: CTR 1.4%, CVR 4.5%. Blended CAC ≈ $18.50."
+This text appears in the report so the user can audit the assumptions. If your CAC differs from the channel-cost arithmetic by >50%, the rationale must explain why (e.g. brand-awareness gap inflates spend, niche category needs influencer-led acquisition outside paid).
+
 ${languageInstruction(locale)}
 
-Return a JSON object: { "countries": [ { country, demandScore, cacEstimateUsd, competitionScore, finalScore, rank, rationale, components } ] } — sorted by rank ascending (1 = best). country must be one of: ${input.candidateCountries.join(", ")}.
+Return a JSON object: { "countries": [ { country, demandScore, cacEstimateUsd, cacRationale, competitionScore, finalScore, rank, rationale, components } ] } — sorted by rank ascending (1 = best). country must be one of: ${input.candidateCountries.join(", ")}.
 
 ═══ SCORE SCALE (CRITICAL — common mistake) ═══
 ALL scores (demandScore, competitionScore, finalScore, and every components.* value) are on a **0-100 scale**, NOT 0-10.

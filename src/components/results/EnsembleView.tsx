@@ -5413,6 +5413,21 @@ function DecisionAidTab({
                   {`($${cacUsd!.toFixed(2)})`}
                 </div>
               )}
+              {/* Channel-mix arithmetic — emitted by the LLM since
+                  channel-cost grounding shipped. Lets the user audit
+                  the assumed mix instead of trusting the headline
+                  number blindly. Hidden when absent (legacy sims). */}
+              {recCountryStats?.cacRationale && (
+                <details className="mt-2 group">
+                  <summary className="cursor-pointer text-[11px] text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 select-none">
+                    <ChevronRight size={10} className="transition-transform group-open:rotate-90" />
+                    <span>{isKo ? "산출 근거 보기" : "Show rationale"}</span>
+                  </summary>
+                  <p className="text-[11px] text-slate-600 leading-relaxed mt-1.5 pl-3 border-l-2 border-slate-200">
+                    {recCountryStats.cacRationale}
+                  </p>
+                </details>
+              )}
             </div>
             <div className="card p-4">
               <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">

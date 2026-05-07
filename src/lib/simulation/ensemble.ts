@@ -125,6 +125,11 @@ export interface CountryStats {
   };
   demandScore: { mean: number; median: number };
   cacEstimateUsd: { mean: number; median: number };
+  /** First-emitted LLM cacRationale across sims for this country —
+   *  shown on the Decision-aid CAC card so the user can audit the
+   *  channel-mix arithmetic. Optional: legacy sims pre-channel-cost-
+   *  grounding don't carry it. */
+  cacRationale?: string;
   competitionScore: { mean: number; median: number };
   /**
    * Per-component score decomposition averaged across sims. Six
@@ -650,6 +655,10 @@ export function aggregateEnsemble(
     finalStds: number[];
     demand: number[];
     cac: number[];
+    /** First-emitted cacRationale across sims for this country (channel
+     *  mix arithmetic shown by the LLM). Surfaced on the Decision-aid
+     *  CAC card. */
+    cacRationales: string[];
     comp: number[];
     rationales: string[];
     /** Per-component samples — only populated for sims that emitted them. */
@@ -667,6 +676,7 @@ export function aggregateEnsemble(
     finalStds: [],
     demand: [],
     cac: [],
+    cacRationales: [],
     comp: [],
     rationales: [],
     components: {
@@ -693,6 +703,10 @@ export function aggregateEnsemble(
       }
       b.demand.push(c.demandScore);
       b.cac.push(c.cacEstimateUsd);
+      const rationaleField = (c as { cacRationale?: string }).cacRationale;
+      if (typeof rationaleField === "string" && rationaleField.trim().length > 0) {
+        b.cacRationales.push(rationaleField.trim());
+      }
       b.comp.push(c.competitionScore);
       if (typeof c.rationale === "string" && c.rationale.trim().length > 0) {
         b.rationales.push(c.rationale.trim());
@@ -830,6 +844,11 @@ export function aggregateEnsemble(
         },
         demandScore: { mean: round1(mean(b.demand)), median: round1(median(b.demand)) },
         cacEstimateUsd: { mean: round2(mean(b.cac)), median: round2(median(b.cac)) },
+        // Take the first sim's cacRationale as the representative — they
+        // mostly agree on assumed channel mix for the same country/category,
+        // and showing one clean breakdown is more useful than concatenating
+        // 15 versions. Empty when no sim emitted (legacy data).
+        cacRationale: b.cacRationales[0],
         competitionScore: { mean: round1(mean(b.comp)), median: round1(median(b.comp)) },
         components,
         detail: {

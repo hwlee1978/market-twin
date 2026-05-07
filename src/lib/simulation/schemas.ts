@@ -190,6 +190,14 @@ export const CountryScoreSchema = z.object({
   country: z.string(),
   demandScore: z.number().min(0).max(100),
   cacEstimateUsd: z.number().nonnegative(),
+  /**
+   * LLM's stated channel-mix arithmetic for the CAC estimate. Emitted
+   * since channel-cost grounding shipped — sims pre-2026-05-08 leave
+   * this empty. Surfaced on the Decision-aid CAC card so the user
+   * can audit the assumed mix (e.g., "60% Meta @ $12 CPM + 30% Google
+   * Search @ $1.4 CPC + 10% TikTok @ $10 CPM = blended CAC $18.50").
+   */
+  cacRationale: z.string().optional(),
   competitionScore: z.number().min(0).max(100),
   finalScore: z.number().min(0).max(100),
   rank: z.number().int().min(1),
