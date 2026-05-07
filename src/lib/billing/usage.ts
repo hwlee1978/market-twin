@@ -31,6 +31,7 @@ export interface SubscriptionState {
 export interface MonthlyUsage {
   monthStart: string;
   simsUsed: number;
+  decisionPlusSimsUsed: number;
   deepSimsUsed: number;
   chatMessagesUsed: number;
 }
@@ -105,10 +106,16 @@ export async function getMonthlyUsage(
   };
   const simRows = (sims ?? []) as SimRow[];
   const simsUsed = simRows.length;
-  const deepSimsUsed = simRows.filter((s) => {
+  const tierOf = (s: SimRow): string | undefined => {
     const ens = s.ensembles;
-    const tier = Array.isArray(ens) ? ens[0]?.tier : ens?.tier;
-    return tier === "deep" || tier === "deep_pro";
+    return Array.isArray(ens) ? ens[0]?.tier : ens?.tier;
+  };
+  const decisionPlusSimsUsed = simRows.filter(
+    (s) => tierOf(s) === "decision_plus",
+  ).length;
+  const deepSimsUsed = simRows.filter((s) => {
+    const t = tierOf(s);
+    return t === "deep" || t === "deep_pro";
   }).length;
 
   // Chat messages: each user→persona turn writes nothing today (chat is
@@ -131,6 +138,7 @@ export async function getMonthlyUsage(
   return {
     monthStart: monthStart.toISOString(),
     simsUsed,
+    decisionPlusSimsUsed,
     deepSimsUsed,
     chatMessagesUsed,
   };

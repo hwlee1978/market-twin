@@ -87,6 +87,14 @@ export async function friendlyApiError(
         ko: "이번 달 Triangulated tier 한도를 모두 사용했습니다. 다음 달 갱신을 기다리거나 더 높은 플랜으로 업그레이드하세요.",
         en: "Monthly Triangulated tier quota used up. Wait for next month or upgrade.",
       },
+      month_decision_plus_quota_exhausted: {
+        ko: "이번 달 Consensus+ tier 한도를 모두 사용했습니다. 다음 달 갱신을 기다리거나 더 높은 플랜으로 업그레이드하세요.",
+        en: "Monthly Consensus+ tier quota used up. Wait for next month or upgrade.",
+      },
+      decision_plus_requires_validator: {
+        ko: "Consensus+ tier는 Validator 이상 플랜에서 사용 가능합니다. 더 낮은 tier(Hypothesis / Consensus)를 선택하거나 플랜을 업그레이드하세요.",
+        en: "Consensus+ tier requires the Validator plan or higher. Pick a lower tier (Hypothesis / Consensus) or upgrade your plan.",
+      },
       deep_requires_growth: {
         ko: "Triangulated tier는 Growth 이상 플랜에서 사용 가능합니다. 더 낮은 tier(Hypothesis / Consensus / Consensus+)를 선택하거나 플랜을 업그레이드하세요.",
         en: "Triangulated tier requires the Growth plan or higher. Pick a lower tier (Hypothesis / Consensus / Consensus+) or upgrade your plan.",

@@ -235,6 +235,7 @@ export async function POST(
       trialSimsUsed: sub.trialSimsUsed,
       trialSimsLimit: sub.trialSimsLimit,
       monthSimsUsed: usage.simsUsed,
+      monthDecisionPlusSimsUsed: usage.decisionPlusSimsUsed,
       monthDeepSimsUsed: usage.deepSimsUsed,
       simTier: tier as "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro",
     });

@@ -12,6 +12,7 @@ interface PlanShape {
   tagline: { ko: string; en: string };
   limits: {
     simsPerMonth: number;
+    decisionPlusSimsPerMonth: number;
     deepSimsPerMonth: number;
     deepProEnabled: boolean;
     chatMessagesPerMonth: number;
@@ -49,6 +50,7 @@ interface InitialState {
   usage: {
     monthStart: string;
     simsUsed: number;
+    decisionPlusSimsUsed: number;
     deepSimsUsed: number;
     chatMessagesUsed: number;
   };
@@ -191,6 +193,14 @@ export function BillingDashboard({
               limit={trial.active ? trial.simsLimit : plan.limits.simsPerMonth}
               isKo={isKo}
             />
+            {plan.limits.decisionPlusSimsPerMonth > 0 && (
+              <UsageRow
+                label={isKo ? "검증분석+ tier" : "Consensus+ tier"}
+                used={usage.decisionPlusSimsUsed}
+                limit={plan.limits.decisionPlusSimsPerMonth}
+                isKo={isKo}
+              />
+            )}
             {plan.features.multiLLM && (
               <UsageRow
                 label={isKo ? "심층분석 tier (멀티 LLM)" : "Triangulated tier (multi-LLM)"}

@@ -271,6 +271,22 @@ function PlanCard({
           }
         />
         <FeatureRow
+          on={
+            plan.limits.decisionPlusSimsPerMonth > 0 ||
+            plan.limits.decisionPlusSimsPerMonth < 0
+          }
+          label={
+            plan.limits.decisionPlusSimsPerMonth > 0 ||
+            plan.limits.decisionPlusSimsPerMonth < 0
+              ? isKo
+                ? `검증분석+ tier ${formatLimit(plan.limits.decisionPlusSimsPerMonth, isKo)}건`
+                : `Consensus+ tier ${formatLimit(plan.limits.decisionPlusSimsPerMonth, isKo)} sims`
+              : isKo
+                ? "검증분석+ tier"
+                : "Consensus+ tier"
+          }
+        />
+        <FeatureRow
           on={plan.features.multiLLM}
           label={
             plan.limits.deepSimsPerMonth > 0 || plan.limits.deepSimsPerMonth < 0
