@@ -3397,6 +3397,11 @@ function PersonasTab({
               })
             )}
           </div>
+          <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+            {isKo
+              ? "각 연령대별로 시뮬레이션에 참여한 페르소나 수입니다. 추천국의 실제 인구 분포(정부 통계 기반) × 본 카테고리의 구매층 적합도로 가중되어 생성됩니다 — 가장 많은 cohort가 헤드라인 의향·objection 신호를 주도합니다."
+              : "Number of personas in each age bucket. Sampled from the recommended country's real demographic distribution (gov-stats grounded) weighted by category fit — the dominant cohort drives the headline intent + objection signal."}
+          </p>
         </div>
         <div>
           <h3 className="text-sm font-semibold text-slate-900 mb-2">
@@ -3683,7 +3688,7 @@ function WelcomeStep({
  */
 function SegmentGuide({ isKo }: { isKo: boolean }) {
   return (
-    <details className="mt-3 group">
+    <details className="mt-3 group" open>
       <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 select-none">
         <ChevronRight size={12} className="transition-transform group-open:rotate-90" />
         <span>{isKo ? "이 표 어떻게 읽나요?" : "How to read this table"}</span>
@@ -4726,10 +4731,34 @@ function PricingTab({
       revenueIndex: p.priceCents * runningMin,
     };
   });
-  const topRevenue = [...envelopeRevenue]
-    .sort((a, b) => b.revenueIndex - a.revenueIndex)
-    .slice(0, 5);
+  const sortedAllRevenue = [...envelopeRevenue].sort(
+    (a, b) => b.revenueIndex - a.revenueIndex,
+  );
+  const topRevenue = sortedAllRevenue.slice(0, 5);
   const maxRevenue = topRevenue[0]?.revenueIndex ?? 0;
+
+  // Map the LLM-recommended price onto the nearest envelope point so
+  // the user can see where the recommendation lands on the curve. The
+  // LLM emits prices like $49.95 that may not exactly match a sampled
+  // curve point ($51, $54, …); closest-by-price is what they'd care
+  // about for "is my recommendation near the revenue max?".
+  const recPoint =
+    pricing.recommendedPriceCents > 0 && envelopeRevenue.length > 0
+      ? envelopeRevenue.reduce((best, p) =>
+          Math.abs(p.priceCents - pricing.recommendedPriceCents) <
+          Math.abs(best.priceCents - pricing.recommendedPriceCents)
+            ? p
+            : best,
+        )
+      : null;
+  const recInTop5 =
+    recPoint != null &&
+    topRevenue.some((r) => r.priceCents === recPoint.priceCents);
+  const recRank =
+    recPoint != null
+      ? sortedAllRevenue.findIndex((p) => p.priceCents === recPoint.priceCents) +
+        1
+      : null;
 
   return (
     <div className="space-y-6">
@@ -4854,44 +4883,83 @@ function PricingTab({
           <h3 className="text-sm font-semibold text-slate-900 mb-3">
             {isKo ? "본인 입력가 vs 분석 결과" : "Your input vs analysis"}
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-              <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
-                {isKo ? "본인 입력 가격" : "Your input"}
-              </div>
-              <div className="text-base font-bold text-slate-900 tabular-nums">
-                {fmt(basePriceCents)}
-              </div>
-            </div>
-            <div className="rounded-lg border border-brand/30 bg-brand-50/40 px-4 py-3">
-              <div className="text-[10px] uppercase tracking-wide text-brand font-semibold mb-1">
-                {isKo ? "LLM 추천" : "LLM rec"}
-              </div>
-              <div className="text-base font-bold text-slate-900 tabular-nums">
-                {fmt(pricing.recommendedPriceCents)}
-              </div>
-              {baseEqRec && (
-                <div className="text-[10px] text-slate-500 mt-0.5">
-                  {isKo ? "본인 입력가와 일치" : "matches input"}
-                </div>
-              )}
-            </div>
-            {effectiveCurveMax != null && (
-              <div className="rounded-lg border border-success/30 bg-success-soft/30 px-4 py-3">
-                <div className="text-[10px] uppercase tracking-wide text-success font-semibold mb-1">
-                  {isKo ? "곡선 매출 최대점" : "Curve max"}
+          {/* Tile layout collapses when LLM rec and curve max agree (±10%):
+              the curve becomes a verification badge under the recommendation
+              instead of a third "competing" green-highlighted tile. Three
+              full tiles only render when the values genuinely diverge —
+              that's the real moment of decision. */}
+          {recEqCurve && effectiveCurveMax != null ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                  {isKo ? "본인 입력 가격" : "Your input"}
                 </div>
                 <div className="text-base font-bold text-slate-900 tabular-nums">
-                  {fmt(effectiveCurveMax)}
+                  {fmt(basePriceCents)}
                 </div>
-                {baseEqCurve && (
+              </div>
+              <div className="rounded-lg border border-brand/30 bg-brand-50/40 px-4 py-3">
+                <div className="text-[10px] uppercase tracking-wide text-brand font-semibold mb-1">
+                  {isKo ? "추천 가격" : "Recommended"}
+                </div>
+                <div className="text-base font-bold text-slate-900 tabular-nums">
+                  {fmt(pricing.recommendedPriceCents)}
+                </div>
+                <div className="text-[10px] text-success mt-0.5 inline-flex items-center gap-1">
+                  <span>✓</span>
+                  <span>
+                    {isKo
+                      ? `곡선 매출 최대점(${fmt(effectiveCurveMax)})이 독립 검증`
+                      : `Confirmed by curve max (${fmt(effectiveCurveMax)})`}
+                  </span>
+                </div>
+                {baseEqRec && (
                   <div className="text-[10px] text-slate-500 mt-0.5">
                     {isKo ? "본인 입력가와 일치" : "matches input"}
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                  {isKo ? "본인 입력 가격" : "Your input"}
+                </div>
+                <div className="text-base font-bold text-slate-900 tabular-nums">
+                  {fmt(basePriceCents)}
+                </div>
+              </div>
+              <div className="rounded-lg border border-brand/30 bg-brand-50/40 px-4 py-3">
+                <div className="text-[10px] uppercase tracking-wide text-brand font-semibold mb-1">
+                  {isKo ? "LLM 추천" : "LLM rec"}
+                </div>
+                <div className="text-base font-bold text-slate-900 tabular-nums">
+                  {fmt(pricing.recommendedPriceCents)}
+                </div>
+                {baseEqRec && (
+                  <div className="text-[10px] text-slate-500 mt-0.5">
+                    {isKo ? "본인 입력가와 일치" : "matches input"}
+                  </div>
+                )}
+              </div>
+              {effectiveCurveMax != null && (
+                <div className="rounded-lg border border-success/30 bg-success-soft/30 px-4 py-3">
+                  <div className="text-[10px] uppercase tracking-wide text-success font-semibold mb-1">
+                    {isKo ? "곡선 매출 최대점" : "Curve max"}
+                  </div>
+                  <div className="text-base font-bold text-slate-900 tabular-nums">
+                    {fmt(effectiveCurveMax)}
+                  </div>
+                  {baseEqCurve && (
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+                      {isKo ? "본인 입력가와 일치" : "matches input"}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {/* Interpretation message — varies by alignment pattern */}
           <div
             className={clsx(
@@ -4943,6 +5011,7 @@ function PricingTab({
             {topRevenue.map((r, i) => {
               const pct = maxRevenue > 0 ? (r.revenueIndex / maxRevenue) * 100 : 0;
               const isTop = i === 0;
+              const isRec = recPoint != null && r.priceCents === recPoint.priceCents;
               return (
                 <div key={r.priceCents} className="flex items-center gap-3 text-sm">
                   <div
@@ -4953,8 +5022,13 @@ function PricingTab({
                   >
                     {isTop ? "★" : `${i + 1}`}
                   </div>
-                  <div className="w-24 shrink-0 font-medium text-slate-900 tabular-nums">
+                  <div className="w-24 shrink-0 font-medium text-slate-900 tabular-nums flex items-center gap-1.5">
                     {fmt(r.priceCents)}
+                    {isRec && (
+                      <span className="text-[9px] uppercase tracking-wide text-brand font-bold bg-brand-50 border border-brand/30 rounded px-1 py-0.5">
+                        rec
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                     <div
@@ -4974,19 +5048,53 @@ function PricingTab({
                 </div>
               );
             })}
+            {/* Recommended-price row when not already in top 5 — gives the
+                user direct visual comparison: "where does the recommendation
+                actually rank on the revenue curve?". Bar still scaled to the
+                top's maxRevenue so the gap is honest. */}
+            {recPoint != null && !recInTop5 && (
+              <div className="flex items-center gap-3 text-sm pt-1.5 mt-1 border-t border-slate-200">
+                <div className="w-6 text-center text-xs font-bold tabular-nums text-brand">
+                  {recRank}
+                </div>
+                <div className="w-24 shrink-0 font-medium text-slate-900 tabular-nums flex items-center gap-1.5">
+                  {fmt(recPoint.priceCents)}
+                  <span className="text-[9px] uppercase tracking-wide text-brand font-bold bg-brand-50 border border-brand/30 rounded px-1 py-0.5">
+                    rec
+                  </span>
+                </div>
+                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-brand/60 transition-all"
+                    style={{
+                      width: `${maxRevenue > 0 ? (recPoint.revenueIndex / maxRevenue) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+                <div className="w-16 text-right text-xs text-slate-500 tabular-nums">
+                  {`${(recPoint.conv * 100).toFixed(1)}%`}
+                </div>
+                <div className="w-24 text-right text-xs text-slate-700 tabular-nums font-medium">
+                  {fmt(Math.round(recPoint.revenueIndex))}
+                </div>
+              </div>
+            )}
           </div>
           <p className="text-[11px] text-slate-400 mt-3">
             {isKo
-              ? "열: 가격 / 전환율 (envelope) / 매출 인덱스. ★ = 매출 최대점."
-              : "Cols: price / envelope conversion / revenue index. ★ = revenue max."}
+              ? "열: 가격 / 전환율 (envelope) / 매출 인덱스. ★ = 매출 최대점, rec = 권장 가격에 가장 가까운 곡선 포인트."
+              : "Cols: price / envelope conversion / revenue index. ★ = revenue max, rec = nearest curve point to the recommended price."}
           </p>
         </div>
       )}
 
       {/* Competitor price anchors — extracted at sim time from user-
           provided URLs. Shown alongside the recommendation so users
-          see the basis (real retail prices), not just LLM intuition. */}
-      {pricing.competitorPrices && pricing.competitorPrices.length > 0 && (
+          see the basis (real retail prices), not just LLM intuition.
+          When the array is empty (no URLs provided OR extraction
+          failed), surface an empty-state card explaining why instead
+          of silently hiding — the user wonders where the data went. */}
+      {pricing.competitorPrices && pricing.competitorPrices.length > 0 ? (
         <div className="card p-5">
           <div className="flex items-baseline justify-between mb-3">
             <h3 className="text-sm font-semibold text-slate-900">
@@ -5030,6 +5138,21 @@ function PricingTab({
               ? "사용자가 입력한 competitor URL에서 자동 추출. 이 가격대를 anchor 삼아 LLM이 가격 곡선을 생성했습니다."
               : "Auto-extracted from competitor URLs you provided. The pricing curve was anchored against these real retail prices."}
           </p>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle size={14} className="shrink-0 mt-0.5 text-slate-400" />
+            <div className="text-xs text-slate-600 leading-relaxed">
+              <span className="font-semibold text-slate-700">
+                {isKo ? "경쟁사 anchor 데이터 없음" : "No competitor anchor data"}
+              </span>
+              {" — "}
+              {isKo
+                ? "이번 분석은 LLM이 추정한 카테고리 가격대로 곡선을 생성했습니다. 더 정확한 anchor가 필요하면 프로젝트 편집에서 경쟁사 URL을 추가하세요 (URL이 이미 있었다면 추출에 실패했을 수 있습니다)."
+                : "The pricing curve was generated from LLM category estimates. To anchor against real retail prices, add competitor URLs in project setup (if URLs were provided, extraction may have failed)."}
+            </div>
+          </div>
         </div>
       )}
 
