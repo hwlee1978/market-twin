@@ -2923,7 +2923,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         </View>
 
         <View style={styles.sectionBlock}>
-          <MText style={styles.sectionEyebrow}>
+          <MText style={[styles.sectionEyebrow, { marginBottom: 6 }]}>
             {isKo ? "구매의향 분포 (히스토그램)" : "Intent distribution"}
           </MText>
           <View style={{ flexDirection: "row", alignItems: "flex-end", height: 90, gap: 4 }}>
@@ -2931,7 +2931,10 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
               const h = (b.count / histMax) * 100;
               const fill = b.binStart >= 70 ? C.success : b.binStart < 35 ? C.warn : C.brand;
               return (
-                <View key={b.binStart} style={{ flex: 1, alignItems: "center" }}>
+                <View
+                  key={b.binStart}
+                  style={{ flex: 1, height: "100%", justifyContent: "flex-end" }}
+                >
                   <View
                     style={{
                       width: "100%",
@@ -2941,10 +2944,16 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                       borderTopRightRadius: 2,
                     }}
                   />
-                  <Text style={{ fontSize: 7, color: C.faint, marginTop: 2 }}>{b.binStart}</Text>
                 </View>
               );
             })}
+          </View>
+          <View style={{ flexDirection: "row", gap: 4, marginTop: 2 }}>
+            {p.intentHistogram.map((b) => (
+              <View key={b.binStart} style={{ flex: 1, alignItems: "center" }}>
+                <Text style={{ fontSize: 7, color: C.faint }}>{b.binStart}</Text>
+              </View>
+            ))}
           </View>
         </View>
 
