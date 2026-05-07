@@ -13,6 +13,7 @@
 import { getLLMProvider } from "@/lib/llm";
 import { MarketProfileSchema, type MarketProfile, type ProjectInput } from "./schemas";
 import { marketProfilePrompt, MARKET_PROFILE_SYSTEM } from "./prompts";
+import { getDisplayPriceCents } from "./pricing-sensitivity";
 import type { EnsembleAggregate } from "./ensemble";
 
 export interface BuildMarketProfileOpts {
@@ -56,12 +57,27 @@ export async function buildMarketProfile(
     .slice(0, 8)
     .map((c) => c.channel);
 
+  // Anchor `yourPosition` on the SAME price the dashboard headline
+  // shows — curve-revenue-max-corrected when LLM rec was anchored on
+  // base price, otherwise the LLM rec. Without this the country-detail
+  // narrative would talk about the user's input price ($32) while the
+  // Pricing tab recommends $49.95, which reads as a contradiction.
+  const pricing = opts.aggregate.pricing;
+  const recommendedPriceCents = pricing
+    ? getDisplayPriceCents(
+        pricing.recommendedPriceCents,
+        pricing.curve,
+        pricing.curveRevenueMaxCents,
+      ).displayCents
+    : null;
+
   const prompt = marketProfilePrompt(opts.input, recommendedCountry, {
     consensusPercent: opts.aggregate.recommendation.consensusPercent,
     countryFinalScore: countryStats?.finalScore.mean ?? 0,
     topObjections,
     topTrustFactors,
     topChannels,
+    recommendedPriceCents,
     locale: opts.locale,
   });
 

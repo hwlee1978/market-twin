@@ -665,6 +665,14 @@ export function marketProfilePrompt(
     topObjections: string[];
     topTrustFactors: string[];
     topChannels: string[];
+    /**
+     * Pricing-stage recommended price (in cents) — when present, the
+     * LLM anchors `yourPosition` on this instead of the user's input
+     * base price so the narrative is consistent with the Pricing tab's
+     * headline. Null means pricing stage produced no recommendation
+     * (fallback to input price).
+     */
+    recommendedPriceCents: number | null;
     locale: PromptLocale;
   },
 ): string {
@@ -683,7 +691,13 @@ export function marketProfilePrompt(
 
 Product: ${input.productName} (${input.category})
 Description: ${input.description}
-Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
+User-input base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}${
+  context.recommendedPriceCents != null
+    ? `
+Pricing-stage recommended launch price: ${(context.recommendedPriceCents / 100).toFixed(2)} ${input.currency}
+↑ USE THIS AS THE LAUNCH PRICE throughout differentiators, risks, and yourPosition. The user's input price is a starting reference; the persona conversion data converged on the recommended price as revenue-optimal. If you cite a price in any field (e.g. "at $X retail with ~50% COGS"), use the recommended price, not the input price. When the recommended price differs materially from the input (>15%), explicitly call out the gap so the founder sees it.`
+    : ""
+}
 Origin (home market): ${input.originatingCountry}
 RECOMMENDED COUNTRY: ${recommendedCountry}
 Consensus support: ${context.consensusPercent}% of sims · final score ${context.countryFinalScore.toFixed(1)}/100
@@ -751,7 +765,10 @@ Required JSON shape (every field optional — fill what you have confidence abou
     "entryLevel": "${input.currency} range for budget products in this category in ${recommendedCountry}",
     "mid": "${input.currency} range for mid-tier",
     "premium": "${input.currency} range for premium",
-    "yourPosition": "where ${input.basePriceCents / 100} ${input.currency} lands in this market — 'upper-mid range, just below Allbirds anchor'"
+    "yourPosition": "${context.recommendedPriceCents != null
+      ? `Where the recommended launch price $${(context.recommendedPriceCents / 100).toFixed(2)} ${input.currency} lands in this market — reference 1-2 named competitors above and explain what justifies the position. The user's input base price is $${(input.basePriceCents / 100).toFixed(2)} ${input.currency}; if the recommended price differs materially (>15%), call out the gap and what proof points / messaging the higher (or lower) anchor requires. Example: '$49.95 (vs. your input $32) — upper-premium, $5-10 above Brightland anchor; only justified if polyphenol numbers + harvest date are front-and-center.'`
+      : `Where ${input.basePriceCents / 100} ${input.currency} lands in this market — 'upper-mid range, just below Allbirds anchor'`}",
+    "yourPositionPriceCents": ${context.recommendedPriceCents != null ? context.recommendedPriceCents : input.basePriceCents}
   },
   "goToMarketStrategy": {
     "keyMessage": "1-2 sentence positioning that beats current incumbents — be specific about the wedge",

@@ -844,6 +844,8 @@ function EnsembleDashboard({
           profile={aggregate.marketProfile}
           recommendedCountry={recommendation.country}
           ensembleId={result.id}
+          basePriceCents={result.project?.base_price_cents ?? null}
+          currency={result.project?.currency ?? "USD"}
           locale={locale}
           isKo={isKo}
         />
@@ -2669,12 +2671,19 @@ function MarketProfileTab({
   profile,
   recommendedCountry,
   ensembleId,
+  basePriceCents,
+  currency,
   locale,
   isKo,
 }: {
   profile: EnsembleAggregate["marketProfile"];
   recommendedCountry: string;
   ensembleId: string;
+  /** User-input base price — fallback for legacy sims whose
+   *  yourPositionPriceCents is undefined (pre-2026-05-07 sims always
+   *  anchored yourPosition on the input price). */
+  basePriceCents: number | null;
+  currency: string;
   locale: string;
   isKo: boolean;
 }) {
@@ -2807,7 +2816,11 @@ function MarketProfileTab({
                 <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
                   {isKo ? "TAM 추정" : "TAM"}
                 </div>
-                <div className="text-2xl font-bold text-slate-900 tabular-nums">
+                {/* text-balance: auto-balance line widths so multi-line
+                    bold numbers don't end with a single orphan word.
+                    LLM sometimes crams a parenthetical clarification
+                    into this field; keep it readable either way. */}
+                <div className="text-2xl font-bold text-slate-900 tabular-nums text-balance break-keep">
                   {ms.estimateUsd}
                 </div>
               </div>
@@ -2817,7 +2830,7 @@ function MarketProfileTab({
                 <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
                   {isKo ? "성장 추세" : "Growth trend"}
                 </div>
-                <div className="text-sm text-slate-700 leading-relaxed">{ms.growthTrend}</div>
+                <div className="text-sm text-slate-700 leading-relaxed text-balance break-keep">{ms.growthTrend}</div>
               </div>
             )}
             {ms.addressableSegment && (
@@ -2825,7 +2838,7 @@ function MarketProfileTab({
                 <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
                   {isKo ? "도달 세그먼트" : "Addressable segment"}
                 </div>
-                <div className="text-sm text-slate-700 leading-relaxed">{ms.addressableSegment}</div>
+                <div className="text-sm text-slate-700 leading-relaxed text-balance break-keep">{ms.addressableSegment}</div>
               </div>
             )}
           </div>
@@ -2942,14 +2955,31 @@ function MarketProfileTab({
                 </div>
               )}
             </div>
-            {pricing.yourPosition && (
-              <div className="rounded-xl border-l-4 border-brand bg-brand-50/40 p-4">
-                <div className="text-[10px] uppercase tracking-wide text-brand font-bold mb-1">
-                  {isKo ? "본 제품의 포지션" : "Your position"}
+            {pricing.yourPosition && (() => {
+              // Anchor price for the label — what the LLM actually
+              // analyzed in `yourPosition`. New sims emit
+              // yourPositionPriceCents (pricing-stage recommendation);
+              // legacy sims fall back to the user's input base price.
+              const anchorCents =
+                pricing.yourPositionPriceCents ?? basePriceCents ?? null;
+              const anchorLabel = anchorCents != null
+                ? formatPrice(anchorCents, currency)
+                : null;
+              return (
+                <div className="rounded-xl border-l-4 border-brand bg-brand-50/40 p-4">
+                  <div className="text-[10px] uppercase tracking-wide text-brand font-bold mb-1">
+                    {isKo
+                      ? anchorLabel
+                        ? `${anchorLabel} 기준 포지션`
+                        : "포지션"
+                      : anchorLabel
+                        ? `Position at ${anchorLabel}`
+                        : "Price position"}
+                  </div>
+                  <p className="text-sm text-slate-700 leading-relaxed">{pricing.yourPosition}</p>
                 </div>
-                <p className="text-sm text-slate-700 leading-relaxed">{pricing.yourPosition}</p>
-              </div>
-            )}
+              );
+            })()}
           </div>
         )}
 

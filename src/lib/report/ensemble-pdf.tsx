@@ -1880,25 +1880,42 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                   </View>
                 )}
               </View>
-              {pricing.yourPosition && (
-                <View
-                  style={{
-                    marginTop: 6,
-                    padding: 8,
-                    backgroundColor: "#EFF6FF",
-                    borderLeftWidth: 2,
-                    borderLeftColor: C.brand,
-                    borderRadius: 3,
-                  }}
-                >
-                  <MText style={{ fontSize: 7, color: C.brand, fontWeight: 700, marginBottom: 2 }}>
-                    {isKo ? "본 제품의 포지션" : "Your position"}
-                  </MText>
-                  <MText style={{ fontSize: 9, color: C.body, lineHeight: 1.5 }}>
-                    {pricing.yourPosition}
-                  </MText>
-                </View>
-              )}
+              {pricing.yourPosition && (() => {
+                // Anchor price label — see EnsembleView.MarketProfileTab
+                // for full explanation. yourPositionPriceCents present
+                // on new sims; fall back to user's input base price for
+                // legacy data.
+                const anchorCents =
+                  pricing.yourPositionPriceCents ?? project?.base_price_cents ?? null;
+                const anchorLabel = anchorCents != null
+                  ? formatPrice(anchorCents, project?.currency ?? undefined)
+                  : null;
+                return (
+                  <View
+                    style={{
+                      marginTop: 6,
+                      padding: 8,
+                      backgroundColor: "#EFF6FF",
+                      borderLeftWidth: 2,
+                      borderLeftColor: C.brand,
+                      borderRadius: 3,
+                    }}
+                  >
+                    <MText style={{ fontSize: 7, color: C.brand, fontWeight: 700, marginBottom: 2 }}>
+                      {isKo
+                        ? anchorLabel
+                          ? `${anchorLabel} 기준 포지션`
+                          : "포지션"
+                        : anchorLabel
+                          ? `Position at ${anchorLabel}`
+                          : "Price position"}
+                    </MText>
+                    <MText style={{ fontSize: 9, color: C.body, lineHeight: 1.5 }}>
+                      {pricing.yourPosition}
+                    </MText>
+                  </View>
+                );
+              })()}
             </View>
           )}
 

@@ -379,6 +379,13 @@ export const MarketProfileSchema = z.object({
       mid: z.string().default(""),
       premium: z.string().default(""),
       yourPosition: z.string().default(""),
+      // Price (in cents) the LLM actually analyzed in `yourPosition`.
+      // Pre-2026-05-07 sims always used the user's input base price;
+      // newer sims anchor on the pricing-stage recommended price so the
+      // narrative stays consistent with the Pricing tab. UI uses this
+      // to label the position card honestly ("at $49.95 position" vs.
+      // "at $32 position"); falls back to input price when absent.
+      yourPositionPriceCents: z.number().int().nonnegative().optional(),
     })
     .partial()
     .optional(),
