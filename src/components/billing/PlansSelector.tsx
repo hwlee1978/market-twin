@@ -275,16 +275,16 @@ function PlanCard({
           label={
             plan.limits.deepSimsPerMonth > 0 || plan.limits.deepSimsPerMonth < 0
               ? isKo
-                ? `Multi-LLM Deep tier ${formatLimit(plan.limits.deepSimsPerMonth, isKo)}건`
-                : `Multi-LLM Deep ${formatLimit(plan.limits.deepSimsPerMonth, isKo)} sims`
+                ? `심층분석 tier (멀티 LLM) ${formatLimit(plan.limits.deepSimsPerMonth, isKo)}건`
+                : `Triangulated tier (multi-LLM) ${formatLimit(plan.limits.deepSimsPerMonth, isKo)} sims`
               : isKo
-                ? "Multi-LLM Deep tier"
-                : "Multi-LLM Deep tier"
+                ? "심층분석 tier (멀티 LLM)"
+                : "Triangulated tier (multi-LLM)"
           }
         />
         <FeatureRow
           on={plan.limits.deepProEnabled}
-          label={isKo ? "Deep_Pro tier (10K 페르소나)" : "Deep_Pro tier (10K personas)"}
+          label={isKo ? "심층분석 Pro tier (10K 페르소나)" : "Triangulated Pro tier (10K personas)"}
         />
         <FeatureRow
           on={true}

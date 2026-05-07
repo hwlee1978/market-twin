@@ -57,10 +57,10 @@ interface ProjectBucket {
 function tierLabel(tier: EnsembleTier, isKo: boolean): string {
   const map: Record<EnsembleTier, { ko: string; en: string }> = {
     hypothesis: { ko: "초기검증", en: "Hypothesis" },
-    decision: { ko: "검증분석", en: "Decision" },
-    decision_plus: { ko: "검증분석+", en: "Decision+" },
-    deep: { ko: "심층분석", en: "Deep" },
-    deep_pro: { ko: "심층분석 Pro", en: "Deep Pro" },
+    decision: { ko: "검증분석", en: "Consensus" },
+    decision_plus: { ko: "검증분석+", en: "Consensus+" },
+    deep: { ko: "심층분석", en: "Triangulated" },
+    deep_pro: { ko: "심층분석 Pro", en: "Triangulated Pro" },
   };
   const entry = map[tier];
   if (!entry) return tier;

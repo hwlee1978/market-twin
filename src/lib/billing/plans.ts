@@ -140,8 +140,8 @@ const GROWTH: PlanDefinition = {
   slug: "growth",
   name: "Growth",
   tagline: {
-    ko: "월 25건 시뮬 (Deep 5건 포함), 멀티 LLM, 3 사용자",
-    en: "25 sims/month (incl. 5 Deep), multi-LLM, 3 users",
+    ko: "월 25건 시뮬 (심층분석 5건 포함), 멀티 LLM, 3 사용자",
+    en: "25 sims/month (incl. 5 Triangulated), multi-LLM, 3 users",
   },
   selfServe: true,
   order: 2,
@@ -171,8 +171,8 @@ const ENTERPRISE: PlanDefinition = {
   slug: "enterprise",
   name: "Enterprise",
   tagline: {
-    ko: "무제한 시뮬, Deep_Pro, SSO, 전담 CSM",
-    en: "Unlimited sims, Deep_Pro, SSO, dedicated CSM",
+    ko: "무제한 시뮬, 심층분석 Pro, SSO, 전담 CSM",
+    en: "Unlimited sims, Triangulated Pro, SSO, dedicated CSM",
   },
   selfServe: false,
   order: 3,

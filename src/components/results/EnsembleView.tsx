@@ -6117,7 +6117,7 @@ function DataTab({
             tooltip={
               isKo
                 ? "분석의 깊이 등급. 초기검증(1 시뮬) → 검증분석(5) → 검증분석+(15) → 심층분석(25, 멀티 LLM) → 심층분석 Pro(50, 멀티 LLM)."
-                : "Analysis depth. Hypothesis(1) → Decision(5) → Decision+(15) → Deep(25, multi-LLM) → Deep Pro(50, multi-LLM)."
+                : "Analysis depth. Hypothesis(1) → Consensus(5) → Consensus+(15) → Triangulated(25, multi-LLM) → Triangulated Pro(50, multi-LLM)."
             }
           />
           <MetaRow
@@ -6144,7 +6144,7 @@ function DataTab({
             tooltip={
               isKo
                 ? "분석에 참여한 AI 모델. 심층분석 이상은 여러 모델을 번갈아 활용해 단일 모델 편향을 줄입니다."
-                : "AI models that produced this analysis. Deep tiers round-robin across providers to dampen single-model bias."
+                : "AI models that produced this analysis. Triangulated tiers round-robin across providers to dampen single-model bias."
             }
           />
           <MetaRow
@@ -6476,10 +6476,10 @@ function detailedReportSummary(
 function tierBadgeLabel(tier: string, isKo: boolean): string {
   const map: Record<string, { ko: string; en: string }> = {
     hypothesis: { ko: "초기검증", en: "Hypothesis" },
-    decision: { ko: "검증분석", en: "Decision" },
-    decision_plus: { ko: "검증분석+", en: "Decision+" },
-    deep: { ko: "심층분석", en: "Deep" },
-    deep_pro: { ko: "심층분석 Pro", en: "Deep Pro" },
+    decision: { ko: "검증분석", en: "Consensus" },
+    decision_plus: { ko: "검증분석+", en: "Consensus+" },
+    deep: { ko: "심층분석", en: "Triangulated" },
+    deep_pro: { ko: "심층분석 Pro", en: "Triangulated Pro" },
   };
   const entry = map[tier];
   if (!entry) return tier.toUpperCase();

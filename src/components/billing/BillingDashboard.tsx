@@ -193,7 +193,7 @@ export function BillingDashboard({
             />
             {plan.features.multiLLM && (
               <UsageRow
-                label={isKo ? "Multi-LLM Deep tier" : "Multi-LLM Deep tier"}
+                label={isKo ? "심층분석 tier (멀티 LLM)" : "Triangulated tier (multi-LLM)"}
                 used={usage.deepSimsUsed}
                 limit={plan.limits.deepSimsPerMonth}
                 isKo={isKo}

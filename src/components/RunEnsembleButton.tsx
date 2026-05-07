@@ -62,23 +62,23 @@ export function RunEnsembleButton({ projectId, className }: Props) {
         >
           <option value="hypothesis">
             {isKo
-              ? "초기검증 · 200명 · 약 5분"
-              : "Hypothesis · 200 personas · ~5 min"}
+              ? "초기검증 · 200명 · 약 7분"
+              : "Hypothesis · 200 personas · ~7 min"}
           </option>
           <option value="decision">
             {isKo
-              ? "검증분석 · 1,000명 · 약 10분"
-              : "Decision · 1,000 personas · ~10 min"}
+              ? "검증분석 · 1,000명 · 약 12분"
+              : "Consensus · 1,000 personas · ~12 min"}
           </option>
           <option value="decision_plus">
             {isKo
-              ? "검증분석+ · 3,000명 · 약 10–15분"
-              : "Decision+ · 3,000 personas · ~10–15 min"}
+              ? "검증분석+ · 3,000명 · 약 12–17분"
+              : "Consensus+ · 3,000 personas · ~12–17 min"}
           </option>
           <option value="deep">
             {isKo
-              ? "심층분석 · 5,000명 · 멀티 LLM · 약 10–15분"
-              : "Deep · 5,000 personas · multi-LLM · ~10–15 min"}
+              ? "심층분석 · 5,000명 · 멀티 LLM · 약 17–22분"
+              : "Triangulated · 5,000 personas · multi-LLM · ~17–22 min"}
           </option>
           {/* deep_pro hidden until we redesign for sub-800s execution —
               50 sims × multi-LLM exceeds Vercel's maxDuration today. */}
@@ -88,8 +88,8 @@ export function RunEnsembleButton({ projectId, className }: Props) {
           className="input w-full"
           placeholder={
             isKo
-              ? "완료 알림 이메일 (선택, Decision/Deep 권장)"
-              : "Notify email when done (optional, useful for Decision/Deep)"
+              ? "완료 알림 이메일 (선택, 검증분석 이상 권장)"
+              : "Notify email when done (optional, useful for Consensus and above)"
           }
           value={notifyEmail}
           disabled={running}

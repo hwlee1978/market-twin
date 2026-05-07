@@ -763,10 +763,10 @@ const TIER_DISPLAY: Record<
   { ko: string; en: string; eyebrowKo: string; eyebrowEn: string }
 > = {
   hypothesis: { ko: "초기검증", en: "Hypothesis", eyebrowKo: "초기검증 분석", eyebrowEn: "Hypothesis analysis" },
-  decision: { ko: "검증분석", en: "Decision", eyebrowKo: "검증분석", eyebrowEn: "Decision analysis" },
-  decision_plus: { ko: "검증분석+", en: "Decision+", eyebrowKo: "검증분석+", eyebrowEn: "Decision+ analysis" },
-  deep: { ko: "심층분석", en: "Deep", eyebrowKo: "심층분석", eyebrowEn: "Deep analysis" },
-  deep_pro: { ko: "심층분석 Pro", en: "Deep Pro", eyebrowKo: "심층분석 Pro", eyebrowEn: "Deep Pro analysis" },
+  decision: { ko: "검증분석", en: "Consensus", eyebrowKo: "검증분석", eyebrowEn: "Consensus analysis" },
+  decision_plus: { ko: "검증분석+", en: "Consensus+", eyebrowKo: "검증분석+", eyebrowEn: "Consensus+ analysis" },
+  deep: { ko: "심층분석", en: "Triangulated", eyebrowKo: "심층분석", eyebrowEn: "Triangulated analysis" },
+  deep_pro: { ko: "심층분석 Pro", en: "Triangulated Pro", eyebrowKo: "심층분석 Pro", eyebrowEn: "Triangulated Pro analysis" },
 };
 
 export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
@@ -1414,8 +1414,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       if (typeof conf === "number" && conf < 75) {
         conditions.push(
           isKo
-            ? `결과 신뢰도를 75+로 올림 (현재 ${conf}, 더 많은 시뮬 / Deep tier 검증)`
-            : `Lift confidence to 75+ (currently ${conf} — more sims / Deep tier validation)`,
+            ? `결과 신뢰도를 75+로 올림 (현재 ${conf}, 더 많은 시뮬 / 심층분석 tier 검증)`
+            : `Lift confidence to 75+ (currently ${conf} — more sims / Triangulated tier validation)`,
         );
       }
       if (recConf === "WEAK") {

@@ -63,10 +63,10 @@ const TIER_LABELS_KO: Record<EnsembleTier, string> = {
 
 const TIER_LABELS_EN: Record<EnsembleTier, string> = {
   hypothesis: "Hypothesis",
-  decision: "Decision",
-  decision_plus: "Decision+",
-  deep: "Deep",
-  deep_pro: "Deep Pro",
+  decision: "Consensus",
+  decision_plus: "Consensus+",
+  deep: "Triangulated",
+  deep_pro: "Triangulated Pro",
 };
 
 /**

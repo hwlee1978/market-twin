@@ -418,33 +418,33 @@
       },
       "tier": {
         "label": "Analysis depth",
-        "hint": "Confidence scales with the number of personas and parallel sims. Decision and above aggregate N independent runs and surface consensus + variance alongside the headline recommendation.",
+        "hint": "Confidence scales with the number of personas and parallel sims. Consensus and above aggregate N independent runs and surface consensus + variance alongside the headline recommendation.",
         "hypothesis": {
           "name": "Hypothesis",
           "spec": "200 personas · 1 sim",
           "desc": "Quick exploration",
-          "time": "~5 min"
+          "time": "~7 min"
         },
         "decision": {
-          "name": "Decision",
+          "name": "Consensus",
           "spec": "1,000 personas · 5 sims",
           "desc": "Decision-grade confidence",
-          "time": "~10 min"
+          "time": "~12 min"
         },
         "decision_plus": {
-          "name": "Decision+",
+          "name": "Consensus+",
           "spec": "3,000 personas · 15 sims",
           "desc": "Stronger consensus",
-          "time": "~10–15 min"
+          "time": "~12–17 min"
         },
         "deep": {
-          "name": "Deep",
+          "name": "Triangulated",
           "spec": "5,000 personas · 25 sims · multi-LLM",
           "desc": "Cross-model · board-grade",
-          "time": "~10–15 min"
+          "time": "~17–22 min"
         },
         "deep_pro": {
-          "name": "Deep Pro",
+          "name": "Triangulated Pro",
           "spec": "10,000 personas · 50 sims · multi-LLM",
           "desc": "Max confidence · executive review",
           "time": "~20–25 min"
@@ -453,7 +453,7 @@
       "notifyEmail": {
         "label": "Email notification (optional)",
         "placeholder": "Email to notify on completion",
-        "hint": "Decision and Deep take 5+ minutes. We'll email you the result link if you enter an address."
+        "hint": "Consensus and above take 10+ minutes. We'll email you the result link if you enter an address."
       },
       "runCta": "Create project + Start analysis",
       "templates": {
