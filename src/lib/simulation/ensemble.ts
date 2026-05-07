@@ -459,6 +459,10 @@ export interface PricingAggregate {
    *  zero-width range). */
   recommendedPriceUnanimousAt?: number | null;
   marginEstimate: string; // mode of per-sim values
+  /** Median of per-sim marginEstimatePct (typical gross margin %).
+   *  Drives the Decision-aid break-even 3-scenario table. Optional —
+   *  legacy sims didn't emit a numeric margin. */
+  marginEstimatePct?: number;
   /**
    * Curve-derived revenue maximum — the price point in the consensus
    * curve where (price × meanConversionProbability) is highest.
@@ -1489,6 +1493,17 @@ function computePricingAggregate(
   const marginEstimate =
     [...marginCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
 
+  // Median of numeric margin %s — drives the break-even 3-scenario
+  // table. Filtered to numeric values; absent when no sim emitted.
+  type PricingWithMarginPct = NonNullable<EnsembleSimSnapshot["pricing"]> & {
+    marginEstimatePct?: number;
+  };
+  const marginPcts = present
+    .map((s) => (s.pricing as PricingWithMarginPct).marginEstimatePct)
+    .filter((x): x is number => typeof x === "number" && Number.isFinite(x));
+  const marginEstimatePct =
+    marginPcts.length > 0 ? Math.round(median(marginPcts)) : undefined;
+
   // Bucket curve points proportionally — sims pick slightly different
   // price grids (e.g. $134.09 vs $134.39) which exact-match bucketing
   // leaves as separate points, producing a noisy curve. We compute a
@@ -1586,6 +1601,7 @@ function computePricingAggregate(
         : undefined,
     recommendedPriceUnanimousAt,
     marginEstimate,
+    marginEstimatePct,
     curve,
     curveRevenueMaxCents,
     recommendationMatchesCurve,

@@ -259,7 +259,18 @@ function buildMergePrompt(
    - 정렬: severity (high > medium > low) → surfacedInSims 내림차순. 단순 frequency만으로 정렬하지 말 것.
    - 최대 12개. 추상적/일반론적 리스크는 제외 (예: "규제 리스크", "경쟁 강도" 같은 카테고리만 있는 항목).
 
+   ⚠ **합치기 기준 (필수, under-merge 방지)**: 표면 표현이 달라도 **근본 원인(root cause)이 같으면 반드시 합쳐**. 같은 ${sims.length}개 sim이 같은 제품/시장을 분석했으면 4-8개 root cause로 수렴하는 게 정상이고, 거의 모든 항목이 surfacedInSims=1이면 under-merge한 것. 합쳐야 하는 예시:
+     - "Amazon US 미입점" + "Amazon 채널 부재" + "DTC-only 모델로 Amazon 검색 노출 불가" → 모두 동일 root cause(US Amazon 채널 갭) → 1개, surfacedInSims=3
+     - "리뷰 부족" + "Vine 프로그램 필요" + "초기 review velocity 부족" → 동일 root cause(리뷰 acquisition) → 1개
+     - "FDA health-claim 위반 위험" + "심혈관 효과 마케팅 금지" + "polyphenol 효능 표현 규제" → 동일 root cause(health-claim 규제) → 1개
+   📊 **Self-check**: 출력 후, mergedRisks 중 surfacedInSims=1인 비율이 ${sims.length >= 5 ? "60%" : "전체"} 이상이면 다시 검토해 의미적 중복을 더 찾으세요. ${sims.length}개 독립 sim이 동일 제품/시장에서 모두 서로 다른 root cause만 surface하는 건 비정상입니다.
+
 3. **mergedActions**: 의미가 같은 액션은 합치되 **실행 가능한 구체성**을 우선시. 같은 의도의 두 액션 중 더 명확한 채널/타임라인/숫자를 가진 쪽을 채택. surfacedInSims 기록. 정렬: 권장 빈도 + 실행 우선순위. 최대 10개.
+
+   ⚠ **합치기 mandate (anti-under-merge)**: 표현이 다르더라도 **같은 결과를 노리는 두 액션은 반드시 합쳐**. ${sims.length}개 sim이 같은 시장을 보고 있으면 4-7개의 큰 액션 줄기로 수렴이 정상이고, 거의 모든 항목이 surfacedInSims=1이면 under-merge한 것. 합쳐야 하는 예시:
+     - "Amazon Vine 프로그램 활용해 30개 리뷰 확보" + "Vine 프로그램 + 초기 review acquisition 캠페인" + "리뷰 200개까지 review velocity 빌드업" → 같은 액션 줄기 (review acquisition) → 1개로 합치고 surfacedInSims=3
+     - "FDA 식품시설 등록 + 통관 broker 계약" + "Q4 출시 전 import pathway 확보" → 같은 액션 줄기 (US import readiness) → 1개
+     - "Instagram 인플루언서 30명 시딩 + 어필리에이트" + "TikTok 푸드 크리에이터 활용" + "20-200K follower 크리에이터 gifting" → 같은 줄기 (creator-led 미국 awareness) → 1개
 
    ⚠ **구체성 4요소 강제 (가능한 모두 포함)**: 각 액션은 다음 4가지를 가능하면 모두 포함하도록 다시 쓰세요. 원본 sim 결과에 정보가 있으면 그대로 가져오고, 없으면 다른 sim에서 보완. 4가지 모두 없으면 액션 자체를 버리고 더 구체적인 다른 항목으로 교체:
      (a) **채널/플랫폼/매체**: 쿠팡, 네이버 스마트스토어, 올리브영, TikTok 등 — 추상적 "디지털 마케팅"이 아닌 구체적 이름
@@ -303,7 +314,18 @@ function buildMergePrompt(
    - Sort by severity (high > medium > low), then surfacedInSims descending. Do not rank by frequency alone.
    - Max 12. Drop entries that are pure category labels with no specific cause.
 
+   ⚠ **Aggressive merging required (anti-under-merge)**: surface wording differs but **same root cause → must merge**. With ${sims.length} sims analysing the same product/market, expect 4-8 root causes; if nearly every output has surfacedInSims=1, you under-merged. Examples that MUST collapse:
+     - "Amazon US absence" + "No Amazon presence" + "DTC-only model can't reach Amazon search" → same root cause (US Amazon channel gap) → 1 entry, surfacedInSims=3
+     - "Lack of reviews" + "Need Vine program" + "Early review velocity gap" → same root cause (review acquisition) → 1 entry
+     - "FDA health-claim violation risk" + "Cannot market cardiovascular benefits" + "Polyphenol efficacy claims regulated" → same root cause (health-claim regulation) → 1 entry
+   📊 **Self-check**: after generating mergedRisks, if more than ${sims.length >= 5 ? "60%" : "all"} of entries have surfacedInSims=1, re-examine for missed semantic duplicates. Independent sims of the same product/market do not produce 12 unique root causes — that's a merge failure, not real diversity.
+
 3. **mergedActions**: collapse semantic duplicates, prefer the action with the most actionable specificity (concrete channel / timeline / numbers). Set surfacedInSims to count. Sort by frequency + execution priority. Max 10.
+
+   ⚠ **Aggressive merging mandate (anti-under-merge)**: different wording but **same outcome → must merge**. With ${sims.length} sims targeting the same market, expect 4-7 major action streams; if nearly every output has surfacedInSims=1, you under-merged. Examples that MUST collapse:
+     - "Use Amazon Vine to secure 30 reviews" + "Vine program + early review-acquisition push" + "Build review velocity to 200" → same stream (review acquisition) → 1 entry, surfacedInSims=3
+     - "FDA food-facility registration + customs broker engagement" + "Lock import pathway before Q4 launch" → same stream (US import readiness) → 1 entry
+     - "Seed 30 Instagram creators + affiliate program" + "TikTok food creator activation" + "Gift 20-200K-follower creators with COA card" → same stream (creator-led US awareness) → 1 entry
 
    ⚠ **Concreteness — every action SHOULD ideally contain all 4 of**: rewrite each action so it includes as many of the four as possible. Pull data from the source sim's outputs; cross-reference other sims to fill gaps. If none of the four are present, drop the action and surface a more specific one instead:
      (a) **channel/platform/medium**: a named one — Coupang, Naver Smart Store, Olive Young, TikTok, Amazon — NOT abstract "digital marketing"
@@ -438,21 +460,39 @@ export function rewriteSimScaleReferences(
 export function assessActionSpecificity(action: string): ActionSpecificity {
   const text = action.toLowerCase();
 
-  // Channels — platforms, marketplaces, retailers, ad networks. Mixing
-  // KR+global because actions reference specific local channels in
-  // both languages. Word-boundaries kept loose (Korean has no spaces).
+  // Named action anchors — channels, regulators, certifications, named
+  // documents. Originally just channels, but actions like "FDA food
+  // facility registration" or "commission an SGS COA" are highly
+  // concrete (named third party + specific deliverable) yet would score
+  // 0 on a channel-only check. Broadened to "things you can name as
+  // the target of the action". Mixing KR+global since actions are
+  // bilingual.
   const channelTokens = [
-    // Korean / regional
+    // ── Channels (Korean / regional) ──
     "쿠팡", "네이버", "11번가", "카카오", "카카오톡", "카카오톡채널", "라인", "인스타", "유튜브", "틱톡",
     "올리브영", "다이소", "이마트", "롯데", "신세계", "지마켓", "옥션", "당근", "무신사", "29cm",
     "스마트스토어", "브랜드스토어", "라방", "라이브커머스", "쿠캣", "포카리", "마켓컬리", "오아시스",
-    // Channels (generic but specific enough)
-    "리테일", "도매", "자체몰", "공식몰",
-    // Global
+    // ── Channels (generic) ──
+    "리테일", "도매", "자체몰", "공식몰", "dtc",
+    // ── Channels (global) ──
     "amazon", "tiktok", "instagram", "facebook", "youtube", "google ads", "meta", "shopee",
     "lazada", "qoo10", "rakuten", "etsy", "shopify", "tmall", "taobao", "wechat", "douyin",
     "wholefoods", "costco", "walmart", "target", "sephora", "ulta", "kickstarter", "indiegogo",
     "linkedin", "reddit", "x.com", "twitter", "threads", "naver",
+    // ── Regulators (named regulatory bodies anchor concrete actions) ──
+    "fda", "usda", "epa", "ftc", "fcc", "kfda", "mfds", "mhlw", "pmda", "efsa", "ema",
+    "mhra", "fsa", "anvisa", "nmpa", "tga", "cfia", "health canada", "kotra", "식약처", "한국식품의약품안전처",
+    // ── Certifications & accredited test labs ──
+    "coa", "ukca", "ce mark", "ce-mark", "nop", "usda organic", "nsf", "sgs", "eurofins",
+    "bureau veritas", "bvqi", "brc", "brcgs", "iso 22000", "iso 9001", "halal", "kosher",
+    "vegan society", "b corp", "fair trade", "rainforest alliance", "gmp", "haccp",
+    "non-gmo", "noprohibited", "specialty food association", "kosher certification",
+    // ── Trade & customs anchors ──
+    "customs broker", "import permit", "export licence", "export license", "hs code",
+    "bill of lading", "incoterms",
+    // ── Named programs / accelerators / events ──
+    "amazon vine", "vine program", "fancy food show", "natural products expo",
+    "specialty food", "shopify capital",
   ];
   const hasChannel = channelTokens.some((t) => text.includes(t));
 
@@ -519,7 +559,11 @@ function zodToJsonShape() {
             impact: { type: "integer", minimum: 1, maximum: 3 },
             effort: { type: "integer", minimum: 1, maximum: 3 },
           },
-          required: ["action", "surfacedInSims"],
+          // impact + effort moved to required so JSON-mode providers
+          // enforce emission. Zod schema downstream still treats them
+          // as optional for legacy backward-compat — if the LLM somehow
+          // skips, validation passes but the 2x2 matrix won't render.
+          required: ["action", "surfacedInSims", "impact", "effort"],
         },
       },
     },

@@ -642,7 +642,16 @@ Required behaviour:
 
 A consistency check the runner will apply post-emission: if your recommendedPriceCents differs from the argmax(priceCents × conversionProbability) of your own curve by more than 10%, the result will be flagged as "LLM anchored on base price" — readers will see this discrepancy in the report.
 
-Return: { "recommendedPriceCents": int, "marginEstimate": "string description (in ${LANG_NAME[locale]})", "curve": [ { priceCents, conversionProbability, estimatedRevenueIndex } ] }`;
+═══ marginEstimatePct — REQUIRED, integer percentage ═══
+Emit \`marginEstimatePct\` as a single integer (0-95) representing the **typical gross margin %** for this category in the recommended country. Calibration anchors:
+- Premium DTC food/beverage (specialty olive oil, craft sauces, supplements): ~40-55
+- Mass-market CPG (grocery snacks, packaged goods): ~20-35
+- Branded SaaS / digital: ~70-85
+- Hardware / consumer electronics: ~25-40
+- Luxury / artisan (handmade, single-origin): ~50-65
+Use the most realistic mid-point for THIS product's category × distribution model (DTC vs wholesale shifts margin meaningfully). The dashboard uses this to compute break-even at this margin and at ±10pp around it — pessimistic / base / optimistic — so the user sees viability sensitivity instead of a single hardcoded assumption.
+
+Return: { "recommendedPriceCents": int, "marginEstimate": "string description (in ${LANG_NAME[locale]})", "marginEstimatePct": int (0-95), "curve": [ { priceCents, conversionProbability, estimatedRevenueIndex } ] }`;
 }
 
 export const MARKET_PROFILE_SYSTEM = `${SYSTEM_BASE}

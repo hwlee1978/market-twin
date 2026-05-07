@@ -4055,21 +4055,68 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             {isKo ? "볼륨 티어별 투자 + 매출" : "Investment + revenue per volume tier"}
           </MText>
 
+          {/* Marketing efficiency callout — M:R ratio (CAC / price) is
+              constant across volume tiers, so it lives here as a single
+              colored badge instead of a redundant per-row column. */}
+          {(() => {
+            const ratio = cacInTargetCents / headlinePrice;
+            const ratioPct = (ratio * 100).toFixed(0);
+            const tone =
+              ratio < 0.3 ? C.success : ratio < 0.6 ? C.warn : C.risk;
+            const verdict =
+              ratio < 0.3
+                ? isKo
+                  ? "건강 (acquisition 부담 낮음)"
+                  : "Healthy"
+                : ratio < 0.6
+                  ? isKo
+                    ? "주의 (LTV uplift 없으면 압박)"
+                    : "Caution (tight without LTV uplift)"
+                  : isKo
+                    ? "위험 (재구매·LTV 없이 지속 불가)"
+                    : "Unsustainable without repeat / LTV";
+            return (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingHorizontal: 10,
+                  paddingVertical: 8,
+                  marginBottom: 6,
+                  borderWidth: 0.5,
+                  borderColor: tone,
+                  backgroundColor: C.card,
+                  borderRadius: 4,
+                }}
+              >
+                <MText style={{ fontSize: 7, color: C.muted, fontWeight: 700 }}>
+                  {isKo ? "마케팅 효율 (M:R)" : "Marketing efficiency (M:R)"}
+                </MText>
+                <MText style={{ fontSize: 14, color: tone, fontWeight: 700 }}>
+                  {`${ratioPct}%`}
+                </MText>
+                <MText style={{ fontSize: 8, color: C.body, flex: 1 }}>
+                  {isKo
+                    ? `매출 ${fmt(headlinePrice)}당 마케팅 ${fmt(cacInTargetCents)} → ${verdict}. 기준: <30% 건강, 30-60% 주의, 60%+ 위험.`
+                    : `Every ${fmt(headlinePrice)} of revenue requires ${fmt(cacInTargetCents)} in marketing → ${verdict}. Bands: <30% healthy, 30-60% caution, 60%+ risk.`}
+                </MText>
+              </View>
+            );
+          })()}
+
           <View style={{ flexDirection: "row", paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: C.divider }}>
             <MText style={{ fontSize: 7, color: C.muted, fontWeight: 700, width: 70 }}>
               {isKo ? "고객 수" : "Customers"}
             </MText>
             <MText style={{ fontSize: 7, color: C.muted, fontWeight: 700, flex: 1, textAlign: "right" }}>
-              {isKo ? "마케팅 예산" : "Marketing"}
+              {isKo ? "마케팅 (CAC × N)" : "Marketing (CAC × N)"}
             </MText>
             <MText style={{ fontSize: 7, color: C.muted, fontWeight: 700, flex: 1, textAlign: "right" }}>
-              {isKo ? "예상 매출 (기본)" : "Revenue (base)"}
+              {isKo ? "매출 (기본)" : "Revenue (base)"}
             </MText>
-            <MText style={{ fontSize: 7, color: C.muted, fontWeight: 700, flex: 1, textAlign: "right" }}>
-              {isKo ? "비관 / 낙관" : "Pess / Opt"}
-            </MText>
-            <MText style={{ fontSize: 7, color: C.muted, fontWeight: 700, width: 60, textAlign: "right" }}>
-              {isKo ? "마케팅:매출" : "M:R ratio"}
+            <MText style={{ fontSize: 7, color: C.muted, fontWeight: 700, flex: 1.4, textAlign: "right" }}>
+              {isKo ? "매출 (비관 −30% / 낙관 +30%)" : "Revenue (pess −30% / opt +30%)"}
             </MText>
           </View>
 
@@ -4078,9 +4125,6 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             const revenueBase = headlinePrice * vol;
             const revenuePess = Math.round(revenueBase * scenarioFactor.pessimistic);
             const revenueOpt = Math.round(revenueBase * scenarioFactor.optimistic);
-            const ratio = revenueBase > 0 ? marketing / revenueBase : 0;
-            const ratioColor =
-              ratio < 0.3 ? C.success : ratio < 0.6 ? C.warn : C.risk;
             return (
               <View
                 key={vol}
@@ -4102,19 +4146,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 <MText style={{ fontSize: 10, color: C.ink, fontWeight: 700, flex: 1, textAlign: "right" }}>
                   {fmt(revenueBase)}
                 </MText>
-                <MText style={{ fontSize: 8, color: C.muted, flex: 1, textAlign: "right" }}>
+                <MText style={{ fontSize: 8, color: C.muted, flex: 1.4, textAlign: "right" }}>
                   {`${fmt(revenuePess)} / ${fmt(revenueOpt)}`}
-                </MText>
-                <MText
-                  style={{
-                    fontSize: 9,
-                    color: ratioColor,
-                    fontWeight: 700,
-                    width: 60,
-                    textAlign: "right",
-                  }}
-                >
-                  {`${(ratio * 100).toFixed(0)}%`}
                 </MText>
               </View>
             );
@@ -4123,29 +4156,132 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
 
         <View style={styles.sectionBlock}>
           <MText style={styles.sectionEyebrow}>
-            {isKo ? "Break-even 추정" : "Break-even math"}
+            {isKo ? "Break-even 시나리오 (마진별)" : "Break-even sensitivity (by margin)"}
           </MText>
-          <View style={{ padding: 10, backgroundColor: C.card, borderRadius: 4 }}>
-            <MText style={{ fontSize: 9, color: C.body, lineHeight: 1.5 }}>
-              {(() => {
-                // Assume gross margin range 30-50% for premium goods.
-                // Break-even volume = fixed marketing spend / gross profit per unit
-                // For simplicity: gross profit = price × marginPct - CAC
-                const marginLow = 0.3;
-                const marginHigh = 0.5;
-                const profitPerUnitLow = headlinePrice * marginLow - cacInTargetCents;
-                const profitPerUnitHigh = headlinePrice * marginHigh - cacInTargetCents;
-                if (profitPerUnitLow <= 0) {
-                  return isKo
-                    ? `⚠ 추천가(${fmt(headlinePrice)})에서 30% 마진을 가정했을 때 단위당 이익이 음수입니다 — CAC(${fmt(cacInTargetCents)})가 단가 × 30%(${fmt(Math.round(headlinePrice * 0.3))})보다 큼. 가격 인상 또는 CAC 축소 없이는 break-even 불가.`
-                    : `⚠ At the recommended price (${fmt(headlinePrice)}) with 30% margin, profit per unit is negative — CAC (${fmt(cacInTargetCents)}) exceeds price × 30% (${fmt(Math.round(headlinePrice * 0.3))}). Break-even impossible without price increase or CAC reduction.`;
-                }
-                return isKo
-                  ? `30% 마진 가정: 단위당 이익 ${fmt(profitPerUnitLow)} (CAC 차감 후). 50% 마진이면 ${fmt(profitPerUnitHigh)}. 첫 1,000명 마케팅비(${fmt(cacInTargetCents * 1000)}) 회수에는 단위당 ${fmt(cacInTargetCents)}/이익 ${fmt(profitPerUnitLow)} = 약 ${Math.ceil(cacInTargetCents / profitPerUnitLow * 1000).toLocaleString()}명 (보수적 30% 마진 기준).`
-                  : `At 30% margin: profit/unit ${fmt(profitPerUnitLow)} (after CAC). At 50% margin: ${fmt(profitPerUnitHigh)}. To recoup the marketing spend for 1,000 customers (${fmt(cacInTargetCents * 1000)}), at 30% margin you need ~${Math.ceil(cacInTargetCents / profitPerUnitLow * 1000).toLocaleString()} customers — that's the conservative break-even.`;
-              })()}
-            </MText>
-          </View>
+          {(() => {
+            // Three-scenario break-even — anchored on LLM-emitted typical
+            // category margin (marginEstimatePct) when present, falls
+            // back to 35% for legacy data. ±10pp brackets give pess /
+            // base / opt. Mirrors the dashboard PricingTab logic so
+            // numbers match across surfaces.
+            const llmMarginPct = aggregate.pricing?.marginEstimatePct;
+            const baseMarginPct = llmMarginPct ?? 35;
+            const clamp = (n: number) => Math.max(10, Math.min(85, n));
+            const scenarios = [
+              {
+                labelKo: "비관 (마진 −10pp)",
+                labelEn: "Pessimistic (−10pp)",
+                marginPct: clamp(baseMarginPct - 10),
+              },
+              {
+                labelKo: llmMarginPct != null ? "기본 (AI 추정)" : "기본",
+                labelEn: llmMarginPct != null ? "Base (AI-estimated)" : "Base",
+                marginPct: baseMarginPct,
+              },
+              {
+                labelKo: "낙관 (마진 +10pp)",
+                labelEn: "Optimistic (+10pp)",
+                marginPct: clamp(baseMarginPct + 10),
+              },
+            ];
+            return (
+              <View
+                style={{
+                  padding: 8,
+                  backgroundColor: C.card,
+                  borderRadius: 4,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    paddingBottom: 4,
+                    borderBottomWidth: 0.5,
+                    borderBottomColor: C.divider,
+                  }}
+                >
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 2.2 }}>
+                    {isKo ? "시나리오" : "Scenario"}
+                  </MText>
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 0.8, textAlign: "right" }}>
+                    {isKo ? "마진" : "Margin"}
+                  </MText>
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1.1, textAlign: "right" }}>
+                    {isKo ? "단위 gross" : "Gross/unit"}
+                  </MText>
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1.3, textAlign: "right" }}>
+                    {isKo ? "단위 net" : "Net/unit"}
+                  </MText>
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1.3, textAlign: "right" }}>
+                    {isKo ? "1k BE" : "BE @ 1k"}
+                  </MText>
+                </View>
+                {scenarios.map((s, i) => {
+                  const margin = s.marginPct / 100;
+                  const grossPerUnit = Math.round(headlinePrice * margin);
+                  const netPerUnit = grossPerUnit - cacInTargetCents;
+                  const breakEvenN =
+                    netPerUnit > 0
+                      ? Math.ceil((cacInTargetCents / netPerUnit) * 1000)
+                      : null;
+                  return (
+                    <View
+                      key={i}
+                      style={{
+                        flexDirection: "row",
+                        paddingVertical: 4,
+                        borderTopWidth: i === 0 ? 0 : 0.25,
+                        borderTopColor: C.divider,
+                      }}
+                    >
+                      <MText style={{ fontSize: 9, color: C.body, flex: 2.2 }}>
+                        {isKo ? s.labelKo : s.labelEn}
+                      </MText>
+                      <MText style={{ fontSize: 9, color: C.body, flex: 0.8, textAlign: "right" }}>
+                        {`${s.marginPct}%`}
+                      </MText>
+                      <MText style={{ fontSize: 9, color: C.body, flex: 1.1, textAlign: "right" }}>
+                        {fmt(grossPerUnit)}
+                      </MText>
+                      <MText
+                        style={{
+                          fontSize: 9,
+                          color: netPerUnit > 0 ? C.success : C.risk,
+                          fontWeight: 600,
+                          flex: 1.3,
+                          textAlign: "right",
+                        }}
+                      >
+                        {fmt(netPerUnit)}
+                      </MText>
+                      <MText style={{ fontSize: 9, color: C.body, flex: 1.3, textAlign: "right" }}>
+                        {breakEvenN != null
+                          ? breakEvenN.toLocaleString()
+                          : isKo
+                            ? "불가"
+                            : "n/a"}
+                      </MText>
+                    </View>
+                  );
+                })}
+                <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 6 }}>
+                  <MText style={{ fontSize: 7, color: C.muted, lineHeight: 1.4 }}>
+                    {isKo
+                      ? `${llmMarginPct != null ? "AI 추정" : "기본값"} 마진 ${baseMarginPct}% 기준 ±10pp. `
+                      : `${llmMarginPct != null ? "AI-estimated" : "Default"} ${baseMarginPct}% margin ± 10pp. `}
+                  </MText>
+                  <MText style={{ fontSize: 7, color: C.body, fontWeight: 600, lineHeight: 1.4 }}>
+                    {isKo ? "가정: 1인당 1개 구매. " : "Assumes single unit per customer. "}
+                  </MText>
+                  <MText style={{ fontSize: 7, color: C.muted, lineHeight: 1.4 }}>
+                    {isKo
+                      ? "재구매·LTV 미반영 — 실제 LTV가 단가의 1.3배 이상이면 위 BE는 보수적."
+                      : "LTV not modeled — if actual LTV > unit price ×1.3, BE above is conservative."}
+                  </MText>
+                </View>
+              </View>
+            );
+          })()}
         </View>
 
         <MText style={{ fontSize: 7, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>

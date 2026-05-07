@@ -217,6 +217,13 @@ export const PricingPointSchema = z.object({
 export const PricingResultSchema = z.object({
   recommendedPriceCents: z.number().int().nonnegative(),
   marginEstimate: z.string(),
+  // Numeric companion to the prose marginEstimate. LLM emits a single
+  // integer percentage (typical gross margin for this category in the
+  // recommended country). Used to drive the Decision-aid break-even
+  // table at three scenarios (margin−10pp / base / margin+10pp) so the
+  // user sees viability without us hardcoding 30% / 50% defaults.
+  // Optional for legacy data; UI falls back to 35% when absent.
+  marginEstimatePct: z.number().int().min(0).max(95).optional(),
   curve: z.array(PricingPointSchema),
   /**
    * Pricing-range metadata captured at sim time. Optional because

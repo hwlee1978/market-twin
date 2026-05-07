@@ -876,10 +876,10 @@ function EnsembleDashboard({
         />
       )}
       {activeTab === "risks" && (
-        <RisksTab narrative={narrative} isKo={isKo} />
+        <RisksTab narrative={narrative} simCount={simCount} isKo={isKo} />
       )}
       {activeTab === "actions" && (
-        <ActionsTab narrative={narrative} isKo={isKo} />
+        <ActionsTab narrative={narrative} simCount={simCount} isKo={isKo} />
       )}
       {activeTab === "data" && (
         <DataTab
@@ -5405,9 +5405,14 @@ function DecisionAidTab({
               <div className="text-xl font-bold text-slate-900 tabular-nums">
                 {fmt(cacInTargetCents!)}
               </div>
-              <div className="text-[11px] text-slate-400 mt-0.5">
-                {`($${cacUsd!.toFixed(2)})`}
-              </div>
+              {/* Show the source-USD value only when the target currency
+                  isn't already USD — otherwise the parenthetical literally
+                  duplicates the headline ("$18.50 ($18.50)"). */}
+              {currency.toUpperCase() !== "USD" && (
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {`($${cacUsd!.toFixed(2)})`}
+                </div>
+              )}
             </div>
             <div className="card p-4">
               <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
@@ -5424,16 +5429,67 @@ function DecisionAidTab({
             </div>
           </div>
 
+          {/* Marketing-efficiency callout — M:R ratio (CAC / price) is
+              constant across all volume tiers (just 18.50/56), so
+              showing it as a per-row column was tautological. Pulled
+              out to a single colored callout above the volume table
+              with explicit health bands so the user understands what
+              33% actually means. */}
+          {(() => {
+            const ratio = cacInTargetCents! / headlinePrice;
+            const ratioPct = (ratio * 100).toFixed(0);
+            const tone =
+              ratio < 0.3 ? "success" : ratio < 0.6 ? "warn" : "risk";
+            const toneClasses: Record<string, string> = {
+              success: "border-success/40 bg-success-soft/30 text-success",
+              warn: "border-warn/40 bg-warn-soft/40 text-warn",
+              risk: "border-risk/40 bg-risk-soft/40 text-risk",
+            };
+            const verdict =
+              tone === "success"
+                ? isKo
+                  ? "건강 (acquisition 부담 낮음)"
+                  : "Healthy (acquisition cost is light)"
+                : tone === "warn"
+                  ? isKo
+                    ? "주의 (LTV uplift 없으면 압박)"
+                    : "Caution (tight without LTV uplift)"
+                  : isKo
+                    ? "위험 (재구매·LTV 없이 지속 불가)"
+                    : "Unsustainable without repeat / LTV";
+            return (
+              <div
+                className={clsx(
+                  "rounded-lg border px-4 py-3 mb-3 flex flex-wrap items-center gap-x-4 gap-y-1",
+                  toneClasses[tone],
+                )}
+              >
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[10px] uppercase tracking-wide font-semibold opacity-80">
+                    {isKo ? "마케팅 효율 (M:R)" : "Marketing efficiency (M:R)"}
+                  </span>
+                  <span className="text-xl font-bold tabular-nums">{ratioPct}%</span>
+                </div>
+                <div className="text-xs text-slate-700 leading-relaxed flex-1 min-w-[12rem]">
+                  {isKo
+                    ? `매출 ${fmt(headlinePrice)}당 마케팅 ${fmt(cacInTargetCents!)} 소요 → ${verdict}. 기준: <30% 건강, 30-60% 주의, 60%+ 위험.`
+                    : `Every ${fmt(headlinePrice)} of revenue requires ${fmt(cacInTargetCents!)} in marketing → ${verdict}. Bands: <30% healthy, 30-60% caution, 60%+ risk.`}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Volume tier table */}
           <div className="card overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-4 py-2 text-left">{isKo ? "고객 수" : "Customers"}</th>
-                  <th className="px-4 py-2 text-right">{isKo ? "마케팅 예산" : "Marketing"}</th>
+                  <th className="px-4 py-2 text-right">{isKo ? "마케팅 예산 (CAC × N)" : "Marketing (CAC × N)"}</th>
                   <th className="px-4 py-2 text-right">{isKo ? "예상 매출 (기본)" : "Revenue (base)"}</th>
-                  <th className="px-4 py-2 text-right">{isKo ? "비관 / 낙관" : "Pess / Opt"}</th>
-                  <th className="px-4 py-2 text-right">{isKo ? "마케팅:매출" : "M:R ratio"}</th>
+                  <th className="px-4 py-2 text-right">
+                    {isKo ? "예상 매출 (비관 −30% / 낙관 +30%)" : "Revenue (pess −30% / opt +30%)"}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -5442,9 +5498,6 @@ function DecisionAidTab({
                   const revenueBase = headlinePrice * vol;
                   const revenuePess = Math.round(revenueBase * 0.7);
                   const revenueOpt = Math.round(revenueBase * 1.3);
-                  const ratio = revenueBase > 0 ? marketing / revenueBase : 0;
-                  const ratioColor =
-                    ratio < 0.3 ? "text-success" : ratio < 0.6 ? "text-warn" : "text-risk";
                   return (
                     <tr key={vol}>
                       <td className="px-4 py-3 font-bold text-slate-900 tabular-nums">
@@ -5459,14 +5512,6 @@ function DecisionAidTab({
                       <td className="px-4 py-3 text-right text-xs text-slate-500 tabular-nums">
                         {fmt(revenuePess)} / {fmt(revenueOpt)}
                       </td>
-                      <td
-                        className={clsx(
-                          "px-4 py-3 text-right font-bold tabular-nums",
-                          ratioColor,
-                        )}
-                      >
-                        {`${(ratio * 100).toFixed(0)}%`}
-                      </td>
                     </tr>
                   );
                 })}
@@ -5474,27 +5519,123 @@ function DecisionAidTab({
             </table>
           </div>
 
-          {/* Break-even math */}
+          {/* Break-even sensitivity table — three margin scenarios so
+              the user sees viability across realistic ranges, not a
+              single hardcoded assumption. Anchors on LLM-emitted
+              category margin (marginEstimatePct) when present; falls
+              back to 35% for legacy sims. ±10pp brackets give
+              pessimistic / base / optimistic. */}
           <div className="card p-4 mt-4">
-            <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">
-              {isKo ? "Break-even 추정" : "Break-even math"}
-            </div>
-            <p className="text-sm text-slate-700 leading-relaxed">
-              {(() => {
-                const marginLow = 0.3;
-                const profitPerUnitLow = headlinePrice * marginLow - cacInTargetCents!;
-                const profitPerUnitHigh = headlinePrice * 0.5 - cacInTargetCents!;
-                if (profitPerUnitLow <= 0) {
-                  return isKo
-                    ? `⚠ 추천가(${fmt(headlinePrice)})에서 30% 마진을 가정했을 때 단위당 이익이 음수입니다 — CAC(${fmt(cacInTargetCents!)})가 단가 × 30%(${fmt(Math.round(headlinePrice * 0.3))})보다 큼. 가격 인상 또는 CAC 축소 없이는 break-even 불가.`
-                    : `⚠ At the recommended price (${fmt(headlinePrice)}) with 30% margin, profit per unit is negative — CAC (${fmt(cacInTargetCents!)}) exceeds price × 30%. Break-even impossible without a price increase or CAC reduction.`;
-                }
-                const breakeven = Math.ceil((cacInTargetCents! / profitPerUnitLow) * 1000);
-                return isKo
-                  ? `30% 마진 가정: 단위당 이익 ${fmt(profitPerUnitLow)} (CAC 차감 후). 50% 마진이면 ${fmt(profitPerUnitHigh)}. 첫 1,000명 마케팅비(${fmt(cacInTargetCents! * 1000)}) 회수에는 약 ${breakeven.toLocaleString()}명 필요 (보수적 30% 마진 기준).`
-                  : `At 30% margin: profit/unit ${fmt(profitPerUnitLow)}. At 50%: ${fmt(profitPerUnitHigh)}. To recoup the 1,000-customer marketing spend (${fmt(cacInTargetCents! * 1000)}), conservative break-even at 30% margin = ~${breakeven.toLocaleString()} customers.`;
-              })()}
-            </p>
+            {(() => {
+              const llmMarginPct = aggregate.pricing?.marginEstimatePct;
+              const baseMarginPct = llmMarginPct ?? 35;
+              const clamp = (n: number) => Math.max(10, Math.min(85, n));
+              const scenarios = [
+                {
+                  key: "pess",
+                  labelKo: "비관 (마진 −10pp)",
+                  labelEn: "Pessimistic (−10pp)",
+                  marginPct: clamp(baseMarginPct - 10),
+                },
+                {
+                  key: "base",
+                  labelKo: llmMarginPct != null ? "기본 (AI 추정)" : "기본",
+                  labelEn: llmMarginPct != null ? "Base (AI-estimated)" : "Base",
+                  marginPct: baseMarginPct,
+                },
+                {
+                  key: "opt",
+                  labelKo: "낙관 (마진 +10pp)",
+                  labelEn: "Optimistic (+10pp)",
+                  marginPct: clamp(baseMarginPct + 10),
+                },
+              ];
+              const rows = scenarios.map((s) => {
+                const margin = s.marginPct / 100;
+                const grossPerUnit = Math.round(headlinePrice * margin);
+                const netPerUnit = grossPerUnit - cacInTargetCents!;
+                const breakEvenN =
+                  netPerUnit > 0
+                    ? Math.ceil((cacInTargetCents! / netPerUnit) * 1000)
+                    : null;
+                return { ...s, grossPerUnit, netPerUnit, breakEvenN };
+              });
+              return (
+                <>
+                  <div className="flex items-baseline justify-between mb-2 gap-2 flex-wrap">
+                    <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold">
+                      {isKo ? "Break-even 시나리오 (마진별)" : "Break-even sensitivity (by margin)"}
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      {isKo
+                        ? `${llmMarginPct != null ? "AI 추정" : "기본값"} 마진 ${baseMarginPct}% 기준 ±10pp`
+                        : `${llmMarginPct != null ? "AI-estimated" : "Default"} ${baseMarginPct}% margin ± 10pp`}
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="text-[10px] uppercase tracking-wide text-slate-500">
+                        <tr className="border-b border-slate-200">
+                          <th className="px-2 py-1.5 text-left font-semibold">
+                            {isKo ? "시나리오" : "Scenario"}
+                          </th>
+                          <th className="px-2 py-1.5 text-right font-semibold">
+                            {isKo ? "마진" : "Margin"}
+                          </th>
+                          <th className="px-2 py-1.5 text-right font-semibold">
+                            {isKo ? "단위 gross" : "Gross/unit"}
+                          </th>
+                          <th className="px-2 py-1.5 text-right font-semibold">
+                            {isKo ? "단위 net (CAC 차감)" : "Net/unit (after CAC)"}
+                          </th>
+                          <th className="px-2 py-1.5 text-right font-semibold">
+                            {isKo ? "1,000명 회수 BE" : "BE @ 1,000 spend"}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {rows.map((r) => (
+                          <tr key={r.key}>
+                            <td className="px-2 py-2 text-slate-700">
+                              {isKo ? r.labelKo : r.labelEn}
+                            </td>
+                            <td className="px-2 py-2 text-right tabular-nums text-slate-700">
+                              {r.marginPct}%
+                            </td>
+                            <td className="px-2 py-2 text-right tabular-nums text-slate-700">
+                              {fmt(r.grossPerUnit)}
+                            </td>
+                            <td
+                              className={clsx(
+                                "px-2 py-2 text-right tabular-nums font-semibold",
+                                r.netPerUnit > 0 ? "text-success" : "text-risk",
+                              )}
+                            >
+                              {fmt(r.netPerUnit)}
+                            </td>
+                            <td className="px-2 py-2 text-right tabular-nums text-slate-700">
+                              {r.breakEvenN != null
+                                ? r.breakEvenN.toLocaleString()
+                                : isKo
+                                  ? "불가"
+                                  : "n/a"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-3 leading-relaxed">
+                    <strong className="font-semibold text-slate-700">
+                      {isKo ? "가정: 1인당 1개 구매." : "Assumes single unit per customer."}
+                    </strong>{" "}
+                    {isKo
+                      ? "재구매·LTV는 미반영 — 실제 LTV가 단가의 1.3배 이상이면 위 break-even은 보수적입니다. 음수 net은 \"이 마진 가정에서 수학적 불가\"이지 절대 불가가 아님."
+                      : "Repeat purchases / LTV not modeled — if actual LTV exceeds unit price ×1.3, the break-even above is conservative. Negative net means \"impossible at this margin assumption\", not absolutely unviable."}
+                  </p>
+                </>
+              );
+            })()}
           </div>
 
           <p className="text-[11px] text-slate-500 mt-3 leading-relaxed">
@@ -5670,8 +5811,24 @@ function DecisionAidTab({
 
       {/* ── Income × Intent matrix + analysis ─────────────────── */}
       {(() => {
-        const incomeRows = aggregate.personas?.segmentBreakdown?.byIncome ?? [];
-        if (incomeRows.length === 0) return null;
+        const incomeRowsRaw = aggregate.personas?.segmentBreakdown?.byIncome ?? [];
+        if (incomeRowsRaw.length === 0) return null;
+        // Sort by income ascending (<$30k → $30-60k → … → $150k+) so the
+        // user reads the income-vs-intent relationship monotonically. Raw
+        // data comes back ordered by count which scrambles the trend.
+        // Bracket order is hardcoded; unknown buckets fall to end.
+        const incomeOrder: Record<string, number> = {
+          "<$30k": 0,
+          "$30-60k": 1,
+          "$60-100k": 2,
+          "$100-150k": 3,
+          "$150k+": 4,
+        };
+        const incomeRows = [...incomeRowsRaw].sort((a, b) => {
+          const ai = incomeOrder[a.bucket] ?? 99;
+          const bi = incomeOrder[b.bucket] ?? 99;
+          return ai - bi;
+        });
         const analysis = analyzeIncomeIntent(incomeRows, isKo ? "ko" : "en");
         const overallMean =
           incomeRows.reduce((s, r) => s + r.meanIntent * r.count, 0) /
@@ -5703,6 +5860,11 @@ function DecisionAidTab({
                       : r.meanIntent >= 50
                         ? "bg-warn"
                         : "bg-risk";
+                  // Sample-size caveat — buckets <100 personas have wide
+                  // CIs vs neighbours that have 500+. Mark them so the
+                  // user doesn't over-interpret a "strongest segment"
+                  // headline driven by 32 personas.
+                  const lowSample = r.count < 100;
                   return (
                     <div
                       key={r.bucket}
@@ -5720,8 +5882,25 @@ function DecisionAidTab({
                       <div className="w-16 text-right text-slate-700 tabular-nums font-medium">
                         {r.meanIntent.toFixed(1)}/100
                       </div>
-                      <div className="w-20 text-right text-xs text-slate-500 tabular-nums">
-                        n={r.count}
+                      <div
+                        className={clsx(
+                          "w-24 text-right text-xs tabular-nums flex items-center justify-end gap-1",
+                          lowSample ? "text-warn" : "text-slate-500",
+                        )}
+                        title={
+                          lowSample
+                            ? isKo
+                              ? "표본 100명 미만 — 신뢰구간이 다른 구간보다 넓음. 단정적 해석 자제."
+                              : "Sample <100 — confidence interval wider than neighbours. Interpret cautiously."
+                            : undefined
+                        }
+                      >
+                        <span>n={r.count}</span>
+                        {lowSample && (
+                          <span className="text-[10px] font-bold uppercase">
+                            {isKo ? "소표본" : "low-n"}
+                          </span>
+                        )}
                       </div>
                       <div className="w-32 text-right text-xs text-slate-600">
                         → {r.topCountry} ({r.topCountryShare}%)
@@ -5780,9 +5959,14 @@ function DecisionAidTab({
 
 function RisksTab({
   narrative,
+  simCount,
   isKo,
 }: {
   narrative: EnsembleAggregate["narrative"];
+  /** Total ensemble sim count — used as the denominator on each risk
+   *  card so "surfaced in 1 sim" reads as "1/15 sims" with consensus
+   *  context, not as a faint footnote that hides low-confidence items. */
+  simCount: number;
   isKo: boolean;
 }) {
   if (!narrative?.mergedRisks?.length) {
@@ -5820,6 +6004,29 @@ function RisksTab({
               : r.severity === "medium"
                 ? "text-warn"
                 : "text-slate-500";
+          // Consensus tiering — for multi-sim ensembles, distinguishes
+          // "5+ sims agree this is HIGH" (load-bearing blocker) from
+          // "1 sim said HIGH" (could be a real edge-case OR a single
+          // model's hallucination). Single-sim ensembles skip this
+          // framing — there's no "consensus" with one voice.
+          const ratio = simCount > 0 ? r.surfacedInSims / simCount : 1;
+          const consensusInfo =
+            simCount <= 1
+              ? null
+              : ratio >= 0.5
+                ? {
+                    label: isKo ? "강한 합의" : "strong consensus",
+                    className: "text-success",
+                  }
+                : ratio >= 0.25
+                  ? {
+                      label: isKo ? "부분 합의" : "partial consensus",
+                      className: "text-warn",
+                    }
+                  : {
+                      label: isKo ? "단일/소수 시뮬" : "low consensus",
+                      className: "text-slate-500",
+                    };
           return (
             <div key={i} className="p-4 flex gap-3 items-start">
               <div className={clsx("shrink-0 w-16 text-[10px] font-bold uppercase tracking-wider pt-0.5", sevClass)}>
@@ -5828,10 +6035,20 @@ function RisksTab({
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-slate-900 mb-0.5">{r.factor}</div>
                 <p className="text-sm text-slate-600 leading-relaxed">{r.description}</p>
-                <div className="text-xs text-slate-400 mt-1">
-                  {isKo
-                    ? `${r.surfacedInSims}개 시뮬에서 언급`
-                    : `Surfaced in ${r.surfacedInSims} sim${r.surfacedInSims === 1 ? "" : "s"}`}
+                <div className="text-xs mt-1 flex items-center gap-2 flex-wrap">
+                  <span className="text-slate-500">
+                    {isKo
+                      ? `${r.surfacedInSims}/${simCount}개 시뮬에서 언급`
+                      : `Surfaced in ${r.surfacedInSims}/${simCount} sim${simCount === 1 ? "" : "s"}`}
+                  </span>
+                  {consensusInfo && (
+                    <>
+                      <span className="text-slate-300">·</span>
+                      <span className={clsx("font-medium", consensusInfo.className)}>
+                        {consensusInfo.label} ({(ratio * 100).toFixed(0)}%)
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -5877,9 +6094,13 @@ function RisksTab({
 
 function ActionsTab({
   narrative,
+  simCount,
   isKo,
 }: {
   narrative: EnsembleAggregate["narrative"];
+  /** Total ensemble sim count — used as denominator for the
+   *  "recommended by N/M sims" hint so consensus is visible. */
+  simCount: number;
   isKo: boolean;
 }) {
   if (!narrative?.mergedActions?.length) {
@@ -5914,10 +6135,10 @@ function ActionsTab({
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-slate-700 leading-relaxed">{a.action}</p>
                   <div className="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
-                    <span>
+                    <span className="text-slate-500">
                       {isKo
-                        ? `${a.surfacedInSims}개 시뮬에서 권장`
-                        : `Recommended by ${a.surfacedInSims} sim${a.surfacedInSims === 1 ? "" : "s"}`}
+                        ? `${a.surfacedInSims}/${simCount}개 시뮬에서 권장`
+                        : `Recommended by ${a.surfacedInSims}/${simCount} sim${simCount === 1 ? "" : "s"}`}
                     </span>
                     {quad && (
                       <>
