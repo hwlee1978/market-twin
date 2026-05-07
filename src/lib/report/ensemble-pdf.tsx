@@ -5940,15 +5940,33 @@ function pickMarketBlocker(
   const isMismatchNoise = (text: string): boolean => {
     const t = text.toLowerCase();
     // Korean mismatch patterns — persona explicitly says product
-    // doesn't fit their category / target / interest.
+    // doesn't fit their category / target / interest. The shape is
+    // "{persona-trait}이므로 {category}와 무관" — we want to keep
+    // genuine market blockers (regulatory, pricing, channel) and
+    // drop "this persona just isn't in the target audience".
     if (
       /아이\s*신발|어린이|유아|성인용|구매\s*동기\s*자체가\s*없음|타겟\s*아님|관심\s*없음|내\s*카테고리\s*아님|이미\s*충분히\s*가지고|제품\s*불필요/.test(
+        text,
+      )
+    ) return true;
+    // Smoking-cessation / vape category-mismatch noise: persona is a
+    // non-smoker / vegan / unrelated lifestyle and so the product
+    // doesn't apply to them. Valid persona objection but useless as
+    // a "market blocker" — same persona type exists in every market
+    // and isn't telling us anything geo-specific.
+    if (
+      /비흡연자|흡연\s*경험\s*없|흡연\s*안\s*함|니코틴\s*제품\s*자체.*소비.*않|제품\s*자체.*소비.*않|타깃\s*자체.*해당.*않|카테고리\s*자체.*해당.*없|자신과\s*무관|본인.*해당.*없|개인적.*해당.*없/.test(
         text,
       )
     ) return true;
     // English mismatch patterns
     if (
       /\b(not for me|no interest|wrong fit for me|not the target|don'?t need|already have enough|kids?'? shoes?|not in market for|outside my category)\b/.test(
+        t,
+      )
+    ) return true;
+    if (
+      /\b(non-smoker|never smoked|don'?t smoke|doesn'?t apply to me|category doesn'?t apply|product (?:isn'?t|is not) for me|outside (?:my|the) target)\b/.test(
         t,
       )
     ) return true;
