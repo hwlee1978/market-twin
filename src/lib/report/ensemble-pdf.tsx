@@ -8,6 +8,7 @@
  */
 import {
   Document,
+  Link,
   Page,
   StyleSheet,
   Text,
@@ -1753,6 +1754,22 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
               {mp.marketSize.addressableSegment && (
                 <MText style={{ fontSize: 8, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>
                   {`${isKo ? "도달 세그먼트: " : "Addressable: "}${mp.marketSize.addressableSegment}`}
+                </MText>
+              )}
+              {(mp.marketSize.citations?.length ?? 0) > 0 ? (
+                <View style={{ marginTop: 6, gap: 2 }}>
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600 }}>
+                    {isKo ? "출처" : "Sources"}
+                  </MText>
+                  {mp.marketSize.citations!.slice(0, 3).map((c, i) => (
+                    <Link key={i} src={c.url} style={{ fontSize: 7, color: C.brand, textDecoration: "none" }}>
+                      {`${i + 1}. ${c.title.length > 80 ? c.title.slice(0, 80) + "…" : c.title}`}
+                    </Link>
+                  ))}
+                </View>
+              ) : (
+                <MText style={{ fontSize: 7, color: C.faint, marginTop: 4 }}>
+                  {isKo ? "AI 추정 — 외부 시장조사 미검증" : "AI estimate — not externally sourced"}
                 </MText>
               )}
             </View>

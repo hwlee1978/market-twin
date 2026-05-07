@@ -719,6 +719,20 @@ export function marketProfilePrompt(
      */
     recommendedPriceCents: number | null;
     locale: PromptLocale;
+    /**
+     * Tavily web-search results for the marketSize stage. When non-empty,
+     * the LLM is required to anchor its TAM / growth / addressable
+     * numbers on these snippets — much harder to hallucinate when
+     * concrete figures + URLs are sitting right there. Empty array means
+     * Tavily was unavailable (no API key, network error) and the LLM
+     * falls back to its training data.
+     */
+    marketSnippets?: Array<{
+      url: string;
+      title: string;
+      content: string;
+      score: number;
+    }>;
   },
 ): string {
   const isKo = context.locale === "ko";
@@ -731,6 +745,31 @@ export function marketProfilePrompt(
   const channelsBlock = context.topChannels.length
     ? context.topChannels.slice(0, 8).join(", ")
     : "(none surfaced)";
+  // Pre-format the Tavily snippets block so the prompt body stays
+  // readable. Trim each snippet to ~400 chars — full content can run
+  // 1.5K+ and we have ~5 snippets, which inflates the prompt without
+  // adding signal beyond the first sentence or two.
+  const snippets = context.marketSnippets ?? [];
+  const marketSnippetsBlock =
+    snippets.length === 0
+      ? ""
+      : `
+
+═══ MARKET-SIZE WEB SEARCH (use these for the marketSize fields) ═══
+The following snippets came from a Tavily web search for "${input.category} market size ${recommendedCountry}". They are real, sourced numbers — anchor the marketSize.estimateUsd / growthTrend / addressableSegment ON THESE rather than your training data. If a snippet contradicts your prior, trust the snippet.
+
+${snippets
+  .slice(0, 5)
+  .map(
+    (s, i) =>
+      `[${i + 1}] ${s.title}
+URL: ${s.url}
+${s.content.slice(0, 400)}${s.content.length > 400 ? "..." : ""}`,
+  )
+  .join("\n\n")}
+
+When emitting marketSize.estimateUsd, prefer specific figures ("$3.5–5B annually") over vague ranges, and pick numbers that the snippets above actually support. If the snippets are weak / off-topic for this category × country, fall back to a conservative estimate and flag it as such.
+`;
 
   return `Produce a structured market profile for the RECOMMENDED launch country. Be specific. Reference real brands, channels, and regulators where you have confidence; omit (empty array / blank string) where you don't.
 
@@ -753,7 +792,7 @@ ${objectionsBlock}
   Top trust factors in ${recommendedCountry}:
 ${trustBlock}
   Channels personas already mention: ${channelsBlock}
-
+${marketSnippetsBlock}
 ${languageInstruction(context.locale)}
 
 Required JSON shape (every field optional — fill what you have confidence about, leave the rest empty/blank):

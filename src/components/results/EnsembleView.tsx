@@ -2924,6 +2924,33 @@ function MarketProfileTab({
               </div>
             )}
           </div>
+          {(ms.citations?.length ?? 0) > 0 ? (
+            <div className="mt-4 pt-3 border-t border-slate-100">
+              <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-2">
+                {isKo ? "출처" : "Sources"}
+              </div>
+              <ul className="space-y-1">
+                {ms.citations!.slice(0, 3).map((c, i) => (
+                  <li key={i} className="text-xs">
+                    <a
+                      href={c.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-accent-600 hover:underline break-all"
+                    >
+                      {`${i + 1}. ${c.title}`}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <div className="mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-400">
+              {isKo
+                ? "AI 추정 — 외부 시장조사 데이터로 검증되지 않음"
+                : "AI estimate — not externally sourced"}
+            </div>
+          )}
         </div>
       )}
 

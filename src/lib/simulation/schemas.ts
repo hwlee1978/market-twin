@@ -337,6 +337,22 @@ export const MarketProfileSchema = z.object({
       estimateUsd: z.string(),
       growthTrend: z.string(),
       addressableSegment: z.string(),
+      /**
+       * Source citations for the TAM / growth / segment estimates.
+       * Populated when the market-size stage hit Tavily; empty when
+       * we fell back to LLM-only (e.g. TAVILY_API_KEY missing or the
+       * search returned nothing usable). UI renders these as a
+       * "출처" / "Sources" link list below the estimate.
+       */
+      citations: z
+        .array(
+          z.object({
+            url: z.string(),
+            title: z.string(),
+          }),
+        )
+        .default([])
+        .optional(),
     })
     .partial()
     .optional(),

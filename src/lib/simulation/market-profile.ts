@@ -11,6 +11,11 @@
  */
 
 import { getLLMProvider } from "@/lib/llm";
+import {
+  buildMarketSizeQuery,
+  tavilySearch,
+  type TavilyResult,
+} from "@/lib/market-research/tavily";
 import { MarketProfileSchema, type MarketProfile, type ProjectInput } from "./schemas";
 import { marketProfilePrompt, MARKET_PROFILE_SYSTEM } from "./prompts";
 import { getDisplayPriceCents } from "./pricing-sensitivity";
@@ -71,6 +76,32 @@ export async function buildMarketProfile(
       ).displayCents
     : null;
 
+  // Tavily web search to ground the marketSize estimate in real
+  // sources. Best-effort: when TAVILY_API_KEY is unset OR the call
+  // fails, marketSnippets ends up empty and the prompt falls back to
+  // LLM-only generation (same behaviour as before this stage existed).
+  // Cost: ~$0.01-0.03 per search; 1 search per ensemble.
+  const tavilyResult = await tavilySearch({
+    query: buildMarketSizeQuery({
+      country: recommendedCountry,
+      category: opts.input.category,
+      productName: opts.input.productName,
+    }),
+    searchDepth: "advanced",
+    maxResults: 5,
+    includeAnswer: true,
+  });
+  const marketSnippets: TavilyResult[] = tavilyResult?.results ?? [];
+  if (tavilyResult) {
+    console.log(
+      `[market profile] tavily: ${marketSnippets.length} snippets for ${recommendedCountry}/${opts.input.category}`,
+    );
+  } else if (process.env.TAVILY_API_KEY) {
+    // Key was set but call failed — log so the operator knows the
+    // fallback path triggered for a non-key reason (rate limit, network).
+    console.warn(`[market profile] tavily call returned null; falling back to LLM-only marketSize`);
+  }
+
   const prompt = marketProfilePrompt(opts.input, recommendedCountry, {
     consensusPercent: opts.aggregate.recommendation.consensusPercent,
     countryFinalScore: countryStats?.finalScore.mean ?? 0,
@@ -79,6 +110,7 @@ export async function buildMarketProfile(
     topChannels,
     recommendedPriceCents,
     locale: opts.locale,
+    marketSnippets,
   });
 
   // Synthesis-tier model — needs strong reasoning to surface real
@@ -116,13 +148,25 @@ export async function buildMarketProfile(
         error: `schema validation failed${fieldErrors ? ` (fields: ${fieldErrors})` : ""}`,
       };
     }
+    // Attach the top Tavily citations to marketSize so the UI can
+    // render "출처" links. We do this on our side (not from the LLM
+    // JSON) because the LLM is unreliable at echoing URL strings
+    // verbatim; passing them through programmatically guarantees the
+    // cited URLs match what the LLM actually saw.
+    const profile = parsed.data;
+    if (marketSnippets.length > 0 && profile.marketSize) {
+      profile.marketSize.citations = marketSnippets
+        .slice(0, 3)
+        .map((s) => ({ url: s.url, title: s.title }));
+    }
     console.log(
       `[market profile] generated for ${recommendedCountry} · ` +
-        `${parsed.data.competitors?.length ?? 0} competitors · ` +
-        `${(parsed.data.regulatory?.barriers ?? []).length} regulatory barriers · ` +
+        `${profile.competitors?.length ?? 0} competitors · ` +
+        `${(profile.regulatory?.barriers ?? []).length} regulatory barriers · ` +
+        `${profile.marketSize?.citations?.length ?? 0} marketSize citations · ` +
         `${Date.now() - t0}ms`,
     );
-    return { profile: parsed.data };
+    return { profile };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(`[market profile] LLM call failed:`, msg);
