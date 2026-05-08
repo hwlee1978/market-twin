@@ -2,6 +2,10 @@ import { setRequestLocale } from "next-intl/server";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { createServiceClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/PageHeader";
+import {
+  isGenericPriceObjection,
+  isGenericTrustFactor,
+} from "@/lib/simulation/surfaced-recount";
 
 interface QualityRow {
   simulation_id: string;
@@ -128,6 +132,79 @@ export default async function AdminSimQualityPage({
     if (q.quarantined) cur.quarantined++;
     byProvider.set(prov, cur);
   }
+
+  // ── Persona quality (last 7d, sample of 50 most-recent sims) ─────
+  // Pulls actual persona arrays from simulation_results to compute
+  // generic-price / generic-trust rates by income bracket. Sampled
+  // (not all 30d) because each sim has 200 personas — 50 sims × 200
+  // = 10K rows is fast; 2K sims × 200 = 400K is not.
+  const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: recentSims } = await admin
+    .from("simulations")
+    .select("id, simulation_results(personas)")
+    .eq("status", "completed")
+    .gte("started_at", since7d)
+    .order("started_at", { ascending: false })
+    .limit(50);
+
+  type PersonaRecord = {
+    incomeBand?: string;
+    objections?: string[];
+    trustFactors?: string[];
+    purchaseIntent?: number;
+  };
+  type SimResultsShape = { personas?: PersonaRecord[] } | { personas?: PersonaRecord[] }[] | null;
+  type PersonaBucket = {
+    total: number;
+    withGenericPrice: number;
+    withSpecificPrice: number;
+    withGenericTrust: number;
+    intentSum: number;
+  };
+  const personaBuckets = new Map<string, PersonaBucket>();
+  let personaTotal = 0;
+  let personaGenericPrice = 0;
+  let personaGenericTrust = 0;
+  for (const s of recentSims ?? []) {
+    const r = s.simulation_results as SimResultsShape;
+    const personas: PersonaRecord[] = Array.isArray(r) ? (r[0]?.personas ?? []) : (r?.personas ?? []);
+    for (const p of personas) {
+      const bracket = parseIncomeBracket(p.incomeBand);
+      const cur =
+        personaBuckets.get(bracket) ??
+        ({
+          total: 0,
+          withGenericPrice: 0,
+          withSpecificPrice: 0,
+          withGenericTrust: 0,
+          intentSum: 0,
+        } as PersonaBucket);
+      cur.total += 1;
+      cur.intentSum += p.purchaseIntent ?? 0;
+      const objs = p.objections ?? [];
+      const trusts = p.trustFactors ?? [];
+      const hasGenericPrice = objs.some(isGenericPriceObjection);
+      const hasGenericTrust = trusts.some(isGenericTrustFactor);
+      const hasAnyPrice = objs.some((o) =>
+        /가격|비싸|비쌈|부담|expensive|costly|pricey|cost|too\s+(high|much)/i.test(o),
+      );
+      if (hasGenericPrice) cur.withGenericPrice += 1;
+      if (hasAnyPrice && !hasGenericPrice) cur.withSpecificPrice += 1;
+      if (hasGenericTrust) cur.withGenericTrust += 1;
+      personaBuckets.set(bracket, cur);
+      personaTotal += 1;
+      if (hasGenericPrice) personaGenericPrice += 1;
+      if (hasGenericTrust) personaGenericTrust += 1;
+    }
+  }
+  const personaBracketOrder = [
+    "<$30k",
+    "$30-60k",
+    "$60-100k",
+    "$100-150k",
+    "$150k+",
+    "(unparsed)",
+  ];
 
   // Quarantine list
   const quarantineRows = quality
@@ -410,6 +487,127 @@ export default async function AdminSimQualityPage({
         )}
       </div>
 
+      {/* Persona quality audit — generic-price / generic-trust rates
+          by income bracket. The aggregator + render-time filters drop
+          generic phrasings before they hit the report, but this panel
+          shows the upstream rate so we can spot the LLM regressing
+          (high-income personas suddenly grumbling generically about
+          price = LLM ignoring income context). Sample of last 7 days,
+          50 most-recent sims. */}
+      {personaTotal > 0 && (
+        <div className="card p-5">
+          <h2 className="text-base font-semibold text-slate-900 mb-1">
+            {isKo ? "페르소나 품질 감사" : "Persona quality audit"}
+          </h2>
+          <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+            {isKo
+              ? `최근 7일 50개 시뮬 샘플 (${personaTotal.toLocaleString()}명 페르소나). 일반 가격 거부 / 일반 신뢰 발언이 소득 구간별로 어느 비율인지 추적합니다. 고소득(\\$100k+) generic-price 비율이 평소보다 크게 올라가면 LLM이 income context를 무시하고 reflexively 발언하는 회귀 신호입니다.`
+              : `Last 7 days, 50 most-recent sims (${personaTotal.toLocaleString()} personas). Tracks the upstream rate of generic price grumbles / generic trust factors by income bracket. A spike in high-income generic-price rate is a regression signal — the LLM is ignoring income context and emitting price-as-objection reflexively.`}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <KpiCard
+              label={isKo ? "일반 가격 거부 (전체)" : "Generic price (overall)"}
+              value={`${Math.round((personaGenericPrice / personaTotal) * 100)}%`}
+              hint={`${personaGenericPrice.toLocaleString()} / ${personaTotal.toLocaleString()}`}
+              tone={
+                personaGenericPrice / personaTotal > 0.2
+                  ? "warn"
+                  : personaGenericPrice / personaTotal > 0.1
+                    ? "default"
+                    : "success"
+              }
+            />
+            <KpiCard
+              label={isKo ? "일반 신뢰 (전체)" : "Generic trust (overall)"}
+              value={`${Math.round((personaGenericTrust / personaTotal) * 100)}%`}
+              hint={`${personaGenericTrust.toLocaleString()} / ${personaTotal.toLocaleString()}`}
+              tone={
+                personaGenericTrust / personaTotal > 0.4
+                  ? "warn"
+                  : personaGenericTrust / personaTotal > 0.2
+                    ? "default"
+                    : "success"
+              }
+            />
+            <KpiCard
+              label={isKo ? "샘플 sims" : "Sample sims"}
+              value={(recentSims?.length ?? 0).toString()}
+              hint={isKo ? "최근 7일" : "Last 7 days"}
+            />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
+              <thead className="text-[10px] uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th className="text-left py-2 pr-3 font-medium">
+                    {isKo ? "소득 구간" : "Income bracket"}
+                  </th>
+                  <th className="text-right py-2 px-3 font-medium">
+                    {isKo ? "페르소나" : "Personas"}
+                  </th>
+                  <th className="text-right py-2 px-3 font-medium">
+                    {isKo ? "일반 가격" : "Generic price"}
+                  </th>
+                  <th className="text-right py-2 px-3 font-medium">
+                    {isKo ? "구체 가격" : "Specific price"}
+                  </th>
+                  <th className="text-right py-2 px-3 font-medium">
+                    {isKo ? "일반 신뢰" : "Generic trust"}
+                  </th>
+                  <th className="text-right py-2 pl-3 font-medium">
+                    {isKo ? "평균 의향" : "Mean intent"}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {personaBracketOrder.map((bracket) => {
+                  const b = personaBuckets.get(bracket);
+                  if (!b) return null;
+                  const genericPct = Math.round((b.withGenericPrice / b.total) * 100);
+                  const specificPct = Math.round((b.withSpecificPrice / b.total) * 100);
+                  const genericTrustPct = Math.round((b.withGenericTrust / b.total) * 100);
+                  const meanIntent = b.total > 0 ? Math.round(b.intentSum / b.total) : 0;
+                  // Flag high-income brackets with elevated generic-price rate
+                  // — that's the LLM-regression signal worth surfacing.
+                  const isHighIncome =
+                    bracket === "$100-150k" || bracket === "$150k+";
+                  const flagged = isHighIncome && genericPct > 10;
+                  return (
+                    <tr key={bracket} className={flagged ? "bg-warn-soft/30" : ""}>
+                      <td className="py-2 pr-3 font-medium text-slate-800">
+                        {bracket}
+                      </td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">
+                        {b.total.toLocaleString()}
+                      </td>
+                      <td
+                        className={`py-2 px-3 text-right tabular-nums ${flagged ? "text-warn font-semibold" : "text-slate-600"}`}
+                      >
+                        {genericPct}%
+                      </td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">
+                        {specificPct}%
+                      </td>
+                      <td className="py-2 px-3 text-right tabular-nums text-slate-600">
+                        {genericTrustPct}%
+                      </td>
+                      <td className="py-2 pl-3 text-right tabular-nums text-slate-600">
+                        {meanIntent}/100
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-3 leading-relaxed">
+            {isKo
+              ? "주황색 행 = 고소득 페르소나의 일반 가격 거부 비율이 10% 초과 (LLM income context 회귀 가능 신호). 정상치: 저소득 > 중간 > 고소득 순으로 비율이 떨어져야 함."
+              : "Amber row = high-income generic-price rate exceeds 10% (potential LLM-context regression). Healthy distribution: low-income > mid > high."}
+          </p>
+        </div>
+      )}
+
       {/* Failover stat — informational, not a problem */}
       {failoverFired > 0 && (
         <div className="card p-4 bg-slate-50 border-slate-200">
@@ -422,4 +620,29 @@ export default async function AdminSimQualityPage({
       )}
     </div>
   );
+}
+
+/**
+ * Parse a persona's incomeBand text into a USD-K bucket label. Each
+ * persona prompt requires the USD equivalent in parentheses for non-USD
+ * currencies; native-USD personas write "$X-Y" directly. Returns
+ * "(unparsed)" when nothing matches — covers students / homemakers /
+ * retirees with non-salary income strings.
+ */
+function parseIncomeBracket(incomeBand: string | undefined): string {
+  if (!incomeBand) return "(unparsed)";
+  const range = incomeBand.match(/\$\s*(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)\s*k/i);
+  let usdK: number | null = null;
+  if (range) {
+    usdK = (parseFloat(range[1]) + parseFloat(range[2])) / 2;
+  } else {
+    const single = incomeBand.match(/\$\s*(\d+(?:\.\d+)?)\s*k/i);
+    if (single) usdK = parseFloat(single[1]);
+  }
+  if (usdK == null) return "(unparsed)";
+  if (usdK < 30) return "<$30k";
+  if (usdK < 60) return "$30-60k";
+  if (usdK < 100) return "$60-100k";
+  if (usdK < 150) return "$100-150k";
+  return "$150k+";
 }
