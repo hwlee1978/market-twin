@@ -1,4 +1,9 @@
-export type LLMProviderName = "anthropic" | "openai" | "gemini" | "xai";
+export type LLMProviderName =
+  | "anthropic"
+  | "openai"
+  | "gemini"
+  | "xai"
+  | "deepseek";
 
 export interface LLMRequest {
   /** System / instruction prompt. */

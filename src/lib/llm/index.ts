@@ -1,4 +1,5 @@
 import { AnthropicProvider } from "./anthropic";
+import { DeepSeekProvider } from "./deepseek";
 import { GeminiProvider } from "./gemini";
 import { OpenAIProvider } from "./openai";
 import { XaiProvider } from "./xai";
@@ -73,6 +74,18 @@ const PROVIDER_STAGE_DEFAULTS: Record<LLMProviderName, Record<SimulationStage, s
     pricing: "grok-3-mini",
     synthesis: "grok-3-mini",
   },
+  deepseek: {
+    // deepseek-chat (V3) across all stages — non-reasoning, structured-
+    // output friendly, $0.27/$1.10 per 1M tok. Lands roughly between
+    // Haiku and Sonnet on quality at a fraction of the cost. We don't
+    // use deepseek-reasoner (R1) because the persona-batch workload
+    // doesn't benefit from chain-of-thought and reasoning models hit
+    // SDK timeouts (xAI Grok-4 lesson).
+    personas: "deepseek-chat",
+    countries: "deepseek-chat",
+    pricing: "deepseek-chat",
+    synthesis: "deepseek-chat",
+  },
 };
 
 /**
@@ -111,6 +124,10 @@ export function getLLMProvider(opts: ProviderOptions = {}): LLMProvider {
       return new GeminiProvider(model ?? PROVIDER_STAGE_DEFAULTS.gemini.synthesis);
     case "xai":
       return new XaiProvider(model ?? PROVIDER_STAGE_DEFAULTS.xai.synthesis);
+    case "deepseek":
+      return new DeepSeekProvider(
+        model ?? PROVIDER_STAGE_DEFAULTS.deepseek.synthesis,
+      );
     default:
       throw new Error(`Unknown LLM provider: ${provider}`);
   }
