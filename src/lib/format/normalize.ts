@@ -26,6 +26,19 @@ export function normalizeLLMText(text: string | undefined | null): string {
   if (!text) return "";
   return (
     text
+      // NFD decomposes precomposed accented Latin (é → e + ◌́),
+      // then we strip the combining marks below. Catches cases like
+      // "éslite spectrum" (an accent the LLM hallucinated on a brand
+      // that doesn't actually have one — Eslite is plain Latin) and
+      // similar diacritic noise that Pretendard's bold weights don't
+      // ship glyphs for, leaving a font-fallback rendering glitch.
+      // Hangul + CJK ideographs are NFD-stable (Hangul precomposed
+      // syllables decompose to choseong/jungseong/jongseong but
+      // recompose to themselves on the NFKC pass below).
+      .normalize("NFD")
+      // Strip combining diacritical marks U+0300-U+036F left behind
+      // by the NFD decomposition. Keeps base Latin / Hangul / CJK.
+      .replace(/[̀-ͯ]/g, "")
       .normalize("NFKC")
       // Heavy ornamental quote marks U+275B-U+275E (❛ ❜ ❝ ❞).
       .replace(/[❛-❞]/g, "'")

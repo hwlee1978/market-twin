@@ -1976,7 +1976,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         {/* Pricing benchmarks */}
         {pricing &&
           (pricing.entryLevel || pricing.mid || pricing.premium || pricing.yourPosition) && (
-            <View style={styles.sectionBlock}>
+            <View style={styles.sectionBlock} wrap={false}>
               <MText style={styles.sectionEyebrow}>
                 {isKo ? "현지 가격 벤치마크" : "Local pricing benchmarks"}
               </MText>
