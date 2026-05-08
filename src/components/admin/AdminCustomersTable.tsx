@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { Search, X } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { formatDate } from "@/lib/format/date";
 
 export interface CustomerRow {
   id: string;
@@ -146,10 +147,10 @@ export function AdminCustomersTable({
                   )}
                 </td>
                 <td className="px-6 py-3 text-slate-500 text-xs">
-                  {r.lastActivity ? new Date(r.lastActivity).toLocaleDateString(locale) : "—"}
+                  {formatDate(r.lastActivity, locale === "ko") ?? "—"}
                 </td>
                 <td className="px-6 py-3 text-slate-500 text-xs">
-                  {new Date(r.createdAt).toLocaleDateString(locale)}
+                  {formatDate(r.createdAt, locale === "ko") ?? "—"}
                 </td>
               </tr>
             ))}

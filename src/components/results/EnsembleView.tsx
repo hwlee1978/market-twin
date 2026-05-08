@@ -537,6 +537,23 @@ function EnsembleDashboard({
   const [pdfBusy, setPdfBusy] = useState<"executive" | "detailed" | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfMenuOpen, setPdfMenuOpen] = useState(false);
+  // Elapsed-seconds counter while a PDF is being built. Reassures the
+  // user that the request is alive (the detailed report is 2-5s on
+  // typical ensembles, longer on deep / deep_pro). Resets to 0 each
+  // time pdfBusy flips on; the button label below reads "...2초" so
+  // the count is visible without an extra UI element.
+  const [pdfElapsed, setPdfElapsed] = useState(0);
+  useEffect(() => {
+    if (!pdfBusy) {
+      setPdfElapsed(0);
+      return;
+    }
+    const startedAt = Date.now();
+    const tick = setInterval(() => {
+      setPdfElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    }, 250);
+    return () => clearInterval(tick);
+  }, [pdfBusy]);
 
   // Same blob-fetch pattern as ResultsDashboard.exportPdf — lets us show
   // an inline error if generation fails instead of opening a tab to a
@@ -731,8 +748,8 @@ function EnsembleDashboard({
                 {pdfBusy ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                 {pdfBusy
                   ? isKo
-                    ? `PDF 생성 중 (${pdfBusy === "executive" ? "임원용" : "전체"})...`
-                    : `Generating PDF (${pdfBusy})...`
+                    ? `PDF 생성 중 (${pdfBusy === "executive" ? "임원용" : "전체"})… ${pdfElapsed}초`
+                    : `Generating PDF (${pdfBusy})… ${pdfElapsed}s`
                   : isKo
                     ? "PDF 리포트 ▾"
                     : "PDF report ▾"}

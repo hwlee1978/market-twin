@@ -5,6 +5,7 @@ import { Link } from "@/i18n/navigation";
 import { CheckCircle2, AlertCircle, ExternalLink, Loader2, Sparkles, Settings } from "lucide-react";
 import { clsx } from "clsx";
 import type { PlanSlug, SubscriptionStatus } from "@/lib/billing/plans";
+import { formatDate } from "@/lib/format/date";
 
 interface PlanShape {
   slug: PlanSlug;
@@ -434,13 +435,3 @@ function statusLabel(s: SubscriptionStatus, isKo: boolean): string {
   return s.replace("_", " ").toUpperCase();
 }
 
-function formatDate(iso: string | null, isKo: boolean): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return new Intl.DateTimeFormat(isKo ? "ko-KR" : "en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(d);
-}

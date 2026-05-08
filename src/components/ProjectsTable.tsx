@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { Search, Trash2, X } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { formatDate } from "@/lib/format/date";
 
 interface ProjectRow {
   id: string;
@@ -112,7 +113,7 @@ export function ProjectsTable({ projects, locale }: Props) {
                   {(p.candidate_countries ?? []).length}
                 </td>
                 <td className="px-6 py-3 text-slate-500">
-                  {new Date(p.updated_at).toLocaleDateString(locale)}
+                  {formatDate(p.updated_at, locale === "ko") ?? "—"}
                 </td>
                 <td className="px-2 py-3">
                   <button

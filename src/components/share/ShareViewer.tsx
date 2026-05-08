@@ -3,6 +3,7 @@
 import { CheckCircle2, TrendingUp } from "lucide-react";
 import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
+import { formatDate } from "@/lib/format/date";
 
 type EnsembleTier =
   | "hypothesis"
@@ -80,10 +81,7 @@ export function ShareViewer({
       : recommendation.confidence === "MODERATE"
         ? "text-warn"
         : "text-risk";
-  const expiresLabel = new Date(shareExpiresAt).toLocaleDateString(
-    isKo ? "ko-KR" : "en-US",
-    { year: "numeric", month: "long", day: "numeric" },
-  );
+  const expiresLabel = formatDate(shareExpiresAt, isKo) ?? "";
 
   return (
     <div className="min-h-screen bg-slate-50">

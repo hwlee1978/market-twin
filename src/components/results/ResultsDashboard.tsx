@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
 import { Download, Loader2 } from "lucide-react";
@@ -36,6 +36,20 @@ export function ResultsDashboard({
   const [tab, setTab] = useState<Tab>("overview");
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  // Elapsed-seconds counter while a PDF is being built. Same pattern
+  // as EnsembleView — reassures the user the request is alive.
+  const [pdfElapsed, setPdfElapsed] = useState(0);
+  useEffect(() => {
+    if (!pdfBusy) {
+      setPdfElapsed(0);
+      return;
+    }
+    const startedAt = Date.now();
+    const tick = setInterval(() => {
+      setPdfElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    }, 250);
+    return () => clearInterval(tick);
+  }, [pdfBusy]);
 
   // Fetch the PDF as a blob so we can show an inline error if generation
   // fails. The previous `window.open(...)` opened a tab to the API URL,
@@ -84,7 +98,9 @@ export function ResultsDashboard({
             className="btn-primary disabled:opacity-60"
           >
             {pdfBusy ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-            {t(pdfBusy ? "results.exportingPdf" : "results.exportPdf")}
+            {pdfBusy
+              ? `${t("results.exportingPdf")} ${pdfElapsed}${locale === "ko" ? "초" : "s"}`
+              : t("results.exportPdf")}
           </button>
           {pdfError && <p className="text-xs text-risk">{pdfError}</p>}
         </div>

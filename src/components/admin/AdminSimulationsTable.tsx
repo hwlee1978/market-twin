@@ -6,6 +6,7 @@ import { useRouter } from "@/i18n/navigation";
 import { AlertTriangle, RotateCcw, X } from "lucide-react";
 import { clsx } from "clsx";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { formatDateTime } from "@/lib/format/date";
 
 // Past this many minutes a "running" sim is almost certainly a zombie —
 // Vercel Pro + Fluid Compute caps functions at 800s (~13 min) so anything
@@ -213,7 +214,7 @@ export function AdminSimulationsTable({
                   {runtime(s)}
                 </td>
                 <td className="px-6 py-3 text-slate-500 text-xs">
-                  {s.started_at ? new Date(s.started_at).toLocaleString(locale) : "—"}
+                  {formatDateTime(s.started_at, locale === "ko") ?? "—"}
                 </td>
                 <td className="px-2 py-3 whitespace-nowrap">
                   {(s.status === "running" || s.status === "pending") && (
