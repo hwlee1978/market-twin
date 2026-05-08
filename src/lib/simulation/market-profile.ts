@@ -73,6 +73,7 @@ export async function buildMarketProfile(
         pricing.recommendedPriceCents,
         pricing.curve,
         pricing.curveRevenueMaxCents,
+        pricing.recommendedPriceP75,
       ).displayCents
     : null;
 

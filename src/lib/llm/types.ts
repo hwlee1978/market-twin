@@ -16,8 +16,21 @@ export interface LLMRequest {
    * providers that don't (OpenAI/Gemini in this codebase today) silently
    * drop them — caller decides whether to gate vision-dependent flows on
    * provider name. URLs must be publicly fetchable.
+   *
+   * Prefer `imagesInline` when possible — Anthropic's URL form makes the
+   * provider's backend fetch the URL, which times out at ~5s and returns
+   * non-retryable HTTP 400 when our Supabase Storage bucket is slow to
+   * respond. Pre-fetching ourselves and passing inline base64 avoids
+   * that failure mode entirely.
    */
   images?: string[];
+  /**
+   * Optional inline image payloads — the provider gets the bytes directly
+   * and never has to fetch a URL. Use these when you have control over
+   * fetch timing (e.g. ensemble-level pre-fetch in run-ensemble route).
+   * Only Anthropic consumes them today; other providers ignore them.
+   */
+  imagesInline?: Array<{ mediaType: string; base64: string }>;
   /** Optional JSON schema for structured output. If provided, the provider will request JSON. */
   jsonSchema?: object;
   temperature?: number;

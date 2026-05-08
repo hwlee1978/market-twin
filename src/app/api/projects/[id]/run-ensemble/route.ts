@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { runSimulation } from "@/lib/simulation/runner";
 import type { ProjectInput } from "@/lib/simulation/schemas";
+import { prefetchInlineAssets } from "@/lib/llm/asset-fetch";
 import { aggregateEnsemble, type EnsembleSimSnapshot } from "@/lib/simulation/ensemble";
 import { mergeNarrative } from "@/lib/simulation/ensemble-narrative";
 import { buildMarketProfile } from "@/lib/simulation/market-profile";
@@ -74,9 +75,24 @@ const TIER_PRESETS = {
     marketProfile: true,
   },
   deep: {
+    // 25 sims × 200 personas = 5,000 personas nominal. Round-robin over
+    // 3 providers yields 9 Anthropic / 8 OpenAI / 8 DeepSeek.
+    //
+    // History notes:
+    //   - 2026-05-03: started Anthropic / OpenAI / Gemini.
+    //   - 2026-05-09: Gemini → DeepSeek. Same failure mode that hit
+    //     Decision+ tier — Gemini sims ship partial persona arrays
+    //     under concurrent load (60-96 personas vs 200) and intermittent
+    //     503s drop entire sims. Recent Deep run produced 3,503 valid
+    //     personas vs 5,000 expected (~30% loss, all on Gemini sims).
+    //     DeepSeek (deepseek-chat / V3) is OpenAI-API compatible, runs
+    //     in seconds, and has been reliable in Decision+ since the
+    //     swap there. Same model-cost profile too ($0.27/$1.10 per 1M
+    //     tok), so unit economics improve on top of the reliability
+    //     fix.
     parallelSims: 25,
     perSimPersonas: 200,
-    llmProviders: ["anthropic", "openai", "gemini"] as const,
+    llmProviders: ["anthropic", "openai", "deepseek"] as const,
     marketProfile: true,
   },
   deep_pro: {
@@ -402,6 +418,23 @@ export async function POST(
   after(async () => {
     const ensembleId = ensemble.id;
 
+    // Pre-fetch asset images ONCE per ensemble. Anthropic's `image.url`
+    // form makes their backend fetch the URL on every API call, and at
+    // 25 sims × 4 candidate countries × multi-stage prompts that's
+    // dozens of fetches against the same Supabase Storage URLs within
+    // seconds. Anthropic times out at ~5s and returns non-retryable
+    // HTTP 400 — five of nine Anthropic sims failed in the 2026-05-08
+    // ensemble run from this exact mode. Pre-fetching ourselves with
+    // a 15s budget per URL eliminates the failure: each sim gets the
+    // bytes inline, Anthropic doesn't fetch anything.
+    const inlineAssets =
+      projectInput.assetUrls.length > 0
+        ? await prefetchInlineAssets(
+            projectInput.assetUrls,
+            `ensemble ${ensembleId}`,
+          )
+        : [];
+
     // Group sims by provider and run each group through a worker pool
     // sized for that provider's burst tolerance. Cross-provider parallelism
     // is unconstrained — anthropic/openai/gemini share no rate limits.
@@ -425,6 +458,7 @@ export async function POST(
           locale,
           seedOverride: `${ensembleId}-${index}`,
           provider,
+          inlineAssets,
         });
       } catch (err) {
         console.error(`[ensemble ${ensembleId}] sim ${simId} failed:`, err);

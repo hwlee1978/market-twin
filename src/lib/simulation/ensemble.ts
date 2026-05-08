@@ -17,6 +17,7 @@ import {
   tokenize,
   overlapCoefficient,
   clusterStrings,
+  isBareAdjectiveSignal,
   isGenericLaunchConcern,
   isGenericPriceObjection,
   isGenericTrustFactor,
@@ -783,7 +784,8 @@ export function aggregateEnsemble(
             t &&
             !isPersonaMismatchNoise(t) &&
             !isGenericPriceObjection(t) &&
-            !isGenericLaunchConcern(t)
+            !isGenericLaunchConcern(t) &&
+            !isBareAdjectiveSignal(t)
           ) {
             allObjections.push(t);
             objectionPersonaIds.push(pi);
@@ -809,7 +811,7 @@ export function aggregateEnsemble(
           // factors (brand positioning, certifications, channel
           // claims). Specific trust factors with a brand / cert /
           // channel anchor survive isGenericTrustFactor's checks.
-          if (tt && !isGenericTrustFactor(tt)) {
+          if (tt && !isGenericTrustFactor(tt) && !isBareAdjectiveSignal(tt)) {
             allTrust.push(tt);
             trustPersonaIds.push(pi);
           }

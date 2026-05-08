@@ -23,18 +23,39 @@ export class AnthropicProvider implements LLMProvider {
       : req.prompt;
 
     // When images are supplied, build a multi-block content array — text
-    // first so the model has the framing before it sees the visuals. URLs
-    // must be publicly fetchable; Anthropic returns 400 if it can't load,
-    // which surfaces back to the caller as a normal error.
+    // first so the model has the framing before it sees the visuals.
+    //
+    // Two image source forms are supported:
+    //  - `imagesInline` (preferred): caller pre-fetched bytes and passes
+    //    base64. Anthropic decodes inline; no provider-side fetch.
+    //  - `images` (URL): Anthropic's backend fetches the URL on receipt.
+    //    Times out at ~5s if the URL is slow → HTTP 400 with
+    //    `x-should-retry: false`. Use only when you can't pre-fetch.
+    //
+    // Concatenated when both are set: inline first (already in memory),
+    // URLs after.
+    const inlineBlocks =
+      req.imagesInline?.map((img) => ({
+        type: "image" as const,
+        source: {
+          type: "base64" as const,
+          media_type: img.mediaType as
+            | "image/jpeg"
+            | "image/png"
+            | "image/gif"
+            | "image/webp",
+          data: img.base64,
+        },
+      })) ?? [];
+    const urlBlocks =
+      req.images?.map((url) => ({
+        type: "image" as const,
+        source: { type: "url" as const, url },
+      })) ?? [];
+    const imageBlocks = [...inlineBlocks, ...urlBlocks];
     const userContent: Anthropic.MessageParam["content"] =
-      req.images && req.images.length > 0
-        ? [
-            { type: "text", text: promptText },
-            ...req.images.map((url) => ({
-              type: "image" as const,
-              source: { type: "url" as const, url },
-            })),
-          ]
+      imageBlocks.length > 0
+        ? [{ type: "text", text: promptText }, ...imageBlocks]
         : promptText;
 
     const response = await withLLMRetry(

@@ -392,6 +392,8 @@ CRITICAL constraints (re-read the system prompt rules):
 - incomeBand realistic for the persona's country AND life stage. A student or homemaker MUST NOT have a salary-like figure.
 - purchaseIntent (0-100) honest — distribution should include skeptics (low), neutrals, and a few champions.
 - **PRICE-AS-OBJECTION REQUIRES MATH**: before listing any price-related concern in objections, compute (product price USD ÷ persona annual income USD). If ratio < 0.2%, price is NOT a plausible objection for this persona — pick a non-price concern (channel, fit, design, brand familiarity, regulatory, category-fit) instead. If ratio is 0.2-0.5%, price is plausible only with a SPECIFIC comparator (\"Allbirds 대비 비쌈\", \"\$150 for a knit shoe\"). If ratio ≥ 0.5%, generic price concern is plausible. A \$150k earner does not rationally complain an \$87 sneaker is \"expensive\" (ratio 0.06%) — emitting that objection is a credibility failure.
+- **ANCHOR REQUIREMENT**: Every trustFactor and objection MUST contain at least ONE of: real brand/product name, specific certification or regulator, named channel/retailer, price comparator with number, or specific use-case scenario. Bare adjectives without an anchor — \"편안한 착용감\", \"comfort\", \"메리노 울 부드러움\", \"디자인 좋음\", \"가격이 높음\", \"내구성 의문\", \"브랜드 인지도 낮음\" — are REJECTED at runtime regardless of locale. Write \"Allbirds 포지셔닝과 유사\" instead of \"디자인 좋음\"; \"GOTS 인증 RWS 양모\" instead of \"품질 좋음\"; \"Allbirds Tree Runner 대비 ₩30k 비쌈\" instead of \"가격이 높음\".
+- **DIVERSITY QUOTA (across the batch)**: NO single concept may appear in more than 30% of personas. In a ${count}-persona batch, max ${Math.ceil(count * 0.3)} personas can mention price, max ${Math.ceil(count * 0.3)} can mention comfort, etc. If you find 5+ personas converging on a theme, REWRITE the duplicates with different anchor types — force the long tail (regulatory, niche channel, specific scene/sport, allergen, fit-for-body-type, climate, status-signal, resale, gift-context). Different personas care about different things: a 28y/o Seoul marketing manager and a 55y/o Berlin accountant should NOT flag the same blocker.
 
 ═══ adReaction — REQUIRED (2-stage funnel signal) ═══
 Each persona ALSO emits an "adReaction" object: { "curiosity": 0-100, "wouldClick": true/false }. This captures the **FIRST IMPRESSION** stage — what the persona thinks SEEING THE PRODUCT AD/POST in their feed, BEFORE clicking through to the landing page or reading any details. It is a separate funnel step from purchaseIntent (which is post-consideration).
@@ -459,7 +461,34 @@ Brand names are preserved in their canonical real-world form, NOT translated:
 ═══ REALISM RULE ═══
 Persona reactions should reflect their country's culture (e.g. KR: 맘카페·식약처; JP: 専門家推薦·品質保証; US: Reddit·인플루언서; SG: HSA labels) AND their profession-specific lens (a pharmacist verifies INCI lists differently than a college student verifies Reddit threads).
 
-Across the batch, distribute purchaseIntent realistically — include skeptics (low), neutrals, and a few champions. Real consumer panels are heterogeneous.`;
+Across the batch, distribute purchaseIntent realistically — include skeptics (low), neutrals, and a few champions. Real consumer panels are heterogeneous.
+
+═══ ANCHOR REQUIREMENT (HARD RULE — runtime drops bare adjectives) ═══
+Every trustFactor and objection MUST contain at least ONE concrete anchor from this list:
+  (a) A real brand/product name (Allbirds, Samsung, Coway, Le Mouton, Stio, Coupang, Sephora, Wirecutter, Reddit, Cult Beauty, John Lewis, etc.).
+  (b) A specific certification or regulator (GOTS, OEKO-TEX, KFDA, CE, FDA, KC, Bluesign, B Corp, RWS, etc.).
+  (c) A named channel/retailer/marketplace (Coupang Rocket, Amazon Prime, 올리브영, ZOZOTOWN, Qoo10, Selfridges, REI, etc.).
+  (d) A price comparator or scenario quantifier ("Allbirds 대비 ₩30k 비쌈", "월 구독 ₩90k", "$150 vs $90 alternatives", "재구매 주기 6개월").
+  (e) A specific use-case scenario ("기내용 슬립온", "겨울 출퇴근 30분", "PT 후 회복용", "웨딩 하객", "주말 등산").
+
+BARE-ADJECTIVE OUTPUTS THAT WILL BE REJECTED — even if locale-correct:
+  • "편안한 착용감", "comfort", "comfortable", "soft" (no anchor)
+  • "메리노 울 부드러움", "wool softness", "fabric quality" (material adjective without scenario/cert)
+  • "디자인 좋음", "stylish", "trendy", "good design"
+  • "가격이 높음", "expensive", "비쌈", "pricey" (no comparator)
+  • "내구성 의문", "durability concern", "long-term wear" (no test/time anchor)
+  • "브랜드 인지도 낮음", "unknown brand" (no specific reference)
+
+CORRECT FORMAT (anchor in CAPS for illustration — do NOT actually capitalize in output):
+  trustFactors: ["ALLBIRDS 포지셔닝과 스타일이 비슷", "GOTS 인증 RWS 양모 사용", "WIRECUTTER 추천 통과한 모델"]
+  objections: ["ALLBIRDS Tree Runner 대비 ₩30k 비쌈", "겨울 PYEONGCHANG 0°C 환경 적합성 미검증", "OLIVEYOUNG 매장 시연 불가"]
+
+═══ DIVERSITY QUOTA (HARD RULE — across this batch of personas) ═══
+NO single concept may dominate this batch. Specifically:
+  1. **No phrase-level repetition**: across all trustFactor / objection arrays in this batch, no two personas may emit the same surface phrase verbatim.
+  2. **No concept-level dominance**: no semantic theme (price / comfort / durability / brand-awareness / scent / size / shipping) may appear in more than 30% of personas (i.e. in a 12-persona batch, max 4 personas can mention price, max 4 can mention comfort, etc.).
+  3. **Different personas care about different things**: a 28-year-old marketing manager in Seoul and a 55-year-old accountant in Berlin should NOT both flag the same blocker. Each persona's profession × age × income × interests profile should drive a different concrete concern. If you find yourself repeating, FORCE yourself into the long tail (regulatory compliance, niche channel, specific scene/sport, scent/material allergen, fit-for-body-type, season/climate, status-signal, resale value, specific influencer/community, gift-context, etc.).
+  4. **Self-check before emitting**: scan your reactions array. If 5+ personas share a theme, REWRITE the duplicates with different anchor types from the list above. This rewrite is mandatory, not optional.`;
 
 /**
  * Reaction-only prompt for pool-sampled personas. The base profile is given

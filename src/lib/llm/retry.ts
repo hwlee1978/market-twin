@@ -99,6 +99,20 @@ function classify(err: unknown): RetryDecision {
   if (status === undefined && /timed out|timeout|econn|socket hang up|fetch failed|network/i.test(message)) {
     return { retry: true, reason: `connection error: ${message.slice(0, 80)}` };
   }
+  // Anthropic-specific: HTTP 400 "timed out while trying to download
+  // the file" — fired when their backend can't fetch a URL we passed
+  // as `image.source.type=url` within ~5s. Anthropic's own header says
+  // `x-should-retry: false`, but a retry IS worth attempting because
+  // the failure is in their fetch worker (transient infra), not in
+  // our request shape. Backstop only — the primary fix is the
+  // ensemble-level pre-fetch path (asset-fetch.ts) that ships base64
+  // inline so Anthropic doesn't fetch anything.
+  if (status === 400 && /timed out while trying to download/i.test(message)) {
+    return {
+      retry: true,
+      reason: "anthropic url-fetch timeout (backstop retry)",
+    };
+  }
   return { retry: false, reason: `non-retryable (status=${status ?? "?"})` };
 }
 

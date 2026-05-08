@@ -34,6 +34,13 @@ import { extractCompetitorPrices } from "./competitor-prices";
 import { computeCurveRevenueMaxCents } from "./pricing-sensitivity";
 import { computePricingRange } from "./pricing-range";
 import { aggregatePersonas } from "./aggregate";
+import {
+  clusterStrings,
+  isBareAdjectiveSignal,
+  isGenericLaunchConcern,
+  isGenericPriceObjection,
+  isGenericTrustFactor,
+} from "./surfaced-recount";
 import { planSlots, type PersonaSlot } from "./profession-pool";
 import {
   notifySimulationComplete,
@@ -68,6 +75,14 @@ interface RunOptions {
    * unset and get the default project_id seed (deterministic per project).
    */
   seedOverride?: string;
+  /**
+   * Pre-fetched image assets, keyed by URL position in `projectInput.assetUrls`.
+   * Caller fetches once at ensemble level and passes the bytes here so each
+   * sim's Anthropic synthesis call ships base64 inline instead of asking
+   * Anthropic to fetch the URL (which times out at ~5s → non-retryable 400).
+   * When unset, falls back to URL form.
+   */
+  inlineAssets?: Array<{ mediaType: string; base64: string }>;
 }
 
 // Smaller batches are more reliably completed by the LLM.
@@ -669,7 +684,14 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
             system: PERSONA_SYSTEM,
             prompt: personaPrompt(projectInput, slots, locale, referenceBlock),
             jsonSchema: { type: "object", properties: { personas: { type: "array" } } },
-            temperature: 0.6,
+            // 0.85 (up from 0.6) breaks the safe-default attractor that
+            // caused trustFactors/objections to converge to one phrase
+            // across the batch ("편안한 착용감" 99%, "가격이 높음" 98%).
+            // The prompt now also enforces an anchor requirement and a
+            // 30%-per-concept diversity quota; higher temp gives the LLM
+            // headroom to actually explore the long tail those rules ask
+            // for.
+            temperature: 0.85,
             maxTokens: 8192,
           }),
         ),
@@ -830,7 +852,14 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
               referenceBlock,
             ),
             jsonSchema: { type: "object", properties: { reactions: { type: "array" } } },
-            temperature: 0.6,
+            // 0.85 (up from 0.6) breaks the safe-default attractor: at 0.6
+            // every batch converged on "편안한 착용감" / "가격이 높음" as
+            // the universal trust factor / objection, drowning out the
+            // distinctive long-tail signals. Combined with the anchor
+            // requirement and 30%-per-concept diversity quota in the
+            // prompt, higher temp gives the LLM headroom to actually pick
+            // from the long-tail anchors instead of the safe default.
+            temperature: 0.85,
             // 12-persona batches in Korean reach ~7k output tokens (rich
             // trustFactors + objections + JSON wrapper). 4k truncates the
             // array mid-output → entire batch unparseable. 8k matches the
@@ -1020,6 +1049,67 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         `channel slips rewritten: ${channelMismatchCount}` +
         (voiceSlipCount === 0 && channelMismatchCount === 0 ? " ✓" : ""),
     );
+
+    // Diversity guardrail — observability signal for cluster dominance.
+    // After all reaction filters (mismatch / generic-price / generic-launch /
+    // bare-adjective) drop the LLM's safe-default phrases, cluster what
+    // remains by token-overlap and check whether any single cluster still
+    // absorbs >50% of personas. That's the user-visible "169% 가격이 높음"
+    // failure mode — if it survives our filters, we want it in the logs so
+    // we can extend the predicates instead of waiting for the user to
+    // screenshot it. The numbers also feed the /admin/sim-quality dashboard.
+    if (personas.length >= 10) {
+      const trustItems: string[] = [];
+      const trustPids: number[] = [];
+      const objItems: string[] = [];
+      const objPids: number[] = [];
+      for (let pi = 0; pi < personas.length; pi++) {
+        const p = personas[pi];
+        for (const t of p.trustFactors ?? []) {
+          const tt = t.trim();
+          if (
+            tt &&
+            !isGenericTrustFactor(tt) &&
+            !isBareAdjectiveSignal(tt)
+          ) {
+            trustItems.push(tt);
+            trustPids.push(pi);
+          }
+        }
+        for (const o of p.objections ?? []) {
+          const oo = o.trim();
+          if (
+            oo &&
+            !isGenericPriceObjection(oo) &&
+            !isGenericLaunchConcern(oo) &&
+            !isBareAdjectiveSignal(oo)
+          ) {
+            objItems.push(oo);
+            objPids.push(pi);
+          }
+        }
+      }
+      const trustClusters = clusterStrings(trustItems, 0.5, {
+        personaIds: trustPids,
+      }).sort((a, b) => b.count - a.count);
+      const objClusters = clusterStrings(objItems, 0.5, {
+        personaIds: objPids,
+      }).sort((a, b) => b.count - a.count);
+      const topTrustShare = trustClusters[0]
+        ? trustClusters[0].count / personas.length
+        : 0;
+      const topObjShare = objClusters[0]
+        ? objClusters[0].count / personas.length
+        : 0;
+      const dominanceWarn =
+        topTrustShare >= 0.5 || topObjShare >= 0.5 ? " ⚠ DOMINANCE" : " ✓";
+      console.log(
+        `[sim ${opts.simulationId}] post-filter cluster shares — ` +
+          `top trust: "${trustClusters[0]?.text ?? "—"}" ${(topTrustShare * 100).toFixed(0)}% · ` +
+          `top objection: "${objClusters[0]?.text ?? "—"}" ${(topObjShare * 100).toFixed(0)}%` +
+          dominanceWarn,
+      );
+    }
 
     // Compress the persona pool into bounded statistical summaries before any
     // downstream LLM stage sees it. Country / pricing / synthesis prompts now
@@ -1357,8 +1447,21 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     // providers so they don't go into a text prompt where they'd just look
     // like raw URLs the model can't see (and would tempt it to invent
     // visual analyses it can't actually perform).
+    //
+    // Prefer pre-fetched inline assets when the ensemble layer supplied
+    // them (caller fetched URLs once, converted to base64). That keeps
+    // Anthropic from making the URL fetch itself, which is the failure
+    // mode that took out 5/9 Anthropic sims on 2026-05-08 (HTTP 400
+    // "timed out while trying to download the file", `x-should-retry:
+    // false`). Fall back to URL form only when the caller didn't
+    // pre-fetch — same behaviour as before.
+    const isAnthropic = synthesisLLM.name === "anthropic";
+    const synthesisInlineAssets =
+      isAnthropic && opts.inlineAssets && opts.inlineAssets.length > 0
+        ? opts.inlineAssets
+        : undefined;
     const synthesisImages =
-      synthesisLLM.name === "anthropic"
+      isAnthropic && !synthesisInlineAssets
         ? projectInput.assetUrls ?? []
         : [];
     const synthesisPromptText = synthesisPrompt(
@@ -1380,6 +1483,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       system: SYNTHESIS_SYSTEM,
       prompt: synthesisPromptText,
       images: synthesisImages,
+      imagesInline: synthesisInlineAssets,
       jsonSchema: {
         type: "object",
         properties: {

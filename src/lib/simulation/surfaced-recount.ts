@@ -233,6 +233,51 @@ export function isPersonaMismatchNoise(text: string): boolean {
 }
 
 /**
+ * Anchor regex — tests whether a trustFactor / objection contains AT
+ * LEAST ONE concrete signal: a real brand / product name (CamelCase
+ * Latin word), a specific cert / regulator (GOTS, KFDA, FDA, OEKO,
+ * Bluesign, RWS, B Corp, etc.), a named channel / retailer (Coupang,
+ * Sephora, Reddit, Wirecutter, Amazon, Olive Young, ZOZOTOWN, etc.),
+ * a price comparator (currency + number, 대비, 보다, vs), or a
+ * scenario quantifier (월/연/일 + number, 시즌, 기내, 등산, 출퇴근,
+ * 웨딩, refill, subscription, monthly).
+ *
+ * Used as the gating predicate for `isBareAdjectiveSignal` — any
+ * short-text trustFactor / objection without one of these anchors is
+ * considered LLM safe-default noise and dropped at runtime regardless
+ * of locale or category.
+ */
+const ANCHOR_REGEX =
+  /[A-Z][a-zA-Z]{2,}|\$\s*\d|₩\s*\d|€\s*\d|£\s*\d|¥\s*\d|\d\s*(?:원|달러|만원|USD|TWD|JPY|EUR|GBP|RMB|SGD|HKD|TWD)|월\s*\d|연\s*\d|일\s*\d|구독|재구매|refill|subscription|monthly|annually|대비|보다|vs\b|시즌|계절|웨딩|기내|등산|출퇴근|회복|gift|선물|allbirds|coupang|sephora|reddit|wirecutter|amazon|olive\s*young|zozo|qoo10|cosme|tabelog|kakaku|cult\s*beauty|john\s*lewis|currys|costco|prime|stylevana|yesstyle|gots|oeko|kfda|mfds|fda|kc\s*인증|bluesign|rws|b\s*corp|ce\s*인증|식약처|산업부|환경부|hsa|cfia|ansm|mhra|bfarm|tga|nmpa|ko\s*인증|cpsc|epa|reach|rohs|iso\s*\d/i;
+
+/**
+ * Bare-adjective signal detector — short trustFactor / objection
+ * strings that lack a concrete anchor. Generic adjectives ("편안한
+ * 착용감", "comfort", "메리노 울 부드러움", "디자인 좋음", "가격이
+ * 높음", "내구성 의문", "브랜드 인지도 낮음") consistently surface as
+ * the LLM's safe-default for >90% of personas across every category /
+ * locale, drowning out the actually-differentiating long-tail signals.
+ *
+ * Strategy: any trustFactor / objection ≤ 22 chars (covers most KO/EN
+ * bare-adjective strings — anchored ones tend to be longer because
+ * the anchor itself adds chars) without a match against ANCHOR_REGEX
+ * is rejected. Anchored short strings ("Allbirds 대비 비쌈" — 14 ch
+ * but contains a brand) survive because the regex matches.
+ *
+ * This is the LAST line of defense — runs at the surfaced-recount /
+ * aggregator stage AFTER the LLM has already emitted, regardless of
+ * whether the prompt was followed. Together with the prompt-level
+ * anchor requirement and temperature bump, it guarantees the visible
+ * top-N never shows bare adjectives even if the LLM lapses.
+ */
+export function isBareAdjectiveSignal(text: string): boolean {
+  const t = text.trim();
+  if (t.length === 0) return false;
+  if (t.length > 22) return false;
+  return !ANCHOR_REGEX.test(t);
+}
+
+/**
  * Generic, contextless trust factors — category defaults the LLM
  * emits as a safe slot-filler for almost every persona regardless of
  * profile. Le Mouton TW run produced 99% "편안한 착용감" + 1%

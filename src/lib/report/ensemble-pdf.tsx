@@ -35,6 +35,7 @@ import {
   isGenericPriceObjection,
   isGenericTrustFactor,
   isGenericLaunchConcern,
+  isBareAdjectiveSignal,
   demoteDominantClusters,
 } from "@/lib/simulation/surfaced-recount";
 import {
@@ -1384,6 +1385,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                     p.recommendedPriceCents,
                     p.curve,
                     p.curveRevenueMaxCents,
+                    p.recommendedPriceP75,
                   );
                   const unanimous = p.recommendedPriceUnanimousAt;
                   const within = p.recommendedPriceWithinSimStdMean ?? 0;
@@ -1596,6 +1598,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         aggregate.pricing.recommendedPriceCents,
         aggregate.pricing.curve,
         aggregate.pricing.curveRevenueMaxCents,
+        aggregate.pricing.recommendedPriceP75,
       );
       signals.push({
         label: isKo ? "권장 가격" : "Recommended price",
@@ -2843,34 +2846,57 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         {detailed.map((c) => {
           const d = c.detail;
           if (!d) return null;
+          // The outer block is intentionally NOT wrap={false}. Earlier
+          // revisions wrapped the whole country (header + funnel +
+          // rationale + objections) in wrap={false} so a single market
+          // never split across pages. But the rationale samples are
+          // verbose paragraphs — three Korean sim summaries can clear
+          // 300pt on their own — and when wrap={false} content overflows
+          // the page, react-pdf renders past the bottom and overlaps
+          // whatever sits below (the next country, or the data-sources
+          // footer). The fix: split into two visual chunks. The header
+          // (country name + score decomp + funnel) stays in a small
+          // wrap={false} card that ALWAYS fits on one page so the chart
+          // visuals never get torn. The rationale + objections grid
+          // below flows naturally — paragraph breaks are clean split
+          // points and the user already reads them as a list.
           return (
-            <View key={c.country} style={styles.sectionBlock} wrap={false}>
-              <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
-                <MText style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{c.country}</MText>
-                <MText style={{ fontSize: 9, color: C.muted }}>
-                  {isKo
-                    ? `평균 ${c.finalScore.mean.toFixed(1)} · 중앙값 ${c.finalScore.median.toFixed(1)} · CAC $${c.cacEstimateUsd.median.toFixed(2)}`
-                    : `mean ${c.finalScore.mean.toFixed(1)} · median ${c.finalScore.median.toFixed(1)} · CAC $${c.cacEstimateUsd.median.toFixed(2)}`}
-                </MText>
+            <View key={c.country} style={styles.sectionBlock}>
+              <View wrap={false} style={{ marginBottom: 8 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "baseline",
+                    gap: 8,
+                    marginBottom: 6,
+                  }}
+                >
+                  <MText style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{c.country}</MText>
+                  <MText style={{ fontSize: 9, color: C.muted }}>
+                    {isKo
+                      ? `평균 ${c.finalScore.mean.toFixed(1)} · 중앙값 ${c.finalScore.median.toFixed(1)} · CAC $${c.cacEstimateUsd.median.toFixed(2)}`
+                      : `mean ${c.finalScore.mean.toFixed(1)} · median ${c.finalScore.median.toFixed(1)} · CAC $${c.cacEstimateUsd.median.toFixed(2)}`}
+                  </MText>
+                </View>
+
+                {c.components && (
+                  <View style={{ marginBottom: 8 }}>
+                    <MText style={[styles.infoLabel, { marginBottom: 3 }]}>
+                      {isKo ? "점수 분해 (왜 이 점수인가)" : "Score decomposition"}
+                    </MText>
+                    <ComponentBars components={c.components} isKo={isKo} />
+                  </View>
+                )}
+
+                {d.funnel && (
+                  <View style={{ marginBottom: 8 }}>
+                    <MText style={[styles.infoLabel, { marginBottom: 3 }]}>
+                      {isKo ? "구매 퍼널 (광고 → 클릭 → 구매)" : "Conversion funnel"}
+                    </MText>
+                    <FunnelBars funnel={d.funnel} isKo={isKo} />
+                  </View>
+                )}
               </View>
-
-              {c.components && (
-                <View style={{ marginBottom: 8 }}>
-                  <MText style={[styles.infoLabel, { marginBottom: 3 }]}>
-                    {isKo ? "점수 분해 (왜 이 점수인가)" : "Score decomposition"}
-                  </MText>
-                  <ComponentBars components={c.components} isKo={isKo} />
-                </View>
-              )}
-
-              {d.funnel && (
-                <View style={{ marginBottom: 8 }}>
-                  <MText style={[styles.infoLabel, { marginBottom: 3 }]}>
-                    {isKo ? "구매 퍼널 (광고 → 클릭 → 구매)" : "Conversion funnel"}
-                  </MText>
-                  <FunnelBars funnel={d.funnel} isKo={isKo} />
-                </View>
-              )}
 
               {d.rationaleSamples.length > 0 && (
                 <View style={{ marginBottom: 8 }}>
@@ -2915,7 +2941,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                     const filteredRaw = d.topObjections.filter(
                       (o) =>
                         !isGenericPriceObjection(o.text) &&
-                        !isGenericLaunchConcern(o.text),
+                        !isGenericLaunchConcern(o.text) &&
+                        !isBareAdjectiveSignal(o.text),
                     );
                     const filteredObjections = demoteDominantClusters(
                       filteredRaw,
@@ -3356,8 +3383,22 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       recomputedCurveMax != null && pr.recommendedPriceCents > 0
         ? Math.abs(recomputedCurveMax / pr.recommendedPriceCents - 1) <= 0.1
         : null;
+    // Trust ceiling — same logic as PricingTab + getDisplayPriceCents.
+    // When the curve revenue max lands above 1.5× the higher of (P75
+    // of per-sim recs, LLM rec), it's extrapolation past the personas'
+    // evaluated range and we must NOT promote it to the headline.
+    const trustCeilingBase = Math.max(
+      pr.recommendedPriceP75 ?? 0,
+      pr.recommendedPriceCents > 0 ? pr.recommendedPriceCents : 0,
+    );
+    const trustCeilingCents =
+      trustCeilingBase > 0 ? trustCeilingBase * 1.5 : Infinity;
+    const curveMaxRejectedAsExtrapolation =
+      recomputedCurveMax != null && recomputedCurveMax > trustCeilingCents;
     const wasCorrected =
-      recComputedMatchesCurve === false && recomputedCurveMax != null;
+      recComputedMatchesCurve === false &&
+      recomputedCurveMax != null &&
+      !curveMaxRejectedAsExtrapolation;
     // Negative quote for the pricing callout — must actually mention
     // price/cost vocabulary. pickQuote returns null if no price-content
     // match exists (rather than surfacing an unrelated low-intent voice
@@ -5188,7 +5229,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         if (
           isPersonaMismatchNoise(key) ||
           isGenericPriceObjection(key) ||
-          isGenericLaunchConcern(key)
+          isGenericLaunchConcern(key) ||
+          isBareAdjectiveSignal(key)
         ) {
           continue;
         }
@@ -5625,10 +5667,11 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       (o) =>
         !isPersonaMismatchNoise(o.text) &&
         !isGenericPriceObjection(o.text) &&
-        !isGenericLaunchConcern(o.text),
+        !isGenericLaunchConcern(o.text) &&
+        !isBareAdjectiveSignal(o.text),
     );
     const trustFactorsFiltered = (stats?.detail?.topTrustFactors ?? []).filter(
-      (t) => !isGenericTrustFactor(t.text),
+      (t) => !isGenericTrustFactor(t.text) && !isBareAdjectiveSignal(t.text),
     );
     const personasInCountry = aggregate.personas?.byCountry?.find(
       (b) => b.country.toUpperCase() === rec.toUpperCase(),
@@ -6600,6 +6643,8 @@ function pickMarketBlocker(
   for (const o of objections) {
     if (isPersonaMismatchNoise(o.text)) continue;
     if (isGenericPriceObjection(o.text)) continue;
+    if (isGenericLaunchConcern(o.text)) continue;
+    if (isBareAdjectiveSignal(o.text)) continue;
     return o.text;
   }
   // No specific blocker survived — fall back to the first non-mismatch

@@ -11,6 +11,7 @@ import { formatPrice } from "@/lib/format/price";
 import { normalizeLLMText } from "@/lib/format/normalize";
 import {
   demoteDominantClusters,
+  isBareAdjectiveSignal,
   isGenericLaunchConcern,
   isGenericPriceObjection,
   isGenericTrustFactor,
@@ -1603,6 +1604,7 @@ function OverviewTab({
                     pricing.recommendedPriceCents,
                     pricing.curve,
                     pricing.curveRevenueMaxCents,
+                    pricing.recommendedPriceP75,
                   );
                   const unanimous = pricing.recommendedPriceUnanimousAt;
                   const withinStd = pricing.recommendedPriceWithinSimStdMean ?? 0;
@@ -2431,7 +2433,8 @@ function CountryDrilldown({
           const filteredRaw = detail.topObjections.filter(
             (o) =>
               !isGenericPriceObjection(o.text) &&
-              !isGenericLaunchConcern(o.text),
+              !isGenericLaunchConcern(o.text) &&
+              !isBareAdjectiveSignal(o.text),
           );
           const filteredObjections = demoteDominantClusters(
             filteredRaw,
@@ -4930,8 +4933,27 @@ function PricingTab({
     effectiveCurveMax != null && pricing.recommendedPriceCents > 0
       ? Math.abs(effectiveCurveMax / pricing.recommendedPriceCents - 1) <= 0.1
       : null;
+  // Trust ceiling — reject curve max as headline when it lands above
+  // 1.5× the higher of (P75 of per-sim recs, LLM rec). The monotonic-
+  // envelope walk above can still pick up high-price points the LLM
+  // included for completeness but personas never actually evaluated.
+  // Le Mouton 2026-05-09 sim: LLM rec ₩158,900, IQR ₩116,900-₩216,000,
+  // but curve max landed at ₩480,000 — 2.2× P75. The auto-correction
+  // surfaced ₩480k as the headline, which is meaningless because no
+  // persona's willingness-to-pay supports that level. Same logic
+  // mirrors getDisplayPriceCents in pricing-sensitivity.ts.
+  const trustCeilingBase = Math.max(
+    pricing.recommendedPriceP75 ?? 0,
+    pricing.recommendedPriceCents > 0 ? pricing.recommendedPriceCents : 0,
+  );
+  const trustCeilingCents =
+    trustCeilingBase > 0 ? trustCeilingBase * 1.5 : Infinity;
+  const curveMaxRejectedAsExtrapolation =
+    effectiveCurveMax != null && effectiveCurveMax > trustCeilingCents;
   const headlinePriceCents =
-    recComputedMatchesCurve === false && effectiveCurveMax != null
+    recComputedMatchesCurve === false &&
+    effectiveCurveMax != null &&
+    !curveMaxRejectedAsExtrapolation
       ? effectiveCurveMax
       : pricing.recommendedPriceCents;
   const wasCorrected = headlinePriceCents !== pricing.recommendedPriceCents;
@@ -5061,14 +5083,20 @@ function PricingTab({
               <div
                 className={clsx(
                   "rounded-lg border px-4 py-3 shrink-0 min-w-[140px]",
-                  recComputedMatchesCurve === true
-                    ? "bg-success-soft/40 border-success/30"
-                    : "bg-warn-soft/40 border-warn/30",
+                  curveMaxRejectedAsExtrapolation
+                    ? "bg-slate-100 border-slate-300"
+                    : recComputedMatchesCurve === true
+                      ? "bg-success-soft/40 border-success/30"
+                      : "bg-warn-soft/40 border-warn/30",
                 )}
                 title={
-                  isKo
-                    ? "곡선 데이터에서 (가격 × 전환)이 최대가 되는 지점 — monotonic 가정 적용. LLM의 권장가와 일치하면 ✓, 다르면 ⚠."
-                    : "Where (price × conversion) peaks on the curve under monotonic assumption. ✓ if matches LLM rec; ⚠ if differs."
+                  curveMaxRejectedAsExtrapolation
+                    ? isKo
+                      ? `곡선 최댓값이 시뮬 권장가 IQR(${fmt(pricing.recommendedPriceP25)}–${fmt(pricing.recommendedPriceP75)})의 1.5배를 초과 — 페르소나가 평가하지 않은 외삽 영역으로 판단해 헤드라인에서 제외했습니다.`
+                      : `Curve max exceeds 1.5× IQR upper bound (${fmt(pricing.recommendedPriceP25)}–${fmt(pricing.recommendedPriceP75)}) — treated as extrapolation past the personas' evaluated range and excluded from the headline.`
+                    : isKo
+                      ? "곡선 데이터에서 (가격 × 전환)이 최대가 되는 지점 — monotonic 가정 적용. LLM의 권장가와 일치하면 ✓, 다르면 ⚠."
+                      : "Where (price × conversion) peaks on the curve under monotonic assumption. ✓ if matches LLM rec; ⚠ if differs."
                 }
               >
                 <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">
@@ -5080,16 +5108,24 @@ function PricingTab({
                 <div
                   className={clsx(
                     "text-[10px] font-semibold",
-                    recComputedMatchesCurve === true ? "text-success" : "text-warn",
+                    curveMaxRejectedAsExtrapolation
+                      ? "text-slate-500"
+                      : recComputedMatchesCurve === true
+                        ? "text-success"
+                        : "text-warn",
                   )}
                 >
-                  {recComputedMatchesCurve === true
+                  {curveMaxRejectedAsExtrapolation
                     ? isKo
-                      ? "권장가와 일치 ✓"
-                      : "Matches rec ✓"
-                    : isKo
-                      ? "권장가와 차이"
-                      : "Differs from rec"}
+                      ? "외삽 영역 (참고만)"
+                      : "Extrapolated (reference)"
+                    : recComputedMatchesCurve === true
+                      ? isKo
+                        ? "권장가와 일치 ✓"
+                        : "Matches rec ✓"
+                      : isKo
+                        ? "권장가와 차이"
+                        : "Differs from rec"}
                 </div>
               </div>
             )}

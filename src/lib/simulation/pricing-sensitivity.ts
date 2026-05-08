@@ -66,23 +66,63 @@ export function computeCurveRevenueMaxCents(
  * Returns the curve revenue max when it diverges from the LLM rec by
  * more than ±10%, otherwise the LLM rec. Matches the inline logic at
  * EnsembleView.tsx:4578 and ensemble-pdf.tsx:3033.
+ *
+ * **Trust ceiling** — pricingP75 (and llmRec) bound how far the curve
+ * max is allowed to override. The naive monotonic-envelope walk inside
+ * `computeCurveRevenueMaxCents` can still latch onto extrapolated high-
+ * price points the LLM included for completeness but the personas
+ * never actually evaluated. Le Mouton 2026-05-09 sim: LLM rec ₩158,900,
+ * IQR ₩116,900-₩216,000, but curve revenue max landed at ₩480,000 —
+ * 2.2× P75, well outside any persona's willingness-to-pay band, and
+ * the auto-correction surfaced it as the headline. When that happens
+ * (curve max > 1.5× max(P75, LLM rec)), we reject the correction and
+ * fall back to the LLM rec — the curve has been extrapolated past the
+ * region the personas vouched for.
  */
 export function getDisplayPriceCents(
   llmRecCents: number,
   curve: SensitivityCurvePoint[],
   persistedCurveRevenueMaxCents?: number | null,
-): { displayCents: number; wasCorrected: boolean; curveRevenueMaxCents: number | null } {
+  /** Optional. P75 of per-sim recommended prices — bounds how far the
+   * curve max is allowed to override before we treat it as extrapolation
+   * noise. Plumbing it through all callers so the headline + Pricing tab
+   * never disagree on the trust check. */
+  pricingP75Cents?: number | null,
+): {
+  displayCents: number;
+  wasCorrected: boolean;
+  curveRevenueMaxCents: number | null;
+  /** Set to true when the curve max was rejected as extrapolation
+   * (recomputed > trust ceiling). Lets the UI annotate "curve max
+   * outside trusted range" rather than silently hiding the value. */
+  curveMaxRejectedAsExtrapolation: boolean;
+} {
   const recomputed =
     computeCurveRevenueMaxCents(curve) ?? persistedCurveRevenueMaxCents ?? null;
   const matchesCurve =
     recomputed != null && llmRecCents > 0
       ? Math.abs(recomputed / llmRecCents - 1) <= 0.1
       : null;
-  const wasCorrected = matchesCurve === false && recomputed != null;
+  // Trust ceiling — the highest curve-max value we'll surface as the
+  // headline. Anything above this is treated as extrapolation noise
+  // and ignored. Floor of ₩0 means "no ceiling" when neither bound is
+  // available.
+  const ceilingBase = Math.max(
+    pricingP75Cents ?? 0,
+    llmRecCents > 0 ? llmRecCents : 0,
+  );
+  const trustCeiling = ceilingBase > 0 ? ceilingBase * 1.5 : Infinity;
+  const curveMaxRejectedAsExtrapolation =
+    recomputed != null && recomputed > trustCeiling;
+  const wasCorrected =
+    matchesCurve === false &&
+    recomputed != null &&
+    !curveMaxRejectedAsExtrapolation;
   return {
     displayCents: wasCorrected ? recomputed! : llmRecCents,
     wasCorrected,
     curveRevenueMaxCents: recomputed,
+    curveMaxRejectedAsExtrapolation,
   };
 }
 
