@@ -225,13 +225,25 @@ export async function mergeNarrative(
     }
     if (!execSummaryOk) {
       console.warn(
-        `[ensemble narrative] executiveSummary mentions wrong country (expected ${opts.bestCountry}). Keeping for now — UI-level country charts override the prose.`,
+        `[ensemble narrative] executiveSummary mentions wrong country (expected ${opts.bestCountry}); replacing with safe template. Original: "${execSummaryRewritten.slice(0, 100)}"`,
       );
     }
 
     return {
       hotTake: hotTakeOk ? hotTakeRewritten : undefined,
-      executiveSummary: execSummaryRewritten,
+      // When the LLM-emitted summary names the wrong country, swap it
+      // for a template referencing the actual bestCountry. Leaving the
+      // contradicting prose ("싱가포르를 1차 교두보..." above a key
+      // finding that says "대만 진출이 합의 우위") is more confusing
+      // than a brief safe summary; the surrounding charts + key
+      // findings carry the detail anyway.
+      executiveSummary: execSummaryOk
+        ? execSummaryRewritten
+        : safeExecutiveSummary(
+            opts.bestCountry,
+            opts.consensusPercent,
+            opts.locale,
+          ),
       mergedRisks,
       mergedActions,
       overallRiskLevel,
@@ -296,6 +308,23 @@ function narrativeMatchesRecommendedCountry(
     (t) => t.length >= 2 && lower.includes(t.toLowerCase()),
   );
   return !mentionsWrong;
+}
+
+/**
+ * Fallback executive summary when the LLM-emitted version named a
+ * different country than the aggregate's bestCountry. Keeps the
+ * section non-empty (the UI expects prose here) while avoiding the
+ * contradiction the original wording would have rendered.
+ */
+function safeExecutiveSummary(
+  bestCountry: string,
+  consensusPercent: number,
+  locale: "ko" | "en",
+): string {
+  const label = getCountryLabel(bestCountry, locale) || bestCountry;
+  return locale === "ko"
+    ? `${label} 진출이 ${consensusPercent}% 합의로 가장 유력합니다. 자세한 근거 — 시뮬 간 점수 분포, 페르소나 거부·신뢰 요인, 권장 액션 — 은 아래 섹션을 참고하세요.`
+    : `${label} is the strongest pick at ${consensusPercent}% consensus. See the per-country score distribution, persona objections / trust factors, and recommended actions below for the underlying rationale.`;
 }
 
 function modeRiskLevel(sims: EnsembleSimSnapshot[]): "low" | "medium" | "high" {
@@ -378,6 +407,7 @@ function buildMergePrompt(
    필수 요소: (a) 이모지 1개로 톤 시그널, (b) 명사 + 동사로 결정 표현, (c) — 뒤에 핵심 이유 1-2개 (숫자 포함). 미사여구 금지. 보고서 톤이 아닌 카톡 메시지 톤.
 
 1. **executiveSummary**: 모든 시뮬의 합의 narrative를 2-4문장으로 통합. 추천 진출국 + 이유 + 핵심 우려사항을 포함. hotTake와 중복되지 않게 더 자세히.
+   ⚠ **국가 일치 (절대 위반 불가)**: 추천 진출국은 **${opts.bestCountry}**입니다. executiveSummary에서 다른 국가를 "1차 교두보", "1순위", "최적", "권장 진출국"으로 단언하지 마세요. 합의는 ${opts.bestCountry}이고 이 섹션은 그 합의를 풀어쓰는 것이지 뒤집는 게 아닙니다. 대안 시장 언급은 "차순위로는 X도 검토 가능"의 보조 framing만 허용.
 
 2. **mergedRisks**: 의미가 같은 리스크는 합치되, **구체성을 우선시하세요**. 같은 원인을 다룬 두 리스크가 있을 때:
    - 더 구체적이고 측정 가능한 쪽 (예: "Amazon US 미입점으로 첫 90일 매출 55% 손실")을 채택
