@@ -117,6 +117,25 @@ type ProviderName =
   | "deepseek";
 
 /**
+ * Per-tier cost budget in cents. Set to 3× expected unit-economics
+ * cost so a normal run never trips the cap, but a runaway (retry-loop
+ * blowup, prompt regression that doubles tokens, broken model swap)
+ * gets stopped before it racks up a $50+ invoice in the background.
+ *
+ * History reference (per memory note plan_ladder_state.md, 2026-05-09):
+ *   Hypothesis $3 / Decision $14 / Decision+ $27 / Deep $31 / Deep_Pro
+ *   ~$62 (50 sims × ~$1.24 each, extrapolated from Deep). 3× of those
+ *   numbers is the kill threshold.
+ */
+const TIER_BUDGET_CENTS: Record<Tier, number> = {
+  hypothesis: 900, // 3 × $3
+  decision: 4200, // 3 × $14
+  decision_plus: 8100, // 3 × $27
+  deep: 9300, // 3 × $31
+  deep_pro: 18600, // 3 × $62
+};
+
+/**
  * Maximum sims per provider running concurrently within a single ensemble.
  *
  * Even with retry/backoff at the LLM layer, kicking off all 8 Gemini sims
@@ -310,6 +329,32 @@ export async function POST(
 
   const admin = createServiceClient();
 
+  // Concurrent-ensemble guard — block double-clicks and accidental
+  // background reloads from kicking off a parallel ensemble for the
+  // same project. Two simultaneous Deep ensembles burn 2× quota, race
+  // on persona-pool writes, and produce confusing duplicate "in
+  // progress" cards in the UI. We allow stacking ensembles ACROSS
+  // projects (different products evaluated simultaneously is fine);
+  // it's only the same-project case we reject. Caller can retry once
+  // the current one finishes / cancels / fails.
+  const { data: activeEnsembles } = await admin
+    .from("ensembles")
+    .select("id, status")
+    .eq("project_id", project.id)
+    .in("status", ["pending", "running"])
+    .limit(1);
+  if (activeEnsembles && activeEnsembles.length > 0) {
+    return NextResponse.json(
+      {
+        error: "ensemble_already_running",
+        message:
+          "An ensemble is already running for this project. Wait for it to finish or cancel it first.",
+        existingEnsembleId: activeEnsembles[0].id,
+      },
+      { status: 409 },
+    );
+  }
+
   // 1. Create the ensemble row up front so the client gets a stable ID
   //    to poll against, even before any individual sim has been queued.
   const { data: ensemble, error: ensErr } = await admin
@@ -445,6 +490,17 @@ export async function POST(
       groups.set(row.provider, arr);
     }
 
+    // Cost-cap circuit breaker — prevents a runaway ensemble from
+    // racking up an unbounded invoice if some failure mode keeps
+    // retrying without progress (broken prompt, doubled token usage,
+    // 5xx storm that exhausts every retry budget on every sim). After
+    // each completed sim, we sum total_cost_cents across the
+    // ensemble's sims; once the running total breaches the tier
+    // budget, the breaker trips and queued workers exit instead of
+    // pulling more sims.
+    const tierBudgetCents = TIER_BUDGET_CENTS[tier as Tier] ?? 9300;
+    const costCircuit = { tripped: false, total: 0 };
+
     const runOne = async ({
       id: simId,
       index,
@@ -473,6 +529,47 @@ export async function POST(
       }
     };
 
+    /**
+     * After each sim resolves, sum total_cost_cents across the ensemble
+     * and trip the circuit breaker if it exceeds the tier budget. The
+     * breaker is one-way: once tripped, every queued sim cancels itself
+     * before starting and the ensemble enters a degraded-but-bounded
+     * shutdown rather than burning the rest of the budget.
+     */
+    const checkCostCircuit = async () => {
+      if (costCircuit.tripped) return;
+      const { data: cost } = await admin
+        .from("simulations")
+        .select("total_cost_cents")
+        .eq("ensemble_id", ensembleId);
+      const costRows = (cost ?? []) as Array<{ total_cost_cents: number | null }>;
+      const total = costRows.reduce(
+        (s: number, r) =>
+          s + (typeof r.total_cost_cents === "number" ? r.total_cost_cents : 0),
+        0,
+      );
+      costCircuit.total = total;
+      if (total > tierBudgetCents) {
+        costCircuit.tripped = true;
+        console.error(
+          `[ensemble ${ensembleId}] COST CAP TRIPPED — total $${(total / 100).toFixed(2)} ` +
+            `exceeds tier ${tier} budget $${(tierBudgetCents / 100).toFixed(2)}. ` +
+            `Aborting remaining sims; ensemble will aggregate whatever has finished.`,
+        );
+        // Mark queued sims as cancelled so the runner's cancel watchdog
+        // (Wave 3) aborts any still-in-flight work.
+        await admin
+          .from("simulations")
+          .update({
+            status: "cancelled",
+            current_stage: "cancelled",
+            error_message: `cost cap tripped at ensemble level ($${(total / 100).toFixed(2)} > $${(tierBudgetCents / 100).toFixed(2)})`,
+          })
+          .eq("ensemble_id", ensembleId)
+          .in("status", ["pending", "running"]);
+      }
+    };
+
     await Promise.all(
       [...groups.entries()].map(async ([prov, sims]) => {
         const limit = Math.min(PROVIDER_SIM_CONCURRENCY[prov] ?? 4, sims.length);
@@ -481,9 +578,11 @@ export async function POST(
         await Promise.all(
           Array.from({ length: limit }, async () => {
             while (true) {
+              if (costCircuit.tripped) return;
               const idx = cursor++;
               if (idx >= sims.length) return;
               await runOne(sims[idx]);
+              await checkCostCircuit();
             }
           }),
         );
