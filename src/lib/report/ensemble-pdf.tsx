@@ -1796,7 +1796,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
 
         {/* Market size */}
         {mp.marketSize?.estimateUsd && (
-          <View style={styles.sectionBlock}>
+          <View style={styles.sectionBlock} wrap={false}>
             <MText style={styles.sectionEyebrow}>
               {isKo ? "시장 규모" : "Market size"}
             </MText>
@@ -2167,7 +2167,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             cult.purchaseBehavior ||
             cult.languageNotes ||
             cult.seasonality) && (
-            <View style={styles.sectionBlock}>
+            <View style={styles.sectionBlock} wrap={false}>
               <MText style={styles.sectionEyebrow}>
                 {isKo ? "문화 / 소비자 인사이트" : "Cultural & consumer insights"}
               </MText>
@@ -3206,7 +3206,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           (p.segmentBreakdown.byGender.length > 0 ||
             p.segmentBreakdown.byAge.length > 0 ||
             p.segmentBreakdown.byIncome.length > 0) && (
-            <View style={styles.sectionBlock}>
+            <View style={styles.sectionBlock} wrap={false}>
               <MText style={styles.sectionEyebrow}>
                 {isKo ? "세그먼트별 구매의향" : "Intent by segment"}
               </MText>
@@ -3481,7 +3481,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         })()}
 
         {pr.marginEstimate && pr.marginEstimate !== "—" && !wasCorrected && (
-          <View style={styles.sectionBlock}>
+          <View style={styles.sectionBlock} wrap={false}>
             <MText style={styles.sectionEyebrow}>{isKo ? "예상 마진 분석" : "Margin analysis"}</MText>
             <View style={styles.summaryBox}>
               <MText style={{ fontSize: 10, color: C.body, lineHeight: 1.6 }}>
@@ -3492,7 +3492,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         )}
 
         {wasCorrected && pr.marginEstimate && (
-          <View style={styles.sectionBlock}>
+          <View style={styles.sectionBlock} wrap={false}>
             <MText style={styles.sectionEyebrow}>{isKo ? "예상 마진 분석" : "Margin analysis"}</MText>
             <View
               style={{
