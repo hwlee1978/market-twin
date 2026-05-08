@@ -265,6 +265,46 @@ export function isGenericTrustFactor(text: string): boolean {
 }
 
 /**
+ * Demote dominant clusters from a top-N list. When a single cluster
+ * absorbs >shareThreshold of the persona pool, it stops being a
+ * "differentiating" signal — every persona raised it, so it's a
+ * consensus baseline. Burying it at top-1 also crowds out the actually
+ * distinctive top-2-to-top-5 entries because they get reduced to "<1%".
+ *
+ * Strategy: pull dominant clusters out of the head, append them at
+ * the end with their share intact. The top of the list now surfaces
+ * the four next-most-common (which are the actually-differentiating
+ * concerns/trusts), and the dominant cluster still appears so the
+ * reader knows it's a universal signal.
+ *
+ * Pure structural fix — content-agnostic, works regardless of which
+ * specific phrase the LLM emitted as its safe default. Complements
+ * the content-based isGeneric* predicates by handling LLM-default
+ * patterns the predicates haven't been taught yet.
+ */
+export function demoteDominantClusters<
+  T extends { count: number },
+>(
+  items: T[],
+  personaCount: number,
+  shareThreshold = 0.6,
+): T[] {
+  if (personaCount <= 0) return items;
+  const dominant: T[] = [];
+  const rest: T[] = [];
+  for (const item of items) {
+    if (item.count / personaCount >= shareThreshold) dominant.push(item);
+    else rest.push(item);
+  }
+  // Sort each group by count desc, then concatenate rest first so
+  // the differentiating entries take the visible top slots and the
+  // dominant cluster moves to the tail.
+  rest.sort((a, b) => b.count - a.count);
+  dominant.sort((a, b) => b.count - a.count);
+  return [...rest, ...dominant];
+}
+
+/**
  * Generic launch / new-entrant concerns. "브랜드 인지도 낮음" and
  * "가격 대비 내구성 의문" surface in 89-91% of personas across every
  * country for any new-to-market product — they're definitionally

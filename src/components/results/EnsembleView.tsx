@@ -10,6 +10,7 @@ import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
 import { formatPrice } from "@/lib/format/price";
 import { normalizeLLMText } from "@/lib/format/normalize";
 import {
+  demoteDominantClusters,
   isGenericLaunchConcern,
   isGenericPriceObjection,
   isGenericTrustFactor,
@@ -2422,16 +2423,19 @@ function CountryDrilldown({
           </div>
         )}
         {(() => {
-          // Defense-in-depth — existing ensembles persisted before the
-          // aggregator-side filter still carry generic price grumbles
-          // and generic launch concerns in their topObjections cluster.
-          // Drop them at render time so legacy data also shows
-          // differentiating blockers instead of "98% 가격이 높음" or
-          // "91% 브랜드 인지도가 낮음" everywhere.
-          const filteredObjections = detail.topObjections.filter(
+          // Defense-in-depth: content-based filter (drop known generic
+          // patterns), then structural anti-dominance pass that demotes
+          // any cluster absorbing ≥60% of the country pool — content-
+          // agnostic catch for the LLM-default phrases the predicates
+          // haven't been taught yet.
+          const filteredRaw = detail.topObjections.filter(
             (o) =>
               !isGenericPriceObjection(o.text) &&
               !isGenericLaunchConcern(o.text),
+          );
+          const filteredObjections = demoteDominantClusters(
+            filteredRaw,
+            detail.persona.count,
           );
           if (filteredObjections.length === 0) return null;
           return (

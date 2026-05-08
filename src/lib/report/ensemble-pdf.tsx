@@ -35,6 +35,7 @@ import {
   isGenericPriceObjection,
   isGenericTrustFactor,
   isGenericLaunchConcern,
+  demoteDominantClusters,
 } from "@/lib/simulation/surfaced-recount";
 import {
   COMPONENT_LABEL,
@@ -2906,13 +2907,19 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
               <View style={{ flexDirection: "row", gap: 14 }}>
                 <View style={{ flex: 1.4 }}>
                   {(() => {
-                    // Defense-in-depth — legacy ensembles persisted
-                    // before commit 7999ca8 still carry generic price
-                    // grumbles in their topObjections cluster. Drop
-                    // them at render time so the PDF also shows
-                    // differentiating blockers on existing data.
-                    const filteredObjections = d.topObjections.filter(
-                      (o) => !isGenericPriceObjection(o.text),
+                    // Defense-in-depth: drop content-based generic
+                    // entries (price grumbles, launch concerns), then
+                    // run the structural anti-dominance pass to demote
+                    // any cluster absorbing ≥60% of the country pool
+                    // — it's a consensus signal, not a differentiator.
+                    const filteredRaw = d.topObjections.filter(
+                      (o) =>
+                        !isGenericPriceObjection(o.text) &&
+                        !isGenericLaunchConcern(o.text),
+                    );
+                    const filteredObjections = demoteDominantClusters(
+                      filteredRaw,
+                      d.persona.count,
                     );
                     if (filteredObjections.length === 0) return null;
                     return (
@@ -5614,15 +5621,28 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     // Without this, the page rendered "98% 가격이 다소 높음" as the
     // top blocker and "99% 편안한 착용감" as the top trust signal,
     // burying the actually differentiating concerns and trust levers.
-    const objections = (stats?.detail?.topObjections ?? []).filter(
-      (o) => !isPersonaMismatchNoise(o.text) && !isGenericPriceObjection(o.text),
+    const objectionsFiltered = (stats?.detail?.topObjections ?? []).filter(
+      (o) =>
+        !isPersonaMismatchNoise(o.text) &&
+        !isGenericPriceObjection(o.text) &&
+        !isGenericLaunchConcern(o.text),
     );
-    const trustFactors = (stats?.detail?.topTrustFactors ?? []).filter(
+    const trustFactorsFiltered = (stats?.detail?.topTrustFactors ?? []).filter(
       (t) => !isGenericTrustFactor(t.text),
     );
     const personasInCountry = aggregate.personas?.byCountry?.find(
       (b) => b.country.toUpperCase() === rec.toUpperCase(),
     );
+    // Structural anti-dominance pass — content-based predicates above
+    // can't enumerate every safe-default phrase the LLM might emit
+    // ("메리노 울 부드러움" for a wool-shoe sim). When one cluster
+    // absorbs ≥60% of the country pool it stops being a
+    // differentiating signal, so demote it to the tail of the list
+    // and surface the next-most-common (actually distinctive) entries
+    // at the top.
+    const personaCount = personasInCountry?.count ?? 0;
+    const objections = demoteDominantClusters(objectionsFiltered, personaCount);
+    const trustFactors = demoteDominantClusters(trustFactorsFiltered, personaCount);
     if (objections.length === 0 && trustFactors.length === 0 && !personasInCountry) return null;
     return (
       <Page size="A4" style={styles.page}>
