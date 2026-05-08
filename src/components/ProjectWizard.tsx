@@ -490,7 +490,7 @@ export function ProjectWizard({ locale }: { locale: string }) {
                 onChange={(e) => update("productName", e.target.value)}
               />
             </Field>
-            <Field label={tw("fields.category")}>
+            <Field label={tw("fields.category")} hint={tw("hints.category")}>
               <select
                 className="input"
                 value={form.category}

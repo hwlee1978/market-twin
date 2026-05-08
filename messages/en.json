@@ -8,6 +8,12 @@
       "backToHome": "Back to home",
       "backToDashboard": "Back to dashboard"
     },
+    "notFound": {
+      "title": "Page not found",
+      "description": "The link may be outdated or the page was moved. Head back to your project list to find what you're looking for.",
+      "backToProjects": "Back to projects",
+      "backToHome": "Back to home"
+    },
     "auth": {
       "invalidCredentials": "Email or password is incorrect.",
       "emailNotConfirmed": "Your email isn't confirmed yet. Please check your inbox.",
@@ -363,6 +369,7 @@
       "hints": {
         "projectName": "Internal identifier. Shown on the simulation result page.",
         "productName": "Actual product name (brand name + model).",
+        "category": "Category drives persona profession mix and channel recommendations. Pick the closest fit (cosmetics → Beauty, software tool → SaaS).",
         "description": "Minimum 10 characters. Describe features, target audience, and differentiation. The longer the better — persona accuracy improves.",
         "basePrice": "Current or candidate launch price. Simulation generates the curve at ±50% around this anchor.",
         "objective": "Pick the #1 KPI for this launch. Persona scenarios and channel recommendations adjust accordingly.",
