@@ -5,6 +5,7 @@
  * comparison, just with different selectors and context above.
  */
 import { ArrowLeft, ArrowRight, Minus } from "lucide-react";
+import { clsx } from "clsx";
 import { CountryChip } from "@/components/ui/CountryChip";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 
@@ -69,8 +70,22 @@ export function CompareKpi({
         : deltaSign === "flat"
           ? "neutral"
           : "bad";
+  // Tinted left border on directional deltas — gives a glanceable
+  // signal of "is this metric moving the right way?" without forcing
+  // the reader to compute mentally. Neutral / unknown stays neutral.
+  const borderClass =
+    tone === "good"
+      ? "border-l-success border-l-2"
+      : tone === "bad"
+        ? "border-l-risk border-l-2"
+        : "";
   return (
-    <div className="rounded-lg border border-slate-200 p-4 bg-slate-50/40">
+    <div
+      className={clsx(
+        "rounded-lg border border-slate-200 p-4 bg-slate-50/40",
+        borderClass,
+      )}
+    >
       <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
         <span>{label}</span>
         {tooltip && <HelpDot tooltip={tooltip} />}

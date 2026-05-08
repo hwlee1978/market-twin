@@ -4407,6 +4407,32 @@ function PersonaChatModal({
     if (el) el.scrollTop = el.scrollHeight;
   }, [history, busy]);
 
+  // ESC closes the modal — standard modal-dismiss affordance the
+  // dialog was missing. Backdrop click still works as before.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  // Click-to-prefill suggestion chips. Replaces the previous text-only
+  // example block — one click fills the input and the user can edit
+  // before pressing Enter, lower friction than typing the prompt
+  // verbatim.
+  const sampleQuestions = isKo
+    ? [
+        "왜 이 가격이 비싸다고 생각해요?",
+        "어떤 채널에서 사는 걸 선호하세요?",
+        "어떤 점이 가장 마음에 들어요?",
+      ]
+    : [
+        "Why do you think the price is too high?",
+        "Where do you prefer to buy this?",
+        "What about it appeals to you most?",
+      ];
+
   const submit = async () => {
     const q = input.trim();
     if (!q || busy) return;
@@ -4517,24 +4543,24 @@ function PersonaChatModal({
         {/* Transcript */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 min-h-[160px]">
           {history.length === 0 && !busy && (
-            <div className="text-xs text-slate-400 italic text-center py-6 leading-relaxed">
-              {isKo ? (
-                <>
-                  이 페르소나에게 자유롭게 질문해보세요. 예시:
-                  <br />
-                  <span className="text-slate-500">"왜 이 가격이 비싸다고 생각해요?"</span>
-                  <br />
-                  <span className="text-slate-500">"어떤 채널에서 사는 걸 선호하세요?"</span>
-                </>
-              ) : (
-                <>
-                  Ask this persona anything. Examples:
-                  <br />
-                  <span className="text-slate-500">"Why do you think the price is too high?"</span>
-                  <br />
-                  <span className="text-slate-500">"Where do you prefer to buy this kind of product?"</span>
-                </>
-              )}
+            <div className="py-4 space-y-3">
+              <p className="text-xs text-slate-500 leading-relaxed text-center">
+                {isKo
+                  ? "이 페르소나에게 자유롭게 질문해보세요. 예시 클릭으로 시작:"
+                  : "Ask this persona anything. Tap an example to start:"}
+              </p>
+              <div className="flex flex-col gap-2">
+                {sampleQuestions.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => setInput(q)}
+                    className="text-left text-xs px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-brand-50 hover:border-brand/40 hover:text-brand transition-colors"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           {history.map((turn, i) => (

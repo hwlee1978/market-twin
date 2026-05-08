@@ -6242,18 +6242,19 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       {coverPage}
 
       {variant === "executive" ? (
-        // Executive deck: 1-page brief + verdict + recommendation +
-        // actions/risks + pricing. Skip drilldowns / per-persona /
-        // provider consensus / variance / appendix — they belong in
-        // the detailed report. Go/No-Go is the most decision-critical
-        // page so it lands right after the brief.
+        // Executive deck — tighter than the prior 7-page set. Goal is
+        // a 4-5 page document an exec reads end-to-end on a phone or
+        // in a 60-second meeting open: brief → verdict → actions →
+        // pricing. Recommendation page (long-form rationale) and
+        // Market profile (deep-dive) move to the detailed report;
+        // Risks merge into the Go/No-Go verdict page (which already
+        // surfaces the top blockers). The brief carries the headline
+        // recommendation, so a separate recommendation page is
+        // redundant for the executive read.
         <>
           {renderOnePageBriefPage()}
           {renderGoNoGoVerdictPage()}
-          {renderRecommendationPage()}
-          {renderMarketProfilePage()}
           {renderActionsPage()}
-          {renderRisksPage()}
           {renderPricingPage()}
         </>
       ) : (
