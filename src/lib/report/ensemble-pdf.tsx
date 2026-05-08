@@ -6306,11 +6306,59 @@ function pickMarketBlocker(
   objections: Array<{ text: string; count: number }> | undefined,
 ): string {
   if (!objections || objections.length === 0) return "—";
+  // First pass: skip mismatch noise AND generic price phrases. The
+  // latter ("가격이 높음" / "가격이 다소 높음" / "비쌈") rises to the
+  // top in nearly every consumer-product run because price-as-objection
+  // is universal — every country's top blocker comes back as
+  // "가격이 높음" and the column loses its comparative value. We
+  // surface the next-most-specific blocker instead. Specific price
+  // objections that include a competitor anchor, a recurring-purchase
+  // scenario, or a concrete amount survive (those add real signal).
+  for (const o of objections) {
+    if (isPersonaMismatchNoise(o.text)) continue;
+    if (isGenericPriceObjection(o.text)) continue;
+    return o.text;
+  }
+  // No specific blocker survived — fall back to the first non-mismatch
+  // (so we still show "가격이 높음" rather than blanking) before the
+  // raw top-1 fallback.
   for (const o of objections) {
     if (!isPersonaMismatchNoise(o.text)) return o.text;
   }
-  // All filtered → still surface top-1 so the column isn't empty.
   return objections[0].text;
+}
+
+/**
+ * "가격이 높음" / "가격이 다소 높음" / "가격이 비쌈" / "expensive" — the
+ * short, contextless price grumble that surfaces in every consumer
+ * product run. We skip these in the cross-country blocker table so
+ * each market shows its DIFFERENTIATING concern (regulatory friction,
+ * a specific competitor anchor, a category-fit issue) rather than
+ * universally repeating "price is high". Specific price objections
+ * that include a brand name, a recurring-purchase frame, or a real
+ * number survive — those add comparative signal.
+ */
+function isGenericPriceObjection(text: string): boolean {
+  const t = text.trim();
+  // Short threshold — concrete price objections are usually >20 chars
+  // because they include the comparator. "가격이 높음" is 7 chars,
+  // "Allbirds 대비 가격이 부담스러움" is 19 chars. 18 keeps generic
+  // grumbles out without dropping moderately specific ones.
+  if (t.length > 18) return false;
+  const lower = t.toLowerCase();
+  // Hits a price keyword AND nothing more specific (no brand-like
+  // capitalised word, no currency / number, no recurring-purchase or
+  // subscription frame).
+  const hasPriceKeyword =
+    /가격|비싸|비쌈|비쌈|부담|고가|expensive|costly|pricey|too\s+(high|much)/i.test(
+      t,
+    );
+  if (!hasPriceKeyword) return false;
+  const hasSpecificAnchor =
+    /[A-Z][a-zA-Z]{2,}|\$\s*\d|\d\s*(?:원|달러|만원|USD|TWD|JPY|EUR)|월\s*\d|구독|재구매|refill|subscription|monthly|annually|대비|보다/.test(
+      lower,
+    );
+  return !hasSpecificAnchor;
 }
 
 function MiniBar({
