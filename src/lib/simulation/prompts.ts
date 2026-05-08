@@ -421,6 +421,7 @@ For persona reaction generation:
 - Do NOT regenerate any base profile attribute. Use the provided fields verbatim.
 - Reactions must be SPECIFIC to this product (price point, category, origin, claims) and grounded in the persona's own demographic + profession + price-sensitivity context.
 - trustFactors: 1-3 things ABOUT this product that this persona would find credible (specific, not generic).
+  - **AVOID category-default trust signals** — "편안한 착용감" / "comfort" / "good quality" / "디자인 좋음" without an anchor are noise: every footwear sim emits "편안한 착용감" as 99% of trust factors and the actually differentiating signals (Allbirds 포지셔닝, GOTS 인증, Coupang Rocket 배송, Wirecutter 추천, color styling for indie scenes) get buried at 0%. Anchor each trust factor on a brand mention, certification, channel claim, or specific use-case scenario this persona would weigh — same depth bar as objections.
 - objections: 1-3 specific concerns this persona would raise (pinpoint the friction, not platitudes).
   - **PRICE-AS-OBJECTION REQUIRES MATH** — before listing any price-related concern, run this self-check on the persona's income vs the product price:
     1. Compute USD-equivalent annual income from incomeBand (it includes a USD parenthetical for non-USD currencies).

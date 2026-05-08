@@ -33,6 +33,7 @@ import {
   overlapCoefficient,
   isPersonaMismatchNoise,
   isGenericPriceObjection,
+  isGenericTrustFactor,
 } from "@/lib/simulation/surfaced-recount";
 import {
   COMPONENT_LABEL,
@@ -5574,12 +5575,18 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       (c) => c.country.toUpperCase() === rec.toUpperCase(),
     );
     // Strip persona-mismatch noise ("non-smoker, this product isn't for
-    // me" type objections) — same filter as elsewhere. Trust factors
-    // don't suffer the same pattern; left untouched.
+    // me" type objections) AND generic price grumbles / generic trust
+    // factors at render time — defense-in-depth so legacy ensembles
+    // persisted before the source-side filters get a clean view too.
+    // Without this, the page rendered "98% 가격이 다소 높음" as the
+    // top blocker and "99% 편안한 착용감" as the top trust signal,
+    // burying the actually differentiating concerns and trust levers.
     const objections = (stats?.detail?.topObjections ?? []).filter(
-      (o) => !isPersonaMismatchNoise(o.text),
+      (o) => !isPersonaMismatchNoise(o.text) && !isGenericPriceObjection(o.text),
     );
-    const trustFactors = stats?.detail?.topTrustFactors ?? [];
+    const trustFactors = (stats?.detail?.topTrustFactors ?? []).filter(
+      (t) => !isGenericTrustFactor(t.text),
+    );
     const personasInCountry = aggregate.personas?.byCountry?.find(
       (b) => b.country.toUpperCase() === rec.toUpperCase(),
     );

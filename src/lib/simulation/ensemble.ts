@@ -18,6 +18,7 @@ import {
   overlapCoefficient,
   clusterStrings,
   isGenericPriceObjection,
+  isGenericTrustFactor,
   isPersonaMismatchNoise,
 } from "./surfaced-recount";
 
@@ -798,7 +799,15 @@ export function aggregateEnsemble(
         const p = inCountry[pi];
         for (const t of p.trustFactors ?? []) {
           const tt = t.trim();
-          if (tt) {
+          // Same source-side filter logic as objections — drop generic
+          // category-default trust signals ("편안한 착용감" / "good
+          // quality") that the LLM emits as a safe slot-filler for
+          // every persona regardless of profile. They absorb 99% of
+          // the cluster and bury the actually differentiating trust
+          // factors (brand positioning, certifications, channel
+          // claims). Specific trust factors with a brand / cert /
+          // channel anchor survive isGenericTrustFactor's checks.
+          if (tt && !isGenericTrustFactor(tt)) {
             allTrust.push(tt);
             trustPersonaIds.push(pi);
           }

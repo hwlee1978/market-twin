@@ -233,6 +233,38 @@ export function isPersonaMismatchNoise(text: string): boolean {
 }
 
 /**
+ * Generic, contextless trust factors — category defaults the LLM
+ * emits as a safe slot-filler for almost every persona regardless of
+ * profile. Le Mouton TW run produced 99% "편안한 착용감" + 1%
+ * "커뮤니티 추천" + 0% / 0% / 0% — the chart became unreadable
+ * because one default absorbed every signal slot and the actually
+ * differentiating trust factors (Allbirds positioning, color styling,
+ * brand-origin claims) sat at 0%.
+ *
+ * Specific trust factors that DO add signal — "Allbirds 대비 가격
+ * 우위", "GOTS 인증", "Coupang Rocket 배송", "Wirecutter 추천" —
+ * survive the filter because they include a brand / certification /
+ * channel name or exceed the length threshold.
+ */
+export function isGenericTrustFactor(text: string): boolean {
+  const t = text.trim();
+  if (t.length > 16) return false;
+  const lower = t.toLowerCase();
+  const hasGenericKeyword =
+    /편안|편함|편하|착용감|품질|좋아\s*보|좋을\s*것|마음에\s*들|디자인\s*(좋|예쁜?|훌륭)|comfort|comfortable|good\s+(quality|design|fit|look)|nice|appealing|stylish|trendy/i.test(
+      t,
+    );
+  if (!hasGenericKeyword) return false;
+  // Specific anchors override the generic flag — brand mention,
+  // certification, channel name, currency / number, recurring frame.
+  const hasSpecificAnchor =
+    /[A-Z][a-zA-Z]{2,}|\$\s*\d|\d\s*(?:원|달러|만원)|인증|certified|cert|보증|warranty|쿠팡|올리브영|네이버|Coupang|Sephora|Reddit|Wirecutter|Amazon/.test(
+      lower,
+    );
+  return !hasSpecificAnchor;
+}
+
+/**
  * Generic, contextless price grumbles ("가격이 높음" / "비쌈" /
  * "expensive") that surface in nearly every consumer-product run
  * regardless of actual price. Used to be a cross-country blocker-table

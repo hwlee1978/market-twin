@@ -9,7 +9,10 @@ import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
 import { formatPrice } from "@/lib/format/price";
 import { normalizeLLMText } from "@/lib/format/normalize";
-import { isGenericPriceObjection } from "@/lib/simulation/surfaced-recount";
+import {
+  isGenericPriceObjection,
+  isGenericTrustFactor,
+} from "@/lib/simulation/surfaced-recount";
 import {
   computePricingSensitivity,
   computeCurveRevenueMaxCents,
