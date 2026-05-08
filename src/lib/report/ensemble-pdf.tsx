@@ -6088,8 +6088,63 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
 
   const coverPage = (
     <Page size="A4" style={styles.coverPage}>
+      {/* Decorative brand-color halo + accent rule on the right edge —
+          adds visual depth to a flat cover without over-designing it.
+          Both elements are absolute-positioned so they don't push the
+          main content layout around. */}
+      <View
+        style={{
+          position: "absolute",
+          top: -120,
+          right: -120,
+          width: 360,
+          height: 360,
+          borderRadius: 180,
+          backgroundColor: "rgba(255,255,255,0.04)",
+        }}
+      />
+      <View
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 56,
+          width: 1,
+          height: "100%",
+          backgroundColor: "rgba(255,255,255,0.08)",
+        }}
+      />
       <View style={styles.coverInner}>
         <View>
+          {/* Brand wordmark with accent tab — matches the header bar
+              chrome on every interior page so the cover reads as part
+              of the same document, not a different cover stock. */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 32,
+            }}
+          >
+            <View
+              style={{
+                width: 4,
+                height: 14,
+                backgroundColor: "#94CFEA",
+                borderRadius: 1,
+              }}
+            />
+            <MText
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: "#FFFFFF",
+                letterSpacing: 1.8,
+              }}
+            >
+              MARKET TWIN
+            </MText>
+          </View>
           <MText style={styles.coverEyebrow}>
             {variant === "executive"
               ? `${t.coverEyebrow} · ${isKo ? "임원용" : "EXECUTIVE"}`
@@ -6104,6 +6159,65 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             {stripUnsupportedGlyphs(productName)}
           </MText>
           <MText style={styles.coverProduct}>{generatedAtStr}</MText>
+          {/* Stats strip — gives the cover a measurable data signal
+              before the recommendation card lands. Density beats a
+              second prose subtitle for an analyst-deliverable feel. */}
+          <View
+            style={{
+              flexDirection: "row",
+              gap: 24,
+              marginTop: 8,
+              paddingTop: 14,
+              borderTopWidth: 0.5,
+              borderTopColor: "rgba(255,255,255,0.18)",
+            }}
+          >
+            <View>
+              <MText
+                style={{
+                  fontSize: 8,
+                  color: "#94CFEA",
+                  letterSpacing: 0.8,
+                  textTransform: "uppercase",
+                }}
+              >
+                {isKo ? "시뮬레이션" : "Simulations"}
+              </MText>
+              <MText style={{ fontSize: 14, fontWeight: 700, color: "#FFFFFF", marginTop: 2 }}>
+                {aggregate.simCount.toLocaleString()}
+              </MText>
+            </View>
+            <View>
+              <MText
+                style={{
+                  fontSize: 8,
+                  color: "#94CFEA",
+                  letterSpacing: 0.8,
+                  textTransform: "uppercase",
+                }}
+              >
+                {isKo ? "유효 페르소나" : "Personas"}
+              </MText>
+              <MText style={{ fontSize: 14, fontWeight: 700, color: "#FFFFFF", marginTop: 2 }}>
+                {aggregate.effectivePersonas.toLocaleString()}
+              </MText>
+            </View>
+            <View>
+              <MText
+                style={{
+                  fontSize: 8,
+                  color: "#94CFEA",
+                  letterSpacing: 0.8,
+                  textTransform: "uppercase",
+                }}
+              >
+                {isKo ? "사용 LLM" : "LLM mix"}
+              </MText>
+              <MText style={{ fontSize: 14, fontWeight: 700, color: "#FFFFFF", marginTop: 2 }}>
+                {String(llmProviders.length)}
+              </MText>
+            </View>
+          </View>
         </View>
         <View>
           <View style={styles.coverRecCard}>

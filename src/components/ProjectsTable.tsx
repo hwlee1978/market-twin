@@ -76,8 +76,8 @@ export function ProjectsTable({ projects, locale }: Props) {
         )}
       </div>
 
-      <div className="card p-0 overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="card p-0 overflow-x-auto">
+        <table className="w-full text-sm min-w-[640px]">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-6 py-3 font-medium">{t("dashboard.table.project")}</th>

@@ -711,8 +711,8 @@ function EnsembleDashboard({
             {locale === "ko" ? "앙상블 분석 결과" : "Ensemble analysis"}
           </h1>
         </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col items-stretch sm:items-end gap-1 shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setWelcomeOpen(true)}

@@ -85,29 +85,34 @@ export function ShareViewer({
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Public share banner */}
+      {/* Brand accent rule + public share banner */}
+      <div className="h-1 bg-brand" />
       <div className="bg-brand text-white">
-        <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between text-sm">
-          <div className="flex items-center gap-2">
-            <span className="font-bold">MARKET TWIN</span>
-            <span className="text-white/60">·</span>
-            <span className="text-white/80">
-              {isKo ? "공유 링크로 보고 있습니다" : "Viewing via shared link"}
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-bold tracking-wider">MARKET TWIN</span>
+            <span className="text-white/40">·</span>
+            <span className="text-white/70 text-xs truncate">
+              {isKo ? "공유 보기" : "Shared report"}
             </span>
           </div>
-          <div className="text-white/60 text-xs">
-            {isKo ? `만료: ${expiresLabel}` : `Expires: ${expiresLabel}`}
+          <div className="text-white/60 text-xs whitespace-nowrap">
+            {isKo ? `만료 ${expiresLabel}` : `Expires ${expiresLabel}`}
           </div>
         </div>
       </div>
 
-      <main className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-5">
         {/* Project info */}
         {project && (
           <div className="card p-5">
-            <div className="flex items-baseline justify-between mb-3">
-              <h1 className="text-2xl font-semibold text-slate-900">{project.product_name}</h1>
-              <span className="text-xs uppercase tracking-wide text-slate-500">{project.name}</span>
+            <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+              <h1 className="text-xl sm:text-2xl font-semibold text-slate-900 break-keep">
+                {project.product_name}
+              </h1>
+              <span className="text-xs uppercase tracking-wide text-slate-500">
+                {project.name}
+              </span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
               <Field label={isKo ? "분석 단계" : "Tier"} value={tierLabel} />
@@ -131,15 +136,17 @@ export function ShareViewer({
           </div>
         )}
 
-        {/* Top recommendation */}
-        <div className="card p-6 bg-gradient-to-br from-brand-50/40 to-white border-brand/20">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
+        {/* Top recommendation — hero card with brand-color left rule */}
+        <div className="card p-5 sm:p-6 bg-gradient-to-br from-brand-50/40 to-white border-brand/20 border-l-4 border-l-brand">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-wider text-brand font-semibold mb-2">
                 {isKo ? "추천 진출국" : "Recommended market"}
               </div>
-              <div className="flex items-baseline gap-3">
-                <div className="text-4xl font-bold text-slate-900">{recommendation.country}</div>
+              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                <div className="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">
+                  {recommendation.country}
+                </div>
                 <div className="text-sm">
                   <span className={clsx("font-semibold", confidenceColor)}>
                     {recommendation.consensusPercent}% {isKo ? "합의" : "consensus"}
@@ -148,12 +155,12 @@ export function ShareViewer({
                 </div>
               </div>
             </div>
-            <CheckCircle2 className={confidenceColor} size={32} />
+            <CheckCircle2 className={clsx(confidenceColor, "shrink-0")} size={32} />
           </div>
-          <div className="mt-4 text-xs text-slate-500">
+          <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-500">
             {isKo
-              ? `${simCount}개 시뮬에서 가장 자주 1순위로 선택된 시장입니다.`
-              : `Top-pick across ${simCount} sims.`}
+              ? `${simCount}개 독립 시뮬레이션의 합의 결과 · ${effectivePersonas.toLocaleString()}명 페르소나 평균`
+              : `Consensus across ${simCount} independent sims · ${effectivePersonas.toLocaleString()} aggregated personas`}
           </div>
         </div>
 
@@ -221,8 +228,8 @@ export function ShareViewer({
             <h2 className="text-base font-semibold text-slate-900 mb-3">
               {isKo ? "국가별 점수 분포" : "Per-country score distribution"}
             </h2>
-            <div className="card overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="card overflow-x-auto">
+              <table className="w-full text-sm min-w-[480px]">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
                     <th className="px-4 py-2 text-left">{isKo ? "국가" : "Country"}</th>
@@ -233,21 +240,45 @@ export function ShareViewer({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {countryStats.map((c) => (
-                    <tr key={c.country}>
-                      <td className="px-4 py-2 font-medium text-slate-900">{c.country}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">{c.finalScore.mean.toFixed(1)}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">
-                        {c.finalScore.median.toFixed(1)}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums text-slate-500">
-                        {c.finalScore.min.toFixed(0)}–{c.finalScore.max.toFixed(0)}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums text-slate-500">
-                        ${c.cacEstimateUsd.median.toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
+                  {countryStats.map((c) => {
+                    const isWinner =
+                      c.country.toUpperCase() === recommendation.country.toUpperCase();
+                    return (
+                      <tr
+                        key={c.country}
+                        className={clsx(isWinner && "bg-brand-50/30")}
+                      >
+                        <td className="px-4 py-2 font-medium text-slate-900">
+                          <span className="inline-flex items-center gap-1.5">
+                            {isWinner && (
+                              <span
+                                aria-hidden
+                                className="inline-block w-1.5 h-1.5 rounded-full bg-brand"
+                              />
+                            )}
+                            {c.country}
+                          </span>
+                        </td>
+                        <td
+                          className={clsx(
+                            "px-4 py-2 text-right tabular-nums",
+                            isWinner && "font-semibold text-brand",
+                          )}
+                        >
+                          {c.finalScore.mean.toFixed(1)}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          {c.finalScore.median.toFixed(1)}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                          {c.finalScore.min.toFixed(0)}–{c.finalScore.max.toFixed(0)}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                          ${c.cacEstimateUsd.median.toFixed(2)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
