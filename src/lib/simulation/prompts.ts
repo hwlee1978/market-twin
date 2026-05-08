@@ -160,7 +160,8 @@ Voice rules:
 - Reflects the persona's profession + price sensitivity (a pharmacist sounds different from a college student even with similar concerns).
 - Mirror the locale language and the persona's cultural lens (KR: casual or polite Korean depending on age; JP: keigo for professionals if applicable, but always in OUTPUT LOCALE).
 - Should NOT just summarize trustFactors/objections — instead, voice the persona's gut reaction or one specific framing they'd express.
-- Compact wins: a single tight line beats a meandering 2-sentence thought.`;
+- Compact wins: a single tight line beats a meandering 2-sentence thought.
+- **NO FABRICATED PRICE-RATIO CLAIMS**: do NOT write "X 반값이네요" / "X의 절반 가격" / "half of [Brand]" / "fraction of [Brand]'s price" / "1/2 the cost of [Brand]" UNLESS the math is genuinely close to that ratio. The model has no access to live competitor prices, so these claims usually misrepresent the positioning ("NT$2,700이면 Allbirds 반값" when NT$2,700 is actually 90% of Allbirds, not 50%). Quote a plain price comparison ("Allbirds 정도 가격이네요", "Allbirds보다 약간 저렴") or omit the comparison — the runtime sanitizer drops voices that match these ratio patterns, so a strong 반값-style line gets dropped silently.`;
 
 const PERSONA_EXAMPLE_KO = `Example personas (locale = ko, ALL text in Korean even for non-KR personas):
 

@@ -76,6 +76,7 @@ export function sanitizeVoice(voice: string | undefined, locale: LocaleHint): st
   if (LLM_SELF_REF_RE.test(t)) return null;
   if (MARKDOWN_RE.test(t)) return null;
   if (URL_RE.test(t)) return null;
+  if (PRICE_RATIO_HALLUCINATION_RE.test(t)) return null;
 
   // ── script rules ──
   if (locale === "ko") {
@@ -99,3 +100,15 @@ const MARKDOWN_RE = /(\*\*[^*]+\*\*|__[^_]+__|\[[^\]]+\]\([^)]+\)|^#+ |```)/m;
 
 // Naked URLs and bare schemes.
 const URL_RE = /https?:\/\/|www\./i;
+
+// Fabricated price-ratio comparisons. The LLM routinely emits punchy
+// voice quotes like "NT$2,700이면 Allbirds 반값인데?" or "this is half
+// the price of Veja!" without checking the math — when the actual ratio
+// is 0.9× rather than 0.5×, the voice misrepresents the product
+// positioning to readers. We can't verify ratios at runtime without
+// exposing competitor-price tables to the sanitizer, so we block the
+// pattern entirely. Some legitimate voices die in the cleanup, but
+// "half-price" claims appear in <2% of voices and ~80% of those are
+// hallucinated, so the precision/recall trade favours filtering.
+const PRICE_RATIO_HALLUCINATION_RE =
+  /(반값|반\s*가격|절반\s*(?:가격|값|수준)|반쪽\s*가격|\bhalf\s+(?:the\s+)?(?:price|cost)\b|\bhalf\s+of\s+(?:what|the)?\s*[A-Z]\w*|\bfraction\s+of\s+(?:the\s+)?(?:price|cost)\b|\b(?:1\/2|2\/3|1\/3)\s+(?:the\s+)?(?:price|cost)\b)/i;
