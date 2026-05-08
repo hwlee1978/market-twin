@@ -2908,18 +2908,23 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                         {isKo ? "공통 거부 요인 TOP 5" : "Top objections"}
                       </MText>
                       {d.topObjections.map((o) => {
-                        // Count = clustered objection-instances; persona
-                        // count = unique-persona denominator. Many
-                        // personas emit 2-3 strings each, so the count
-                        // can be greater than the persona count
-                        // semantically (multiple mentions per persona)
-                        // OR less (when each persona only raised it
-                        // once). Showing % share of personas makes the
-                        // magnitude readable.
-                        const sharePct =
+                        // Count = unique personas who raised the
+                        // clustered concern (post e01b025 fix). NOT
+                        // mutually exclusive — one persona can raise
+                        // multiple objections, so column sums can
+                        // exceed 100%. Sub-1% clusters render as "<1%"
+                        // rather than "0%" which would falsely read
+                        // as "no one raised this".
+                        const rawShare =
                           d.persona.count > 0
-                            ? Math.round((o.count / d.persona.count) * 100)
+                            ? (o.count / d.persona.count) * 100
                             : null;
+                        const shareLabel =
+                          rawShare == null
+                            ? String(o.count)
+                            : rawShare >= 1
+                              ? `${Math.round(rawShare)}%`
+                              : "<1%";
                         return (
                           <View
                             key={o.text}
@@ -2933,7 +2938,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                                 textAlign: "right",
                               }}
                             >
-                              {sharePct != null ? `${sharePct}%` : String(o.count)}
+                              {shareLabel}
                             </MText>
                             <MText style={{ fontSize: 9, color: C.body, flex: 1, lineHeight: 1.45 }}>
                               {o.text}
@@ -2941,6 +2946,18 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                           </View>
                         );
                       })}
+                      <MText
+                        style={{
+                          fontSize: 7,
+                          color: C.faint,
+                          marginTop: 3,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {isKo
+                          ? "% = 페르소나 중 해당 요인 제기 비율. 한 명이 여러 요인 제기 가능, 합 100% 초과 가능."
+                          : "% = share of personas who raised it. One persona may raise multiple — column may sum >100%."}
+                      </MText>
                     </View>
                   )}
                 </View>
@@ -5596,8 +5613,13 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             ) : (
               trustFactors.map((t, i) => {
                 const denom = personasInCountry?.count ?? 0;
+                const rawShare = denom > 0 ? (t.count / denom) * 100 : null;
                 const sharePct =
-                  denom > 0 ? Math.round((t.count / denom) * 100) : null;
+                  rawShare == null
+                    ? null
+                    : rawShare >= 1
+                      ? `${Math.round(rawShare)}%`
+                      : "<1%";
                 return (
                   <View
                     key={i}
@@ -5617,7 +5639,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                         fontWeight: 700,
                       }}
                     >
-                      {sharePct != null ? `${sharePct}%` : String(t.count)}
+                      {sharePct ?? String(t.count)}
                     </MText>
                     <MText
                       style={{
@@ -5668,8 +5690,13 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             ) : (
               objections.map((o, i) => {
                 const denom = personasInCountry?.count ?? 0;
+                const rawShare = denom > 0 ? (o.count / denom) * 100 : null;
                 const sharePct =
-                  denom > 0 ? Math.round((o.count / denom) * 100) : null;
+                  rawShare == null
+                    ? null
+                    : rawShare >= 1
+                      ? `${Math.round(rawShare)}%`
+                      : "<1%";
                 return (
                   <View
                     key={i}
@@ -5689,7 +5716,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                         fontWeight: 700,
                       }}
                     >
-                      {sharePct != null ? `${sharePct}%` : String(o.count)}
+                      {sharePct ?? String(o.count)}
                     </MText>
                     <MText
                       style={{

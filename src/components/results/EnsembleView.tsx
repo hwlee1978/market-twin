@@ -2404,24 +2404,40 @@ function CountryDrilldown({
             </div>
             <ul className="space-y-1.5 text-sm">
               {detail.topObjections.map((o) => {
-                // Count = clustered objection-instances. Showing as
-                // % of country's persona pool makes the magnitude
-                // immediately readable (e.g. "68%" reads as "most
-                // personas raised this concern").
-                const sharePct =
+                // Count = unique personas (post e01b025 fix) clustered
+                // by fuzzy overlap. Showing as % of the country pool
+                // makes magnitude immediately readable. NOT mutually
+                // exclusive — one persona may raise multiple objections,
+                // so the column sums can exceed 100%.
+                const rawShare =
                   detail.persona.count > 0
-                    ? Math.round((o.count / detail.persona.count) * 100)
+                    ? (o.count / detail.persona.count) * 100
                     : null;
+                // Non-zero clusters with <0.5% share were rounding to
+                // "0%", which reads as "0 personas raised this" even
+                // though the cluster wouldn't be in top-5 if zero
+                // personas had raised it. Floor the display at "<1%".
+                const shareLabel =
+                  rawShare == null
+                    ? `${o.count}`
+                    : rawShare >= 1
+                      ? `${Math.round(rawShare)}%`
+                      : "<1%";
                 return (
-                <li key={o.text} className="flex items-start gap-2">
-                  <span className="badge bg-slate-100 text-slate-600 shrink-0 tabular-nums">
-                    {sharePct != null ? `${sharePct}%` : o.count}
-                  </span>
-                  <span className="text-slate-700">{o.text}</span>
-                </li>
+                  <li key={o.text} className="flex items-start gap-2">
+                    <span className="badge bg-slate-100 text-slate-600 shrink-0 tabular-nums">
+                      {shareLabel}
+                    </span>
+                    <span className="text-slate-700">{o.text}</span>
+                  </li>
                 );
               })}
             </ul>
+            <p className="text-[10px] text-slate-400 mt-2">
+              {isKo
+                ? "% = 국가 페르소나 중 해당 거부 요인을 제기한 비율. 한 페르소나가 여러 거부 요인을 들 수 있어 합이 100%를 넘을 수 있습니다."
+                : "% = share of country personas who raised the concern. One persona can list multiple, so the column may sum above 100%."}
+            </p>
           </div>
         )}
       </div>
