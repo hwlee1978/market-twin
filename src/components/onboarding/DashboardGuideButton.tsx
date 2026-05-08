@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HelpCircle, ChevronRight, X, Lightbulb } from "lucide-react";
 import Link from "next/link";
 
@@ -11,11 +11,18 @@ import Link from "next/link";
  * tabs that only exist on the result page); this one explains the
  * dashboard → project → result → export flow.
  *
- * Always callable — has no dismissal state, just a stateless "show me again"
- * trigger. Keeps the same visual idiom (HelpCircle icon + 3 numbered cards)
- * as the EnsembleView welcome modal so users get the same affordance shape
- * across the product.
+ * Auto-opens once on the user's first dashboard visit (tracked in
+ * localStorage) so a brand-new account gets the orientation without
+ * having to discover the Guide button. Subsequent visits the modal
+ * stays closed; clicking the button still re-opens it manually.
+ *
+ * localStorage instead of a DB column for the "seen" flag — a
+ * per-device per-browser flag is fine for one-time UX, no migration
+ * needed, and an over-shown modal (cleared storage / new device) is
+ * a tolerable miss for onboarding.
  */
+const SEEN_KEY = "mt:dashboardOnboardingSeen";
+
 export function DashboardGuideButton({
   isKo,
   hasProjects,
@@ -26,6 +33,28 @@ export function DashboardGuideButton({
   demoToken?: string;
 }) {
   const [open, setOpen] = useState(false);
+  // Auto-open exactly once per device. Only fires when no projects
+  // exist yet — if the user already has projects, they've been here
+  // before and don't need the orientation modal popping up
+  // unprompted.
+  useEffect(() => {
+    if (hasProjects) return;
+    if (typeof window === "undefined") return;
+    if (window.localStorage.getItem(SEEN_KEY)) return;
+    setOpen(true);
+  }, [hasProjects]);
+
+  const close = () => {
+    setOpen(false);
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(SEEN_KEY, new Date().toISOString());
+      } catch {
+        // localStorage can throw in private-mode Safari; non-fatal —
+        // the modal will just re-open next visit, no real harm.
+      }
+    }
+  };
   return (
     <>
       <button
@@ -42,7 +71,7 @@ export function DashboardGuideButton({
       {open && (
         <div
           className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4"
-          onClick={() => setOpen(false)}
+          onClick={close}
         >
           <div
             className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 relative"
@@ -50,7 +79,7 @@ export function DashboardGuideButton({
           >
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={close}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition-colors"
               aria-label={isKo ? "닫기" : "Close"}
             >
@@ -91,7 +120,7 @@ export function DashboardGuideButton({
                       : "View a real analysis report without signup, then create your own project."
                 }
                 href={hasProjects ? "/projects/new" : demoToken ? "/demo" : "/projects/new"}
-                onClick={() => setOpen(false)}
+                onClick={close}
               />
               <GuideStep
                 num={2}
@@ -102,7 +131,7 @@ export function DashboardGuideButton({
                     : "Each chart has a \"How to read this chart\" expander with thresholds and interpretation tips."
                 }
                 href={hasProjects ? "/projects" : undefined}
-                onClick={() => setOpen(false)}
+                onClick={close}
               />
               <GuideStep
                 num={3}
@@ -113,7 +142,7 @@ export function DashboardGuideButton({
                     : "From the result page header: executive PDF, public share link (no signup needed), and table data as CSV."
                 }
                 href={hasProjects ? "/projects" : undefined}
-                onClick={() => setOpen(false)}
+                onClick={close}
               />
             </div>
 
@@ -134,7 +163,7 @@ export function DashboardGuideButton({
             <div className="flex justify-end">
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={close}
                 className="btn-primary text-sm"
               >
                 {isKo ? "확인" : "Got it"}
