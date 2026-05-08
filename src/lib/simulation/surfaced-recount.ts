@@ -233,6 +233,36 @@ export function isPersonaMismatchNoise(text: string): boolean {
 }
 
 /**
+ * Generic, contextless price grumbles ("가격이 높음" / "비쌈" /
+ * "expensive") that surface in nearly every consumer-product run
+ * regardless of actual price. Used to be a cross-country blocker-table
+ * problem (every market shows the same answer); turns out it's also
+ * dominating per-country Top 5 — a Le Mouton TW run had 98% of
+ * personas raising "가격이 다소 높음" while the real differentiating
+ * blockers (climate fit, color range, scene alignment) sat at 1-2%.
+ *
+ * Specific price objections that DO add signal — \"Allbirds 대비 비쌈\",
+ * \"월 구독료 부담\", \"$150 is steep for a knit shoe\" — survive the
+ * filter because they exceed 18 chars or include a brand / number /
+ * comparator anchor.
+ */
+export function isGenericPriceObjection(text: string): boolean {
+  const t = text.trim();
+  if (t.length > 18) return false;
+  const lower = t.toLowerCase();
+  const hasPriceKeyword =
+    /가격|비싸|비쌈|부담|고가|expensive|costly|pricey|too\s+(high|much)/i.test(
+      t,
+    );
+  if (!hasPriceKeyword) return false;
+  const hasSpecificAnchor =
+    /[A-Z][a-zA-Z]{2,}|\$\s*\d|\d\s*(?:원|달러|만원|USD|TWD|JPY|EUR)|월\s*\d|구독|재구매|refill|subscription|monthly|annually|대비|보다/.test(
+      lower,
+    );
+  return !hasSpecificAnchor;
+}
+
+/**
  * Cluster a flat list of strings (e.g. persona objections, trust
  * factors) by token-overlap similarity. Returns one entry per cluster
  * with the most-frequent surface form as the representative and the

@@ -420,7 +420,7 @@ For persona reaction generation:
 - Do NOT regenerate any base profile attribute. Use the provided fields verbatim.
 - Reactions must be SPECIFIC to this product (price point, category, origin, claims) and grounded in the persona's own demographic + profession + price-sensitivity context.
 - trustFactors: 1-3 things ABOUT this product that this persona would find credible (specific, not generic).
-- objections: 1-3 specific concerns this persona would raise (pinpoint the friction, not platitudes).
+- objections: 1-3 specific concerns this persona would raise (pinpoint the friction, not platitudes). **AVOID generic price grumbles** — "가격이 높음" / "비쌈" / "expensive" without a comparator are noise: they dominate the aggregator's top-5 across every country (90%+ surface) while the actually differentiating blockers (climate fit, color range, scene alignment, channel availability, regulatory friction) sit at 1-2%. If price IS this persona's real concern, attach an anchor — "Allbirds 대비 비쌈", "월 구독료 부담", "$150 is steep for a knit shoe" — so the cluster carries comparative signal. If you can't anchor it, pick a non-price concern that's actually specific to this persona's lens.
 - purchaseIntent: 0-100 honest score reflecting actual likelihood to buy.
 - voice: a single 1-2 sentence first-person quote.
   - **LANGUAGE (HIGHEST PRIORITY)**: voice MUST be in the LOCALE language regardless of the persona's country. Examples for a Korean-locale run:

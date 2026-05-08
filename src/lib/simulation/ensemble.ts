@@ -17,6 +17,7 @@ import {
   tokenize,
   overlapCoefficient,
   clusterStrings,
+  isGenericPriceObjection,
   isPersonaMismatchNoise,
 } from "./surfaced-recount";
 
@@ -765,10 +766,22 @@ export function aggregateEnsemble(
         for (const o of p.objections ?? []) {
           const t = o.trim();
           // Drop persona-mismatch noise ("non-smoker, this isn't for
-          // me") at source — these aren't market blockers, just
-          // out-of-target personas. Filtering BEFORE clustering avoids
-          // both fragmenting the signal and surfacing noise.
-          if (t && !isPersonaMismatchNoise(t)) {
+          // me") and generic contextless price grumbles ("가격이
+          // 높음" / "expensive") at source. Mismatch isn't a market
+          // blocker (just out-of-target personas), and generic price
+          // grumbles surface in 90%+ of personas across every country
+          // for any premium product — they drown out the actually
+          // differentiating blockers (climate fit, scene alignment,
+          // category-specific concerns) that the report is supposed
+          // to surface. Specific price objections with a competitor
+          // anchor or recurring-purchase frame ("Allbirds 대비 비쌈",
+          // "월 구독료 부담") survive isGenericPriceObjection's
+          // length + anchor checks.
+          if (
+            t &&
+            !isPersonaMismatchNoise(t) &&
+            !isGenericPriceObjection(t)
+          ) {
             allObjections.push(t);
             objectionPersonaIds.push(pi);
           }
