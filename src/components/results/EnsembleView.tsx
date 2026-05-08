@@ -5909,13 +5909,13 @@ function DecisionAidTab({
                             {isKo ? "마진" : "Margin"}
                           </th>
                           <th className="px-2 py-1.5 text-right font-semibold">
-                            {isKo ? "단위 gross" : "Gross/unit"}
+                            {isKo ? "개당 총이익" : "Gross/unit"}
                           </th>
                           <th className="px-2 py-1.5 text-right font-semibold">
-                            {isKo ? "단위 net (CAC 차감)" : "Net/unit (after CAC)"}
+                            {isKo ? "개당 순이익 (−CAC)" : "Net/unit (after CAC)"}
                           </th>
                           <th className="px-2 py-1.5 text-right font-semibold">
-                            {isKo ? "1,000명 회수 BE" : "BE @ 1,000 spend"}
+                            {isKo ? "1,000명 모객비 회수 (개)" : "BE @ 1,000 spend"}
                           </th>
                         </tr>
                       </thead>
@@ -5956,8 +5956,8 @@ function DecisionAidTab({
                       {isKo ? "가정: 1인당 1개 구매." : "Assumes single unit per customer."}
                     </strong>{" "}
                     {isKo
-                      ? "재구매·LTV는 미반영 — 실제 LTV가 단가의 1.3배 이상이면 위 break-even은 보수적입니다. 음수 net은 \"이 마진 가정에서 수학적 불가\"이지 절대 불가가 아님."
-                      : "Repeat purchases / LTV not modeled — if actual LTV exceeds unit price ×1.3, the break-even above is conservative. Negative net means \"impossible at this margin assumption\", not absolutely unviable."}
+                      ? "마지막 컬럼은 1,000명 모객 마케팅비(CAC × 1,000)를 개당 순이익으로 회수하는 데 필요한 누적 판매량(개). 재구매·LTV는 미반영 — 실제 LTV가 단가의 1.3배 이상이면 위 break-even은 보수적입니다. 음수 net은 \"이 마진 가정에서 수학적 불가\"이지 절대 불가가 아님."
+                      : "The last column is the total units required to recoup CAC × 1,000 of marketing spend at the column's net contribution per unit. Repeat purchases / LTV not modeled — if actual LTV exceeds unit price ×1.3, the break-even above is conservative. Negative net means \"impossible at this margin assumption\", not absolutely unviable."}
                   </p>
                 </>
               );

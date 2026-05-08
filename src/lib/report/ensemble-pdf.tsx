@@ -4513,13 +4513,13 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                     {isKo ? "마진" : "Margin"}
                   </MText>
                   <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1.0, textAlign: "right" }}>
-                    {isKo ? "단위 gross" : "Gross/unit"}
+                    {isKo ? "개당 총이익" : "Gross/unit"}
                   </MText>
                   <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1.2, textAlign: "right" }}>
-                    {isKo ? "단위 net" : "Net/unit"}
+                    {isKo ? "개당 순이익" : "Net/unit"}
                   </MText>
                   <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1.8, textAlign: "right" }}>
-                    {isKo ? "1,000명 회수 BE (개)" : "BE units @ 1k CAC"}
+                    {isKo ? "1,000명 모객비 회수 (개)" : "BE units @ 1k CAC"}
                   </MText>
                 </View>
                 {scenarios.map((s, i) => {
@@ -4587,7 +4587,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 </View>
                 <MText style={{ fontSize: 7, color: C.muted, lineHeight: 1.4, marginTop: 4 }}>
                   {isKo
-                    ? "1,000명 회수 BE = 1,000명 분의 CAC 예산을 단위 net으로 회수하는 데 필요한 판매 수량 (= CAC × 1,000 ÷ 단위 net)."
+                    ? "1,000명 모객비 회수 = 1,000명 모객 마케팅비(CAC × 1,000)를 개당 순이익으로 회수하는 데 필요한 누적 판매 수량 (= CAC × 1,000 ÷ 개당 순이익)."
                     : "BE units @ 1k CAC = sales needed to recover a 1,000-customer CAC budget at the per-unit net contribution (= CAC × 1,000 ÷ net/unit)."}
                 </MText>
               </View>
