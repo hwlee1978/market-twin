@@ -45,28 +45,28 @@ const TIER_PRESETS = {
     marketProfile: true,
   },
   decision_plus: {
-    // Cross-LLM consensus at moderate depth. Round-robin across the
-    // providers array — repeating "anthropic" three times yields a
-    // 9 Anthropic / 3 OpenAI / 3 xAI split over the 15 sims, which
-    // keeps Anthropic dominant for voice quality (Sonnet wins the
-    // voice-A/B verified in compare:voice script) while still pulling
-    // in cross-LLM signal at meaningful weight.
+    // Cross-LLM consensus at moderate depth. Even 5/5/5 split across
+    // 3 providers — round-robin yields exactly 5 sims per provider,
+    // each provider casts an equal vote on the recommendation.
     //
-    // History note: xAI replaced Gemini here on 2026-05-08 after Gemini
-    // sims were shipping 60-96 personas vs the 200 target — partial
-    // responses + 503s on the persona batch endpoint. Grok-4 sits in
-    // the same price tier as Sonnet ($3/$15) but actually returns full
-    // batches; cost is slightly higher than Gemini but the persona-count
-    // recovery is worth the trade.
+    // History notes:
+    //   - 2026-05-03: started Anthropic-only (15/0/0)
+    //   - 2026-05-08 morning: weighted 9 Anthropic / 3 OpenAI / 3 Gemini
+    //     to keep Sonnet dominant for voice quality. Gemini sims shipped
+    //     60-96 personas vs 200 target (partial responses + 503s).
+    //   - 2026-05-08 afternoon: swapped Gemini → xAI Grok-3 for the
+    //     persona-count recovery (Grok-3 is a Sonnet-tier non-reasoning
+    //     model; Grok-4's reasoning blew past SDK timeouts).
+    //   - 2026-05-08 evening: rebalanced to even 5/5/5. The 9/3/3 weight
+    //     made Anthropic outvote the other two on the recommendation
+    //     (Le Mouton ensemble: 9 Claude=TW, 3 GPT=US, 3 xAI=US → TW
+    //     "won" on weight not consensus). With voice-quality risk gone
+    //     (Grok-3 voice on par with Sonnet/GPT-4, unlike Gemini Flash),
+    //     the dominance argument no longer applied — the tier's whole
+    //     point is cross-LLM consensus, not single-LLM with noise.
     parallelSims: 15,
     perSimPersonas: 200,
-    llmProviders: [
-      "anthropic",
-      "anthropic",
-      "anthropic",
-      "openai",
-      "xai",
-    ] as const,
+    llmProviders: ["anthropic", "openai", "xai"] as const,
     marketProfile: true,
   },
   deep: {
