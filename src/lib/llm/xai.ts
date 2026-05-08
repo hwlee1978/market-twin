@@ -17,23 +17,33 @@ import { withLLMRetry } from "./retry";
 const XAI_BASE_URL = "https://api.x.ai/v1";
 
 // Per-request timeout (ms). Default OpenAI SDK timeout is 10 min, which
-// is way too generous for our use case — a hung Grok call would block a
-// sim slot for the full duration. 90s lets us fail fast and let
-// withLLMRetry rotate through up to 5 attempts before giving up.
-const XAI_REQUEST_TIMEOUT_MS = 90_000;
+// is way too generous for our use case — a hung xAI call would block a
+// sim slot for the full duration. Grok-3 was hitting our prior 90s cap
+// repeatedly under load (KR→US-east latency + xAI infra), so 180s gives
+// the slow tail more room while still letting withLLMRetry rotate
+// through up to 5 attempts before giving up.
+const XAI_REQUEST_TIMEOUT_MS = 180_000;
 
 export class XaiProvider implements LLMProvider {
   readonly name = "xai" as const;
   readonly model: string;
   private client: OpenAI;
 
-  constructor(model: string = "grok-3") {
-    // Default "grok-3" rather than "grok-4": Grok-4 is a reasoning model
-    // and routinely takes 1-5 min per call, blowing past the SDK timeout
-    // on persona-batch workloads. Grok-3 is non-reasoning, structured-
-    // output friendly, and lands in the same price tier as Sonnet.
-    // Override per-stage via LLM_<STAGE>_MODEL=grok-4 if a synthesis
-    // call genuinely needs the reasoning lift.
+  constructor(model: string = "grok-3-mini") {
+    // Default "grok-3-mini": full Grok-3 was timing out repeatedly on
+    // 12-persona batches (probably backend slowness, not reasoning
+    // overhead). Grok-3-mini is the smaller / faster sibling — runs in
+    // 5-15s typical vs 60-90s+ for Grok-3, at $0.30/$0.50 per 1M tok
+    // (~10× cheaper than Grok-3). Voice quality drops some but the top-
+    // voice filter naturally surfaces Sonnet/GPT-4 voices first; the
+    // mini model's contribution is the cross-LLM scoring signal, not
+    // headline persona quotes.
+    //
+    // History: started grok-4 (reasoning, blew past SDK timeout
+    // immediately), tried grok-3 (still too slow under concurrent
+    // load), settled on grok-3-mini for reliability. Override via
+    // LLM_<STAGE>_MODEL=grok-3 / grok-4 if a future stage needs the
+    // bigger model.
     this.model = model;
     this.client = new OpenAI({
       apiKey: process.env.XAI_API_KEY,

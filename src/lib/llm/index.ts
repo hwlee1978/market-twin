@@ -59,16 +59,19 @@ const PROVIDER_STAGE_DEFAULTS: Record<LLMProviderName, Record<SimulationStage, s
     synthesis: "gemini-2.5-pro",
   },
   xai: {
-    // Grok-3 (non-reasoning) across all stages. Grok-4 is the reasoning
-    // model and takes 1-5 min per call — that pinned persona batches
-    // against the SDK timeout on first deploy. Grok-3 is fast and
-    // structured-output friendly, same $3/$15 price tier. If a future
-    // run needs Grok-4's reasoning lift on synthesis, override via
-    // LLM_SYNTHESIS_MODEL=grok-4 — but it's off the default path.
-    personas: "grok-3",
-    countries: "grok-3",
-    pricing: "grok-3",
-    synthesis: "grok-3",
+    // Grok-3-mini across all stages — chosen for reliability after
+    // both Grok-4 (reasoning, blew past SDK timeout) and Grok-3 (still
+    // too slow on 12-persona batches under load) timed out repeatedly.
+    // Grok-3-mini is the smaller / faster sibling, $0.30/$0.50 per 1M
+    // tok, runs in 5-15s typical. Voice quality drops some vs Grok-3 /
+    // Sonnet but the top-voice filter surfaces Sonnet voices first
+    // anyway — the mini model's contribution is cross-LLM scoring.
+    // Override per-stage via LLM_<STAGE>_MODEL=grok-3 if a synthesis
+    // call genuinely needs the bigger model.
+    personas: "grok-3-mini",
+    countries: "grok-3-mini",
+    pricing: "grok-3-mini",
+    synthesis: "grok-3-mini",
   },
 };
 
