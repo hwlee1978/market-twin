@@ -359,9 +359,65 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
   // simulations.total_input_tokens / total_output_tokens / total_cost_cents
   // at the end of the success path so /admin/billing has data to render.
   const usage = { inputTokens: 0, outputTokens: 0, costCents: 0 };
-  const personaLLM = withUsageTracking(personaLLMRaw, usage);
-  const countryLLM = withUsageTracking(countryLLMRaw, usage);
-  const pricingLLM = withUsageTracking(pricingLLMRaw, usage);
+
+  // Provider-failover scope: ALL high-volume stages get the wrapper.
+  // History: only synthesis used to fall over. Persona stage in Deep
+  // tier carried the largest single-stage outage risk — Gemini 503
+  // storms and Anthropic url-fetch timeouts (2026-05-08) wiped out
+  // entire sims because the persona stage couldn't recover, even
+  // though the rest of the pipeline would have been fine. Country
+  // and pricing get the same treatment because their respective
+  // 5-sample / 3-sample medians silently absorb a single failure but
+  // cascade if all samples come from a 5xx-throwing provider.
+  //
+  // Tradeoff: when the primary's retry budget is exhausted and we
+  // fall back to Anthropic/OpenAI, that sim's stage no longer
+  // contributes a "primary provider" vote to multi-LLM diversity.
+  // We accept this — a fall-back sim is strictly better than a lost
+  // sim, and outages that trigger failover are exactly the moments
+  // when multi-LLM diversity falls apart anyway. Per-stage
+  // actualProvider is logged for observability.
+  const makeStageFallback = (
+    stage: "personas" | "countries" | "pricing",
+  ) => () => {
+    // Same fallback hierarchy as synthesis: never fall back to Gemini
+    // (most likely cause of the failover firing) or DeepSeek (newer,
+    // less battle-tested). Anthropic is preferred default; if primary
+    // IS Anthropic, switch to OpenAI.
+    const primaryName = personaLLMRaw.name; // all stages share opts.provider
+    const fallbackName = primaryName === "anthropic" ? "openai" : "anthropic";
+    return getLLMProvider({ stage, provider: fallbackName });
+  };
+  const personaActualProvider = { name: personaLLMRaw.name as string };
+  const countryActualProvider = { name: countryLLMRaw.name as string };
+  const pricingActualProvider = { name: pricingLLMRaw.name as string };
+  const personaLLMFalloverable = withProviderFallback(personaLLMRaw, {
+    stage: "personas",
+    simId: opts.simulationId,
+    makeFallback: makeStageFallback("personas"),
+    onFallback: ({ fallback }) => {
+      personaActualProvider.name = fallback;
+    },
+  });
+  const countryLLMFalloverable = withProviderFallback(countryLLMRaw, {
+    stage: "countries",
+    simId: opts.simulationId,
+    makeFallback: makeStageFallback("countries"),
+    onFallback: ({ fallback }) => {
+      countryActualProvider.name = fallback;
+    },
+  });
+  const pricingLLMFalloverable = withProviderFallback(pricingLLMRaw, {
+    stage: "pricing",
+    simId: opts.simulationId,
+    makeFallback: makeStageFallback("pricing"),
+    onFallback: ({ fallback }) => {
+      pricingActualProvider.name = fallback;
+    },
+  });
+  const personaLLM = withUsageTracking(personaLLMFalloverable, usage);
+  const countryLLM = withUsageTracking(countryLLMFalloverable, usage);
+  const pricingLLM = withUsageTracking(pricingLLMFalloverable, usage);
 
   // Synthesis: wrap with provider-failover so a Gemini 503 spike (or
   // any other 5xx/429 the retry policy can't outlast) flips the
@@ -1130,6 +1186,25 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         `channel slips rewritten: ${channelMismatchCount}` +
         (voiceSlipCount === 0 && channelMismatchCount === 0 ? " ✓" : ""),
     );
+    // Failover observability — log when any stage's actual provider
+    // diverged from the assigned primary, so an outage shows up in
+    // logs without needing to grep for "[failover]". Silent when no
+    // stage failed over.
+    if (
+      personaActualProvider.name !== personaLLMRaw.name ||
+      countryActualProvider.name !== countryLLMRaw.name ||
+      pricingActualProvider.name !== pricingLLMRaw.name
+    ) {
+      console.warn(
+        `[sim ${opts.simulationId}] stage providers (failover): ` +
+          `personas=${personaActualProvider.name}` +
+          (personaActualProvider.name !== personaLLMRaw.name ? ` (←${personaLLMRaw.name})` : "") +
+          ` · countries=${countryActualProvider.name}` +
+          (countryActualProvider.name !== countryLLMRaw.name ? ` (←${countryLLMRaw.name})` : "") +
+          ` · pricing=${pricingActualProvider.name}` +
+          (pricingActualProvider.name !== pricingLLMRaw.name ? ` (←${pricingLLMRaw.name})` : ""),
+      );
+    }
 
     // Diversity guardrail — observability signal for cluster dominance.
     // After all reaction filters (mismatch / generic-price / generic-launch /

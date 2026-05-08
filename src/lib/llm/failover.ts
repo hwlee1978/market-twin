@@ -12,9 +12,14 @@ import type { LLMProvider, LLMRequest, LLMResponse } from "./types";
  *   rate limit. Even with our 5-attempt × jittered backoff totalling
  *   ~3 minutes, sustained spikes still leak through and kill sims.
  *
- * Scope: only the SYNTHESIS stage uses this. Persona / country /
- * pricing stages tolerate provider variance and are too volume-heavy
- * to fall back without losing the multi-LLM diversity signal.
+ * Scope: every high-volume stage uses this — synthesis, personas,
+ * countries, pricing, and (transitively) regulatory. Earlier scope was
+ * synthesis-only on the theory that volume stages tolerate provider
+ * variance, but in practice a single-stage outage on persona generation
+ * (Gemini 503 storm or Anthropic url-fetch timeout) wipes out entire
+ * sims even though the rest of the pipeline would have completed fine.
+ * Trading a small attribution drift on failover for sims that actually
+ * finish has been the right tradeoff.
  *
  * Honest attribution: every fallback fire writes to `onFallback` so
  * the sim runner can record which provider actually produced the
