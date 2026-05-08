@@ -3214,7 +3214,28 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 {p.segmentBreakdown.byGender.length > 0 && (
                   <SegmentBlock
                     title={isKo ? "성별" : "Gender"}
-                    rows={p.segmentBreakdown.byGender}
+                    rows={p.segmentBreakdown.byGender.map((r) => ({
+                      ...r,
+                      // Same gender-label expansion as the dashboard —
+                      // "other" → "Non-binary / 기타" so the PDF reader
+                      // doesn't have to guess what the bucket means.
+                      bucket:
+                        r.bucket === "other"
+                          ? isKo
+                            ? "기타·논바이너리"
+                            : "Non-binary / other"
+                          : isKo
+                            ? r.bucket === "female"
+                              ? "여성"
+                              : r.bucket === "male"
+                                ? "남성"
+                                : r.bucket
+                            : r.bucket === "female"
+                              ? "Female"
+                              : r.bucket === "male"
+                                ? "Male"
+                                : r.bucket,
+                    }))}
                     isKo={isKo}
                   />
                 )}

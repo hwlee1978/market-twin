@@ -3658,7 +3658,30 @@ function PersonasTab({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <SegmentTable
                 title={isKo ? "성별" : "Gender"}
-                rows={personas.segmentBreakdown.byGender}
+                rows={personas.segmentBreakdown.byGender.map((r) => ({
+                  ...r,
+                  // The aggregator collapses non-binary / 기타 / NB into
+                  // a single "other" bucket — readable in code, opaque
+                  // in the UI. Expand the label so the segment card
+                  // doesn't leave a reader wondering whether "other"
+                  // means "unknown" / "didn't specify" / "non-binary".
+                  bucket:
+                    r.bucket === "other"
+                      ? isKo
+                        ? "기타·논바이너리"
+                        : "Non-binary / other"
+                      : isKo
+                        ? r.bucket === "female"
+                          ? "여성"
+                          : r.bucket === "male"
+                            ? "남성"
+                            : r.bucket
+                        : r.bucket === "female"
+                          ? "Female"
+                          : r.bucket === "male"
+                            ? "Male"
+                            : r.bucket,
+                }))}
                 isKo={isKo}
               />
               <SegmentTable
