@@ -2219,72 +2219,100 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             </View>
           )}
 
-        {/* GTM strategy */}
-        {gtm &&
-          (gtm.keyMessage ||
-            gtm.primaryAudience ||
-            (gtm.differentiators?.length ?? 0) > 0 ||
-            (gtm.risks?.length ?? 0) > 0) && (
-            <View
-              style={{
-                marginTop: 8,
-                padding: 12,
-                backgroundColor: "#F0FDF4",
-                borderTopWidth: 3,
-                borderTopColor: C.success,
-                borderRadius: 4,
-              }}
-              wrap={false}
-            >
-              <MText style={[styles.sectionEyebrow, { color: C.success, marginBottom: 6 }]}>
-                {isKo ? "GTM 전략 요약" : "GTM strategy summary"}
+        {pageFooter}
+      </Page>
+    );
+  };
+
+  /**
+   * GTM strategy summary as its own page. Previously lived as a colored
+   * block inside the Market profile page; user split it out 2026-05-09
+   * so the strategy framing gets its own headline weight rather than
+   * getting buried beneath a long competitor / channel / regulatory
+   * deep-dive. Same data source (aggregate.marketProfile.goToMarketStrategy);
+   * page hides entirely when none of the four sub-fields are populated.
+   */
+  const renderGtmStrategyPage = () => {
+    if (!tierBudget.showMarketProfile) return null;
+    const mp = aggregate.marketProfile;
+    const gtm = mp?.goToMarketStrategy;
+    if (
+      !gtm ||
+      (!gtm.keyMessage &&
+        !gtm.primaryAudience &&
+        (gtm.differentiators?.length ?? 0) === 0 &&
+        (gtm.risks?.length ?? 0) === 0)
+    ) {
+      return null;
+    }
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo ? "GTM 전략 요약" : "GTM strategy summary"}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? `추천 진출국 ${mp?.country ?? ""} 기준의 핵심 메시지 · ICP · 차별화 요소 · 진입 리스크 — 캠페인·랜딩 디자인의 직접 input.`
+            : `Key message, ICP, differentiators, and market-entry risks for ${mp?.country ?? "the recommended market"} — direct input for campaign and landing design.`}
+        </MText>
+
+        <View
+          style={{
+            marginTop: 4,
+            padding: 14,
+            backgroundColor: "#F0FDF4",
+            borderTopWidth: 3,
+            borderTopColor: C.success,
+            borderRadius: 4,
+          }}
+          wrap={false}
+        >
+          {gtm.keyMessage && (
+            <View style={{ marginBottom: 10 }}>
+              <MText style={{ fontSize: 8, color: C.muted, fontWeight: 600, marginBottom: 2 }}>
+                {isKo ? "핵심 메시지" : "Key message"}
               </MText>
-              {gtm.keyMessage && (
-                <View style={{ marginBottom: 6 }}>
-                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600 }}>
-                    {isKo ? "핵심 메시지" : "Key message"}
-                  </MText>
-                  <MText style={{ fontSize: 10, color: C.ink, fontWeight: 600, lineHeight: 1.5 }}>
-                    {gtm.keyMessage}
-                  </MText>
-                </View>
-              )}
-              {gtm.primaryAudience && (
-                <View style={{ marginBottom: 6 }}>
-                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600 }}>
-                    {isKo ? "1차 타겟 (ICP)" : "Primary audience (ICP)"}
-                  </MText>
-                  <MText style={{ fontSize: 9, color: C.body, lineHeight: 1.5 }}>
-                    {gtm.primaryAudience}
-                  </MText>
-                </View>
-              )}
-              {(gtm.differentiators?.length ?? 0) > 0 && (
-                <View style={{ marginBottom: 6 }}>
-                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, marginBottom: 2 }}>
-                    {isKo ? "차별화 요소" : "Differentiators"}
-                  </MText>
-                  {(gtm.differentiators ?? []).map((d, i) => (
-                    <MText key={i} style={{ fontSize: 9, color: C.body, lineHeight: 1.4 }}>
-                      {`✓ ${d}`}
-                    </MText>
-                  ))}
-                </View>
-              )}
-              {(gtm.risks?.length ?? 0) > 0 && (
-                <View>
-                  <MText style={{ fontSize: 7, color: C.risk, fontWeight: 600, marginBottom: 2 }}>
-                    {isKo ? "주요 시장 진입 리스크" : "Market-entry risks"}
-                  </MText>
-                  {(gtm.risks ?? []).map((r, i) => (
-                    <MText key={i} style={{ fontSize: 9, color: C.body, lineHeight: 1.4 }}>
-                      {`⚠ ${r}`}
-                    </MText>
-                  ))}
-                </View>
-              )}
+              <MText style={{ fontSize: 11, color: C.ink, fontWeight: 600, lineHeight: 1.5 }}>
+                {gtm.keyMessage}
+              </MText>
             </View>
           )}
+          {gtm.primaryAudience && (
+            <View style={{ marginBottom: 10 }}>
+              <MText style={{ fontSize: 8, color: C.muted, fontWeight: 600, marginBottom: 2 }}>
+                {isKo ? "1차 타겟 (ICP)" : "Primary audience (ICP)"}
+              </MText>
+              <MText style={{ fontSize: 10, color: C.body, lineHeight: 1.5 }}>
+                {gtm.primaryAudience}
+              </MText>
+            </View>
+          )}
+          {(gtm.differentiators?.length ?? 0) > 0 && (
+            <View style={{ marginBottom: 10 }}>
+              <MText style={{ fontSize: 8, color: C.muted, fontWeight: 600, marginBottom: 4 }}>
+                {isKo ? "차별화 요소" : "Differentiators"}
+              </MText>
+              {(gtm.differentiators ?? []).map((d, i) => (
+                <MText key={i} style={{ fontSize: 10, color: C.body, lineHeight: 1.5, marginBottom: 2 }}>
+                  {`✓ ${d}`}
+                </MText>
+              ))}
+            </View>
+          )}
+          {(gtm.risks?.length ?? 0) > 0 && (
+            <View>
+              <MText style={{ fontSize: 8, color: C.risk, fontWeight: 600, marginBottom: 4 }}>
+                {isKo ? "주요 시장 진입 리스크" : "Market-entry risks"}
+              </MText>
+              {(gtm.risks ?? []).map((r, i) => (
+                <MText key={i} style={{ fontSize: 10, color: C.body, lineHeight: 1.5, marginBottom: 2 }}>
+                  {`⚠ ${r}`}
+                </MText>
+              ))}
+            </View>
+          )}
+        </View>
 
         {pageFooter}
       </Page>
@@ -4988,7 +5016,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       <Page size="A4" style={styles.page}>
         {pageHeader}
         <MText style={styles.pageTitle}>
-          {isKo ? "리스크 × 액션 매핑" : "Risk × action mapping"}
+          {isKo ? "리스크 액션매핑" : "Risk × action mapping"}
         </MText>
         <MText style={styles.pageSubtitle}>
           {isKo
@@ -6339,41 +6367,43 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           {renderPricingPage()}
         </>
       ) : (
-        // Detailed report: every page, in the order that gives a
-        // narrative arc — context → recommendation → drilldown → support.
+        // Detailed report — order set by user 2026-05-09. Five pages
+        // dropped (dashboard already covers): per-country funnel
+        // comparison, champion-vs-skeptic, trust-vs-objection
+        // ("무엇이 설득..."), recommendation robustness/sensitivity,
+        // and result-reliability ("결과 신뢰성 진단"). GTM strategy
+        // split out of MarketProfile into its own page so the strategy
+        // gets headline weight rather than a colored block buried under
+        // competitor / channel / regulatory blocks. Country decision
+        // matrix and country score analysis sit adjacent so the matrix
+        // heading carries the umbrella concept (user's "헤드라인으로
+        // 합침" intent — keeping both as separate A4 pages preserves
+        // the deep-table + viz structure that already exists).
         <>
+          {renderProjectInfoPage()}
           {renderOnePageBriefPage()}
           {renderGoNoGoVerdictPage()}
-          {renderProjectInfoPage()}
           {renderExecutiveSummaryPage()}
           {renderRecommendationPage()}
           {renderMarketProfilePage()}
+          {renderGtmStrategyPage()}
           {renderCountryDecisionMatrixPage()}
-          {renderExecutionTimelinePage()}
           {renderCountriesPage()}
+          {renderExecutionTimelinePage()}
           {renderCountryDetailPage()}
-          {renderCountryFunnelComparisonPage()}
           {renderIncomeIntentPage()}
           {renderProfessionRankingPage()}
           {renderChannelPriorityPage()}
           {renderArchetypesPage()}
           {renderPersonasPage()}
           {renderVoicesPage()}
-          {renderChampionVsSkepticPage()}
           {renderCommonObjectionsPage()}
-          {renderTrustVsObjectionPage()}
           {renderPricingPage()}
           {renderRisksPage()}
           {renderActionsPage()}
           {renderInvestmentROIPage()}
-          {renderSensitivityAnalysisPage()}
           {renderRiskActionMappingPage()}
           {renderProviderConsensusPage()}
-          {/* renderProviderDisagreementPage dropped 2026-05-08 —
-              same providerBreakdown data the Consensus page already
-              shows via per-model distribution charts; the second page
-              was just a different verbal framing of the same numbers. */}
-          {renderVariancePage()}
           {renderAppendixPage()}
         </>
       )}
