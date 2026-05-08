@@ -389,6 +389,7 @@ CRITICAL constraints (re-read the system prompt rules):
 - ALL text fields (profession, purchaseStyle, interests, trustFactors, objections) in the LOCALE language — even for non-${locale.toUpperCase()} personas. Do NOT switch to the country's native language.
 - incomeBand realistic for the persona's country AND life stage. A student or homemaker MUST NOT have a salary-like figure.
 - purchaseIntent (0-100) honest — distribution should include skeptics (low), neutrals, and a few champions.
+- **PRICE-AS-OBJECTION REQUIRES MATH**: before listing any price-related concern in objections, compute (product price USD ÷ persona annual income USD). If ratio < 0.2%, price is NOT a plausible objection for this persona — pick a non-price concern (channel, fit, design, brand familiarity, regulatory, category-fit) instead. If ratio is 0.2-0.5%, price is plausible only with a SPECIFIC comparator (\"Allbirds 대비 비쌈\", \"\$150 for a knit shoe\"). If ratio ≥ 0.5%, generic price concern is plausible. A \$150k earner does not rationally complain an \$87 sneaker is \"expensive\" (ratio 0.06%) — emitting that objection is a credibility failure.
 
 ═══ adReaction — REQUIRED (2-stage funnel signal) ═══
 Each persona ALSO emits an "adReaction" object: { "curiosity": 0-100, "wouldClick": true/false }. This captures the **FIRST IMPRESSION** stage — what the persona thinks SEEING THE PRODUCT AD/POST in their feed, BEFORE clicking through to the landing page or reading any details. It is a separate funnel step from purchaseIntent (which is post-consideration).
@@ -420,7 +421,16 @@ For persona reaction generation:
 - Do NOT regenerate any base profile attribute. Use the provided fields verbatim.
 - Reactions must be SPECIFIC to this product (price point, category, origin, claims) and grounded in the persona's own demographic + profession + price-sensitivity context.
 - trustFactors: 1-3 things ABOUT this product that this persona would find credible (specific, not generic).
-- objections: 1-3 specific concerns this persona would raise (pinpoint the friction, not platitudes). **AVOID generic price grumbles** — "가격이 높음" / "비쌈" / "expensive" without a comparator are noise: they dominate the aggregator's top-5 across every country (90%+ surface) while the actually differentiating blockers (climate fit, color range, scene alignment, channel availability, regulatory friction) sit at 1-2%. If price IS this persona's real concern, attach an anchor — "Allbirds 대비 비쌈", "월 구독료 부담", "$150 is steep for a knit shoe" — so the cluster carries comparative signal. If you can't anchor it, pick a non-price concern that's actually specific to this persona's lens.
+- objections: 1-3 specific concerns this persona would raise (pinpoint the friction, not platitudes).
+  - **PRICE-AS-OBJECTION REQUIRES MATH** — before listing any price-related concern, run this self-check on the persona's income vs the product price:
+    1. Compute USD-equivalent annual income from incomeBand (it includes a USD parenthetical for non-USD currencies).
+    2. Compute the product price in USD. The base price is in the product context above.
+    3. Ratio = product price ÷ annual income.
+    4. Decision rules:
+       - Ratio ≥ 0.5%: price-as-objection is plausible for this persona — emit it.
+       - Ratio < 0.2%: price-as-objection is NOT plausible. A $87 sneaker = 0.06% of \$150k income; a $150k earner does not rationally complain that an $87 sneaker is "expensive". Drop the price objection and pick a non-price concern (channel, fit, design, brand familiarity) that actually applies.
+       - Ratio in 0.2–0.5%: only emit price if you can anchor it with a SPECIFIC comparator (competitor price, recurring-purchase frame, bundle math).
+  - **AVOID generic price grumbles** — "가격이 높음" / "비쌈" / "expensive" without a comparator are noise: even when the math says price IS a concern, attach an anchor — "Allbirds 대비 비쌈", "월 구독료 부담", "$150 is steep for a knit shoe" — so the cluster carries comparative signal. Bare "가격이 높음" with no comparator gets dropped by the runtime sanitizer regardless.
 - purchaseIntent: 0-100 honest score reflecting actual likelihood to buy.
 - voice: a single 1-2 sentence first-person quote.
   - **LANGUAGE (HIGHEST PRIORITY)**: voice MUST be in the LOCALE language regardless of the persona's country. Examples for a Korean-locale run:
