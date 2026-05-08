@@ -13,6 +13,7 @@
  */
 
 import { z } from "zod";
+import { COUNTRIES, getCountryLabel } from "@/lib/countries";
 import { getLLMProvider } from "@/lib/llm";
 import type { EnsembleSimSnapshot, EnsembleNarrative } from "./ensemble";
 import { recountSurfacedInSims } from "./surfaced-recount";
@@ -185,15 +186,52 @@ export async function mergeNarrative(
       };
     });
 
+    // Validate hotTake / executiveSummary against the recommended
+    // country. The merge LLM occasionally hallucinates a country
+    // mention that contradicts bestCountry — we saw "영국 시장은 ...
+    // 최적의 선택" rendered above a key-finding line that read
+    // "프랑스 진출이 합의 우위 (80% / STRONG)". When the narrative
+    // names the WRONG country, drop it rather than ship the
+    // contradiction; the rest of the report (per-country charts,
+    // recommendation card, key findings) carries the correct signal.
+    const hotTakeRewritten = parsed.data.hotTake
+      ? rewriteSimScaleReferences(
+          parsed.data.hotTake,
+          perSimPersonas,
+          totalPersonas,
+        )
+      : undefined;
+    const execSummaryRewritten = rewriteSimScaleReferences(
+      parsed.data.executiveSummary,
+      perSimPersonas,
+      totalPersonas,
+    );
+    const hotTakeOk =
+      !hotTakeRewritten ||
+      narrativeMatchesRecommendedCountry(
+        hotTakeRewritten,
+        opts.bestCountry,
+        opts.locale,
+      );
+    const execSummaryOk = narrativeMatchesRecommendedCountry(
+      execSummaryRewritten,
+      opts.bestCountry,
+      opts.locale,
+    );
+    if (!hotTakeOk) {
+      console.warn(
+        `[ensemble narrative] hotTake mentions wrong country (expected ${opts.bestCountry}); dropping. Original: "${hotTakeRewritten?.slice(0, 100)}"`,
+      );
+    }
+    if (!execSummaryOk) {
+      console.warn(
+        `[ensemble narrative] executiveSummary mentions wrong country (expected ${opts.bestCountry}). Keeping for now — UI-level country charts override the prose.`,
+      );
+    }
+
     return {
-      hotTake: parsed.data.hotTake
-        ? rewriteSimScaleReferences(parsed.data.hotTake, perSimPersonas, totalPersonas)
-        : undefined,
-      executiveSummary: rewriteSimScaleReferences(
-        parsed.data.executiveSummary,
-        perSimPersonas,
-        totalPersonas,
-      ),
+      hotTake: hotTakeOk ? hotTakeRewritten : undefined,
+      executiveSummary: execSummaryRewritten,
       mergedRisks,
       mergedActions,
       overallRiskLevel,
@@ -205,6 +243,59 @@ export async function mergeNarrative(
     console.warn(`[ensemble narrative] merge LLM call failed, falling back to raw:`, err);
     return narrativeFromRawSnapshots(sims, overallRiskLevel);
   }
+}
+
+/**
+ * Returns true when narrative prose either mentions the recommended
+ * country (by code or label) or doesn't mention any country at all.
+ * Returns false when prose names a DIFFERENT country than the
+ * aggregate's bestCountry — that's the contradiction case worth
+ * dropping (we caught the merge LLM saying "영국 시장은 ... 최적의
+ * 선택" while bestCountry was FR).
+ *
+ * Detection is heuristic — we look for any candidate country code or
+ * its KO/EN label as a whole word. False positives are tolerable
+ * (some country labels are short Latin words) because the only
+ * downside is dropping a hot take that turned out to be fine; the
+ * UI's recommendation card carries the actual signal regardless.
+ */
+function narrativeMatchesRecommendedCountry(
+  text: string,
+  bestCountry: string,
+  locale: "ko" | "en",
+): boolean {
+  if (!text) return true;
+  const expected = bestCountry.toUpperCase();
+  // Build the set of "wrong country" markers — every country except
+  // the recommended one, both code + locale label.
+  const wrongTokens: string[] = [];
+  for (const c of COUNTRIES) {
+    if (c.code === expected) continue;
+    wrongTokens.push(c.code);
+    wrongTokens.push(c.labelKo);
+    wrongTokens.push(c.labelEn);
+  }
+  // Right tokens — expected country's code, KO label, EN label, plus a
+  // localized helper if locale is provided.
+  const rightTokens = [
+    expected,
+    getCountryLabel(expected, "ko"),
+    getCountryLabel(expected, "en"),
+    getCountryLabel(expected, locale),
+  ].filter((s): s is string => !!s);
+
+  const lower = text.toLowerCase();
+  const mentionsRight = rightTokens.some((t) =>
+    lower.includes(t.toLowerCase()),
+  );
+  if (mentionsRight) return true;
+  // No right-country mention. Now check whether any wrong country
+  // appears — if so, that's a contradiction. If neither right nor
+  // wrong country appears, the prose is country-neutral and fine.
+  const mentionsWrong = wrongTokens.some(
+    (t) => t.length >= 2 && lower.includes(t.toLowerCase()),
+  );
+  return !mentionsWrong;
 }
 
 function modeRiskLevel(sims: EnsembleSimSnapshot[]): "low" | "medium" | "high" {
@@ -277,7 +368,9 @@ function buildMergePrompt(
   const guidance = isKo
     ? `통합 결과 작성 지침:
 
-0. **hotTake (필수, 최대 120자)**: "30초 핫테이크" — 분석 전체에서 가장 도발적이고 의사결정 가능한 한 줄 발견을 한국어로 작성. **점수가 아닌 액션**을 말하세요. 권장 진출 / 진출 회피 / 가격 재조정 / 채널 전략 등 명확한 결정을 한 줄에. 형식 예:
+0. **hotTake (필수, 최대 120자)**: "30초 핫테이크" — 분석 전체에서 가장 도발적이고 의사결정 가능한 한 줄 발견을 한국어로 작성. **점수가 아닌 액션**을 말하세요. 권장 진출 / 진출 회피 / 가격 재조정 / 채널 전략 등 명확한 결정을 한 줄에.
+   ⚠ **국가 일치 (절대 위반 불가)**: 추천 진출국은 **${opts.bestCountry}**입니다. hotTake에서 다른 국가를 "최적", "1순위", "권장"으로 지칭하지 마세요 — sim 데이터의 합의는 ${opts.bestCountry}이고, 핫테이크는 그 합의를 요약하는 것이지 뒤집는 것이 아닙니다. 다른 국가를 언급해야 한다면 "차순위", "대안", "단, X는 별도 검토 가치"의 보조 framing만 허용.
+   형식 예:
    - "❌ 미국 진출 보류 — 페르소나 73%가 가격 거부, CAC 흑자전환 8개월 이상 소요"
    - "🔥 베트남이 진짜다 — H&B 채널 미점유 + Z세대 매운맛 트렌드 동시 기회"
    - "⚠ 일본 진출은 가능하나 가격 -20% 필수 — 그렇지 않으면 Maruchan에 잠식"
