@@ -34,6 +34,7 @@ import {
   isPersonaMismatchNoise,
   isGenericPriceObjection,
   isGenericTrustFactor,
+  isGenericLaunchConcern,
 } from "@/lib/simulation/surfaced-recount";
 import {
   COMPONENT_LABEL,
@@ -5172,7 +5173,18 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       for (const o of objs) {
         const key = o.text.trim();
         if (!key) continue;
-        if (isPersonaMismatchNoise(key)) continue;
+        // Same filter chain as the country-detail render: persona-
+        // mismatch noise, generic price grumbles, and generic launch
+        // concerns ("브랜드 인지도 낮음", "가격 대비 내구성 의문")
+        // all surface in 90%+ of personas across every country and
+        // dominate the universal column with no comparative signal.
+        if (
+          isPersonaMismatchNoise(key) ||
+          isGenericPriceObjection(key) ||
+          isGenericLaunchConcern(key)
+        ) {
+          continue;
+        }
         allEntries.push({ text: key, country: c.country, count: o.count });
       }
     }

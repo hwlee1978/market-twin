@@ -265,6 +265,44 @@ export function isGenericTrustFactor(text: string): boolean {
 }
 
 /**
+ * Generic launch / new-entrant concerns. "브랜드 인지도 낮음" and
+ * "가격 대비 내구성 의문" surface in 89-91% of personas across every
+ * country for any new-to-market product — they're definitionally
+ * true (new brand = low awareness, untested product = durability
+ * uncertain) and add zero comparative signal between markets. Same
+ * pattern as generic price grumbles + generic trust factors.
+ *
+ * Specific concerns that DO add signal — \"S$116은 웨딩 하객용으로는
+ * 부담\" (specific price + use case), \"GOTS 인증 여부 명시 안 됨\"
+ * (specific certification), \"£60이면 ASOS에서 비슷한 디자인 £30에
+ * 있음\" (specific competitor + price) — survive because they exceed
+ * the length threshold or include a brand / number / certification
+ * / scenario anchor.
+ */
+export function isGenericLaunchConcern(text: string): boolean {
+  const t = text.trim();
+  if (t.length > 20) return false;
+  const lower = t.toLowerCase();
+  // Brand-awareness / new-entrant / unknown-brand grumbles.
+  const isBrandAwareness =
+    /(브랜드\s*인지도\s*(낮|부족|없)|인지도\s*(낮|부족|없)|브랜드\s*(생소|모름|미인지|신뢰\s*부족)|신뢰성\s*(부족|없)|low\s+brand\s+(awareness|recognition)|unknown\s+brand|unfamiliar\s+brand)/i.test(
+      t,
+    );
+  // Durability uncertainty without specific test / time / context.
+  const isDurabilityVague =
+    /(가격\s*대비\s*내구성\s*(의문|우려|걱정|불안)|내구성\s*(의문|우려|걱정|불안)|durability\s+(concern|question|uncertain)|long-term\s+wear)/i.test(
+      t,
+    );
+  if (!isBrandAwareness && !isDurabilityVague) return false;
+  // Specific anchors override the generic flag.
+  const hasSpecificAnchor =
+    /[A-Z][a-zA-Z]{2,}|\$\s*\d|\d\s*(?:원|달러|만원|USD|TWD|JPY|EUR|GBP)|월\s*\d|구독|재구매|refill|subscription|monthly|annually|대비|보다|시즌|계절|웨딩|기내/.test(
+      lower,
+    );
+  return !hasSpecificAnchor;
+}
+
+/**
  * Generic, contextless price grumbles ("가격이 높음" / "비쌈" /
  * "expensive") that surface in nearly every consumer-product run
  * regardless of actual price. Used to be a cross-country blocker-table

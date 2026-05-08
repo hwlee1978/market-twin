@@ -17,6 +17,7 @@ import {
   tokenize,
   overlapCoefficient,
   clusterStrings,
+  isGenericLaunchConcern,
   isGenericPriceObjection,
   isGenericTrustFactor,
   isPersonaMismatchNoise,
@@ -781,7 +782,8 @@ export function aggregateEnsemble(
           if (
             t &&
             !isPersonaMismatchNoise(t) &&
-            !isGenericPriceObjection(t)
+            !isGenericPriceObjection(t) &&
+            !isGenericLaunchConcern(t)
           ) {
             allObjections.push(t);
             objectionPersonaIds.push(pi);

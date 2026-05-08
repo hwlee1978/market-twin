@@ -10,6 +10,7 @@ import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
 import { formatPrice } from "@/lib/format/price";
 import { normalizeLLMText } from "@/lib/format/normalize";
 import {
+  isGenericLaunchConcern,
   isGenericPriceObjection,
   isGenericTrustFactor,
 } from "@/lib/simulation/surfaced-recount";
@@ -2422,12 +2423,15 @@ function CountryDrilldown({
         )}
         {(() => {
           // Defense-in-depth — existing ensembles persisted before the
-          // aggregator-side filter (commit 7999ca8) still carry generic
-          // price grumbles in their topObjections cluster. Drop them at
-          // render time so legacy data also shows differentiating
-          // blockers instead of "98% 가격이 높음" everywhere.
+          // aggregator-side filter still carry generic price grumbles
+          // and generic launch concerns in their topObjections cluster.
+          // Drop them at render time so legacy data also shows
+          // differentiating blockers instead of "98% 가격이 높음" or
+          // "91% 브랜드 인지도가 낮음" everywhere.
           const filteredObjections = detail.topObjections.filter(
-            (o) => !isGenericPriceObjection(o.text),
+            (o) =>
+              !isGenericPriceObjection(o.text) &&
+              !isGenericLaunchConcern(o.text),
           );
           if (filteredObjections.length === 0) return null;
           return (
