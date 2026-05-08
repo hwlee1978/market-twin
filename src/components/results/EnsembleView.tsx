@@ -9,6 +9,7 @@ import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
 import { formatPrice } from "@/lib/format/price";
 import { normalizeLLMText } from "@/lib/format/normalize";
+import { isGenericPriceObjection } from "@/lib/simulation/surfaced-recount";
 import {
   computePricingSensitivity,
   computeCurveRevenueMaxCents,
@@ -2397,13 +2398,23 @@ function CountryDrilldown({
             </ul>
           </div>
         )}
-        {detail.topObjections.length > 0 && (
+        {(() => {
+          // Defense-in-depth — existing ensembles persisted before the
+          // aggregator-side filter (commit 7999ca8) still carry generic
+          // price grumbles in their topObjections cluster. Drop them at
+          // render time so legacy data also shows differentiating
+          // blockers instead of "98% 가격이 높음" everywhere.
+          const filteredObjections = detail.topObjections.filter(
+            (o) => !isGenericPriceObjection(o.text),
+          );
+          if (filteredObjections.length === 0) return null;
+          return (
           <div>
             <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-2">
               {isKo ? "공통 거부 요인 TOP 5" : "Top objections"}
             </div>
             <ul className="space-y-1.5 text-sm">
-              {detail.topObjections.map((o) => {
+              {filteredObjections.map((o) => {
                 // Count = unique personas (post e01b025 fix) clustered
                 // by fuzzy overlap. Showing as % of the country pool
                 // makes magnitude immediately readable. NOT mutually
@@ -2439,7 +2450,8 @@ function CountryDrilldown({
                 : "% = share of country personas who raised the concern. One persona can list multiple, so the column may sum above 100%."}
             </p>
           </div>
-        )}
+          );
+        })()}
       </div>
       <div className="space-y-4">
         <div>

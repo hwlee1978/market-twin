@@ -2903,12 +2903,22 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
 
               <View style={{ flexDirection: "row", gap: 14 }}>
                 <View style={{ flex: 1.4 }}>
-                  {d.topObjections.length > 0 && (
+                  {(() => {
+                    // Defense-in-depth — legacy ensembles persisted
+                    // before commit 7999ca8 still carry generic price
+                    // grumbles in their topObjections cluster. Drop
+                    // them at render time so the PDF also shows
+                    // differentiating blockers on existing data.
+                    const filteredObjections = d.topObjections.filter(
+                      (o) => !isGenericPriceObjection(o.text),
+                    );
+                    if (filteredObjections.length === 0) return null;
+                    return (
                     <View>
                       <MText style={[styles.infoLabel, { marginBottom: 3 }]}>
                         {isKo ? "공통 거부 요인 TOP 5" : "Top objections"}
                       </MText>
-                      {d.topObjections.map((o) => {
+                      {filteredObjections.map((o) => {
                         // Count = unique personas who raised the
                         // clustered concern (post e01b025 fix). NOT
                         // mutually exclusive — one persona can raise
@@ -2960,7 +2970,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                           : "% = share of personas who raised it. One persona may raise multiple — column may sum >100%."}
                       </MText>
                     </View>
-                  )}
+                    );
+                  })()}
                 </View>
                 <View style={{ flex: 1 }}>
                   <MText style={[styles.infoLabel, { marginBottom: 3 }]}>
