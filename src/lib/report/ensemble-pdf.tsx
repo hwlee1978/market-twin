@@ -763,7 +763,17 @@ interface BuildArgs {
  */
 function stripUnsupportedGlyphs(text: string): string {
   if (!text) return text;
+  // NFKC compatibility-decomposes fancy variants the LLM occasionally
+  // emits (circled letters ⓐⓑⓞ → plain a/b/o, fullwidth digits → halfwidth,
+  // math italic letters → plain). The registered fonts ship Latin +
+  // Hangul + CJK glyphs but no decorated/circled variants, so without
+  // this pass the renderer falls back to a default font for those chars
+  // and the alignment / weight goes off in the middle of a brand name.
   return text
+    .normalize("NFKC")
+    .replace(/[❛-❞]/g, "'") // ornamental single/double quotes
+    .replace(/[‘’‚‛]/g, "'") // smart single quotes / low-9 quote
+    .replace(/[“”„‟]/g, '"') // smart double quotes
     .replace(/\p{Extended_Pictographic}/gu, "")
     .replace(/[‍️︎]/g, "") // ZWJ + variation selectors
     .replace(/[\u{1F1E6}-\u{1F1FF}]/gu, "") // regional indicator letters (flag emoji halves)
@@ -2023,8 +2033,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                         style={{ fontSize: 9, color: C.body, lineHeight: 1.4, marginLeft: 6, fontFamily: "AppFont" }}
                       >
                         {"• "}
-                        <Text style={{ fontWeight: 600 }}>{item.name}</Text>
-                        {item.rationale ? ` — ${item.rationale}` : ""}
+                        <Text style={{ fontWeight: 600 }}>{stripUnsupportedGlyphs(item.name)}</Text>
+                        {item.rationale ? ` — ${stripUnsupportedGlyphs(item.rationale)}` : ""}
                       </Text>
                     ))}
                   </View>

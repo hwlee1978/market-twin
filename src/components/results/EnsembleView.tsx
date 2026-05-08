@@ -8,6 +8,7 @@ import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
 import { formatPrice } from "@/lib/format/price";
+import { normalizeLLMText } from "@/lib/format/normalize";
 import {
   computePricingSensitivity,
   computeCurveRevenueMaxCents,
@@ -3145,9 +3146,9 @@ function MarketProfileTab({
                     <ul className="space-y-1.5">
                       {items.map((item, idx) => (
                         <li key={idx} className="text-sm text-slate-700 leading-relaxed">
-                          • <span className="font-semibold">{item.name}</span>
+                          • <span className="font-semibold">{normalizeLLMText(item.name)}</span>
                           {item.rationale && (
-                            <span className="text-slate-500"> — {item.rationale}</span>
+                            <span className="text-slate-500"> — {normalizeLLMText(item.rationale)}</span>
                           )}
                         </li>
                       ))}
