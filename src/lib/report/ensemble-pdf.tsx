@@ -313,21 +313,34 @@ const TIER_BUDGET: Record<
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 56,
-    paddingBottom: 48,
-    paddingHorizontal: 48,
+    paddingTop: 64,
+    paddingBottom: 52,
+    paddingHorizontal: 52,
     fontSize: 10,
     fontFamily: "AppFont",
     color: C.ink,
   },
+  // Brand accent bar at the very top of every non-cover page — a 3pt
+  // brand-color rule that anchors the layout. Subtle but it's the
+  // single biggest "this is a polished report, not a Notion export"
+  // signal because every spread starts with the brand color visible.
+  pageAccent: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: C.brand,
+  },
   pageHeader: {
     position: "absolute",
-    top: 24,
-    left: 48,
-    right: 48,
+    top: 28,
+    left: 52,
+    right: 52,
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingBottom: 8,
+    alignItems: "center",
+    paddingBottom: 10,
     borderBottom: `0.5pt solid ${C.divider}`,
     fontSize: 8,
     color: C.muted,
@@ -335,10 +348,13 @@ const styles = StyleSheet.create({
   pageFooter: {
     position: "absolute",
     bottom: 24,
-    left: 48,
-    right: 48,
+    left: 52,
+    right: 52,
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 10,
+    borderTop: `0.5pt solid ${C.divider}`,
     fontSize: 8,
     color: C.faint,
   },
@@ -405,11 +421,11 @@ const styles = StyleSheet.create({
   // Section primitives
   sectionEyebrow: {
     fontSize: 8,
-    fontWeight: 600,
-    color: C.muted,
-    letterSpacing: 0.8,
+    fontWeight: 700,
+    color: C.brand,
+    letterSpacing: 1.0,
     textTransform: "uppercase",
-    marginBottom: 4,
+    marginBottom: 6,
   },
   sectionTitle: {
     fontSize: 16,
@@ -418,18 +434,29 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     letterSpacing: -0.2,
   },
-  sectionBlock: { marginBottom: 22 },
+  sectionBlock: { marginBottom: 24 },
+  // Page title gets a small brand-color underline rule via marginBottom
+  // + a brandSoft chip on the eyebrow line above it (rendered inline).
+  // Bigger size + tighter letterSpacing reads more authoritative than
+  // the previous 22pt did.
   pageTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 700,
     color: C.ink,
-    marginBottom: 4,
-    letterSpacing: -0.3,
+    marginBottom: 6,
+    letterSpacing: -0.4,
+  },
+  pageTitleRule: {
+    width: 40,
+    height: 2,
+    backgroundColor: C.brand,
+    marginBottom: 10,
   },
   pageSubtitle: {
     fontSize: 10,
     color: C.muted,
-    marginBottom: 22,
+    marginBottom: 24,
+    lineHeight: 1.55,
   },
 
   // KPI grid
@@ -442,14 +469,17 @@ const styles = StyleSheet.create({
   kpiCard: {
     width: "23.5%",
     backgroundColor: C.card,
-    borderRadius: 6,
+    borderLeftWidth: 2,
+    borderLeftColor: C.brand,
+    borderRadius: 4,
     padding: 12,
   },
   kpiLabel: {
     fontSize: 7,
+    fontWeight: 600,
     color: C.muted,
     textTransform: "uppercase",
-    letterSpacing: 0.6,
+    letterSpacing: 0.8,
     marginBottom: 4,
   },
   kpiValue: { fontSize: 16, fontWeight: 700, color: C.ink },
@@ -915,18 +945,59 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         ? C.muted
         : C.success;
 
+  // Brand accent rule at the very top of the page + header text bar
+  // beneath it. Returned together as a Fragment so every render*Page()
+  // closure picks up both via the existing {pageHeader} interpolation
+  // — no per-page edit needed. Both children carry `fixed` so they
+  // repeat on every generated page including continuation pages.
   const pageHeader = (
-    <View style={styles.pageHeader} fixed>
-      <MText style={{ fontSize: 8, fontWeight: 600, color: C.muted, letterSpacing: 0.4 }}>
-        MARKET TWIN
-      </MText>
-      <MText style={{ fontSize: 8, color: C.faint }}>{stripUnsupportedGlyphs(productName)}</MText>
-    </View>
+    <>
+      <View style={styles.pageAccent} fixed />
+      <View style={styles.pageHeader} fixed>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View
+            style={{
+              width: 4,
+              height: 12,
+              backgroundColor: C.brand,
+              borderRadius: 1,
+            }}
+          />
+          <MText
+            style={{
+              fontSize: 8,
+              fontWeight: 700,
+              color: C.brand,
+              letterSpacing: 1.2,
+            }}
+          >
+            MARKET TWIN
+          </MText>
+          <MText style={{ fontSize: 8, color: C.faint, letterSpacing: 0.2 }}>
+            {`· ${stripUnsupportedGlyphs(productName)}`}
+          </MText>
+        </View>
+        <MText style={{ fontSize: 8, color: C.faint, letterSpacing: 0.4 }}>
+          {generatedAtStr}
+        </MText>
+      </View>
+    </>
   );
   const pageFooter = (
     <View style={styles.pageFooter} fixed>
       <MText style={{ fontSize: 8, color: C.faint }}>{t.footerLeft}</MText>
-      <MText style={{ fontSize: 8, color: C.faint }}>{`Ensemble ${ensembleId.slice(0, 8)}`}</MText>
+      <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+        <MText style={{ fontSize: 8, color: C.faint }}>
+          {`Ensemble ${ensembleId.slice(0, 8)}`}
+        </MText>
+        <Text
+          style={{ fontSize: 8, color: C.muted, fontFamily: "AppFont", fontWeight: 600 }}
+          render={({ pageNumber, totalPages }) =>
+            `${pageNumber} / ${totalPages}`
+          }
+          fixed
+        />
+      </View>
     </View>
   );
 
