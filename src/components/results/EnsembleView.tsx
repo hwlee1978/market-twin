@@ -25,6 +25,7 @@ import {
   flipThresholdPt,
   type ComponentKey,
 } from "@/lib/decision-aid/stress-scenarios";
+import { BackToTop } from "@/components/ui/BackToTop";
 import {
   BestCountryPieChart,
   CountryIntentChart,
@@ -953,6 +954,7 @@ function EnsembleDashboard({
           }}
         />
       )}
+      <BackToTop />
     </div>
   );
 }

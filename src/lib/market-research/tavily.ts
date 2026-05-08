@@ -36,6 +36,43 @@ const TAVILY_ENDPOINT = "https://api.tavily.com/search";
 const TAVILY_TIMEOUT_MS = 12_000;
 
 /**
+ * In-process cache for Tavily search results. Two ensembles run in
+ * close succession on the same product+country (e.g. user re-running
+ * Le Mouton on TW after a tier change) re-issue the identical
+ * marketSize query — caching saves 1 search call (~\$0.01-0.03) and
+ * a couple of seconds per repeat.
+ *
+ * 24-hour TTL matches the market-data cadence — TAM and growth-rate
+ * estimates don't change minute-to-minute, so day-stale is fine. Map
+ * is a per-runtime cache, not shared across Vercel function instances:
+ * cold starts skip it. For a longer-living cache we'd need Redis or
+ * a Supabase row, but in-process covers the common "two clicks 30
+ * seconds apart" hit pattern at zero extra infra.
+ */
+const TAVILY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+interface CachedResult {
+  result: TavilySearchResult;
+  cachedAt: number;
+}
+const cache = new Map<string, CachedResult>();
+
+function cacheKey(opts: {
+  query: string;
+  searchDepth?: string;
+  maxResults?: number;
+  includeDomains?: string[];
+  excludeDomains?: string[];
+}): string {
+  return JSON.stringify({
+    q: opts.query,
+    d: opts.searchDepth ?? "advanced",
+    m: opts.maxResults ?? 5,
+    i: opts.includeDomains ?? [],
+    e: opts.excludeDomains ?? [],
+  });
+}
+
+/**
  * Run a single Tavily search. Returns null when the API key is missing
  * (so the caller can fall back to LLM-only) or when the network call
  * fails (best-effort — this is a grounding layer, not load-bearing).
@@ -62,6 +99,17 @@ export async function tavilySearch(opts: {
 }): Promise<TavilySearchResult | null> {
   const apiKey = process.env.TAVILY_API_KEY;
   if (!apiKey) return null;
+
+  // Cache hit — same query within the 24h TTL skips the network call
+  // and the search-credit charge entirely.
+  const key = cacheKey(opts);
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.cachedAt < TAVILY_CACHE_TTL_MS) {
+    console.log(
+      `[tavily] cache hit for "${opts.query.slice(0, 60)}" (${Math.round((Date.now() - hit.cachedAt) / 1000)}s old)`,
+    );
+    return hit.result;
+  }
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TAVILY_TIMEOUT_MS);
@@ -97,7 +145,7 @@ export async function tavilySearch(opts: {
         score: number;
       }>;
     };
-    return {
+    const result: TavilySearchResult = {
       answer: json.answer,
       results: (json.results ?? []).map((r) => ({
         url: r.url,
@@ -106,6 +154,8 @@ export async function tavilySearch(opts: {
         score: r.score,
       })),
     };
+    cache.set(key, { result, cachedAt: Date.now() });
+    return result;
   } catch (err) {
     clearTimeout(timer);
     const msg = err instanceof Error ? err.message : String(err);

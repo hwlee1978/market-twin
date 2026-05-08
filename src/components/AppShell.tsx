@@ -9,6 +9,7 @@ import {
   CreditCard,
   Users,
   Settings as SettingsIcon,
+  HelpCircle,
   LogOut,
 } from "lucide-react";
 import { clsx } from "clsx";
@@ -23,6 +24,7 @@ const NAV = [
   { href: "/billing", icon: CreditCard, key: "billing" as const },
   { href: "/team", icon: Users, key: "team" as const },
   { href: "/settings", icon: SettingsIcon, key: "settings" as const },
+  { href: "/help", icon: HelpCircle, key: "help" as const },
 ];
 
 export function AppShell({

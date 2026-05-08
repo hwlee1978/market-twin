@@ -207,7 +207,8 @@
     "reports": "Reports",
     "billing": "Billing",
     "team": "Team",
-    "settings": "Settings"
+    "settings": "Settings",
+    "help": "Help"
   },
   "auth": {
     "loginTitle": "Welcome back",
