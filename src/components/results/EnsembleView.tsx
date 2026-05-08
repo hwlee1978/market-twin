@@ -5659,11 +5659,6 @@ function DecisionAidTab({
     matchesCurve === false && recomputedCurveMax != null
       ? recomputedCurveMax
       : aggregate.pricing?.recommendedPriceCents ?? 0;
-  const totalPersonas = aggregate.personas?.total ?? 0;
-  const highIntentRatio =
-    totalPersonas > 0 && aggregate.personas?.highIntentCount != null
-      ? aggregate.personas.highIntentCount / totalPersonas
-      : 0;
   const volumeTiers = [100, 1000, 10000];
   const showInvestment = cacInTargetCents != null && headlinePrice > 0;
 
@@ -5710,8 +5705,15 @@ function DecisionAidTab({
               : `Based on the recommended market ${recCountry}. Marketing budget + projected revenue per volume tier, with optimistic / base / pessimistic scenarios.`}
           </p>
 
-          {/* Key inputs */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+          {/* Key inputs — only the values that actually feed the volume
+              tier table below. CAC is per-customer-acquired and already
+              encodes the full reach→impression→click→conversion funnel,
+              so a separate "high-intent ratio" card here would imply a
+              scaling factor that doesn't exist (CAC × N already = total
+              cost for N customers). High-intent share is shown in the
+              persona / country detail tabs as a viability signal, not
+              here as a calculation input. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
             <div className="card p-4">
               <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
                 {isKo ? "단가" : "Unit price"}
@@ -5750,19 +5752,6 @@ function DecisionAidTab({
                   </p>
                 </details>
               )}
-            </div>
-            <div className="card p-4">
-              <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
-                {isKo ? "고의향 비율" : "High-intent ratio"}
-              </div>
-              <div className="text-xl font-bold text-slate-900 tabular-nums">
-                {`${(highIntentRatio * 100).toFixed(1)}%`}
-              </div>
-              <div className="text-[11px] text-slate-400 mt-0.5">
-                {isKo
-                  ? `구매의향 70+ ${aggregate.personas?.highIntentCount ?? 0}/${totalPersonas}명`
-                  : `${aggregate.personas?.highIntentCount ?? 0}/${totalPersonas} personas`}
-              </div>
             </div>
           </div>
 

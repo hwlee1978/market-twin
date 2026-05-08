@@ -4307,15 +4307,13 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         ? recomputedCurveMax
         : aggregate.pricing.recommendedPriceCents;
 
-    // High-intent ratio — proxy for "what fraction of impressions
-    // become customers". Conservative: we use highIntent (≥70) as
-    // the conversion baseline, knowing real conversion is typically
-    // a small fraction of expressed intent.
-    const totalPersonas = aggregate.personas.total;
-    const highIntentRatio =
-      totalPersonas > 0 ? aggregate.personas.highIntentCount / totalPersonas : 0;
-
-    // Three volume tiers + 3 confidence scenarios per tier
+    // Three volume tiers + 3 confidence scenarios per tier. The earlier
+    // revision also surfaced a "high-intent ratio" card, but CAC is
+    // already per-customer-acquired (full reach→impression→click→
+    // conversion funnel encoded), so CAC × N already = total marketing
+    // cost for N customers — no scaling factor needed. The high-intent
+    // share lives in the persona / country detail sections as a viability
+    // signal, not here as a calculation input.
     const volumeTiers = [100, 1000, 10000];
     const scenarioFactor = { pessimistic: 0.7, base: 1.0, optimistic: 1.3 };
 
@@ -4353,19 +4351,6 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
               </MText>
               <MText style={{ fontSize: 7, color: C.muted, marginTop: 1 }}>
                 {`($${cacUsd.toFixed(2)})`}
-              </MText>
-            </View>
-            <View style={{ flex: 1, padding: 8, backgroundColor: C.card, borderRadius: 4 }}>
-              <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600 }}>
-                {isKo ? "고의향 비율" : "High-intent ratio"}
-              </MText>
-              <MText style={{ fontSize: 11, color: C.ink, fontWeight: 700, marginTop: 2 }}>
-                {`${(highIntentRatio * 100).toFixed(1)}%`}
-              </MText>
-              <MText style={{ fontSize: 7, color: C.muted, marginTop: 1 }}>
-                {isKo
-                  ? `구매의향 70+ ${aggregate.personas.highIntentCount}/${totalPersonas}명`
-                  : `${aggregate.personas.highIntentCount}/${totalPersonas} personas`}
               </MText>
             </View>
           </View>
