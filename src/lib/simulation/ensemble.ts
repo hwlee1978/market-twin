@@ -752,28 +752,48 @@ export function aggregateEnsemble(
       // exact-text dedup over-fragments — every concern shows count=1.
       // Use fuzzy token-overlap clustering instead: "Nicorette 패치 대비
       // $20 비용 부담" and "Nicorette 패치/껌 대비 비용이 비쌈" cluster.
+      //
+      // Pass per-objection personaIdx so clusterStrings counts unique
+      // personas per cluster, not raw instance count. Without this the
+      // top cluster could exceed persona.count (e.g. 250 instances /
+      // 148 personas = 169%) since each persona contributes 2-5
+      // objections to the pool.
       const allObjections: string[] = [];
-      for (const p of inCountry) {
+      const objectionPersonaIds: number[] = [];
+      for (let pi = 0; pi < inCountry.length; pi++) {
+        const p = inCountry[pi];
         for (const o of p.objections ?? []) {
           const t = o.trim();
           // Drop persona-mismatch noise ("non-smoker, this isn't for
           // me") at source — these aren't market blockers, just
           // out-of-target personas. Filtering BEFORE clustering avoids
           // both fragmenting the signal and surfacing noise.
-          if (t && !isPersonaMismatchNoise(t)) allObjections.push(t);
+          if (t && !isPersonaMismatchNoise(t)) {
+            allObjections.push(t);
+            objectionPersonaIds.push(pi);
+          }
         }
       }
-      const topObjections = clusterStrings(allObjections, 0.5)
+      const topObjections = clusterStrings(allObjections, 0.5, {
+        personaIds: objectionPersonaIds,
+      })
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
       const allTrust: string[] = [];
-      for (const p of inCountry) {
+      const trustPersonaIds: number[] = [];
+      for (let pi = 0; pi < inCountry.length; pi++) {
+        const p = inCountry[pi];
         for (const t of p.trustFactors ?? []) {
           const tt = t.trim();
-          if (tt) allTrust.push(tt);
+          if (tt) {
+            allTrust.push(tt);
+            trustPersonaIds.push(pi);
+          }
         }
       }
-      const topTrustFactors = clusterStrings(allTrust, 0.5)
+      const topTrustFactors = clusterStrings(allTrust, 0.5, {
+        personaIds: trustPersonaIds,
+      })
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
       // Rationale samples — pick the 3 longest unique strings as a proxy

@@ -247,6 +247,7 @@ export function isPersonaMismatchNoise(text: string): boolean {
 export function clusterStrings(
   items: string[],
   threshold = 0.5,
+  opts?: { personaIds?: number[] },
 ): Array<{ text: string; count: number }> {
   if (items.length === 0) return [];
   const tokenSets = items.map((s) => tokenize(s));
@@ -270,22 +271,43 @@ export function clusterStrings(
       }
     }
   }
-  const byCluster = new Map<number, Map<string, number>>();
+  // Two-mode counting:
+  //   - default (no personaIds): total instances per cluster — every
+  //     occurrence of the text counts. Used for cross-sim aggregation
+  //     where each occurrence is a fresh independent signal.
+  //   - personaIds supplied: unique persona count per cluster. Used
+  //     for per-country "% of personas who raised this concern" math
+  //     where instance-count would exceed persona-count (one persona
+  //     can list 3-5 objections; a top cluster aggregating across
+  //     ~150 personas easily clears 200 instances → 169% 가격이 높음).
+  const personaIds = opts?.personaIds;
+  const byCluster = new Map<
+    number,
+    { texts: Map<string, number>; personas: Set<number> }
+  >();
   for (let i = 0; i < items.length; i++) {
     const root = find(i);
-    const inner = byCluster.get(root) ?? new Map<string, number>();
-    inner.set(items[i], (inner.get(items[i]) ?? 0) + 1);
-    byCluster.set(root, inner);
+    const cur =
+      byCluster.get(root) ??
+      ({ texts: new Map<string, number>(), personas: new Set<number>() });
+    cur.texts.set(items[i], (cur.texts.get(items[i]) ?? 0) + 1);
+    if (personaIds) cur.personas.add(personaIds[i]);
+    byCluster.set(root, cur);
   }
-  return [...byCluster.values()].map((inner) => {
-    let total = 0;
-    for (const c of inner.values()) total += c;
+  return [...byCluster.values()].map(({ texts, personas }) => {
     // Representative = most-frequent surface form, ties broken by
     // shortest (concise reads better in the UI list).
-    const rep = [...inner.entries()].sort((a, b) => {
+    const rep = [...texts.entries()].sort((a, b) => {
       if (b[1] !== a[1]) return b[1] - a[1];
       return a[0].length - b[0].length;
     })[0][0];
+    let total: number;
+    if (personaIds) {
+      total = personas.size;
+    } else {
+      total = 0;
+      for (const c of texts.values()) total += c;
+    }
     return { text: rep, count: total };
   });
 }
