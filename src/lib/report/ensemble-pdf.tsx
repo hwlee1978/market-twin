@@ -6061,7 +6061,10 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           {renderSensitivityAnalysisPage()}
           {renderRiskActionMappingPage()}
           {renderProviderConsensusPage()}
-          {renderProviderDisagreementPage()}
+          {/* renderProviderDisagreementPage dropped 2026-05-08 —
+              same providerBreakdown data the Consensus page already
+              shows via per-model distribution charts; the second page
+              was just a different verbal framing of the same numbers. */}
           {renderVariancePage()}
           {renderAppendixPage()}
         </>
