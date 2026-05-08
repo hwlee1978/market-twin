@@ -145,6 +145,25 @@ function withUsageTracking(
 }
 
 /**
+ * Wrap a provider so every call carries an AbortSignal. When the signal
+ * fires (user cancellation, watchdog timeout), the in-flight HTTP call
+ * aborts at the SDK boundary instead of waiting for the next stage
+ * boundary's `isCancelled()` poll. Caller-supplied req.signal wins if
+ * present, so a future per-call abort can override the simulation-wide
+ * one.
+ */
+function withCancelSignal(
+  llm: LLMProvider,
+  signal: AbortSignal,
+): LLMProvider {
+  return {
+    name: llm.name,
+    model: llm.model,
+    generate: (req) => llm.generate({ ...req, signal: req.signal ?? signal }),
+  };
+}
+
+/**
  * Worker-pool runner: executes `tasks` with at most `limit` concurrent ones,
  * preserving result order. Uses allSettled semantics so a single failed batch
  * doesn't crash the whole stage — caller decides how to handle each result.
@@ -415,9 +434,51 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       pricingActualProvider.name = fallback;
     },
   });
-  const personaLLM = withUsageTracking(personaLLMFalloverable, usage);
-  const countryLLM = withUsageTracking(countryLLMFalloverable, usage);
-  const pricingLLM = withUsageTracking(pricingLLMFalloverable, usage);
+  // Cancel watchdog — when the user clicks cancel on the UI, the
+  // ensemble cancel route flips simulations.status to 'cancelled'. A
+  // poll watcher running every 5s notices and trips the AbortController,
+  // which propagates through every active LLM call (signal threaded by
+  // withCancelSignal). Without this, a cancel during persona stage
+  // would only take effect at the next stage boundary — up to 3 minutes
+  // and 25 batches of in-flight LLM cost later. The watchdog also
+  // covers the Vercel function timeout edge: if the user closes the
+  // browser, the cancel poll never fires (status stays 'running')
+  // until the zombie cleanup cron, but in-flight calls will at least
+  // notice the function-level signal that the platform sends.
+  const cancelController = new AbortController();
+  // Two flavours of cancel: stage-boundary (existing isCancelled poll)
+  // and in-flight (the AbortController below). The stage-boundary one
+  // remains because it surfaces a distinct CANCELLED_ERR sentinel that
+  // the catch handler uses to skip failure side-effects.
+  const cancelWatchInterval = setInterval(async () => {
+    try {
+      const { data } = await supabase
+        .from("simulations")
+        .select("status")
+        .eq("id", opts.simulationId)
+        .single();
+      if (data?.status === "cancelled" && !cancelController.signal.aborted) {
+        console.warn(`[sim ${opts.simulationId}] cancel watchdog tripped — aborting in-flight LLM calls`);
+        cancelController.abort();
+      }
+    } catch {
+      // Watchdog read failures are non-fatal — the sim's own checks
+      // will catch the cancel at the next stage boundary even if the
+      // watchdog briefly couldn't reach the DB.
+    }
+  }, 5000);
+  const personaLLM = withCancelSignal(
+    withUsageTracking(personaLLMFalloverable, usage),
+    cancelController.signal,
+  );
+  const countryLLM = withCancelSignal(
+    withUsageTracking(countryLLMFalloverable, usage),
+    cancelController.signal,
+  );
+  const pricingLLM = withCancelSignal(
+    withUsageTracking(pricingLLMFalloverable, usage),
+    cancelController.signal,
+  );
 
   // Synthesis: wrap with provider-failover so a Gemini 503 spike (or
   // any other 5xx/429 the retry policy can't outlast) flips the
@@ -451,7 +512,10 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       synthesisActualProvider = fallback;
     },
   });
-  const synthesisLLM = withUsageTracking(synthesisLLMFalloverable, usage);
+  const synthesisLLM = withCancelSignal(
+    withUsageTracking(synthesisLLMFalloverable, usage),
+    cancelController.signal,
+  );
   // Regulatory check uses the synthesis-tier model: this needs to be reliable
   // about real laws (e.g. e-cigarette bans). Cheap models occasionally miss.
   // Same failover wrapper applies — regulatory failure cascades the whole sim.
@@ -2029,6 +2093,10 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     }
 
     throw err;
+  } finally {
+    // Always stop the cancel watchdog — leaking the interval would
+    // keep a 5s DB read hammering after every sim ended.
+    clearInterval(cancelWatchInterval);
   }
 }
 

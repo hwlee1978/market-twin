@@ -60,14 +60,20 @@ export class AnthropicProvider implements LLMProvider {
 
     const response = await withLLMRetry(
       () =>
-        this.client.messages.create({
-          model: this.model,
-          max_tokens: req.maxTokens ?? 4096,
-          temperature: req.temperature ?? 0.7,
-          system: (req.system ?? "") + systemSuffix,
-          messages: [{ role: "user", content: userContent }],
-        }),
-      { provider: "anthropic" },
+        this.client.messages.create(
+          {
+            model: this.model,
+            max_tokens: req.maxTokens ?? 4096,
+            temperature: req.temperature ?? 0.7,
+            system: (req.system ?? "") + systemSuffix,
+            messages: [{ role: "user", content: userContent }],
+          },
+          // Anthropic SDK forwards signal to the underlying fetch call,
+          // so a user cancellation aborts the in-flight HTTP request
+          // immediately instead of waiting for the response to complete.
+          req.signal ? { signal: req.signal } : undefined,
+        ),
+      { provider: "anthropic", signal: req.signal },
     );
 
     const text = response.content

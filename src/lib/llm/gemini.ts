@@ -32,8 +32,11 @@ export class GeminiProvider implements LLMProvider {
           wantsJson
             ? `${req.prompt}\n\nJSON schema (return JSON only):\n${JSON.stringify(req.jsonSchema)}`
             : req.prompt,
+          // Google's SDK accepts requestOptions as second arg with
+          // an AbortSignal, so a user cancel aborts the in-flight call.
+          req.signal ? { signal: req.signal } : undefined,
         ),
-      { provider: "gemini" },
+      { provider: "gemini", signal: req.signal },
     );
 
     const text = result.response.text();

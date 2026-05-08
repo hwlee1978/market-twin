@@ -17,22 +17,27 @@ export class OpenAIProvider implements LLMProvider {
 
     const response = await withLLMRetry(
       () =>
-        this.client.chat.completions.create({
-          model: this.model,
-          temperature: req.temperature ?? 0.7,
-          max_tokens: req.maxTokens ?? 4096,
-          response_format: wantsJson ? { type: "json_object" } : undefined,
-          messages: [
-            ...(req.system ? [{ role: "system" as const, content: req.system }] : []),
-            {
-              role: "user",
-              content: wantsJson
-                ? `${req.prompt}\n\nReturn JSON matching this schema:\n${JSON.stringify(req.jsonSchema)}`
-                : req.prompt,
-            },
-          ],
-        }),
-      { provider: "openai" },
+        this.client.chat.completions.create(
+          {
+            model: this.model,
+            temperature: req.temperature ?? 0.7,
+            max_tokens: req.maxTokens ?? 4096,
+            response_format: wantsJson ? { type: "json_object" } : undefined,
+            messages: [
+              ...(req.system ? [{ role: "system" as const, content: req.system }] : []),
+              {
+                role: "user",
+                content: wantsJson
+                  ? `${req.prompt}\n\nReturn JSON matching this schema:\n${JSON.stringify(req.jsonSchema)}`
+                  : req.prompt,
+              },
+            ],
+          },
+          // OpenAI SDK accepts signal in the second-arg request options
+          // so cancel aborts the in-flight HTTP call immediately.
+          req.signal ? { signal: req.signal } : undefined,
+        ),
+      { provider: "openai", signal: req.signal },
     );
 
     const text = response.choices[0]?.message?.content ?? "";

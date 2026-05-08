@@ -35,6 +35,14 @@ export interface LLMRequest {
   jsonSchema?: object;
   temperature?: number;
   maxTokens?: number;
+  /**
+   * Optional AbortSignal — when triggered, the provider should abort the
+   * in-flight HTTP call immediately. The runner threads this through
+   * every LLM call so a user cancellation stops live requests instead
+   * of waiting for the next stage boundary. Providers without native
+   * SDK support throw AbortError on next opportunity (best-effort).
+   */
+  signal?: AbortSignal;
 }
 
 export interface LLMResponse {

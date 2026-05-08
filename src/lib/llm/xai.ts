@@ -57,27 +57,31 @@ export class XaiProvider implements LLMProvider {
 
     const response = await withLLMRetry(
       () =>
-        this.client.chat.completions.create({
-          model: this.model,
-          temperature: req.temperature ?? 0.7,
-          max_tokens: req.maxTokens ?? 4096,
-          // Grok supports OpenAI's response_format JSON mode; if a
-          // future model drops it we fall back to prompt-only steering
-          // (the JSON-shape line in the user message handles that).
-          response_format: wantsJson ? { type: "json_object" } : undefined,
-          messages: [
-            ...(req.system
-              ? [{ role: "system" as const, content: req.system }]
-              : []),
-            {
-              role: "user",
-              content: wantsJson
-                ? `${req.prompt}\n\nReturn JSON matching this schema:\n${JSON.stringify(req.jsonSchema)}`
-                : req.prompt,
-            },
-          ],
-        }),
-      { provider: "xai" },
+        this.client.chat.completions.create(
+          {
+            model: this.model,
+            temperature: req.temperature ?? 0.7,
+            max_tokens: req.maxTokens ?? 4096,
+            // Grok supports OpenAI's response_format JSON mode; if a
+            // future model drops it we fall back to prompt-only steering
+            // (the JSON-shape line in the user message handles that).
+            response_format: wantsJson ? { type: "json_object" } : undefined,
+            messages: [
+              ...(req.system
+                ? [{ role: "system" as const, content: req.system }]
+                : []),
+              {
+                role: "user",
+                content: wantsJson
+                  ? `${req.prompt}\n\nReturn JSON matching this schema:\n${JSON.stringify(req.jsonSchema)}`
+                  : req.prompt,
+              },
+            ],
+          },
+          // OpenAI-compatible — second arg accepts signal for abort.
+          req.signal ? { signal: req.signal } : undefined,
+        ),
+      { provider: "xai", signal: req.signal },
     );
 
     const text = response.choices[0]?.message?.content ?? "";

@@ -34,6 +34,11 @@ export type RetryContext = {
   provider: string;
   /** Free-form short label, e.g. "personas", "synthesis". Logged for triage. */
   stage?: string;
+  /** Caller's AbortSignal — when triggered, retry loop exits immediately
+   * (raises the most recent error) and the backoff sleep is interrupted.
+   * Without this, a cancelled sim sits through up to ~3 minutes of
+   * jittered backoff before the runner notices. */
+  signal?: AbortSignal;
 };
 
 export async function withLLMRetry<T>(
@@ -43,10 +48,19 @@ export async function withLLMRetry<T>(
 ): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (ctx.signal?.aborted) {
+      // Abort fired between attempts (or before first try). Surface the
+      // abort reason if available, otherwise the last upstream error.
+      throw ctx.signal.reason ?? lastErr ?? new Error("aborted");
+    }
     try {
       return await fn();
     } catch (err) {
       lastErr = err;
+      // SDK-level abort propagates as a known shape (DOMException name
+      // "AbortError" in fetch land, or the SDK's own APIUserAbortError).
+      // Don't retry those — caller cancelled, escalate immediately.
+      if (isAbortError(err)) throw err;
       const decision = classify(err);
       if (!decision.retry || attempt === maxAttempts - 1) {
         throw err;
@@ -57,10 +71,21 @@ export async function withLLMRetry<T>(
       console.warn(
         `[llm retry] ${tag} attempt ${attempt + 1}/${maxAttempts} — ${decision.reason} — waiting ${delayMs}ms`,
       );
-      await sleep(delayMs);
+      await sleepCancelable(delayMs, ctx.signal);
     }
   }
   throw lastErr;
+}
+
+function isAbortError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const r = err as { name?: unknown };
+  if (r.name === "AbortError") return true;
+  // OpenAI SDK throws APIUserAbortError; Anthropic SDK uses AbortError;
+  // both expose a constructor name we can match on.
+  const ctor = (err as { constructor?: { name?: string } }).constructor;
+  if (ctor?.name && /Abort/i.test(ctor.name)) return true;
+  return false;
 }
 
 interface RetryDecision {
@@ -158,4 +183,24 @@ function clampWait(ms: number): number {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Sleep that resolves early when the supplied AbortSignal fires. The
+ *  resolution looks like a normal completion — caller's next loop
+ *  iteration sees `signal.aborted === true` and exits via the loop
+ *  guard, so we don't need to throw here. */
+function sleepCancelable(ms: number, signal: AbortSignal | undefined): Promise<void> {
+  if (!signal) return sleep(ms);
+  if (signal.aborted) return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
 }
