@@ -498,6 +498,7 @@ export async function POST(
         locale,
         projectInput,
         wantMarketProfile: preset.marketProfile,
+        expectedSimCount: preset.parallelSims,
       });
       if (aggregate) {
         await notifyEnsembleComplete({
@@ -558,8 +559,25 @@ async function aggregateAndPersist(opts: {
    * Decision tier and above enable it; hypothesis stays lean.
    */
   wantMarketProfile?: boolean;
+  /**
+   * How many sims the tier was supposed to produce. Used to gate the
+   * "completed" status: if too few survived, we mark the ensemble
+   * failed (catastrophic case) or downgrade confidence to WEAK
+   * (suboptimal case) rather than ship a confident-looking
+   * recommendation built on 1-2 LLM rolls. Optional for backward
+   * compatibility — when absent, the legacy snapshots-only gate
+   * applies (≥1 sim = completed).
+   */
+  expectedSimCount?: number;
 }) {
-  const { ensembleId, productName, locale, projectInput, wantMarketProfile } = opts;
+  const {
+    ensembleId,
+    productName,
+    locale,
+    projectInput,
+    wantMarketProfile,
+    expectedSimCount,
+  } = opts;
   const admin = createServiceClient();
 
   type StoredResult = {
@@ -683,7 +701,50 @@ async function aggregateAndPersist(opts: {
   });
 
   const aggregate = aggregateEnsemble(snapshots);
-  const finalStatus = snapshots.length === 0 ? "failed" : "completed";
+  // Minimum-N gate — without it, an ensemble that lost 24 of 25 sims to
+  // upstream errors still ships as `completed` with bestCountryDistribution
+  // = [{JP, 100%}] and confidence STRONG. Two thresholds:
+  //   - <40% of expected → mark failed. Aggregate is too thin to mean
+  //     anything; the user gets a clear "couldn't complete" rather than
+  //     a confident-but-wrong recommendation.
+  //   - <80% of expected → keep completed but downgrade confidence to
+  //     WEAK and annotate. The signal is real, just noisier than
+  //     advertised — show that to the user instead of pretending the
+  //     missing sims would have agreed.
+  // No new status value introduced (avoids schema migration); we use the
+  // existing `failed` status with a descriptive `error_message` for the
+  // catastrophic case.
+  let finalStatus: "completed" | "failed";
+  let lowSampleErrorMessage: string | null = null;
+  if (snapshots.length === 0) {
+    finalStatus = "failed";
+    lowSampleErrorMessage = "all sims failed — no snapshots to aggregate";
+  } else if (
+    expectedSimCount !== undefined &&
+    expectedSimCount > 0 &&
+    snapshots.length < expectedSimCount * 0.4
+  ) {
+    finalStatus = "failed";
+    lowSampleErrorMessage = `only ${snapshots.length}/${expectedSimCount} sims succeeded (${Math.round((snapshots.length / expectedSimCount) * 100)}%) — below minimum threshold`;
+  } else {
+    finalStatus = "completed";
+    if (
+      expectedSimCount !== undefined &&
+      expectedSimCount > 0 &&
+      snapshots.length < expectedSimCount * 0.8
+    ) {
+      // Suboptimal-but-usable: downgrade confidence so the UI doesn't
+      // mislead. The aggregator's variance metrics already reflect the
+      // smaller N; this just stops "STRONG/MODERATE" labels from over-
+      // promising. The threshold mirrors common statistical practice
+      // (≥80% of expected sample is the conventional "powered" mark).
+      console.warn(
+        `[ensemble ${ensembleId}] suboptimal sim count: ${snapshots.length}/${expectedSimCount} ` +
+          `(${Math.round((snapshots.length / expectedSimCount) * 100)}%) — downgrading confidence to WEAK`,
+      );
+      aggregate.recommendation.confidence = "WEAK";
+    }
+  }
 
   // Narrative merge runs after the deterministic aggregator. Failure here
   // is non-fatal — the chart sections (recommendation / breakdown / stats)
@@ -776,14 +837,16 @@ async function aggregateAndPersist(opts: {
     .from("ensembles")
     .update({
       status: finalStatus,
-      aggregate_result: aggregate,
+      // Persist the aggregate even when finalStatus is "failed" — for
+      // the "<40% sims succeeded" case it still has whatever signal we
+      // managed to gather, and the admin tool can inspect it. The UI
+      // gates on status to decide whether to show recommendation
+      // numbers as actionable vs as diagnostic.
+      aggregate_result: snapshots.length > 0 ? aggregate : null,
       completed_at: new Date().toISOString(),
-      error_message:
-        snapshots.length === 0
-          ? "no completed sims to aggregate"
-          : null,
+      error_message: lowSampleErrorMessage,
     })
     .eq("id", ensembleId);
 
-  return snapshots.length > 0 ? aggregate : null;
+  return finalStatus === "completed" ? aggregate : null;
 }

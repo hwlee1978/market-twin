@@ -671,15 +671,27 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     type FreshPair = { persona: z.infer<typeof PersonaSchema>; slot: PersonaSlot };
     const freshPairs: FreshPair[] = [];
 
-    if (missSlots.length > 0) {
-      const missBatchPlans: Array<{ slots: PersonaSlot[] }> = [];
-      for (let i = 0; i < missSlots.length; i += PERSONA_BATCH) {
-        missBatchPlans.push({ slots: missSlots.slice(i, i + PERSONA_BATCH) });
+    /**
+     * Run one round of persona batches against the supplied slot list and
+     * return the fulfilled (persona, slot) pairs along with the leftover
+     * slots whose batch either failed, got truncated, or returned an
+     * unparseable entry. The leftovers feed the truncation-retry pass —
+     * Gemini and OpenAI both occasionally ship 8 of 12 personas per batch
+     * and without retry we silently lose those slot positions.
+     */
+    const runPersonaBatchRound = async (
+      slotsToFill: PersonaSlot[],
+      attemptTag: string,
+    ): Promise<{ pairs: FreshPair[]; unfilledSlots: PersonaSlot[] }> => {
+      if (slotsToFill.length === 0) return { pairs: [], unfilledSlots: [] };
+      const batchPlans: Array<{ slots: PersonaSlot[] }> = [];
+      for (let i = 0; i < slotsToFill.length; i += PERSONA_BATCH) {
+        batchPlans.push({ slots: slotsToFill.slice(i, i + PERSONA_BATCH) });
       }
       const t0 = Date.now();
-      const missResults = await runWithConcurrency(
+      const results = await runWithConcurrency(
         personaConcurrency,
-        missBatchPlans.map(({ slots }) => () =>
+        batchPlans.map(({ slots }) => () =>
           personaLLM.generate({
             system: PERSONA_SYSTEM,
             prompt: personaPrompt(projectInput, slots, locale, referenceBlock),
@@ -697,17 +709,21 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         ),
       );
       console.log(
-        `[sim ${opts.simulationId}] fresh persona batches: ${missBatchPlans.length}, ` +
+        `[sim ${opts.simulationId}] persona batches (${attemptTag}): ${batchPlans.length}, ` +
           `${((Date.now() - t0) / 1000).toFixed(1)}s`,
       );
-      for (let bi = 0; bi < missResults.length; bi++) {
-        const settled = missResults[bi];
-        const batchSlots = missBatchPlans[bi].slots;
+      const roundPairs: FreshPair[] = [];
+      const unfilledSlots: PersonaSlot[] = [];
+      for (let bi = 0; bi < results.length; bi++) {
+        const settled = results[bi];
+        const batchSlots = batchPlans[bi].slots;
         if (settled.status === "rejected") {
           console.warn(
-            `[sim ${opts.simulationId}] fresh batch ${bi} failed:`,
+            `[sim ${opts.simulationId}] persona batch ${bi} (${attemptTag}) failed:`,
             settled.reason instanceof Error ? settled.reason.message : settled.reason,
           );
+          // Whole batch failed → every slot in it is unfilled.
+          unfilledSlots.push(...batchSlots);
           continue;
         }
         const r = settled.value;
@@ -715,67 +731,99 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         const arr = Array.isArray(wrapped) ? wrapped : [];
         if (arr.length === 0) {
           console.warn(
-            `[sim ${opts.simulationId}] fresh batch ${bi} returned no array — raw:`,
+            `[sim ${opts.simulationId}] persona batch ${bi} (${attemptTag}) returned no array — raw:`,
             r.text.slice(0, 200),
           );
         }
-        // Pair persona arr[i] with slot batchSlots[i] — used downstream when
-        // saving base profiles to the pool with the assigned base_profession.
+        // Track which slot indices got fulfilled so we can mark
+        // truncated tail + unparseable entries as unfilled. arr[i]
+        // pairs with batchSlots[i] by position; if arr.length <
+        // batchSlots.length the tail slots are unfulfilled.
+        const fulfilledIndices = new Set<number>();
         for (let pi = 0; pi < arr.length && pi < batchSlots.length; pi++) {
           const parsed = PersonaSchema.safeParse(arr[pi]);
-          if (parsed.success) {
-            const sanitizedVoice = sanitizeVoice(parsed.data.voice, locale);
-            if (parsed.data.voice && sanitizedVoice === null) {
-              voiceSlipCount++;
-              console.warn(
-                `[sim ${opts.simulationId}] voice slip dropped (fresh, ${parsed.data.country}): ` +
-                  `"${parsed.data.voice.slice(0, 80)}"`,
-              );
-            }
-            // Channel sanitization runs AFTER voice sanitization so we
-            // only rewrite quotes that survived the language gate.
-            // sanitizedVoice can be null (rejected) or a string; only
-            // sanitize the string case.
-            const voiceForChannelCheck = sanitizedVoice ?? "";
-            const channelVoice = sanitizeChannelMismatch(
-              voiceForChannelCheck,
-              parsed.data.country,
-              locale,
-            );
-            if (channelVoice.replacements > 0) {
-              channelMismatchCount += channelVoice.replacements;
-              console.warn(
-                `[sim ${opts.simulationId}] channel slip rewritten (fresh, ${parsed.data.country}): ` +
-                  `${channelVoice.replacements}× in "${voiceForChannelCheck.slice(0, 80)}"`,
-              );
-            }
-            // Also scrub channel slips out of objections + trustFactors;
-            // those propagate into the country-tab top-N list and would
-            // misrepresent local market structure if a Korean channel
-            // shows up under VN.
-            const cleanedObjections = sanitizeChannelMismatchArray(
-              filterLocaleNative(parsed.data.objections, locale),
-              parsed.data.country,
-              locale,
-            );
-            const cleanedTrust = sanitizeChannelMismatchArray(
-              filterLocaleNative(parsed.data.trustFactors, locale),
-              parsed.data.country,
-              locale,
-            );
-            channelMismatchCount += cleanedObjections.replacements + cleanedTrust.replacements;
-            const cleaned = {
-              ...parsed.data,
-              id: parsed.data.id ?? crypto.randomUUID(),
-              objections: cleanedObjections.items,
-              trustFactors: cleanedTrust.items,
-              interests: filterLocaleNative(parsed.data.interests, locale),
-              voice: channelVoice.sanitized || sanitizedVoice || "",
-            };
-            freshPairs.push({ persona: cleaned, slot: batchSlots[pi] });
-          } else {
+          if (!parsed.success) {
             parseSkips++;
+            continue;
           }
+          fulfilledIndices.add(pi);
+          const sanitizedVoice = sanitizeVoice(parsed.data.voice, locale);
+          if (parsed.data.voice && sanitizedVoice === null) {
+            voiceSlipCount++;
+            console.warn(
+              `[sim ${opts.simulationId}] voice slip dropped (${attemptTag}, ${parsed.data.country}): ` +
+                `"${parsed.data.voice.slice(0, 80)}"`,
+            );
+          }
+          // Channel sanitization runs AFTER voice sanitization so we
+          // only rewrite quotes that survived the language gate.
+          // sanitizedVoice can be null (rejected) or a string; only
+          // sanitize the string case.
+          const voiceForChannelCheck = sanitizedVoice ?? "";
+          const channelVoice = sanitizeChannelMismatch(
+            voiceForChannelCheck,
+            parsed.data.country,
+            locale,
+          );
+          if (channelVoice.replacements > 0) {
+            channelMismatchCount += channelVoice.replacements;
+            console.warn(
+              `[sim ${opts.simulationId}] channel slip rewritten (${attemptTag}, ${parsed.data.country}): ` +
+                `${channelVoice.replacements}× in "${voiceForChannelCheck.slice(0, 80)}"`,
+            );
+          }
+          // Also scrub channel slips out of objections + trustFactors;
+          // those propagate into the country-tab top-N list and would
+          // misrepresent local market structure if a Korean channel
+          // shows up under VN.
+          const cleanedObjections = sanitizeChannelMismatchArray(
+            filterLocaleNative(parsed.data.objections, locale),
+            parsed.data.country,
+            locale,
+          );
+          const cleanedTrust = sanitizeChannelMismatchArray(
+            filterLocaleNative(parsed.data.trustFactors, locale),
+            parsed.data.country,
+            locale,
+          );
+          channelMismatchCount += cleanedObjections.replacements + cleanedTrust.replacements;
+          const cleaned = {
+            ...parsed.data,
+            id: parsed.data.id ?? crypto.randomUUID(),
+            objections: cleanedObjections.items,
+            trustFactors: cleanedTrust.items,
+            interests: filterLocaleNative(parsed.data.interests, locale),
+            voice: channelVoice.sanitized || sanitizedVoice || "",
+          };
+          roundPairs.push({ persona: cleaned, slot: batchSlots[pi] });
+        }
+        // Walk the slot list and collect anything we didn't fulfill —
+        // truncation tail, unparseable entries, and any beyond arr.length.
+        for (let si = 0; si < batchSlots.length; si++) {
+          if (!fulfilledIndices.has(si)) unfilledSlots.push(batchSlots[si]);
+        }
+      }
+      return { pairs: roundPairs, unfilledSlots };
+    };
+
+    if (missSlots.length > 0) {
+      const main = await runPersonaBatchRound(missSlots, "main");
+      freshPairs.push(...main.pairs);
+      // Truncation retry — Gemini partial-array + OpenAI mid-array
+      // truncation routinely lose 4-5 slots per batch silently. One
+      // targeted retry of just the unfilled slots typically recovers
+      // ≥80% of them. Bounded to a single retry pass so a chronically
+      // failing provider can't burn budget retrying the same slots.
+      if (main.unfilledSlots.length > 0) {
+        console.warn(
+          `[sim ${opts.simulationId}] truncation retry: ${main.unfilledSlots.length} unfilled persona slots`,
+        );
+        const retry = await runPersonaBatchRound(main.unfilledSlots, "retry");
+        freshPairs.push(...retry.pairs);
+        if (retry.unfilledSlots.length > 0) {
+          console.warn(
+            `[sim ${opts.simulationId}] persona slots still unfilled after retry: ${retry.unfilledSlots.length}/${main.unfilledSlots.length}`,
+          );
         }
       }
     }
@@ -825,54 +873,6 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
 
     // ── 1c. Reaction generation for pool hits ────────────────────
     if (hits.length > 0) {
-      const reactionBatches: PoolHit[][] = [];
-      for (let i = 0; i < hits.length; i += PERSONA_BATCH) {
-        reactionBatches.push(hits.slice(i, i + PERSONA_BATCH));
-      }
-      const tR = Date.now();
-      const reactionResults = await runWithConcurrency(
-        personaConcurrency,
-        reactionBatches.map((batch) => () =>
-          personaLLM.generate({
-            system: PERSONA_REACTION_SYSTEM,
-            prompt: personaReactionPrompt(
-              projectInput,
-              batch.map((h) => ({
-                id: h.base.id,
-                ageRange: h.base.age_range,
-                gender: h.base.gender,
-                country: h.base.country,
-                incomeBand: h.base.income_band,
-                profession: h.base.profession,
-                interests: h.base.interests ?? [],
-                purchaseStyle: h.base.purchase_style,
-                priceSensitivity: h.base.price_sensitivity as "low" | "medium" | "high",
-              })),
-              locale,
-              referenceBlock,
-            ),
-            jsonSchema: { type: "object", properties: { reactions: { type: "array" } } },
-            // 0.85 (up from 0.6) breaks the safe-default attractor: at 0.6
-            // every batch converged on "편안한 착용감" / "가격이 높음" as
-            // the universal trust factor / objection, drowning out the
-            // distinctive long-tail signals. Combined with the anchor
-            // requirement and 30%-per-concept diversity quota in the
-            // prompt, higher temp gives the LLM headroom to actually pick
-            // from the long-tail anchors instead of the safe default.
-            temperature: 0.85,
-            // 12-persona batches in Korean reach ~7k output tokens (rich
-            // trustFactors + objections + JSON wrapper). 4k truncates the
-            // array mid-output → entire batch unparseable. 8k matches the
-            // fresh-persona budget and gives enough headroom.
-            maxTokens: 8192,
-          }),
-        ),
-      );
-      console.log(
-        `[sim ${opts.simulationId}] reaction batches: ${reactionBatches.length}, ` +
-          `${((Date.now() - tR) / 1000).toFixed(1)}s`,
-      );
-
       const reactionRows: Array<{
         simulation_id: string;
         persona_id: string;
@@ -882,115 +882,196 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         voice: string;
       }> = [];
 
-      for (let bi = 0; bi < reactionResults.length; bi++) {
-        const settled = reactionResults[bi];
-        const batch = reactionBatches[bi];
-        if (settled.status === "rejected") {
-          console.warn(
-            `[sim ${opts.simulationId}] reaction batch ${bi} failed:`,
-            settled.reason instanceof Error ? settled.reason.message : settled.reason,
-          );
-          continue;
+      /**
+       * Run one reaction-generation round and return hits that didn't
+       * receive a usable reaction (whole-batch failure, missing id in
+       * response, or schema-parse failure). The retry pass picks those
+       * back up — same Gemini/OpenAI partial-array failure mode that
+       * affects fresh-persona batches.
+       */
+      const runReactionBatchRound = async (
+        hitsToProcess: PoolHit[],
+        attemptTag: string,
+      ): Promise<{ unfilledHits: PoolHit[] }> => {
+        if (hitsToProcess.length === 0) return { unfilledHits: [] };
+        const batches: PoolHit[][] = [];
+        for (let i = 0; i < hitsToProcess.length; i += PERSONA_BATCH) {
+          batches.push(hitsToProcess.slice(i, i + PERSONA_BATCH));
         }
-        const r = settled.value;
-        const wrapped = (r.json as { reactions?: unknown[] } | null)?.reactions;
-        const arr = Array.isArray(wrapped) ? wrapped : [];
-        // Diagnostic: if no reactions parsed, dump the raw response so the
-        // failure mode (truncation, schema drift, wrong wrapper key) is
-        // visible without needing a debugger.
-        if (arr.length === 0) {
-          console.warn(
-            `[sim ${opts.simulationId}] reaction batch ${bi} returned no array — raw text snippet:`,
-            r.text.slice(0, 400),
-          );
-        }
-        // Build a map of id → reaction so we match by id (LLM may reorder).
-        const reactionMap = new Map<string, z.infer<typeof PersonaReactionSchema>>();
-        let perBatchSchemaFails = 0;
-        for (const raw of arr) {
-          const parsed = PersonaReactionSchema.safeParse(raw);
-          if (parsed.success) reactionMap.set(parsed.data.id, parsed.data);
-          else perBatchSchemaFails++;
-        }
-        if (perBatchSchemaFails > 0) {
-          console.warn(
-            `[sim ${opts.simulationId}] reaction batch ${bi}: ${perBatchSchemaFails}/${arr.length} entries failed schema. Sample:`,
-            JSON.stringify(arr[0]).slice(0, 300),
-          );
-        }
-        for (const hit of batch) {
-          const reaction = reactionMap.get(hit.base.id);
-          if (!reaction) {
-            parseSkips++;
+        const t0 = Date.now();
+        const results = await runWithConcurrency(
+          personaConcurrency,
+          batches.map((batch) => () =>
+            personaLLM.generate({
+              system: PERSONA_REACTION_SYSTEM,
+              prompt: personaReactionPrompt(
+                projectInput,
+                batch.map((h) => ({
+                  id: h.base.id,
+                  ageRange: h.base.age_range,
+                  gender: h.base.gender,
+                  country: h.base.country,
+                  incomeBand: h.base.income_band,
+                  profession: h.base.profession,
+                  interests: h.base.interests ?? [],
+                  purchaseStyle: h.base.purchase_style,
+                  priceSensitivity: h.base.price_sensitivity as "low" | "medium" | "high",
+                })),
+                locale,
+                referenceBlock,
+              ),
+              jsonSchema: { type: "object", properties: { reactions: { type: "array" } } },
+              // 0.85 (up from 0.6) breaks the safe-default attractor: at
+              // 0.6 every batch converged on "편안한 착용감" / "가격이
+              // 높음" as the universal trust factor / objection, drowning
+              // out the distinctive long-tail signals. Combined with the
+              // anchor requirement and 30%-per-concept diversity quota in
+              // the prompt, higher temp gives the LLM headroom to pick
+              // from the long-tail anchors instead of the safe default.
+              temperature: 0.85,
+              // 12-persona batches in Korean reach ~7k output tokens
+              // (rich trustFactors + objections + JSON wrapper). 4k
+              // truncates the array mid-output → entire batch unparseable.
+              // 8k matches the fresh-persona budget with enough headroom.
+              maxTokens: 8192,
+            }),
+          ),
+        );
+        console.log(
+          `[sim ${opts.simulationId}] reaction batches (${attemptTag}): ${batches.length}, ` +
+            `${((Date.now() - t0) / 1000).toFixed(1)}s`,
+        );
+        const unfilledHits: PoolHit[] = [];
+        for (let bi = 0; bi < results.length; bi++) {
+          const settled = results[bi];
+          const batch = batches[bi];
+          if (settled.status === "rejected") {
+            console.warn(
+              `[sim ${opts.simulationId}] reaction batch ${bi} (${attemptTag}) failed:`,
+              settled.reason instanceof Error ? settled.reason.message : settled.reason,
+            );
+            unfilledHits.push(...batch);
             continue;
           }
-          const trustFactorsLocale = filterLocaleNative(reaction.trustFactors, locale);
-          const objectionsLocale = filterLocaleNative(reaction.objections, locale);
-          const sanitizedReactionVoice = sanitizeVoice(reaction.voice, locale);
-          if (reaction.voice && sanitizedReactionVoice === null) {
-            voiceSlipCount++;
+          const r = settled.value;
+          const wrapped = (r.json as { reactions?: unknown[] } | null)?.reactions;
+          const arr = Array.isArray(wrapped) ? wrapped : [];
+          if (arr.length === 0) {
             console.warn(
-              `[sim ${opts.simulationId}] voice slip dropped (reaction, ${hit.base.country}): ` +
-                `"${reaction.voice.slice(0, 80)}"`,
+              `[sim ${opts.simulationId}] reaction batch ${bi} (${attemptTag}) returned no array — raw:`,
+              r.text.slice(0, 400),
             );
           }
-          const voiceLocaleClean = sanitizedReactionVoice ?? "";
-          // Channel sanitization on the reaction path. Same shape as
-          // the fresh-persona block — voice + objections + trust pass
-          // through the country-locked-channel rewriter.
-          const channelVoiceR = sanitizeChannelMismatch(
-            voiceLocaleClean,
-            hit.base.country,
-            locale,
-          );
-          if (channelVoiceR.replacements > 0) {
-            channelMismatchCount += channelVoiceR.replacements;
+          // Build id → reaction map so we match by id (LLM may reorder).
+          const reactionMap = new Map<string, z.infer<typeof PersonaReactionSchema>>();
+          let perBatchSchemaFails = 0;
+          for (const raw of arr) {
+            const parsed = PersonaReactionSchema.safeParse(raw);
+            if (parsed.success) reactionMap.set(parsed.data.id, parsed.data);
+            else perBatchSchemaFails++;
+          }
+          if (perBatchSchemaFails > 0) {
             console.warn(
-              `[sim ${opts.simulationId}] channel slip rewritten (reaction, ${hit.base.country}): ` +
-                `${channelVoiceR.replacements}× in "${voiceLocaleClean.slice(0, 80)}"`,
+              `[sim ${opts.simulationId}] reaction batch ${bi} (${attemptTag}): ${perBatchSchemaFails}/${arr.length} entries failed schema. Sample:`,
+              JSON.stringify(arr[0]).slice(0, 300),
             );
           }
-          const cleanedObjectionsR = sanitizeChannelMismatchArray(
-            objectionsLocale,
-            hit.base.country,
-            locale,
+          for (const hit of batch) {
+            const reaction = reactionMap.get(hit.base.id);
+            if (!reaction) {
+              // Hit didn't get a paired reaction — feed into retry
+              // unless this IS the retry round (then accept loss).
+              unfilledHits.push(hit);
+              continue;
+            }
+            const trustFactorsLocale = filterLocaleNative(reaction.trustFactors, locale);
+            const objectionsLocale = filterLocaleNative(reaction.objections, locale);
+            const sanitizedReactionVoice = sanitizeVoice(reaction.voice, locale);
+            if (reaction.voice && sanitizedReactionVoice === null) {
+              voiceSlipCount++;
+              console.warn(
+                `[sim ${opts.simulationId}] voice slip dropped (reaction ${attemptTag}, ${hit.base.country}): ` +
+                  `"${reaction.voice.slice(0, 80)}"`,
+              );
+            }
+            const voiceLocaleClean = sanitizedReactionVoice ?? "";
+            const channelVoiceR = sanitizeChannelMismatch(
+              voiceLocaleClean,
+              hit.base.country,
+              locale,
+            );
+            if (channelVoiceR.replacements > 0) {
+              channelMismatchCount += channelVoiceR.replacements;
+              console.warn(
+                `[sim ${opts.simulationId}] channel slip rewritten (reaction ${attemptTag}, ${hit.base.country}): ` +
+                  `${channelVoiceR.replacements}× in "${voiceLocaleClean.slice(0, 80)}"`,
+              );
+            }
+            const cleanedObjectionsR = sanitizeChannelMismatchArray(
+              objectionsLocale,
+              hit.base.country,
+              locale,
+            );
+            const cleanedTrustR = sanitizeChannelMismatchArray(
+              trustFactorsLocale,
+              hit.base.country,
+              locale,
+            );
+            channelMismatchCount += cleanedObjectionsR.replacements + cleanedTrustR.replacements;
+            const trustFactors = cleanedTrustR.items;
+            const objections = cleanedObjectionsR.items;
+            const voice = channelVoiceR.sanitized || voiceLocaleClean;
+            const merged = {
+              id: hit.base.id,
+              ageRange: hit.base.age_range,
+              gender: hit.base.gender,
+              country: hit.base.country,
+              incomeBand: hit.base.income_band,
+              profession: hit.base.profession,
+              interests: hit.base.interests ?? [],
+              purchaseStyle: hit.base.purchase_style,
+              priceSensitivity: hit.base.price_sensitivity as "low" | "medium" | "high",
+              trustFactors,
+              objections,
+              purchaseIntent: reaction.purchaseIntent,
+              voice,
+              adReaction: reaction.adReaction,
+            };
+            personas.push(merged);
+            const code = (merged.country ?? "").toUpperCase();
+            generatedByCountry[code] = (generatedByCountry[code] ?? 0) + 1;
+            reactionRows.push({
+              simulation_id: opts.simulationId,
+              persona_id: hit.base.id,
+              trust_factors: trustFactors,
+              objections,
+              purchase_intent: reaction.purchaseIntent,
+              voice,
+            });
+          }
+        }
+        return { unfilledHits };
+      };
+
+      const mainReaction = await runReactionBatchRound(hits, "main");
+      // Truncation retry — same pattern as fresh-persona path. Reaction
+      // batches with id-keyed responses are particularly vulnerable: a
+      // truncated array means specific persona ids never appeared in the
+      // response and the pool persona is dropped from the sim entirely.
+      // One retry pass with just the unfilled hits typically recovers
+      // most of them.
+      if (mainReaction.unfilledHits.length > 0) {
+        console.warn(
+          `[sim ${opts.simulationId}] reaction truncation retry: ${mainReaction.unfilledHits.length} unfilled hits`,
+        );
+        // Tally retry leftovers as parseSkips so the existing per-sim
+        // log already accounts for them in the final count.
+        const retryReaction = await runReactionBatchRound(mainReaction.unfilledHits, "retry");
+        if (retryReaction.unfilledHits.length > 0) {
+          parseSkips += retryReaction.unfilledHits.length;
+          console.warn(
+            `[sim ${opts.simulationId}] reaction hits still unfilled after retry: ${retryReaction.unfilledHits.length}/${mainReaction.unfilledHits.length}`,
           );
-          const cleanedTrustR = sanitizeChannelMismatchArray(
-            trustFactorsLocale,
-            hit.base.country,
-            locale,
-          );
-          channelMismatchCount += cleanedObjectionsR.replacements + cleanedTrustR.replacements;
-          const trustFactors = cleanedTrustR.items;
-          const objections = cleanedObjectionsR.items;
-          const voice = channelVoiceR.sanitized || voiceLocaleClean;
-          const merged = {
-            id: hit.base.id,
-            ageRange: hit.base.age_range,
-            gender: hit.base.gender,
-            country: hit.base.country,
-            incomeBand: hit.base.income_band,
-            profession: hit.base.profession,
-            interests: hit.base.interests ?? [],
-            purchaseStyle: hit.base.purchase_style,
-            priceSensitivity: hit.base.price_sensitivity as "low" | "medium" | "high",
-            trustFactors,
-            objections,
-            purchaseIntent: reaction.purchaseIntent,
-            voice,
-            adReaction: reaction.adReaction,
-          };
-          personas.push(merged);
-          const code = (merged.country ?? "").toUpperCase();
-          generatedByCountry[code] = (generatedByCountry[code] ?? 0) + 1;
-          reactionRows.push({
-            simulation_id: opts.simulationId,
-            persona_id: hit.base.id,
-            trust_factors: trustFactors,
-            objections,
-            purchase_intent: reaction.purchaseIntent,
-            voice,
-          });
         }
       }
 
@@ -1141,27 +1222,78 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       return 5;
     })();
     const countryPromptText = countryPrompt(projectInput, aggregate, locale);
-    const countriesResps = await Promise.all(
-      Array.from({ length: COUNTRY_SAMPLES }, () =>
-        countryLLM.generate({
-          system: COUNTRY_SYSTEM,
-          prompt: countryPromptText,
-          jsonSchema: { type: "object", properties: { countries: { type: "array" } } },
-          // Keep variance among samples — too low and the median collapses
-          // to a single answer, defeating the point. Same temp as pricing.
-          temperature: 0.4,
-          // Generous output budget so Korean rationale + ≤24 candidate countries
-          // never gets truncated mid-JSON. Provider default of 4096 cuts it close.
-          maxTokens: 8192,
-        }),
-      ),
-    );
+    const runCountryRound = async (sampleCount: number, attemptTag: string) =>
+      Promise.all(
+        Array.from({ length: sampleCount }, () =>
+          countryLLM.generate({
+            system: COUNTRY_SYSTEM,
+            prompt: countryPromptText,
+            jsonSchema: { type: "object", properties: { countries: { type: "array" } } },
+            // Keep variance among samples — too low and the median collapses
+            // to a single answer, defeating the point. Same temp as pricing.
+            temperature: 0.4,
+            // Generous output budget so Korean rationale + ≤24 candidate
+            // countries never gets truncated mid-JSON. Provider default of
+            // 4096 cuts it close.
+            maxTokens: 8192,
+          }).catch((err) => {
+            // Round-level catch so one rejected sample doesn't sink the
+            // whole stage. Each failed sample is surfaced via the parse
+            // step below and counted toward the retry trigger.
+            console.warn(
+              `[sim ${opts.simulationId}] country sample (${attemptTag}) failed:`,
+              err instanceof Error ? err.message : err,
+            );
+            return null;
+          }),
+        ),
+      );
+    const countriesResps = await runCountryRound(COUNTRY_SAMPLES, "main");
     const countrySamples: Array<z.infer<typeof CountryScoreSchema>[]> = [];
     for (const resp of countriesResps) {
+      if (!resp) continue;
       const parsed = z
         .object({ countries: z.array(CountryScoreSchema) })
         .safeParse(resp.json);
       if (parsed.success) countrySamples.push(parsed.data.countries);
+    }
+    // Truncation / coverage retry — under-coverage triggers when:
+    //   (a) fewer than 3 samples parsed (single-call fluke or provider
+    //       outage took out most of the round), or
+    //   (b) any candidate country was scored by fewer than 3 samples
+    //       (LLM truncated mid-array on multiple samples → that country
+    //       has no median to compute against).
+    // The retry runs 3 more samples; the aggregator just re-medians over
+    // the larger pool. Bounded to one retry so a chronically-failing
+    // provider doesn't burn budget.
+    const expectedCountries = projectInput.candidateCountries.length;
+    if (expectedCountries > 0 && countrySamples.length > 0) {
+      const samplesPerCountry = new Map<string, number>();
+      for (const sample of countrySamples) {
+        for (const c of sample) {
+          const code = c.country.toUpperCase();
+          samplesPerCountry.set(code, (samplesPerCountry.get(code) ?? 0) + 1);
+        }
+      }
+      const underCovered = projectInput.candidateCountries.filter(
+        (c) => (samplesPerCountry.get(c.toUpperCase()) ?? 0) < 3,
+      );
+      const sampleShortfall = countrySamples.length < 3;
+      if (sampleShortfall || underCovered.length > 0) {
+        console.warn(
+          `[sim ${opts.simulationId}] country coverage retry: ` +
+            `${countrySamples.length}/${COUNTRY_SAMPLES} samples parsed, ` +
+            `under-covered countries: [${underCovered.join(", ") || "—"}]`,
+        );
+        const retryResps = await runCountryRound(3, "retry");
+        for (const resp of retryResps) {
+          if (!resp) continue;
+          const parsed = z
+            .object({ countries: z.array(CountryScoreSchema) })
+            .safeParse(resp.json);
+          if (parsed.success) countrySamples.push(parsed.data.countries);
+        }
+      }
     }
     // Track + log scale slips (LLM scoring on 0-10 instead of 0-100) so we
     // can monitor frequency in production. The aggregator auto-rescales,
