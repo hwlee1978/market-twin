@@ -3739,8 +3739,8 @@ function PersonasTab({
               <thead className="text-slate-500">
                 <tr>
                   <th className="text-left py-1 pr-2 font-medium">{isKo ? "채널" : "Channel"}</th>
-                  <th className="text-right py-1 px-1 font-medium">{isKo ? "언급" : "Mentions"}</th>
-                  <th className="text-right py-1 px-1 font-medium">{isKo ? "비중" : "Share"}</th>
+                  <th className="text-right py-1 px-1 font-medium">{isKo ? "언급 (명)" : "Mentions"}</th>
+                  <th className="text-right py-1 px-1 font-medium">{isKo ? "전체 비중" : "Share"}</th>
                   <th className="text-right py-1 pl-2 font-medium">{isKo ? "평균 의향" : "Mean intent"}</th>
                 </tr>
               </thead>

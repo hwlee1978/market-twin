@@ -4086,8 +4086,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         </MText>
         <MText style={styles.pageSubtitle}>
           {isKo
-            ? "페르소나의 voice/objection/trust factor에서 자동 추출한 채널 언급 빈도. 우측 숫자는 그 채널을 언급한 페르소나의 평균 구매의향 — 높을수록 진출 우선순위."
-            : "Channel names auto-extracted from persona voice / objections / trust factors. Right-side number = mean intent of personas who mentioned it; higher = stronger launch priority."}
+            ? "페르소나의 voice/objection/trust factor에서 자동 추출한 채널. 가운데 숫자는 그 채널을 언급한 페르소나 수와 전체 페르소나 대비 비율 (한 페르소나가 여러 곳에서 같은 채널을 언급해도 1명으로 집계). 우측 숫자는 그들의 평균 구매의향 — 높을수록 진출 우선순위."
+            : "Channels auto-extracted from persona voice / objections / trust factors. Middle column = personas who mentioned this channel + share of total persona pool (one persona = one mention max per channel, even when cited in multiple fields). Right column = mean intent of mentioning personas; higher = stronger launch priority."}
         </MText>
 
         <View style={styles.sectionBlock}>
@@ -4120,8 +4120,15 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                     }}
                   />
                 </View>
-                <MText style={{ fontSize: 9, color: C.ink, width: 70, textAlign: "right" }}>
-                  {isKo ? `${r.mentions}회 (${r.share}%)` : `${r.mentions} · ${r.share}%`}
+                <MText style={{ fontSize: 9, color: C.ink, width: 88, textAlign: "right" }}>
+                  {/* "X명 (전체의 Y%)" 가 "X회 (Y%)" 보다 정확 — 카운트는
+                      페르소나 수이지 raw mention 횟수가 아님 (한 페르소나가
+                      voice + trustFactors 둘 다에서 같은 채널 언급해도 1회로
+                      집계). EN side stays compact since the column header
+                      already labels it as "mentions". */}
+                  {isKo
+                    ? `${r.mentions}명 (전체의 ${r.share}%)`
+                    : `${r.mentions} · ${r.share}%`}
                 </MText>
                 <MText
                   style={{
