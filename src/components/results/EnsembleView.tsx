@@ -29,6 +29,7 @@ import {
   type ComponentKey,
 } from "@/lib/decision-aid/stress-scenarios";
 import { BackToTop } from "@/components/ui/BackToTop";
+import { HelpModal } from "@/components/ui/HelpModal";
 import {
   BestCountryPieChart,
   CountryIntentChart,
@@ -99,6 +100,105 @@ interface EnsembleResult {
   is_free_rerun?: boolean;
   parent_ensemble_id?: string | null;
   child_rerun_id?: string | null;
+}
+
+/**
+ * Help content for the Income × Intent matrix. Lives next to the
+ * matrix render so the rules cited (e.g. lowSample threshold of n<100)
+ * stay in sync if the threshold changes. Two parallel components for
+ * KO / EN — neutral copy, no marketing fluff, geared at non-marketing
+ * founders reading the report.
+ */
+function IncomeIntentHelpKo() {
+  return (
+    <>
+      <section>
+        <h4 className="font-semibold text-slate-900 mb-1.5">컬럼 의미</h4>
+        <ul className="space-y-1 list-disc pl-5">
+          <li><strong>소득대</strong> — USD-K 환산 5개 구간 (&lt;$30k, $30-60k, $60-100k, $100-150k, $150k+)</li>
+          <li><strong>평균 구매의향</strong> — 그 구간 페르소나의 평균 의향 점수 (0-100). 색상: <span className="text-success font-medium">초록 ≥65</span>, <span className="text-warn font-medium">노랑 50-64</span>, <span className="text-risk font-medium">빨강 &lt;50</span></li>
+          <li><strong>n=</strong> — 그 구간의 페르소나 수 (sample size)</li>
+          <li><strong>→ 국가코드 (X%)</strong> — 그 소득대 페르소나 중 <strong>가장 많이 거주하는 국가</strong> + 그 비율. 시장 선호도가 아니라 <strong>인구 분포</strong> 신호</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4 className="font-semibold text-slate-900 mb-1.5">"→ 국가 (X%)" 깊이 읽기</h4>
+        <p>이 % 는 흔히 오해됩니다. 정확히는: <em>"이 소득대 페르소나가 사는 국가의 분포"</em> 입니다.</p>
+        <ul className="space-y-1 list-disc pl-5 mt-2">
+          <li><strong>15-30%</strong>: 분산형 — 페르소나가 여러 시장에 고루 분포</li>
+          <li><strong>40-60%</strong>: 한 시장에 집중 분포</li>
+          <li><strong>60%+</strong>: 그 소득대는 거의 한 시장에 한정</li>
+          <li><strong>100%</strong>: 그 소득대 페르소나가 단 한 시장에만 존재 (다른 후보국에 0명) — 인구통계 한계 또는 샘플링 결과</li>
+        </ul>
+        <p className="mt-2 text-slate-600 text-xs">예: <code>$150k+ → TW (100%)</code> = 슈퍼리치 페르소나 전부가 대만 거주자. 다른 후보국에 $150k+ 슬롯이 0개라는 뜻이지, "TW 가 슈퍼리치에게 매력적" 이라는 뜻 아님.</p>
+      </section>
+
+      <section>
+        <h4 className="font-semibold text-slate-900 mb-1.5">의사결정 활용</h4>
+        <ol className="space-y-1.5 list-decimal pl-5">
+          <li><strong>타겟 소득대 결정</strong> — 평균 의향 가장 높은 구간이 ICP. 65+ 면 강한 신호, 50-64 면 잠재 타겟, 50 미만이면 어려움.</li>
+          <li><strong>가격 포지셔닝</strong> — 타겟 소득대 평균 의향 50+ 면 그 가격대 OK. 50 미만이면 가격 너무 비쌀 수 있음.</li>
+          <li><strong>시장별 ICP</strong> — 소득대 × 거주국 매트릭스. 예: BR 진입 시 저소득 ICP, US 진입 시 중상 ICP.</li>
+        </ol>
+      </section>
+
+      <section>
+        <h4 className="font-semibold text-slate-900 mb-1.5">⚠ 주의 신호</h4>
+        <ul className="space-y-1 list-disc pl-5">
+          <li><strong>n &lt; 100 (소표본 라벨)</strong> — 신뢰구간 ±5점 이상. 단정적 해석 자제, 다음 시뮬에서 personaCount 늘려 재검증.</li>
+          <li><strong>topCountryShare 100%</strong> — 샘플링 한계일 가능성 높음. 그 시장 페르소나의 voice 페이지에서 진짜 매력 vs 인구 artifact 구분 필요.</li>
+          <li><strong>전 구간 의향 50점대</strong> — "관심은 있지만 결정타 없음". USP 강화 또는 메시지 재포지셔닝 필요.</li>
+        </ul>
+      </section>
+    </>
+  );
+}
+
+function IncomeIntentHelpEn() {
+  return (
+    <>
+      <section>
+        <h4 className="font-semibold text-slate-900 mb-1.5">Column meanings</h4>
+        <ul className="space-y-1 list-disc pl-5">
+          <li><strong>Income bracket</strong> — USD-K equivalent, 5 buckets</li>
+          <li><strong>Mean intent</strong> — Average purchase intent (0-100) for personas in this bracket. Color: <span className="text-success font-medium">green ≥65</span>, <span className="text-warn font-medium">amber 50-64</span>, <span className="text-risk font-medium">red &lt;50</span></li>
+          <li><strong>n=</strong> — Persona count in that bracket</li>
+          <li><strong>→ Country (X%)</strong> — The most common <strong>residence country</strong> among personas in this bracket and its share. This is a <strong>demographic distribution</strong> signal, NOT a market preference.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4 className="font-semibold text-slate-900 mb-1.5">Reading "→ Country (X%)" correctly</h4>
+        <p>Common misread: this is NOT "X% of this income bracket prefers Country Y as their launch market". It IS: "X% of personas in this income bracket happen to live in Country Y."</p>
+        <ul className="space-y-1 list-disc pl-5 mt-2">
+          <li><strong>15-30%</strong>: dispersed — personas spread evenly across markets</li>
+          <li><strong>40-60%</strong>: concentrated in one market</li>
+          <li><strong>60%+</strong>: this income bracket is heavily one-market</li>
+          <li><strong>100%</strong>: this bracket exists in only one candidate country in the sample — demographic ceiling or sampling artifact</li>
+        </ul>
+        <p className="mt-2 text-slate-600 text-xs">Example: <code>$150k+ → TW (100%)</code> = all $150k+ personas live in Taiwan. It does NOT mean "Taiwan appeals to the rich" — it means no other candidate country had $150k+ slots in this run.</p>
+      </section>
+
+      <section>
+        <h4 className="font-semibold text-slate-900 mb-1.5">Decision use</h4>
+        <ol className="space-y-1.5 list-decimal pl-5">
+          <li><strong>Target bracket</strong> — Highest-intent bracket is ICP. 65+ strong, 50-64 latent, &lt;50 hard.</li>
+          <li><strong>Price positioning</strong> — Target bracket mean intent 50+ ⇒ price tier is OK. Below 50 ⇒ likely overpriced.</li>
+          <li><strong>Per-market ICP</strong> — Income × residence matrix tells you who to target IN each candidate market.</li>
+        </ol>
+      </section>
+
+      <section>
+        <h4 className="font-semibold text-slate-900 mb-1.5">⚠ Caveats</h4>
+        <ul className="space-y-1 list-disc pl-5">
+          <li><strong>n &lt; 100 (low-n label)</strong> — Wide confidence interval. Don't over-interpret; rerun with larger personaCount.</li>
+          <li><strong>topCountryShare = 100%</strong> — Likely a sampling artifact. Check that bracket's persona voices to distinguish real market appeal from a demographic artifact.</li>
+          <li><strong>All brackets at 50-something</strong> — "Interest without conviction." USP needs strengthening or repositioning.</li>
+        </ul>
+      </section>
+    </>
+  );
 }
 
 export function EnsembleView({
@@ -6234,13 +6334,28 @@ function DecisionAidTab({
                 : "text-brand border-brand";
         return (
           <div>
-            <h2 className="text-xl font-semibold text-slate-900 mb-1">
-              {isKo ? "소득대 × 구매의향 매트릭스" : "Income × intent matrix"}
-            </h2>
+            <div className="flex items-baseline gap-2 mb-1">
+              <h2 className="text-xl font-semibold text-slate-900">
+                {isKo ? "소득대 × 구매의향 매트릭스" : "Income × intent matrix"}
+              </h2>
+              <HelpModal
+                title={
+                  isKo
+                    ? "소득대 × 구매의향 매트릭스 — 해석 가이드"
+                    : "Income × intent matrix — interpretation guide"
+                }
+              >
+                {isKo ? (
+                  <IncomeIntentHelpKo />
+                ) : (
+                  <IncomeIntentHelpEn />
+                )}
+              </HelpModal>
+            </div>
             <p className="text-sm text-slate-500 leading-relaxed mb-4">
               {isKo
-                ? "소득대별 평균 구매의향과 그 세그먼트가 가장 많이 선택한 시장. 가격 포지셔닝 결정에 직접 사용."
-                : "Mean intent per income bracket and the country each bracket most often picks. Drives price positioning."}
+                ? "소득대별 평균 구매의향과 그 세그먼트의 거주 시장 분포. 가격 포지셔닝 + 시장별 ICP 결정의 input."
+                : "Mean intent per income bracket and the residence-country distribution of personas in that bracket. Drives price positioning + per-market ICP."}
             </p>
             <div className="card overflow-hidden mb-5">
               <div className="divide-y divide-slate-100">
