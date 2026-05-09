@@ -99,6 +99,23 @@ interface RunOptions {
     content: string;
     score: number;
   }>;
+  /**
+   * Pre-extracted competitor prices — ensemble-level fetch of the
+   * user's competitor URLs done once and shared across all sims.
+   * When supplied, runner skips its own per-sim extraction (avoids
+   * 25× redundant fetches) and injects the prices into persona
+   * prompts so the LLM has factual price anchors instead of
+   * hallucinating directional comparisons (e.g. "Allbirds 대비 비쌈"
+   * when the input price was actually cheaper than Allbirds).
+   */
+  competitorPrices?: Array<{
+    url: string;
+    priceCents: number | null;
+    sourceCurrency?: string;
+    productName?: string;
+    status: "extracted" | "fetch_failed" | "no_price_found" | "low_confidence";
+    reason?: string;
+  }>;
 }
 
 // Smaller batches are more reliably completed by the LLM.
@@ -661,9 +678,60 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       (opts.trendSnippets?.length ?? 0) > 0
         ? formatTrendContextBlock(opts.trendSnippets!, locale === "ko", 4)
         : "";
-    const referenceBlock = trendBlock
-      ? `${referenceBaseBlock}\n\n${trendBlock}`
-      : referenceBaseBlock;
+    // Competitor price anchor block — gives persona prompts FACTUAL
+    // competitor prices instead of letting the LLM guess "is this
+    // product cheaper or more expensive than Allbirds?". Only the
+    // ensemble-prefetched competitorPrices feed this block — the
+    // per-sim Stage 3a extraction happens AFTER persona generation,
+    // too late for the persona prompt. Standalone sims (no ensemble
+    // pre-fetch) just lack this block; the pricing stage still gets
+    // the anchor via Stage 3a.
+    const competitorPriceBlock = (() => {
+      const okPrices = (opts.competitorPrices ?? []).filter(
+        (r) => r.status === "extracted" && r.priceCents != null,
+      );
+      if (okPrices.length === 0) return "";
+      const productPrice = opts.projectInput.basePriceCents;
+      const currency = opts.projectInput.currency;
+      const fmt = (cents: number) =>
+        `${(cents / 100).toLocaleString()} ${currency}`;
+      const entries = okPrices
+        .map((r) => {
+          const name = r.productName ?? r.url;
+          const cmp =
+            productPrice > 0 && r.priceCents != null
+              ? r.priceCents > productPrice * 1.1
+                ? locale === "ko"
+                  ? " (이 제품보다 비쌈)"
+                  : " (more expensive than this product)"
+                : r.priceCents < productPrice * 0.9
+                  ? locale === "ko"
+                    ? " (이 제품보다 저렴)"
+                    : " (cheaper than this product)"
+                  : locale === "ko"
+                    ? " (이 제품과 비슷한 가격)"
+                    : " (similar to this product)"
+              : "";
+          return `  - ${name}: ${fmt(r.priceCents!)}${cmp}`;
+        })
+        .join("\n");
+      const header =
+        locale === "ko"
+          ? `═══ 경쟁사 실제 가격 (FACT — 추측 금지) ═══
+이 제품 (${fmt(productPrice)}) 와 사용자가 입력한 경쟁사 URL 의 실제 추출 가격:
+${entries}
+
+⚠ HARD RULE: trustFactors / objections / voice 에서 경쟁사와의 가격 비교를 언급할 때, 위 표의 실제 가격을 정확히 따르세요. 추측하지 말 것 — "Allbirds 대비 비쌈" 이라고 쓰려면 위 표에서 Allbirds 가격이 이 제품보다 *낮음* 이 확인되어야 합니다. 방향을 거꾸로 말하는 건 fact 오류이며 신뢰성 실패입니다. 위 표에 없는 경쟁사라면 가격 비교 자체를 자제하세요.`
+          : `═══ COMPETITOR ACTUAL PRICES (FACT — do not guess) ═══
+This product (${fmt(productPrice)}) vs prices extracted from the user-supplied competitor URLs:
+${entries}
+
+⚠ HARD RULE: when trustFactors / objections / voice cite competitor price comparisons, follow the actual numbers above. Do NOT guess directionality — claiming "more expensive than Allbirds" requires Allbirds' price above to be LOWER than this product. Getting the direction wrong is a credibility failure. If a competitor isn't listed above, avoid making a price comparison claim about it.`;
+      return header;
+    })();
+    const referenceBlock = [referenceBaseBlock, trendBlock, competitorPriceBlock]
+      .filter(Boolean)
+      .join("\n\n");
 
     // ── Stage 1: personas ──────────────────────────────────────
     // Two-phase generation:
@@ -1537,12 +1605,24 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     await updateStage("pricing");
     const tPricing = Date.now();
 
-    // Stage 3a: extract competitor prices from user-provided URLs.
-    // Best-effort — failed fetches / no-price extractions are skipped,
-    // not fatal. Whatever we get becomes anchor data for the pricing
-    // prompt (real market prices > LLM intuition).
+    // Stage 3a: competitor price anchors. Prefer the ensemble-level
+    // pre-extraction (passed via opts.competitorPrices) — that path
+    // runs once per ensemble and feeds personas BEFORE this stage
+    // executes, so the LLM gets factual prices when generating
+    // reactions. Fall back to per-sim extraction when ensemble didn't
+    // pre-fetch (standalone sim runs).
     let competitorPriceResults: Awaited<ReturnType<typeof extractCompetitorPrices>> = [];
-    if (opts.projectInput.competitorUrls.length > 0) {
+    if (opts.competitorPrices && opts.competitorPrices.length > 0) {
+      // Type assertion is safe — opts.competitorPrices already conforms
+      // to CompetitorPriceResult shape (verified by route.ts when it
+      // calls extractCompetitorPrices itself).
+      competitorPriceResults =
+        opts.competitorPrices as typeof competitorPriceResults;
+      const ok = competitorPriceResults.filter((r) => r.status === "extracted");
+      console.log(
+        `[sim ${opts.simulationId}] competitor prices (ensemble-cached): ${ok.length}/${competitorPriceResults.length}`,
+      );
+    } else if (opts.projectInput.competitorUrls.length > 0) {
       const tComp = Date.now();
       try {
         competitorPriceResults = await extractCompetitorPrices({

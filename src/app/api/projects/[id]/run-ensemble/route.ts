@@ -10,6 +10,10 @@ import {
   tavilySearch,
   type TavilyResult,
 } from "@/lib/market-research/tavily";
+import {
+  extractCompetitorPrices,
+  type CompetitorPriceResult,
+} from "@/lib/simulation/competitor-prices";
 import { aggregateEnsemble, type EnsembleSimSnapshot } from "@/lib/simulation/ensemble";
 import { mergeNarrative } from "@/lib/simulation/ensemble-narrative";
 import { buildMarketProfile } from "@/lib/simulation/market-profile";
@@ -514,6 +518,44 @@ export async function POST(
       }
     }
 
+    // Extract competitor prices ONCE per ensemble. The runner used to
+    // do this per-sim during the pricing stage, which (a) wasted 25
+    // identical fetches against the same competitor URLs and (b) left
+    // the persona reaction stage flying blind — the LLM had only the
+    // raw competitor URL strings, no actual prices, so it hallucinated
+    // directional comparisons (e.g. "Allbirds 대비 가격이 높음" when
+    // the input price was actually CHEAPER than Allbirds — a
+    // factually-wrong objection that 2,774 personas in the LeMouton
+    // 2026-05-09 ensemble parroted).
+    //
+    // Done once at ensemble level, results passed to runSimulation so
+    // every sim's persona / pricing stages share the same factual
+    // anchor. Best-effort: failed fetches are skipped, persona prompts
+    // fall back to LLM-only pricing intuition.
+    let competitorPrices: CompetitorPriceResult[] = [];
+    if (projectInput.competitorUrls.length > 0) {
+      try {
+        competitorPrices = await extractCompetitorPrices({
+          urls: projectInput.competitorUrls,
+          productCategory: projectInput.category,
+          targetCurrency: projectInput.currency,
+          locale: locale === "ko" ? "ko" : "en",
+        });
+        const ok = competitorPrices.filter((r) => r.status === "extracted");
+        console.log(
+          `[ensemble ${ensembleId}] competitor prices: ${ok.length}/${competitorPrices.length} extracted` +
+            (ok.length > 0
+              ? ` — ${ok.map((r) => `${r.productName ?? "?"}=${r.priceCents}`).join(" / ")}`
+              : ""),
+        );
+      } catch (err) {
+        console.warn(
+          `[ensemble ${ensembleId}] competitor extraction failed:`,
+          err,
+        );
+      }
+    }
+
     // Group sims by provider and run each group through a worker pool
     // sized for that provider's burst tolerance. Cross-provider parallelism
     // is unconstrained — anthropic/openai/gemini share no rate limits.
@@ -550,6 +592,7 @@ export async function POST(
           provider,
           inlineAssets,
           trendSnippets,
+          competitorPrices,
         });
       } catch (err) {
         console.error(`[ensemble ${ensembleId}] sim ${simId} failed:`, err);
