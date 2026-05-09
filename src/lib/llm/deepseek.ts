@@ -16,6 +16,7 @@
 import OpenAI from "openai";
 import type { LLMProvider, LLMRequest, LLMResponse } from "./types";
 import { withLLMRetry } from "./retry";
+import { recoverJsonFromText } from "./json-parse";
 
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1";
 // Same 180s window we settled on for xAI — gives the slow tail room
@@ -71,28 +72,14 @@ export class DeepSeekProvider implements LLMProvider {
 
     return {
       text,
-      json: wantsJson ? safeParseJson(text) : undefined,
+      json: wantsJson
+        ? recoverJsonFromText(text, { arrayKey: req.expectedArrayKey })
+        : undefined,
       usage: {
         inputTokens: response.usage?.prompt_tokens,
         outputTokens: response.usage?.completion_tokens,
       },
       raw: response,
     };
-  }
-}
-
-function safeParseJson(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) {
-      try {
-        return JSON.parse(match[0]);
-      } catch {
-        return undefined;
-      }
-    }
-    return undefined;
   }
 }

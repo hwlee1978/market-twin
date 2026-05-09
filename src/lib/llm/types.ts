@@ -43,6 +43,20 @@ export interface LLMRequest {
    * SDK support throw AbortError on next opportunity (best-effort).
    */
   signal?: AbortSignal;
+  /**
+   * Optional key hint for the array we expect in the JSON response.
+   * Used by the partial-JSON-recovery layer when the response gets
+   * truncated mid-array (e.g. Anthropic max_tokens, OpenAI/DeepSeek
+   * stream-stop). When set, recovery reconstructs `{ [arrayKey]: [...] }`
+   * from any complete entries that survived the truncation, salvaging
+   * 8-11 personas from a 12-batch instead of dropping the whole batch.
+   *
+   * Common values: "personas", "reactions", "countries", "creatives".
+   * Optional — recovery still works without it, just falls back to
+   * first-array extraction (which produces a bare array, requiring
+   * the caller to handle the shape difference).
+   */
+  expectedArrayKey?: string;
 }
 
 export interface LLMResponse {

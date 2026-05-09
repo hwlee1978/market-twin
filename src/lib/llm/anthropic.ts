@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { LLMProvider, LLMRequest, LLMResponse } from "./types";
 import { withLLMRetry } from "./retry";
+import { recoverJsonFromText } from "./json-parse";
 
 export class AnthropicProvider implements LLMProvider {
   readonly name = "anthropic" as const;
@@ -81,54 +82,41 @@ export class AnthropicProvider implements LLMProvider {
       .map((c) => c.text)
       .join("");
 
-    // Surface output-cap truncation. Anthropic returns stop_reason ==
-    // "max_tokens" when the response was cut at the budget rather than
-    // ending naturally — silently accepting that produces malformed
-    // JSON (unclosed arrays mid-persona) which our caller drops as
-    // "no array returned", losing the entire batch. The 2026-05-10
-    // ensemble shipped only 67% of expected personas because all 9
-    // Anthropic sims hit max_tokens on the persona-batch call without
-    // any log signal. Logging here makes the failure mode investigable
-    // even when the caller's drop-on-empty-array path obscures it.
-    if (response.stop_reason === "max_tokens") {
+    const truncated = response.stop_reason === "max_tokens";
+    const json = wantsJson
+      ? recoverJsonFromText(text, { arrayKey: req.expectedArrayKey })
+      : undefined;
+
+    // Surface output-cap truncation. When stop_reason == "max_tokens" and
+    // we couldn't recover ANY usable JSON, throw — that triggers the
+    // failover wrapper's retry-on-different-provider behavior. When we
+    // DID recover partial JSON (most common case post-2026-05-10
+    // partial-array-recovery utility), keep the response but log so the
+    // operator sees the data partial-loss in monitoring.
+    if (truncated) {
+      const usedTokens = response.usage.output_tokens;
+      if (wantsJson && json === undefined) {
+        // Hard failure — throw to let the failover wrapper try a
+        // different provider. Without this throw, the caller sees an
+        // empty result and drops the whole batch.
+        throw new Error(
+          `Anthropic response truncated at max_tokens=${req.maxTokens ?? 4096} (used ${usedTokens}) — JSON unrecoverable, request retry/failover`,
+        );
+      }
       console.warn(
         `[anthropic] response hit max_tokens=${req.maxTokens ?? 4096} ceiling — output truncated. ` +
-          `Used ${response.usage.output_tokens} tokens. ` +
-          `Caller likely sees malformed JSON / dropped batch. Consider raising maxTokens.`,
+          `Used ${usedTokens} tokens. Partial JSON recovered (caller may see incomplete array).`,
       );
     }
 
     return {
       text,
-      json: wantsJson ? safeParseJson(text) : undefined,
+      json,
       usage: {
         inputTokens: response.usage.input_tokens,
         outputTokens: response.usage.output_tokens,
       },
       raw: response,
     };
-  }
-}
-
-function safeParseJson(text: string): unknown {
-  // Trim common wrappers in case the model still ignored the instruction.
-  const cleaned = text
-    .trim()
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/```\s*$/i, "")
-    .trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    // Last-resort: extract the first {...} block.
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (match) {
-      try {
-        return JSON.parse(match[0]);
-      } catch {
-        return undefined;
-      }
-    }
-    return undefined;
   }
 }

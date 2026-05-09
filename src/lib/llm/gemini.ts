@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { LLMProvider, LLMRequest, LLMResponse } from "./types";
 import { withLLMRetry } from "./retry";
+import { recoverJsonFromText } from "./json-parse";
 
 export class GeminiProvider implements LLMProvider {
   readonly name = "gemini" as const;
@@ -44,28 +45,14 @@ export class GeminiProvider implements LLMProvider {
 
     return {
       text,
-      json: wantsJson ? safeParseJson(text) : undefined,
+      json: wantsJson
+        ? recoverJsonFromText(text, { arrayKey: req.expectedArrayKey })
+        : undefined,
       usage: {
         inputTokens: usage?.promptTokenCount,
         outputTokens: usage?.candidatesTokenCount,
       },
       raw: result.response,
     };
-  }
-}
-
-function safeParseJson(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) {
-      try {
-        return JSON.parse(match[0]);
-      } catch {
-        return undefined;
-      }
-    }
-    return undefined;
   }
 }

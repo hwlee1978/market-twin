@@ -930,6 +930,13 @@ ${entries}
             system: PERSONA_SYSTEM,
             prompt: personaPrompt(projectInput, slots, locale, referenceBlock),
             jsonSchema: { type: "object", properties: { personas: { type: "array" } } },
+            // Hint the recovery layer that the response wraps an array
+            // under the "personas" key. When max_tokens or stream-stop
+            // truncates the response mid-array, the recovery extracts
+            // complete entries that survived and reconstructs the
+            // wrapper object — preserving 8-11 personas instead of
+            // dropping the entire 12-batch.
+            expectedArrayKey: "personas",
             // 0.85 (up from 0.6) breaks the safe-default attractor that
             // caused trustFactors/objections to converge to one phrase
             // across the batch ("편안한 착용감" 99%, "가격이 높음" 98%).
@@ -1175,6 +1182,7 @@ ${entries}
                 referenceBlock,
               ),
               jsonSchema: { type: "object", properties: { reactions: { type: "array" } } },
+              expectedArrayKey: "reactions",
               // 0.85 (up from 0.6) breaks the safe-default attractor: at
               // 0.6 every batch converged on "편안한 착용감" / "가격이
               // 높음" as the universal trust factor / objection, drowning
@@ -1219,11 +1227,19 @@ ${entries}
             );
           }
           // Build id → reaction map so we match by id (LLM may reorder).
+          // Normalize ids for lookup. The LLM occasionally emits ids
+          // with whitespace padding ("uuid-here ") or case differences
+          // ("UUID-..." vs the persona's lowercase). Without this
+          // normalization, those reactions silently fail to match
+          // their persona, the hit goes to retry, and one retry pass
+          // later we still don't match → permanent loss. Keying both
+          // sides by trimmed-lowercase eliminates the silent drop.
+          const normalizeId = (id: string) => id.trim().toLowerCase();
           const reactionMap = new Map<string, z.infer<typeof PersonaReactionSchema>>();
           let perBatchSchemaFails = 0;
           for (const raw of arr) {
             const parsed = PersonaReactionSchema.safeParse(raw);
-            if (parsed.success) reactionMap.set(parsed.data.id, parsed.data);
+            if (parsed.success) reactionMap.set(normalizeId(parsed.data.id), parsed.data);
             else perBatchSchemaFails++;
           }
           if (perBatchSchemaFails > 0) {
@@ -1233,7 +1249,7 @@ ${entries}
             );
           }
           for (const hit of batch) {
-            const reaction = reactionMap.get(hit.base.id);
+            const reaction = reactionMap.get(normalizeId(hit.base.id));
             if (!reaction) {
               // Hit didn't get a paired reaction — feed into retry
               // unless this IS the retry round (then accept loss).
@@ -1509,6 +1525,7 @@ ${entries}
             system: COUNTRY_SYSTEM,
             prompt: countryPromptText,
             jsonSchema: { type: "object", properties: { countries: { type: "array" } } },
+            expectedArrayKey: "countries",
             // Keep variance among samples — too low and the median collapses
             // to a single answer, defeating the point. Same temp as pricing.
             temperature: 0.4,

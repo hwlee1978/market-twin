@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import type { LLMProvider, LLMRequest, LLMResponse } from "./types";
 import { withLLMRetry } from "./retry";
+import { recoverJsonFromText } from "./json-parse";
 
 export class OpenAIProvider implements LLMProvider {
   readonly name = "openai" as const;
@@ -44,7 +45,9 @@ export class OpenAIProvider implements LLMProvider {
 
     return {
       text,
-      json: wantsJson ? safeParseJson(text) : undefined,
+      json: wantsJson
+        ? recoverJsonFromText(text, { arrayKey: req.expectedArrayKey })
+        : undefined,
       usage: {
         inputTokens: response.usage?.prompt_tokens,
         outputTokens: response.usage?.completion_tokens,
@@ -54,18 +57,3 @@ export class OpenAIProvider implements LLMProvider {
   }
 }
 
-function safeParseJson(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) {
-      try {
-        return JSON.parse(match[0]);
-      } catch {
-        return undefined;
-      }
-    }
-    return undefined;
-  }
-}
