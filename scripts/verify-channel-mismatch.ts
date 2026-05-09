@@ -8,7 +8,7 @@
 import {
   detectChannelMismatch,
   sanitizeChannelMismatch,
-} from "../src/lib/simulation/country-channel";
+} from "../packages/shared/src/simulation/country-channel";
 
 interface Case {
   text: string;

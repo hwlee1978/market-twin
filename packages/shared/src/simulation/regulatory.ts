@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { LLMProvider } from "@/lib/llm";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/admin";
 import type { ProjectInput } from "./schemas";
 import type { PromptLocale } from "./prompts";
 

@@ -1,4 +1,4 @@
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/admin";
 
 // ─── Types ──────────────────────────────────────────────────────
 export interface CountryStats {

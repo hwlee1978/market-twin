@@ -13,7 +13,7 @@ import {
   isPersonaMismatchNoise,
   tokenize,
   overlapCoefficient,
-} from "../src/lib/simulation/surfaced-recount";
+} from "../packages/shared/src/simulation/surfaced-recount";
 
 async function main() {
   const [, , prefix, country] = process.argv;

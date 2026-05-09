@@ -7,8 +7,8 @@
  *
  * Run: npx tsx scripts/verify-voice-homogeneity.ts
  */
-import { auditQuality } from "../src/lib/quality/audit";
-import type { Persona, CountryScore } from "../src/lib/simulation/schemas";
+import { auditQuality } from "../packages/shared/src/quality/audit";
+import type { Persona, CountryScore } from "../packages/shared/src/simulation/schemas";
 
 const baseCountryScores: CountryScore[] = [
   {

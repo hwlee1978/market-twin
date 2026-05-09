@@ -19,11 +19,11 @@
  * Output: validate-categories-<timestamp>.md in the project root.
  */
 import { writeFileSync } from "fs";
-import { AnthropicProvider } from "../src/lib/llm/anthropic";
-import { sanitizeVoice } from "../src/lib/simulation/locale-filter";
-import { planSlots, type PersonaSlot } from "../src/lib/simulation/profession-pool";
-import { personaPrompt, PERSONA_SYSTEM } from "../src/lib/simulation/prompts";
-import { PersonaSchema, type ProjectInput } from "../src/lib/simulation/schemas";
+import { AnthropicProvider } from "../packages/shared/src/llm/anthropic";
+import { sanitizeVoice } from "../packages/shared/src/simulation/locale-filter";
+import { planSlots, type PersonaSlot } from "../packages/shared/src/simulation/profession-pool";
+import { personaPrompt, PERSONA_SYSTEM } from "../packages/shared/src/simulation/prompts";
+import { PersonaSchema, type ProjectInput } from "../packages/shared/src/simulation/schemas";
 
 const SONNET = "claude-sonnet-4-6";
 

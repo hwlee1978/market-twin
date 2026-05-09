@@ -18,7 +18,7 @@ import {
   recountSurfacedInSims,
   clusterStrings,
   isPersonaMismatchNoise,
-} from "../src/lib/simulation/surfaced-recount";
+} from "../packages/shared/src/simulation/surfaced-recount";
 
 interface MergedRisk {
   factor: string;

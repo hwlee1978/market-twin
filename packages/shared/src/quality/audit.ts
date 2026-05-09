@@ -14,7 +14,7 @@
  *     don't ship this one".
  */
 
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/admin";
 import type { CountryScore, Persona, PricingResult } from "@/lib/simulation/schemas";
 
 export type WarningSeverity = "info" | "warning" | "critical";

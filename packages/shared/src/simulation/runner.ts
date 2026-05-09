@@ -12,7 +12,7 @@ import {
   formatTrendContextBlock,
   formatMarginBenchmarkBlock,
 } from "@/lib/market-research/tavily";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/admin";
 import {
   countryPrompt,
   COUNTRY_SYSTEM,
