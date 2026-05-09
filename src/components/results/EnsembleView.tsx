@@ -4495,7 +4495,7 @@ function VoiceList({
                     "font-semibold tabular-nums",
                   )}
                 >
-                  {v.intent}%
+                  {isKo ? `의향 ${v.intent}` : `intent ${v.intent}`}
                 </span>
                 {v.profession && (
                   <>

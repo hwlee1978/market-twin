@@ -3405,7 +3405,10 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 <MText style={styles.voiceText}>{`"${v.text}"`}</MText>
                 <MText style={styles.voiceMeta}>
                   {[
-                    `${v.country} · ${v.intent}%`,
+                    // intent is the persona's purchaseIntent score (0-100)
+                    // — labeled "의향 X" / "intent X" so readers don't
+                    // misread the bare "X%" as a probability.
+                    `${v.country} · ${isKo ? "의향" : "intent"} ${v.intent}`,
                     v.profession,
                     v.ageRange,
                   ].filter(Boolean).join(" · ")}
@@ -3423,7 +3426,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 <MText style={styles.voiceText}>{`"${v.text}"`}</MText>
                 <MText style={styles.voiceMeta}>
                   {[
-                    `${v.country} · ${v.intent}%`,
+                    `${v.country} · ${isKo ? "의향" : "intent"} ${v.intent}`,
                     v.profession,
                     v.ageRange,
                   ].filter(Boolean).join(" · ")}
