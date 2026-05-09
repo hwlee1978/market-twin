@@ -919,7 +919,19 @@ Required JSON shape (every field optional — fill what you have confidence abou
   }
 }
 
-Final reminder: ${isKo ? "모든 텍스트 필드는 한국어로 작성. 브랜드명·채널명·규제 명칭은 원문 그대로 (Allbirds, Amazon, FDA 등)." : "Write all text fields in English. Brand / channel / regulator names stay in their canonical form."} If you have low confidence on a section (especially competitors or pricing benchmarks), it's better to leave it sparse than to fabricate. Empty arrays / blank strings render cleanly.`;
+Final reminder: ${isKo ? "모든 텍스트 필드는 한국어로 작성. 브랜드명·채널명·규제 명칭은 원문 그대로 (Allbirds, Amazon, FDA 등)." : "Write all text fields in English. Brand / channel / regulator names stay in their canonical form."} If you have low confidence on a section (especially competitors or pricing benchmarks), it's better to leave it sparse than to fabricate. Empty arrays / blank strings render cleanly.
+
+${isKo ? `═══ 영문 마케팅 약어 표기 규칙 (한국어 출력 시 필수) ═══
+한국어 출력에서 영문 마케팅 약어 (USP, ICP, KPI, GTM, MOQ, ROI, LTV, CAC, ARPU, AOV, SKU, MVP, B2B, B2C, DTC, COGS, AB 테스트 등) 를 사용할 때, **첫 등장 시 반드시 풀 영문 + 한국어 설명을 괄호로 병기**하세요. 두 번째 등장부터는 약어만 써도 됩니다. 형식: \`약어 (Full English Form · 한국어 설명)\`.
+예시:
+  ✓ "USP (Unique Selling Proposition · 핵심 차별점) 로 ..." (첫 등장)
+  ✓ "이 USP 가 ..." (두 번째 이후)
+  ✗ "핵심 USP 로 ..." (첫 등장인데 풀 폼 없음 — 사용자가 약어를 모르면 막힘)
+  ✓ "ICP (Ideal Customer Profile · 이상적 고객 프로필) 는 25-38세 도시 직장인"
+  ✓ "GTM (Go-to-Market · 시장 진입) 전략은 ..."
+  ✓ "CAC (Customer Acquisition Cost · 고객 획득 비용) 는 ..."
+  ✓ "MOQ (Minimum Order Quantity · 최소 주문 수량) 1,000개 ..."
+이 규칙은 한국어 페이지를 읽는 비-마케팅 founder 도 약어 막힘 없이 읽을 수 있게 하기 위함. 마케팅 백그라운드 가정 금지.` : ""}`;
 }
 
 export const SYNTHESIS_SYSTEM = `${SYSTEM_BASE} For final synthesis, distill the analysis into an executive-readable verdict with a clear go/no-go signal, the highest-leverage action plan, and honest risks.`;
@@ -1109,5 +1121,21 @@ Return a JSON object:
     "actionPlan": [ "concrete steps in ${LANG_NAME[locale]}" ],
     "channels": [ "channel names — keep brand names like TikTok, Instagram in original" ]
   }
+}
+${
+  locale === "ko"
+    ? `
+═══ 영문 마케팅 약어 표기 규칙 (한국어 출력 시 필수) ═══
+한국어 출력에서 영문 마케팅 약어 (USP, ICP, KPI, GTM, MOQ, ROI, LTV, CAC, ARPU, AOV, SKU, MVP, B2B, B2C, DTC, COGS, A/B 테스트 등) 를 사용할 때, **첫 등장 시 반드시 풀 영문 + 한국어 설명을 괄호로 병기**하세요. 두 번째 등장부터는 약어만 써도 됩니다. 형식: \`약어 (Full English Form · 한국어 설명)\`.
+예시:
+  ✓ "USP (Unique Selling Proposition · 핵심 차별점) 로 ..." (첫 등장)
+  ✓ "이 USP 가 ..." (두 번째 이후)
+  ✗ "핵심 USP 로 ..." (첫 등장인데 풀 폼 없음)
+  ✓ "ICP (Ideal Customer Profile · 이상적 고객 프로필) 는 25-38세 도시 직장인"
+  ✓ "GTM (Go-to-Market · 시장 진입) 전략은 ..."
+  ✓ "CAC (Customer Acquisition Cost · 고객 획득 비용) 는 ..."
+  ✓ "MOQ (Minimum Order Quantity · 최소 주문 수량) 1,000개 ..."
+이 규칙은 비-마케팅 founder 도 약어 막힘 없이 읽을 수 있게 하기 위함. 마케팅 백그라운드 가정 금지.`
+    : ""
 }`;
 }
