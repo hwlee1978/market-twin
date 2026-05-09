@@ -3,6 +3,7 @@ import type { SimulationAggregate } from "./aggregate";
 import { renderAggregateForPrompt } from "./aggregate";
 import type { PersonaSlot } from "./profession-pool";
 import { buildChannelCostsBlock } from "@/lib/reference/channel-costs";
+import { taxonomyPromptBlock } from "./taxonomy";
 
 export type PromptLocale = "ko" | "en";
 
@@ -414,7 +415,21 @@ Final voice self-check before emitting JSON:
 2. **Length**: KO ≤ 90 chars · EN ≤ 130 chars (aim 90–120 for headroom). Count chars; rewrite shorter if over cap by dropping hedges ("I'd want to", "before I commit"), qualifiers, or second clauses.
 Both rules are non-negotiable. Voices that violate either are CRITICAL ERRORS.
 
-Return a JSON object: { "personas": [ ...${count} persona objects, each with all 12 fields including voice AND adReaction { curiosity, wouldClick } ] }`;
+═══ TAXONOMY (HARD RULE — every objection / trust factor MUST carry a category code) ═══
+The dashboard / PDF rolls up cross-country comparisons by COUNTING category codes, not by re-clustering free text. Pick the single best-fit code from the lists below per item. Emit BOTH the legacy string array (trustFactors / objections) AND the parallel categorized array (trustFactorsCategorized / objectionsCategorized) — the detail strings in categorized must equal the strings in the legacy arrays, position by position. The renderer reads either depending on context; if they disagree, the persona may be dropped.
+
+Objection categories (pick ONE per item):
+${taxonomyPromptBlock("objection", locale)}
+
+TrustFactor categories (pick ONE per item):
+${taxonomyPromptBlock("trust", locale)}
+
+⚠ CRITICAL — DIVERSITY ACROSS THE BATCH:
+- Across this batch of ${count} personas, NO single objection category may appear in more than 30% of personas (same rule for trust categories). If you find yourself stamping the same code on every other persona, STOP and re-pick: a 30y/o SG marketer's blocker is genuinely different from a 55y/o JP retiree's.
+- "other" is for genuinely niche concerns. Use sparingly — high "other" rate is a signal that you're missing a fit.
+- The detail string still follows the anchor requirement (concrete brand / cert / channel / scenario). The category code does NOT replace the anchor.
+
+Return a JSON object: { "personas": [ ...${count} persona objects, each with all 12 fields including voice, adReaction { curiosity, wouldClick }, AND the parallel categorized arrays trustFactorsCategorized / objectionsCategorized ] }`;
 }
 
 export const PERSONA_REACTION_SYSTEM = `${SYSTEM_BASE}
@@ -550,7 +565,31 @@ ${referenceSection}
 ${languageInstruction(locale)}
 
 For each persona above, return ONE reaction object in the SAME ORDER:
-{ "id": "(the id above)", "trustFactors": [1-3 strings], "objections": [1-3 strings], "purchaseIntent": 0-100, "voice": "(1-2 sentence first-person quote in the locale language)", "adReaction": { "curiosity": 0-100, "wouldClick": true/false } }
+{ "id": "(the id above)",
+  "trustFactors": [1-3 strings — same content as detail in trustFactorsCategorized below],
+  "objections": [1-3 strings — same content as detail in objectionsCategorized below],
+  "trustFactorsCategorized": [1-3 { "category": "<enum code>", "detail": "string" }],
+  "objectionsCategorized":   [1-3 { "category": "<enum code>", "detail": "string" }],
+  "purchaseIntent": 0-100,
+  "voice": "(1-2 sentence first-person quote in the locale language)",
+  "adReaction": { "curiosity": 0-100, "wouldClick": true/false } }
+
+═══ TAXONOMY (HARD RULE — every objection / trust factor MUST carry a category code) ═══
+The dashboard / PDF rolls up cross-country comparisons by COUNTING category codes, not by re-clustering free text. Pick the single best-fit code from the lists below. Every emit MUST be { category: "<one of the enum codes>", detail: "<your free-text rationale>" }. The detail string is what gets shown to the user; the category is the column-grouping signal.
+
+Objection categories (pick ONE per item):
+${taxonomyPromptBlock("objection", locale)}
+
+TrustFactor categories (pick ONE per item):
+${taxonomyPromptBlock("trust", locale)}
+
+⚠ CRITICAL — DIVERSITY ACROSS THE BATCH:
+- Across this batch of ${count} personas, NO single objection category may appear in more than 30% of personas. (Same rule for trust categories.) If you find yourself stamping "price_relative" on every other persona, STOP and re-pick: a 30-year-old SG marketer's blocker is genuinely different from a 55-year-old JP retiree's. The diversity quota is hard-enforced; categories will be re-rolled if the modal exceeds 50%.
+- The "other" overflow exists for genuinely niche concerns. Use it sparingly — if you're emitting "other" more than once or twice across the batch, you're missing a fit in the proper categories.
+- The detail string still follows the anchor requirement (concrete brand / cert / channel / scenario). The category code does NOT replace the anchor — it adds a comparison axis on top of the existing detail.
+
+⚠ CRITICAL — KEEP THE TWO ARRAYS IN SYNC:
+The string in trustFactors[i] MUST equal the detail in trustFactorsCategorized[i]. Same for objections. They're parallel views of the same items; the renderer reads from either depending on context. If you emit different strings in the two arrays, the persona becomes inconsistent and may be dropped at validation.
 
 ═══ adReaction — REQUIRED (2-stage funnel signal) ═══
 Same semantics as in the full-persona generation prompt: adReaction is the FIRST IMPRESSION stage — seeing the ad in their feed, BEFORE clicking through to read details. Distinct from purchaseIntent (which is post-consideration).
@@ -915,9 +954,19 @@ Required JSON shape (every field optional — fill what you have confidence abou
     "keyMessage": "1-2 sentence positioning that beats current incumbents — be specific about the wedge",
     "primaryAudience": "ICP description — age + lifestyle/values + buying triggers + where they hang out (online channels, retailers, social platforms). ⚠ STAY IN THE PRODUCT'S CATEGORY. The interests / activities you cite must plausibly include this product as a daily-use item — not as a niche-substitute. Bad example for a casual merino-wool sneaker: '트라이애슬론 회복화 관심층' (triathlon recovery shoes are a different category — Oofos / Hoka Restore — not a casual sneaker). Good example: '주 3회 이상 도보·대중교통 출퇴근, 주말에는 카페·갤러리 산책을 즐기는 도시 직장인'. If you find yourself reaching into a competing-product superuser niche to justify the audience, scope back to lifestyle / values / shopping habits that the actual product fits.",
     "differentiators": ["2-4 differentiators vs the named competitors above — concrete, defensible"],
-    "risks": ["2-3 specific market-entry risks — not generic 'competitive risk' but concrete pitfalls"]
+    "differentiatorsCategorized": [{ "category": "<one of the differentiator taxonomy enum codes below>", "detail": "(same string as the corresponding differentiators entry above)" }],
+    "risks": ["2-3 specific market-entry risks — not generic 'competitive risk' but concrete pitfalls"],
+    "risksCategorized": [{ "category": "<one of the risk taxonomy enum codes below>", "detail": "(same string as the corresponding risks entry above)" }]
   }
 }
+
+═══ DIFFERENTIATOR TAXONOMY (every entry in differentiators MUST carry a category code) ═══
+${taxonomyPromptBlock("differentiator", isKo ? "ko" : "en")}
+
+═══ RISK TAXONOMY (every entry in goToMarketStrategy.risks MUST carry a category code) ═══
+${taxonomyPromptBlock("risk", isKo ? "ko" : "en")}
+
+⚠ The detail string in *Categorized[i] MUST equal the string in the parallel free-text array at position i. Renderer reads either depending on context; mismatched arrays may drop the entry at validation.
 
 Final reminder: ${isKo ? "모든 텍스트 필드는 한국어로 작성. 브랜드명·채널명·규제 명칭은 원문 그대로 (Allbirds, Amazon, FDA 등)." : "Write all text fields in English. Brand / channel / regulator names stay in their canonical form."} If you have low confidence on a section (especially competitors or pricing benchmarks), it's better to leave it sparse than to fabricate. Empty arrays / blank strings render cleanly.
 
@@ -1115,13 +1164,22 @@ Return a JSON object:
     "headline": "one-sentence verdict in ${LANG_NAME[locale]}"
   },
   "creative": [],
-  "risks": [ { "factor": "(in ${LANG_NAME[locale]}, see RISK WRITING GUIDANCE above)", "severity": "low|medium|high", "description": "(specific + quantified, in ${LANG_NAME[locale]})" } ],
+  "risks": [ { "factor": "(in ${LANG_NAME[locale]}, see RISK WRITING GUIDANCE above)", "severity": "low|medium|high", "description": "(specific + quantified, in ${LANG_NAME[locale]})", "category": "<one of the risk taxonomy enum codes below>" } ],
   "recommendations": {
     "executiveSummary": "2-3 paragraphs in ${LANG_NAME[locale]}",
     "actionPlan": [ "concrete steps in ${LANG_NAME[locale]}" ],
+    "actionPlanCategorized": [ { "category": "<one of the action taxonomy enum codes below>", "detail": "(same string as the corresponding actionPlan entry above)" } ],
     "channels": [ "channel names — keep brand names like TikTok, Instagram in original" ]
   }
 }
+
+═══ RISK TAXONOMY (HARD RULE — every risk MUST carry a category code) ═══
+${taxonomyPromptBlock("risk", locale === "ko" ? "ko" : "en")}
+
+═══ ACTION TAXONOMY (HARD RULE — every actionPlan entry MUST carry a category code) ═══
+${taxonomyPromptBlock("action", locale === "ko" ? "ko" : "en")}
+
+⚠ The detail string in actionPlanCategorized[i] MUST equal the string in actionPlan[i] — they are parallel views of the same items. The renderer aggregates by category for cross-country comparison and shows detail (i.e. actionPlan[i]) verbatim in lists. Inconsistency between the two arrays may cause the action to be dropped at validation.
 ${
   locale === "ko"
     ? `
