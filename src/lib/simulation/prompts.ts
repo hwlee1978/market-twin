@@ -853,6 +853,8 @@ Required JSON shape (every field optional — fill what you have confidence abou
     {
       "name": "actual brand name (e.g. Allbirds, Veja, Cariuma)",
       "type": "direct",
+      "originCountry": "ISO-2 code preferred — 'US', 'FR', 'BR', 'NZ'. Required when known; empty string if you genuinely don't know the brand origin (don't guess).",
+      "brandContext": "ONE sentence in the locale language with the 'who are they?' answer: founding year + scale + cultural standing. Examples — 'Founded 2016 in San Francisco, B Corp certified, ~$300M global revenue (2023 estimate)' / '2018년 파리 창업, 윤리적 친환경 포지셔닝으로 LVMH 산하 입점, 글로벌 매출 €100M 미만 추정'. Required when name is named; if you genuinely don't know the brand's history, leave empty rather than fabricate. Max 140 chars.",
       "strengths": ["1-3 specific things — established Reddit reputation, retail at REI, B Corp cert"],
       "weaknesses": ["1-3 specific things — pricier than alternatives, narrow size range"],
       "pricePoint": "actual price in local currency or USD — '$95-115/pair'",

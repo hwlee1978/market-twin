@@ -3057,6 +3057,23 @@ function MarketProfileTab({
                     </span>
                   )}
                 </div>
+                {/* Brand identity row — origin country chip + one-line
+                    establishment context. Hidden on legacy ensembles
+                    where neither field is populated. */}
+                {(c.originCountry || c.brandContext) && (
+                  <div className="flex items-baseline gap-2 flex-wrap mb-2">
+                    {c.originCountry && (
+                      <span className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
+                        {isKo ? `원산지 ${c.originCountry}` : `Origin ${c.originCountry}`}
+                      </span>
+                    )}
+                    {c.brandContext && (
+                      <span className="text-xs text-slate-600 leading-snug flex-1 min-w-[12rem]">
+                        {c.brandContext}
+                      </span>
+                    )}
+                  </div>
+                )}
                 {c.marketShareEstimate && (
                   <div className="text-xs text-slate-500 mb-2">{c.marketShareEstimate}</div>
                 )}

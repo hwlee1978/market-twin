@@ -1936,6 +1936,49 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                     </MText>
                   )}
                 </View>
+                {/* Brand identity row — origin country chip + one-line
+                    establishment context (founding year / scale / cultural
+                    standing). Hidden when neither field is populated so
+                    legacy aggregates don't render an empty stripe. */}
+                {(c.originCountry || c.brandContext) && (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "baseline",
+                      gap: 6,
+                      marginBottom: 3,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {c.originCountry && (
+                      <View
+                        style={{
+                          backgroundColor: C.divider,
+                          paddingHorizontal: 4,
+                          paddingVertical: 1,
+                          borderRadius: 2,
+                        }}
+                      >
+                        <MText style={{ fontSize: 7, color: C.body, fontWeight: 600 }}>
+                          {isKo ? `원산지 ${c.originCountry}` : `Origin ${c.originCountry}`}
+                        </MText>
+                      </View>
+                    )}
+                    {c.brandContext && (
+                      <MText
+                        style={{
+                          fontSize: 8,
+                          color: C.body,
+                          lineHeight: 1.4,
+                          flex: 1,
+                          minWidth: 200,
+                        }}
+                      >
+                        {c.brandContext}
+                      </MText>
+                    )}
+                  </View>
+                )}
                 {c.marketShareEstimate && (
                   <MText style={{ fontSize: 8, color: C.muted, marginBottom: 3 }}>
                     {c.marketShareEstimate}

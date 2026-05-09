@@ -366,6 +366,18 @@ export const MarketProfileSchema = z.object({
         pricePoint: z.string().default(""),
         marketShareEstimate: z.string().default(""),
         threatLevel: z.enum(["high", "medium", "low"]).default("medium"),
+        /** Country of origin (HQ / brand origin), e.g. "US", "FR",
+         *  "NZ". Two-letter ISO code preferred so the renderer can
+         *  flag it consistently; full names ("미국", "France") are
+         *  accepted for legacy. Empty when the LLM doesn't know. */
+        originCountry: z.string().default(""),
+        /** One-sentence brand establishment context — founding year
+         *  / global scale / cultural standing — so a reader unfamiliar
+         *  with the brand gets the "who are they?" answer in one line.
+         *  Examples: "2016년 SF 창업, B Corp 인증, 2023년 글로벌 매출
+         *  $300M 추정", "1976년 설립 일본 토종 카주얼 브랜드, 동남아
+         *  10개국 진출". Empty when the LLM bails. */
+        brandContext: z.string().default(""),
       }),
     )
     .max(6)
