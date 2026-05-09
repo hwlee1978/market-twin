@@ -81,6 +81,23 @@ export class AnthropicProvider implements LLMProvider {
       .map((c) => c.text)
       .join("");
 
+    // Surface output-cap truncation. Anthropic returns stop_reason ==
+    // "max_tokens" when the response was cut at the budget rather than
+    // ending naturally — silently accepting that produces malformed
+    // JSON (unclosed arrays mid-persona) which our caller drops as
+    // "no array returned", losing the entire batch. The 2026-05-10
+    // ensemble shipped only 67% of expected personas because all 9
+    // Anthropic sims hit max_tokens on the persona-batch call without
+    // any log signal. Logging here makes the failure mode investigable
+    // even when the caller's drop-on-empty-array path obscures it.
+    if (response.stop_reason === "max_tokens") {
+      console.warn(
+        `[anthropic] response hit max_tokens=${req.maxTokens ?? 4096} ceiling — output truncated. ` +
+          `Used ${response.usage.output_tokens} tokens. ` +
+          `Caller likely sees malformed JSON / dropped batch. Consider raising maxTokens.`,
+      );
+    }
+
     return {
       text,
       json: wantsJson ? safeParseJson(text) : undefined,

@@ -938,7 +938,20 @@ ${entries}
             // headroom to actually explore the long tail those rules ask
             // for.
             temperature: 0.85,
-            maxTokens: 8192,
+            // Bumped 8192 → 16384 on 2026-05-10 after the 2026-05-10
+            // Le Mouton ensemble shipped only 3,392/5,000 personas
+            // (67%) — all dropout localized to Anthropic sims (avg
+            // 22/200 each). 12 personas in Korean with the now-rich
+            // prompt (Tavily trends + taxonomy + new-brand multiplier
+            // + cross-country distribution + voice + adReaction)
+            // emit ~600-800 tokens each = 7.2-9.6k for a batch,
+            // bumping right against the old 8192 ceiling for
+            // Anthropic. OpenAI / DeepSeek shipped 200/200 because
+            // their providers either auto-extend or have higher
+            // defaults. Doubling the budget gives all providers
+            // headroom while marginally increasing API spend (only
+            // pays for tokens actually generated).
+            maxTokens: 16384,
           }),
         ),
       );
@@ -1173,8 +1186,10 @@ ${entries}
               // 12-persona batches in Korean reach ~7k output tokens
               // (rich trustFactors + objections + JSON wrapper). 4k
               // truncates the array mid-output → entire batch unparseable.
-              // 8k matches the fresh-persona budget with enough headroom.
-              maxTokens: 8192,
+              // Bumped to 16384 on 2026-05-10 to match the fresh-
+              // persona budget (Anthropic was hitting 8192 ceiling
+              // mid-batch on the now-richer prompt).
+              maxTokens: 16384,
             }),
           ),
         );
