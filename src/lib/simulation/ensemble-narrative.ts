@@ -254,7 +254,8 @@ export async function mergeNarrative(
       (s.risks ?? []).map((r) => `${r.factor} ${r.description}`),
     );
 
-    const mergedRisks = parsed.data.mergedRisks.map((r) => {
+    const recCountryUpper = opts.bestCountry?.toUpperCase() ?? "";
+    const mergedRisksUnfiltered = parsed.data.mergedRisks.map((r) => {
       const merged = `${r.factor} ${r.description}`;
       const recount = recountSurfacedInSims(merged, perSimRiskTexts);
       if (recount !== r.surfacedInSims) {
@@ -279,6 +280,78 @@ export async function mergeNarrative(
         affectedCountries: r.affectedCountries,
         personaCategory: r.personaCategory,
       };
+    });
+    // Defensive recommended-country filter — drop risks attributed to a
+    // non-recommended country. The merge prompt forbids this, but the
+    // LLM ignores the rule ~30% of the time and we end up with risks
+    // like "대만 오프라인 매장 부재" surfacing as a top SG-launch risk.
+    // Decision rules (keep when):
+    //   - scope = cross-market (universal, applies to recCountry)
+    //   - scope = country-specific AND affectedCountries[0] === recCountry
+    //   - scope = narrow AND affectedCountries includes recCountry
+    //   - scope undefined (legacy) → keep, can't tell
+    //   - factor/description prose names recCountry → keep
+    //   - factor/description prose names a DIFFERENT country (and not
+    //     recCountry) → drop as off-topic
+    const mergedRisks = mergedRisksUnfiltered.filter((r) => {
+      if (!recCountryUpper) return true;
+      // Scope-based gate first — most reliable signal.
+      if (r.scope === "country-specific") {
+        const dom = (r.affectedCountries?.[0] ?? "").toUpperCase();
+        if (dom && dom !== recCountryUpper) {
+          console.log(
+            `[ensemble narrative] dropping country-specific risk for ${dom} (rec=${recCountryUpper}): "${r.factor.slice(0, 60)}"`,
+          );
+          return false;
+        }
+        return true;
+      }
+      if (r.scope === "narrow") {
+        const list = (r.affectedCountries ?? []).map((c) => c.toUpperCase());
+        if (list.length > 0 && !list.includes(recCountryUpper)) {
+          console.log(
+            `[ensemble narrative] dropping narrow risk affecting ${list.join(",")} (rec=${recCountryUpper}): "${r.factor.slice(0, 60)}"`,
+          );
+          return false;
+        }
+        return true;
+      }
+      if (r.scope === "cross-market") return true;
+      // No scope tag (legacy or LLM bailed). Fall back to prose-level
+      // country-attribution check — drop only if the text explicitly
+      // names a non-recommended country WITHOUT mentioning recCountry.
+      const proseUpper = `${r.factor} ${r.description}`.toUpperCase();
+      const recCountryLabels = [
+        recCountryUpper,
+        getCountryLabel(recCountryUpper, "ko") ?? "",
+        getCountryLabel(recCountryUpper, "en") ?? "",
+      ].filter(Boolean);
+      const mentionsRec = recCountryLabels.some((label) =>
+        proseUpper.includes(label.toUpperCase()),
+      );
+      if (mentionsRec) return true;
+      // Look for any other candidate country name. If exactly one other
+      // country is referenced and rec isn't, treat as off-topic.
+      const otherMentions = COUNTRIES.filter((c) => {
+        if (c.code === recCountryUpper) return false;
+        const upper = c.code.toUpperCase();
+        // Use word-boundary check on the code (avoids "US" matching "USE")
+        const codeRx = new RegExp(`\\b${upper}\\b`);
+        if (codeRx.test(proseUpper)) return true;
+        const labelKo = c.labelKo;
+        const labelEn = c.labelEn.toUpperCase();
+        return (
+          (labelKo && proseUpper.includes(labelKo.toUpperCase())) ||
+          proseUpper.includes(labelEn)
+        );
+      }).map((c) => c.code);
+      if (otherMentions.length > 0) {
+        console.log(
+          `[ensemble narrative] dropping risk that names ${otherMentions.join(",")} but not rec=${recCountryUpper}: "${r.factor.slice(0, 60)}"`,
+        );
+        return false;
+      }
+      return true;
     });
     const mergedActions = parsed.data.mergedActions.map((a) => {
       const rewritten = rewriteSimScaleReferences(a.action, perSimPersonas, totalPersonas);
@@ -657,6 +730,7 @@ function buildMergePrompt(
   const distributionBlock = formatCrossCountryDistribution(
     opts.crossCountryDistribution,
     opts.candidateCountries ?? [],
+    opts.bestCountry,
     isKo,
   );
 
@@ -690,6 +764,7 @@ function buildMergePrompt(
 function formatCrossCountryDistribution(
   dist: CrossCountryDistribution | undefined,
   candidateCountries: string[],
+  bestCountry: string,
   isKo: boolean,
 ): string {
   if (!dist || (dist.objections.length === 0 && dist.trustFactors.length === 0)) {
@@ -748,6 +823,15 @@ function formatCrossCountryDistribution(
       "  - **단일 국가 부착 금지**: 표의 scope=cross-market인 카테고리를 단일 국가 risk로 부착하지 마세요. 12개 시장 모두 비슷한 비율로 surface하는 우려를 \"대만 17명 중 5명\" 식으로 단일 국가에 귀속하면 합의 신호를 왜곡합니다.",
       "  - **affectedCountries**: country-specific이면 [\"TW\"] 형태로 1개, narrow이면 [\"TW\", \"SG\", ...]로 다국가, cross-market이면 비워두세요 (renderer가 후보 국가 전체로 확장).",
       "  - **personaCategory** (필수, 매핑 가능 시): 위 표의 카테고리 중 이 risk의 root-cause인 코드 1개를 emit하세요 (예: `channel_access`, `regulatory_friction`, `size_fit`). 표의 row와 정확히 일치해야 renderer가 페르소나 커버리지(\"12개 시장 평균 44%\")를 표시할 수 있습니다. risk가 페르소나 우려가 아닌 외부 변수(환율·결제 인프라·내부 운영)면 비워두세요.",
+      "",
+      `**🚨 추천국 우선 룰 (절대 위반 불가) — 추천 진출국은 ${bestCountry}**`,
+      `mergedRisks는 **${bestCountry} 진출 의사결정을 돕기 위한 것**입니다. 다음 규칙을 엄격히 따르세요:`,
+      `  1. country-specific risk는 **dominantCountry === ${bestCountry}**일 때만 mergedRisks에 포함하세요. 다른 국가(예: TW·JP·US 등) 단일 시장 risk는 **mergedRisks에서 제외**합니다 — 그건 ${bestCountry} launch 의사결정과 무관한 노이즈입니다.`,
+      `  2. cross-market risk는 모두 포함 — ${bestCountry}에도 적용되니까 OK.`,
+      `  3. narrow scope risk는 **affectedCountries에 ${bestCountry}가 포함된 경우에만** 포함하세요. ${bestCountry}가 없으면 제외.`,
+      `  4. 위 룰을 적용 후 risks가 너무 적으면 (3개 미만) cross-market risks 중 더 많이 포함하거나 ${bestCountry}-specific risk를 더 자세히 풀어쓰세요. 비추천국 risk를 채우기용으로 추가하지 마세요.`,
+      `  ❌ 잘못된 예: 추천국이 SG인데 mergedRisks에 "대만 오프라인 매장 부재", "일본 가격 민감도", "미국 Allbirds 경쟁" 같이 SG 무관 risks 채택 — 이건 ${bestCountry} 결정에 도움 안 됨.`,
+      `  ✓ 올바른 예: 추천국 ${bestCountry} → ${bestCountry}의 channel_access 우려 + 12개 시장 공통 시착 우려 (cross-market) + ${bestCountry} 규제 friction 등.`,
     ].join("\n");
   }
   return [
@@ -769,6 +853,15 @@ function formatCrossCountryDistribution(
     "  - **Do NOT attribute cross-market signals to a single country**. Labelling a concern that surfaces at near-equal rates in 12 markets as \"Taiwan personas reported X\" buries the real consensus signal under a hallucinated single-country risk.",
     "  - **affectedCountries**: country-specific → 1-element array like [\"TW\"]; narrow → multi-element array; cross-market → leave empty (renderer expands to all candidates).",
     "  - **personaCategory** (required when mappable): emit one taxonomy code from the table above that names this risk's root-cause category (e.g. `channel_access`, `regulatory_friction`, `size_fit`). Must match a row in the table exactly so the renderer can show persona-coverage (\"mean 44% across 12 markets\") in place of the sim count. Leave undefined when the risk is non-persona (FX, payment infrastructure, internal ops).",
+    "",
+    `**🚨 Recommended-country priority rule (mandatory) — recommended market: ${bestCountry}**`,
+    `mergedRisks must support the **${bestCountry} launch decision**. Apply these strictly:`,
+    `  1. country-specific risks: include ONLY when **dominantCountry === ${bestCountry}**. Single-country risks attributed to other markets (e.g. TW·JP·US) must be **EXCLUDED** from mergedRisks — they're noise relative to the ${bestCountry} go/no-go.`,
+    `  2. cross-market risks: include all (they apply to ${bestCountry} too).`,
+    `  3. narrow scope: include only when ${bestCountry} appears in affectedCountries. Otherwise exclude.`,
+    `  4. After applying these rules, if you have <3 risks, expand cross-market risks or unpack ${bestCountry}-specific risks in more detail. Do NOT pad with non-recommended-country risks.`,
+    `  ❌ Wrong example: recommendation is SG but mergedRisks contains "Taiwan no-store fitting", "Japan price sensitivity", "US Allbirds competition" — none of those help the SG decision.`,
+    `  ✓ Right example: recommendation ${bestCountry} → ${bestCountry}'s channel_access concerns + 12-market shared try-on concern (cross-market) + ${bestCountry} regulatory friction.`,
   ].join("\n");
 }
 
@@ -824,20 +917,46 @@ function narrativeFromRawSnapshots(
  */
 function stripHallucinatedCounts(text: string): string {
   if (!text) return text;
-  let out = text;
-  out = out.replace(
-    /(?:[A-Z]{2}\s*페르소나\s*)?\d+\s*명\s*중\s*\d+\s*명(?:이|만|은|는)?\s*(?:'[^']+'|"[^"]+")?\s*(?:[가-힣]+(?:\s|$))*?/g,
-    "",
-  );
-  out = out.replace(
-    /\d+\s+of\s+\d+\s+(?:personas?|respondents?|consumers?)\b[^.,;]*/gi,
-    "",
-  );
-  out = out.replace(/\s{2,}/g, " ").trim();
-  // Tidy stray punctuation left behind ("해, ." or "—,")
+  // Strategy: split into clauses (by ". ", "; ", ", "), drop any clause
+  // containing a count-citation pattern, rejoin. Cleaner than regex
+  // surgery — leaves the surrounding prose intact instead of producing
+  // dangling "고 응답" fragments.
+  //
+  // Patterns we treat as hallucinated counts:
+  //   · KO: "X명 중 Y명", "X명 중 Y%", "Y명 (전체의 Z%)" with sim-pool size
+  //   · EN: "Y of X personas/respondents/consumers"
+  // Note: the ensemble-scale rewriter (rewriteSimScaleReferences) runs
+  // BEFORE this, converting legitimate aggregate counts into ratio form;
+  // anything still in raw "N명 중 M명" form here is therefore the
+  // sim-slice hallucination we want to delete.
+  const COUNT_PATTERNS = [
+    /\d+\s*명\s*중\s*\d+\s*(?:명|%)/, // KO sim-pool counts
+    /\d+\s+of\s+\d+\s+(?:personas?|respondents?|consumers?|users?)\b/i, // EN counts
+    /\d+\s+(?:personas?|respondents?|consumers?)\s+(?:reported|said|raised|cited|expressed|flagged)\b/i, // EN "N personas reported"
+    /[A-Z]{2}\s*페르소나\s*\d+\s*명/, // "TW 페르소나 17명"
+  ];
+  const hasCount = (clause: string) =>
+    COUNT_PATTERNS.some((rx) => rx.test(clause));
+  // Split-keep delimiters so we can reassemble. Korean and English
+  // sentence boundaries: period, semicolon, em-dash, comma+space when
+  // not inside a number. Conservative — over-splitting is fine because
+  // we rejoin with the original delimiter.
+  const parts = text.split(/([.;—]\s*|,\s+)/);
+  const kept: string[] = [];
+  for (let i = 0; i < parts.length; i += 2) {
+    const clause = parts[i] ?? "";
+    const delim = parts[i + 1] ?? "";
+    if (hasCount(clause)) continue;
+    kept.push(clause + (i + 2 < parts.length ? delim : ""));
+  }
+  let out = kept.join("").trim();
+  // Tidy any artifacts: leading punctuation, doubled spaces, dangling
+  // connectives left over from a stripped clause's preceding text.
+  out = out.replace(/^[\s.,;—]+/, "");
+  out = out.replace(/\s{2,}/g, " ");
   out = out.replace(/\s+([.,;])/g, "$1");
-  out = out.replace(/[—,]\s*(?=[.,;])/g, "");
-  return out;
+  out = out.replace(/([.,;—])\s*([.,;])/g, "$2");
+  return out.trim();
 }
 
 /**
