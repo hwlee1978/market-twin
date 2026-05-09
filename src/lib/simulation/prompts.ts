@@ -913,7 +913,7 @@ Required JSON shape (every field optional — fill what you have confidence abou
   },
   "goToMarketStrategy": {
     "keyMessage": "1-2 sentence positioning that beats current incumbents — be specific about the wedge",
-    "primaryAudience": "ICP description — age + interests + buying triggers + where they hang out",
+    "primaryAudience": "ICP description — age + lifestyle/values + buying triggers + where they hang out (online channels, retailers, social platforms). ⚠ STAY IN THE PRODUCT'S CATEGORY. The interests / activities you cite must plausibly include this product as a daily-use item — not as a niche-substitute. Bad example for a casual merino-wool sneaker: '트라이애슬론 회복화 관심층' (triathlon recovery shoes are a different category — Oofos / Hoka Restore — not a casual sneaker). Good example: '주 3회 이상 도보·대중교통 출퇴근, 주말에는 카페·갤러리 산책을 즐기는 도시 직장인'. If you find yourself reaching into a competing-product superuser niche to justify the audience, scope back to lifestyle / values / shopping habits that the actual product fits.",
     "differentiators": ["2-4 differentiators vs the named competitors above — concrete, defensible"],
     "risks": ["2-3 specific market-entry risks — not generic 'competitive risk' but concrete pitfalls"]
   }
