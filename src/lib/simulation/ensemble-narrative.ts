@@ -121,6 +121,16 @@ const MERGED_ACTION_SCHEMA = z.object({
    * legacy ensembles predate the audit; UI hides the badge when absent.
    */
   specificity: ACTION_SPECIFICITY_SCHEMA.optional(),
+  /**
+   * Taxonomy code from ACTION_CATEGORIES that the merge LLM tagged this
+   * action with. Lets the renderer swap the textual sim-recount for a
+   * category-level cross-sim coverage metric. Lenient parse — non-string
+   * input → undefined, renderer falls back to surfacedInSims.
+   */
+  actionCategory: z.preprocess(
+    (val) => (typeof val === "string" && val.trim() ? val.trim() : undefined),
+    z.string().optional(),
+  ),
 });
 const MERGE_RESPONSE_SCHEMA = z.object({
   hotTake: z.string().max(200).optional(),
@@ -285,6 +295,7 @@ export async function mergeNarrative(
         effort: a.effort,
         specificity: assessActionSpecificity(rewritten),
         surfacedInSims: recount,
+        actionCategory: a.actionCategory,
       };
     });
 
@@ -551,6 +562,22 @@ function buildMergePrompt(
      • 액션 텍스트에 "수개월", "Q3-Q4", "2027 상반기", "인증 취득"이 있으면 effort=3 가능성 큼.
      • impact도 마찬가지로 분산 — 모든 액션이 똑같이 "중요"한 plan은 plan이 아닙니다. 1개 정도는 결정적(3), 1-2개는 경미한 polish(1)로.
 
+   **actionCategory 코드 부여 (필수)**: 각 액션은 ACTION_CATEGORIES 분류 코드 1개를 emit하세요. 코드 목록:
+     · channel_entry — 채널 입점 (쿠팡, ZOZOTOWN, Sephora 등)
+     · partnership — 제휴·콜라보 (브랜드 협업, 리테일러 전속 SKU)
+     · influencer_marketing — 인플루언서 마케팅 (TikTok·Instagram·YouTube creator)
+     · content_marketing — 콘텐츠 마케팅 (SEO·Reddit AMA·롱폼 리뷰)
+     · paid_advertising — 유료 광고 (Meta·Google·TikTok Ads)
+     · pricing_strategy — 가격 전략 (구조적 포지셔닝 결정)
+     · pricing_promotion — 할인·프로모션 (시즌 세일·BFCM 번들)
+     · product_localization — 제품 현지화 (사이즈·소재·언어)
+     · regulatory_compliance — 인증·규제 대응 (FDA·MFDS 등)
+     · offline_event — 오프라인 이벤트 (팝업·박람회)
+     · direct_sales — 자체 채널 (DTC·자사몰·앱)
+     · customer_service — 고객 서비스 (A/S·반품 정책)
+     · other — 위 12개에 안 맞는 niche 액션
+     ⚠ 정확히 위 코드 중 1개. 분류가 애매해도 가장 가까운 것 선택. renderer는 이 코드로 cross-sim category 합의를 계산해 "12/25개 시뮬이 채널 입점 액션 권장" 같은 메타라인을 표시합니다.
+
 4. **숫자 표현 규칙 (필수)**: per-sim 출력의 숫자는 시뮬당 ${perSimPersonas}명 풀 기준입니다. 통합 narrative는 전체 ${totalPersonas.toLocaleString()}명 풀 기준으로 작성해야 합니다.
    - "X명, 전체 ${perSimPersonas}명 중 Y%" 같은 표현은 절대 그대로 옮기지 마세요.
    - 비율(Y%)만 유지하거나, 전체 풀로 환산해 다시 쓰세요. 예) "전체 페르소나의 44.5%" 또는 "${totalPersonas.toLocaleString()}명 중 약 ${Math.round(totalPersonas * 0.445).toLocaleString()}명 (44.5%)"
@@ -605,6 +632,22 @@ function buildMergePrompt(
      • Cues for effort=1: "immediately", "within 30 days", "next week", "A/B test now".
      • Cues for effort=3: "months", "Q3-Q4", "first half 2027", "obtain certification".
      • Same with impact — at least one action should be 3 (launch-defining) and 1-2 should be 1 (minor polish).
+
+   **Required actionCategory code per action**: emit one ACTION_CATEGORIES code per action. Codes:
+     · channel_entry — onboard a marketplace / retailer (Coupang, ZOZOTOWN, Sephora)
+     · partnership — brand collab or retailer-exclusive SKU
+     · influencer_marketing — TikTok / Instagram / YouTube creators
+     · content_marketing — SEO articles, Reddit AMAs, long-form reviews
+     · paid_advertising — Meta / Google / TikTok / Naver paid media
+     · pricing_strategy — structural positioning decisions
+     · pricing_promotion — time-bound discount (BFCM, launch -20%)
+     · product_localization — climate/material/sizing/language localization
+     · regulatory_compliance — cert filing (FDA, MFDS, etc.)
+     · offline_event — pop-up, fashion week, expo presence
+     · direct_sales — own DTC site / app / multi-language storefront
+     · customer_service — local A/S, free returns, multi-language CS
+     · other — niche action that doesn't fit the above 12
+     ⚠ Pick exactly one. When ambiguous, pick the closest fit. Renderer uses this code to compute cross-sim category consensus and shows "12/25 sims recommended a channel-entry action" instead of opaque text counts.
 
 4. **Number-rewrite rule (mandatory)**: per-sim outputs reference each sim's ${perSimPersonas}-persona pool. The merged narrative must reference the ensemble-wide pool of ${totalPersonas.toLocaleString()}.
    - Never copy phrases like "X out of ${perSimPersonas}" or "Y, ${perSimPersonas}명 중" verbatim.

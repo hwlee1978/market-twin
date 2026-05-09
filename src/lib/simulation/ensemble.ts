@@ -309,6 +309,18 @@ export interface EnsembleAggregate {
   creative?: CreativeAggregate;
 
   /**
+   * Per-action-category sim coverage. For each ACTION_CATEGORIES code,
+   * how many sims emitted at least one action in that category. Lets
+   * the renderer replace the misleading "1 sim에서 권장" footer (a
+   * Jaccard-recount artifact when merged actions are textually
+   * rewritten) with a category-level consensus metric ("12/25개
+   * 시뮬이 채널 입점 액션 권장"). Only present when the merge LLM
+   * tags `actionCategory` AND the per-sim rec carries
+   * `actionPlanCategorized`. Optional for legacy ensembles.
+   */
+  actionCategoryCoverage?: ActionCategoryCoverageRow[];
+
+  /**
    * Cross-country occurrence rate of categorized objections / trust
    * factors. Pivots the per-country category-distribution into a
    * country-by-category matrix and tags each row with a `scope` that
@@ -631,6 +643,27 @@ export interface PricingAggregate {
 }
 
 /**
+ * Per-action-category sim coverage row. Counts how many of the
+ * ensemble's sims emitted at least one action in a given
+ * ACTION_CATEGORIES code. Surfaces consensus at the category level
+ * even when sims phrased their actions differently (one says
+ * "Coupang 입점", another "Shopee 입점", a third "ZOZOTOWN 입점" —
+ * all `channel_entry`, surfaced in 3 sims).
+ */
+export interface ActionCategoryCoverageRow {
+  /** ACTION_CATEGORIES enum code. */
+  category: string;
+  /** Number of sims with ≥1 action in this category. */
+  surfacedInSims: number;
+  /** surfacedInSims / total sims, rounded to 0-1. */
+  share: number;
+  /** Most-frequent surface form within this category — used as the
+   *  representative example for diagnostics. Renderer doesn't show
+   *  this directly; it's there for admin tooling. */
+  representativeAction?: string;
+}
+
+/**
  * Per-category breakdown of how often a concern (objection / trust
  * factor) appears across countries. Used by the merge stage to decide
  * whether a risk is universal or country-specific.
@@ -791,6 +824,15 @@ export interface EnsembleNarrative {
       hasMeasurable: boolean;
       score: number;
     };
+    /**
+     * Taxonomy code (ACTION_CATEGORIES) the merge LLM tagged this
+     * merged action with. When present, the renderer looks it up in
+     * `actionCategoryCoverage` and replaces the misleading "1 sim
+     * 권장" footer with the cross-sim category coverage ("12/25개
+     * 시뮬이 채널 입점 액션 권장"). Optional; legacy narratives or
+     * actions the LLM couldn't categorize fall back to the sim count.
+     */
+    actionCategory?: string;
   }>;
   /** Aggregate riskLevel across sims — defaults to mode of per-sim values. */
   overallRiskLevel: "low" | "medium" | "high";
@@ -1223,6 +1265,7 @@ export function aggregateEnsemble(
   const pricing = computePricingAggregate(sims);
   const creative = computeCreativeAggregate(sims);
   const crossCountryDistribution = computeCrossCountryDistribution(sims);
+  const actionCategoryCoverage = computeActionCategoryCoverage(sims);
 
   // ── reference data sources (stashed on overview by runner) ──
   // All sims in an ensemble run against the same project fixture, so the
@@ -1255,6 +1298,7 @@ export function aggregateEnsemble(
     pricing,
     creative,
     crossCountryDistribution,
+    actionCategoryCoverage,
     varianceAssessment: {
       maxFinalScoreRange: round1(maxR),
       meanFinalScoreRange: round1(meanR),
@@ -2406,6 +2450,63 @@ function computeCrossCountryDistribution(
     objections: anyObjectionCategorized ? buildRows(objections) : [],
     trustFactors: anyTrustCategorized ? buildRows(trustFactors) : [],
   };
+}
+
+/**
+ * Count, per ACTION_CATEGORIES code, how many sims independently
+ * recommended at least one action in that category. Drives the
+ * dashboard's per-action consensus metric ("12/25개 시뮬이 채널 입점
+ * 액션 권장") in place of the Jaccard-recount of merged action text,
+ * which collapses to 1/N when the merge LLM rewrites a consolidated
+ * action ("2026년 6월: 대만 ZOZOTOWN·Shopee 입점 계약 체결") that no
+ * longer textually matches any per-sim wording.
+ *
+ * Skipped when no sim emitted actionPlanCategorized — caller treats
+ * undefined as "fall back to surfacedInSims display".
+ */
+function computeActionCategoryCoverage(
+  sims: EnsembleSimSnapshot[],
+): ActionCategoryCoverageRow[] | undefined {
+  type Bucket = {
+    sims: Set<number>;
+    detailFreq: Map<string, number>;
+  };
+  const buckets = new Map<string, Bucket>();
+  let any = false;
+  for (let si = 0; si < sims.length; si++) {
+    const items = sims[si].recommendations?.actionPlanCategorized;
+    if (!Array.isArray(items)) continue;
+    for (const item of items) {
+      if (!item || !item.category || !item.detail) continue;
+      any = true;
+      const detail = item.detail.trim();
+      if (!detail) continue;
+      let bucket = buckets.get(item.category);
+      if (!bucket) {
+        bucket = { sims: new Set(), detailFreq: new Map() };
+        buckets.set(item.category, bucket);
+      }
+      bucket.sims.add(si);
+      bucket.detailFreq.set(detail, (bucket.detailFreq.get(detail) ?? 0) + 1);
+    }
+  }
+  if (!any) return undefined;
+  const total = sims.length;
+  return [...buckets.entries()]
+    .map(([category, b]) => {
+      const surfacedInSims = b.sims.size;
+      const representative = [...b.detailFreq.entries()].sort((a, c) => {
+        if (c[1] !== a[1]) return c[1] - a[1];
+        return a[0].length - c[0].length;
+      })[0]?.[0];
+      return {
+        category,
+        surfacedInSims,
+        share: total > 0 ? round1((surfacedInSims / total) * 100) / 100 : 0,
+        representativeAction: representative,
+      };
+    })
+    .sort((a, b) => b.surfacedInSims - a.surfacedInSims);
 }
 
 function emptyAggregate(): EnsembleAggregate {

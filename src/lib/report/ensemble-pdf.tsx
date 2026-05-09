@@ -18,6 +18,7 @@ import {
 import type { Style } from "@react-pdf/types";
 import { splitByFont } from "./fonts";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
+import { categoryLabel } from "@/lib/simulation/taxonomy";
 import {
   computePricingSensitivity,
   computeCurveRevenueMaxCents,
@@ -3813,6 +3814,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
   const renderActionsPage = () => {
     if (!aggregate.narrative?.mergedActions?.length) return null;
     const actions = aggregate.narrative.mergedActions.slice(0, tierBudget.actions);
+    const actionCoverage = aggregate.actionCategoryCoverage;
+    const simCount = aggregate.simCount;
     // Champion quote with offset 1 so we don't reuse the same quote
     // that's already on the recommendation page. Falls back to overall
     // top if no second-best is available.
@@ -3868,14 +3871,29 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                     ? "추상적"
                     : "Vague"
               : null;
+            // Category-level coverage replaces the textual sim-recount
+            // when the merge LLM tagged actionCategory. Same rationale
+            // as the dashboard (Jaccard on rewritten action text
+            // collapses to 1; category coverage measures real
+            // cross-sim consensus).
+            const coverageRow =
+              a.actionCategory && actionCoverage
+                ? actionCoverage.find((r) => r.category === a.actionCategory) ?? null
+                : null;
+            const coverageText = coverageRow
+              ? isKo
+                ? `${coverageRow.surfacedInSims}/${simCount}개 시뮬이 '${categoryLabel("action", coverageRow.category, "ko")}' 액션 권장`
+                : `${coverageRow.surfacedInSims}/${simCount} sim${simCount === 1 ? "" : "s"} recommended a ${categoryLabel("action", coverageRow.category, "en").toLowerCase()} action`
+              : null;
+            const fallbackText = isKo
+              ? `${a.surfacedInSims}개 시뮬에서 권장`
+              : `Recommended by ${a.surfacedInSims} sim${a.surfacedInSims === 1 ? "" : "s"}`;
             return (
               <View key={i} style={styles.actionRow} wrap={false}>
                 <MText style={styles.actionText}>{`${i + 1}. ${a.action}`}</MText>
                 <View style={{ flexDirection: "row", gap: 6, alignItems: "center", marginTop: 2 }}>
                   <MText style={styles.actionMeta}>
-                    {isKo
-                      ? `${a.surfacedInSims}개 시뮬에서 권장`
-                      : `Recommended by ${a.surfacedInSims} sim${a.surfacedInSims === 1 ? "" : "s"}`}
+                    {coverageText ?? fallbackText}
                   </MText>
                   {spec && specColor && specLabel && (
                     <MText

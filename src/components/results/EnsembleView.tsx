@@ -6,6 +6,7 @@ import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download, ChevronRight,
 import { useRouter } from "@/i18n/navigation";
 import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
+import { categoryLabel } from "@/lib/simulation/taxonomy";
 import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
 import { formatPrice } from "@/lib/format/price";
 import { normalizeLLMText } from "@/lib/format/normalize";
@@ -1032,7 +1033,12 @@ function EnsembleDashboard({
         />
       )}
       {activeTab === "actions" && (
-        <ActionsTab narrative={narrative} simCount={simCount} isKo={isKo} />
+        <ActionsTab
+          narrative={narrative}
+          simCount={simCount}
+          actionCoverage={aggregate.actionCategoryCoverage}
+          isKo={isKo}
+        />
       )}
       {activeTab === "data" && (
         <DataTab
@@ -6861,12 +6867,17 @@ function RisksTab({
 function ActionsTab({
   narrative,
   simCount,
+  actionCoverage,
   isKo,
 }: {
   narrative: EnsembleAggregate["narrative"];
   /** Total ensemble sim count — used as denominator for the
    *  "recommended by N/M sims" hint so consensus is visible. */
   simCount: number;
+  /** Per-ACTION_CATEGORIES sim coverage from aggregator. When a
+   *  merged action's actionCategory matches a row, the renderer
+   *  shows category-level coverage in place of textual sim count. */
+  actionCoverage: EnsembleAggregate["actionCategoryCoverage"];
   isKo: boolean;
 }) {
   if (!narrative?.mergedActions?.length) {
@@ -6895,6 +6906,21 @@ function ActionsTab({
         <ol className="card divide-y divide-slate-100">
           {narrative.mergedActions.map((a, i) => {
             const quad = quadrantFor(a.impact, a.effort);
+            // Category-level coverage replaces the misleading textual
+            // recount. When the merge LLM tagged actionCategory, we
+            // look it up in the aggregator's coverage table — that
+            // count survives action-text rewrites because it's
+            // computed off the per-sim actionPlanCategorized arrays,
+            // not Jaccard text matching.
+            const coverageRow =
+              a.actionCategory && actionCoverage
+                ? actionCoverage.find((r) => r.category === a.actionCategory) ?? null
+                : null;
+            const coverageText = coverageRow
+              ? isKo
+                ? `${coverageRow.surfacedInSims}/${simCount}개 시뮬이 '${categoryLabel("action", coverageRow.category, "ko")}' 액션 권장`
+                : `${coverageRow.surfacedInSims}/${simCount} sim${simCount === 1 ? "" : "s"} recommended a ${categoryLabel("action", coverageRow.category, "en").toLowerCase()} action`
+              : null;
             return (
               <li key={i} className="p-4 flex gap-3 items-start">
                 <div className="shrink-0 w-6 text-sm font-bold text-brand">{i + 1}.</div>
@@ -6902,9 +6928,11 @@ function ActionsTab({
                   <p className="text-sm text-slate-700 leading-relaxed">{a.action}</p>
                   <div className="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
                     <span className="text-slate-500">
-                      {isKo
-                        ? `${a.surfacedInSims}/${simCount}개 시뮬에서 권장`
-                        : `Recommended by ${a.surfacedInSims}/${simCount} sim${simCount === 1 ? "" : "s"}`}
+                      {coverageText
+                        ? coverageText
+                        : isKo
+                          ? `${a.surfacedInSims}/${simCount}개 시뮬에서 권장`
+                          : `Recommended by ${a.surfacedInSims}/${simCount} sim${simCount === 1 ? "" : "s"}`}
                     </span>
                     {quad && (
                       <>
