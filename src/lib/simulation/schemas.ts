@@ -1,4 +1,16 @@
 import { z } from "zod";
+import {
+  OBJECTION_CATEGORIES,
+  TRUST_FACTOR_CATEGORIES,
+  ACTION_CATEGORIES,
+  RISK_CATEGORIES,
+  DIFFERENTIATOR_CATEGORIES,
+  type ObjectionCategory,
+  type TrustFactorCategory,
+  type ActionCategory,
+  type RiskCategory,
+  type DifferentiatorCategory,
+} from "./taxonomy";
 
 // ─── Project input ─────────────────────────────────────────────
 export const ProjectInputSchema = z.object({
@@ -75,6 +87,84 @@ const toBool = (val: unknown): boolean => {
   return false;
 };
 
+/**
+ * Categorized item — pairs a taxonomy enum code with the LLM's free-text
+ * detail. Aggregator computes column values off `category` (deterministic)
+ * while narrative panels render `detail` (specific framing). Permissive
+ * preprocessing handles the migration corridor:
+ *   - Pure string → wrapped as { category: "other", detail: string }.
+ *     Legacy aggregates persisted before Phase 1 land here.
+ *   - { category, detail } object → passed through (with code validation).
+ *   - { category } object missing detail → detail defaults to "".
+ *   - { detail } missing category → category defaults to "other".
+ *   - Unknown enum codes (model went off-script) → coerced to "other"
+ *     so a typo doesn't drop the entire array.
+ *
+ * Caller supplies the valid enum code list so the same builder works for
+ * objection / trust / action / differentiator / risk schemas.
+ */
+function buildCategorizedItemSchema<T extends string>(
+  validCodes: readonly T[],
+) {
+  const codeSet = new Set<string>(validCodes);
+  return z.preprocess((raw) => {
+    const wrap = (input: unknown) => {
+      if (typeof input === "string") {
+        return { category: "other", detail: input.trim() };
+      }
+      if (input && typeof input === "object") {
+        const obj = input as Record<string, unknown>;
+        const detail = typeof obj.detail === "string" ? obj.detail.trim() : "";
+        const rawCategory =
+          typeof obj.category === "string" ? obj.category.trim() : "";
+        const category = codeSet.has(rawCategory) ? rawCategory : "other";
+        return { category, detail };
+      }
+      return { category: "other", detail: "" };
+    };
+    if (Array.isArray(raw)) return raw.map(wrap).filter((x) => x.detail);
+    if (typeof raw === "string") {
+      // Legacy comma / newline / pipe-separated string.
+      return raw
+        .split(/[,;\n|]/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((s) => ({ category: "other", detail: s }));
+    }
+    return [];
+  }, z.array(
+    z.object({
+      category: z.string(),
+      detail: z.string(),
+    }),
+  ));
+}
+
+export const ObjectionItemArraySchema = buildCategorizedItemSchema(
+  OBJECTION_CATEGORIES,
+);
+export const TrustFactorItemArraySchema = buildCategorizedItemSchema(
+  TRUST_FACTOR_CATEGORIES,
+);
+export const ActionItemArraySchema = buildCategorizedItemSchema(
+  ACTION_CATEGORIES,
+);
+export const RiskCategoryArraySchema = buildCategorizedItemSchema(
+  RISK_CATEGORIES,
+);
+export const DifferentiatorItemArraySchema = buildCategorizedItemSchema(
+  DIFFERENTIATOR_CATEGORIES,
+);
+
+export type ObjectionItem = { category: ObjectionCategory; detail: string };
+export type TrustFactorItem = { category: TrustFactorCategory; detail: string };
+export type ActionItem = { category: ActionCategory; detail: string };
+export type RiskCategorizedItem = { category: RiskCategory; detail: string };
+export type DifferentiatorItem = {
+  category: DifferentiatorCategory;
+  detail: string;
+};
+
 const toIntent = (val: unknown): number => {
   if (typeof val === "number" && Number.isFinite(val)) {
     return Math.max(0, Math.min(100, val));
@@ -104,6 +194,17 @@ export const PersonaSchema = z.object({
   priceSensitivity: z.preprocess(toLowMedHigh, z.enum(["low", "medium", "high"])),
   trustFactors: z.preprocess(toStringArray, z.array(z.string())),
   objections: z.preprocess(toStringArray, z.array(z.string())),
+  /**
+   * Parallel categorized arrays — the LLM emits both the legacy
+   * string arrays (rendered verbatim) AND the structured `{ category,
+   * detail }` form so the aggregator can compute taxonomy-modal
+   * columns deterministically. Optional during the migration corridor:
+   * legacy aggregates persisted before Phase 1 don't have these
+   * fields, and the aggregator falls back to fuzzy-clustering the
+   * string arrays. New emissions populate both sides.
+   */
+  trustFactorsCategorized: TrustFactorItemArraySchema.optional().catch(undefined),
+  objectionsCategorized: ObjectionItemArraySchema.optional().catch(undefined),
   purchaseIntent: z.preprocess(toIntent, z.number().min(0).max(100)),
   /**
    * First-person quote capturing the persona's reaction to the product
@@ -144,6 +245,9 @@ export const PersonaReactionSchema = z.object({
   id: z.string(),
   trustFactors: z.preprocess(toStringArray, z.array(z.string())),
   objections: z.preprocess(toStringArray, z.array(z.string())),
+  /** Parallel categorized arrays — see PersonaSchema for migration notes. */
+  trustFactorsCategorized: TrustFactorItemArraySchema.optional().catch(undefined),
+  objectionsCategorized: ObjectionItemArraySchema.optional().catch(undefined),
   purchaseIntent: z.preprocess(toIntent, z.number().min(0).max(100)),
   voice: z.preprocess((v) => (typeof v === "string" ? v : ""), z.string()).default(""),
   /** Ad-stage reaction; same shape as PersonaSchema.adReaction. */
@@ -275,6 +379,21 @@ export const RiskSchema = z.object({
   factor: z.string(),
   severity: z.enum(["low", "medium", "high"]),
   description: z.string(),
+  /**
+   * Risk taxonomy code — added Phase 1b. Lets the aggregator group
+   * risks across countries by category (regulatory, competitive,
+   * channel, etc.) rather than free-text matching. Optional during
+   * the migration corridor; legacy aggregates without this field
+   * fall back to fuzzy-clustering on factor + description.
+   */
+  category: z.preprocess(
+    (val) => {
+      if (typeof val !== "string") return undefined;
+      const s = val.trim();
+      return (RISK_CATEGORIES as readonly string[]).includes(s) ? s : "other";
+    },
+    z.enum(RISK_CATEGORIES).optional(),
+  ),
 });
 export type Risk = z.infer<typeof RiskSchema>;
 
@@ -294,6 +413,10 @@ export type Overview = z.infer<typeof OverviewSchema>;
 export const RecommendationSchema = z.object({
   executiveSummary: z.string(),
   actionPlan: z.array(z.string()),
+  /** Parallel categorized actionPlan — Phase 1b. Aggregator computes
+   *  cross-sim modal action category off this; legacy aggregates
+   *  without it fall back to fuzzy-clustering the string array. */
+  actionPlanCategorized: ActionItemArraySchema.optional().catch(undefined),
   channels: z.array(z.string()),
 });
 export type Recommendation = z.infer<typeof RecommendationSchema>;
@@ -437,7 +560,15 @@ export const MarketProfileSchema = z.object({
       keyMessage: z.string().default(""),
       primaryAudience: z.string().default(""),
       differentiators: z.array(z.string()).default([]),
+      /** Parallel categorized differentiators — Phase 1b. Lets the
+       *  renderer / aggregator group differentiator claims by axis
+       *  (cost / quality / experience / brand-origin / spec /
+       *  value-alignment / accessibility) for cross-market comparison.
+       *  Optional; legacy aggregates fall back to free-text rendering. */
+      differentiatorsCategorized: DifferentiatorItemArraySchema.optional().catch(undefined),
       risks: z.array(z.string()).default([]),
+      /** Parallel categorized risks — uses RiskCategory taxonomy. */
+      risksCategorized: RiskCategoryArraySchema.optional().catch(undefined),
     })
     .partial()
     .optional(),
