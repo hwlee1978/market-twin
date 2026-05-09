@@ -237,6 +237,62 @@ export function buildCategoryTrendQuery(opts: {
 }
 
 /**
+ * Build a margin-benchmark query for Tavily. Goal: ground the
+ * `marginEstimate` field of the pricing stage in real industry data
+ * rather than the LLM's training-prior + prompt-calibration anchors.
+ *
+ * Margin data on the open web is harder to find than trend articles
+ * (most authoritative sources sit behind Statista / IBISWorld /
+ * McKinsey paywalls), but Tavily's index does pick up:
+ *   - Industry blog posts citing specific margin %
+ *   - Brand IPO filings / annual reports (S-1 / 10-K) with COGS data
+ *   - Trade press analysis
+ * Quality is variable; the LLM uses the snippets as one input among
+ * the prompt-calibration anchors, not the only signal.
+ *
+ * Country in the query — local market structure (DTC vs wholesale
+ * dominance, distributor margin layers) shifts category margins by
+ * 5-15pp, so country-specific snippets beat global averages.
+ */
+export function buildMarginBenchmarkQuery(opts: {
+  category: string;
+  country: string;
+  productName: string;
+}): string {
+  const countryNames: Record<string, string> = {
+    KR: "South Korea",
+    JP: "Japan",
+    CN: "China",
+    TW: "Taiwan",
+    HK: "Hong Kong",
+    SG: "Singapore",
+    TH: "Thailand",
+    VN: "Vietnam",
+    ID: "Indonesia",
+    MY: "Malaysia",
+    PH: "Philippines",
+    IN: "India",
+    US: "United States",
+    CA: "Canada",
+    GB: "United Kingdom",
+    DE: "Germany",
+    FR: "France",
+    IT: "Italy",
+    ES: "Spain",
+    NL: "Netherlands",
+    AU: "Australia",
+    NZ: "New Zealand",
+    AE: "United Arab Emirates",
+    SA: "Saudi Arabia",
+    BR: "Brazil",
+    MX: "Mexico",
+  };
+  const country = countryNames[opts.country.toUpperCase()] ?? opts.country;
+  const year = new Date().getFullYear();
+  return `${opts.category} gross margin percentage benchmark ${country} ${year} industry average COGS`;
+}
+
+/**
  * Compress Tavily results into a tight, token-efficient context block
  * suitable for injection into per-batch persona prompts. Goal: <600
  * chars total so the addition doesn't bloat 12-batch sims with
@@ -274,5 +330,39 @@ export function formatTrendContextBlock(
   const header = isKo
     ? "═══ 현재 카테고리 트렌드 컨텍스트 (실제 웹 스니펫) ═══\n학습 cutoff 이후의 최근 동향 grounding. 위 INCOME REFERENCE 와 달리 verbatim 인용 ❌ — 페르소나의 trustFactors / objections / voice / purchaseIntent 가 어떤 카테고리 신호 (지속가능성·프리미엄화·세대 전환·신규 채널 등) 와 일치 / 충돌하는지를 정성적으로 weighing 하는 데에만 사용:"
     : "═══ CURRENT CATEGORY CONTEXT (real-world snippets) ═══\nPost-training-cutoff grounding — UNLIKE the INCOME REFERENCE above, do NOT verbatim-copy these into trustFactors / objections. Use them to qualitatively weight whether a persona's reaction aligns with the category's current trend direction (sustainability shift, premiumization, generational turnover, new channels):";
+  return `${header}\n${lines.join("\n")}`;
+}
+
+/**
+ * Format margin-benchmark Tavily results as a grounding block for the
+ * pricing prompt. Differs from the trend block in two ways:
+ *   - Includes source URLs so the LLM can cite them in marginEstimate
+ *   - Header explicitly invites citation: "use these as anchors and
+ *     name the source you weighted most"
+ *
+ * Returns "" when the result list is empty so callers can append-or-
+ * skip without conditionals.
+ */
+export function formatMarginBenchmarkBlock(
+  results: TavilyResult[],
+  isKo: boolean,
+  maxLines: number = 4,
+): string {
+  if (results.length === 0) return "";
+  const top = [...results]
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    .slice(0, maxLines);
+  const lines = top.map((r, i) => {
+    const sentence = r.content
+      .replace(/\s+/g, " ")
+      .trim()
+      .split(/(?<=[.!?])\s/)[0] ?? "";
+    const trimmed =
+      sentence.length > 200 ? sentence.slice(0, 197) + "..." : sentence;
+    return `[${i + 1}] ${trimmed}\n    ↳ ${r.url}`;
+  });
+  const header = isKo
+    ? "═══ 마진 벤치마크 (실제 웹 grounding) ═══\n카테고리 평균 gross margin 자료. 이 데이터를 anchor 로 marginEstimatePct + marginEstimate 추정. marginEstimate 본문에 어느 소스를 가중치 두었는지 1줄 인용 ([1] / [2] 등) — 사용자가 출처를 따라갈 수 있게."
+    : "═══ MARGIN BENCHMARK (real-world grounding) ═══\nCategory gross-margin reference data. Use as anchor for marginEstimatePct + marginEstimate. In the marginEstimate text, cite which source you weighted most by [1] / [2] / etc. so the user can trace the figure.";
   return `${header}\n${lines.join("\n")}`;
 }

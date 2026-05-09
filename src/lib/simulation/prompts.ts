@@ -729,6 +729,7 @@ export function pricingPrompt(
   locale: PromptLocale = "en",
   range?: PricingRangeContext,
   competitorPrices?: CompetitorPriceContext[],
+  marginGroundingBlock?: string,
 ): string {
   // Range defaults to 0.5x-2.0x of base if not provided (legacy callers).
   const minCents = range?.minCents ?? Math.round(input.basePriceCents * 0.5);
@@ -800,8 +801,8 @@ Emit \`marginEstimatePct\` as a single integer (0-95) representing the **typical
 - Hardware / consumer electronics: ~25-40
 - Luxury / artisan (handmade, single-origin): ~50-65
 Use the most realistic mid-point for THIS product's category × distribution model (DTC vs wholesale shifts margin meaningfully). The dashboard uses this to compute break-even at this margin and at ±10pp around it — pessimistic / base / optimistic — so the user sees viability sensitivity instead of a single hardcoded assumption.
-
-Return: { "recommendedPriceCents": int, "marginEstimate": "string description (in ${LANG_NAME[locale]})", "marginEstimatePct": int (0-95), "curve": [ { priceCents, conversionProbability, estimatedRevenueIndex } ] }`;
+${marginGroundingBlock ? `\n${marginGroundingBlock}\n\n⚠ The grounding block above is fresher / more specific than the calibration anchors. PREFER its numbers when they apply to this product's exact category × country. The marginEstimate prose MUST cite at least one source ([1] / [2] / etc.) so the user can trace the figure, AND populate the marginEstimateSources field with the cited entries.\n` : ""}
+Return: { "recommendedPriceCents": int, "marginEstimate": "string description (in ${LANG_NAME[locale]})", "marginEstimatePct": int (0-95), "curve": [ { priceCents, conversionProbability, estimatedRevenueIndex } ]${marginGroundingBlock ? `, "marginEstimateSources": [ { "title": "source title from the grounding block", "url": "matching URL" } ]` : ""} }`;
 }
 
 export const MARKET_PROFILE_SYSTEM = `${SYSTEM_BASE}

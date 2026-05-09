@@ -7,6 +7,7 @@ import type { ProjectInput } from "@/lib/simulation/schemas";
 import { prefetchInlineAssets } from "@/lib/llm/asset-fetch";
 import {
   buildCategoryTrendQuery,
+  buildMarginBenchmarkQuery,
   tavilySearch,
   type TavilyResult,
 } from "@/lib/market-research/tavily";
@@ -500,6 +501,7 @@ export async function POST(
     // Cached 24h alongside the market-size query (same Tavily client),
     // so a re-run of the same project pulls cached results.
     let trendSnippets: TavilyResult[] = [];
+    let marginSnippets: TavilyResult[] = [];
     if (process.env.TAVILY_API_KEY) {
       const trendResult = await tavilySearch({
         query: buildCategoryTrendQuery({
@@ -514,6 +516,29 @@ export async function POST(
       if (trendSnippets.length > 0) {
         console.log(
           `[ensemble ${ensembleId}] tavily trend: ${trendSnippets.length} snippets for ${projectInput.category}`,
+        );
+      }
+
+      // Margin benchmark search — grounds the marginEstimate field in
+      // real industry data instead of LLM training prior + prompt
+      // calibration anchors alone. Country in the query: originating
+      // country (founder's home market) is a reasonable baseline; the
+      // LLM adjusts per recommended country via prompt anchors. One
+      // search per ensemble, cached 24h.
+      const marginResult = await tavilySearch({
+        query: buildMarginBenchmarkQuery({
+          category: projectInput.category,
+          country: projectInput.originatingCountry,
+          productName: projectInput.productName,
+        }),
+        searchDepth: "advanced",
+        maxResults: 5,
+        includeAnswer: false,
+      });
+      marginSnippets = marginResult?.results ?? [];
+      if (marginSnippets.length > 0) {
+        console.log(
+          `[ensemble ${ensembleId}] tavily margin: ${marginSnippets.length} snippets for ${projectInput.category}`,
         );
       }
     }
@@ -592,6 +617,7 @@ export async function POST(
           provider,
           inlineAssets,
           trendSnippets,
+          marginSnippets,
           competitorPrices,
         });
       } catch (err) {

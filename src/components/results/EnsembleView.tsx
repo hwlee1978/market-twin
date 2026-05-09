@@ -5732,6 +5732,44 @@ function PricingTab({
           <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
             {pricing.marginEstimate}
           </p>
+          {/* Margin source citations — surfaces when ≥1 sim cited a
+              Tavily margin-benchmark snippet AND the source survived
+              the cross-sim aggregation (≥2 sims cited it, OR it's the
+              only signal we have). Without this the margin number
+              looks authoritative but has no traceability. */}
+          {pricing.marginEstimateSources &&
+            pricing.marginEstimateSources.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-slate-100">
+                <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1.5">
+                  {isKo ? "출처" : "Sources"}
+                </div>
+                <ul className="space-y-1 text-[11px]">
+                  {pricing.marginEstimateSources.map((s, i) => (
+                    <li key={s.url} className="text-slate-500">
+                      <span className="text-slate-400">[{i + 1}]</span>{" "}
+                      <a
+                        href={s.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-brand hover:underline break-all"
+                      >
+                        {s.title || s.url}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          {/* Honest framing: when no sources made it through aggregation,
+              tell the user this is calibration-anchor based not sourced. */}
+          {(!pricing.marginEstimateSources ||
+            pricing.marginEstimateSources.length === 0) && (
+            <p className="text-[11px] text-slate-400 mt-3 pt-3 border-t border-slate-100 leading-relaxed">
+              {isKo
+                ? "출처: AI 추정 (카테고리 평균 기준 prompt anchor 기반). 외부 소스 grounding 실패 시 fallback."
+                : "Source: AI estimate (prompt-anchored category average). External-source grounding unavailable for this run."}
+            </p>
+          )}
         </div>
       )}
 

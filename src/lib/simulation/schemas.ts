@@ -347,6 +347,13 @@ export const PricingResultSchema = z.object({
   // user sees viability without us hardcoding 30% / 50% defaults.
   // Optional for legacy data; UI falls back to 35% when absent.
   marginEstimatePct: z.number().int().min(0).max(95).optional(),
+  // Source URLs from the Tavily margin-benchmark search that grounded
+  // the marginEstimate. Optional; only populated when ensemble-level
+  // search succeeded AND the LLM cited at least one source. Renderer
+  // shows them as a citations footnote next to "예상 마진 분석".
+  marginEstimateSources: z
+    .array(z.object({ title: z.string(), url: z.string() }))
+    .optional(),
   curve: z.array(PricingPointSchema),
   /**
    * Pricing-range metadata captured at sim time. Optional because

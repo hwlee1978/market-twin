@@ -523,6 +523,13 @@ export interface PricingAggregate {
    *  Drives the Decision-aid break-even 3-scenario table. Optional —
    *  legacy sims didn't emit a numeric margin. */
   marginEstimatePct?: number;
+  /** Source URLs from the Tavily margin-benchmark search that grounded
+   *  the marginEstimate. Aggregated across sims by URL frequency:
+   *  sources cited by ≥2 sims survive (single-sim citations are noise),
+   *  capped at top 3 by frequency. Renderer shows them as a citations
+   *  footnote next to "예상 마진 분석". Optional — empty when Tavily
+   *  was unavailable or no LLM cited a source. */
+  marginEstimateSources?: Array<{ title: string; url: string }>;
   /**
    * Curve-derived revenue maximum — the price point in the consensus
    * curve where (price × meanConversionProbability) is highest.
@@ -1762,12 +1769,42 @@ function computePricingAggregate(
   // table. Filtered to numeric values; absent when no sim emitted.
   type PricingWithMarginPct = NonNullable<EnsembleSimSnapshot["pricing"]> & {
     marginEstimatePct?: number;
+    marginEstimateSources?: Array<{ title: string; url: string }>;
   };
   const marginPcts = present
     .map((s) => (s.pricing as PricingWithMarginPct).marginEstimatePct)
     .filter((x): x is number => typeof x === "number" && Number.isFinite(x));
   const marginEstimatePct =
     marginPcts.length > 0 ? Math.round(median(marginPcts)) : undefined;
+
+  // Aggregate margin-source citations across sims. Each sim independently
+  // picked which Tavily snippet to cite; sources cited by ≥2 sims are
+  // higher-quality signal than single-sim citations (which can be LLM
+  // noise). Dedupe by URL, count frequency, keep top 3 by frequency.
+  const sourceCounts = new Map<string, { title: string; url: string; count: number }>();
+  for (const s of present) {
+    const sources = (s.pricing as PricingWithMarginPct).marginEstimateSources;
+    if (!sources) continue;
+    for (const src of sources) {
+      if (!src.url) continue;
+      const cur = sourceCounts.get(src.url) ?? {
+        title: src.title || src.url,
+        url: src.url,
+        count: 0,
+      };
+      cur.count++;
+      // Prefer the longest-title variant (LLMs sometimes truncate).
+      if (src.title && src.title.length > cur.title.length) {
+        cur.title = src.title;
+      }
+      sourceCounts.set(src.url, cur);
+    }
+  }
+  const marginEstimateSources = [...sourceCounts.values()]
+    .filter((s) => s.count >= 2 || sourceCounts.size === 1) // keep singletons only when nothing else
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3)
+    .map(({ title, url }) => ({ title, url }));
 
   // Bucket curve points proportionally — sims pick slightly different
   // price grids (e.g. $134.09 vs $134.39) which exact-match bucketing
@@ -1867,6 +1904,8 @@ function computePricingAggregate(
     recommendedPriceUnanimousAt,
     marginEstimate,
     marginEstimatePct,
+    marginEstimateSources:
+      marginEstimateSources.length > 0 ? marginEstimateSources : undefined,
     curve,
     curveRevenueMaxCents,
     recommendationMatchesCurve,

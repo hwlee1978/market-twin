@@ -3635,6 +3635,27 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
               <MText style={{ fontSize: 10, color: C.body, lineHeight: 1.6 }}>
                 {pr.marginEstimate}
               </MText>
+              {pr.marginEstimateSources && pr.marginEstimateSources.length > 0 ? (
+                <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 0.5, borderTopColor: C.divider }}>
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, marginBottom: 2 }}>
+                    {isKo ? "출처" : "Sources"}
+                  </MText>
+                  {pr.marginEstimateSources.map((s, i) => (
+                    <MText
+                      key={s.url}
+                      style={{ fontSize: 7, color: C.muted, lineHeight: 1.4 }}
+                    >
+                      {`[${i + 1}] ${s.title || s.url}`}
+                    </MText>
+                  ))}
+                </View>
+              ) : (
+                <MText style={{ fontSize: 7, color: C.muted, marginTop: 6, paddingTop: 4, borderTopWidth: 0.5, borderTopColor: C.divider, lineHeight: 1.4 }}>
+                  {isKo
+                    ? "출처: AI 추정 (카테고리 평균 기준 prompt anchor)."
+                    : "Source: AI estimate (prompt-anchored category average)."}
+                </MText>
+              )}
             </View>
           </View>
         )}

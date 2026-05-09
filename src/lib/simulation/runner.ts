@@ -8,7 +8,10 @@ import {
   loadReferenceBundles,
   renderReferenceBlock,
 } from "@/lib/reference";
-import { formatTrendContextBlock } from "@/lib/market-research/tavily";
+import {
+  formatTrendContextBlock,
+  formatMarginBenchmarkBlock,
+} from "@/lib/market-research/tavily";
 import { createServiceClient } from "@/lib/supabase/server";
 import {
   countryPrompt,
@@ -94,6 +97,20 @@ interface RunOptions {
    * fall back to LLM-only grounding.
    */
   trendSnippets?: Array<{
+    url: string;
+    title: string;
+    content: string;
+    score: number;
+  }>;
+  /**
+   * Tavily margin-benchmark snippets — fetched once at ensemble level
+   * to ground the pricing stage's marginEstimate in real industry
+   * data. Same shape as trendSnippets; injected into the pricing
+   * prompt as a "MARGIN BENCHMARK" grounding block, and the LLM is
+   * required to cite at least one source so the user can trace the
+   * margin figure. Empty when Tavily key is unset or query missed.
+   */
+  marginSnippets?: Array<{
     url: string;
     title: string;
     content: string;
@@ -1670,6 +1687,13 @@ ${entries}
       if (Number.isFinite(env) && env > 0 && env <= 9) return Math.floor(env);
       return 5;
     })();
+    // Build margin grounding block from ensemble-level Tavily snippets.
+    // Empty string when no key / no results; pricingPrompt then skips
+    // the citation ask altogether and falls back to prompt-anchor logic.
+    const marginGroundingBlock =
+      (opts.marginSnippets?.length ?? 0) > 0
+        ? formatMarginBenchmarkBlock(opts.marginSnippets!, locale === "ko", 4)
+        : undefined;
     const pricingPromptText = pricingPrompt(
       projectInput,
       aggregate,
@@ -1682,6 +1706,7 @@ ${entries}
           priceCents: r.priceCents!,
           productName: r.productName,
         })),
+      marginGroundingBlock,
     );
     const pricingResps = await Promise.all(
       Array.from({ length: PRICING_SAMPLES }, () =>
