@@ -388,6 +388,49 @@ export function isGenericLaunchConcern(text: string): boolean {
 }
 
 /**
+ * Broad price-themed detector — returns true for ANY objection whose
+ * core complaint is "the price is high", regardless of whether it
+ * carries a brand / comparator anchor. Distinct from
+ * `isGenericPriceObjection` which only catches the bare-adjective
+ * subset.
+ *
+ * Use case: the cross-country "최대 블로커" column. Even with the
+ * anchor-required filter applied, every market's top blocker often
+ * collapses to "Allbirds 대비 가격이 높음" / "ASOS 세일 대비 높음"
+ * / "타 브랜드 대비 가격이 높음" — anchored variants of the same
+ * universal complaint. The table loses comparative signal because
+ * every country reads "price problem". Letting `pickMarketBlocker`
+ * deprioritise ALL price-themed entries (anchored or not) and pick
+ * a non-price blocker first when one exists in the top-N restores
+ * the table's diagnostic value.
+ *
+ * Falls back to price-themed when nothing else is available, so
+ * markets where price genuinely IS the only blocker still render.
+ */
+export function isPriceThemedBlocker(text: string): boolean {
+  const t = text.toLowerCase();
+  // Korean price vocabulary — 가격/비싸/비쌈/고가/부담 plus the common
+  // comparator framings 대비/보다 + 가격/비싸. We also catch the
+  // "성능 대비" / "가성비" frames since those are still price-vs-value
+  // arguments. "X 세일 대비 높음" — sales-anchored price comparison.
+  if (
+    /(가격|비싸|비쌈|고가|부담|가성비|성능\s*대비\s*(불확실|모호|의문))/.test(text)
+  ) return true;
+  if (/(대비\s*(가격이?\s*)?(?:높|비싸|비쌈|고가)|보다\s*(?:비|고가))/.test(text))
+    return true;
+  if (/(세일\s*대비\s*높음?|세일가?\s*대비)/.test(text)) return true;
+  // English price vocabulary — same intent.
+  if (
+    /\b(price|pricing|cost|costly|expensive|pricey|premium-priced|too high|priced (?:above|higher)|markup|overpriced|value-for-money|value for money)\b/.test(
+      t,
+    )
+  ) return true;
+  if (/\b(steep for|steep at|expensive vs|costlier than|pricier than)\b/.test(t))
+    return true;
+  return false;
+}
+
+/**
  * Generic, contextless price grumbles ("가격이 높음" / "비쌈" /
  * "expensive") that surface in nearly every consumer-product run
  * regardless of actual price. Used to be a cross-country blocker-table

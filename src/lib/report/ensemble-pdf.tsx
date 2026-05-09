@@ -36,6 +36,7 @@ import {
   isGenericTrustFactor,
   isGenericLaunchConcern,
   isBareAdjectiveSignal,
+  isPriceThemedBlocker,
   demoteDominantClusters,
 } from "@/lib/simulation/surfaced-recount";
 import {
@@ -6690,14 +6691,31 @@ function pickMarketBlocker(
   objections: Array<{ text: string; count: number }> | undefined,
 ): string {
   if (!objections || objections.length === 0) return "—";
-  // First pass: skip mismatch noise AND generic price phrases. The
-  // latter ("가격이 높음" / "가격이 다소 높음" / "비쌈") rises to the
-  // top in nearly every consumer-product run because price-as-objection
-  // is universal — every country's top blocker comes back as
-  // "가격이 높음" and the column loses its comparative value. We
-  // surface the next-most-specific blocker instead. Specific price
-  // objections that include a competitor anchor, a recurring-purchase
-  // scenario, or a concrete amount survive (those add real signal).
+  // Three-pass selection: every layer below catches a different failure
+  // mode the cross-country blocker table has hit.
+  //
+  // Pass 1: best case — non-price, non-noise, anchored. This is what
+  // the column was designed for; if a market has any non-price blocker
+  // in its top-N, surface that. Earlier revisions only filtered
+  // BARE-adjective price phrases ("가격이 높음"), so anchored variants
+  // like "Allbirds 대비 가격이 높음" survived and dominated every
+  // market — the table read "every market has a price problem", which
+  // is the same as having no comparative signal at all. With Pass 1 in
+  // place, climate fit / channel availability / size range / brand
+  // familiarity / specific anchor blockers get surfaced when they
+  // exist.
+  for (const o of objections) {
+    if (isPersonaMismatchNoise(o.text)) continue;
+    if (isGenericPriceObjection(o.text)) continue;
+    if (isGenericLaunchConcern(o.text)) continue;
+    if (isBareAdjectiveSignal(o.text)) continue;
+    if (isPriceThemedBlocker(o.text)) continue;
+    return o.text;
+  }
+  // Pass 2: anchored price-themed blockers ARE useful when no non-price
+  // option exists in the top-N — at least the column reads "the price
+  // worry is anchored on Allbirds vs ASOS" instead of blanking. Original
+  // filter chain (mismatch / generic / launch-concern / bare-adjective).
   for (const o of objections) {
     if (isPersonaMismatchNoise(o.text)) continue;
     if (isGenericPriceObjection(o.text)) continue;
@@ -6705,9 +6723,7 @@ function pickMarketBlocker(
     if (isBareAdjectiveSignal(o.text)) continue;
     return o.text;
   }
-  // No specific blocker survived — fall back to the first non-mismatch
-  // (so we still show "가격이 높음" rather than blanking) before the
-  // raw top-1 fallback.
+  // Pass 3: last resort — anything non-mismatch so we don't blank.
   for (const o of objections) {
     if (!isPersonaMismatchNoise(o.text)) return o.text;
   }
