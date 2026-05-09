@@ -390,7 +390,18 @@ export interface PersonasAggregate {
    * { profession, count }; the UI/PDF treats meanIntent as undefined
    * gracefully.
    */
-  professionTopN: Array<{ profession: string; count: number; meanIntent?: number }>;
+  professionTopN: Array<{
+    profession: string;
+    count: number;
+    meanIntent?: number;
+    /** Number of distinct LLM-generated specializations that rolled
+     *  up into this base profession. >1 means specialization detail
+     *  was collapsed during aggregation; renderer can surface that to
+     *  signal "19 distinct personas with varied specializations" vs
+     *  "19 clones of the same exact title". Optional — legacy
+     *  aggregates lack this field. */
+    variantCount?: number;
+  }>;
 
   /**
    * Segment-level intent breakdown. Each cut (gender / age / income)
@@ -1219,19 +1230,47 @@ function computePersonasAggregate(
   // Per-profession aggregation: count + mean intent. The mean lets the
   // PDF show "Designers loved it (78), Engineers skeptical (52)" — a
   // signal the headline aggregate hides.
-  const profStats = new Map<string, { count: number; intentSum: number }>();
+  //
+  // Strip the LLM's parenthetical specialization before grouping. Slots
+  // are pre-assigned to a BASE profession ("편집숍 바이어") and the LLM
+  // adds a specialization tail ("(도쿄 오모테산도 멀티 브랜드 편집숍
+  // 시니어 바이어)"). When the LLM safe-default-converges on the same
+  // specialization across 19 separate slots — common because there's a
+  // single "obvious" Tokyo location for every JP buyer slot — the
+  // aggregator used to group them as a single highly-specific role,
+  // which read as "19 personas all live in one Tokyo neighborhood and
+  // share an exact job title". Stripping the specialization tail
+  // groups them by their actual base profession (correct stat) while
+  // keeping the per-persona detail intact in the underlying records.
+  const stripSpecialization = (profession: string): string =>
+    profession.replace(/\s*\([^)]*\)\s*$/, "").trim();
+  const profStats = new Map<
+    string,
+    { count: number; intentSum: number; sampleVariants: Set<string> }
+  >();
   for (const p of all) {
     if (!p.profession) continue;
-    const cur = profStats.get(p.profession) ?? { count: 0, intentSum: 0 };
+    const base = stripSpecialization(p.profession);
+    if (!base) continue;
+    const cur =
+      profStats.get(base) ??
+      { count: 0, intentSum: 0, sampleVariants: new Set<string>() };
     cur.count += 1;
     cur.intentSum += p.purchaseIntent ?? 0;
-    profStats.set(p.profession, cur);
+    cur.sampleVariants.add(p.profession);
+    profStats.set(base, cur);
   }
   const professionTopN = [...profStats.entries()]
     .map(([profession, s]) => ({
       profession,
       count: s.count,
       meanIntent: Math.round(s.intentSum / s.count),
+      // Track how many distinct LLM-generated variants collapsed into
+      // this base profession. Renderer can show "19명 (12 specializations)"
+      // when variants > 1, or just the count when variants are uniform.
+      // Optional — legacy pipelines that don't surface this field
+      // simply ignore it.
+      variantCount: s.sampleVariants.size,
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 12);

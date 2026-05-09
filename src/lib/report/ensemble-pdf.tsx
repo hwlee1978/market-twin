@@ -4011,8 +4011,16 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 <MText style={{ fontSize: 9, color: C.ink, width: 150 }}>
                   {r.profession}
                 </MText>
-                <MText style={{ fontSize: 8, color: C.muted, width: 36, textAlign: "right" }}>
-                  {`n=${r.count}`}
+                <MText
+                  style={{ fontSize: 8, color: C.muted, width: 56, textAlign: "right" }}
+                >
+                  {/* Show variantCount when LLM emitted >1 distinct
+                      specialization for this base profession. Tells the
+                      reader "this is actually 19 varied personas" vs
+                      "19 clones of the same title". */}
+                  {(r.variantCount ?? 0) > 1
+                    ? `n=${r.count} · ${r.variantCount}v`
+                    : `n=${r.count}`}
                 </MText>
                 <View style={{ flex: 1, height: 8, backgroundColor: C.divider, borderRadius: 4 }}>
                   <View

@@ -352,6 +352,12 @@ ${slots.map((s, i) => `  Slot ${i + 1}: country=${s.country}, base profession=${
 Rules:
 - The persona's "country" field MUST equal the slot's country code.
 - The persona's "profession" field MUST start with the assigned base profession. You MAY add a parenthetical specialization to make it concrete (e.g. "프리랜서 일러스트레이터 (게임 컨셉 아트 전문)" or "Senior software engineer (Tokyo fintech)"), but the base must match.
+- **PARENTHETICAL SPECIALIZATION DIVERSITY (HARD RULE)**: Across the batch, NO TWO personas with the same base profession may share an identical parenthetical. This is enforced even when the obvious "default" specialization would fit both. Example failure: emitting "편집숍 바이어 (도쿄 오모테산도 멀티 브랜드 편집숍 시니어 바이어)" for every JP 편집숍 바이어 slot — the cross-sim aggregator collapses these as a single 19-clone group, which surfaces as "19 personas all live in one Tokyo neighborhood and share an exact job title", which is statistically absurd. Vary by:
+   • City / district (도쿄 오모테산도 / 후쿠오카 텐진 / 오사카 신사이바시 / 나고야 사카에)
+   • Sub-specialization (멀티 브랜드 / 빈티지·아카이브 / 컨템포러리 / 럭셔리 / 영캐주얼)
+   • Career stage (주니어·바이어 보조 / 시니어 바이어 / 헤드 바이어 / 디렉터)
+   • Age / generation cue when relevant
+  At least 3 of the 4 axes above MUST differ across personas with the same base profession in this batch. If you can't think of distinct specializations, leave the parenthetical EMPTY rather than repeat — duplicates are worse than absent detail.
 - If an assigned profession doesn't naturally fit the slot's country, adapt to the closest local equivalent BUT keep the same base archetype.
 - Everything else (age, gender, income, intent, objections, trust factors, interests, purchase style) is YOUR creative judgment — vary widely across slots so the personas feel distinct.`
     : `Distribute personas across these countries (exact counts):
