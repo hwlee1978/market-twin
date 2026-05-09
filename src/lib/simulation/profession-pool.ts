@@ -107,6 +107,13 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "피부 트러블 관리 소비자",
       "트랜스·논바이너리 뷰티 소비자",
       "의대·간호대 학생",
+      // High-income tier (capped — senior professionals genuinely care
+      // about premium grooming / dermatology spend; without these the
+      // $150k+ income bucket goes empty for non-US/TW countries).
+      "화장품 기업 임원",
+      "피부과 전문의",
+      "성형외과 전문의",
+      "럭셔리 뷰티 브랜드 디렉터",
       // Always-eligible (capped)
       "대학생",
       "마케팅 매니저",
@@ -116,6 +123,10 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "대학생": 3,
       "마케팅 매니저": 2,
       "일반 회사원": 2,
+      "화장품 기업 임원": 2,
+      "피부과 전문의": 2,
+      "성형외과 전문의": 1,
+      "럭셔리 뷰티 브랜드 디렉터": 1,
     },
   },
   saas: {
@@ -199,6 +210,11 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "의료인 (식이 권고 영향력)",
       "식음료 박람회 참관 바이어",
       "구독 박스 큐레이터",
+      // High-income tier (capped)
+      "외식 그룹 임원",
+      "럭셔리 호텔 F&B 디렉터",
+      "미식 평론가·푸드 디렉터",
+      "전문의 (식이 권고)",
       // Always-eligible (capped)
       "대학생",
       "마케팅 매니저",
@@ -208,6 +224,10 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "대학생": 3,
       "마케팅 매니저": 2,
       "일반 회사원": 2,
+      "외식 그룹 임원": 2,
+      "럭셔리 호텔 F&B 디렉터": 1,
+      "미식 평론가·푸드 디렉터": 1,
+      "전문의 (식이 권고)": 2,
     },
   },
   health: {
@@ -244,6 +264,11 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "명상·웰니스 강사",
       "다이어트 진지 사무직",
       "비건·식물성 보충제 사용자",
+      // High-income tier (capped)
+      "전문의 (내과·재활의학)",
+      "헬스케어 기업 임원",
+      "메디컬 디렉터",
+      "약국 체인 운영자",
       // Always-eligible (capped — health buyers skew older / professional)
       "대학생",
       "마케팅 매니저",
@@ -253,6 +278,10 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "대학생": 2,
       "마케팅 매니저": 2,
       "일반 회사원": 2,
+      "전문의 (내과·재활의학)": 2,
+      "헬스케어 기업 임원": 2,
+      "메디컬 디렉터": 1,
+      "약국 체인 운영자": 1,
     },
   },
   fashion: {
@@ -288,6 +317,13 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "세컨드핸드·resale 활동자",
       "모데스트 패션 소비자",
       "드랙·스트리트 컬처 종사자",
+      // High-income tier (capped — fashion / luxury executives genuinely
+      // are deep-pocket consumers, and lawyers / IB / consulting partners
+      // are the realistic premium-fashion buyer base)
+      "패션 기업 임원",
+      "럭셔리 브랜드 디렉터",
+      "변호사 (시니어·파트너)",
+      "외국계 IB·컨설팅 시니어",
       // Always-eligible (capped — students relevant for fashion)
       "대학생",
       "마케팅 매니저",
@@ -297,6 +333,10 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "대학생": 3,
       "마케팅 매니저": 2,
       "일반 회사원": 2,
+      "패션 기업 임원": 2,
+      "럭셔리 브랜드 디렉터": 1,
+      "변호사 (시니어·파트너)": 2,
+      "외국계 IB·컨설팅 시니어": 2,
     },
   },
   electronics: {
@@ -334,6 +374,13 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "카페·소상공인 (커머셜 가전)",
       "1인 사업자 (POS·B2B 디바이스)",
       "학원 강사 (디지털 수업 도구)",
+      // High-income tier (capped — senior tech execs / consultants
+      // are actual premium-electronics buyers and earn $150k+ in
+      // every developed market)
+      "테크 기업 임원 (CTO·VP)",
+      "시니어 소프트웨어 엔지니어 (대기업)",
+      "외국계 컨설팅 파트너",
+      "전문직 시니어 (변호사·회계사)",
       // Always-eligible (capped)
       "대학생",
       "마케팅 매니저",
@@ -343,6 +390,10 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "대학생": 2,
       "마케팅 매니저": 2,
       "일반 회사원": 2,
+      "테크 기업 임원 (CTO·VP)": 2,
+      "시니어 소프트웨어 엔지니어 (대기업)": 2,
+      "외국계 컨설팅 파트너": 1,
+      "전문직 시니어 (변호사·회계사)": 2,
     },
   },
   home: {
@@ -379,6 +430,12 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "시니어 부모 (안전 가구 교체)",
       "분리수거·정리 정돈 마니아",
       "풍수·인테리어 운세 관심층",
+      // High-income tier (capped — premium furniture / interior buyers
+      // skew senior professionals + architects + real-estate execs)
+      "건축가 (시니어·사무소 대표)",
+      "인테리어 스튜디오 대표",
+      "부동산 개발사 임원",
+      "외국계 컨설팅 파트너",
       // Always-eligible (capped — students less central for home)
       "대학생",
       "마케팅 매니저",
@@ -388,6 +445,10 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "대학생": 2,
       "마케팅 매니저": 2,
       "일반 회사원": 2,
+      "건축가 (시니어·사무소 대표)": 2,
+      "인테리어 스튜디오 대표": 1,
+      "부동산 개발사 임원": 1,
+      "외국계 컨설팅 파트너": 1,
     },
   },
 };
@@ -473,6 +534,11 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Acne / skin-issue management consumer",
       "Trans / non-binary beauty consumer",
       "Medical / nursing student",
+      // High-income tier (capped — see KO comment for rationale)
+      "Cosmetics company executive",
+      "Dermatologist",
+      "Plastic surgeon",
+      "Luxury beauty brand director",
       // Always-eligible (capped)
       "College student",
       "Marketing manager",
@@ -482,6 +548,10 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "College student": 3,
       "Marketing manager": 2,
       "Office worker": 2,
+      "Cosmetics company executive": 2,
+      "Dermatologist": 2,
+      "Plastic surgeon": 1,
+      "Luxury beauty brand director": 1,
     },
   },
   saas: {
@@ -565,6 +635,11 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Medical professional (dietary advice influencer)",
       "Food expo trade buyer",
       "Subscription-box curator",
+      // High-income tier (capped)
+      "Restaurant group executive",
+      "Luxury hotel F&B director",
+      "Food critic / media director",
+      "Specialist physician (dietary)",
       // Always-eligible (capped)
       "College student",
       "Marketing manager",
@@ -574,6 +649,10 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "College student": 3,
       "Marketing manager": 2,
       "Office worker": 2,
+      "Restaurant group executive": 2,
+      "Luxury hotel F&B director": 1,
+      "Food critic / media director": 1,
+      "Specialist physician (dietary)": 2,
     },
   },
   health: {
@@ -610,6 +689,11 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Meditation / wellness instructor",
       "Diet-serious office worker",
       "Vegan / plant-based supplement user",
+      // High-income tier (capped)
+      "Specialist physician (internal / rehab)",
+      "Healthcare company executive",
+      "Medical director",
+      "Pharmacy chain operator",
       // Always-eligible (capped)
       "College student",
       "Marketing manager",
@@ -619,6 +703,10 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "College student": 2,
       "Marketing manager": 2,
       "Office worker": 2,
+      "Specialist physician (internal / rehab)": 2,
+      "Healthcare company executive": 2,
+      "Medical director": 1,
+      "Pharmacy chain operator": 1,
     },
   },
   fashion: {
@@ -654,6 +742,11 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Secondhand / resale active buyer",
       "Modest-fashion consumer",
       "Drag / street culture professional",
+      // High-income tier (capped)
+      "Fashion company executive",
+      "Luxury brand director",
+      "Senior lawyer / law-firm partner",
+      "Foreign IB / consulting senior",
       // Always-eligible (capped)
       "College student",
       "Marketing manager",
@@ -663,6 +756,10 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "College student": 3,
       "Marketing manager": 2,
       "Office worker": 2,
+      "Fashion company executive": 2,
+      "Luxury brand director": 1,
+      "Senior lawyer / law-firm partner": 2,
+      "Foreign IB / consulting senior": 2,
     },
   },
   electronics: {
@@ -700,6 +797,11 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Café / SMB owner (commercial appliances)",
       "Solo entrepreneur (POS / B2B devices)",
       "Academy instructor (digital teaching tools)",
+      // High-income tier (capped)
+      "Tech executive (CTO / VP)",
+      "Senior software engineer (big tech)",
+      "Foreign consulting partner",
+      "Senior professional (lawyer / accountant)",
       // Always-eligible (capped)
       "College student",
       "Marketing manager",
@@ -709,6 +811,10 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "College student": 2,
       "Marketing manager": 2,
       "Office worker": 2,
+      "Tech executive (CTO / VP)": 2,
+      "Senior software engineer (big tech)": 2,
+      "Foreign consulting partner": 1,
+      "Senior professional (lawyer / accountant)": 2,
     },
   },
   home: {
@@ -745,6 +851,11 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Senior parent (replacing for safety)",
       "Decluttering / organizing enthusiast",
       "Feng-shui / lifestyle-fortune interested",
+      // High-income tier (capped)
+      "Senior architect / firm principal",
+      "Interior studio owner",
+      "Real-estate development executive",
+      "Foreign consulting partner",
       // Always-eligible (capped)
       "College student",
       "Marketing manager",
@@ -754,6 +865,10 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "College student": 2,
       "Marketing manager": 2,
       "Office worker": 2,
+      "Senior architect / firm principal": 2,
+      "Interior studio owner": 1,
+      "Real-estate development executive": 1,
+      "Foreign consulting partner": 1,
     },
   },
 };

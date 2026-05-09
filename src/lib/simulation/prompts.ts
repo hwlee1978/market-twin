@@ -123,6 +123,9 @@ Every incomeBand using a non-USD currency MUST include the USD equivalent in par
 - ID: "연 Rp 60M-100M (~$3.7-6.2k USD)"
 US personas use only "$" with no extra annotation. This rule applies UNIFORMLY across all non-USD countries — never omit the USD parenthetical for one country while including it for another.
 
+INCOME RANGE WIDTH (HARD RULE):
+The range you emit must be **TIGHT** — high end at most ~50% above the low end (so a $130k mid-career persona writes "$110-150k" or "$120-145k", NOT "$80-200k"). Wide ranges like "$50-200k" mask the persona's actual seniority and produce unreliable income-bracket bucketing downstream. The range should describe ONE persona's realistic year-to-year variation (bonus / commission / stipend), not the entire profession's pay band. If you find yourself wanting a wider range, pick a single midpoint and set tight bounds around it.
+
 ═══ INCOME REFERENCE (annual, individual personal income) ═══
 
 Each country lists entry / mid / senior / executive tiers where applicable.
