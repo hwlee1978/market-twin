@@ -24,14 +24,14 @@
  *   npm run seed:pool -- 0c8e774f-356a-4bf2-ba3d-8bfb41e6d019 food US,JP,GB,VN
  */
 import { Client } from "pg";
-import { getLLMProvider } from "../src/lib/llm";
-import { planSlots, type PersonaSlot } from "../src/lib/simulation/profession-pool";
-import { personaPrompt, PERSONA_SYSTEM } from "../src/lib/simulation/prompts";
+import { getLLMProvider } from "../packages/shared/src/llm";
+import { planSlots, type PersonaSlot } from "../packages/shared/src/simulation/profession-pool";
+import { personaPrompt, PERSONA_SYSTEM } from "../packages/shared/src/simulation/prompts";
 import {
   PersonaSchema,
   type ProjectInput,
-} from "../src/lib/simulation/schemas";
-import { filterLocaleNative } from "../src/lib/simulation/locale-filter";
+} from "../packages/shared/src/simulation/schemas";
+import { filterLocaleNative } from "../packages/shared/src/simulation/locale-filter";
 
 const PERSONA_BATCH = 12;
 const PERSONA_BATCH_CONCURRENCY = Math.max(

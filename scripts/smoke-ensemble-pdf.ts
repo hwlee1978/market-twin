@@ -15,7 +15,7 @@ import { Client } from "pg";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { buildEnsemblePdf } from "../src/lib/report/ensemble-pdf";
-import type { EnsembleAggregate } from "../src/lib/simulation/ensemble";
+import type { EnsembleAggregate } from "../packages/shared/src/simulation/ensemble";
 
 function syntheticFixture(): {
   aggregate: EnsembleAggregate;

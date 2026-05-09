@@ -10,7 +10,7 @@
  *   npm run audit:price-objections -- <id-prefix>     # specific ensemble
  */
 import { Client } from "pg";
-import { isGenericPriceObjection } from "../src/lib/simulation/surfaced-recount";
+import { isGenericPriceObjection } from "../packages/shared/src/simulation/surfaced-recount";
 
 interface Persona {
   country?: string;

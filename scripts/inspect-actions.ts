@@ -10,7 +10,7 @@
  *   npm run inspect:actions -- 53328452   # by ensemble id prefix
  */
 import { Client } from "pg";
-import { recountSurfacedInSims } from "../src/lib/simulation/surfaced-recount";
+import { recountSurfacedInSims } from "../packages/shared/src/simulation/surfaced-recount";
 
 interface SimResult {
   sim_id: string;

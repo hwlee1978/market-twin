@@ -15,16 +15,16 @@
  *   npm run smoke:ensemble-e2e -- 8de9f248 decision         # 5×200
  */
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { runSimulation } from "../src/lib/simulation/runner";
+import { runSimulation } from "../packages/shared/src/simulation/runner";
 import {
   aggregateEnsemble,
   type EnsembleSimSnapshot,
-} from "../src/lib/simulation/ensemble";
-import { mergeNarrative } from "../src/lib/simulation/ensemble-narrative";
+} from "../packages/shared/src/simulation/ensemble";
+import { mergeNarrative } from "../packages/shared/src/simulation/ensemble-narrative";
 import type {
   CountryScore,
   ProjectInput,
-} from "../src/lib/simulation/schemas";
+} from "../packages/shared/src/simulation/schemas";
 
 const TIER_PRESETS = {
   hypothesis: {

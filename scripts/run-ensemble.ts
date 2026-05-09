@@ -17,8 +17,8 @@
  *   npm run ensemble:run -- 48f1041d 5 500          # 5 × 500 = 2500
  */
 import { Client } from "pg";
-import { runSimulation } from "../src/lib/simulation/runner";
-import type { ProjectInput } from "../src/lib/simulation/schemas";
+import { runSimulation } from "../packages/shared/src/simulation/runner";
+import type { ProjectInput } from "../packages/shared/src/simulation/schemas";
 
 interface ProjectRow {
   id: string;

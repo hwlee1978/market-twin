@@ -5,7 +5,7 @@
  *
  * Run: npx tsx scripts/verify-specificity.ts
  */
-import { assessActionSpecificity } from "../src/lib/simulation/ensemble-narrative";
+import { assessActionSpecificity } from "../packages/shared/src/simulation/ensemble-narrative";
 
 const samples: Array<{ text: string; expected: "vague" | "partial" | "concrete" }> = [
   // Vague — should score 0-25

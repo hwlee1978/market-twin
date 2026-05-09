@@ -6,8 +6,8 @@
  *
  * Run: npx tsx scripts/verify-pricing-sensitivity.ts
  */
-import { aggregateEnsemble } from "../src/lib/simulation/ensemble";
-import type { EnsembleSimSnapshot } from "../src/lib/simulation/ensemble";
+import { aggregateEnsemble } from "../packages/shared/src/simulation/ensemble";
+import type { EnsembleSimSnapshot } from "../packages/shared/src/simulation/ensemble";
 
 function makeSim(
   curve: Array<[number, number]>, // [priceCents, conversionProbability]
