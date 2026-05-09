@@ -97,6 +97,13 @@ export interface EnsembleSimSnapshot {
     trustFactors?: string[];
     /** Free-text barriers / hesitations. Same channel-extractor input. */
     objections?: string[];
+    /** Parallel categorized form. Each item pairs a TrustFactorCategory
+     *  enum code with the detail string (= the matching trustFactors[i]).
+     *  Optional during the migration corridor; legacy aggregates parsed
+     *  before Phase 1 don't have these. */
+    trustFactorsCategorized?: Array<{ category: string; detail: string }>;
+    /** Parallel categorized form for objections — ObjectionCategory codes. */
+    objectionsCategorized?: Array<{ category: string; detail: string }>;
     /** Ad-stage reaction (curiosity + wouldClick). Optional for legacy. */
     adReaction?: {
       curiosity: number;
@@ -175,6 +182,27 @@ export interface CountryStats {
      * predating the field.
      */
     topTrustFactors?: Array<{ text: string; count: number }>;
+    /**
+     * Categorized objection distribution across personas in this
+     * country, computed from the new objectionsCategorized field.
+     * Phase 2 (taxonomy rollout) — legacy aggregates without this
+     * field fall back to fuzzy-clustering on topObjections text.
+     * Each entry: { category enum code, count of personas raising it,
+     * representative detail string }. Sorted by count desc.
+     */
+    objectionCategoryDistribution?: Array<{
+      category: string;
+      count: number;
+      /** Most-frequent detail string within this category — used as
+       *  the column's "representative" example when rendering. */
+      representativeDetail: string;
+    }>;
+    /** Same shape as objectionCategoryDistribution, for trust factors. */
+    trustCategoryDistribution?: Array<{
+      category: string;
+      count: number;
+      representativeDetail: string;
+    }>;
     persona: {
       count: number;
       meanIntent: number;
@@ -822,6 +850,89 @@ export function aggregateEnsemble(
       })
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
+
+      // Phase 2 — taxonomy-based modal/distribution for cross-country
+      // comparison. Counts each persona's category emission once per
+      // category (a persona that lists 2 different objections in the
+      // same category counts once). Skips entries the source-side
+      // filters above already dropped — checked against the persona's
+      // free-text objections / trustFactors arrays for consistency.
+      // Falls back to undefined when no persona in this country emitted
+      // categorized data; renderer treats that as "use fuzzy-cluster
+      // path for legacy aggregate" signal.
+      const objectionCatCounts = new Map<
+        string,
+        { personas: Set<number>; details: Map<string, number> }
+      >();
+      const trustCatCounts = new Map<
+        string,
+        { personas: Set<number>; details: Map<string, number> }
+      >();
+      let anyObjectionCategorized = false;
+      let anyTrustCategorized = false;
+      for (let pi = 0; pi < inCountry.length; pi++) {
+        const p = inCountry[pi];
+        for (const item of p.objectionsCategorized ?? []) {
+          if (!item || !item.category || !item.detail) continue;
+          anyObjectionCategorized = true;
+          // Apply same noise filters used on the free-text path so
+          // the categorized distribution matches what survives to the
+          // free-text top-5 list. A persona's objection that got
+          // dropped from topObjections shouldn't pad the category
+          // count either.
+          const t = item.detail.trim();
+          if (
+            isPersonaMismatchNoise(t) ||
+            isGenericPriceObjection(t) ||
+            isGenericLaunchConcern(t) ||
+            isBareAdjectiveSignal(t)
+          ) {
+            continue;
+          }
+          const bucket =
+            objectionCatCounts.get(item.category) ??
+            { personas: new Set<number>(), details: new Map<string, number>() };
+          bucket.personas.add(pi);
+          bucket.details.set(t, (bucket.details.get(t) ?? 0) + 1);
+          objectionCatCounts.set(item.category, bucket);
+        }
+        for (const item of p.trustFactorsCategorized ?? []) {
+          if (!item || !item.category || !item.detail) continue;
+          anyTrustCategorized = true;
+          const t = item.detail.trim();
+          if (isGenericTrustFactor(t) || isBareAdjectiveSignal(t)) continue;
+          const bucket =
+            trustCatCounts.get(item.category) ??
+            { personas: new Set<number>(), details: new Map<string, number>() };
+          bucket.personas.add(pi);
+          bucket.details.set(t, (bucket.details.get(t) ?? 0) + 1);
+          trustCatCounts.set(item.category, bucket);
+        }
+      }
+      const distFromMap = (
+        m: Map<string, { personas: Set<number>; details: Map<string, number> }>,
+      ) =>
+        [...m.entries()]
+          .map(([category, b]) => {
+            // Representative detail = the most-frequent surface form
+            // within this category bucket. Ties broken by shortest.
+            const rep = [...b.details.entries()].sort((a, c) => {
+              if (c[1] !== a[1]) return c[1] - a[1];
+              return a[0].length - c[0].length;
+            })[0]?.[0] ?? "";
+            return {
+              category,
+              count: b.personas.size,
+              representativeDetail: rep,
+            };
+          })
+          .sort((a, b) => b.count - a.count);
+      const objectionCategoryDistribution = anyObjectionCategorized
+        ? distFromMap(objectionCatCounts)
+        : undefined;
+      const trustCategoryDistribution = anyTrustCategorized
+        ? distFromMap(trustCatCounts)
+        : undefined;
       // Rationale samples — pick the 3 longest unique strings as a proxy
       // for "most informative". Cheap, deterministic, no LLM call needed.
       const rationaleSeen = new Set<string>();
@@ -907,6 +1018,8 @@ export function aggregateEnsemble(
           rationaleSamples,
           topObjections,
           topTrustFactors,
+          objectionCategoryDistribution,
+          trustCategoryDistribution,
           persona: {
             count: inCountry.length,
             meanIntent: intents.length > 0 ? Math.round(mean(intents)) : 0,

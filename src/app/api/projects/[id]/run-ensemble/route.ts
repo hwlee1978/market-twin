@@ -742,6 +742,8 @@ async function aggregateAndPersist(opts: {
         incomeBand?: string;
         trustFactors?: unknown;
         objections?: unknown;
+        trustFactorsCategorized?: unknown;
+        objectionsCategorized?: unknown;
         adReaction?: unknown;
       };
       if (typeof rec.purchaseIntent !== "number" || !rec.country) return [];
@@ -758,6 +760,30 @@ async function aggregateAndPersist(opts: {
       ) {
         adReaction = { curiosity: ar.curiosity, wouldClick: ar.wouldClick };
       }
+      // Coerce categorized arrays — defensive against legacy / malformed
+      // shapes. Pass through { category: string, detail: string } items;
+      // anything else gets filtered. Aggregator further validates code
+      // membership against the taxonomy enum at compute time.
+      const coerceCategorized = (
+        raw: unknown,
+      ): Array<{ category: string; detail: string }> | undefined => {
+        if (!Array.isArray(raw)) return undefined;
+        const items: Array<{ category: string; detail: string }> = [];
+        for (const v of raw) {
+          if (
+            v &&
+            typeof v === "object" &&
+            typeof (v as Record<string, unknown>).category === "string" &&
+            typeof (v as Record<string, unknown>).detail === "string"
+          ) {
+            const obj = v as Record<string, string>;
+            if (obj.detail.trim()) {
+              items.push({ category: obj.category, detail: obj.detail });
+            }
+          }
+        }
+        return items.length > 0 ? items : undefined;
+      };
       return [
         {
           country: rec.country.toUpperCase(),
@@ -773,6 +799,8 @@ async function aggregateAndPersist(opts: {
           objections: Array.isArray(rec.objections)
             ? (rec.objections as unknown[]).filter((x): x is string => typeof x === "string")
             : undefined,
+          trustFactorsCategorized: coerceCategorized(rec.trustFactorsCategorized),
+          objectionsCategorized: coerceCategorized(rec.objectionsCategorized),
           adReaction,
         },
       ];
