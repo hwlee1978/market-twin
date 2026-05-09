@@ -140,23 +140,23 @@ Employed personas:
 - **JP**: salaryman ¥4-6M (~$28-43k); senior ¥7-10M (~$50-72k); manager ¥10-15M (~$72-108k); 役員 / executive / 専門医 senior ¥18-50M (~$130-360k); 외국계 IB associate ¥15-25M (~$108-180k).
 - **US**: teacher $50-75k; office worker $55-85k; senior tech $130-200k+; doctor $200-400k; executive / partner / IB MD $300k-1M+.
 - **GB**: junior office £25-45k (~$32-57k); mid-career £45-75k (~$57-95k); senior tech / consultant £80-130k (~$100-165k); senior banker / barrister / partner £100-300k+ (~$130-380k+).
-- **AU**: mid-career AU$80-120k (~$55-80k); senior tech AU$140-220k (~$95-150k); executive / senior medical AU$200-400k+ (~$130-260k+).
+- **AU**: entry-level office AU$50-75k (~$33-50k); mid-career AU$80-120k (~$55-80k); senior tech AU$140-220k (~$95-150k); executive / senior medical AU$200-400k+ (~$130-260k+).
 - **CA**: mid-career CAD 60-100k (~$45-75k); senior tech CAD 130-200k (~$95-145k); executive / senior medical CAD 250-500k+ (~$180-360k+).
 - **FR**: cadre moyen €40-60k (~$45-65k); senior cadre €70-130k (~$75-140k); dirigeant / IB associate / chirurgien €150-300k+ (~$160-320k+).
-- **DE**: mid-career €45-70k; senior €70-100k; Geschäftsführer / leitender Arzt / partner €120-300k+ (~$130-320k+).
+- **DE**: junior office €30-45k (~$32-49k); mid-career €45-70k (~$48-75k); senior €70-100k (~$75-110k); senior manager / Bereichsleiter €100-150k (~$108-165k); Geschäftsführer / leitender Arzt / partner €150-300k+ (~$160-320k+).
 - **IT**: impiegato €25-40k; quadro €45-70k (~$48-75k); dirigente senior €100-200k+ (~$110-215k+).
-- **NL**: mid-career €50-75k; senior consultant €80-130k (~$85-140k); director / partner €150-300k+ (~$160-320k+).
-- **HK**: junior office HKD 250-450k (~$32-58k); senior tech / banker HKD 1-2M (~$128-256k); MD / senior banker HKD 2-5M+ (~$256-640k+); senior expat HKD 1.5-3M (~$190-385k).
+- **NL**: junior office €30-50k (~$32-54k); mid-career €50-75k (~$54-80k); senior consultant €80-130k (~$85-140k); director / partner €150-300k+ (~$160-320k+).
+- **HK**: junior office HKD 250-450k (~$32-58k); mid-career professional HKD 500-900k (~$64-115k); senior tech / banker HKD 1-2M (~$128-256k); MD / senior banker HKD 2-5M+ (~$256-640k+); senior expat HKD 1.5-3M (~$190-385k).
 - **SG**: local mid-career SGD 60-100k (~$45-75k); senior tech / banker SGD 150-300k (~$110-220k); director / partner / senior medical SGD 300-700k+ (~$220-515k+); expat tech professional $80-160k.
-- **AE**: junior expat AED 200-400k (~$54-110k); senior expat AED 400-800k (~$110-220k); executive AED 600k-1.5M+ (~$163-410k+).
+- **AE**: junior local AED 100-200k (~$27-54k); junior expat / mid local AED 200-400k (~$54-110k); senior expat AED 400-800k (~$110-220k); executive AED 600k-1.5M+ (~$163-410k+).
 - **VN**: office worker ₫120-300M (~$5-12k); senior professional ₫400-800M (~$16-32k); senior tech / banking director ₫1.5-3B (~$60-120k).
 - **TH**: office worker ฿300-600k (~$8-17k); manager ฿700k-1.5M (~$20-43k); senior expat / banking ฿2-5M+ (~$57-143k+).
-- **CN**: mid-career ¥80-200k (~$11-28k); senior tech / banker (Beijing/Shanghai) ¥300-700k (~$42-97k); senior executive / partner ¥1M+ (~$140k+).
-- **TW**: junior office NT$500k-1M (~$16-32k); senior tech / professional NT$1.5-3M (~$48-95k); senior banker / executive / specialist medical NT$5-10M+ (~$160-320k+).
+- **CN**: mid-career ¥80-200k (~$11-28k); senior tech / banker (Beijing/Shanghai) ¥300-700k (~$42-97k); senior management ¥800k-1.5M (~$110-210k); senior executive / partner ¥1.5M+ (~$210k+).
+- **TW**: junior office NT$500k-1M (~$16-32k); senior tech / professional NT$1.5-3M (~$48-95k); middle management NT$3-5M (~$95-160k); senior banker / executive / specialist medical NT$5-10M+ (~$160-320k+).
 - **IN**: junior IT ₹4-8L (~$5-10k); senior IT (Bangalore/Mumbai) ₹15-30L (~$18-36k); executive / partner / specialist medical ₹50L-1Cr+ (~$60-120k+).
 - **MY**: mid-career RM 60-100k (~$13-21k); senior tech RM 150-300k (~$32-64k); executive RM 300-700k+ (~$64-148k+).
 - **ID**: office worker Rp 60M-100M (~$3.7-6.2k); senior professional Rp 200-500M (~$13-31k); senior expat / executive Rp 800M-2B+ (~$50-125k+).
-- **PH**: office worker ₱400k-700k (~$7-13k); senior expat / executive ₱2-5M (~$36-90k+).
+- **PH**: office worker ₱400k-700k (~$7-13k); mid-tier local ₱1.5-3M (~$27-54k); senior expat ₱2-5M (~$36-90k); senior executive ₱6-10M+ (~$108-180k+).
 - **BR**: office worker R$40-80k (~$8-15k); senior professional R$120-300k (~$22-56k); executive / banker R$300-700k+ (~$56-130k+).
 - **MX**: office worker MX$200-400k (~$10-20k); senior professional MX$700k-1.5M (~$35-75k); executive MX$1-3M+ (~$50-150k+).
 
