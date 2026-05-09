@@ -49,6 +49,19 @@
  * captured at the search stage; their CVR was lowered modestly
  * to reflect the unknown-brand vs. category-leader gap on those
  * platforms.
+ *
+ * 2026-05-10 marketplace parity — initial coverage of LOCAL_CHANNEL_
+ * OVERRIDES had only KR / JP / CN / SE Asia, leaving SG / TW / AU /
+ * BR / MX / IN with global channels only. Net effect: JP got an
+ * artificial CAC advantage from Rakuten Ads (CVR 5%) that countries
+ * without local marketplace coverage couldn't match — the 2026-05-10
+ * Le Mouton ensemble pivoted to JP=38% as bestCountry purely on this
+ * data asymmetry. Added Shopee SG / Lazada SG / Amazon SG / Zalora
+ * SG, momo TW / Shopee TW / PChome 24h, Catch.com.au / eBay AU / The
+ * Iconic, Mercado Livre / Magalu / Amazon BR + MX/IN equivalents.
+ * Also lowered Rakuten/Tmall/Coupang/SE-Asia-Shopee CVRs from 5-7%
+ * to 3.5-4% to match unknown-K-brand-on-marketplace reality (still
+ * higher than paid social, but no longer a structural outlier).
  */
 
 // ─── Country cost index ──────────────────────────────────────────
@@ -318,7 +331,7 @@ export const LOCAL_CHANNEL_OVERRIDES: Record<string, LocalChannel[]> = {
       cpmUsd: 0,
       cpcUsd: 0.7,
       ctrPct: 0.5,
-      cvrPct: 6.0,
+      cvrPct: 4.0,
       strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"],
     },
   ],
@@ -336,7 +349,7 @@ export const LOCAL_CHANNEL_OVERRIDES: Record<string, LocalChannel[]> = {
       cpmUsd: 0,
       cpcUsd: 0.9,
       ctrPct: 0.5,
-      cvrPct: 5.0,
+      cvrPct: 3.5,
       strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"],
     },
   ],
@@ -362,39 +375,197 @@ export const LOCAL_CHANNEL_OVERRIDES: Record<string, LocalChannel[]> = {
       cpmUsd: 0,
       cpcUsd: 0.55,
       ctrPct: 0.6,
-      cvrPct: 5.5,
+      cvrPct: 4.0,
       strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"],
+    },
+  ],
+  TW: [
+    {
+      name: "momo購物網",
+      cpmUsd: 0,
+      cpcUsd: 0.55,
+      ctrPct: 0.6,
+      cvrPct: 4.0,
+      strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"],
+    },
+    {
+      name: "Shopee TW",
+      cpmUsd: 0,
+      cpcUsd: 0.45,
+      ctrPct: 0.5,
+      cvrPct: 3.5,
+      strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"],
+    },
+    {
+      name: "PChome 24h",
+      cpmUsd: 0,
+      cpcUsd: 0.5,
+      ctrPct: 0.5,
+      cvrPct: 3.5,
+      strongCategories: ["fashion", "electronics", "home"],
+    },
+  ],
+  SG: [
+    {
+      name: "Shopee SG",
+      cpmUsd: 0,
+      cpcUsd: 0.6,
+      ctrPct: 0.5,
+      cvrPct: 3.5,
+      strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"],
+    },
+    {
+      name: "Lazada SG",
+      cpmUsd: 0,
+      cpcUsd: 0.65,
+      ctrPct: 0.5,
+      cvrPct: 3.2,
+      strongCategories: ["beauty", "fashion", "electronics", "home"],
+    },
+    {
+      name: "Amazon SG",
+      cpmUsd: 0,
+      cpcUsd: 0.85,
+      ctrPct: 0.4,
+      cvrPct: 3.5,
+      strongCategories: ["beauty", "fashion", "electronics", "home"],
+    },
+    {
+      name: "Zalora SG",
+      cpmUsd: 0,
+      cpcUsd: 0.6,
+      ctrPct: 0.5,
+      cvrPct: 3.0,
+      strongCategories: ["beauty", "fashion"],
+    },
+  ],
+  AU: [
+    {
+      name: "Catch.com.au",
+      cpmUsd: 0,
+      cpcUsd: 0.7,
+      ctrPct: 0.5,
+      cvrPct: 3.0,
+      strongCategories: ["beauty", "fashion", "electronics", "home"],
+    },
+    {
+      name: "eBay AU",
+      cpmUsd: 0,
+      cpcUsd: 0.6,
+      ctrPct: 0.5,
+      cvrPct: 3.2,
+      strongCategories: ["fashion", "electronics", "home"],
+    },
+    {
+      name: "The Iconic",
+      cpmUsd: 0,
+      cpcUsd: 0.8,
+      ctrPct: 0.5,
+      cvrPct: 3.0,
+      strongCategories: ["fashion", "beauty"],
+    },
+  ],
+  BR: [
+    {
+      name: "Mercado Livre",
+      cpmUsd: 0,
+      cpcUsd: 0.35,
+      ctrPct: 0.6,
+      cvrPct: 3.5,
+      strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"],
+    },
+    {
+      name: "Magazine Luiza (Magalu)",
+      cpmUsd: 0,
+      cpcUsd: 0.4,
+      ctrPct: 0.5,
+      cvrPct: 3.2,
+      strongCategories: ["fashion", "electronics", "home"],
+    },
+    {
+      name: "Amazon BR",
+      cpmUsd: 0,
+      cpcUsd: 0.45,
+      ctrPct: 0.4,
+      cvrPct: 3.0,
+      strongCategories: ["beauty", "electronics", "home"],
+    },
+  ],
+  // Latin America secondary
+  MX: [
+    {
+      name: "Mercado Libre MX",
+      cpmUsd: 0,
+      cpcUsd: 0.35,
+      ctrPct: 0.6,
+      cvrPct: 3.5,
+      strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"],
+    },
+    {
+      name: "Amazon MX",
+      cpmUsd: 0,
+      cpcUsd: 0.45,
+      ctrPct: 0.4,
+      cvrPct: 3.0,
+      strongCategories: ["beauty", "electronics", "home"],
+    },
+  ],
+  // India — Flipkart + Myntra (fashion) + Amazon IN
+  IN: [
+    {
+      name: "Flipkart Sponsored",
+      cpmUsd: 0,
+      cpcUsd: 0.25,
+      ctrPct: 0.6,
+      cvrPct: 3.5,
+      strongCategories: ["beauty", "fashion", "electronics", "home"],
+    },
+    {
+      name: "Myntra Ads",
+      cpmUsd: 0,
+      cpcUsd: 0.3,
+      ctrPct: 0.6,
+      cvrPct: 3.5,
+      strongCategories: ["fashion", "beauty"],
+    },
+    {
+      name: "Amazon IN",
+      cpmUsd: 0,
+      cpcUsd: 0.3,
+      ctrPct: 0.4,
+      cvrPct: 3.0,
+      strongCategories: ["beauty", "electronics", "home"],
     },
   ],
   // Southeast Asia — Lazada + Shopee dominate marketplace ads
   ID: [
-    { name: "Shopee Ads", cpmUsd: 0, cpcUsd: 0.4, ctrPct: 0.5, cvrPct: 5.0,
+    { name: "Shopee Ads", cpmUsd: 0, cpcUsd: 0.4, ctrPct: 0.5, cvrPct: 3.5,
       strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"] },
-    { name: "Lazada Sponsored", cpmUsd: 0, cpcUsd: 0.45, ctrPct: 0.5, cvrPct: 5.0,
+    { name: "Lazada Sponsored", cpmUsd: 0, cpcUsd: 0.45, ctrPct: 0.5, cvrPct: 3.5,
       strongCategories: ["beauty", "fashion", "electronics", "home"] },
   ],
   TH: [
-    { name: "Shopee Ads", cpmUsd: 0, cpcUsd: 0.4, ctrPct: 0.5, cvrPct: 5.5,
+    { name: "Shopee Ads", cpmUsd: 0, cpcUsd: 0.4, ctrPct: 0.5, cvrPct: 3.8,
       strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"] },
     { name: "LINE Ads TH", cpmUsd: 5, cpcUsd: 0.5, ctrPct: 1.0, cvrPct: 1.0,
       strongCategories: ["beauty", "fashion", "food", "ip"] },
   ],
   VN: [
-    { name: "Shopee Ads VN", cpmUsd: 0, cpcUsd: 0.3, ctrPct: 0.5, cvrPct: 5.0,
+    { name: "Shopee Ads VN", cpmUsd: 0, cpcUsd: 0.3, ctrPct: 0.5, cvrPct: 3.5,
       strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"] },
     { name: "Zalo Ads", cpmUsd: 3, cpcUsd: 0.3, ctrPct: 1.2, cvrPct: 1.0,
       strongCategories: ["beauty", "fashion", "food", "ip"] },
   ],
   PH: [
-    { name: "Shopee Ads PH", cpmUsd: 0, cpcUsd: 0.35, ctrPct: 0.5, cvrPct: 5.0,
+    { name: "Shopee Ads PH", cpmUsd: 0, cpcUsd: 0.35, ctrPct: 0.5, cvrPct: 3.5,
       strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"] },
-    { name: "Lazada Sponsored PH", cpmUsd: 0, cpcUsd: 0.4, ctrPct: 0.5, cvrPct: 4.8,
+    { name: "Lazada Sponsored PH", cpmUsd: 0, cpcUsd: 0.4, ctrPct: 0.5, cvrPct: 3.3,
       strongCategories: ["beauty", "fashion", "electronics", "home"] },
   ],
   MY: [
-    { name: "Shopee Ads MY", cpmUsd: 0, cpcUsd: 0.45, ctrPct: 0.5, cvrPct: 5.0,
+    { name: "Shopee Ads MY", cpmUsd: 0, cpcUsd: 0.45, ctrPct: 0.5, cvrPct: 3.5,
       strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"] },
-    { name: "Lazada Sponsored MY", cpmUsd: 0, cpcUsd: 0.5, ctrPct: 0.5, cvrPct: 4.8,
+    { name: "Lazada Sponsored MY", cpmUsd: 0, cpcUsd: 0.5, ctrPct: 0.5, cvrPct: 3.3,
       strongCategories: ["beauty", "fashion", "electronics", "home"] },
   ],
 };
