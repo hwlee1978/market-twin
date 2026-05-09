@@ -5922,23 +5922,23 @@ function DecisionAidTab({
   };
   const usdRate = usdToTarget[currency.toUpperCase()] ?? 1;
   const cacInTargetCents = cacUsd != null ? Math.round(cacUsd * 100 * usdRate) : null;
-  // Headline price uses the SAME monotonic-envelope recomputation as
-  // PricingTab — persisted curveRevenueMaxCents was the legacy naive
-  // argmax that picked high-price noise bumps. Recompute on render to
-  // stay in sync across legacy + new ensembles.
-  const recomputedCurveMax = aggregate.pricing
-    ? computeCurveRevenueMaxCents(aggregate.pricing.curve) ??
-      aggregate.pricing.curveRevenueMaxCents ??
-      null
+  // Headline price routes through getDisplayPriceCents — the single
+  // source of truth shared with PricingTab and the PDF. Critically,
+  // this applies the trust-ceiling check (rejects curve max when it
+  // exceeds 1.5× max(P75, LLM rec)). Earlier inline logic here only
+  // checked matchesCurve and surfaced the curve max unconditionally,
+  // producing the ₩480,000 단가 the user flagged on 2026-05-09 (LLM
+  // rec ₩158,900, P75 ₩216,000 → ceiling ₩324k, but curve max ₩480k
+  // got through and headlined the Investment + ROI page).
+  const pricingDisplay = aggregate.pricing
+    ? getDisplayPriceCents(
+        aggregate.pricing.recommendedPriceCents,
+        aggregate.pricing.curve,
+        aggregate.pricing.curveRevenueMaxCents,
+        aggregate.pricing.recommendedPriceP75,
+      )
     : null;
-  const matchesCurve =
-    aggregate.pricing && recomputedCurveMax != null && aggregate.pricing.recommendedPriceCents > 0
-      ? Math.abs(recomputedCurveMax / aggregate.pricing.recommendedPriceCents - 1) <= 0.1
-      : null;
-  const headlinePrice =
-    matchesCurve === false && recomputedCurveMax != null
-      ? recomputedCurveMax
-      : aggregate.pricing?.recommendedPriceCents ?? 0;
+  const headlinePrice = pricingDisplay?.displayCents ?? 0;
   const volumeTiers = [100, 1000, 10000];
   const showInvestment = cacInTargetCents != null && headlinePrice > 0;
 

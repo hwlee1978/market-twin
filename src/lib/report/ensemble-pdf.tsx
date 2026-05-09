@@ -4547,23 +4547,19 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     const usdRate = usdToTarget[targetCurrency] ?? 1;
     const cacInTargetCents = Math.round(cacUsd * 100 * usdRate);
 
-    // Recompute curve max via the shared monotonic-envelope helper —
-    // legacy ensembles persisted naive-argmax values that picked
-    // high-price noise bumps (e.g. ₩280k from a 25%-conv bump
-    // between two 19%-conv neighbours). Render-time recompute keeps
-    // PDF and dashboard aligned.
-    const recomputedCurveMax =
-      computeCurveRevenueMaxCents(aggregate.pricing.curve) ??
-      aggregate.pricing.curveRevenueMaxCents ??
-      null;
-    const matchesCurveLocal =
-      recomputedCurveMax != null && aggregate.pricing.recommendedPriceCents > 0
-        ? Math.abs(recomputedCurveMax / aggregate.pricing.recommendedPriceCents - 1) <= 0.1
-        : null;
-    const headlinePrice =
-      matchesCurveLocal === false && recomputedCurveMax != null
-        ? recomputedCurveMax
-        : aggregate.pricing.recommendedPriceCents;
+    // Headline price routes through getDisplayPriceCents — the
+    // shared trust-ceiling-aware helper. The earlier inline logic
+    // here only checked matchesCurve and surfaced curve max
+    // unconditionally, producing the ₩480k 단가 the user flagged on
+    // 2026-05-09 (LLM rec ₩158,900, P75 ₩216k, ceiling ₩324k, but
+    // curve max ₩480k got through). Same fix shipped on
+    // EnsembleView.tsx:5938.
+    const { displayCents: headlinePrice } = getDisplayPriceCents(
+      aggregate.pricing.recommendedPriceCents,
+      aggregate.pricing.curve,
+      aggregate.pricing.curveRevenueMaxCents,
+      aggregate.pricing.recommendedPriceP75,
+    );
 
     // Three volume tiers + 3 confidence scenarios per tier. The earlier
     // revision also surfaced a "high-intent ratio" card, but CAC is
