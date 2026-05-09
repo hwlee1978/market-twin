@@ -8,6 +8,7 @@ import {
   loadReferenceBundles,
   renderReferenceBlock,
 } from "@/lib/reference";
+import { formatTrendContextBlock } from "@/lib/market-research/tavily";
 import { createServiceClient } from "@/lib/supabase/server";
 import {
   countryPrompt,
@@ -83,6 +84,21 @@ interface RunOptions {
    * When unset, falls back to URL form.
    */
   inlineAssets?: Array<{ mediaType: string; base64: string }>;
+  /**
+   * Tavily trend snippets — current category-level consumer trend
+   * articles fetched once at ensemble level. Injected into persona /
+   * reaction prompts as a "current category context" block so the LLM
+   * grounds purchaseIntent in fresh real-world signals (post-training-
+   * cutoff trends) rather than its training prior alone. Empty array
+   * when Tavily key is unset or the query returned nothing — prompts
+   * fall back to LLM-only grounding.
+   */
+  trendSnippets?: Array<{
+    url: string;
+    title: string;
+    content: string;
+    score: number;
+  }>;
 }
 
 // Smaller batches are more reliably completed by the LLM.
@@ -633,8 +649,21 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       projectInput.candidateCountries,
       projectInput.category,
     );
-    const referenceBlock = renderReferenceBlock(referenceBundles, locale);
+    const referenceBaseBlock = renderReferenceBlock(referenceBundles, locale);
     const referenceSources = collectSourceAttributions(referenceBundles);
+    // Append the Tavily trend block to the reference block when present.
+    // Both feed the persona / reaction prompts via the same referenceBlock
+    // parameter — they're concatenated grounding context. The trend block
+    // adds ~500 chars of post-cutoff real-world signal (e.g. GLP-1 reshaping
+    // food category, K-beauty global expansion, sustainability premium
+    // shifts) that the LLM's training prior alone might miss.
+    const trendBlock =
+      (opts.trendSnippets?.length ?? 0) > 0
+        ? formatTrendContextBlock(opts.trendSnippets!, locale === "ko", 4)
+        : "";
+    const referenceBlock = trendBlock
+      ? `${referenceBaseBlock}\n\n${trendBlock}`
+      : referenceBaseBlock;
 
     // ── Stage 1: personas ──────────────────────────────────────
     // Two-phase generation:

@@ -5,6 +5,11 @@ import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { runSimulation } from "@/lib/simulation/runner";
 import type { ProjectInput } from "@/lib/simulation/schemas";
 import { prefetchInlineAssets } from "@/lib/llm/asset-fetch";
+import {
+  buildCategoryTrendQuery,
+  tavilySearch,
+  type TavilyResult,
+} from "@/lib/market-research/tavily";
 import { aggregateEnsemble, type EnsembleSimSnapshot } from "@/lib/simulation/ensemble";
 import { mergeNarrative } from "@/lib/simulation/ensemble-narrative";
 import { buildMarketProfile } from "@/lib/simulation/market-profile";
@@ -480,6 +485,35 @@ export async function POST(
           )
         : [];
 
+    // Pre-fetch current category trend snippets ONCE per ensemble. The
+    // persona prompt's grounding gets richer when the LLM has fresh
+    // real-world signals (post-training-cutoff articles) on what's
+    // actually hot / cooling in the category. Without this the LLM
+    // anchors purchaseIntent on its training prior alone, which can
+    // miss recent trend shifts (e.g. GLP-1 weight-loss drugs reshaping
+    // food category buyer behavior, AI workstation boom changing
+    // electronics premium tier, K-beauty global expansion patterns).
+    // Cached 24h alongside the market-size query (same Tavily client),
+    // so a re-run of the same project pulls cached results.
+    let trendSnippets: TavilyResult[] = [];
+    if (process.env.TAVILY_API_KEY) {
+      const trendResult = await tavilySearch({
+        query: buildCategoryTrendQuery({
+          category: projectInput.category,
+          productName: projectInput.productName,
+        }),
+        searchDepth: "advanced",
+        maxResults: 5,
+        includeAnswer: false,
+      });
+      trendSnippets = trendResult?.results ?? [];
+      if (trendSnippets.length > 0) {
+        console.log(
+          `[ensemble ${ensembleId}] tavily trend: ${trendSnippets.length} snippets for ${projectInput.category}`,
+        );
+      }
+    }
+
     // Group sims by provider and run each group through a worker pool
     // sized for that provider's burst tolerance. Cross-provider parallelism
     // is unconstrained — anthropic/openai/gemini share no rate limits.
@@ -515,6 +549,7 @@ export async function POST(
           seedOverride: `${ensembleId}-${index}`,
           provider,
           inlineAssets,
+          trendSnippets,
         });
       } catch (err) {
         console.error(`[ensemble ${ensembleId}] sim ${simId} failed:`, err);

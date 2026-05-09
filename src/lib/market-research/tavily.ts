@@ -210,3 +210,69 @@ export function buildMarketSizeQuery(opts: {
   const year = new Date().getFullYear();
   return `${opts.category} market size ${country} ${year} TAM growth rate`;
 }
+
+/**
+ * Build a category-level consumer trend query for Tavily. Returns
+ * something Tavily can actually find recent articles on:
+ *   "consumer trends sneaker fashion footwear 2026 sustainability premium"
+ *
+ * Used to ground persona reactions in current real-world signals
+ * rather than the LLM's training prior alone. The LLM knows broad
+ * macro trends but its sense of "what's hot RIGHT NOW in this
+ * specific category" weakens past ~6 months from training cutoff.
+ * Tavily fills that gap with fresh articles whose snippets feed
+ * into the persona prompt as a "current category context" block.
+ *
+ * Single global query (no country) — covers what the LLM needs to
+ * weight across all candidate countries with one search. Cost: same
+ * as a market-size query (~\$0.01-0.03), cached 24h alongside other
+ * Tavily results.
+ */
+export function buildCategoryTrendQuery(opts: {
+  category: string;
+  productName: string;
+}): string {
+  const year = new Date().getFullYear();
+  return `${opts.category} consumer trends ${year} buyer preferences shifts ${opts.productName}`;
+}
+
+/**
+ * Compress Tavily results into a tight, token-efficient context block
+ * suitable for injection into per-batch persona prompts. Goal: <600
+ * chars total so the addition doesn't bloat 12-batch sims with
+ * redundant tokens.
+ *
+ * Format:
+ *   ═══ CURRENT CATEGORY CONTEXT (real-world snippets) ═══
+ *   1. <one-sentence summary from snippet 1>
+ *   2. <one-sentence summary from snippet 2>
+ *   ...
+ *
+ * Each line caps at ~120 chars. Caller decides how many snippets to
+ * include (typically 3-4); we sort by Tavily relevance score before
+ * truncating so the kept snippets are the strongest signal.
+ */
+export function formatTrendContextBlock(
+  results: TavilyResult[],
+  isKo: boolean,
+  maxLines: number = 4,
+): string {
+  if (results.length === 0) return "";
+  const top = [...results]
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    .slice(0, maxLines);
+  const lines = top.map((r, i) => {
+    // First sentence-ish chunk of the snippet content; cap at ~140 chars.
+    const sentence = r.content
+      .replace(/\s+/g, " ")
+      .trim()
+      .split(/(?<=[.!?])\s/)[0] ?? "";
+    const trimmed =
+      sentence.length > 140 ? sentence.slice(0, 137) + "..." : sentence;
+    return `${i + 1}. ${trimmed}`;
+  });
+  const header = isKo
+    ? "═══ 현재 카테고리 트렌드 컨텍스트 (실제 웹 스니펫) ═══\n학습 cutoff 이후의 최근 동향 grounding. 위 INCOME REFERENCE 와 달리 verbatim 인용 ❌ — 페르소나의 trustFactors / objections / voice / purchaseIntent 가 어떤 카테고리 신호 (지속가능성·프리미엄화·세대 전환·신규 채널 등) 와 일치 / 충돌하는지를 정성적으로 weighing 하는 데에만 사용:"
+    : "═══ CURRENT CATEGORY CONTEXT (real-world snippets) ═══\nPost-training-cutoff grounding — UNLIKE the INCOME REFERENCE above, do NOT verbatim-copy these into trustFactors / objections. Use them to qualitatively weight whether a persona's reaction aligns with the category's current trend direction (sustainability shift, premiumization, generational turnover, new channels):";
+  return `${header}\n${lines.join("\n")}`;
+}
