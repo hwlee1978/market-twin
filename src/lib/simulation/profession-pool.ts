@@ -56,6 +56,13 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "UX·UI 디자이너",
       "모바일 앱 개발자",
       "데이터 분석가",
+      // Distribution / production (Wave 3 — pool size sync with B2C
+      // pools at ~35 archetypes; IP-specific industry roles that fan-
+      // facing slots didn't cover)
+      "웹툰 플랫폼 PM",
+      "굿즈 디자이너",
+      "영화·드라마 PD (IP 기반)",
+      "IP 콘텐츠 평론가",
       // Adjacent (still K-IP relevant)
       "만화방·코믹카페 운영자",
       "일러스트 학원 강사",
@@ -63,10 +70,11 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "사무직 회사원 (키덜트 수집가)",
       "학부모 (자녀 선물 구매)",
       "은퇴자 (수집가 취미)",
+      // Academia (Wave 2)
+      "콘텐츠·미디어학과 교수",
       // High-income tier (capped — IP industry has its own executive
       // class: publishing house heads, animation studio directors,
-      // IP licensing leadership at large media conglomerates. Without
-      // these, IP-category sims keep the same $150k+ skew problem)
+      // IP licensing leadership at large media conglomerates).
       "출판사 대표·편집국장",
       "애니메이션 스튜디오 대표",
       "IP 라이선싱 디렉터 (대기업·CJ·Disney 등)",
@@ -80,6 +88,11 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "대학생": 3,
       "마케팅 매니저": 2,
       "일반 회사원": 2,
+      "웹툰 플랫폼 PM": 2,
+      "굿즈 디자이너": 2,
+      "영화·드라마 PD (IP 기반)": 1,
+      "IP 콘텐츠 평론가": 1,
+      "콘텐츠·미디어학과 교수": 1,
       "출판사 대표·편집국장": 1,
       "애니메이션 스튜디오 대표": 1,
       "IP 라이선싱 디렉터 (대기업·CJ·Disney 등)": 2,
@@ -119,6 +132,10 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "피부 트러블 관리 소비자",
       "트랜스·논바이너리 뷰티 소비자",
       "의대·간호대 학생",
+      // Wave 2 cross-category: 화장품 사이언스 연구자 + 패밀리 비즈니스
+      // 후계자 (premium beauty 큰 소비층)
+      "피부 과학·코스메틱 연구원",
+      "패밀리 비즈니스 2세 (premium 소비)",
       // High-income tier (capped — senior professionals genuinely care
       // about premium grooming / dermatology spend; without these the
       // $150k+ income bucket goes empty for non-US/TW countries).
@@ -135,6 +152,8 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "대학생": 3,
       "마케팅 매니저": 2,
       "일반 회사원": 2,
+      "피부 과학·코스메틱 연구원": 1,
+      "패밀리 비즈니스 2세 (premium 소비)": 1,
       "화장품 기업 임원": 2,
       "피부과 전문의": 2,
       "성형외과 전문의": 1,
@@ -176,6 +195,10 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "소상공인·자영업자 (10명 이하)",
       "프리랜서 컨설턴트",
       "풀스택 디자이너 (스타트업)",
+      // Wave 2 cross-category — government / academia decision-makers
+      // are major SaaS buyers (gov-IT contracts, academic research SaaS)
+      "공무원·공기업 IT 시니어 (정부 SaaS 의사결정)",
+      "대학·연구소 IT·데이터 매니저",
       // Enterprise / large-company tier (capped — large enterprise
       // buyers represent the highest ACV deals + clear $150k+ income.
       // Existing CTO/CEO entries cap at SMB / startup; without
@@ -194,6 +217,8 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "마케팅 매니저": 2,
       "일반 회사원": 2,
       "대학생": 1,
+      "공무원·공기업 IT 시니어 (정부 SaaS 의사결정)": 2,
+      "대학·연구소 IT·데이터 매니저": 2,
       "대기업 CIO": 2,
       "글로벌 기업 VP IT (Fortune 500)": 1,
       "은행·금융사 IT 디렉터": 2,
@@ -235,6 +260,10 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "의료인 (식이 권고 영향력)",
       "식음료 박람회 참관 바이어",
       "구독 박스 큐레이터",
+      // Wave 2 cross-category — gov / public sector food policy makers,
+      // family restaurant business heirs (gourmet 소비층)
+      "공무원·공기업 시니어 (학교·공공급식 정책)",
+      "외식·식품 가업 2세 사업자",
       // High-income tier (capped)
       "외식 그룹 임원",
       "럭셔리 호텔 F&B 디렉터",
@@ -249,6 +278,8 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "대학생": 3,
       "마케팅 매니저": 2,
       "일반 회사원": 2,
+      "공무원·공기업 시니어 (학교·공공급식 정책)": 1,
+      "외식·식품 가업 2세 사업자": 1,
       "외식 그룹 임원": 2,
       "럭셔리 호텔 F&B 디렉터": 1,
       "미식 평론가·푸드 디렉터": 1,
@@ -289,6 +320,10 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "명상·웰니스 강사",
       "다이어트 진지 사무직",
       "비건·식물성 보충제 사용자",
+      // Wave 2 cross-category — gov / academia: 보건복지부 / 국공립병원
+      // / 의대 교수 are stable-income health-conscious buyers
+      "공무원·공기업 시니어 (보건복지·국공립병원)",
+      "의대·약대 교수 (연구 중심)",
       // High-income tier (capped)
       "전문의 (내과·재활의학)",
       "헬스케어 기업 임원",
@@ -303,6 +338,8 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "대학생": 2,
       "마케팅 매니저": 2,
       "일반 회사원": 2,
+      "공무원·공기업 시니어 (보건복지·국공립병원)": 1,
+      "의대·약대 교수 (연구 중심)": 2,
       "전문의 (내과·재활의학)": 2,
       "헬스케어 기업 임원": 2,
       "메디컬 디렉터": 1,
@@ -342,6 +379,10 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "세컨드핸드·resale 활동자",
       "모데스트 패션 소비자",
       "드랙·스트리트 컬처 종사자",
+      // Wave 2 cross-category — gov drives suit/dress-code consumption,
+      // family business heirs are core luxury buyers in KR/JP/TW/IT
+      "공무원·공기업 시니어 (정장·드레스코드)",
+      "패밀리 비즈니스 2세 (luxury 소비)",
       // High-income tier (capped — fashion / luxury executives genuinely
       // are deep-pocket consumers, and lawyers / IB / consulting partners
       // are the realistic premium-fashion buyer base)
@@ -358,6 +399,8 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "대학생": 3,
       "마케팅 매니저": 2,
       "일반 회사원": 2,
+      "공무원·공기업 시니어 (정장·드레스코드)": 1,
+      "패밀리 비즈니스 2세 (luxury 소비)": 1,
       "패션 기업 임원": 2,
       "럭셔리 브랜드 디렉터": 1,
       "변호사 (시니어·파트너)": 2,
@@ -399,6 +442,10 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "카페·소상공인 (커머셜 가전)",
       "1인 사업자 (POS·B2B 디바이스)",
       "학원 강사 (디지털 수업 도구)",
+      // Wave 2 cross-category — research lab equipment buyers, family
+      // business heirs (premium home tech)
+      "대학·연구소 연구원 (실험·계측 장비)",
+      "패밀리 비즈니스 2세 (premium 홈테크)",
       // High-income tier (capped — senior tech execs / consultants
       // are actual premium-electronics buyers and earn $150k+ in
       // every developed market)
@@ -415,6 +462,8 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "대학생": 2,
       "마케팅 매니저": 2,
       "일반 회사원": 2,
+      "대학·연구소 연구원 (실험·계측 장비)": 1,
+      "패밀리 비즈니스 2세 (premium 홈테크)": 1,
       "테크 기업 임원 (CTO·VP)": 2,
       "시니어 소프트웨어 엔지니어 (대기업)": 2,
       "외국계 컨설팅 파트너": 1,
@@ -455,6 +504,11 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "시니어 부모 (안전 가구 교체)",
       "분리수거·정리 정돈 마니아",
       "풍수·인테리어 운세 관심층",
+      // Wave 2 cross-category — gov / public sector workers (stable
+      // income, common new-home buyers in KR/JP), family business
+      // heirs (luxury furniture / fine interior)
+      "공무원·공기업 시니어 (안정 소득, 신축 입주)",
+      "패밀리 비즈니스 2세 (luxury 가구·인테리어)",
       // High-income tier (capped — premium furniture / interior buyers
       // skew senior professionals + architects + real-estate execs)
       "건축가 (시니어·사무소 대표)",
@@ -470,6 +524,8 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "대학생": 2,
       "마케팅 매니저": 2,
       "일반 회사원": 2,
+      "공무원·공기업 시니어 (안정 소득, 신축 입주)": 1,
+      "패밀리 비즈니스 2세 (luxury 가구·인테리어)": 1,
       "건축가 (시니어·사무소 대표)": 2,
       "인테리어 스튜디오 대표": 1,
       "부동산 개발사 임원": 1,
@@ -508,6 +564,11 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "UX / UI designer",
       "Mobile app developer",
       "Data analyst",
+      // Distribution / production (Wave 3)
+      "Webtoon platform PM",
+      "Merch designer",
+      "Film / drama producer (IP-based)",
+      "IP / content critic",
       // Adjacent
       "Manga café / comic-shop owner",
       "Illustration academy instructor",
@@ -515,6 +576,8 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Office worker (kidult collector)",
       "Parent buying for children",
       "Retiree (hobbyist collector)",
+      // Academia (Wave 2)
+      "Media / content studies professor",
       // High-income tier (capped — see KO comment for rationale)
       "Publishing house director",
       "Animation studio director",
@@ -529,6 +592,11 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "College student": 3,
       "Marketing manager": 2,
       "Office worker": 2,
+      "Webtoon platform PM": 2,
+      "Merch designer": 2,
+      "Film / drama producer (IP-based)": 1,
+      "IP / content critic": 1,
+      "Media / content studies professor": 1,
       "Publishing house director": 1,
       "Animation studio director": 1,
       "IP licensing director (CJ / Disney / large media)": 2,
@@ -568,6 +636,10 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Acne / skin-issue management consumer",
       "Trans / non-binary beauty consumer",
       "Medical / nursing student",
+      // Wave 2 cross-category — skin science researcher + family
+      // business heir (premium beauty buyer)
+      "Skin science / cosmetics researcher",
+      "Family business heir (premium beauty)",
       // High-income tier (capped — see KO comment for rationale)
       "Cosmetics company executive",
       "Dermatologist",
@@ -582,6 +654,8 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "College student": 3,
       "Marketing manager": 2,
       "Office worker": 2,
+      "Skin science / cosmetics researcher": 1,
+      "Family business heir (premium beauty)": 1,
       "Cosmetics company executive": 2,
       "Dermatologist": 2,
       "Plastic surgeon": 1,
@@ -623,6 +697,10 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "SMB owner (under 10 employees)",
       "Freelance consultant",
       "Full-stack designer (startup)",
+      // Wave 2 cross-category — government / academia decision-makers
+      // are major SaaS buyers (gov-IT contracts, academic research SaaS)
+      "Senior government / public-sector IT (gov-SaaS decisions)",
+      "University / research-lab IT / data manager",
       // Enterprise / large-company tier (capped — see KO comment)
       "Enterprise CIO",
       "Fortune 500 VP IT",
@@ -637,6 +715,8 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Marketing manager": 2,
       "Office worker": 2,
       "College student": 1,
+      "Senior government / public-sector IT (gov-SaaS decisions)": 2,
+      "University / research-lab IT / data manager": 2,
       "Enterprise CIO": 2,
       "Fortune 500 VP IT": 1,
       "Bank / financial services IT director": 2,
@@ -678,6 +758,9 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Medical professional (dietary advice influencer)",
       "Food expo trade buyer",
       "Subscription-box curator",
+      // Wave 2 cross-category
+      "Senior public-sector official (school / public catering policy)",
+      "Restaurant / food family business heir",
       // High-income tier (capped)
       "Restaurant group executive",
       "Luxury hotel F&B director",
@@ -692,6 +775,8 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "College student": 3,
       "Marketing manager": 2,
       "Office worker": 2,
+      "Senior public-sector official (school / public catering policy)": 1,
+      "Restaurant / food family business heir": 1,
       "Restaurant group executive": 2,
       "Luxury hotel F&B director": 1,
       "Food critic / media director": 1,
@@ -732,6 +817,9 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Meditation / wellness instructor",
       "Diet-serious office worker",
       "Vegan / plant-based supplement user",
+      // Wave 2 cross-category
+      "Senior public-sector official (health / public hospital)",
+      "Medical / pharmacy school professor (research)",
       // High-income tier (capped)
       "Specialist physician (internal / rehab)",
       "Healthcare company executive",
@@ -746,6 +834,8 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "College student": 2,
       "Marketing manager": 2,
       "Office worker": 2,
+      "Senior public-sector official (health / public hospital)": 1,
+      "Medical / pharmacy school professor (research)": 2,
       "Specialist physician (internal / rehab)": 2,
       "Healthcare company executive": 2,
       "Medical director": 1,
@@ -785,6 +875,10 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Secondhand / resale active buyer",
       "Modest-fashion consumer",
       "Drag / street culture professional",
+      // Wave 2 cross-category — gov suit / dress-code consumers,
+      // family business heirs (luxury fashion buyers in KR/JP/TW/IT)
+      "Senior public-sector official (suit / dress-code)",
+      "Family business heir (luxury fashion)",
       // High-income tier (capped)
       "Fashion company executive",
       "Luxury brand director",
@@ -799,6 +893,8 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "College student": 3,
       "Marketing manager": 2,
       "Office worker": 2,
+      "Senior public-sector official (suit / dress-code)": 1,
+      "Family business heir (luxury fashion)": 1,
       "Fashion company executive": 2,
       "Luxury brand director": 1,
       "Senior lawyer / law-firm partner": 2,
@@ -840,6 +936,10 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Café / SMB owner (commercial appliances)",
       "Solo entrepreneur (POS / B2B devices)",
       "Academy instructor (digital teaching tools)",
+      // Wave 2 cross-category — research equipment buyers, family
+      // business heirs (premium home tech)
+      "University / research-lab researcher (lab equipment)",
+      "Family business heir (premium home tech)",
       // High-income tier (capped)
       "Tech executive (CTO / VP)",
       "Senior software engineer (big tech)",
@@ -854,6 +954,8 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "College student": 2,
       "Marketing manager": 2,
       "Office worker": 2,
+      "University / research-lab researcher (lab equipment)": 1,
+      "Family business heir (premium home tech)": 1,
       "Tech executive (CTO / VP)": 2,
       "Senior software engineer (big tech)": 2,
       "Foreign consulting partner": 1,
@@ -894,6 +996,10 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Senior parent (replacing for safety)",
       "Decluttering / organizing enthusiast",
       "Feng-shui / lifestyle-fortune interested",
+      // Wave 2 cross-category — gov / public sector workers (stable
+      // income, common new-home buyers), family business heirs
+      "Senior public-sector official (stable income, new-home buyer)",
+      "Family business heir (luxury furniture / interior)",
       // High-income tier (capped)
       "Senior architect / firm principal",
       "Interior studio owner",
@@ -908,6 +1014,8 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "College student": 2,
       "Marketing manager": 2,
       "Office worker": 2,
+      "Senior public-sector official (stable income, new-home buyer)": 1,
+      "Family business heir (luxury furniture / interior)": 1,
       "Senior architect / firm principal": 2,
       "Interior studio owner": 1,
       "Real-estate development executive": 1,
