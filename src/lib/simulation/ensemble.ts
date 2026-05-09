@@ -90,6 +90,12 @@ export interface EnsembleSimSnapshot {
     voice?: string;
     ageRange?: string;
     profession?: string;
+    /** Slot-locked base archetype name from the profession pool.
+     *  Optional during the migration corridor; legacy aggregates
+     *  predating this field don't have it. Aggregator prefers this
+     *  field for cross-sim grouping over the LLM-emitted `profession`
+     *  string, which can carry an unstable specialization tail. */
+    baseProfession?: string;
     gender?: string;
     incomeBand?: string;
     /** Free-text reasons the persona would trust the product. Used by
@@ -1231,17 +1237,18 @@ function computePersonasAggregate(
   // PDF show "Designers loved it (78), Engineers skeptical (52)" — a
   // signal the headline aggregate hides.
   //
-  // Strip the LLM's parenthetical specialization before grouping. Slots
-  // are pre-assigned to a BASE profession ("편집숍 바이어") and the LLM
-  // adds a specialization tail ("(도쿄 오모테산도 멀티 브랜드 편집숍
-  // 시니어 바이어)"). When the LLM safe-default-converges on the same
-  // specialization across 19 separate slots — common because there's a
-  // single "obvious" Tokyo location for every JP buyer slot — the
-  // aggregator used to group them as a single highly-specific role,
-  // which read as "19 personas all live in one Tokyo neighborhood and
-  // share an exact job title". Stripping the specialization tail
-  // groups them by their actual base profession (correct stat) while
-  // keeping the per-persona detail intact in the underlying records.
+  // Group by the slot-locked baseProfession when present. Each persona
+  // slot is pre-assigned a canonical base archetype from the profession
+  // pool, and the LLM may add a parenthetical specialization tail when
+  // emitting the persona's `profession` string. The runner now forwards
+  // the slot's base archetype on the persona record as `baseProfession`,
+  // so the aggregator can group by it directly without regex tricks.
+  //
+  // Fallback for legacy aggregates (pre-baseProfession): strip the LAST
+  // parenthetical from the LLM-emitted profession string. Imperfect —
+  // over-strips when the base archetype itself contains parens
+  // ("IT 직장인 (스니커즈·캐주얼 마니아)" → "IT 직장인") — but the best
+  // we can do without the canonical base.
   const stripSpecialization = (profession: string): string =>
     profession.replace(/\s*\([^)]*\)\s*$/, "").trim();
   const profStats = new Map<
@@ -1250,7 +1257,9 @@ function computePersonasAggregate(
   >();
   for (const p of all) {
     if (!p.profession) continue;
-    const base = stripSpecialization(p.profession);
+    // Prefer the canonical baseProfession when present; fall back to
+    // regex-strip on the LLM-emitted profession string for legacy data.
+    const base = p.baseProfession ?? stripSpecialization(p.profession);
     if (!base) continue;
     const cur =
       profStats.get(base) ??

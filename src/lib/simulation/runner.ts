@@ -943,6 +943,13 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
             trustFactors: cleanedTrust.items,
             interests: filterLocaleNative(parsed.data.interests, locale),
             voice: channelVoice.sanitized || sanitizedVoice || "",
+            // Attach the slot's pre-assigned base archetype so cross-sim
+            // grouping can use it directly instead of regex-stripping the
+            // LLM-emitted profession string. Some pool archetypes contain
+            // parens themselves ("IT 직장인 (스니커즈·캐주얼 마니아)"),
+            // which makes a strip-by-regex approach over-strip them; the
+            // canonical base from the slot avoids that ambiguity.
+            baseProfession: batchSlots[pi].profession || undefined,
           };
           roundPairs.push({ persona: cleaned, slot: batchSlots[pi] });
         }
@@ -1177,6 +1184,11 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
               country: hit.base.country,
               incomeBand: hit.base.income_band,
               profession: hit.base.profession,
+              // Pool DB row carries base_profession from when the persona
+              // was originally generated. Forward it so cross-sim grouping
+              // can use the canonical base instead of regex-stripping the
+              // LLM-emitted profession string.
+              baseProfession: hit.base.base_profession || undefined,
               interests: hit.base.interests ?? [],
               purchaseStyle: hit.base.purchase_style,
               priceSensitivity: hit.base.price_sensitivity as "low" | "medium" | "high",

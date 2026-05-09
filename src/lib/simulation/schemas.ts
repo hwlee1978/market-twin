@@ -189,6 +189,17 @@ export const PersonaSchema = z.object({
   country: z.preprocess(toStr, z.string()),
   incomeBand: z.preprocess(toStr, z.string()),
   profession: z.preprocess(toStr, z.string()),
+  /**
+   * The slot-locked base archetype string from the profession pool —
+   * exactly the entry that was assigned to this slot ("편집숍 바이어",
+   * "IT 직장인 (스니커즈·캐주얼 마니아)", "테크 기업 임원 (CTO·VP)").
+   * The LLM may add a parenthetical specialization tail to `profession`
+   * to make the persona concrete; `baseProfession` is the canonical
+   * name for cross-sim grouping. Optional because legacy aggregates
+   * predating this field don't carry it — aggregator falls back to
+   * a regex strip on `profession` when absent.
+   */
+  baseProfession: z.string().optional(),
   interests: z.preprocess(toStringArray, z.array(z.string())),
   purchaseStyle: z.preprocess(toStr, z.string()),
   priceSensitivity: z.preprocess(toLowMedHigh, z.enum(["low", "medium", "high"])),

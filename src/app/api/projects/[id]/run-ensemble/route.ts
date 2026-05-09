@@ -773,6 +773,7 @@ async function aggregateAndPersist(opts: {
         voice?: string;
         ageRange?: string;
         profession?: string;
+        baseProfession?: string;
         gender?: string;
         incomeBand?: string;
         trustFactors?: unknown;
@@ -826,6 +827,7 @@ async function aggregateAndPersist(opts: {
           voice: rec.voice,
           ageRange: rec.ageRange,
           profession: rec.profession,
+          baseProfession: rec.baseProfession,
           gender: rec.gender,
           incomeBand: rec.incomeBand,
           trustFactors: Array.isArray(rec.trustFactors)
