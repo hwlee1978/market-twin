@@ -77,7 +77,7 @@ const EXCHANGE_RATES_TO_USD: Record<string, number> = {
   AUD: 1 / 1.55,
 };
 
-function convertCents(
+export function convertCurrencyCents(
   amountCents: number,
   fromCurrency: string,
   toCurrency: string,
@@ -88,6 +88,53 @@ function convertCents(
   // amountCents → USD cents → target cents.
   const usdCents = amountCents * fromRate;
   return Math.round(usdCents / toRate);
+}
+
+// Internal alias kept for the existing call sites within this file —
+// renaming above would touch every call to `convertCents` here.
+const convertCents = convertCurrencyCents;
+void convertCents;
+
+/**
+ * Default currency for a country code (ISO-2). Mirrors the set of
+ * currencies the FX table above supports — countries we don't list
+ * default to USD on the caller side. Used when we need to express a
+ * KRW-input launch price in the recommended target market's local
+ * currency for prompt grounding (so the LLM doesn't invent its own
+ * conversion rate, which it does badly).
+ */
+const COUNTRY_TO_CURRENCY: Record<string, string> = {
+  US: "USD",
+  KR: "KRW",
+  JP: "JPY",
+  CN: "CNY",
+  TW: "TWD",
+  HK: "HKD",
+  SG: "SGD",
+  TH: "THB",
+  VN: "VND",
+  ID: "IDR",
+  MY: "MYR",
+  PH: "PHP",
+  IN: "INR",
+  GB: "GBP",
+  DE: "EUR",
+  FR: "EUR",
+  IT: "EUR",
+  ES: "EUR",
+  NL: "EUR",
+  BE: "EUR",
+  AT: "EUR",
+  IE: "EUR",
+  PT: "EUR",
+  FI: "EUR",
+  CA: "CAD",
+  AU: "AUD",
+};
+
+/** Resolves country code → currency code; returns null when unknown. */
+export function currencyForCountry(country: string): string | null {
+  return COUNTRY_TO_CURRENCY[country.toUpperCase()] ?? null;
 }
 
 /**

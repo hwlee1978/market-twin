@@ -761,6 +761,18 @@ export function marketProfilePrompt(
      * (fallback to input price).
      */
     recommendedPriceCents: number | null;
+    /**
+     * Pre-computed string showing the launch price in BOTH the input
+     * currency and the recommended target market's local currency
+     * (e.g. "₩192,900 (≈ S$193)"). Computed server-side from the FX
+     * snapshot in competitor-prices.ts so the LLM doesn't have to do
+     * its own conversion math — it produced inconsistent values
+     * within a sentence ("≈ SGD 193 환산 기준 약 SGD 145–150") when
+     * left to convert. Null when the FX snapshot doesn't cover the
+     * input or target currency. Caller falls back to old behaviour
+     * (LLM expresses price in input currency only).
+     */
+    launchPriceLocalText?: string | null;
     locale: PromptLocale;
     /**
      * Tavily web-search results for the marketSize stage. When non-empty,
@@ -895,7 +907,7 @@ Required JSON shape (every field optional — fill what you have confidence abou
     "mid": "${input.currency} range for mid-tier",
     "premium": "${input.currency} range for premium",
     "yourPosition": "${context.recommendedPriceCents != null
-      ? `Where the recommended launch price $${(context.recommendedPriceCents / 100).toFixed(2)} ${input.currency} lands in this market — reference 1-2 named competitors above and explain what justifies the position. The user's input base price is $${(input.basePriceCents / 100).toFixed(2)} ${input.currency}; if the recommended price differs materially (>15%), call out the gap and what proof points / messaging the higher (or lower) anchor requires. Example: '$49.95 (vs. your input $32) — upper-premium, $5-10 above Brightland anchor; only justified if polyphenol numbers + harvest date are front-and-center.'`
+      ? `Where the recommended launch price${context.launchPriceLocalText ? ` ${context.launchPriceLocalText}` : ` $${(context.recommendedPriceCents / 100).toFixed(2)} ${input.currency}`} lands in this market — reference 1-2 named competitors above and explain what justifies the position.${context.launchPriceLocalText ? ` ⚠ HARD RULE: when citing the launch price, USE THE PRE-COMPUTED STRING "${context.launchPriceLocalText}" VERBATIM. Do NOT do your own currency conversion — the server already converted it, and your inline math has produced inconsistent values within a single sentence in past runs. If you need to compare against competitor prices in another currency, compare qualitatively (above / below / at par) instead of inline-converting.` : ""} The user's input base price is $${(input.basePriceCents / 100).toFixed(2)} ${input.currency}; if the recommended price differs materially (>15%), call out the gap and what proof points / messaging the higher (or lower) anchor requires. Example: '${context.launchPriceLocalText ?? "$49.95 (vs. your input $32)"} — upper-premium, just above Brightland anchor; only justified if polyphenol numbers + harvest date are front-and-center.'`
       : `Where ${input.basePriceCents / 100} ${input.currency} lands in this market — 'upper-mid range, just below Allbirds anchor'`}",
     "yourPositionPriceCents": ${context.recommendedPriceCents != null ? context.recommendedPriceCents : input.basePriceCents}
   },

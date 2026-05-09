@@ -19,6 +19,11 @@ import {
 import { MarketProfileSchema, type MarketProfile, type ProjectInput } from "./schemas";
 import { marketProfilePrompt, MARKET_PROFILE_SYSTEM } from "./prompts";
 import { getDisplayPriceCents } from "./pricing-sensitivity";
+import { formatPrice } from "@/lib/format/price";
+import {
+  convertCurrencyCents,
+  currencyForCountry,
+} from "./competitor-prices";
 import type { EnsembleAggregate } from "./ensemble";
 
 export interface BuildMarketProfileOpts {
@@ -103,6 +108,30 @@ export async function buildMarketProfile(
     console.warn(`[market profile] tavily call returned null; falling back to LLM-only marketSize`);
   }
 
+  // Pre-compute the launch price expressed in the recommended target
+  // market's local currency. Without this, the LLM tries to do its own
+  // KRW→SGD conversion inside the `yourPosition` text and produces
+  // inconsistent values within the same sentence ("≈ SGD 193 환산
+  // 기준 약 SGD 145–150" — user-reported 2026-05-09). Server-side
+  // computation uses the static FX snapshot in competitor-prices.ts,
+  // which is good enough for ±10% accuracy on a recommendation that's
+  // already ±20%. Null when the input currency or target currency
+  // isn't in the snapshot table — the prompt falls back to old
+  // behaviour without the pre-computed string.
+  const targetCurrency = currencyForCountry(recommendedCountry);
+  const launchPriceLocal =
+    recommendedPriceCents != null && targetCurrency
+      ? convertCurrencyCents(
+          recommendedPriceCents,
+          opts.input.currency,
+          targetCurrency,
+        )
+      : null;
+  const launchPriceLocalText =
+    launchPriceLocal != null && targetCurrency
+      ? `${formatPrice(recommendedPriceCents!, opts.input.currency)} (≈ ${formatPrice(launchPriceLocal, targetCurrency)})`
+      : null;
+
   const prompt = marketProfilePrompt(opts.input, recommendedCountry, {
     consensusPercent: opts.aggregate.recommendation.consensusPercent,
     countryFinalScore: countryStats?.finalScore.mean ?? 0,
@@ -110,6 +139,7 @@ export async function buildMarketProfile(
     topTrustFactors,
     topChannels,
     recommendedPriceCents,
+    launchPriceLocalText,
     locale: opts.locale,
     marketSnippets,
   });
