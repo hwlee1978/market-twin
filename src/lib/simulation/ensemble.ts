@@ -1605,21 +1605,54 @@ function normaliseAge(a: string | undefined): string | null {
 // gets a slightly different label like "연 ¥3.5M-¥5M (~$25-36k USD)" or
 // "$52k-$78k (이커머스 큐레이터)". Without bucketing, ~95% of values are
 // singletons and the 10-person noise floor wipes out the entire panel.
+//
 // Strategy: extract the first $X(k) figure (works on the vast majority
-// because non-USD personas include a (~$xx USD) parenthetical), then
-// bucket into 5 coarse USD bands so groups consistently clear the floor.
+// because non-USD personas include a (~$xx USD) parenthetical) and use
+// the MIDPOINT of any range. Earlier revisions used the low end, which
+// produced the user-visible bug where every "$150k+" persona landed in
+// TW (2026-05-09): a US "senior tech $130-200k" (true mid ≈ $165k)
+// was bucketed at $100-150k because the regex captured 130. A TW expat
+// "(~$160-220k USD)" was bucketed at $150k+ because the regex captured
+// 160. Different countries' income range widths combined with the
+// low-end bias collapsed $150k+ into TW-only.
+//
+// Midpoint is more honest: "$130-200k" → ~165k → $150k+ bucket.
+// Single-figure inputs ("$160k") are unchanged. Comma-separated
+// dollar amounts ("$120,000") still parsed via the legacy path.
 function normaliseIncome(i: string | undefined): string | null {
   if (!i) return null;
   const t = i.trim();
   if (!t) return null;
   let kUsd: number | null = null;
-  const kMatch = t.match(/\$\s*(\d{1,4})(?:\s*[-–~to]+\s*\$?\s*\d{1,4})?\s*[kK]/);
-  if (kMatch) {
-    kUsd = parseInt(kMatch[1], 10);
-  } else {
-    // Try plain dollar amount with comma like "$45,000"
+  // Try a range first: "$X-$Yk" / "$X-Yk" / "$X to $Yk".
+  const rangeMatch = t.match(
+    /\$\s*(\d{1,4})\s*[-–~]\s*\$?\s*(\d{1,4})\s*[kK]/,
+  );
+  const rangeMatchTo = !rangeMatch
+    ? t.match(/\$\s*(\d{1,4})\s+to\s+\$?\s*(\d{1,4})\s*[kK]/i)
+    : null;
+  const range = rangeMatch ?? rangeMatchTo;
+  if (range) {
+    const lo = parseInt(range[1], 10);
+    const hi = parseInt(range[2], 10);
+    if (Number.isFinite(lo) && Number.isFinite(hi) && hi >= lo) {
+      kUsd = Math.round((lo + hi) / 2);
+    } else if (Number.isFinite(lo)) {
+      kUsd = lo;
+    }
+  }
+  if (kUsd == null) {
+    // Single-figure path: "$160k" / "$160 K".
+    const single = t.match(/\$\s*(\d{1,4})\s*[kK]/);
+    if (single) kUsd = parseInt(single[1], 10);
+  }
+  if (kUsd == null) {
+    // Plain dollar amount with comma like "$45,000".
     const fullMatch = t.match(/\$\s*(\d{1,3}),(\d{3})/);
-    if (fullMatch) kUsd = Math.round((parseInt(fullMatch[1], 10) * 1000 + parseInt(fullMatch[2], 10)) / 1000);
+    if (fullMatch)
+      kUsd = Math.round(
+        (parseInt(fullMatch[1], 10) * 1000 + parseInt(fullMatch[2], 10)) / 1000,
+      );
   }
   if (kUsd == null) return null;
   if (kUsd < 30) return "<$30k";

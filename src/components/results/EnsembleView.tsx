@@ -147,9 +147,10 @@ function IncomeIntentHelpKo() {
         <h4 className="font-semibold text-slate-900 mb-1.5">⚠ 주의 신호</h4>
         <ul className="space-y-1 list-disc pl-5">
           <li><strong>n &lt; 100 (소표본 라벨)</strong> — 신뢰구간 ±5점 이상. 단정적 해석 자제, 다음 시뮬에서 personaCount 늘려 재검증.</li>
-          <li><strong>topCountryShare 100%</strong> — 샘플링 한계일 가능성 높음. 그 시장 페르소나의 voice 페이지에서 진짜 매력 vs 인구 artifact 구분 필요.</li>
+          <li><strong>topCountryShare 100%</strong> — 그 소득대 인구가 실제로 한 시장에 한정된 경우 (예: 정말 그 후보국 set 안에서 슈퍼리치가 한 곳에만 분포). 후보국에 US/UK/JP 같은 선진국이 있는데도 100% 가 한 곳이면 페르소나 생성 단계의 편향 가능성 — 그 소득대 페르소나 voice 와 profession 분포 검토 권장.</li>
           <li><strong>전 구간 의향 50점대</strong> — "관심은 있지만 결정타 없음". USP 강화 또는 메시지 재포지셔닝 필요.</li>
         </ul>
+        <p className="mt-2 text-xs text-slate-500">참고: 2026-05-09 이전 ensemble 은 income bucketing 로직 (range 의 low end 사용) 의 버그로 $150k+ 집중도가 부풀려졌을 수 있습니다. 그 이후 시뮬은 midpoint 기반으로 보정됨.</p>
       </section>
     </>
   );
@@ -193,9 +194,10 @@ function IncomeIntentHelpEn() {
         <h4 className="font-semibold text-slate-900 mb-1.5">⚠ Caveats</h4>
         <ul className="space-y-1 list-disc pl-5">
           <li><strong>n &lt; 100 (low-n label)</strong> — Wide confidence interval. Don't over-interpret; rerun with larger personaCount.</li>
-          <li><strong>topCountryShare = 100%</strong> — Likely a sampling artifact. Check that bracket's persona voices to distinguish real market appeal from a demographic artifact.</li>
+          <li><strong>topCountryShare = 100%</strong> — Possible when this bracket's population is genuinely concentrated in one candidate market. If candidates include US/UK/JP and yet the bracket lands 100% in one country, suspect persona-generation bias — review that bracket's voices and profession distribution.</li>
           <li><strong>All brackets at 50-something</strong> — "Interest without conviction." USP needs strengthening or repositioning.</li>
         </ul>
+        <p className="mt-2 text-xs text-slate-500">Note: ensembles run before 2026-05-09 may show inflated $150k+ concentration due to a bucketing bug (income range parsed at low end). Sims after that date use midpoint and are corrected.</p>
       </section>
     </>
   );
