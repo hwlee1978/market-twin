@@ -62,6 +62,17 @@ const MERGED_RISK_SCHEMA = z.object({
     .optional(),
   /** ISO country codes the risk materially applies to. Optional. */
   affectedCountries: z.array(z.string()).optional(),
+  /**
+   * Taxonomy code from the cross-country distribution table that this
+   * risk maps to. Lets the renderer swap the sim-frequency meta line
+   * for a persona-coverage metric pulled from the matrix. Lenient
+   * parse: anything not a string just becomes undefined, and the
+   * renderer falls back to surfacedInSims.
+   */
+  personaCategory: z.preprocess(
+    (val) => (typeof val === "string" && val.trim() ? val.trim() : undefined),
+    z.string().optional(),
+  ),
 });
 /**
  * Concreteness audit on a single action. Computed heuristically post-LLM
@@ -256,6 +267,7 @@ export async function mergeNarrative(
         surfacedInSims: recount,
         scope: r.scope,
         affectedCountries: r.affectedCountries,
+        personaCategory: r.personaCategory,
       };
     });
     const mergedActions = parsed.data.mergedActions.map((a) => {
@@ -692,6 +704,7 @@ function formatCrossCountryDistribution(
       "  - **카운트 인용 금지 (필수)**: \"X명 중 Y명\", \"X persona of Y\", \"몇 명이 응답\" 같은 문구를 risk 본문에 절대 포함하지 마세요. 위 표가 정확한 카운트와 비율을 이미 제공합니다. 본문에는 표가 가진 비율(\"전체 페르소나의 44%\", \"12개 시장 모두 41-51%\") 만 인용하세요.",
       "  - **단일 국가 부착 금지**: 표의 scope=cross-market인 카테고리를 단일 국가 risk로 부착하지 마세요. 12개 시장 모두 비슷한 비율로 surface하는 우려를 \"대만 17명 중 5명\" 식으로 단일 국가에 귀속하면 합의 신호를 왜곡합니다.",
       "  - **affectedCountries**: country-specific이면 [\"TW\"] 형태로 1개, narrow이면 [\"TW\", \"SG\", ...]로 다국가, cross-market이면 비워두세요 (renderer가 후보 국가 전체로 확장).",
+      "  - **personaCategory** (필수, 매핑 가능 시): 위 표의 카테고리 중 이 risk의 root-cause인 코드 1개를 emit하세요 (예: `channel_access`, `regulatory_friction`, `size_fit`). 표의 row와 정확히 일치해야 renderer가 페르소나 커버리지(\"12개 시장 평균 44%\")를 표시할 수 있습니다. risk가 페르소나 우려가 아닌 외부 변수(환율·결제 인프라·내부 운영)면 비워두세요.",
     ].join("\n");
   }
   return [
@@ -712,6 +725,7 @@ function formatCrossCountryDistribution(
     "  - **Do NOT cite counts** (\"X out of Y personas\", \"5 of 17 reported\") in risk descriptions. The table already provides exact counts and rates — quote percentages from it (\"44% of all personas\", \"all 12 markets 41-51%\") instead.",
     "  - **Do NOT attribute cross-market signals to a single country**. Labelling a concern that surfaces at near-equal rates in 12 markets as \"Taiwan personas reported X\" buries the real consensus signal under a hallucinated single-country risk.",
     "  - **affectedCountries**: country-specific → 1-element array like [\"TW\"]; narrow → multi-element array; cross-market → leave empty (renderer expands to all candidates).",
+    "  - **personaCategory** (required when mappable): emit one taxonomy code from the table above that names this risk's root-cause category (e.g. `channel_access`, `regulatory_friction`, `size_fit`). Must match a row in the table exactly so the renderer can show persona-coverage (\"mean 44% across 12 markets\") in place of the sim count. Leave undefined when the risk is non-persona (FX, payment infrastructure, internal ops).",
   ].join("\n");
 }
 

@@ -3689,6 +3689,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
   const renderRisksPage = () => {
     if (!aggregate.narrative?.mergedRisks?.length) return null;
     const risks = aggregate.narrative.mergedRisks.slice(0, tierBudget.risks);
+    const crossCountry = aggregate.crossCountryDistribution;
     const skepticQuote = pickQuote(aggregate, { polarity: "negative" });
     return (
       <Page size="A4" style={styles.page}>
@@ -3736,6 +3737,56 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                   : "";
               return isKo ? `일부 시장${list}` : `Select markets${list}`;
             })();
+            // Persona-coverage line — pulled from the aggregator's
+            // cross-country matrix when the merge LLM tagged
+            // personaCategory. Replaces the misleading "1 sim에서
+            // 언급" footnote (a Jaccard-recount artifact when cross-
+            // market risks are textually rewritten and no longer
+            // match per-sim wording). Falls back to surfacedInSims
+            // when no matrix match.
+            const matrixRow = (() => {
+              if (!r.personaCategory || !crossCountry) return null;
+              return (
+                crossCountry.objections.find((row) => row.category === r.personaCategory) ??
+                crossCountry.trustFactors.find((row) => row.category === r.personaCategory) ??
+                null
+              );
+            })();
+            const coverageText = (() => {
+              if (!matrixRow) return null;
+              const total = matrixRow.totalRatePct.toFixed(0);
+              if (matrixRow.scope === "cross-market") {
+                return isKo
+                  ? `${matrixRow.countriesAboveBaseline}개 시장 평균 ${total}% 페르소나 언급`
+                  : `Mean ${total}% personas across ${matrixRow.countriesAboveBaseline} markets`;
+              }
+              if (matrixRow.scope === "country-specific") {
+                const dom = matrixRow.dominantCountry;
+                const domRow = matrixRow.perCountry.find((c) => c.country === dom);
+                const others = matrixRow.perCountry.filter(
+                  (c) => c.country !== dom && c.count > 0,
+                );
+                const otherMean =
+                  others.length > 0
+                    ? Math.round(others.reduce((s, c) => s + c.ratePct, 0) / others.length)
+                    : 0;
+                return isKo
+                  ? `${dom} 페르소나 ${domRow?.ratePct.toFixed(0) ?? "?"}% 언급 (타 시장 평균 ${otherMean}%)`
+                  : `${domRow?.ratePct.toFixed(0) ?? "?"}% of ${dom} personas (others mean ${otherMean}%)`;
+              }
+              const top = matrixRow.perCountry.filter((c) => c.count > 0).slice(0, 5);
+              const meanPct =
+                top.length > 0
+                  ? Math.round(top.reduce((s, c) => s + c.ratePct, 0) / top.length)
+                  : 0;
+              const list = top.map((c) => c.country).join("·");
+              return isKo
+                ? `${list} 평균 ${meanPct}% 페르소나 언급`
+                : `${list} mean ${meanPct}% personas`;
+            })();
+            const fallbackText = isKo
+              ? `${r.surfacedInSims}개 시뮬에서 언급`
+              : `Surfaced in ${r.surfacedInSims} sim${r.surfacedInSims === 1 ? "" : "s"}`;
             return (
               <View key={i} style={[styles.riskRow, last ? styles.riskRowLast : {}]} wrap={false}>
                 <Text style={styles.riskFactor}>
@@ -3747,12 +3798,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 </Text>
                 <MText style={styles.riskDesc}>{r.description}</MText>
                 <MText style={styles.riskMeta}>
-                  {[
-                    isKo
-                      ? `${r.surfacedInSims}개 시뮬에서 언급`
-                      : `Surfaced in ${r.surfacedInSims} sim${r.surfacedInSims === 1 ? "" : "s"}`,
-                    scopeLabel ? `  ·  ${scopeLabel}` : "",
-                  ].join("")}
+                  {[coverageText ?? fallbackText, scopeLabel ? `  ·  ${scopeLabel}` : ""].join("")}
                 </MText>
               </View>
             );

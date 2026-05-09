@@ -1024,7 +1024,12 @@ function EnsembleDashboard({
         />
       )}
       {activeTab === "risks" && (
-        <RisksTab narrative={narrative} simCount={simCount} isKo={isKo} />
+        <RisksTab
+          narrative={narrative}
+          simCount={simCount}
+          crossCountry={aggregate.crossCountryDistribution}
+          isKo={isKo}
+        />
       )}
       {activeTab === "actions" && (
         <ActionsTab narrative={narrative} simCount={simCount} isKo={isKo} />
@@ -6618,6 +6623,7 @@ function DecisionAidTab({
 function RisksTab({
   narrative,
   simCount,
+  crossCountry,
   isKo,
 }: {
   narrative: EnsembleAggregate["narrative"];
@@ -6625,6 +6631,11 @@ function RisksTab({
    *  card so "surfaced in 1 sim" reads as "1/15 sims" with consensus
    *  context, not as a faint footnote that hides low-confidence items. */
   simCount: number;
+  /** Cross-country category distribution from the aggregator. When a
+   *  risk's personaCategory matches a row in either objections or
+   *  trustFactors, the meta line below the description shows persona
+   *  coverage from this matrix instead of the sim-frequency count. */
+  crossCountry: EnsembleAggregate["crossCountryDistribution"];
   isKo: boolean;
 }) {
   if (!narrative?.mergedRisks?.length) {
@@ -6662,29 +6673,66 @@ function RisksTab({
               : r.severity === "medium"
                 ? "text-warn"
                 : "text-slate-500";
-          // Consensus tiering — for multi-sim ensembles, distinguishes
-          // "5+ sims agree this is HIGH" (load-bearing blocker) from
-          // "1 sim said HIGH" (could be a real edge-case OR a single
-          // model's hallucination). Single-sim ensembles skip this
-          // framing — there's no "consensus" with one voice.
+          // Persona-coverage metric — pulled from the cross-country
+          // distribution matrix when the merge LLM tagged personaCategory.
+          // Replaces the old "X/Y sims" framing because a sim count is
+          // a parser artifact (Jaccard recount on rewritten cross-market
+          // factor text consistently underflows to 1) while persona
+          // coverage measures real signal strength. Falls back to the
+          // sim count when no personaCategory or no matrix match.
+          const matrixRow = (() => {
+            if (!r.personaCategory || !crossCountry) return null;
+            return (
+              crossCountry.objections.find((row) => row.category === r.personaCategory) ??
+              crossCountry.trustFactors.find((row) => row.category === r.personaCategory) ??
+              null
+            );
+          })();
           const ratio = simCount > 0 ? r.surfacedInSims / simCount : 1;
           const consensusInfo =
-            simCount <= 1
-              ? null
-              : ratio >= 0.5
-                ? {
-                    label: isKo ? "강한 합의" : "strong consensus",
-                    className: "text-success",
-                  }
+            !matrixRow && simCount > 1
+              ? ratio >= 0.5
+                ? { label: isKo ? "강한 합의" : "strong consensus", className: "text-success" }
                 : ratio >= 0.25
-                  ? {
-                      label: isKo ? "부분 합의" : "partial consensus",
-                      className: "text-warn",
-                    }
-                  : {
-                      label: isKo ? "단일/소수 시뮬" : "low consensus",
-                      className: "text-slate-500",
-                    };
+                  ? { label: isKo ? "부분 합의" : "partial consensus", className: "text-warn" }
+                  : { label: isKo ? "단일/소수 시뮬" : "low consensus", className: "text-slate-500" }
+              : null;
+          const coverageInfo = (() => {
+            if (!matrixRow) return null;
+            const total = matrixRow.totalRatePct.toFixed(0);
+            if (matrixRow.scope === "cross-market") {
+              return {
+                primary: isKo
+                  ? `${matrixRow.countriesAboveBaseline}개 시장 평균 ${total}% 페르소나 언급`
+                  : `Mean ${total}% personas across ${matrixRow.countriesAboveBaseline} markets`,
+              };
+            }
+            if (matrixRow.scope === "country-specific") {
+              const dom = matrixRow.dominantCountry;
+              const domRow = matrixRow.perCountry.find((c) => c.country === dom);
+              const others = matrixRow.perCountry.filter((c) => c.country !== dom && c.count > 0);
+              const otherMean =
+                others.length > 0
+                  ? Math.round(others.reduce((s, c) => s + c.ratePct, 0) / others.length)
+                  : 0;
+              return {
+                primary: isKo
+                  ? `${dom} 페르소나 ${domRow?.ratePct.toFixed(0) ?? "?"}% 언급 (타 시장 평균 ${otherMean}%)`
+                  : `${domRow?.ratePct.toFixed(0) ?? "?"}% of ${dom} personas (other markets mean ${otherMean}%)`,
+              };
+            }
+            // narrow
+            const top = matrixRow.perCountry.filter((c) => c.count > 0).slice(0, 5);
+            const meanPct = top.length > 0
+              ? Math.round(top.reduce((s, c) => s + c.ratePct, 0) / top.length)
+              : 0;
+            const list = top.map((c) => c.country).join("·");
+            return {
+              primary: isKo
+                ? `${list} 평균 ${meanPct}% 페르소나 언급`
+                : `${list} mean ${meanPct}% personas`,
+            };
+          })();
           // Scope badge — tells the reader at a glance whether a risk
           // is universal across markets or country-specific. The merge
           // LLM tags it from the cross-country distribution matrix
@@ -6748,17 +6796,23 @@ function RisksTab({
                 </div>
                 <p className="text-sm text-slate-600 leading-relaxed">{r.description}</p>
                 <div className="text-xs mt-1 flex items-center gap-2 flex-wrap">
-                  <span className="text-slate-500">
-                    {isKo
-                      ? `${r.surfacedInSims}/${simCount}개 시뮬에서 언급`
-                      : `Surfaced in ${r.surfacedInSims}/${simCount} sim${simCount === 1 ? "" : "s"}`}
-                  </span>
-                  {consensusInfo && (
+                  {coverageInfo ? (
+                    <span className="text-slate-500">{coverageInfo.primary}</span>
+                  ) : (
                     <>
-                      <span className="text-slate-300">·</span>
-                      <span className={clsx("font-medium", consensusInfo.className)}>
-                        {consensusInfo.label} ({(ratio * 100).toFixed(0)}%)
+                      <span className="text-slate-500">
+                        {isKo
+                          ? `${r.surfacedInSims}/${simCount}개 시뮬에서 언급`
+                          : `Surfaced in ${r.surfacedInSims}/${simCount} sim${simCount === 1 ? "" : "s"}`}
                       </span>
+                      {consensusInfo && (
+                        <>
+                          <span className="text-slate-300">·</span>
+                          <span className={clsx("font-medium", consensusInfo.className)}>
+                            {consensusInfo.label} ({(ratio * 100).toFixed(0)}%)
+                          </span>
+                        </>
+                      )}
                     </>
                   )}
                 </div>

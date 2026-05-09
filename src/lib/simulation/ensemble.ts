@@ -749,6 +749,20 @@ export interface EnsembleNarrative {
      *  contributing list. Empty / undefined = renderer falls back to
      *  the description text. */
     affectedCountries?: string[];
+    /**
+     * Taxonomy code (ObjectionCategory or TrustFactorCategory) the
+     * risk is rooted in. When present, the renderer looks up the
+     * matching row in `crossCountryDistribution` and replaces the
+     * sim-frequency meta line ("1개 시뮬에서 언급") with a persona-
+     * coverage metric computed from the matrix ("12개 시장 평균 44%
+     * 페르소나 언급"). surfacedInSims stays in the data for
+     * diagnostics but is no longer the primary signal.
+     *
+     * Optional — risks that don't map to a persona-level concern
+     * (FX volatility, payment infrastructure, internal operations)
+     * leave it undefined; renderer falls back to the sim count.
+     */
+    personaCategory?: string;
   }>;
   /**
    * Action items deduped across sims, in rough priority order (most
