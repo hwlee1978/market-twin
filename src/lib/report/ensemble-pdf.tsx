@@ -3714,6 +3714,28 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             const sevColor =
               r.severity === "high" ? C.risk : r.severity === "medium" ? C.warn : C.muted;
             const last = i === arr.length - 1;
+            // Scope label — added 2026-05-09. Mirrors the dashboard
+            // badge so a reader knows whether a risk is universal
+            // across all candidate markets or attributable to a
+            // single country. Hidden when the merge LLM didn't tag
+            // (legacy narratives).
+            const scopeLabel = (() => {
+              if (!r.scope) return null;
+              if (r.scope === "cross-market") {
+                return isKo ? "전 시장 공통" : "Cross-market";
+              }
+              if (r.scope === "country-specific") {
+                const c = r.affectedCountries?.[0];
+                return c
+                  ? isKo ? `${c} 단일 시장` : `${c} only`
+                  : isKo ? "단일 시장" : "Country-specific";
+              }
+              const list =
+                r.affectedCountries && r.affectedCountries.length > 0
+                  ? ` (${r.affectedCountries.join(", ")})`
+                  : "";
+              return isKo ? `일부 시장${list}` : `Select markets${list}`;
+            })();
             return (
               <View key={i} style={[styles.riskRow, last ? styles.riskRowLast : {}]} wrap={false}>
                 <Text style={styles.riskFactor}>
@@ -3725,9 +3747,12 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 </Text>
                 <MText style={styles.riskDesc}>{r.description}</MText>
                 <MText style={styles.riskMeta}>
-                  {isKo
-                    ? `${r.surfacedInSims}개 시뮬에서 언급`
-                    : `Surfaced in ${r.surfacedInSims} sim${r.surfacedInSims === 1 ? "" : "s"}`}
+                  {[
+                    isKo
+                      ? `${r.surfacedInSims}개 시뮬에서 언급`
+                      : `Surfaced in ${r.surfacedInSims} sim${r.surfacedInSims === 1 ? "" : "s"}`,
+                    scopeLabel ? `  ·  ${scopeLabel}` : "",
+                  ].join("")}
                 </MText>
               </View>
             );

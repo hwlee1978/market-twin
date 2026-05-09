@@ -308,6 +308,26 @@ export interface EnsembleAggregate {
   /** Creative asset scores aggregated across sims, when sims supplied any. */
   creative?: CreativeAggregate;
 
+  /**
+   * Cross-country occurrence rate of categorized objections / trust
+   * factors. Pivots the per-country category-distribution into a
+   * country-by-category matrix and tags each row with a `scope` that
+   * tells the synthesis stage whether a concern is universal across
+   * markets or country-specific.
+   *
+   * Why: the merge LLM was producing single-country risks (e.g. "TW
+   * 17명 중 5명이 직접 신어보고 사야 한다고 응답") for concerns that
+   * actually appeared at near-equal rates in 12 markets — labelling
+   * them as country-specific buried the real signal (universal cross-
+   * border friction) under a hallucinated count. With this matrix
+   * injected into the merge prompt, the LLM tags scope explicitly
+   * and uses aggregator-computed counts instead of inventing them.
+   *
+   * Optional because legacy aggregates predate this field; the merge
+   * stage falls back to its old behavior when missing.
+   */
+  crossCountryDistribution?: CrossCountryDistribution;
+
   /** Overall ensemble variance health — quick visual cue for the UI. */
   varianceAssessment: {
     maxFinalScoreRange: number;
@@ -610,6 +630,68 @@ export interface PricingAggregate {
   };
 }
 
+/**
+ * Per-category breakdown of how often a concern (objection / trust
+ * factor) appears across countries. Used by the merge stage to decide
+ * whether a risk is universal or country-specific.
+ */
+export interface CrossCountryCategoryRow {
+  /** Taxonomy enum code (ObjectionCategory or TrustFactorCategory). */
+  category: string;
+  /** Most-frequent surface form across all sims/personas. */
+  representativeDetail: string;
+  /** Total personas raising this category across all countries. */
+  totalPersonas: number;
+  /** % of all personas across all countries that raised it (0-100). */
+  totalRatePct: number;
+  /** Per-country rate breakdown, sorted by ratePct desc. */
+  perCountry: Array<{
+    country: string;
+    /** Personas in this country raising this category. */
+    count: number;
+    /** Country's persona pool size for this ensemble. */
+    poolSize: number;
+    /** count / poolSize × 100. */
+    ratePct: number;
+  }>;
+  /**
+   * Scope tag derived deterministically from the per-country rates:
+   *
+   * - `cross-market`: ≥ ⌈N_countries × 2/3⌉ countries have ratePct
+   *   ≥ 0.7 × overallRate (signal is broadly universal). Merge prompt
+   *   should describe this as a market-wide concern, not a country
+   *   issue.
+   *
+   * - `country-specific`: top country's rate ≥ 1.5 × second highest
+   *   AND top rate ≥ 25% AND top rate ≥ 1.5 × mean of others (one
+   *   country is a clear outlier). Merge prompt may attribute risk
+   *   to dominantCountry. Otherwise no country attribution.
+   *
+   * - `narrow`: signal is confined to a few countries but no single
+   *   country dominates statistically. Surface as "select-market"
+   *   style, list the contributing countries.
+   */
+  scope: "cross-market" | "country-specific" | "narrow";
+  /** Top country (highest ratePct). When scope=country-specific,
+   *  this is the country the merge LLM may name. */
+  dominantCountry?: string;
+  /** Number of countries with ratePct ≥ 0.7 × overallRate.
+   *  Used by both the merge prompt and the renderer for context. */
+  countriesAboveBaseline: number;
+}
+
+export interface CrossCountryDistribution {
+  /** Per-country persona pool sizes — denominators for the rates. */
+  totalPersonasByCountry: Array<{ country: string; poolSize: number }>;
+  /** Total number of countries with ≥1 persona contributing. */
+  countryCount: number;
+  /** Top objection categories with cross-country breakdown.
+   *  Sorted by totalRatePct desc; capped at top 12 categories. */
+  objections: CrossCountryCategoryRow[];
+  /** Same shape, for trust-factor categories. */
+  trustFactors: CrossCountryCategoryRow[];
+}
+
 /** Creative asset aggregate — only present when sims provided creative scoring. */
 export interface CreativeAggregate {
   assets: Array<{
@@ -647,6 +729,26 @@ export interface EnsembleNarrative {
     severity: "low" | "medium" | "high";
     /** Number of sims that surfaced this risk (after semantic dedup). */
     surfacedInSims: number;
+    /**
+     * Geographical scope of this risk, derived from the cross-country
+     * distribution matrix. The merge LLM tags every risk so the renderer
+     * can show "전 시장 공통" vs "특정 국가" badges, and so the prompt
+     * can refuse single-country attributions for concerns that show up
+     * universally (the `대만 17명 중 5명` regression).
+     *
+     * - cross-market: signal universal across most candidate markets
+     * - country-specific: ONE country is a clear statistical outlier
+     * - narrow: confined to a few markets without one dominating
+     *
+     * Optional because legacy narratives predate the field.
+     */
+    scope?: "cross-market" | "country-specific" | "narrow";
+    /** Countries this risk materially applies to. For cross-market risks
+     *  that's "all candidate countries" (renderer expands); for country-
+     *  specific it's the single dominant country; for narrow it's the
+     *  contributing list. Empty / undefined = renderer falls back to
+     *  the description text. */
+    affectedCountries?: string[];
   }>;
   /**
    * Action items deduped across sims, in rough priority order (most
@@ -1106,6 +1208,7 @@ export function aggregateEnsemble(
   const personas = computePersonasAggregate(sims);
   const pricing = computePricingAggregate(sims);
   const creative = computeCreativeAggregate(sims);
+  const crossCountryDistribution = computeCrossCountryDistribution(sims);
 
   // ── reference data sources (stashed on overview by runner) ──
   // All sims in an ensemble run against the same project fixture, so the
@@ -1137,6 +1240,7 @@ export function aggregateEnsemble(
     sources,
     pricing,
     creative,
+    crossCountryDistribution,
     varianceAssessment: {
       maxFinalScoreRange: round1(maxR),
       meanFinalScoreRange: round1(meanR),
@@ -2111,6 +2215,183 @@ function round1(x: number): number {
 }
 function round2(x: number): number {
   return Math.round(x * 100) / 100;
+}
+
+/**
+ * Pivot per-country categorized objection / trust counts into a cross-
+ * country matrix and tag each category with a `scope` derived from
+ * the rate distribution. Drives the merge prompt's risk-attribution
+ * logic so the LLM stops calling universal cross-border friction a
+ * single-country risk.
+ *
+ * Filters mirror the per-country path (isPersonaMismatchNoise et al.)
+ * so the matrix lines up with what survives to the rendered topObjections /
+ * topTrustFactors lists. Returns undefined when no sim emitted
+ * categorized arrays (legacy snapshots) — the merge stage handles that
+ * gracefully.
+ */
+function computeCrossCountryDistribution(
+  sims: EnsembleSimSnapshot[],
+): CrossCountryDistribution | undefined {
+  type Row = {
+    /** personasByCountry: country → set of persona indices that
+     *  raised this category in that country. */
+    personasByCountry: Map<string, Set<string>>;
+    /** Most-frequent surface form across all persona instances. */
+    detailFreq: Map<string, number>;
+  };
+  const objections = new Map<string, Row>();
+  const trustFactors = new Map<string, Row>();
+  const poolByCountry = new Map<string, number>();
+  let anyObjectionCategorized = false;
+  let anyTrustCategorized = false;
+
+  // Emit a stable persona key (sim+index) so multiple emissions of the
+  // same category by the same persona only count once.
+  for (let si = 0; si < sims.length; si++) {
+    const s = sims[si];
+    const personas = s.personas ?? [];
+    for (let pi = 0; pi < personas.length; pi++) {
+      const p = personas[pi];
+      const country = (p.country ?? "?").toUpperCase();
+      poolByCountry.set(country, (poolByCountry.get(country) ?? 0) + 1);
+      const personaKey = `${si}:${pi}`;
+
+      for (const item of p.objectionsCategorized ?? []) {
+        if (!item || !item.category || !item.detail) continue;
+        anyObjectionCategorized = true;
+        const detail = item.detail.trim();
+        if (
+          isPersonaMismatchNoise(detail) ||
+          isGenericPriceObjection(detail) ||
+          isGenericLaunchConcern(detail) ||
+          isBareAdjectiveSignal(detail)
+        ) {
+          continue;
+        }
+        let row = objections.get(item.category);
+        if (!row) {
+          row = { personasByCountry: new Map(), detailFreq: new Map() };
+          objections.set(item.category, row);
+        }
+        const set = row.personasByCountry.get(country) ?? new Set<string>();
+        set.add(personaKey);
+        row.personasByCountry.set(country, set);
+        row.detailFreq.set(detail, (row.detailFreq.get(detail) ?? 0) + 1);
+      }
+
+      for (const item of p.trustFactorsCategorized ?? []) {
+        if (!item || !item.category || !item.detail) continue;
+        anyTrustCategorized = true;
+        const detail = item.detail.trim();
+        if (isGenericTrustFactor(detail) || isBareAdjectiveSignal(detail)) {
+          continue;
+        }
+        let row = trustFactors.get(item.category);
+        if (!row) {
+          row = { personasByCountry: new Map(), detailFreq: new Map() };
+          trustFactors.set(item.category, row);
+        }
+        const set = row.personasByCountry.get(country) ?? new Set<string>();
+        set.add(personaKey);
+        row.personasByCountry.set(country, set);
+        row.detailFreq.set(detail, (row.detailFreq.get(detail) ?? 0) + 1);
+      }
+    }
+  }
+
+  if (!anyObjectionCategorized && !anyTrustCategorized) return undefined;
+
+  const totalPersonasByCountry = [...poolByCountry.entries()]
+    .map(([country, poolSize]) => ({ country, poolSize }))
+    .sort((a, b) => b.poolSize - a.poolSize);
+  const totalAllPersonas = totalPersonasByCountry.reduce(
+    (sum, c) => sum + c.poolSize,
+    0,
+  );
+  const countryCount = totalPersonasByCountry.length;
+
+  const buildRows = (
+    src: Map<string, Row>,
+  ): CrossCountryCategoryRow[] => {
+    const rows: CrossCountryCategoryRow[] = [];
+    for (const [category, row] of src.entries()) {
+      const perCountry = totalPersonasByCountry
+        .map(({ country, poolSize }) => {
+          const count = row.personasByCountry.get(country)?.size ?? 0;
+          return {
+            country,
+            count,
+            poolSize,
+            ratePct: poolSize > 0 ? round1((count / poolSize) * 100) : 0,
+          };
+        })
+        .sort((a, b) => b.ratePct - a.ratePct);
+      const totalPersonas = perCountry.reduce((s, c) => s + c.count, 0);
+      const totalRatePct =
+        totalAllPersonas > 0
+          ? round1((totalPersonas / totalAllPersonas) * 100)
+          : 0;
+
+      // Derive scope from the rate distribution.
+      const sortedRates = perCountry.map((c) => c.ratePct);
+      const top = sortedRates[0] ?? 0;
+      const second = sortedRates[1] ?? 0;
+      const others = sortedRates.slice(1);
+      const meanOthers = others.length > 0 ? mean(others) : 0;
+      const baselineThreshold = totalRatePct * 0.7;
+      const countriesAboveBaseline = perCountry.filter(
+        (c) => c.ratePct >= baselineThreshold && c.count > 0,
+      ).length;
+      const crossMarketThreshold = Math.ceil(countryCount * (2 / 3));
+
+      let scope: CrossCountryCategoryRow["scope"];
+      let dominantCountry: string | undefined;
+      if (
+        totalRatePct >= 5 &&
+        countriesAboveBaseline >= crossMarketThreshold
+      ) {
+        scope = "cross-market";
+      } else if (
+        top >= 25 &&
+        top >= 1.5 * second &&
+        top >= 1.5 * meanOthers
+      ) {
+        scope = "country-specific";
+        dominantCountry = perCountry[0]?.country;
+      } else {
+        scope = "narrow";
+      }
+
+      const representativeDetail = [...row.detailFreq.entries()].sort(
+        (a, b) => {
+          if (b[1] !== a[1]) return b[1] - a[1];
+          return a[0].length - b[0].length;
+        },
+      )[0]?.[0] ?? "";
+
+      rows.push({
+        category,
+        representativeDetail,
+        totalPersonas,
+        totalRatePct,
+        perCountry,
+        scope,
+        dominantCountry,
+        countriesAboveBaseline,
+      });
+    }
+    return rows
+      .sort((a, b) => b.totalRatePct - a.totalRatePct)
+      .slice(0, 12);
+  };
+
+  return {
+    totalPersonasByCountry,
+    countryCount,
+    objections: anyObjectionCategorized ? buildRows(objections) : [],
+    trustFactors: anyTrustCategorized ? buildRows(trustFactors) : [],
+  };
 }
 
 function emptyAggregate(): EnsembleAggregate {

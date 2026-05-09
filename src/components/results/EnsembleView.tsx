@@ -6685,13 +6685,67 @@ function RisksTab({
                       label: isKo ? "단일/소수 시뮬" : "low consensus",
                       className: "text-slate-500",
                     };
+          // Scope badge — tells the reader at a glance whether a risk
+          // is universal across markets or country-specific. The merge
+          // LLM tags it from the cross-country distribution matrix
+          // (added 2026-05-09 to stop "TW 17명 중 5명" hallucinations
+          // from labelling universal cross-border friction as a single-
+          // country risk). Optional + lenient — legacy narratives
+          // without scope simply hide the badge.
+          const scopeBadge = (() => {
+            if (!r.scope) return null;
+            if (r.scope === "cross-market") {
+              return {
+                label: isKo ? "전 시장 공통" : "Cross-market",
+                className: "bg-slate-100 text-slate-700 border border-slate-200",
+                detail: isKo
+                  ? "후보 진출국 전반에서 비슷한 비율로 surface"
+                  : "Surfaces at similar rates across all candidate markets",
+              };
+            }
+            if (r.scope === "country-specific") {
+              const country = r.affectedCountries?.[0];
+              return {
+                label: country
+                  ? isKo ? `${country} 단일 시장` : `${country} only`
+                  : isKo ? "단일 시장" : "Country-specific",
+                className: "bg-amber-50 text-amber-700 border border-amber-200",
+                detail: isKo
+                  ? "한 국가가 통계적으로 outlier (다른 국가 대비 1.5배 이상)"
+                  : "One country is a statistical outlier (≥1.5× other markets)",
+              };
+            }
+            return {
+              label: isKo
+                ? `일부 시장${r.affectedCountries && r.affectedCountries.length > 0 ? ` (${r.affectedCountries.join(", ")})` : ""}`
+                : `Select markets${r.affectedCountries && r.affectedCountries.length > 0 ? ` (${r.affectedCountries.join(", ")})` : ""}`,
+              className: "bg-blue-50 text-blue-700 border border-blue-200",
+              detail: isKo
+                ? "특정 국가군에서만 surface — 단일 dominant 국가는 없음"
+                : "Surfaces only in select markets — no single dominant country",
+            };
+          })();
+
           return (
             <div key={i} className="p-4 flex gap-3 items-start">
               <div className={clsx("shrink-0 w-16 text-[10px] font-bold uppercase tracking-wider pt-0.5", sevClass)}>
                 {r.severity}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-slate-900 mb-0.5">{r.factor}</div>
+                <div className="flex items-start justify-between gap-2 mb-0.5">
+                  <div className="text-sm font-semibold text-slate-900 min-w-0">{r.factor}</div>
+                  {scopeBadge && (
+                    <span
+                      className={clsx(
+                        "shrink-0 text-[10px] font-medium px-2 py-0.5 rounded",
+                        scopeBadge.className,
+                      )}
+                      title={scopeBadge.detail}
+                    >
+                      {scopeBadge.label}
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-slate-600 leading-relaxed">{r.description}</p>
                 <div className="text-xs mt-1 flex items-center gap-2 flex-wrap">
                   <span className="text-slate-500">

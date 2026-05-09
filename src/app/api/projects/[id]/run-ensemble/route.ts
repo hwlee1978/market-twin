@@ -989,6 +989,8 @@ async function aggregateAndPersist(opts: {
       bestCountry: aggregate.recommendation.country,
       consensusPercent: aggregate.recommendation.consensusPercent,
       locale,
+      crossCountryDistribution: aggregate.crossCountryDistribution,
+      candidateCountries: projectInput?.candidateCountries,
     });
     if (narrative) aggregate.narrative = narrative;
   }

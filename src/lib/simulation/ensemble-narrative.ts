@@ -15,7 +15,12 @@
 import { z } from "zod";
 import { COUNTRIES, getCountryLabel } from "@/lib/countries";
 import { getLLMProvider } from "@/lib/llm";
-import type { EnsembleSimSnapshot, EnsembleNarrative } from "./ensemble";
+import type {
+  EnsembleSimSnapshot,
+  EnsembleNarrative,
+  CrossCountryDistribution,
+} from "./ensemble";
+import { categoryLabel } from "./taxonomy";
 import { recountSurfacedInSims } from "./surfaced-recount";
 
 const MERGED_RISK_SCHEMA = z.object({
@@ -23,6 +28,40 @@ const MERGED_RISK_SCHEMA = z.object({
   description: z.string(),
   severity: z.enum(["low", "medium", "high"]),
   surfacedInSims: z.number().int().min(1),
+  /**
+   * Scope tag emitted by the merge LLM. The merge prompt teaches the
+   * model the three values + when each applies; the cross-country
+   * distribution table is provided as the source of truth so the LLM
+   * doesn't have to guess. Optional + lenient parse so a legacy or
+   * confused output ("global", "all", "regional") doesn't drop the
+   * whole risk.
+   */
+  scope: z
+    .preprocess(
+      (val) => {
+        if (typeof val !== "string") return undefined;
+        const s = val.trim().toLowerCase();
+        if (s === "cross-market" || s === "cross_market" || s === "global") {
+          return "cross-market";
+        }
+        if (
+          s === "country-specific" ||
+          s === "country_specific" ||
+          s === "single-country" ||
+          s === "single_country"
+        ) {
+          return "country-specific";
+        }
+        if (s === "narrow" || s === "select-market" || s === "regional") {
+          return "narrow";
+        }
+        return undefined;
+      },
+      z.enum(["cross-market", "country-specific", "narrow"]).optional(),
+    )
+    .optional(),
+  /** ISO country codes the risk materially applies to. Optional. */
+  affectedCountries: z.array(z.string()).optional(),
 });
 /**
  * Concreteness audit on a single action. Computed heuristically post-LLM
@@ -85,6 +124,22 @@ export interface MergeNarrativeOpts {
   bestCountry: string;
   consensusPercent: number;
   locale: "ko" | "en";
+  /**
+   * Cross-country category distribution computed by the deterministic
+   * aggregator. Injected into the merge prompt as a reference table so
+   * the LLM (a) tags risks with the right `scope` and (b) cites only
+   * aggregator-computed counts instead of inventing "X명 중 Y명". When
+   * absent (legacy snapshots without categorized arrays), the prompt
+   * falls back to its old behavior.
+   */
+  crossCountryDistribution?: CrossCountryDistribution;
+  /**
+   * Candidate countries the project targets. Used by the prompt to
+   * tell the LLM how many markets a "cross-market" risk should
+   * implicitly apply to, even if the matrix only lists countries with
+   * non-zero category counts.
+   */
+  candidateCountries?: string[];
 }
 
 export async function mergeNarrative(
@@ -186,10 +241,21 @@ export async function mergeNarrative(
           `[ensemble narrative] risk recount: LLM said ${r.surfacedInSims}, algorithm says ${recount} — using ${recount} ("${r.factor.slice(0, 40)}")`,
         );
       }
+      // Strip hallucinated "N명 중 M명" / "N persona of M" count
+      // citations the merge LLM tends to copy from per-sim outputs.
+      // Per-sim risks reference 200-persona pools; the merged narrative
+      // must reference the ensemble pool. The LLM is told this in the
+      // prompt but ignores it 30%+ of the time, so we belt-and-braces
+      // by deleting the offending phrase.
+      const description = stripHallucinatedCounts(
+        rewriteSimScaleReferences(r.description, perSimPersonas, totalPersonas),
+      );
       return {
         ...r,
-        description: rewriteSimScaleReferences(r.description, perSimPersonas, totalPersonas),
+        description,
         surfacedInSims: recount,
+        scope: r.scope,
+        affectedCountries: r.affectedCountries,
       };
     });
     const mergedActions = parsed.data.mergedActions.map((a) => {
@@ -533,9 +599,120 @@ function buildMergePrompt(
    - Either keep percentages only, or rescale the absolute count to the full pool. Example: "44.5% of all personas" or "${Math.round(totalPersonas * 0.445).toLocaleString()} of ${totalPersonas.toLocaleString()} personas (44.5%)".
    - If you see any "out of 200", "200명 중", or similar sim-level counts, rewrite to percentage-only or ensemble total.`;
 
-  return [intro, productLine, scaleLine, riskLevelLine, "", "## Per-sim outputs", simBlocks, "", guidance].join(
-    "\n",
+  const distributionBlock = formatCrossCountryDistribution(
+    opts.crossCountryDistribution,
+    opts.candidateCountries ?? [],
+    isKo,
   );
+
+  const sections = [
+    intro,
+    productLine,
+    scaleLine,
+    riskLevelLine,
+    "",
+    "## Per-sim outputs",
+    simBlocks,
+  ];
+  if (distributionBlock) {
+    sections.push("", distributionBlock);
+  }
+  sections.push("", guidance);
+  return sections.join("\n");
+}
+
+/**
+ * Format the deterministic cross-country distribution into a prompt
+ * block that the merge LLM treats as the source of truth for risk
+ * attribution. Shows the matrix at the top (categories × countries
+ * with rates) plus an explicit ruleset binding each category's
+ * `scope` to the row's pre-computed scope tag.
+ *
+ * Returns empty string when the distribution is missing (legacy
+ * snapshots without categorized arrays) — the caller falls back to
+ * the old behavior.
+ */
+function formatCrossCountryDistribution(
+  dist: CrossCountryDistribution | undefined,
+  candidateCountries: string[],
+  isKo: boolean,
+): string {
+  if (!dist || (dist.objections.length === 0 && dist.trustFactors.length === 0)) {
+    return "";
+  }
+
+  const formatRow = (
+    row: CrossCountryDistribution["objections"][number],
+    taxonomy: "objection" | "trust",
+  ): string => {
+    const label = categoryLabel(taxonomy, row.category, isKo ? "ko" : "en");
+    const scopeTag =
+      row.scope === "cross-market"
+        ? "cross-market"
+        : row.scope === "country-specific"
+          ? `country-specific (${row.dominantCountry ?? "?"})`
+          : "narrow";
+    const top = row.perCountry
+      .filter((c) => c.count > 0)
+      .slice(0, 12)
+      .map((c) => `${c.country} ${c.ratePct.toFixed(1)}%`)
+      .join(" · ");
+    const sample = row.representativeDetail
+      ? ` · 대표 표현: "${row.representativeDetail.slice(0, 80)}"`
+      : "";
+    return [
+      `  - [${row.category}] ${label} — overall ${row.totalRatePct.toFixed(1)}% (${row.totalPersonas} personas)`,
+      `      scope=${scopeTag}, ${row.countriesAboveBaseline}/${dist.countryCount} countries above baseline`,
+      `      ${top}${sample}`,
+    ].join("\n");
+  };
+
+  const objLines = dist.objections.map((r) => formatRow(r, "objection")).join("\n");
+  const trustLines = dist.trustFactors.map((r) => formatRow(r, "trust")).join("\n");
+
+  const candidates =
+    candidateCountries.length > 0 ? candidateCountries.join(", ") : "(unknown)";
+
+  if (isKo) {
+    return [
+      "## Cross-country signal coverage (aggregator-computed — 출처: 카테고리화된 페르소나 응답)",
+      `Total personas across ${dist.countryCount} markets · candidate countries: ${candidates}`,
+      "",
+      "### Objection categories",
+      objLines || "  (no categorized objections in this ensemble)",
+      "",
+      "### Trust-factor categories",
+      trustLines || "  (no categorized trust factors in this ensemble)",
+      "",
+      "**위 분포는 합산 카운트의 진실 소스입니다.** mergedRisks를 작성할 때:",
+      "  - 각 risk에 `scope` 필드를 반드시 채우세요. 위 표의 카테고리에 매핑되면 표의 scope를 그대로 사용하세요.",
+      "    · `cross-market` — 다수 시장에서 동일하게 surface (위 표 표기). 본문은 \"전체 후보 시장 공통\" 또는 비교 가능한 표현으로. 단일 국가명을 risk factor에 포함하지 마세요.",
+      "    · `country-specific` — 위 표가 country-specific으로 명시한 카테고리만 단일 국가 risk로 surface 가능. dominantCountry가 표에 있으면 그 국가만 명시.",
+      "    · `narrow` — 일부 시장에서만 surface. affectedCountries 필드에 해당 국가 코드 배열을 채우세요.",
+      "  - **카운트 인용 금지 (필수)**: \"X명 중 Y명\", \"X persona of Y\", \"몇 명이 응답\" 같은 문구를 risk 본문에 절대 포함하지 마세요. 위 표가 정확한 카운트와 비율을 이미 제공합니다. 본문에는 표가 가진 비율(\"전체 페르소나의 44%\", \"12개 시장 모두 41-51%\") 만 인용하세요.",
+      "  - **단일 국가 부착 금지**: 표의 scope=cross-market인 카테고리를 단일 국가 risk로 부착하지 마세요. 12개 시장 모두 비슷한 비율로 surface하는 우려를 \"대만 17명 중 5명\" 식으로 단일 국가에 귀속하면 합의 신호를 왜곡합니다.",
+      "  - **affectedCountries**: country-specific이면 [\"TW\"] 형태로 1개, narrow이면 [\"TW\", \"SG\", ...]로 다국가, cross-market이면 비워두세요 (renderer가 후보 국가 전체로 확장).",
+    ].join("\n");
+  }
+  return [
+    "## Cross-country signal coverage (aggregator-computed — sourced from categorized persona reactions)",
+    `Total personas across ${dist.countryCount} markets · candidate countries: ${candidates}`,
+    "",
+    "### Objection categories",
+    objLines || "  (no categorized objections in this ensemble)",
+    "",
+    "### Trust-factor categories",
+    trustLines || "  (no categorized trust factors in this ensemble)",
+    "",
+    "**This distribution is the truth source for cross-market counts.** When writing mergedRisks:",
+    "  - Always populate the `scope` field. If a risk maps to a category in the table above, copy its scope verbatim.",
+    "    · `cross-market` — universal across markets (per the table). Phrase the risk as \"applies to all candidate markets\" / \"market-wide concern\". Do NOT name a single country in the risk factor.",
+    "    · `country-specific` — only valid when the table tags scope=country-specific. Name the dominantCountry only.",
+    "    · `narrow` — confined to a few markets. Populate `affectedCountries` with their codes.",
+    "  - **Do NOT cite counts** (\"X out of Y personas\", \"5 of 17 reported\") in risk descriptions. The table already provides exact counts and rates — quote percentages from it (\"44% of all personas\", \"all 12 markets 41-51%\") instead.",
+    "  - **Do NOT attribute cross-market signals to a single country**. Labelling a concern that surfaces at near-equal rates in 12 markets as \"Taiwan personas reported X\" buries the real consensus signal under a hallucinated single-country risk.",
+    "  - **affectedCountries**: country-specific → 1-element array like [\"TW\"]; narrow → multi-element array; cross-market → leave empty (renderer expands to all candidates).",
+  ].join("\n");
 }
 
 function narrativeFromRawSnapshots(
@@ -569,6 +746,41 @@ function narrativeFromRawSnapshots(
     }),
     overallRiskLevel,
   };
+}
+
+/**
+ * Strip count-citation phrases the merge LLM hallucinates from per-sim
+ * outputs ("X명 중 Y명이 ... 응답", "Y of X personas reported ..."). The
+ * counts come from a single sim's country slice and are wildly wrong at
+ * ensemble scale (real rates run 5-50× higher because the same theme
+ * repeats across 25 sims). The aggregator's cross-country distribution
+ * — injected separately into the prompt and rendered alongside the
+ * narrative — carries the honest counts, so the safest fix is to delete
+ * the LLM's invented numbers from prose entirely.
+ *
+ * Patterns it removes (idempotent — safe to run on text without them):
+ *  · KO: "X명 중 Y명이 ...", "X명 중 Y명만"
+ *  · EN: "Y of X personas", "Y out of X personas/respondents"
+ *
+ * Leaves untouched: percentages (44.5%) and absolute counts that
+ * rewriteSimScaleReferences already rescaled to ensemble totals.
+ */
+function stripHallucinatedCounts(text: string): string {
+  if (!text) return text;
+  let out = text;
+  out = out.replace(
+    /(?:[A-Z]{2}\s*페르소나\s*)?\d+\s*명\s*중\s*\d+\s*명(?:이|만|은|는)?\s*(?:'[^']+'|"[^"]+")?\s*(?:[가-힣]+(?:\s|$))*?/g,
+    "",
+  );
+  out = out.replace(
+    /\d+\s+of\s+\d+\s+(?:personas?|respondents?|consumers?)\b[^.,;]*/gi,
+    "",
+  );
+  out = out.replace(/\s{2,}/g, " ").trim();
+  // Tidy stray punctuation left behind ("해, ." or "—,")
+  out = out.replace(/\s+([.,;])/g, "$1");
+  out = out.replace(/[—,]\s*(?=[.,;])/g, "");
+  return out;
 }
 
 /**
