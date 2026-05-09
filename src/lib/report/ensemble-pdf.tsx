@@ -3912,6 +3912,61 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           })}
         </View>
 
+        {/* Specificity legend — explains the 0/25/50/75/100 score
+            users see next to each action. Same scoring logic as the
+            dashboard's SpecificityBadge tooltip; the PDF has no
+            hover so we render it inline. Skipped when no action
+            carries a specificity score (legacy narratives). */}
+        {actions.some((a) => a.specificity) && (
+          <View
+            style={{
+              marginTop: 14,
+              paddingTop: 8,
+              borderTopWidth: 0.5,
+              borderTopColor: C.divider,
+            }}
+          >
+            <MText style={{ fontSize: 8, fontWeight: 600, color: C.muted, marginBottom: 3 }}>
+              {isKo ? "구체성 점수 읽는 법" : "How to read the specificity score"}
+            </MText>
+            <MText style={{ fontSize: 7, color: C.faint, lineHeight: 1.5 }}>
+              {isKo
+                ? "각 액션은 4가지 요소 — (1) 채널/플랫폼 (2) 숫자 (예산·비율·수량) (3) 타임라인 (4) 측정 가능한 결과 — 의 포함 여부로 25점씩 가산해 0/25/50/75/100점으로 환산됩니다."
+                : "Each action is scored 0–100 by counting how many of four elements it contains: (1) channel/platform (2) a number — budget/percent/count (3) timeline (4) a measurable outcome (KPI). Each present element adds 25."}
+            </MText>
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 4 }}>
+              <MText style={{ fontSize: 7, color: C.success, fontWeight: 600 }}>
+                {isKo ? "구체적 75-100" : "Concrete 75–100"}
+              </MText>
+              <MText style={{ fontSize: 7, color: C.faint }}>
+                {isKo
+                  ? "4가지 중 3-4개 충족 — 다음주 실행 가능."
+                  : "3–4 elements present — actionable next week."}
+              </MText>
+            </View>
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 2 }}>
+              <MText style={{ fontSize: 7, color: C.warn, fontWeight: 600 }}>
+                {isKo ? "부분 50-74" : "Partial 50–74"}
+              </MText>
+              <MText style={{ fontSize: 7, color: C.faint }}>
+                {isKo
+                  ? "2개 충족 — 빠진 요소(예: 예산·기한)를 사내에서 채워야 실행 가능."
+                  : "2 elements present — fill the missing slot (budget / deadline) before execution."}
+              </MText>
+            </View>
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 2 }}>
+              <MText style={{ fontSize: 7, color: C.risk, fontWeight: 600 }}>
+                {isKo ? "추상적 0-49" : "Vague 0–49"}
+              </MText>
+              <MText style={{ fontSize: 7, color: C.faint }}>
+                {isKo
+                  ? "1개 이하 — 실행보다는 추가 분석이 필요한 단계."
+                  : "≤1 element — analysis still required before this can ship."}
+              </MText>
+            </View>
+          </View>
+        )}
+
         {pageFooter}
       </Page>
     );
