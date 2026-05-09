@@ -159,10 +159,32 @@ export function computePricingSensitivity(
     }
   }
 
+  // Rejection floor — the lowest price at which 90%+ rejects PURELY
+  // because the price is too HIGH. Earlier revisions walked ascending
+  // from the cheapest sampled price and picked the first conversion
+  // ≤10% point. That worked on monotonic-decreasing curves but
+  // misfired on U/J-shaped curves where the LLM models price-quality
+  // signaling: "₩30k merino sneaker = too cheap = suspicion = 0.5%
+  // conversion" got picked as the rejection floor, producing the
+  // user-visible "이상이면 90%+ 거부" label that contradicted the
+  // ₩60k=71.8% next data point.
+  //
+  // Fix: locate the conversion-peak first, then scan ASCENDING from
+  // there. The "too-cheap-suspicion" zone (anything below peak) is
+  // skipped, so only genuinely too-expensive rejection registers.
   let rejectionFloorCents: number | null = null;
-  for (const p of sorted) {
-    if (p.meanConversionProbability <= 0.1) {
-      rejectionFloorCents = p.priceCents;
+  let peakIdx = 0;
+  for (let i = 1; i < sorted.length; i++) {
+    if (
+      sorted[i].meanConversionProbability >
+      sorted[peakIdx].meanConversionProbability
+    ) {
+      peakIdx = i;
+    }
+  }
+  for (let i = peakIdx; i < sorted.length; i++) {
+    if (sorted[i].meanConversionProbability <= 0.1) {
+      rejectionFloorCents = sorted[i].priceCents;
       break;
     }
   }
