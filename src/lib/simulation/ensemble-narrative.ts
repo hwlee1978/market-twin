@@ -90,8 +90,32 @@ export interface MergeNarrativeOpts {
 export async function mergeNarrative(
   opts: MergeNarrativeOpts,
 ): Promise<EnsembleNarrative | undefined> {
-  const sims = opts.snapshots.filter((s) => s.overview || s.risks || s.recommendations);
-  if (sims.length === 0) return undefined;
+  const allSims = opts.snapshots.filter(
+    (s) => s.overview || s.risks || s.recommendations,
+  );
+  if (allSims.length === 0) return undefined;
+
+  // Country-aligned filter — feed the merge step only sims whose own
+  // bestCountry matches the ensemble's recommended country. Otherwise
+  // the merged action / risk lists conflate plans for the WEAK-consensus
+  // winner with plans for the runners-up, producing the nonsensical
+  // "추천국 SG / 1순위 액션 = ZOZOTOWN 대만 입점" the user reported on
+  // 2026-05-09. Falls back to the full pool when:
+  //   - bestCountry isn't set (legacy / single-sim path handled below)
+  //   - no aligned sim has narrative content (LLM bailed on synthesis)
+  // so we always have at least something to merge.
+  const recCountry = opts.bestCountry?.toUpperCase();
+  const alignedSims = recCountry
+    ? allSims.filter(
+        (s) => (s.bestCountry ?? "").toUpperCase() === recCountry,
+      )
+    : [];
+  const sims = alignedSims.length > 0 ? alignedSims : allSims;
+  if (alignedSims.length > 0 && alignedSims.length < allSims.length) {
+    console.log(
+      `[ensemble narrative] filtered ${alignedSims.length}/${allSims.length} sims to bestCountry=${recCountry} for action/risk merge`,
+    );
+  }
 
   // Single-sim trivial path: nothing to merge, just promote the per-sim
   // narrative directly. Saves a redundant LLM call on hypothesis tier.
