@@ -933,7 +933,10 @@ async function aggregateAndPersist(opts: {
     ];
   });
 
-  const aggregate = aggregateEnsemble(snapshots);
+  const aggregate = aggregateEnsemble(snapshots, {
+    category: projectInput?.category ?? null,
+    originatingCountry: projectInput?.originatingCountry ?? "KR",
+  });
   // Minimum-N gate — without it, an ensemble that lost 24 of 25 sims to
   // upstream errors still ships as `completed` with bestCountryDistribution
   // = [{JP, 100%}] and confidence STRONG. Two thresholds:

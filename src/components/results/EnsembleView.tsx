@@ -5914,7 +5914,13 @@ function DecisionAidTab({
   );
 
   // ── Investment + ROI computation ────────────────────────────────
-  const cacUsd = recCountryStats?.cacEstimateUsd.mean ?? null;
+  // Prefer server-computed CAC range over the LLM-emitted median when
+  // available (cacRange is the persona-derived authoritative value;
+  // legacy ensembles or thin per-country pools fall back to the LLM
+  // value). Median of range used for arithmetic; range bands surfaced
+  // separately on the card.
+  const cacRange = recCountryStats?.cacRange ?? null;
+  const cacUsd = cacRange?.medianUsd ?? recCountryStats?.cacEstimateUsd.mean ?? null;
   const usdToTarget: Record<string, number> = {
     USD: 1, KRW: 1390, JPY: 152, CNY: 7.2, TWD: 32, HKD: 7.8,
     SGD: 1.35, THB: 36, VND: 25500, IDR: 16200, MYR: 4.7, PHP: 58,
@@ -6006,31 +6012,81 @@ function DecisionAidTab({
               <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
                 {isKo ? "CAC (고객 획득 비용)" : "CAC"}
               </div>
-              <div className="text-xl font-bold text-slate-900 tabular-nums">
-                {fmt(cacInTargetCents!)}
-              </div>
-              {/* Show the source-USD value only when the target currency
-                  isn't already USD — otherwise the parenthetical literally
-                  duplicates the headline ("$18.50 ($18.50)"). */}
-              {currency.toUpperCase() !== "USD" && (
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  {`($${cacUsd!.toFixed(2)})`}
-                </div>
-              )}
-              {/* Channel-mix arithmetic — emitted by the LLM since
-                  channel-cost grounding shipped. Lets the user audit
-                  the assumed mix instead of trusting the headline
-                  number blindly. Hidden when absent (legacy sims). */}
-              {recCountryStats?.cacRationale && (
-                <details className="mt-2 group">
-                  <summary className="cursor-pointer text-[11px] text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 select-none">
-                    <ChevronRight size={10} className="transition-transform group-open:rotate-90" />
-                    <span>{isKo ? "산출 근거 보기" : "Show rationale"}</span>
-                  </summary>
-                  <p className="text-[11px] text-slate-600 leading-relaxed mt-1.5 pl-3 border-l-2 border-slate-200">
-                    {recCountryStats.cacRationale}
-                  </p>
-                </details>
+              {cacRange ? (
+                <>
+                  {/* Persona-derived CAC range — primary display when the
+                      server-computed range is available. Shows median
+                      prominently with low-high band underneath, plus a
+                      benchmark sanity badge when the median sits outside
+                      the category's typical band. */}
+                  <div className="text-xl font-bold text-slate-900 tabular-nums">
+                    {fmt(cacInTargetCents!)}
+                    <span className="text-xs font-normal text-slate-400 ml-1.5">
+                      {isKo ? "median" : "median"}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
+                    {isKo
+                      ? `범위 ${fmt(Math.round(cacRange.lowUsd * 100 * usdRate))} – ${fmt(Math.round(cacRange.highUsd * 100 * usdRate))}`
+                      : `Range ${fmt(Math.round(cacRange.lowUsd * 100 * usdRate))} – ${fmt(Math.round(cacRange.highUsd * 100 * usdRate))}`}
+                    {currency.toUpperCase() !== "USD" && (
+                      <span className="text-slate-400 ml-1">
+                        {`($${cacRange.lowUsd.toFixed(0)}–$${cacRange.highUsd.toFixed(0)})`}
+                      </span>
+                    )}
+                  </div>
+                  {cacRange.benchmarkFlag.status !== "in-range" && (
+                    <div
+                      className={clsx(
+                        "text-[11px] mt-2 px-2 py-1 rounded leading-snug",
+                        cacRange.benchmarkFlag.status === "below-range"
+                          ? "bg-warn-soft/40 text-warn"
+                          : "bg-risk-soft/40 text-risk",
+                      )}
+                    >
+                      {cacRange.benchmarkFlag.message}
+                    </div>
+                  )}
+                  <details className="mt-2 group">
+                    <summary className="cursor-pointer text-[11px] text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 select-none">
+                      <ChevronRight size={10} className="transition-transform group-open:rotate-90" />
+                      <span>{isKo ? "산출 근거 보기" : "Show rationale"}</span>
+                    </summary>
+                    <p className="text-[11px] text-slate-600 leading-relaxed mt-1.5 pl-3 border-l-2 border-slate-200">
+                      {isKo ? cacRange.rationaleKo : cacRange.rationaleEn}
+                    </p>
+                    <div className="text-[10px] text-slate-400 mt-1.5 pl-3">
+                      {isKo
+                        ? `페르소나 ${cacRange.personaSampleSize}명 · 채널 ${cacRange.components.length}개 · multiplier ${cacRange.newBrandMultiplier}× · 벤치마크 $${cacRange.benchmark.rangeLow}-${cacRange.benchmark.rangeHigh}`
+                        : `${cacRange.personaSampleSize} personas · ${cacRange.components.length} channels · multiplier ${cacRange.newBrandMultiplier}× · benchmark $${cacRange.benchmark.rangeLow}-${cacRange.benchmark.rangeHigh}`}
+                    </div>
+                  </details>
+                </>
+              ) : (
+                <>
+                  {/* Legacy fallback — LLM-emitted median when server-
+                      computed range is unavailable (legacy ensembles or
+                      thin per-country persona pool < 5). */}
+                  <div className="text-xl font-bold text-slate-900 tabular-nums">
+                    {fmt(cacInTargetCents!)}
+                  </div>
+                  {currency.toUpperCase() !== "USD" && (
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      {`($${cacUsd!.toFixed(2)})`}
+                    </div>
+                  )}
+                  {recCountryStats?.cacRationale && (
+                    <details className="mt-2 group">
+                      <summary className="cursor-pointer text-[11px] text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 select-none">
+                        <ChevronRight size={10} className="transition-transform group-open:rotate-90" />
+                        <span>{isKo ? "산출 근거 보기" : "Show rationale"}</span>
+                      </summary>
+                      <p className="text-[11px] text-slate-600 leading-relaxed mt-1.5 pl-3 border-l-2 border-slate-200">
+                        {recCountryStats.cacRationale}
+                      </p>
+                    </details>
+                  )}
+                </>
               )}
             </div>
           </div>

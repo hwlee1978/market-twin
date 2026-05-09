@@ -23,6 +23,7 @@ import {
   isGenericTrustFactor,
   isPersonaMismatchNoise,
 } from "./surfaced-recount";
+import { computeCacFromPersonas } from "@/lib/decision-aid/cac-from-personas";
 
 /* ────────────────────────────────── stats helpers ─── */
 function median(xs: number[]): number {
@@ -153,6 +154,46 @@ export interface CountryStats {
    *  channel-mix arithmetic. Optional: legacy sims pre-channel-cost-
    *  grounding don't carry it. */
   cacRationale?: string;
+  /**
+   * Server-computed CAC range derived from the persona simulation
+   * (cac-from-personas.ts). Replaces the LLM-emitted cacEstimateUsd
+   * as the authoritative CAC value for the report. The aggregator
+   * still keeps the LLM median in cacEstimateUsd for diagnostics, but
+   * dashboard / PDF surfaces should prefer cacRange when present —
+   * it's deterministic, derives from persona output (which is the
+   * actual product value), and includes a benchmark sanity check.
+   *
+   * Optional because legacy ensembles predate this computation and
+   * because the helper returns null when the per-country persona
+   * sample is too thin (<5 personas). Renderer falls back to the
+   * LLM median in those cases.
+   */
+  cacRange?: {
+    lowUsd: number;
+    medianUsd: number;
+    highUsd: number;
+    components: Array<{
+      channel: string;
+      share: number;
+      costPerConversionUsd: number;
+      source: "persona-mentions" | "default-mix" | "local-marketplace";
+    }>;
+    newBrandMultiplier: number;
+    benchmark: {
+      category: string;
+      tier: "developed" | "emerging";
+      stage: "newBrand" | "establishedDTC";
+      rangeLow: number;
+      rangeHigh: number;
+    };
+    benchmarkFlag:
+      | { status: "in-range" }
+      | { status: "below-range"; message: string }
+      | { status: "above-range"; message: string };
+    personaSampleSize: number;
+    rationaleKo: string;
+    rationaleEn: string;
+  };
   competitionScore: { mean: number; median: number };
   /**
    * Per-component score decomposition averaged across sims. Six
@@ -839,8 +880,19 @@ export interface EnsembleNarrative {
 }
 
 /* ────────────────────────────────── main aggregator ─── */
+export interface AggregateEnsembleOptions {
+  /** Project category (fashion / beauty / etc.) — drives CAC benchmark
+   *  and channel-cost lookup for the persona-derived CAC range. */
+  category?: string | null;
+  /** Origin / home market — drives new-brand multiplier (K-halo
+   *  categories into JP/SE Asia get lower multiplier than premium
+   *  into low-context Western markets). */
+  originatingCountry?: string;
+}
+
 export function aggregateEnsemble(
   sims: EnsembleSimSnapshot[],
+  opts: AggregateEnsembleOptions = {},
 ): EnsembleAggregate {
   const simCount = sims.length;
   if (simCount === 0) {
@@ -1194,6 +1246,46 @@ export function aggregateEnsemble(
         // and showing one clean breakdown is more useful than concatenating
         // 15 versions. Empty when no sim emitted (legacy data).
         cacRationale: b.cacRationales[0],
+        // Server-computed CAC range — derives from this country's persona
+        // pool (channel mentions + funnel signal) instead of trusting the
+        // LLM's free-styled cacEstimateUsd. Returns undefined when the
+        // pool is too thin (<5 personas) or the helper hits a degenerate
+        // case; renderer falls back to cacEstimateUsd.median in those
+        // paths so legacy ensembles still render.
+        cacRange: (() => {
+          const result = computeCacFromPersonas({
+            countryCode: country,
+            category: opts.category ?? null,
+            originatingCountry: opts.originatingCountry ?? "KR",
+            personas: inCountry.map((p) => ({
+              country: p.country,
+              purchaseIntent: p.purchaseIntent,
+              voice: p.voice,
+              trustFactors: p.trustFactors,
+              objections: p.objections,
+              adReaction: p.adReaction,
+            })),
+          });
+          if (!result) return undefined;
+          return {
+            lowUsd: result.lowUsd,
+            medianUsd: result.medianUsd,
+            highUsd: result.highUsd,
+            components: result.components,
+            newBrandMultiplier: result.newBrandMultiplier,
+            benchmark: {
+              category: result.benchmark.category,
+              tier: result.benchmark.tier,
+              stage: result.benchmark.stage,
+              rangeLow: result.benchmark.range.low,
+              rangeHigh: result.benchmark.range.high,
+            },
+            benchmarkFlag: result.benchmarkFlag,
+            personaSampleSize: result.personaSampleSize,
+            rationaleKo: result.rationaleKo,
+            rationaleEn: result.rationaleEn,
+          };
+        })(),
         competitionScore: { mean: round1(mean(b.comp)), median: round1(median(b.comp)) },
         components,
         detail: {

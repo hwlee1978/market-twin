@@ -4532,7 +4532,12 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     const recCountryStats = aggregate.countryStats.find(
       (c) => c.country.toUpperCase() === recCountry.toUpperCase(),
     );
-    const cacUsd = recCountryStats?.cacEstimateUsd.mean ?? null;
+    // Prefer server-computed CAC range; fall back to LLM median for
+    // legacy ensembles. Same precedence as the dashboard (EnsembleView
+    // DecisionAidTab) so PDF and dashboard never disagree on the
+    // headline number.
+    const cacRange = recCountryStats?.cacRange ?? null;
+    const cacUsd = cacRange?.medianUsd ?? recCountryStats?.cacEstimateUsd.mean ?? null;
     if (cacUsd == null) return null;
 
     const fmt = (cents: number) => formatPrice(cents, project?.currency);
@@ -4601,11 +4606,39 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 {isKo ? "CAC (고객 획득 비용)" : "CAC"}
               </MText>
               <MText style={{ fontSize: 11, color: C.ink, fontWeight: 700, marginTop: 2 }}>
-                {fmt(cacInTargetCents)}
+                {cacRange ? `${fmt(cacInTargetCents)}  median` : fmt(cacInTargetCents)}
               </MText>
-              <MText style={{ fontSize: 7, color: C.muted, marginTop: 1 }}>
-                {`($${cacUsd.toFixed(2)})`}
-              </MText>
+              {cacRange ? (
+                <>
+                  <MText style={{ fontSize: 7, color: C.muted, marginTop: 1 }}>
+                    {isKo
+                      ? `범위 ${fmt(Math.round(cacRange.lowUsd * 100 * usdRate))}–${fmt(Math.round(cacRange.highUsd * 100 * usdRate))}`
+                      : `Range ${fmt(Math.round(cacRange.lowUsd * 100 * usdRate))}–${fmt(Math.round(cacRange.highUsd * 100 * usdRate))}`}
+                  </MText>
+                  <MText style={{ fontSize: 6.5, color: C.faint, marginTop: 1 }}>
+                    {`($${cacRange.lowUsd.toFixed(0)}–$${cacRange.highUsd.toFixed(0)} · multiplier ${cacRange.newBrandMultiplier}× · benchmark $${cacRange.benchmark.rangeLow}-${cacRange.benchmark.rangeHigh})`}
+                  </MText>
+                  {cacRange.benchmarkFlag.status !== "in-range" && (
+                    <MText
+                      style={{
+                        fontSize: 6.5,
+                        color:
+                          cacRange.benchmarkFlag.status === "below-range"
+                            ? C.warn
+                            : C.risk,
+                        marginTop: 2,
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {cacRange.benchmarkFlag.message}
+                    </MText>
+                  )}
+                </>
+              ) : (
+                <MText style={{ fontSize: 7, color: C.muted, marginTop: 1 }}>
+                  {`($${cacUsd.toFixed(2)})`}
+                </MText>
+              )}
             </View>
           </View>
         </View>
