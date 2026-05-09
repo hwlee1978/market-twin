@@ -2441,7 +2441,10 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           const final = c.finalScore.mean;
           const channel = c.components?.channelMatch.mean ?? null;
           const reg = c.components?.regulatory.mean ?? null;
-          const topBlocker = pickMarketBlocker(c.detail?.topObjections);
+          const topBlocker = pickMarketBlocker(
+            c.detail?.topObjections,
+            c.detail?.objectionCategoryDistribution,
+          );
           const verdict = perCountryVerdict(final, reg);
           const verdictLabel = isKo ? verdict.label.ko : verdict.label.en;
 
@@ -6689,21 +6692,49 @@ function isPriceObjectionText(text: string): boolean {
  */
 function pickMarketBlocker(
   objections: Array<{ text: string; count: number }> | undefined,
+  categoryDistribution?: Array<{
+    category: string;
+    count: number;
+    representativeDetail: string;
+  }>,
 ): string {
-  if (!objections || objections.length === 0) return "—";
-  // Three-pass selection: every layer below catches a different failure
-  // mode the cross-country blocker table has hit.
+  // Phase 3 — when the aggregator emitted taxonomy-keyed distribution
+  // (Phase 2 onward), use the modal non-price category as the column
+  // value. Deterministic across runs: same category counts → same
+  // emitted blocker. The free-text representative detail is shown so
+  // the user reads a concrete sentence ("Allbirds Wool Runner 대비
+  // 사이즈 작음") rather than a bare enum code.
   //
-  // Pass 1: best case — non-price, non-noise, anchored. This is what
-  // the column was designed for; if a market has any non-price blocker
-  // in its top-N, surface that. Earlier revisions only filtered
-  // BARE-adjective price phrases ("가격이 높음"), so anchored variants
-  // like "Allbirds 대비 가격이 높음" survived and dominated every
-  // market — the table read "every market has a price problem", which
-  // is the same as having no comparative signal at all. With Pass 1 in
-  // place, climate fit / channel availability / size range / brand
-  // familiarity / specific anchor blockers get surfaced when they
-  // exist.
+  // Skip price-themed categories (price_relative, price_absolute) on
+  // Pass 1 so the cross-country column doesn't collapse onto the same
+  // universal complaint as before. Falls back to price-themed
+  // categories on Pass 2 when nothing else is in the distribution.
+  // 'other' goes last because the renderer can't translate it to a
+  // meaningful category label.
+  if (categoryDistribution && categoryDistribution.length > 0) {
+    const PRICE_CATEGORIES = new Set(["price_relative", "price_absolute"]);
+    const sorted = [...categoryDistribution].sort((a, b) => b.count - a.count);
+    // Pass 1: non-price, non-other modal.
+    for (const entry of sorted) {
+      if (PRICE_CATEGORIES.has(entry.category)) continue;
+      if (entry.category === "other") continue;
+      if (entry.representativeDetail) return entry.representativeDetail;
+    }
+    // Pass 2: price-themed allowed.
+    for (const entry of sorted) {
+      if (entry.category === "other") continue;
+      if (entry.representativeDetail) return entry.representativeDetail;
+    }
+    // Pass 3: any (other) detail.
+    for (const entry of sorted) {
+      if (entry.representativeDetail) return entry.representativeDetail;
+    }
+  }
+
+  // Legacy path — aggregate has no category distribution (pre-Phase 2
+  // ensemble). Use the original three-pass free-text fuzzy-cluster
+  // logic so old reports still render correctly.
+  if (!objections || objections.length === 0) return "—";
   for (const o of objections) {
     if (isPersonaMismatchNoise(o.text)) continue;
     if (isGenericPriceObjection(o.text)) continue;
@@ -6712,10 +6743,6 @@ function pickMarketBlocker(
     if (isPriceThemedBlocker(o.text)) continue;
     return o.text;
   }
-  // Pass 2: anchored price-themed blockers ARE useful when no non-price
-  // option exists in the top-N — at least the column reads "the price
-  // worry is anchored on Allbirds vs ASOS" instead of blanking. Original
-  // filter chain (mismatch / generic / launch-concern / bare-adjective).
   for (const o of objections) {
     if (isPersonaMismatchNoise(o.text)) continue;
     if (isGenericPriceObjection(o.text)) continue;
@@ -6723,7 +6750,6 @@ function pickMarketBlocker(
     if (isBareAdjectiveSignal(o.text)) continue;
     return o.text;
   }
-  // Pass 3: last resort — anything non-mismatch so we don't blank.
   for (const o of objections) {
     if (!isPersonaMismatchNoise(o.text)) return o.text;
   }
