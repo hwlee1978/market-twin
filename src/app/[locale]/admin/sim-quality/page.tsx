@@ -6,6 +6,7 @@ import {
   isGenericPriceObjection,
   isGenericTrustFactor,
 } from "@/lib/simulation/surfaced-recount";
+import { categoryLabel } from "@/lib/simulation/taxonomy";
 
 interface QualityRow {
   simulation_id: string;
@@ -132,6 +133,81 @@ export default async function AdminSimQualityPage({
     if (q.quarantined) cur.quarantined++;
     byProvider.set(prov, cur);
   }
+
+  // ── Taxonomy coverage (last 30d ensembles) ──────────────────────
+  // Walks the persisted aggregate_result of every completed ensemble in
+  // the window and tallies category emits across countryStats[].detail.
+  // Drives the "is the taxonomy fitting real product mix?" question
+  // for the 2026-06-09 monthly review (see memory taxonomy_monitoring_review).
+  // 'other' rate above ~20% on any taxonomy is a signal that real
+  // emit patterns aren't covered by the existing categories — extend.
+  // 'other' rate below 5% with several categories at <2% is a signal
+  // categories may be too granular — consider merging.
+  const { data: rawEnsembles } = await admin
+    .from("ensembles")
+    .select("aggregate_result")
+    .eq("status", "completed")
+    .gte("completed_at", since30d)
+    .order("completed_at", { ascending: false })
+    .limit(500);
+  type AggregateShape = {
+    countryStats?: Array<{
+      detail?: {
+        objectionCategoryDistribution?: Array<{ category: string; count: number }>;
+        trustCategoryDistribution?: Array<{ category: string; count: number }>;
+      };
+    }>;
+  };
+  const objCategoryCounts = new Map<string, number>();
+  const trustCategoryCounts = new Map<string, number>();
+  let objTotalEmits = 0;
+  let trustTotalEmits = 0;
+  let objEnsemblesWithData = 0;
+  let trustEnsemblesWithData = 0;
+  for (const row of rawEnsembles ?? []) {
+    const agg = (row as { aggregate_result?: AggregateShape }).aggregate_result;
+    if (!agg?.countryStats) continue;
+    let objHadAny = false;
+    let trustHadAny = false;
+    for (const c of agg.countryStats) {
+      for (const e of c.detail?.objectionCategoryDistribution ?? []) {
+        objCategoryCounts.set(
+          e.category,
+          (objCategoryCounts.get(e.category) ?? 0) + e.count,
+        );
+        objTotalEmits += e.count;
+        objHadAny = true;
+      }
+      for (const e of c.detail?.trustCategoryDistribution ?? []) {
+        trustCategoryCounts.set(
+          e.category,
+          (trustCategoryCounts.get(e.category) ?? 0) + e.count,
+        );
+        trustTotalEmits += e.count;
+        trustHadAny = true;
+      }
+    }
+    if (objHadAny) objEnsemblesWithData++;
+    if (trustHadAny) trustEnsemblesWithData++;
+  }
+  const taxonomyDist = (counts: Map<string, number>, total: number) =>
+    [...counts.entries()]
+      .map(([category, count]) => ({
+        category,
+        count,
+        sharePct: total > 0 ? (count / total) * 100 : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+  const objDist = taxonomyDist(objCategoryCounts, objTotalEmits);
+  const trustDist = taxonomyDist(trustCategoryCounts, trustTotalEmits);
+  const objOtherShare =
+    objTotalEmits > 0
+      ? ((objCategoryCounts.get("other") ?? 0) / objTotalEmits) * 100
+      : 0;
+  const trustOtherShare =
+    trustTotalEmits > 0
+      ? ((trustCategoryCounts.get("other") ?? 0) / trustTotalEmits) * 100
+      : 0;
 
   // ── Persona quality (last 7d, sample of 50 most-recent sims) ─────
   // Pulls actual persona arrays from simulation_results to compute
@@ -608,6 +684,42 @@ export default async function AdminSimQualityPage({
         </div>
       )}
 
+      {/* Taxonomy coverage — Phase 4 monitoring panel */}
+      {(objTotalEmits > 0 || trustTotalEmits > 0) && (
+        <div className="card p-5">
+          <h2 className="text-lg font-semibold text-slate-900 mb-1">
+            {isKo ? "Taxonomy 커버리지 (지난 30일)" : "Taxonomy coverage (last 30d)"}
+          </h2>
+          <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+            {isKo
+              ? `${objEnsemblesWithData}건의 ensemble에서 카테고리 데이터 수집. 'other' 비율이 20% 초과면 카테고리 누락 신호 — 확장 검토. 5% 미만이면 너무 세분화 — 통합 검토.`
+              : `Category data collected from ${objEnsemblesWithData} ensembles. >20% 'other' = missing categories (extend). <5% = too granular (consider merging).`}
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {objTotalEmits > 0 && (
+              <TaxonomyPanel
+                title={isKo ? "거부 요인 카테고리" : "Objection categories"}
+                taxonomy="objection"
+                dist={objDist}
+                otherShare={objOtherShare}
+                totalEmits={objTotalEmits}
+                isKo={isKo}
+              />
+            )}
+            {trustTotalEmits > 0 && (
+              <TaxonomyPanel
+                title={isKo ? "신뢰 신호 카테고리" : "Trust factor categories"}
+                taxonomy="trust"
+                dist={trustDist}
+                otherShare={trustOtherShare}
+                totalEmits={trustTotalEmits}
+                isKo={isKo}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Failover stat — informational, not a problem */}
       {failoverFired > 0 && (
         <div className="card p-4 bg-slate-50 border-slate-200">
@@ -618,6 +730,106 @@ export default async function AdminSimQualityPage({
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Render a single-taxonomy coverage panel — bar chart of category
+ * shares + 'other' rate KPI. Color-coded: green ≤5% other (well-fit),
+ * amber 5-20% (acceptable), red >20% (extend categories).
+ */
+function TaxonomyPanel({
+  title,
+  taxonomy,
+  dist,
+  otherShare,
+  totalEmits,
+  isKo,
+}: {
+  title: string;
+  taxonomy: "objection" | "trust";
+  dist: Array<{ category: string; count: number; sharePct: number }>;
+  otherShare: number;
+  totalEmits: number;
+  isKo: boolean;
+}) {
+  const otherTone =
+    otherShare > 20
+      ? "text-risk"
+      : otherShare > 5
+        ? "text-warn"
+        : "text-success";
+  const otherToneBg =
+    otherShare > 20
+      ? "bg-risk-soft/30 border-risk/30"
+      : otherShare > 5
+        ? "bg-warn-soft/30 border-warn/30"
+        : "bg-success-soft/30 border-success/30";
+  const otherVerdict =
+    otherShare > 20
+      ? isKo
+        ? "확장 필요"
+        : "Extend categories"
+      : otherShare > 5
+        ? isKo
+          ? "정상 범위"
+          : "Acceptable"
+        : isKo
+          ? "잘 적합"
+          : "Well-fit";
+  const maxCount = Math.max(...dist.map((d) => d.count), 1);
+  return (
+    <div className="border border-slate-200 rounded-lg p-4">
+      <div className="flex items-baseline justify-between mb-2 gap-2">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+          <p className="text-[10px] text-slate-400 mt-0.5">
+            {isKo ? `총 ${totalEmits} 항목` : `${totalEmits} total emits`}
+          </p>
+        </div>
+        <div
+          className={`text-xs px-2 py-1 rounded-md border ${otherToneBg}`}
+          title={
+            isKo
+              ? "20% 초과 — 카테고리 확장 / 5% 미만 — 카테고리 통합 검토 / 5-20% — 정상"
+              : ">20% extend categories / <5% consider merging / 5-20% acceptable"
+          }
+        >
+          <span className={`font-semibold ${otherTone}`}>
+            {`'other' ${otherShare.toFixed(1)}%`}
+          </span>
+          <span className="text-slate-500 ml-1.5">— {otherVerdict}</span>
+        </div>
+      </div>
+      <div className="space-y-1.5 mt-3">
+        {dist.map((d) => {
+          const label = categoryLabel(taxonomy, d.category, isKo ? "ko" : "en");
+          const isOther = d.category === "other";
+          return (
+            <div key={d.category} className="flex items-center gap-2 text-xs">
+              <div
+                className={`w-32 truncate ${isOther ? "text-slate-400 italic" : "text-slate-700"}`}
+                title={label}
+              >
+                {label}
+              </div>
+              <div className="flex-1 h-3 bg-slate-100 rounded-sm overflow-hidden">
+                <div
+                  className={isOther ? "bg-slate-400 h-full" : "bg-brand h-full"}
+                  style={{ width: `${(d.count / maxCount) * 100}%` }}
+                />
+              </div>
+              <div className="w-12 text-right tabular-nums text-slate-600">
+                {d.sharePct.toFixed(1)}%
+              </div>
+              <div className="w-10 text-right tabular-nums text-slate-400">
+                {d.count}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
