@@ -675,15 +675,24 @@ Use these medians as the basis for cacEstimateUsd. Do NOT free-style a number �
 ${channelCostsBlock}
 
 CAC formula:
-  blended_CPM_or_CPC × your_assumed_channel_mix / (CTR × CVR × funnel_friction)
+  base_CAC = blended_CPM_or_CPC × your_assumed_channel_mix / (CTR × CVR)
+  cacEstimateUsd = base_CAC × NEW_BRAND_MULTIPLIER
 
-Persona-derived funnel signal (already aggregated above):
-  CTR ≈ click rate from intent histogram (use channel-typical if not derivable)
-  CVR ≈ buy rate from intent ≥60 ratio
+The CTR/CVR medians above are already CALIBRATED for cold paid traffic — do NOT additionally divide by an "intent" factor or substitute persona-derived buy rates. Persona purchaseIntent is stated intent against a curated audience, not a click-through-buy rate of an ad-served cold audience; combining the two double-discounts.
 
-For each country, emit cacRationale (string) showing your work — example:
-  "Mix: 60% Meta IG @ CPM $12 + 30% Google Search @ CPC $1.4 + 10% TikTok @ CPM $10. Funnel: CTR 1.4%, CVR 4.5%. Blended CAC ≈ $18.50."
-This text appears in the report so the user can audit the assumptions. If your CAC differs from the channel-cost arithmetic by >50%, the rationale must explain why (e.g. brand-awareness gap inflates spend, niche category needs influencer-led acquisition outside paid).
+═══ NEW-BRAND ENTRY MULTIPLIER (mandatory) ═══
+This product is launching as an UNKNOWN export brand from ${input.originatingCountry} in each candidate market. There is no organic search demand, no review depth, no peer-of-peer trust. Apply a brand-awareness multiplier to base_CAC reflecting:
+  - Cold-cold audience (no recognition) requires retargeting + frequency loops to convert. First-90-day blended CAC runs 1.3-2.0× the channel-cost arithmetic.
+  - Bottom-funnel marketplace channels (Amazon, Coupang, Shopee, Rakuten, Tmall) get a SMALLER multiplier (1.2-1.5×) because intent is captured at the search stage, but new-brand still loses to category-leaders on the SERP.
+
+Multiplier guidance (pick one, document in cacRationale):
+  · 1.3-1.5× — cultural-halo categories with pre-existing tailwind (K-beauty into JP/SE Asia, K-snack into US, K-fashion in TW).
+  · 1.5-1.8× — typical cross-border DTC (most cases). Default unless you have a specific reason to deviate.
+  · 1.8-2.0× — premium / luxury positioning where trust signals are critical, OR low-context buyer cultures (US, UK, DE) where unfamiliar brand = friction.
+
+For each country, emit cacRationale (string) showing your work — REQUIRED format:
+  "Mix: 60% Meta @ CPM $X + 30% Google Search @ CPC $Y + 10% [local channel]. Channel arithmetic: base CAC ≈ $A. New-brand multiplier 1.6× (typical cross-border DTC). Final CAC ≈ $B."
+This appears in the report so the user can audit. Without an explicit multiplier line, the rationale fails review.
 
 ${languageInstruction(locale)}
 

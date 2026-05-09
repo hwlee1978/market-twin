@@ -36,6 +36,19 @@
  * with creative quality, audience targeting, season, and competition
  * within the category. Treat the LLM's grounded estimate as a
  * reasonable benchmark, not a guarantee.
+ *
+ * 2026-05-09 calibration — CVR values were originally set to category
+ * MEDIAN (warm/retargeting + brand-aware traffic mixed in). Our use
+ * case is the OPPOSITE: an unknown export brand acquiring cold
+ * audiences in a new market, where realistic CVR runs 0.5-1.5x our
+ * old numbers. Net effect on Le Mouton SG: CAC went from $14.94
+ * (M:R 4%, "건강") to a realistic $50-80 (M:R 30-50%, "주의") —
+ * which matches Allbirds/Veja public benchmarks for first-90-day
+ * cross-border DTC. Marketplace channels (Amazon, Coupang, Shopee,
+ * Rakuten, Tmall) keep higher CVR because intent is already
+ * captured at the search stage; their CVR was lowered modestly
+ * to reflect the unknown-brand vs. category-leader gap on those
+ * platforms.
  */
 
 // ─── Country cost index ──────────────────────────────────────────
@@ -138,124 +151,126 @@ export interface CostMetrics {
  * keywords).
  */
 export const CHANNEL_CATEGORY_MATRIX: Record<Channel, Record<CostCategory, CostMetrics>> = {
-  // ── Meta (IG + FB) — broad reach, mid-funnel discovery ──
+  // ── Meta (IG + FB) — broad reach, mid-funnel discovery (cold) ──
   meta: {
-    beauty:      { cpmUsd: 12, cpcUsd: 1.2, ctrPct: 1.4, cvrPct: 4.5 },
-    fashion:     { cpmUsd: 11, cpcUsd: 1.0, ctrPct: 1.5, cvrPct: 4.0 },
-    food:        { cpmUsd: 10, cpcUsd: 0.9, ctrPct: 1.3, cvrPct: 3.8 },
-    health:      { cpmUsd: 14, cpcUsd: 1.6, ctrPct: 1.2, cvrPct: 3.2 },
-    electronics: { cpmUsd: 13, cpcUsd: 1.4, ctrPct: 1.0, cvrPct: 2.8 },
-    saas:        { cpmUsd: 16, cpcUsd: 3.5, ctrPct: 0.9, cvrPct: 2.2 },
-    home:        { cpmUsd: 11, cpcUsd: 1.1, ctrPct: 1.2, cvrPct: 3.0 },
-    ip:          { cpmUsd: 9,  cpcUsd: 0.7, ctrPct: 1.8, cvrPct: 4.5 },
+    beauty:      { cpmUsd: 12, cpcUsd: 1.2, ctrPct: 1.4, cvrPct: 1.5 },
+    fashion:     { cpmUsd: 11, cpcUsd: 1.0, ctrPct: 1.5, cvrPct: 1.2 },
+    food:        { cpmUsd: 10, cpcUsd: 0.9, ctrPct: 1.3, cvrPct: 1.3 },
+    health:      { cpmUsd: 14, cpcUsd: 1.6, ctrPct: 1.2, cvrPct: 1.0 },
+    electronics: { cpmUsd: 13, cpcUsd: 1.4, ctrPct: 1.0, cvrPct: 0.9 },
+    saas:        { cpmUsd: 16, cpcUsd: 3.5, ctrPct: 0.9, cvrPct: 0.8 },
+    home:        { cpmUsd: 11, cpcUsd: 1.1, ctrPct: 1.2, cvrPct: 1.0 },
+    ip:          { cpmUsd: 9,  cpcUsd: 0.7, ctrPct: 1.8, cvrPct: 1.6 },
   },
 
-  // ── Google Search — high-intent, expensive CPC ──
+  // ── Google Search — high-intent (cold but searcher signaled need) ──
   googleSearch: {
-    beauty:      { cpmUsd: 0,  cpcUsd: 1.4, ctrPct: 5.0, cvrPct: 4.5 },
-    fashion:     { cpmUsd: 0,  cpcUsd: 1.2, ctrPct: 5.5, cvrPct: 4.0 },
-    food:        { cpmUsd: 0,  cpcUsd: 1.0, ctrPct: 5.0, cvrPct: 4.0 },
-    health:      { cpmUsd: 0,  cpcUsd: 2.6, ctrPct: 4.5, cvrPct: 3.5 },
-    electronics: { cpmUsd: 0,  cpcUsd: 1.7, ctrPct: 4.0, cvrPct: 3.5 },
-    saas:        { cpmUsd: 0,  cpcUsd: 4.2, ctrPct: 3.5, cvrPct: 3.0 },
-    home:        { cpmUsd: 0,  cpcUsd: 1.6, ctrPct: 4.5, cvrPct: 3.5 },
-    ip:          { cpmUsd: 0,  cpcUsd: 0.8, ctrPct: 5.5, cvrPct: 4.0 },
+    beauty:      { cpmUsd: 0,  cpcUsd: 1.4, ctrPct: 5.0, cvrPct: 2.5 },
+    fashion:     { cpmUsd: 0,  cpcUsd: 1.2, ctrPct: 5.5, cvrPct: 2.2 },
+    food:        { cpmUsd: 0,  cpcUsd: 1.0, ctrPct: 5.0, cvrPct: 2.0 },
+    health:      { cpmUsd: 0,  cpcUsd: 2.6, ctrPct: 4.5, cvrPct: 1.8 },
+    electronics: { cpmUsd: 0,  cpcUsd: 1.7, ctrPct: 4.0, cvrPct: 1.8 },
+    saas:        { cpmUsd: 0,  cpcUsd: 4.2, ctrPct: 3.5, cvrPct: 1.5 },
+    home:        { cpmUsd: 0,  cpcUsd: 1.6, ctrPct: 4.5, cvrPct: 1.8 },
+    ip:          { cpmUsd: 0,  cpcUsd: 0.8, ctrPct: 5.5, cvrPct: 2.0 },
   },
 
-  // ── Google Display — display network, low-intent ──
+  // ── Google Display — display network, low-intent (cold) ──
   googleDisplay: {
-    beauty:      { cpmUsd: 4,  cpcUsd: 0.6, ctrPct: 0.6, cvrPct: 1.5 },
-    fashion:     { cpmUsd: 4,  cpcUsd: 0.55, ctrPct: 0.6, cvrPct: 1.4 },
-    food:        { cpmUsd: 3,  cpcUsd: 0.5, ctrPct: 0.5, cvrPct: 1.4 },
-    health:      { cpmUsd: 4.5, cpcUsd: 0.7, ctrPct: 0.5, cvrPct: 1.2 },
-    electronics: { cpmUsd: 4,  cpcUsd: 0.6, ctrPct: 0.5, cvrPct: 1.0 },
-    saas:        { cpmUsd: 5,  cpcUsd: 1.2, ctrPct: 0.4, cvrPct: 0.8 },
-    home:        { cpmUsd: 4,  cpcUsd: 0.55, ctrPct: 0.5, cvrPct: 1.2 },
-    ip:          { cpmUsd: 3,  cpcUsd: 0.4, ctrPct: 0.7, cvrPct: 1.5 },
+    beauty:      { cpmUsd: 4,  cpcUsd: 0.6, ctrPct: 0.6, cvrPct: 0.6 },
+    fashion:     { cpmUsd: 4,  cpcUsd: 0.55, ctrPct: 0.6, cvrPct: 0.5 },
+    food:        { cpmUsd: 3,  cpcUsd: 0.5, ctrPct: 0.5, cvrPct: 0.5 },
+    health:      { cpmUsd: 4.5, cpcUsd: 0.7, ctrPct: 0.5, cvrPct: 0.4 },
+    electronics: { cpmUsd: 4,  cpcUsd: 0.6, ctrPct: 0.5, cvrPct: 0.4 },
+    saas:        { cpmUsd: 5,  cpcUsd: 1.2, ctrPct: 0.4, cvrPct: 0.3 },
+    home:        { cpmUsd: 4,  cpcUsd: 0.55, ctrPct: 0.5, cvrPct: 0.5 },
+    ip:          { cpmUsd: 3,  cpcUsd: 0.4, ctrPct: 0.7, cvrPct: 0.6 },
   },
 
-  // ── YouTube — video ads, mid-funnel awareness ──
+  // ── YouTube — video ads, mid-funnel awareness (cold) ──
   youtube: {
-    beauty:      { cpmUsd: 8,  cpcUsd: null, ctrPct: 0.6, cvrPct: 1.8 },
-    fashion:     { cpmUsd: 7,  cpcUsd: null, ctrPct: 0.65, cvrPct: 1.6 },
-    food:        { cpmUsd: 6,  cpcUsd: null, ctrPct: 0.5, cvrPct: 1.5 },
-    health:      { cpmUsd: 9,  cpcUsd: null, ctrPct: 0.5, cvrPct: 1.3 },
-    electronics: { cpmUsd: 8,  cpcUsd: null, ctrPct: 0.45, cvrPct: 1.2 },
-    saas:        { cpmUsd: 11, cpcUsd: null, ctrPct: 0.4, cvrPct: 1.0 },
-    home:        { cpmUsd: 7,  cpcUsd: null, ctrPct: 0.5, cvrPct: 1.3 },
-    ip:          { cpmUsd: 5,  cpcUsd: null, ctrPct: 0.8, cvrPct: 2.0 },
+    beauty:      { cpmUsd: 8,  cpcUsd: null, ctrPct: 0.6, cvrPct: 0.9 },
+    fashion:     { cpmUsd: 7,  cpcUsd: null, ctrPct: 0.65, cvrPct: 0.8 },
+    food:        { cpmUsd: 6,  cpcUsd: null, ctrPct: 0.5, cvrPct: 0.8 },
+    health:      { cpmUsd: 9,  cpcUsd: null, ctrPct: 0.5, cvrPct: 0.7 },
+    electronics: { cpmUsd: 8,  cpcUsd: null, ctrPct: 0.45, cvrPct: 0.6 },
+    saas:        { cpmUsd: 11, cpcUsd: null, ctrPct: 0.4, cvrPct: 0.5 },
+    home:        { cpmUsd: 7,  cpcUsd: null, ctrPct: 0.5, cvrPct: 0.7 },
+    ip:          { cpmUsd: 5,  cpcUsd: null, ctrPct: 0.8, cvrPct: 1.0 },
   },
 
-  // ── TikTok — high engagement, younger skew, viral upside ──
+  // ── TikTok — discovery, high engagement, viral upside (cold) ──
   tiktok: {
-    beauty:      { cpmUsd: 10, cpcUsd: 1.0, ctrPct: 1.6, cvrPct: 3.2 },
-    fashion:     { cpmUsd: 9,  cpcUsd: 0.9, ctrPct: 1.8, cvrPct: 3.0 },
-    food:        { cpmUsd: 8,  cpcUsd: 0.8, ctrPct: 1.5, cvrPct: 2.8 },
-    health:      { cpmUsd: 11, cpcUsd: 1.3, ctrPct: 1.3, cvrPct: 2.4 },
-    electronics: { cpmUsd: 10, cpcUsd: 1.1, ctrPct: 1.2, cvrPct: 2.0 },
-    saas:        { cpmUsd: 12, cpcUsd: 2.5, ctrPct: 1.0, cvrPct: 1.5 },
-    home:        { cpmUsd: 9,  cpcUsd: 0.9, ctrPct: 1.4, cvrPct: 2.4 },
-    ip:          { cpmUsd: 6,  cpcUsd: 0.5, ctrPct: 2.5, cvrPct: 4.0 },
+    beauty:      { cpmUsd: 10, cpcUsd: 1.0, ctrPct: 1.6, cvrPct: 1.1 },
+    fashion:     { cpmUsd: 9,  cpcUsd: 0.9, ctrPct: 1.8, cvrPct: 1.0 },
+    food:        { cpmUsd: 8,  cpcUsd: 0.8, ctrPct: 1.5, cvrPct: 1.0 },
+    health:      { cpmUsd: 11, cpcUsd: 1.3, ctrPct: 1.3, cvrPct: 0.8 },
+    electronics: { cpmUsd: 10, cpcUsd: 1.1, ctrPct: 1.2, cvrPct: 0.7 },
+    saas:        { cpmUsd: 12, cpcUsd: 2.5, ctrPct: 1.0, cvrPct: 0.6 },
+    home:        { cpmUsd: 9,  cpcUsd: 0.9, ctrPct: 1.4, cvrPct: 0.8 },
+    ip:          { cpmUsd: 6,  cpcUsd: 0.5, ctrPct: 2.5, cvrPct: 1.5 },
   },
 
-  // ── Amazon Ads — bottom-funnel, marketplace-bound ──
+  // ── Amazon Ads — bottom-funnel, marketplace-bound (intent already
+  //    captured at search; CVR moderately lowered to reflect new-brand
+  //    vs. category-leader gap on the marketplace) ──
   amazon: {
-    beauty:      { cpmUsd: 0,  cpcUsd: 1.1, ctrPct: 0.4, cvrPct: 9.0 },
-    fashion:     { cpmUsd: 0,  cpcUsd: 0.9, ctrPct: 0.4, cvrPct: 8.0 },
-    food:        { cpmUsd: 0,  cpcUsd: 0.85, ctrPct: 0.4, cvrPct: 9.5 },
-    health:      { cpmUsd: 0,  cpcUsd: 1.3, ctrPct: 0.4, cvrPct: 8.5 },
-    electronics: { cpmUsd: 0,  cpcUsd: 0.95, ctrPct: 0.5, cvrPct: 7.5 },
-    saas:        { cpmUsd: 0,  cpcUsd: 2.5, ctrPct: 0.3, cvrPct: 4.0 },
-    home:        { cpmUsd: 0,  cpcUsd: 0.85, ctrPct: 0.4, cvrPct: 8.5 },
-    ip:          { cpmUsd: 0,  cpcUsd: 0.7, ctrPct: 0.5, cvrPct: 7.0 },
+    beauty:      { cpmUsd: 0,  cpcUsd: 1.1, ctrPct: 0.4, cvrPct: 5.5 },
+    fashion:     { cpmUsd: 0,  cpcUsd: 0.9, ctrPct: 0.4, cvrPct: 5.0 },
+    food:        { cpmUsd: 0,  cpcUsd: 0.85, ctrPct: 0.4, cvrPct: 6.0 },
+    health:      { cpmUsd: 0,  cpcUsd: 1.3, ctrPct: 0.4, cvrPct: 5.5 },
+    electronics: { cpmUsd: 0,  cpcUsd: 0.95, ctrPct: 0.5, cvrPct: 4.5 },
+    saas:        { cpmUsd: 0,  cpcUsd: 2.5, ctrPct: 0.3, cvrPct: 2.5 },
+    home:        { cpmUsd: 0,  cpcUsd: 0.85, ctrPct: 0.4, cvrPct: 5.5 },
+    ip:          { cpmUsd: 0,  cpcUsd: 0.7, ctrPct: 0.5, cvrPct: 4.5 },
   },
 
-  // ── Pinterest — discovery-led, female-skewed; strong for home/beauty/fashion ──
+  // ── Pinterest — discovery-led, female-skewed (cold) ──
   pinterest: {
-    beauty:      { cpmUsd: 7,  cpcUsd: 0.7, ctrPct: 0.9, cvrPct: 2.5 },
-    fashion:     { cpmUsd: 7,  cpcUsd: 0.65, ctrPct: 1.0, cvrPct: 2.2 },
-    food:        { cpmUsd: 6,  cpcUsd: 0.55, ctrPct: 0.8, cvrPct: 2.0 },
-    health:      { cpmUsd: 8,  cpcUsd: 0.85, ctrPct: 0.7, cvrPct: 1.8 },
-    electronics: { cpmUsd: 7,  cpcUsd: 0.75, ctrPct: 0.6, cvrPct: 1.5 },
-    saas:        { cpmUsd: 9,  cpcUsd: 1.5, ctrPct: 0.5, cvrPct: 1.0 },
-    home:        { cpmUsd: 6,  cpcUsd: 0.6, ctrPct: 1.1, cvrPct: 2.5 },
-    ip:          { cpmUsd: 6,  cpcUsd: 0.55, ctrPct: 1.2, cvrPct: 2.4 },
+    beauty:      { cpmUsd: 7,  cpcUsd: 0.7, ctrPct: 0.9, cvrPct: 1.0 },
+    fashion:     { cpmUsd: 7,  cpcUsd: 0.65, ctrPct: 1.0, cvrPct: 0.9 },
+    food:        { cpmUsd: 6,  cpcUsd: 0.55, ctrPct: 0.8, cvrPct: 0.9 },
+    health:      { cpmUsd: 8,  cpcUsd: 0.85, ctrPct: 0.7, cvrPct: 0.7 },
+    electronics: { cpmUsd: 7,  cpcUsd: 0.75, ctrPct: 0.6, cvrPct: 0.6 },
+    saas:        { cpmUsd: 9,  cpcUsd: 1.5, ctrPct: 0.5, cvrPct: 0.5 },
+    home:        { cpmUsd: 6,  cpcUsd: 0.6, ctrPct: 1.1, cvrPct: 1.0 },
+    ip:          { cpmUsd: 6,  cpcUsd: 0.55, ctrPct: 1.2, cvrPct: 1.0 },
   },
 
-  // ── LinkedIn — B2B-skewed; very high CPC, low volume for B2C ──
+  // ── LinkedIn — B2B-skewed; very high CPC, low B2C volume (cold) ──
   linkedin: {
-    beauty:      { cpmUsd: 30, cpcUsd: 5.0, ctrPct: 0.4, cvrPct: 2.0 },
-    fashion:     { cpmUsd: 30, cpcUsd: 5.0, ctrPct: 0.4, cvrPct: 2.0 },
-    food:        { cpmUsd: 30, cpcUsd: 5.5, ctrPct: 0.4, cvrPct: 2.0 },
-    health:      { cpmUsd: 32, cpcUsd: 6.0, ctrPct: 0.4, cvrPct: 2.0 },
-    electronics: { cpmUsd: 30, cpcUsd: 5.5, ctrPct: 0.4, cvrPct: 2.0 },
-    saas:        { cpmUsd: 35, cpcUsd: 8.0, ctrPct: 0.5, cvrPct: 3.0 },
-    home:        { cpmUsd: 30, cpcUsd: 5.0, ctrPct: 0.4, cvrPct: 2.0 },
-    ip:          { cpmUsd: 28, cpcUsd: 4.5, ctrPct: 0.4, cvrPct: 2.0 },
+    beauty:      { cpmUsd: 30, cpcUsd: 5.0, ctrPct: 0.4, cvrPct: 1.0 },
+    fashion:     { cpmUsd: 30, cpcUsd: 5.0, ctrPct: 0.4, cvrPct: 1.0 },
+    food:        { cpmUsd: 30, cpcUsd: 5.5, ctrPct: 0.4, cvrPct: 1.0 },
+    health:      { cpmUsd: 32, cpcUsd: 6.0, ctrPct: 0.4, cvrPct: 1.0 },
+    electronics: { cpmUsd: 30, cpcUsd: 5.5, ctrPct: 0.4, cvrPct: 1.0 },
+    saas:        { cpmUsd: 35, cpcUsd: 8.0, ctrPct: 0.5, cvrPct: 1.5 },
+    home:        { cpmUsd: 30, cpcUsd: 5.0, ctrPct: 0.4, cvrPct: 1.0 },
+    ip:          { cpmUsd: 28, cpcUsd: 4.5, ctrPct: 0.4, cvrPct: 1.0 },
   },
 
-  // ── Snapchat — younger US/UK/IN audiences; AR/lens features for beauty/fashion ──
+  // ── Snapchat — younger audiences, AR/lens features (cold) ──
   snapchat: {
-    beauty:      { cpmUsd: 6,  cpcUsd: 0.7, ctrPct: 1.2, cvrPct: 2.5 },
-    fashion:     { cpmUsd: 6,  cpcUsd: 0.65, ctrPct: 1.3, cvrPct: 2.4 },
-    food:        { cpmUsd: 5,  cpcUsd: 0.55, ctrPct: 1.0, cvrPct: 2.0 },
-    health:      { cpmUsd: 7,  cpcUsd: 0.85, ctrPct: 0.9, cvrPct: 1.8 },
-    electronics: { cpmUsd: 6,  cpcUsd: 0.75, ctrPct: 0.8, cvrPct: 1.6 },
-    saas:        { cpmUsd: 8,  cpcUsd: 1.5, ctrPct: 0.7, cvrPct: 1.2 },
-    home:        { cpmUsd: 5,  cpcUsd: 0.6, ctrPct: 0.9, cvrPct: 1.8 },
-    ip:          { cpmUsd: 4,  cpcUsd: 0.4, ctrPct: 1.6, cvrPct: 3.0 },
+    beauty:      { cpmUsd: 6,  cpcUsd: 0.7, ctrPct: 1.2, cvrPct: 0.9 },
+    fashion:     { cpmUsd: 6,  cpcUsd: 0.65, ctrPct: 1.3, cvrPct: 0.9 },
+    food:        { cpmUsd: 5,  cpcUsd: 0.55, ctrPct: 1.0, cvrPct: 0.7 },
+    health:      { cpmUsd: 7,  cpcUsd: 0.85, ctrPct: 0.9, cvrPct: 0.6 },
+    electronics: { cpmUsd: 6,  cpcUsd: 0.75, ctrPct: 0.8, cvrPct: 0.6 },
+    saas:        { cpmUsd: 8,  cpcUsd: 1.5, ctrPct: 0.7, cvrPct: 0.5 },
+    home:        { cpmUsd: 5,  cpcUsd: 0.6, ctrPct: 0.9, cvrPct: 0.7 },
+    ip:          { cpmUsd: 4,  cpcUsd: 0.4, ctrPct: 1.6, cvrPct: 1.1 },
   },
 
-  // ── Reddit — community-bound; works well for niche (electronics/saas/ip) ──
+  // ── Reddit — community-bound; niche electronics/saas/ip strength (cold) ──
   reddit: {
-    beauty:      { cpmUsd: 5,  cpcUsd: 0.4, ctrPct: 0.8, cvrPct: 2.0 },
-    fashion:     { cpmUsd: 5,  cpcUsd: 0.4, ctrPct: 0.8, cvrPct: 1.8 },
-    food:        { cpmUsd: 4,  cpcUsd: 0.35, ctrPct: 0.7, cvrPct: 1.8 },
-    health:      { cpmUsd: 6,  cpcUsd: 0.55, ctrPct: 0.6, cvrPct: 1.6 },
-    electronics: { cpmUsd: 5,  cpcUsd: 0.45, ctrPct: 1.0, cvrPct: 2.2 },
-    saas:        { cpmUsd: 7,  cpcUsd: 0.9, ctrPct: 0.9, cvrPct: 2.0 },
-    home:        { cpmUsd: 5,  cpcUsd: 0.45, ctrPct: 0.7, cvrPct: 1.8 },
-    ip:          { cpmUsd: 4,  cpcUsd: 0.3, ctrPct: 1.5, cvrPct: 3.0 },
+    beauty:      { cpmUsd: 5,  cpcUsd: 0.4, ctrPct: 0.8, cvrPct: 0.8 },
+    fashion:     { cpmUsd: 5,  cpcUsd: 0.4, ctrPct: 0.8, cvrPct: 0.7 },
+    food:        { cpmUsd: 4,  cpcUsd: 0.35, ctrPct: 0.7, cvrPct: 0.7 },
+    health:      { cpmUsd: 6,  cpcUsd: 0.55, ctrPct: 0.6, cvrPct: 0.6 },
+    electronics: { cpmUsd: 5,  cpcUsd: 0.45, ctrPct: 1.0, cvrPct: 0.9 },
+    saas:        { cpmUsd: 7,  cpcUsd: 0.9, ctrPct: 0.9, cvrPct: 0.8 },
+    home:        { cpmUsd: 5,  cpcUsd: 0.45, ctrPct: 0.7, cvrPct: 0.7 },
+    ip:          { cpmUsd: 4,  cpcUsd: 0.3, ctrPct: 1.5, cvrPct: 1.2 },
   },
 };
 
@@ -287,7 +302,7 @@ export const LOCAL_CHANNEL_OVERRIDES: Record<string, LocalChannel[]> = {
       cpmUsd: 0,
       cpcUsd: 0.6,
       ctrPct: 4.5,
-      cvrPct: 4.0,
+      cvrPct: 2.5,
       strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"],
     },
     {
@@ -295,7 +310,7 @@ export const LOCAL_CHANNEL_OVERRIDES: Record<string, LocalChannel[]> = {
       cpmUsd: 4,
       cpcUsd: 0.4,
       ctrPct: 1.2,
-      cvrPct: 2.5,
+      cvrPct: 1.0,
       strongCategories: ["beauty", "fashion", "food", "ip"],
     },
     {
@@ -303,7 +318,7 @@ export const LOCAL_CHANNEL_OVERRIDES: Record<string, LocalChannel[]> = {
       cpmUsd: 0,
       cpcUsd: 0.7,
       ctrPct: 0.5,
-      cvrPct: 9.0,
+      cvrPct: 6.0,
       strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"],
     },
   ],
@@ -313,7 +328,7 @@ export const LOCAL_CHANNEL_OVERRIDES: Record<string, LocalChannel[]> = {
       cpmUsd: 6,
       cpcUsd: 0.7,
       ctrPct: 1.0,
-      cvrPct: 2.5,
+      cvrPct: 1.0,
       strongCategories: ["beauty", "fashion", "food", "ip"],
     },
     {
@@ -321,7 +336,7 @@ export const LOCAL_CHANNEL_OVERRIDES: Record<string, LocalChannel[]> = {
       cpmUsd: 0,
       cpcUsd: 0.9,
       ctrPct: 0.5,
-      cvrPct: 7.0,
+      cvrPct: 5.0,
       strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"],
     },
   ],
@@ -331,7 +346,7 @@ export const LOCAL_CHANNEL_OVERRIDES: Record<string, LocalChannel[]> = {
       cpmUsd: 5,
       cpcUsd: 0.45,
       ctrPct: 1.5,
-      cvrPct: 3.0,
+      cvrPct: 1.2,
       strongCategories: ["beauty", "fashion", "food", "electronics", "ip"],
     },
     {
@@ -339,7 +354,7 @@ export const LOCAL_CHANNEL_OVERRIDES: Record<string, LocalChannel[]> = {
       cpmUsd: 4,
       cpcUsd: 0.4,
       ctrPct: 1.8,
-      cvrPct: 3.2,
+      cvrPct: 1.2,
       strongCategories: ["beauty", "fashion", "food", "ip"],
     },
     {
@@ -347,39 +362,39 @@ export const LOCAL_CHANNEL_OVERRIDES: Record<string, LocalChannel[]> = {
       cpmUsd: 0,
       cpcUsd: 0.55,
       ctrPct: 0.6,
-      cvrPct: 8.5,
+      cvrPct: 5.5,
       strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"],
     },
   ],
   // Southeast Asia — Lazada + Shopee dominate marketplace ads
   ID: [
-    { name: "Shopee Ads", cpmUsd: 0, cpcUsd: 0.4, ctrPct: 0.5, cvrPct: 7.0,
+    { name: "Shopee Ads", cpmUsd: 0, cpcUsd: 0.4, ctrPct: 0.5, cvrPct: 5.0,
       strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"] },
-    { name: "Lazada Sponsored", cpmUsd: 0, cpcUsd: 0.45, ctrPct: 0.5, cvrPct: 6.8,
+    { name: "Lazada Sponsored", cpmUsd: 0, cpcUsd: 0.45, ctrPct: 0.5, cvrPct: 5.0,
       strongCategories: ["beauty", "fashion", "electronics", "home"] },
   ],
   TH: [
-    { name: "Shopee Ads", cpmUsd: 0, cpcUsd: 0.4, ctrPct: 0.5, cvrPct: 7.5,
+    { name: "Shopee Ads", cpmUsd: 0, cpcUsd: 0.4, ctrPct: 0.5, cvrPct: 5.5,
       strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"] },
-    { name: "LINE Ads TH", cpmUsd: 5, cpcUsd: 0.5, ctrPct: 1.0, cvrPct: 2.5,
+    { name: "LINE Ads TH", cpmUsd: 5, cpcUsd: 0.5, ctrPct: 1.0, cvrPct: 1.0,
       strongCategories: ["beauty", "fashion", "food", "ip"] },
   ],
   VN: [
-    { name: "Shopee Ads VN", cpmUsd: 0, cpcUsd: 0.3, ctrPct: 0.5, cvrPct: 7.0,
+    { name: "Shopee Ads VN", cpmUsd: 0, cpcUsd: 0.3, ctrPct: 0.5, cvrPct: 5.0,
       strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"] },
-    { name: "Zalo Ads", cpmUsd: 3, cpcUsd: 0.3, ctrPct: 1.2, cvrPct: 2.5,
+    { name: "Zalo Ads", cpmUsd: 3, cpcUsd: 0.3, ctrPct: 1.2, cvrPct: 1.0,
       strongCategories: ["beauty", "fashion", "food", "ip"] },
   ],
   PH: [
-    { name: "Shopee Ads PH", cpmUsd: 0, cpcUsd: 0.35, ctrPct: 0.5, cvrPct: 7.0,
+    { name: "Shopee Ads PH", cpmUsd: 0, cpcUsd: 0.35, ctrPct: 0.5, cvrPct: 5.0,
       strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"] },
-    { name: "Lazada Sponsored PH", cpmUsd: 0, cpcUsd: 0.4, ctrPct: 0.5, cvrPct: 6.5,
+    { name: "Lazada Sponsored PH", cpmUsd: 0, cpcUsd: 0.4, ctrPct: 0.5, cvrPct: 4.8,
       strongCategories: ["beauty", "fashion", "electronics", "home"] },
   ],
   MY: [
-    { name: "Shopee Ads MY", cpmUsd: 0, cpcUsd: 0.45, ctrPct: 0.5, cvrPct: 7.0,
+    { name: "Shopee Ads MY", cpmUsd: 0, cpcUsd: 0.45, ctrPct: 0.5, cvrPct: 5.0,
       strongCategories: ["beauty", "fashion", "food", "health", "electronics", "home"] },
-    { name: "Lazada Sponsored MY", cpmUsd: 0, cpcUsd: 0.5, ctrPct: 0.5, cvrPct: 6.5,
+    { name: "Lazada Sponsored MY", cpmUsd: 0, cpcUsd: 0.5, ctrPct: 0.5, cvrPct: 4.8,
       strongCategories: ["beauty", "fashion", "electronics", "home"] },
   ],
 };
