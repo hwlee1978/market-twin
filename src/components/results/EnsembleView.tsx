@@ -4789,11 +4789,23 @@ function PricingSensitivityPanel({
   recommendedPriceCents,
   currency,
   isKo,
+  curveRevenueMaxCents,
+  curveMaxRejectedAsExtrapolation,
+  curve,
 }: {
   sensitivity: NonNullable<NonNullable<EnsembleAggregate["pricing"]>["sensitivity"]>;
   recommendedPriceCents: number;
   currency: string;
   isKo: boolean;
+  /** Aggregated-curve revenue maximum (already trust-ceiling clamped
+   *  upstream — null when extrapolation rejected). Lets the panel
+   *  surface a "revenue-priority alternative" callout when the median
+   *  recommended price diverges from the curve's actual revenue max
+   *  by 3-10% (under the auto-correction threshold but enough to be
+   *  visible to a user who sees the +10% scenario yields +X% revenue). */
+  curveRevenueMaxCents?: number | null;
+  curveMaxRejectedAsExtrapolation?: boolean;
+  curve?: NonNullable<EnsembleAggregate["pricing"]>["curve"];
 }) {
   const fmt = (cents: number) => formatPrice(cents, currency);
 
@@ -4879,6 +4891,103 @@ function PricingSensitivityPanel({
           ))}
         </div>
       )}
+
+      {/* Revenue-priority alternative — surfaces when the curve's actual
+          revenue max diverges from the median recommended price by 3-10%
+          (under the auto-correction threshold but enough that a sharp
+          reader will spot it via the +10% scenario showing positive
+          revenue delta). Median-of-argmaxes ≠ argmax-of-mean-curve is a
+          real aggregation artifact; this callout makes the alternative
+          explicit so the user can choose between the safer median and
+          the revenue-max alternative without the system silently
+          picking one. Hidden when curve max was rejected as
+          extrapolation (trust ceiling) or curve missing. */}
+      {(() => {
+        if (!curveRevenueMaxCents || curveMaxRejectedAsExtrapolation) return null;
+        if (recommendedPriceCents <= 0) return null;
+        const ratio = curveRevenueMaxCents / recommendedPriceCents;
+        const divergence = Math.abs(ratio - 1) * 100; // %
+        // Show only when divergence is 3-10%. Below 3% = not meaningful;
+        // above 10% would already trigger getDisplayPriceCents auto-
+        // correction and the headline number would already be the curve max.
+        if (divergence < 3 || divergence > 10) return null;
+        // Compute projected revenue uplift via the same revenueAt
+        // interpolation getDisplayPriceCents uses.
+        const sortedAsc = curve
+          ? [...curve].sort((a, b) => a.priceCents - b.priceCents)
+          : [];
+        const interpolate = (price: number): number | null => {
+          if (sortedAsc.length === 0) return null;
+          if (
+            price < sortedAsc[0].priceCents ||
+            price > sortedAsc[sortedAsc.length - 1].priceCents
+          ) return null;
+          for (let i = 1; i < sortedAsc.length; i++) {
+            const a = sortedAsc[i - 1];
+            const b = sortedAsc[i];
+            if (price >= a.priceCents && price <= b.priceCents) {
+              if (b.priceCents === a.priceCents)
+                return a.meanConversionProbability;
+              const t = (price - a.priceCents) / (b.priceCents - a.priceCents);
+              return (
+                a.meanConversionProbability +
+                t *
+                  (b.meanConversionProbability - a.meanConversionProbability)
+              );
+            }
+          }
+          return null;
+        };
+        const cAtRec = interpolate(recommendedPriceCents);
+        const cAtMax = interpolate(curveRevenueMaxCents);
+        if (cAtRec == null || cAtMax == null) return null;
+        const baselineRev = recommendedPriceCents * cAtRec;
+        const altRev = curveRevenueMaxCents * cAtMax;
+        if (baselineRev <= 0) return null;
+        const revenueUpliftPct = ((altRev - baselineRev) / baselineRev) * 100;
+        // Only surface if the alternative actually yields > +1% revenue.
+        // (Tiny positive deltas aren't decision-grade.)
+        if (revenueUpliftPct < 1) return null;
+        const priceDeltaPct = (ratio - 1) * 100;
+        const direction = ratio > 1 ? "↑" : "↓";
+        return (
+          <div className="rounded-lg border border-brand/30 bg-brand-50/40 px-4 py-3 mb-4">
+            <div className="flex items-baseline justify-between gap-2 flex-wrap mb-1">
+              <div className="text-[11px] uppercase tracking-wide font-bold text-brand">
+                {isKo ? "매출 우선 시나리오" : "Revenue-priority alternative"}
+              </div>
+              <div className="text-[10px] text-slate-500">
+                {isKo
+                  ? `권장가는 25개 sim 의 중앙값 — 곡선의 실제 매출 최대점은 약간 다름`
+                  : `Median across 25 sims; the curve's actual revenue peak sits slightly elsewhere`}
+              </div>
+            </div>
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <div className="text-2xl font-bold text-slate-900 tabular-nums">
+                {fmt(curveRevenueMaxCents)}
+              </div>
+              <div className="text-xs text-slate-700">
+                <span className="font-semibold">
+                  {isKo ? "권장가 대비 " : "vs recommended "}
+                </span>
+                <span className="tabular-nums">
+                  {direction} {Math.abs(priceDeltaPct).toFixed(1)}%
+                </span>
+                <span className="mx-2 text-slate-300">·</span>
+                <span className="font-semibold text-success">
+                  {isKo ? "매출 +" : "revenue +"}
+                  {revenueUpliftPct.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">
+              {isKo
+                ? `이 가격에서 매출이 더 높지만, 권장가가 중앙값으로 결정된 이유는 sims 간 의견 분산이 있어서임. 매출 우선이면 ${fmt(curveRevenueMaxCents)}, 보수적·합의 우위면 ${fmt(recommendedPriceCents)}. 첫 100명 small-batch 로 시장 반응 검증 후 결정 권장.`
+                : `Revenue is higher at this price, but the recommendation defaulted to the median because the 25 sims dispersed. For revenue priority pick ${fmt(curveRevenueMaxCents)}; for consensus-safety stick with ${fmt(recommendedPriceCents)}. Validate via a first-100 small-batch test before committing.`}
+            </p>
+          </div>
+        );
+      })()}
 
       {/* Elasticity + ±10% what-if scenarios */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -5694,6 +5803,9 @@ function PricingTab({
             recommendedPriceCents={headlinePriceCents}
             currency={currency}
             isKo={isKo}
+            curveRevenueMaxCents={effectiveCurveMax ?? null}
+            curveMaxRejectedAsExtrapolation={curveMaxRejectedAsExtrapolation}
+            curve={pricing.curve}
           />
         );
       })()}
