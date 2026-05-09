@@ -63,6 +63,14 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "사무직 회사원 (키덜트 수집가)",
       "학부모 (자녀 선물 구매)",
       "은퇴자 (수집가 취미)",
+      // High-income tier (capped — IP industry has its own executive
+      // class: publishing house heads, animation studio directors,
+      // IP licensing leadership at large media conglomerates. Without
+      // these, IP-category sims keep the same $150k+ skew problem)
+      "출판사 대표·편집국장",
+      "애니메이션 스튜디오 대표",
+      "IP 라이선싱 디렉터 (대기업·CJ·Disney 등)",
+      "콘텐츠 기업 임원",
       // Always-eligible (capped — see caps below)
       "대학생",
       "마케팅 매니저",
@@ -72,6 +80,10 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "대학생": 3,
       "마케팅 매니저": 2,
       "일반 회사원": 2,
+      "출판사 대표·편집국장": 1,
+      "애니메이션 스튜디오 대표": 1,
+      "IP 라이선싱 디렉터 (대기업·CJ·Disney 등)": 2,
+      "콘텐츠 기업 임원": 2,
     },
   },
   beauty: {
@@ -152,7 +164,7 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "데이터 엔지니어",
       "프로덕트 매니저",
       "솔루션 아키텍트",
-      // Founders / executives
+      // Founders / executives (SMB / startup tier)
       "CTO (스타트업)",
       "CEO (SMB·스타트업)",
       "COO",
@@ -164,6 +176,15 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "소상공인·자영업자 (10명 이하)",
       "프리랜서 컨설턴트",
       "풀스택 디자이너 (스타트업)",
+      // Enterprise / large-company tier (capped — large enterprise
+      // buyers represent the highest ACV deals + clear $150k+ income.
+      // Existing CTO/CEO entries cap at SMB / startup; without
+      // explicit enterprise slots the SaaS sim's persona pool skews
+      // mid-market and the income distribution misses the top tier).
+      "대기업 CIO",
+      "글로벌 기업 VP IT (Fortune 500)",
+      "은행·금융사 IT 디렉터",
+      "글로벌 SaaS 한국 지사장",
       // Always-eligible (heavily capped — B2B SaaS buyers are professionals)
       "마케팅 매니저",
       "일반 회사원",
@@ -173,6 +194,10 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "마케팅 매니저": 2,
       "일반 회사원": 2,
       "대학생": 1,
+      "대기업 CIO": 2,
+      "글로벌 기업 VP IT (Fortune 500)": 1,
+      "은행·금융사 IT 디렉터": 2,
+      "글로벌 SaaS 한국 지사장": 1,
     },
   },
   food: {
@@ -490,6 +515,11 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Office worker (kidult collector)",
       "Parent buying for children",
       "Retiree (hobbyist collector)",
+      // High-income tier (capped — see KO comment for rationale)
+      "Publishing house director",
+      "Animation studio director",
+      "IP licensing director (CJ / Disney / large media)",
+      "Content company executive",
       // Always-eligible (capped)
       "College student",
       "Marketing manager",
@@ -499,6 +529,10 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "College student": 3,
       "Marketing manager": 2,
       "Office worker": 2,
+      "Publishing house director": 1,
+      "Animation studio director": 1,
+      "IP licensing director (CJ / Disney / large media)": 2,
+      "Content company executive": 2,
     },
   },
   beauty: {
@@ -577,7 +611,7 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Data engineer",
       "Product manager",
       "Solution architect",
-      // Founders / executives
+      // Founders / executives (SMB / startup tier)
       "Startup CTO",
       "SMB / startup CEO",
       "COO",
@@ -589,6 +623,11 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "SMB owner (under 10 employees)",
       "Freelance consultant",
       "Full-stack designer (startup)",
+      // Enterprise / large-company tier (capped — see KO comment)
+      "Enterprise CIO",
+      "Fortune 500 VP IT",
+      "Bank / financial services IT director",
+      "Global SaaS country manager",
       // Always-eligible (heavily capped)
       "Marketing manager",
       "Office worker",
@@ -598,6 +637,10 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Marketing manager": 2,
       "Office worker": 2,
       "College student": 1,
+      "Enterprise CIO": 2,
+      "Fortune 500 VP IT": 1,
+      "Bank / financial services IT director": 2,
+      "Global SaaS country manager": 1,
     },
   },
   food: {
