@@ -1,0 +1,26 @@
+# Cloud Build config for market-twin worker.
+#
+# Why this exists: the Dockerfile lives at apps/worker/Dockerfile but its
+# build context is the project root (it COPYs both packages/shared and
+# apps/worker into the image). `gcloud builds submit --tag` requires a
+# Dockerfile at the source root, so we need an explicit config here.
+#
+# Invoked by apps/worker/deploy.ps1:
+#   gcloud builds submit --config apps/worker/cloudbuild.yaml \
+#     --substitutions=_IMAGE=<full-tag> .
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - apps/worker/Dockerfile
+      - -t
+      - ${_IMAGE}
+      - .
+
+images:
+  - ${_IMAGE}
+
+options:
+  logging: CLOUD_LOGGING_ONLY

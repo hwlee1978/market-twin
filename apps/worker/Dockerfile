@@ -39,6 +39,13 @@ RUN apt-get update \
 # source copy means a code-only edit doesn't blow away the deps layer.
 COPY --from=deps /app/apps/worker/node_modules /app/apps/worker/node_modules
 
+# Make node_modules resolvable from packages/shared too. Files under
+# /app/packages/shared/src/... require modules like @supabase/supabase-js,
+# and Node walks up the directory tree from the importing file — without
+# a node_modules dir at /app, shared imports fail with MODULE_NOT_FOUND
+# at container startup.
+RUN ln -s /app/apps/worker/node_modules /app/node_modules
+
 # Worker source + the shared workspace it imports from. The tsconfig
 # path aliases resolve at runtime via tsx; both directories must be
 # present at the relative paths the tsconfig expects.

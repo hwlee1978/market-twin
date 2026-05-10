@@ -72,10 +72,14 @@ echo "└───────────────────────�
 echo
 
 # ─── 1. Build + push image via Cloud Build ────────────────────────────
+# Use cloudbuild.yaml so we can point at apps/worker/Dockerfile while
+# keeping the build context at the project root (Dockerfile COPYs from
+# packages/shared which lives outside apps/worker).
 echo "→ submitting build to Cloud Build (no local docker required)..."
 gcloud builds submit \
   --project="$PROJECT_ID" \
-  --tag="$IMAGE" \
+  --config=apps/worker/cloudbuild.yaml \
+  --substitutions="_IMAGE=${IMAGE}" \
   --timeout=900s \
   .
 
