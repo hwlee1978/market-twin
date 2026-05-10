@@ -307,10 +307,12 @@ export async function POST(
   //    alive past the HTTP response so the orchestration runs in the
   //    background; the route returns 200 immediately.
   //
-  //    Phase 4 wiring (Cloud Run cutover): when WORKER_BASE_URL is set and
-  //    the tier matches the cutover whitelist, this dispatches to the
-  //    Cloud Run worker via fetch instead. Falls back to local orchestration
-  //    if the worker is unreachable, preserving safety during rollout.
+  //    When WORKER_BASE_URL is set (and the tier matches WORKER_TIER_WHITELIST
+  //    if configured), the orchestration is dispatched to the Cloud Run worker
+  //    via fetch — escapes Vercel's 800s function cap entirely. The worker
+  //    re-loads context from DB by ensembleId so the request body stays small.
+  //    Any failure (env unset, fetch error, non-202) falls back to inline
+  //    orchestration on Vercel so the user always gets a result.
   after(async () => {
     const orchestrationCtx = {
       ensembleId: ensemble.id,
@@ -327,7 +329,15 @@ export async function POST(
         provider: r.provider as ProviderName,
       })),
     };
-    await runEnsembleOrchestration(orchestrationCtx);
+
+    const dispatched = await tryDispatchToWorker({
+      ensembleId: ensemble.id,
+      notifyEmail: notifyEmail ?? null,
+      tier: tier as Tier,
+    });
+    if (!dispatched) {
+      await runEnsembleOrchestration(orchestrationCtx);
+    }
   });
 
   return NextResponse.json({
@@ -337,5 +347,81 @@ export async function POST(
     parallelSims: preset.parallelSims,
     perSimPersonas: preset.perSimPersonas,
   });
+}
+
+/**
+ * Dispatch ensemble orchestration to the Cloud Run worker.
+ *
+ * Returns true when the worker accepted the job (HTTP 202); false on any
+ * misconfiguration, network error, timeout, or non-202 response. The caller
+ * uses the return value to decide whether to fall back to inline
+ * orchestration on Vercel.
+ *
+ * Worker only needs `ensembleId` (and optionally `notifyEmail`) — it
+ * re-derives the full orchestration context from DB via
+ * `loadOrchestrationContext()`. Keeping the body minimal also means
+ * Vercel→worker request stays under any reasonable size limit and we don't
+ * have two copies of the context-construction logic to keep in sync.
+ *
+ * Tier whitelist via WORKER_TIER_WHITELIST (comma-separated). When unset,
+ * all tiers route to the worker. Useful for gradual rollout (e.g. start
+ * with WORKER_TIER_WHITELIST=deep,deep_pro and expand once stable).
+ */
+async function tryDispatchToWorker(args: {
+  ensembleId: string;
+  notifyEmail: string | null;
+  tier: Tier;
+}): Promise<boolean> {
+  const baseUrl = process.env.WORKER_BASE_URL;
+  const token = process.env.WORKER_BEARER_TOKEN;
+  if (!baseUrl || !token) return false;
+
+  const whitelist = process.env.WORKER_TIER_WHITELIST
+    ?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (whitelist && whitelist.length > 0 && !whitelist.includes(args.tier)) {
+    return false;
+  }
+
+  const ac = new AbortController();
+  // 30s is generous — worker accepts in <1s and returns 202 before
+  // background work starts. Anything past that is a real network problem
+  // and we should fall back rather than block the after() callback.
+  const timer = setTimeout(() => ac.abort(), 30_000);
+
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/$/, "")}/run-ensemble`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        ensembleId: args.ensembleId,
+        notifyEmail: args.notifyEmail,
+      }),
+      signal: ac.signal,
+    });
+    if (res.status !== 202) {
+      const body = await res.text().catch(() => "");
+      console.error(
+        `[run-ensemble] worker returned ${res.status} for ensemble ${args.ensembleId} (tier=${args.tier}): ${body.slice(0, 200)} — falling back to inline`,
+      );
+      return false;
+    }
+    console.log(
+      `[run-ensemble] dispatched ensemble ${args.ensembleId} to Cloud Run worker (tier=${args.tier})`,
+    );
+    return true;
+  } catch (err) {
+    console.error(
+      `[run-ensemble] worker dispatch failed for ensemble ${args.ensembleId} (tier=${args.tier}), falling back to inline:`,
+      err,
+    );
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
