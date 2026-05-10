@@ -19,6 +19,10 @@
 
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
+import {
+  loadOrchestrationContext,
+  runEnsembleOrchestration,
+} from "@/lib/simulation/orchestrator";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const BEARER_TOKEN = process.env.WORKER_BEARER_TOKEN;
@@ -108,14 +112,25 @@ app.post("/run-ensemble", async (c) => {
 /* ────────────────────────────────── background runner ─── */
 
 async function runEnsembleBackground(body: unknown): Promise<void> {
-  const { ensembleId } = body as { ensembleId: string };
-  console.log(`[worker] ensemble ${ensembleId} accepted — starting orchestration`);
-  // Phase 1c: extract & wire orchestration logic here. For now this is a
-  // placeholder so the HTTP shape can be validated end-to-end before the
-  // heavy refactor lands.
+  const { ensembleId, notifyEmail } = body as {
+    ensembleId: string;
+    notifyEmail?: string | null;
+  };
+  console.log(`[worker] ensemble ${ensembleId} accepted — loading context`);
+
+  const ctx = await loadOrchestrationContext({ ensembleId, notifyEmail });
+  if (!ctx) {
+    console.error(
+      `[worker] ensemble ${ensembleId} not found or unrunnable — abandoning`,
+    );
+    return;
+  }
+
   console.log(
-    `[worker] ensemble ${ensembleId} TODO: invoke runEnsembleOrchestration({ ... })`,
+    `[worker] ensemble ${ensembleId} starting orchestration — tier=${ctx.tier}, sims=${ctx.simRows.length}, project=${ctx.projectInput.productName}`,
   );
+  await runEnsembleOrchestration(ctx);
+  console.log(`[worker] ensemble ${ensembleId} orchestration complete`);
 }
 
 /* ────────────────────────────────── boot ─── */

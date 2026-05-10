@@ -23,17 +23,13 @@
       }
     ],
     "paths": {
-      "@/lib/simulation": ["./packages/shared/src/simulation/index"],
       "@/lib/simulation/*": ["./packages/shared/src/simulation/*"],
       "@/lib/llm": ["./packages/shared/src/llm/index"],
       "@/lib/llm/*": ["./packages/shared/src/llm/*"],
       "@/lib/reference": ["./packages/shared/src/reference/index"],
       "@/lib/reference/*": ["./packages/shared/src/reference/*"],
-      "@/lib/decision-aid": ["./packages/shared/src/decision-aid/index"],
       "@/lib/decision-aid/*": ["./packages/shared/src/decision-aid/*"],
-      "@/lib/market-research": ["./packages/shared/src/market-research/index"],
       "@/lib/market-research/*": ["./packages/shared/src/market-research/*"],
-      "@/lib/quality": ["./packages/shared/src/quality/index"],
       "@/lib/quality/*": ["./packages/shared/src/quality/*"],
       "@/lib/format/*": ["./packages/shared/src/format/*"],
       "@/lib/countries": ["./packages/shared/src/countries"],

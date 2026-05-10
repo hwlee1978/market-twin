@@ -2,7 +2,6 @@
   "name": "market-twin-worker",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "description": "Cloud Run worker that runs ensemble simulations off Vercel's 800s function timeout. Receives orchestration requests from the web app, runs the full pipeline (persona / country / pricing / synthesis / market-profile / quality), and writes results back to Supabase.",
   "scripts": {
     "dev": "tsx watch src/index.ts",
