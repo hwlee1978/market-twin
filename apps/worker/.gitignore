@@ -3,3 +3,7 @@ dist/
 .env
 .env.local
 *.log
+
+# Cloud Run env file — contains secrets, never commit.
+# (cloud-run.env.example.yaml IS committed as the template.)
+cloud-run.env.yaml
