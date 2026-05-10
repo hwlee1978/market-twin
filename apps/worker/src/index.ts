@@ -118,19 +118,48 @@ async function runEnsembleBackground(body: unknown): Promise<void> {
   };
   console.log(`[worker] ensemble ${ensembleId} accepted — loading context`);
 
-  const ctx = await loadOrchestrationContext({ ensembleId, notifyEmail });
-  if (!ctx) {
-    console.error(
-      `[worker] ensemble ${ensembleId} not found or unrunnable — abandoning`,
-    );
-    return;
+  // Cloud Run shuts down instances after ~15min of no incoming requests,
+  // even with --no-cpu-throttling — that flag keeps CPU allocated but
+  // doesn't stop the idle-instance reaper. Background work that doesn't
+  // generate request traffic gets killed mid-orchestration. Self-ping
+  // every 5min so Cloud Run sees an active service and keeps this
+  // instance alive for the full ensemble lifetime. WORKER_SELF_URL must
+  // be the public URL of THIS service; if unset we skip the keepalive
+  // (e.g. local dev where idle scale-down doesn't apply).
+  const selfUrl = process.env.WORKER_SELF_URL;
+  let keepAlive: NodeJS.Timeout | null = null;
+  if (selfUrl) {
+    keepAlive = setInterval(() => {
+      void fetch(`${selfUrl.replace(/\/$/, "")}/health`)
+        .then(() => {
+          // Quiet on success — every 5min would clutter logs.
+        })
+        .catch((err) => {
+          console.warn(
+            `[worker] keepalive ping failed for ensemble ${ensembleId}:`,
+            err instanceof Error ? err.message : err,
+          );
+        });
+    }, 5 * 60 * 1000);
   }
 
-  console.log(
-    `[worker] ensemble ${ensembleId} starting orchestration — tier=${ctx.tier}, sims=${ctx.simRows.length}, project=${ctx.projectInput.productName}`,
-  );
-  await runEnsembleOrchestration(ctx);
-  console.log(`[worker] ensemble ${ensembleId} orchestration complete`);
+  try {
+    const ctx = await loadOrchestrationContext({ ensembleId, notifyEmail });
+    if (!ctx) {
+      console.error(
+        `[worker] ensemble ${ensembleId} not found or unrunnable — abandoning`,
+      );
+      return;
+    }
+
+    console.log(
+      `[worker] ensemble ${ensembleId} starting orchestration — tier=${ctx.tier}, sims=${ctx.simRows.length}, project=${ctx.projectInput.productName}`,
+    );
+    await runEnsembleOrchestration(ctx);
+    console.log(`[worker] ensemble ${ensembleId} orchestration complete`);
+  } finally {
+    if (keepAlive) clearInterval(keepAlive);
+  }
 }
 
 /* ────────────────────────────────── boot ─── */

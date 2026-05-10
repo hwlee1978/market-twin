@@ -27,6 +27,36 @@ IMAGE_BASE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/worker"
 ENV_FILE="${BASH_SOURCE[0]%/*}/cloud-run.env.yaml"
 
 # ─── Pre-flight checks ────────────────────────────────────────────────
+# Windows / Git Bash quirks the install needs to defuse:
+#   1. `gcloud` resolves to the Python App Execution Alias (prints
+#      "Python" then exits) when the SDK bin dir isn't on PATH for
+#      Git Bash, even if it's on PATH for cmd/PowerShell.
+#   2. The bash wrapper `gcloud` (no .cmd) calls $CLOUDSDK_PYTHON →
+#      `python` → the same App Execution Alias if CLOUDSDK_PYTHON
+#      isn't pinned to the SDK's bundled Python.
+# Detect the SDK install dir once, then point both PATH and
+# CLOUDSDK_PYTHON at it so deployment runs identically across cmd /
+# PowerShell / Git Bash on Windows.
+if ! command -v gcloud >/dev/null 2>&1; then
+  # set -u (nounset) is on, so guard against unset env vars on systems
+  # that don't populate them (USER may be unset; USERNAME is set by
+  # Windows but not exported into MSYS2 by default).
+  win_user="${USER:-${USERNAME:-${LOGNAME:-user}}}"
+  for cand in \
+    "/c/Users/$win_user/AppData/Local/Google/Cloud SDK/google-cloud-sdk" \
+    "/c/Program Files (x86)/Google/Cloud SDK/google-cloud-sdk" \
+    "/c/Program Files/Google/Cloud SDK/google-cloud-sdk"; do
+    # -e (exists), not -x: MSYS doesn't preserve the executable bit on
+    # NTFS for .cmd / .exe so -x reports false even when they run fine.
+    if [[ -e "$cand/bin/gcloud.cmd" ]]; then
+      export PATH="$cand/bin:$PATH"
+      if [[ -e "$cand/platform/bundledpython/python.exe" ]]; then
+        export CLOUDSDK_PYTHON="$cand/platform/bundledpython/python.exe"
+      fi
+      break
+    fi
+  done
+fi
 if ! command -v gcloud >/dev/null 2>&1; then
   echo "✗ gcloud CLI not found. Install: https://cloud.google.com/sdk/docs/install" >&2
   exit 1
