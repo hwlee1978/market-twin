@@ -7,15 +7,18 @@
 # Or for Cloud Run via gcloud:
 #   gcloud builds submit --config apps/worker/cloudbuild.yaml .
 #
-# Why node:20-slim instead of alpine: the @react-pdf/renderer chain (pulled
+# Why node:22-slim instead of alpine: the @react-pdf/renderer chain (pulled
 # in transitively for ensemble PDF assembly when worker takes that over)
 # expects glibc; alpine's musl breaks fontconfig. Slim is a few hundred MB
 # heavier than alpine but matches the production runtime profile of the
 # Vercel serverless target, eliminating "works locally fails in Cloud Run"
-# surprises caused by libc differences.
+# surprises caused by libc differences. Node 22 specifically because
+# @supabase/supabase-js's RealtimeClient needs a native WebSocket impl
+# and only adds it as a transport option from Node 22 onward; on Node 20
+# the client crashes at construction time even when realtime is unused.
 
 # ─── Stage 1: install dependencies ──────────────────────────────────────
-FROM node:20-slim AS deps
+FROM node:22-slim AS deps
 WORKDIR /app/apps/worker
 
 # Copy only package files first so the npm-install layer cache invalidates
@@ -25,7 +28,7 @@ COPY apps/worker/package.json apps/worker/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
 # ─── Stage 2: runtime image ─────────────────────────────────────────────
-FROM node:20-slim AS runtime
+FROM node:22-slim AS runtime
 WORKDIR /app
 
 # Install minimal CA certs for outbound HTTPS (Supabase, LLM APIs,
