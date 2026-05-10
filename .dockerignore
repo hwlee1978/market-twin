@@ -1,0 +1,65 @@
+# Excluded from `docker build` context (project root). Trims ~1GB of
+# noise so build context upload stays under a second on local + Cloud
+# Build. The Dockerfile selectively COPYs packages/shared and
+# apps/worker; everything else listed here would be wasted bandwidth.
+
+# ─── node_modules anywhere ──
+node_modules
+**/node_modules
+
+# ─── build outputs ──
+.next
+**/dist
+**/.cache
+*.tsbuildinfo
+
+# ─── secrets — never ship into an image ──
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+
+# ─── git + CI ──
+.git
+.github
+
+# ─── IDE / OS ──
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# ─── logs + test artifacts ──
+*.log
+npm-debug.log*
+playwright-report
+test-results
+e2e
+
+# ─── misc that bloats the context ──
+*.pdf
+*.pptx
+*.html
+docs
+PITCH_DECK*
+INVESTMENT_BRIEF.md
+PRESENTATION_GUIDE.md
+VISUAL_ANALYSIS.md
+README.md
+generate_*.{js,py}
+
+# ─── web-only sources the worker doesn't need ──
+src
+public
+messages
+supabase
+e2e
+scripts
+sentry.*.config.ts
+instrumentation*.ts
+next.config.ts
+postcss.config.mjs
+playwright.config.ts
+next-env.d.ts
+vercel.json

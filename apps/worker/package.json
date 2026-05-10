@@ -17,12 +17,12 @@
     "hono": "^4.6.14",
     "openai": "^6.34.0",
     "resend": "^6.0.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "tsc-alias": "^1.8.10",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "tsc-alias": "^1.8.10"
   }
 }
