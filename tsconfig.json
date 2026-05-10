@@ -38,6 +38,7 @@
       "@/lib/format/*": ["./packages/shared/src/format/*"],
       "@/lib/countries": ["./packages/shared/src/countries"],
       "@/lib/supabase/admin": ["./packages/shared/src/supabase/admin"],
+      "@/lib/email/*": ["./packages/shared/src/email/*"],
       "@/*": ["./src/*"]
     }
   },
