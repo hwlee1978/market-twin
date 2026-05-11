@@ -2858,7 +2858,10 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                   <MText style={[styles.td, styles.colNum]}>{c.finalScore.median.toFixed(1)}</MText>
                   <MText style={[styles.tdMuted, styles.colNum]}>{c.finalScore.std.toFixed(1)}</MText>
                   <MText style={[styles.tdMuted, styles.colNum]}>{`${c.finalScore.min.toFixed(0)}–${c.finalScore.max.toFixed(0)}`}</MText>
-                  <MText style={[styles.tdMuted, styles.colNum]}>{`$${c.cacEstimateUsd.median.toFixed(2)}`}</MText>
+                  {/* Same prefer-cacRange rule as the dashboard score-stats
+                      table and the Investment + ROI card — server-computed
+                      persona-derived value beats the LLM free-form median. */}
+                  <MText style={[styles.tdMuted, styles.colNum]}>{`$${(c.cacRange?.medianUsd ?? c.cacEstimateUsd.median).toFixed(2)}`}</MText>
                 </View>
               );
             })}
@@ -2949,9 +2952,16 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 >
                   <MText style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{c.country}</MText>
                   <MText style={{ fontSize: 9, color: C.muted }}>
-                    {isKo
-                      ? `평균 ${c.finalScore.mean.toFixed(1)} · 중앙값 ${c.finalScore.median.toFixed(1)} · CAC $${c.cacEstimateUsd.median.toFixed(2)}`
-                      : `mean ${c.finalScore.mean.toFixed(1)} · median ${c.finalScore.median.toFixed(1)} · CAC $${c.cacEstimateUsd.median.toFixed(2)}`}
+                    {(() => {
+                      // cacRange.medianUsd is the persona-derived authoritative
+                      // value; the LLM median is the fallback for legacy /
+                      // thin-pool cases. See the score-stats table above for
+                      // the same rule.
+                      const cacForLabel = c.cacRange?.medianUsd ?? c.cacEstimateUsd.median;
+                      return isKo
+                        ? `평균 ${c.finalScore.mean.toFixed(1)} · 중앙값 ${c.finalScore.median.toFixed(1)} · CAC $${cacForLabel.toFixed(2)}`
+                        : `mean ${c.finalScore.mean.toFixed(1)} · median ${c.finalScore.median.toFixed(1)} · CAC $${cacForLabel.toFixed(2)}`;
+                    })()}
                   </MText>
                 </View>
 

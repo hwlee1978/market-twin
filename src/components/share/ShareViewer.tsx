@@ -274,7 +274,10 @@ export function ShareViewer({
                           {c.finalScore.min.toFixed(0)}–{c.finalScore.max.toFixed(0)}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums text-slate-500">
-                          ${c.cacEstimateUsd.median.toFixed(2)}
+                          {/* Match the main dashboard: prefer the server-computed
+                              cacRange (persona-derived, channel-cost-grounded)
+                              over the LLM median when available. */}
+                          ${(c.cacRange?.medianUsd ?? c.cacEstimateUsd.median).toFixed(2)}
                         </td>
                       </tr>
                     );

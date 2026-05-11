@@ -2433,7 +2433,13 @@ function CountriesTab({
                         {c.competitionScore.median.toFixed(0)}
                       </td>
                       <td className="px-4 py-2 text-right tabular-nums text-slate-500">
-                        ${c.cacEstimateUsd.median.toFixed(2)}
+                        {/* Prefer the server-computed cacRange (persona-derived,
+                            calibrated against channel-costs benchmarks) over the
+                            LLM-emitted median — same rule the Investment + ROI
+                            card already follows. cacRange is undefined on legacy
+                            ensembles or when per-country persona sample is too
+                            thin (<5), in which case we fall back to the LLM. */}
+                        ${(c.cacRange?.medianUsd ?? c.cacEstimateUsd.median).toFixed(2)}
                       </td>
                     </tr>
                     {isOpen && c.detail && (
