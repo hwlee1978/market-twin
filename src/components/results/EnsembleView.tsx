@@ -7466,11 +7466,23 @@ function DataTab({
         </div>
       </div>
 
-      {providerBreakdown && providerBreakdown.length > 0 && (
-        <div>
-          <h2 className="text-base font-semibold text-slate-900 mb-3">
-            {isKo ? "LLM별 합의도" : "Cross-model consensus"}
-          </h2>
+      <div>
+        <h2 className="text-base font-semibold text-slate-900 mb-3">
+          {isKo ? "LLM별 합의도" : "Cross-model consensus"}
+        </h2>
+        {!providerBreakdown || providerBreakdown.length === 0 ? (
+          // Single-provider tiers (hypothesis / decision) carry no
+          // cross-model signal — providerBreakdown is empty by design.
+          // Previously the whole section was hidden, which made the
+          // Data tab look mysteriously shorter for those tiers.
+          // Surface an explanation so the user knows it's tier-driven,
+          // not a missing-data bug.
+          <div className="card p-4 text-xs text-slate-500">
+            {isKo
+              ? "이 분석은 단일 LLM 등급(초기검증·검증분석)이라 모델 간 합의도가 산출되지 않습니다. 검증분석+ 이상 등급에서 여러 모델을 라운드로빈하면 여기에 모델별 1순위 추천과 전체 합의 일치율이 표시됩니다."
+              : "Single-LLM tier (Hypothesis / Consensus) — no cross-model signal to render. Run Consensus+ or higher to see per-provider top picks and agreement rates here."}
+          </div>
+        ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {providerBreakdown.map((pb) => {
               const top = pb.bestCountryDistribution[0];
@@ -7505,8 +7517,8 @@ function DataTab({
               );
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div>
         <h2 className="text-base font-semibold text-slate-900 mb-3">
@@ -7552,11 +7564,24 @@ function DataTab({
         </div>
       </div>
 
-      {creative && creative.assets.length > 0 && (
-        <div>
-          <h2 className="text-base font-semibold text-slate-900 mb-3">
-            {isKo ? "크리에이티브 분석" : "Creative analysis"}
-          </h2>
+      <div>
+        <h2 className="text-base font-semibold text-slate-900 mb-3">
+          {isKo ? "크리에이티브 분석" : "Creative analysis"}
+        </h2>
+        {!creative || creative.assets.length === 0 ? (
+          // Project ran without uploaded creative assets — the runner
+          // skips this stage entirely, so the aggregate has no
+          // creative.assets to render. Previously the section was
+          // hidden silently; users assumed it was missing/broken when
+          // it was actually a result of not uploading anything to
+          // grade. Surface an explicit hint with the relevant project
+          // action ("upload creatives to populate this section").
+          <div className="card p-4 text-xs text-slate-500">
+            {isKo
+              ? "이 프로젝트는 크리에이티브(광고/패키지/이미지 등)를 업로드하지 않아 분석 대상이 없습니다. 프로젝트 설정에서 자산을 추가하고 다시 분석하면 자산별 강점·약점·평균 점수가 여기에 표시됩니다."
+              : "No creative assets were uploaded for this project, so there's nothing to grade here. Add assets in the project settings and re-run the analysis to see per-asset strengths, weaknesses, and mean scores."}
+          </div>
+        ) : (
           <div className="space-y-3">
             {creative.assets.map((a) => (
               <div key={a.assetName} className="card p-4">
@@ -7597,8 +7622,8 @@ function DataTab({
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
