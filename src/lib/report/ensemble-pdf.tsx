@@ -4059,10 +4059,14 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 <MText style={{ fontSize: 8, color: C.muted, width: 80 }}>
                   {`n=${r.count}`}
                 </MText>
-                <MText style={{ fontSize: 8, color: C.muted, width: 100 }}>
+                {/* Denominator-explicit form — see EnsembleView Income×Intent
+                    matrix for the rationale (NN% is the bucket's home-country
+                    distribution share, not a preference). Width bumped to fit
+                    the extra "(이 구간의 …)" / "(… of bucket)" qualifier. */}
+                <MText style={{ fontSize: 8, color: C.muted, width: 130 }}>
                   {isKo
-                    ? `→ ${r.topCountry} (${r.topCountryShare}%)`
-                    : `→ ${r.topCountry} (${r.topCountryShare}%)`}
+                    ? `→ ${r.topCountry} (이 구간의 ${r.topCountryShare}%)`
+                    : `→ ${r.topCountry} (${r.topCountryShare}% of bucket)`}
                 </MText>
               </View>
             );
@@ -4071,8 +4075,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
 
         <MText style={{ fontSize: 8, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>
           {isKo
-            ? "메타: 막대 색상은 의향 임계점입니다. 65+ 강 / 50-64 보통 / 50 미만 약. \"→ 국가\"는 그 소득대 페르소나가 가장 많이 #1로 꼽은 시장."
-            : "Bar tone: 65+ strong / 50-64 moderate / <50 weak. \"→ country\" = the market this income bracket most often picks as #1."}
+            ? "메타: 막대 색상은 의향 임계점입니다. 65+ 강 / 50-64 보통 / 50 미만 약. \"→ 국가\"는 이 소득대 페르소나가 가장 많이 출신인 후보 시장 (선호도가 아니라 분포)."
+            : "Bar tone: 65+ strong / 50-64 moderate / <50 weak. \"→ country\" = the candidate market most personas in this income bracket come from (distribution, not preference)."}
         </MText>
 
         {/* Analysis commentary — deterministic interpretation of the

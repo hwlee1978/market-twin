@@ -6633,8 +6633,13 @@ function DecisionAidTab({
                           </span>
                         )}
                       </div>
-                      <div className="w-32 text-right text-xs text-slate-600">
-                        → {r.topCountry} ({r.topCountryShare}%)
+                      {/* Make the denominator of `topCountryShare` explicit
+                          so it doesn't read as a preference share. NN% here =
+                          fraction of THIS income bucket's personas whose home
+                          market is XX, not "NN% chose XX". Same disambiguation
+                          pattern as the channel-priority "X명 (전체의 Y%)" fix. */}
+                      <div className="w-40 text-right text-xs text-slate-600">
+                        → {r.topCountry} {isKo ? `(이 구간의 ${r.topCountryShare}%)` : `(${r.topCountryShare}% of bucket)`}
                       </div>
                     </div>
                   );
