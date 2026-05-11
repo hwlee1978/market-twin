@@ -43,15 +43,20 @@ export default function RootLayout({
          * Noto SC + TC via Google Fonts guarantees coverage on every
          * platform without requiring user-side font installs.
          *
-         * Display: optional so initial render doesn't block on the
-         * font payload (text shows in Pretendard fallback first, then
-         * upgrades when CJK font lands — better TTFB than swap).
+         * Display: swap. The previous `optional` setting meant the
+         * browser gave up on the font after ~100ms and stuck with the
+         * Pretendard fallback for the rest of the page lifetime — on
+         * Windows machines without a system CJK font, that left every
+         * Chinese character rendering as tofu / garbled glyphs even
+         * after the Noto font had finished downloading. `swap` shows
+         * the fallback briefly then swaps in the real font when it
+         * arrives, on every page load.
          */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&family=Noto+Sans+TC:wght@400;700&display=optional"
+          href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&family=Noto+Sans+TC:wght@400;700&display=swap"
         />
       </head>
       <body>{children}</body>
