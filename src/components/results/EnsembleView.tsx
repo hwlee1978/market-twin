@@ -13,6 +13,7 @@ import { normalizeLLMText } from "@/lib/format/normalize";
 import {
   demoteDominantClusters,
   isBareAdjectiveSignal,
+  isFactuallyWrongCompetitorPriceClaim,
   isGenericLaunchConcern,
   isGenericPriceObjection,
   isGenericTrustFactor,
@@ -982,6 +983,8 @@ function EnsembleDashboard({
           simCount={simCount}
           effectivePersonas={effectivePersonas}
           sources={aggregate.sources ?? []}
+          productPriceCents={result.project?.base_price_cents ?? 0}
+          competitorPrices={aggregate.pricing?.competitorPrices ?? []}
           locale={locale}
           isKo={isKo}
         />
@@ -2248,6 +2251,8 @@ function CountriesTab({
   simCount,
   effectivePersonas,
   sources,
+  productPriceCents,
+  competitorPrices,
   locale,
   isKo,
 }: {
@@ -2260,6 +2265,15 @@ function CountriesTab({
    *  for the "personas / total (N%)" share annotation. */
   effectivePersonas: number;
   sources: string[];
+  /** This product's base price in cents, for fact-checking the
+   *  per-persona "we are more/less expensive than X" objections
+   *  against the extracted competitor prices below. */
+  productPriceCents: number;
+  /** Competitor retail prices extracted server-side from user-supplied
+   *  URLs at sim time. Same data the persona prompts were fed; passed
+   *  here so the renderer can drop LLM-emitted objections whose
+   *  directional comparison contradicts the extracted reality. */
+  competitorPrices: NonNullable<EnsembleAggregate["pricing"]>["competitorPrices"];
   locale: string;
   isKo: boolean;
 }) {
@@ -2451,6 +2465,8 @@ function CountriesTab({
                             components={c.components}
                             finalScoreMean={c.finalScore.mean}
                             totalPersonas={effectivePersonas}
+                            productPriceCents={productPriceCents}
+                            competitorPrices={competitorPrices}
                             isKo={isKo}
                           />
                         </td>
@@ -2497,6 +2513,8 @@ function CountryDrilldown({
   components,
   finalScoreMean,
   totalPersonas,
+  productPriceCents,
+  competitorPrices,
   isKo,
 }: {
   detail: NonNullable<EnsembleAggregate["countryStats"][number]["detail"]>;
@@ -2506,6 +2524,8 @@ function CountryDrilldown({
   /** Ensemble-wide effective persona count — denominator for the
    *  per-country share-of-pool annotation. */
   totalPersonas: number;
+  productPriceCents: number;
+  competitorPrices: NonNullable<EnsembleAggregate["pricing"]>["competitorPrices"];
   isKo: boolean;
 }) {
   return (
@@ -2553,7 +2573,17 @@ function CountryDrilldown({
             (o) =>
               !isGenericPriceObjection(o.text) &&
               !isGenericLaunchConcern(o.text) &&
-              !isBareAdjectiveSignal(o.text),
+              !isBareAdjectiveSignal(o.text) &&
+              // Drop objections that claim "this product is more expensive
+              // than Allbirds" (or any extracted-price competitor) when the
+              // extracted data says the opposite — these survive the
+              // generic-price filter because they ARE specifically anchored
+              // (brand + amount), but their direction inverts reality.
+              !isFactuallyWrongCompetitorPriceClaim(
+                o.text,
+                productPriceCents,
+                competitorPrices,
+              ),
           );
           const filteredObjections = demoteDominantClusters(
             filteredRaw,

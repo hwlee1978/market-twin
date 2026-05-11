@@ -38,6 +38,7 @@ import {
   isGenericLaunchConcern,
   isBareAdjectiveSignal,
   isPriceThemedBlocker,
+  isFactuallyWrongCompetitorPriceClaim,
   demoteDominantClusters,
 } from "@/lib/simulation/surfaced-recount";
 import {
@@ -3028,7 +3029,12 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                       (o) =>
                         !isGenericPriceObjection(o.text) &&
                         !isGenericLaunchConcern(o.text) &&
-                        !isBareAdjectiveSignal(o.text),
+                        !isBareAdjectiveSignal(o.text) &&
+                        !isFactuallyWrongCompetitorPriceClaim(
+                          o.text,
+                          project?.base_price_cents ?? 0,
+                          aggregate.pricing?.competitorPrices,
+                        ),
                     );
                     const filteredObjections = demoteDominantClusters(
                       filteredRaw,
@@ -5516,7 +5522,19 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           isPersonaMismatchNoise(key) ||
           isGenericPriceObjection(key) ||
           isGenericLaunchConcern(key) ||
-          isBareAdjectiveSignal(key)
+          isBareAdjectiveSignal(key) ||
+          // Drop objections claiming wrong directional price comparison
+          // against an extracted-price competitor (e.g. "Allbirds 대비 비쌈"
+          // when extracted data says Allbirds is the pricier one). Same
+          // filter chain the dashboard country drilldown uses; previously
+          // these leaked through to the cross-market "공통 거부" column
+          // even though the prompt-side fact block (43bbbd7) was already
+          // in place — LLM compliance with the HARD RULE wasn't 100%.
+          isFactuallyWrongCompetitorPriceClaim(
+            key,
+            project?.base_price_cents ?? 0,
+            aggregate.pricing?.competitorPrices,
+          )
         ) {
           continue;
         }
@@ -5954,7 +5972,12 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         !isPersonaMismatchNoise(o.text) &&
         !isGenericPriceObjection(o.text) &&
         !isGenericLaunchConcern(o.text) &&
-        !isBareAdjectiveSignal(o.text),
+        !isBareAdjectiveSignal(o.text) &&
+        !isFactuallyWrongCompetitorPriceClaim(
+          o.text,
+          project?.base_price_cents ?? 0,
+          aggregate.pricing?.competitorPrices,
+        ),
     );
     const trustFactorsFiltered = (stats?.detail?.topTrustFactors ?? []).filter(
       (t) => !isGenericTrustFactor(t.text) && !isBareAdjectiveSignal(t.text),

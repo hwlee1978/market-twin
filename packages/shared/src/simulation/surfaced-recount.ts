@@ -461,6 +461,129 @@ export function isGenericPriceObjection(text: string): boolean {
 }
 
 /**
+ * Drop objections that claim this product is more expensive than a
+ * specific competitor when the extracted competitor data says the
+ * opposite. Survives the generic-price filter because they ARE
+ * specifically anchored ("Allbirds 대비 Rp 360k 비쌈"), but the
+ * direction is factually wrong.
+ *
+ * Why this needs a post-hoc filter on top of the prompt-side fix
+ * (commit 43bbbd7 added factual competitor prices to the persona
+ * prompt with a HARD RULE forbidding wrong-direction claims): LLMs
+ * still leak a 5-15% rate of these even when the prompt explicitly
+ * lists "Allbirds Wool Runner: ₩152,900 (이 제품보다 비쌈)". The
+ * cluster aggregator turns that residual rate into a "공통 거부"
+ * row across 8+ markets — the diagnostic exactly inverts the
+ * product's real pricing advantage.
+ *
+ * Brand detection: pull a token from each competitor URL's domain
+ * (allbirds.com → "allbirds") and check the objection for that
+ * token plus its common transliterations (Allbirds / 올버즈 /
+ * 알버즈). Directional patterns cover Korean "X 대비 Y 비쌈/비싸/
+ * 높" / "X 보다 비쌈" and English "more expensive than X" /
+ * "pricier than X" / "X보다 저렴하지 않음" (negated cheap = expensive).
+ *
+ * Returns false (keeps the objection) when:
+ *   - No competitor URLs / prices known
+ *   - The brand token isn't in the objection
+ *   - The direction matches reality (we are actually more expensive)
+ *   - The competitor's price is within ±10% — claim is borderline,
+ *     not clearly wrong, so let the LLM's framing through.
+ */
+export function isFactuallyWrongCompetitorPriceClaim(
+  text: string,
+  productPriceCents: number,
+  competitorPrices: Array<{ url: string; priceCents: number; productName?: string }> | undefined,
+): boolean {
+  if (!competitorPrices || competitorPrices.length === 0) return false;
+  if (productPriceCents <= 0) return false;
+
+  const lower = text.toLowerCase();
+
+  for (const cp of competitorPrices) {
+    if (!cp.priceCents || cp.priceCents <= 0) continue;
+
+    // Token extraction from URL domain. "https://www.allbirds.com/..."
+    // → "allbirds". Skip if the domain root is too generic to identify
+    // a brand uniquely (amazon, ebay etc. are marketplaces, not brands).
+    let brandToken = "";
+    try {
+      const host = new URL(cp.url).hostname.replace(/^www\./, "");
+      brandToken = host.split(".")[0]?.toLowerCase() ?? "";
+    } catch {
+      continue;
+    }
+    if (brandToken.length < 4) continue;
+    const MARKETPLACES = new Set([
+      "amazon", "ebay", "shopee", "lazada", "rakuten", "qoo10",
+      "coupang", "naver", "gmarket", "auction", "11st", "yahoo",
+      "tmall", "taobao", "jd",
+    ]);
+    if (MARKETPLACES.has(brandToken)) continue;
+
+    // Korean transliterations for common Latin brand tokens. Hand-
+    // coded for the brands the user-facing product list actually
+    // collides with (footwear / sustainable apparel); extend as
+    // we hit new ones rather than auto-transliterating, which is
+    // brittle.
+    const transliterations: Record<string, string[]> = {
+      allbirds: ["올버즈", "알버즈"],
+      veja: ["베자", "베야"],
+      nike: ["나이키"],
+      adidas: ["아디다스"],
+      asics: ["아식스"],
+      newbalance: ["뉴발란스", "뉴발"],
+      uniqlo: ["유니클로"],
+    };
+    const aliases = [brandToken, ...(transliterations[brandToken] ?? [])];
+    const brandMentioned = aliases.some((alias) =>
+      alias.match(/[a-z]/) ? lower.includes(alias) : text.includes(alias),
+    );
+    if (!brandMentioned) continue;
+
+    // Borderline pricing — within ±10% of product price — skip.
+    // Claim isn't clearly wrong; the LLM's framing might be valid
+    // depending on which variant or which retail channel.
+    if (
+      cp.priceCents >= productPriceCents * 0.9 &&
+      cp.priceCents <= productPriceCents * 1.1
+    ) continue;
+
+    const competitorIsCheaper = cp.priceCents < productPriceCents * 0.9;
+    const competitorIsPricier = cp.priceCents > productPriceCents * 1.1;
+
+    // Build brand-anchored direction-claim regex for both languages.
+    // Use the first alias (Latin domain root) for the regex source so
+    // we don't need to handle alias variants in the regex itself —
+    // we already gated on `brandMentioned` above.
+    const aliasPattern = aliases
+      .map((a) => a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("|");
+
+    // "[brand] 대비 ... 비쌈/비싸/높" or "[brand] 보다 ... 비쌈/높" or
+    // "more expensive than [brand]" / "pricier than [brand]" — claims
+    // THIS product is more expensive than competitor.
+    const claimsThisMoreExpensive =
+      new RegExp(`(${aliasPattern})\\s*(?:대비|보다)[\\s\\S]{0,40}(?:비쌈|비싸|높|고가|premium)`, "i").test(text) ||
+      new RegExp(`(?:more\\s+expensive|pricier|costlier|higher\\s+priced)\\s+than\\s+(${aliasPattern})`, "i").test(text) ||
+      // Negated cheap = expensive: "올버즈보다 저렴하지 않음" / "not cheaper than Allbirds"
+      new RegExp(`(${aliasPattern})\\s*(?:보다|대비)[\\s\\S]{0,20}(?:저렴하지\\s*않음|cheaper)`, "i").test(text) ||
+      new RegExp(`not\\s+cheaper\\s+than\\s+(${aliasPattern})`, "i").test(text);
+
+    // "[brand] 대비 저렴" / "cheaper than [brand]" — claims THIS
+    // product is cheaper. Wrong if competitor is actually pricier.
+    const claimsThisCheaper =
+      new RegExp(`(${aliasPattern})\\s*(?:대비|보다)[\\s\\S]{0,40}(?:저렴|싼|할인|낮)`, "i").test(text) ||
+      new RegExp(`(?:cheaper|less\\s+expensive)\\s+than\\s+(${aliasPattern})`, "i").test(text);
+
+    if (claimsThisMoreExpensive && competitorIsPricier) return true;
+    if (claimsThisCheaper && competitorIsCheaper) return true;
+  }
+
+  return false;
+}
+
+/**
  * Cluster a flat list of strings (e.g. persona objections, trust
  * factors) by token-overlap similarity. Returns one entry per cluster
  * with the most-frequent surface form as the representative and the
