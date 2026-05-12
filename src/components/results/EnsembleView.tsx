@@ -692,7 +692,16 @@ function EnsembleDashboard({
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error("[ensemble pdf]", err);
-      setPdfError(locale === "ko" ? "PDF 생성에 실패했습니다." : "Couldn't generate PDF.");
+      // Show the underlying server message when one came back from
+      // the API route — without it the user just sees a generic
+      // "PDF 생성에 실패" with no clue what to retry or report.
+      const detail =
+        err instanceof Error && err.message && err.message !== "Failed to fetch"
+          ? err.message.slice(0, 200)
+          : null;
+      const base =
+        locale === "ko" ? "PDF 생성에 실패했습니다." : "Couldn't generate PDF.";
+      setPdfError(detail ? `${base} (${detail})` : base);
     } finally {
       setPdfBusy(null);
     }

@@ -6,6 +6,11 @@ import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// PDF render fetches webfonts from jsDelivr and runs react-pdf over a
+// 5,000-persona deep-tier aggregate; the default 10s default Vercel
+// function budget is tight. Bumped to 300s (Pro Fluid) so cold-start
+// font fetches + heavy renders have headroom. Local build is ~3-8s.
+export const maxDuration = 300;
 
 /**
  * GET /api/ensembles/:id/pdf?locale=ko
@@ -64,24 +69,49 @@ export async function GET(
     .single();
   const productName = project?.product_name ?? "Untitled product";
 
-  const buffer = await buildEnsemblePdf({
-    aggregate: ensemble.aggregate_result as EnsembleAggregate,
-    productName,
-    tier: ensemble.tier as
-      | "hypothesis"
-      | "decision"
-      | "decision_plus"
-      | "deep"
-      | "deep_pro",
-    parallelSims: ensemble.parallel_sims,
-    perSimPersonas: ensemble.per_sim_personas,
-    llmProviders: ensemble.llm_providers ?? ["anthropic"],
-    locale,
-    generatedAt: ensemble.completed_at ? new Date(ensemble.completed_at) : new Date(),
-    ensembleId: ensemble.id,
-    project: project ?? null,
-    variant,
-  });
+  // Wrap the build so the client sees a real error message instead of
+  // a 500 with no body. The wrapper logs to Sentry (auto-capture) and
+  // surfaces a short error code + message in the JSON response that
+  // the dashboard's catch can display.
+  let buffer: Buffer;
+  try {
+    buffer = await buildEnsemblePdf({
+      aggregate: ensemble.aggregate_result as EnsembleAggregate,
+      productName,
+      tier: ensemble.tier as
+        | "hypothesis"
+        | "decision"
+        | "decision_plus"
+        | "deep"
+        | "deep_pro",
+      parallelSims: ensemble.parallel_sims,
+      perSimPersonas: ensemble.per_sim_personas,
+      llmProviders: ensemble.llm_providers ?? ["anthropic"],
+      locale,
+      generatedAt: ensemble.completed_at ? new Date(ensemble.completed_at) : new Date(),
+      ensembleId: ensemble.id,
+      project: project ?? null,
+      variant,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error(
+      `[ensemble-pdf] build failed for ${id} (tier=${ensemble.tier}, variant=${variant}):`,
+      message,
+      stack,
+    );
+    return NextResponse.json(
+      {
+        error: "pdf_build_failed",
+        message,
+        ensembleId: id,
+        tier: ensemble.tier,
+        variant,
+      },
+      { status: 500 },
+    );
+  }
 
   // Filename suffix tells the user which variant they downloaded so
   // saved copies on disk don't get confused.
