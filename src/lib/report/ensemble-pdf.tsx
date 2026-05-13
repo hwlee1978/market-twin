@@ -5546,6 +5546,19 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             ? "메타: \"광고→클릭\" leak = 카피·CTA 점검. \"클릭→구매\" leak = 가격·랜딩 컨텐츠 점검. 같은 제품도 시장마다 leak 위치가 다름 → 시장별 채널 전략 차별화 근거."
             : "Read: 'ad→click' leak = revisit copy/CTA. 'click→buy' leak = revisit pricing/landing. Same product, different leak by market — basis for differentiated channel strategy."}
         </MText>
+        {/* Scale-asymmetry disclosure — curiosity is a 0-100 intensity
+            score (mean of adReaction.curiosity), click/buy are share-of-
+            personas percentages. Both fall in 0-100 but they're not
+            strictly comparable, so the 25pt ad→click threshold is a
+            heuristic, not a true funnel stage gap. Click→buy is a true
+            funnel (both percentages of the same audience). Surface this
+            so KOTRA-style readers don't over-interpret an ad→click leak
+            as a precise quantitative claim. */}
+        <MText style={{ fontSize: 7, color: C.faint, marginTop: 4, lineHeight: 1.5 }}>
+          {isKo
+            ? "주의: 광고 호기심은 0-100 강도 점수, 클릭·구매는 페르소나 비율(%)입니다. 따라서 \"광고→클릭\" leak은 휴리스틱이며, 정확한 단계 간 비율 비교는 \"클릭→구매\"만 해당."
+            : "Note: ad curiosity is a 0-100 intensity score; click & buy are persona-share percentages. 'ad→click' leak is therefore a heuristic — only 'click→buy' is a true same-denominator funnel comparison."}
+        </MText>
 
         {pageFooter}
       </Page>
