@@ -20,6 +20,7 @@ import type { ProjectInput, CountryScore } from "@/lib/simulation/schemas";
 import { prefetchInlineAssets } from "@/lib/llm/asset-fetch";
 import {
   buildCategoryTrendQuery,
+  buildCategoryTrendQueryNative,
   buildMarginBenchmarkQuery,
   tavilySearch,
   type TavilyResult,
@@ -157,19 +158,46 @@ export async function runEnsembleOrchestration(
   let trendSnippets: TavilyResult[] = [];
   let marginSnippets: TavilyResult[] = [];
   if (process.env.TAVILY_API_KEY) {
-    const trendResult = await tavilySearch({
-      query: buildCategoryTrendQuery({
-        category: projectInput.category,
-        productName: projectInput.productName,
-      }),
-      searchDepth: "advanced",
-      maxResults: 5,
-      includeAnswer: false,
+    // English trend query always runs. For non-English originating
+    // countries (K-product launches: KR / JP / CN / TW / HK origin),
+    // a parallel native-language query also runs — pulls 조선비즈 /
+    // 매경 / 한경 / Nikkei / Sina Finance IR articles that publish
+    // export growth news in the native language before (or instead
+    // of) English coverage.
+    const trendNativeQuery = buildCategoryTrendQueryNative({
+      category: projectInput.category,
+      productName: projectInput.productName,
+      originatingCountry: projectInput.originatingCountry,
     });
-    trendSnippets = trendResult?.results ?? [];
+    const [trendResult, trendNativeResult] = await Promise.all([
+      tavilySearch({
+        query: buildCategoryTrendQuery({
+          category: projectInput.category,
+          productName: projectInput.productName,
+        }),
+        searchDepth: "advanced",
+        maxResults: 5,
+        includeAnswer: false,
+      }),
+      trendNativeQuery
+        ? tavilySearch({
+            query: trendNativeQuery,
+            searchDepth: "advanced",
+            maxResults: 5,
+            includeAnswer: false,
+          })
+        : Promise.resolve(null),
+    ]);
+    const enTrendSnippets = trendResult?.results ?? [];
+    const nativeTrendSnippets = trendNativeResult?.results ?? [];
+    const seenTrendUrls = new Set(enTrendSnippets.map((r) => r.url));
+    const nativeUniqueTrend = nativeTrendSnippets.filter(
+      (r) => !seenTrendUrls.has(r.url),
+    );
+    trendSnippets = [...enTrendSnippets, ...nativeUniqueTrend];
     if (trendSnippets.length > 0) {
       console.log(
-        `[ensemble ${ensembleId}] tavily trend: ${trendSnippets.length} snippets for ${projectInput.category}`,
+        `[ensemble ${ensembleId}] tavily trend: ${enTrendSnippets.length}+${nativeUniqueTrend.length} (EN+native) snippets for ${projectInput.category}`,
       );
     }
 

@@ -313,6 +313,108 @@ export function buildMarginBenchmarkQuery(opts: {
 }
 
 /**
+ * Country → native query language. Drives the localized-search pass
+ * added after the Buldak/Shin/COSRX validation runs identified
+ * Tavily's English-source bias as the root cause of EU + CN + JP
+ * weakness (defect #1). Tavily's index is global, but its ranking
+ * strongly favors English-language pages — running a parallel native-
+ * language query surfaces sources the English search misses entirely
+ * (라쿠텐, @cosme, 샤오홍슈, 네이버, Sina Finance, 36Kr).
+ *
+ * Returns null for English-default countries (US/GB/AU/etc.) — for
+ * those, the English query already covers the relevant news/IR
+ * sources, so a second localized pass would just duplicate results
+ * and double cost without information gain.
+ */
+function nativeQueryLanguage(country: string): {
+  code: string;
+  countryName: string;
+} | null {
+  const upper = country.toUpperCase();
+  switch (upper) {
+    case "JP":
+      return { code: "ja", countryName: "日本" };
+    case "CN":
+      return { code: "zh-CN", countryName: "中国" };
+    case "KR":
+      return { code: "ko", countryName: "한국" };
+    case "TW":
+      return { code: "zh-TW", countryName: "台灣" };
+    case "HK":
+      return { code: "zh-TW", countryName: "香港" };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Build a market-size query in the country's native language (when
+ * the country has a non-English-dominant media landscape — JP/CN/KR/
+ * TW/HK). Mirrors buildMarketSizeQuery's English version but uses
+ * native-language phrasing so Tavily ranks domestic IR articles and
+ * trade-press analyses to the top of results.
+ *
+ * Returns null for English-default countries (caller skips the
+ * second Tavily call — saves the search-credit charge).
+ */
+export function buildMarketSizeQueryNative(opts: {
+  country: string;
+  category: string;
+  productName: string;
+}): string | null {
+  const lang = nativeQueryLanguage(opts.country);
+  if (!lang) return null;
+  const year = new Date().getFullYear();
+  const prevYear = year - 1;
+  // Native-language phrasing varies — keep keyword-style queries that
+  // Tavily can match against article titles/snippets in the target
+  // language. Year tag biases toward recent IR articles.
+  switch (lang.code) {
+    case "ja":
+      return `${opts.category} ${lang.countryName} 市場規模 ${year} 成長 拡大 ${prevYear} ${year}`;
+    case "zh-CN":
+      return `${opts.category} ${lang.countryName} 市场规模 ${year} 增长 扩张 ${prevYear} ${year}`;
+    case "zh-TW":
+      return `${opts.category} ${lang.countryName} 市場規模 ${year} 成長 擴張 ${prevYear} ${year}`;
+    case "ko":
+      return `${opts.category} ${lang.countryName} 시장 규모 ${year} 성장 확대 ${prevYear} ${year}`;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Native-language version of buildCategoryTrendQuery — runs when the
+ * originating country (the K-product's home market) is non-English.
+ * Korean-origin products especially benefit: K-Food / K-Beauty export
+ * IR is published first in Korean (조선비즈, 매경, 한경) and only
+ * later in English Korea Herald / Korea Times. The native query
+ * pulls the upstream Korean-language IR articles directly.
+ */
+export function buildCategoryTrendQueryNative(opts: {
+  category: string;
+  productName: string;
+  originatingCountry: string;
+}): string | null {
+  const lang = nativeQueryLanguage(opts.originatingCountry);
+  if (!lang) return null;
+  const year = new Date().getFullYear();
+  const prevYear = year - 1;
+  switch (lang.code) {
+    case "ja":
+      return `${opts.category} 消費者トレンド ${year} 海外展開 輸出 ${opts.productName}`;
+    case "zh-CN":
+      return `${opts.category} 消费趋势 ${year} 海外扩张 出口 ${opts.productName}`;
+    case "zh-TW":
+      return `${opts.category} 消費趨勢 ${year} 海外擴張 出口 ${opts.productName}`;
+    case "ko":
+      return `${opts.category} 소비자 트렌드 ${year} 해외 진출 수출 매출 ${prevYear} ${opts.productName}`;
+    default:
+      return null;
+  }
+}
+
+/**
  * Compress Tavily results into a tight, token-efficient context block
  * suitable for injection into per-batch persona prompts. Goal: <600
  * chars total so the addition doesn't bloat 12-batch sims with

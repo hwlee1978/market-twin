@@ -13,6 +13,7 @@
 import { getLLMProvider } from "@/lib/llm";
 import {
   buildMarketSizeQuery,
+  buildMarketSizeQueryNative,
   tavilySearch,
   type TavilyResult,
 } from "@/lib/market-research/tavily";
@@ -87,21 +88,53 @@ export async function buildMarketProfile(
   // sources. Best-effort: when TAVILY_API_KEY is unset OR the call
   // fails, marketSnippets ends up empty and the prompt falls back to
   // LLM-only generation (same behaviour as before this stage existed).
-  // Cost: ~$0.01-0.03 per search; 1 search per ensemble.
-  const tavilyResult = await tavilySearch({
-    query: buildMarketSizeQuery({
-      country: recommendedCountry,
-      category: opts.input.category,
-      productName: opts.input.productName,
-    }),
-    searchDepth: "advanced",
-    maxResults: 5,
-    includeAnswer: true,
+  // Cost: ~$0.01-0.03 per search; 1-2 searches per market-profile call.
+  //
+  // English query always runs (covers Reuters / Bloomberg / FT-class
+  // sources that publish globally regardless of target market). For
+  // non-English-dominant markets (JP/CN/KR/TW/HK), a parallel native-
+  // language query also runs and the results are merged — this fills
+  // the gap identified in the Buldak/Shin/COSRX validation runs where
+  // Tavily's English bias missed 라쿠텐 / @cosme / 샤오홍슈 / 네이버 IR
+  // articles that drove K-product expansion stories.
+  const englishQuery = buildMarketSizeQuery({
+    country: recommendedCountry,
+    category: opts.input.category,
+    productName: opts.input.productName,
   });
-  const marketSnippets: TavilyResult[] = tavilyResult?.results ?? [];
-  if (tavilyResult) {
+  const nativeQuery = buildMarketSizeQueryNative({
+    country: recommendedCountry,
+    category: opts.input.category,
+    productName: opts.input.productName,
+  });
+  const [tavilyResult, tavilyNativeResult] = await Promise.all([
+    tavilySearch({
+      query: englishQuery,
+      searchDepth: "advanced",
+      maxResults: 5,
+      includeAnswer: true,
+    }),
+    nativeQuery
+      ? tavilySearch({
+          query: nativeQuery,
+          searchDepth: "advanced",
+          maxResults: 5,
+          includeAnswer: false,
+        })
+      : Promise.resolve(null),
+  ]);
+  const englishSnippets = tavilyResult?.results ?? [];
+  const nativeSnippets = tavilyNativeResult?.results ?? [];
+  // Dedup on URL — same article occasionally surfaces in both queries
+  // (Korea Herald publishes both KO + EN versions, etc.). English
+  // snippets keep their slot; native fills only URLs the English pass
+  // missed, biasing toward complementary domestic sources.
+  const seenUrls = new Set(englishSnippets.map((r) => r.url));
+  const nativeUnique = nativeSnippets.filter((r) => !seenUrls.has(r.url));
+  const marketSnippets: TavilyResult[] = [...englishSnippets, ...nativeUnique];
+  if (tavilyResult || tavilyNativeResult) {
     console.log(
-      `[market profile] tavily: ${marketSnippets.length} snippets for ${recommendedCountry}/${opts.input.category}`,
+      `[market profile] tavily: ${englishSnippets.length}+${nativeUnique.length} (EN+native) snippets for ${recommendedCountry}/${opts.input.category}`,
     );
   } else if (process.env.TAVILY_API_KEY) {
     // Key was set but call failed — log so the operator knows the
