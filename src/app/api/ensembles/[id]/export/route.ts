@@ -65,7 +65,10 @@ export async function GET(
         c.finalScore.range,
         c.demandScore.median,
         c.competitionScore.median,
-        c.cacEstimateUsd.median,
+        // Prefer the server-computed persona-derived cacRange — same
+        // priority dashboard/PDF/ShareViewer use after 6aaac4f. Falls
+        // back to the LLM-emitted median for legacy ensembles only.
+        c.cacRange?.medianUsd ?? c.cacEstimateUsd.median,
       ]);
       csv = toCsv(headers, rows);
       break;
