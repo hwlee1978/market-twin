@@ -5422,10 +5422,28 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           );
         })}
 
+        {/* Coverage summary — surface the matched/gap ratio so a reader
+            can judge plan completeness at a glance without counting the
+            "대응 액션 없음" rows. Heuristic is keyword-overlap so a
+            "gap" may be a false negative (semantic match missed by
+            token overlap) rather than a real plan hole; the footer
+            below already warns about this. */}
+        {(() => {
+          const matchedCount = matches.filter((m) => m.matchedActions.length > 0).length;
+          const gapCount = matches.length - matchedCount;
+          const coverageColor = gapCount === 0 ? C.success : gapCount <= 1 ? C.warn : C.risk;
+          return (
+            <MText style={{ fontSize: 9, color: coverageColor, fontWeight: 600, marginTop: 6 }}>
+              {isKo
+                ? `커버리지: ${matchedCount} / ${matches.length} 리스크가 액션과 매칭 (gap ${gapCount}개).`
+                : `Coverage: ${matchedCount} / ${matches.length} risks matched to actions (${gapCount} gap${gapCount === 1 ? "" : "s"}).`}
+            </MText>
+          );
+        })()}
         <MText style={{ fontSize: 8, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>
           {isKo
-            ? "메타: 매핑은 키워드 중첩 기반 휴리스틱입니다 (≥2 token 일치). 의미적으로 더 적합한 액션이 있을 수 있으니 보조 자료로 사용하세요. \"대응 액션 없음\"은 액션 plan에 빈틈이 있다는 시그널 — 새 액션 추가 검토하세요."
-            : "Mapping is keyword-overlap heuristic (≥2 token match). A semantically better fit may exist; treat this as a check, not a final answer. 'No matched action' is a signal of a gap in the plan — consider adding one."}
+            ? "메타: 매핑은 키워드 중첩 기반 휴리스틱입니다 (≥2 token 일치). 의미적으로 더 적합한 액션이 있을 수 있으니 보조 자료로 사용하세요. \"대응 액션 없음\"은 액션 plan에 빈틈일 수도 있고, 휴리스틱이 의미적 매칭을 놓친 false negative일 수도 있으니 수동으로 확인하세요."
+            : "Mapping is keyword-overlap heuristic (≥2 token match). A semantically better fit may exist; treat this as a check, not a final answer. 'No matched action' could be a real plan gap OR a false negative where the heuristic missed a semantic match — verify manually before treating as a missing action."}
         </MText>
 
         {pageFooter}
