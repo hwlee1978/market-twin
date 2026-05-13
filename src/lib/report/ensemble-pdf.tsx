@@ -4129,6 +4129,26 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             ? "메타: 막대 색상은 의향 임계점입니다. 65+ 강 / 50-64 보통 / 50 미만 약. \"→ 국가\"는 이 소득대 페르소나가 가장 많이 출신인 후보 시장 (선호도가 아니라 분포)."
             : "Bar tone: 65+ strong / 50-64 moderate / <50 weak. \"→ country\" = the candidate market most personas in this income bracket come from (distribution, not preference)."}
         </MText>
+        {/* Coverage reconciliation — sum of bucket counts vs effective
+            personas. Personas with missing/unclassified income don't
+            appear in byIncome, so a KOTRA reader checking whether the
+            "topCountryShare %" numbers are computed on the full pool
+            needs this denominator. Show "(M명 누락)" when coverage <100%
+            so the gap is explicit rather than silently absorbed. */}
+        {(() => {
+          const bucketSum = rows.reduce((s, r) => s + r.count, 0);
+          const total = aggregate.effectivePersonas ?? 0;
+          if (total === 0) return null;
+          const coveragePct = Math.round((bucketSum / total) * 100);
+          const missing = Math.max(0, total - bucketSum);
+          return (
+            <MText style={{ fontSize: 8, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>
+              {isKo
+                ? `합계: ${bucketSum.toLocaleString()} / 전체 페르소나 ${total.toLocaleString()}명 (${coveragePct}%${missing > 0 ? ` · ${missing.toLocaleString()}명 소득 정보 누락` : ""}).`
+                : `Σ = ${bucketSum.toLocaleString()} / ${total.toLocaleString()} effective personas (${coveragePct}%${missing > 0 ? ` · ${missing.toLocaleString()} missing income data` : ""}).`}
+            </MText>
+          );
+        })()}
 
         {/* Analysis commentary — deterministic interpretation of the
             table above. Surfaces the trend, the champion segment, the

@@ -6734,6 +6734,26 @@ function DecisionAidTab({
                 ? `메타: 막대 색은 의향 임계점입니다 (65+ 강 / 50-64 보통 / 50 미만 약). 전체 평균 ${overallMean.toFixed(1)}/100.`
                 : `Bar tone: 65+ strong / 50-64 moderate / <50 weak. Overall mean ${overallMean.toFixed(1)}/100.`}
             </p>
+            {/* Coverage reconciliation — sum of bucket counts vs effective
+                personas. Personas with missing/unclassified income drop
+                from byIncome, so a reader checking whether the
+                "topCountryShare %" numbers are computed on the full pool
+                needs this denominator. Surface "(N명 누락)" when coverage
+                <100% rather than letting the gap be absorbed silently. */}
+            {(() => {
+              const bucketSum = incomeRows.reduce((s, r) => s + r.count, 0);
+              const total = aggregate.effectivePersonas ?? 0;
+              if (total === 0) return null;
+              const coveragePct = Math.round((bucketSum / total) * 100);
+              const missing = Math.max(0, total - bucketSum);
+              return (
+                <p className="text-[11px] text-slate-500 mb-4">
+                  {isKo
+                    ? `합계: ${bucketSum.toLocaleString()} / 전체 페르소나 ${total.toLocaleString()}명 (${coveragePct}%${missing > 0 ? ` · ${missing.toLocaleString()}명 소득 정보 누락` : ""}).`
+                    : `Σ = ${bucketSum.toLocaleString()} / ${total.toLocaleString()} effective personas (${coveragePct}%${missing > 0 ? ` · ${missing.toLocaleString()} missing income data` : ""}).`}
+                </p>
+              );
+            })()}
 
             {/* Analysis commentary */}
             {analysis.bullets.length > 0 && (
