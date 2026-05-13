@@ -72,8 +72,16 @@ export function ShareViewer({
 }) {
   const isKo = locale === "ko";
   const { aggregate, project, tier } = ensemble;
-  const { recommendation, varianceAssessment, narrative, countryStats, segments, simCount, effectivePersonas } =
+  const { recommendation, varianceAssessment, narrative, countryStats, segments, simCount, effectivePersonas, bestCountryDistribution } =
     aggregate;
+  // Runner-up surfacing — without it a reader sees only the headline
+  // consensus % and can't judge how close the race was. When consensus
+  // is thin (e.g. 45% A vs 40% B vs 15% C), hiding B reads as more
+  // certainty than the data supports. The dashboard already shows the
+  // full distribution; the public share viewer only had the headline.
+  const runnerUp = bestCountryDistribution?.find(
+    (b) => b.country.toUpperCase() !== recommendation.country.toUpperCase(),
+  );
   const tierLabel = isKo ? TIER_LABELS_KO[tier] : TIER_LABELS_EN[tier];
   const confidenceColor =
     recommendation.confidence === "STRONG"
@@ -157,6 +165,13 @@ export function ShareViewer({
             </div>
             <CheckCircle2 className={clsx(confidenceColor, "shrink-0")} size={32} />
           </div>
+          {runnerUp && (
+            <div className="mt-3 text-xs text-slate-500">
+              {isKo
+                ? `2위: ${runnerUp.country} (${runnerUp.count}/${simCount} 시뮬, ${runnerUp.percent}%)`
+                : `Runner-up: ${runnerUp.country} (${runnerUp.count}/${simCount} sims, ${runnerUp.percent}%)`}
+            </div>
+          )}
           <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-500">
             {isKo
               ? `${simCount}개 독립 시뮬레이션의 합의 결과 · ${effectivePersonas.toLocaleString()}명 페르소나 평균`
@@ -229,12 +244,13 @@ export function ShareViewer({
               {isKo ? "국가별 점수 분포" : "Per-country score distribution"}
             </h2>
             <div className="card overflow-x-auto">
-              <table className="w-full text-sm min-w-[480px]">
+              <table className="w-full text-sm min-w-[540px]">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
                     <th className="px-4 py-2 text-left">{isKo ? "국가" : "Country"}</th>
                     <th className="px-4 py-2 text-right">{isKo ? "평균" : "Mean"}</th>
                     <th className="px-4 py-2 text-right">{isKo ? "중앙값" : "Median"}</th>
+                    <th className="px-4 py-2 text-right">{isKo ? "표준편차" : "Std"}</th>
                     <th className="px-4 py-2 text-right">{isKo ? "범위" : "Range"}</th>
                     <th className="px-4 py-2 text-right">CAC</th>
                   </tr>
@@ -269,6 +285,9 @@ export function ShareViewer({
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           {c.finalScore.median.toFixed(1)}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                          {(c.finalScore.combinedStd ?? c.finalScore.std).toFixed(1)}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums text-slate-500">
                           {c.finalScore.min.toFixed(0)}–{c.finalScore.max.toFixed(0)}
