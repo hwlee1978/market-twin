@@ -169,6 +169,16 @@ export async function tavilySearch(opts: {
  * phrasing matters — "market size in TW" returns more analyst-report
  * snippets than "Taiwan market size" alone. Year tag (2024) biases
  * results toward recent data instead of decade-old trade journals.
+ *
+ * Trend keywords ("recent expansion", "momentum") were added after
+ * three accuracy-validation runs (Buldak / Shin Ramyun / COSRX) all
+ * missed EU's +200% YoY K-product growth signal — Tavily returned
+ * static category-size figures and missed Korea Herald / Korea Times
+ * articles announcing 2024-2025 EU subsidiary launches and Tesco /
+ * Rewe / Sephora retail entries. Including "recent expansion 2024
+ * 2025 momentum" pulls those Korea-IR style articles to the top of
+ * the results list so the persona prompt sees the growth signal
+ * alongside the static TAM number.
  */
 export function buildMarketSizeQuery(opts: {
   country: string;
@@ -208,7 +218,12 @@ export function buildMarketSizeQuery(opts: {
   const country =
     countryNames[opts.country.toUpperCase()] ?? opts.country;
   const year = new Date().getFullYear();
-  return `${opts.category} market size ${country} ${year} TAM growth rate`;
+  const prevYear = year - 1;
+  // "recent expansion ${prevYear} ${year} momentum" surfaces growth-
+  // trajectory articles (subsidiary launches, retail entries, YoY %
+  // milestones) that pure "TAM growth rate" missed in the Buldak /
+  // Shin Ramyun / COSRX validation runs.
+  return `${opts.category} market ${country} ${year} TAM growth rate recent expansion ${prevYear} momentum`;
 }
 
 /**
@@ -233,7 +248,12 @@ export function buildCategoryTrendQuery(opts: {
   productName: string;
 }): string {
   const year = new Date().getFullYear();
-  return `${opts.category} consumer trends ${year} buyer preferences shifts ${opts.productName}`;
+  const prevYear = year - 1;
+  // "regional growth shifts" prompts results that report which
+  // geographies are gaining share — the signal that lets the persona
+  // prompt distinguish a saturating market from one that's currently
+  // exploding (e.g., EU K-product +200% YoY 2024-2025).
+  return `${opts.category} consumer trends ${prevYear} ${year} buyer preferences shifts regional growth ${opts.productName}`;
 }
 
 /**
