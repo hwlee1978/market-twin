@@ -1354,9 +1354,12 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                     ? `${headKo} — 모든 시뮬이 ${fs.mean.toFixed(0)}점으로 수렴${noise}.`
                     : `${headEn} — all sims converged on ${fs.mean.toFixed(0)}${noise}.`;
                 }
+                // Combined std (law of total variance) when the runner
+                // emitted within-sim variance; otherwise legacy across-sim std.
+                const noiseStd = fs.combinedStd ?? fs.std;
                 return isKo
-                  ? `${headKo} — 평균 점수 ${fs.mean.toFixed(0)}, 표준편차 ${fs.std.toFixed(1)}.`
-                  : `${headEn} — mean ${fs.mean.toFixed(0)}, std ${fs.std.toFixed(1)}.`;
+                  ? `${headKo} — 평균 점수 ${fs.mean.toFixed(0)}, 표준편차 ${noiseStd.toFixed(1)}.`
+                  : `${headEn} — mean ${fs.mean.toFixed(0)}, std ${noiseStd.toFixed(1)}.`;
               })()}
             />
             {runnerUp && (
@@ -2857,7 +2860,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                   <MText style={[styles.td, styles.colCountry, { fontWeight: 600 }]}>{c.country}</MText>
                   <MText style={[styles.td, styles.colNum]}>{c.finalScore.mean.toFixed(1)}</MText>
                   <MText style={[styles.td, styles.colNum]}>{c.finalScore.median.toFixed(1)}</MText>
-                  <MText style={[styles.tdMuted, styles.colNum]}>{c.finalScore.std.toFixed(1)}</MText>
+                  <MText style={[styles.tdMuted, styles.colNum]}>{(c.finalScore.combinedStd ?? c.finalScore.std).toFixed(1)}</MText>
                   <MText style={[styles.tdMuted, styles.colNum]}>{`${c.finalScore.min.toFixed(0)}–${c.finalScore.max.toFixed(0)}`}</MText>
                   {/* Same prefer-cacRange rule as the dashboard score-stats
                       table and the Investment + ROI card — server-computed

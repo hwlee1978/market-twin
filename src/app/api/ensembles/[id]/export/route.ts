@@ -56,7 +56,10 @@ export async function GET(
         c.country,
         c.finalScore.mean,
         c.finalScore.median,
-        c.finalScore.std,
+        // Combined std (within + across) when available — matches the
+        // dashboard/PDF surfaces so a downstream KOTRA-style review
+        // sees the same noise figure in every export channel.
+        c.finalScore.combinedStd ?? c.finalScore.std,
         c.finalScore.min,
         c.finalScore.max,
         c.finalScore.range,

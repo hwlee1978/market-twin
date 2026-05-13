@@ -1650,6 +1650,10 @@ function OverviewTab({
                       ? `, 시뮬 내부 noise ±${withinStd.toFixed(1)}`
                       : `, within-sim noise ±${withinStd.toFixed(1)}`
                     : "";
+                // Use the law-of-total-variance combined std when the
+                // runner emitted within-sim variance — across-sim std
+                // alone understates the ensemble's true noise.
+                const noiseStd = fs.combinedStd ?? fs.std;
                 if (simCount === 1) {
                   return isKo ? (
                     <>
@@ -1685,13 +1689,13 @@ function OverviewTab({
                   <>
                     <span className="font-semibold text-slate-900">{recommendation.country}</span>
                     {" "}진출이 합의 우위 ({recommendation.consensusPercent}% / {recommendation.confidence})
-                    {` — 평균 점수 ${fs.mean.toFixed(0)}, 표준편차 ${fs.std.toFixed(1)}`}.
+                    {` — 평균 점수 ${fs.mean.toFixed(0)}, 표준편차 ${noiseStd.toFixed(1)}`}.
                   </>
                 ) : (
                   <>
                     <span className="font-semibold text-slate-900">{recommendation.country}</span>
                     {" "}leads consensus ({recommendation.consensusPercent}% / {recommendation.confidence})
-                    {` — mean score ${fs.mean.toFixed(0)}, std ${fs.std.toFixed(1)}`}.
+                    {` — mean score ${fs.mean.toFixed(0)}, std ${noiseStd.toFixed(1)}`}.
                   </>
                 );
               })()}
@@ -2444,7 +2448,7 @@ function CountriesTab({
                       <td className="px-4 py-2 text-right tabular-nums">{c.finalScore.mean.toFixed(1)}</td>
                       <td className="px-4 py-2 text-right tabular-nums">{c.finalScore.median.toFixed(1)}</td>
                       <td className="px-4 py-2 text-right tabular-nums text-slate-500">
-                        {c.finalScore.std.toFixed(1)}
+                        {(c.finalScore.combinedStd ?? c.finalScore.std).toFixed(1)}
                       </td>
                       <td className="px-4 py-2 text-right tabular-nums text-slate-500">
                         {c.finalScore.min.toFixed(0)}–{c.finalScore.max.toFixed(0)}
