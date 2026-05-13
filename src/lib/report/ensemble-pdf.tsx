@@ -4599,10 +4599,11 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     );
     // Prefer server-computed CAC range; fall back to LLM median for
     // legacy ensembles. Same precedence as the dashboard (EnsembleView
-    // DecisionAidTab) so PDF and dashboard never disagree on the
-    // headline number.
+    // DecisionAidTab), the country score-stats table, CSV export and
+    // ShareViewer, so PDF and every other surface never disagree on
+    // the headline number.
     const cacRange = recCountryStats?.cacRange ?? null;
-    const cacUsd = cacRange?.medianUsd ?? recCountryStats?.cacEstimateUsd.mean ?? null;
+    const cacUsd = cacRange?.medianUsd ?? recCountryStats?.cacEstimateUsd.median ?? null;
     if (cacUsd == null) return null;
 
     const fmt = (cents: number) => formatPrice(cents, project?.currency);

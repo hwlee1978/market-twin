@@ -6004,10 +6004,12 @@ function DecisionAidTab({
   // Prefer server-computed CAC range over the LLM-emitted median when
   // available (cacRange is the persona-derived authoritative value;
   // legacy ensembles or thin per-country pools fall back to the LLM
-  // value). Median of range used for arithmetic; range bands surfaced
-  // separately on the card.
+  // value). Median used as the legacy fallback — same precedence as
+  // the country score-stats table, CSV export and ShareViewer, so a
+  // KOTRA-style reviewer cross-checking the Decision-Aid headline CAC
+  // against the country table sees the same number on every surface.
   const cacRange = recCountryStats?.cacRange ?? null;
-  const cacUsd = cacRange?.medianUsd ?? recCountryStats?.cacEstimateUsd.mean ?? null;
+  const cacUsd = cacRange?.medianUsd ?? recCountryStats?.cacEstimateUsd.median ?? null;
   const usdToTarget: Record<string, number> = {
     USD: 1, KRW: 1390, JPY: 152, CNY: 7.2, TWD: 32, HKD: 7.8,
     SGD: 1.35, THB: 36, VND: 25500, IDR: 16200, MYR: 4.7, PHP: 58,
