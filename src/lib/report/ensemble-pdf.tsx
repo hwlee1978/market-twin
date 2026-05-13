@@ -5994,6 +5994,18 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                         {`${champion.intent}/100`}
                       </MText>
                     </View>
+                    {/* Honest-label caveat — topPositiveVoices is just the
+                        max-intent persona, no ≥70 threshold filter. If that
+                        max is below the conventional high-intent cutoff,
+                        the reader should know the "champion" is the most
+                        positive available, not a verified hot buyer. */}
+                    {champion.intent < 70 && (
+                      <MText style={{ fontSize: 7, color: C.warn, marginTop: 4, lineHeight: 1.4 }}>
+                        {isKo
+                          ? "주의: 최강 옹호자 의향 < 70 — 전체 시장이 미온적입니다. \"즉시 구매 후보\"로 단정하기보다 카피·메시지로 끌어올릴 기준점으로 해석하세요."
+                          : "Note: top advocate intent <70 — market is lukewarm overall. Treat as the message anchor to lift, not a confirmed hot buyer."}
+                      </MText>
+                    )}
                   </View>
                 </>
               ) : (
@@ -6077,6 +6089,19 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                         {`${skeptic.intent}/100`}
                       </MText>
                     </View>
+                    {/* Mirror caveat — topNegativeVoices is just the
+                        min-intent persona. If the minimum is still above
+                        the conventional low-intent cutoff (<35), the
+                        "skeptic" isn't actually a hard critic; the market
+                        is broadly accepting and you're seeing the least-
+                        enthusiastic relative voice. */}
+                    {skeptic.intent >= 35 && (
+                      <MText style={{ fontSize: 7, color: C.warn, marginTop: 4, lineHeight: 1.4 }}>
+                        {isKo
+                          ? "주의: 최약 회의론자 의향 ≥ 35 — 시장에 강한 비판자가 없습니다. 상대적으로 가장 미온적인 목소리이며, \"마지막 설득 대상\"으로 단정하기보다 미세 조정 신호로 해석하세요."
+                          : "Note: weakest skeptic intent ≥35 — no hard critics in this market. This is the least-enthusiastic relative voice; treat as fine-tuning input, not a hard-won conversion target."}
+                      </MText>
+                    )}
                   </View>
                 </>
               ) : (
