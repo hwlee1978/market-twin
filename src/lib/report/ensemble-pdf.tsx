@@ -6508,6 +6508,33 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           })}
         </View>
 
+        {/* Sim-count imbalance flag — the "% aligned with overall" metric
+            uses the overall consensus as its reference, but the overall
+            is weighted by completed sim count per provider. If one
+            provider over- or under-ran (failures, retries, partial
+            completion), its weight in the overall is uneven and the
+            agreement % is biased. Flag when any provider's share is
+            more than 1.5× the even-split expectation, so a reader knows
+            to interpret the alignment numbers with caution. */}
+        {(() => {
+          const totalSims = picks.reduce((s, p) => s + p.simCount, 0);
+          if (totalSims === 0 || picks.length < 2) return null;
+          const expectedShare = 1 / picks.length;
+          const imbalanced = picks.find(
+            (p) => Math.abs(p.simCount / totalSims - expectedShare) > 0.15,
+          );
+          if (!imbalanced) return null;
+          const sharesText = picks
+            .map((p) => `${providerLabelPdf(p.provider)} ${p.simCount}`)
+            .join(" · ");
+          return (
+            <MText style={{ fontSize: 7, color: C.warn, marginTop: 6, lineHeight: 1.5 }}>
+              {isKo
+                ? `주의: 모델별 완료 시뮬 수가 균등 분포(${Math.round(totalSims / picks.length)}개)에서 벗어남 (${sharesText}). 전체 합의가 과대 표본 모델 쪽으로 기울어 있을 수 있어, 위 "합의 일치 %"는 보수적으로 해석하세요.`
+                : `Note: per-provider completed sim counts deviate from the even split (${Math.round(totalSims / picks.length)} each) — actual: ${sharesText}. The overall consensus is weighted toward the larger-sample provider, so read the "aligned with overall %" cautiously.`}
+            </MText>
+          );
+        })()}
         <MText style={{ fontSize: 8, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>
           {isKo
             ? "해석 가이드: 합의 일치 50% 미만인 모델은 \"전체 합의에서 멀리 떨어진 의견\"을 가지고 있습니다. 그 모델의 1순위가 합리적 시나리오일 수 있으니 이유를 검토하세요. 75% 이상은 강한 합의 — 추가 검증 불필요."
