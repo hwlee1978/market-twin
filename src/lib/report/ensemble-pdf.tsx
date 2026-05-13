@@ -40,6 +40,7 @@ import {
   isPriceThemedBlocker,
   isFactuallyWrongCompetitorPriceClaim,
   demoteDominantClusters,
+  buildObjectionRows,
 } from "@/lib/simulation/surfaced-recount";
 import {
   COMPONENT_LABEL,
@@ -3023,33 +3024,47 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
               <View style={{ flexDirection: "row", gap: 14 }}>
                 <View style={{ flex: 1.4 }}>
                   {(() => {
-                    // Defense-in-depth: drop content-based generic
-                    // entries (price grumbles, launch concerns), then
-                    // run the structural anti-dominance pass to demote
-                    // any cluster absorbing ≥60% of the country pool
-                    // — it's a consensus signal, not a differentiator.
-                    const filteredRaw = d.topObjections.filter(
-                      (o) =>
-                        !isGenericPriceObjection(o.text) &&
-                        !isGenericLaunchConcern(o.text) &&
-                        !isBareAdjectiveSignal(o.text) &&
-                        !isFactuallyWrongCompetitorPriceClaim(
-                          o.text,
-                          project?.base_price_cents ?? 0,
-                          aggregate.pricing?.competitorPrices,
-                        ),
+                    // Prefer Phase-2 categoryDistribution; fall back to
+                    // fuzzy-cluster topObjections with the existing
+                    // filter + anti-dominance defenses for legacy
+                    // aggregates predating the taxonomy rollout.
+                    let rows = buildObjectionRows(
+                      d.topObjections,
+                      d.objectionCategoryDistribution,
+                      isKo ? "ko" : "en",
+                      {
+                        limit: 5,
+                        fuzzyFilter: (text) =>
+                          isGenericPriceObjection(text) ||
+                          isGenericLaunchConcern(text) ||
+                          isBareAdjectiveSignal(text) ||
+                          isFactuallyWrongCompetitorPriceClaim(
+                            text,
+                            project?.base_price_cents ?? 0,
+                            aggregate.pricing?.competitorPrices,
+                          ),
+                      },
                     );
-                    const filteredObjections = demoteDominantClusters(
-                      filteredRaw,
-                      d.persona.count,
-                    );
-                    if (filteredObjections.length === 0) return null;
+                    if (rows.length > 0 && rows[0].source === "fuzzy") {
+                      const demoted = demoteDominantClusters(
+                        rows.map((r) => ({ text: r.label, count: r.count })),
+                        d.persona.count,
+                      );
+                      rows = demoted.map((dr) => ({
+                        label: dr.text,
+                        detail: "",
+                        count: dr.count,
+                        source: "fuzzy" as const,
+                      }));
+                    }
+                    if (rows.length === 0) return null;
+                    const usingTaxonomy = rows[0]?.source === "taxonomy";
                     return (
                     <View>
                       <MText style={[styles.infoLabel, { marginBottom: 3 }]}>
                         {isKo ? "공통 거부 요인 TOP 5" : "Top objections"}
                       </MText>
-                      {filteredObjections.map((o) => {
+                      {rows.map((o) => {
                         // Count = unique personas who raised the
                         // clustered concern (post e01b025 fix). NOT
                         // mutually exclusive — one persona can raise
@@ -3069,7 +3084,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                               : "<1%";
                         return (
                           <View
-                            key={o.text}
+                            key={`${o.source}:${o.label}`}
                             style={{ flexDirection: "row", marginBottom: 2, gap: 6 }}
                           >
                             <MText
@@ -3083,7 +3098,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                               {shareLabel}
                             </MText>
                             <MText style={{ fontSize: 9, color: C.body, flex: 1, lineHeight: 1.45 }}>
-                              {o.text}
+                              {o.detail ? `${o.label} — ${o.detail}` : o.label}
                             </MText>
                           </View>
                         );
@@ -3097,8 +3112,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                         }}
                       >
                         {isKo
-                          ? "% = 페르소나 중 해당 요인 제기 비율. 한 명이 여러 요인 제기 가능, 합 100% 초과 가능."
-                          : "% = share of personas who raised it. One persona may raise multiple — column may sum >100%."}
+                          ? `% = 페르소나 중 해당 요인 제기 비율. 한 명이 여러 요인 제기 가능, 합 100% 초과 가능.${usingTaxonomy ? " 분류 기반 집계 (Phase 2 taxonomy)." : ""}`
+                          : `% = share of personas who raised it. One persona may raise multiple — column may sum >100%.${usingTaxonomy ? " Grouped by taxonomy category." : ""}`}
                       </MText>
                     </View>
                     );
@@ -5490,69 +5505,22 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
   };
 
   /**
-   * Cross-country common objections — top objections that surface in
-   * 2+ candidate countries. Universal blockers (= product-level
-   * issues to fix) versus country-specific blockers (= localisation
-   * issues to handle per market). Answers "what should we fix
-   * everywhere vs only here?".
+   * Token-overlap union-find clustering on a flat list of per-country
+   * objection entries. Strip geo tokens (country names, regulators,
+   * major cities) before matching — same conceptual concern phrased
+   * with different local anchors ("프랑스 ANSM 절차" vs "영국 MHRA
+   * 절차") would otherwise show zero overlap. Threshold 0.4 since the
+   * stripped sets are smaller and less forgiving of partial matches.
    *
-   * Picks the top frequency-ranked objections that appear in multiple
-   * countries. Each row shows the objection + which countries flagged
-   * it + total mention count.
+   * Used only on the legacy-aggregate fallback path; Phase 2+ ensembles
+   * route through taxonomy aggregation instead and never call this.
    */
-  const renderCommonObjectionsPage = () => {
-    if (!tierBudget.showCommonObjections) return null;
-    // Cross-country aggregation. Per-country topObjections are already
-    // fuzzy-clustered (clusterStrings in ensemble.ts), but cross-country
-    // matching requires another pass — slight wording differences
-    // between countries' top entries shouldn't fragment the universal
-    // list. Approach: collect every per-country objection (with the
-    // country tag), filter persona-mismatch noise, then fuzzy-cluster
-    // again across all countries with the same overlap algorithm.
-    const allEntries: Array<{ text: string; country: string; count: number }> = [];
-    for (const c of aggregate.countryStats) {
-      const objs = c.detail?.topObjections;
-      if (!objs) continue;
-      for (const o of objs) {
-        const key = o.text.trim();
-        if (!key) continue;
-        // Same filter chain as the country-detail render: persona-
-        // mismatch noise, generic price grumbles, and generic launch
-        // concerns ("브랜드 인지도 낮음", "가격 대비 내구성 의문")
-        // all surface in 90%+ of personas across every country and
-        // dominate the universal column with no comparative signal.
-        if (
-          isPersonaMismatchNoise(key) ||
-          isGenericPriceObjection(key) ||
-          isGenericLaunchConcern(key) ||
-          isBareAdjectiveSignal(key) ||
-          // Drop objections claiming wrong directional price comparison
-          // against an extracted-price competitor (e.g. "Allbirds 대비 비쌈"
-          // when extracted data says Allbirds is the pricier one). Same
-          // filter chain the dashboard country drilldown uses; previously
-          // these leaked through to the cross-market "공통 거부" column
-          // even though the prompt-side fact block (43bbbd7) was already
-          // in place — LLM compliance with the HARD RULE wasn't 100%.
-          isFactuallyWrongCompetitorPriceClaim(
-            key,
-            project?.base_price_cents ?? 0,
-            aggregate.pricing?.competitorPrices,
-          )
-        ) {
-          continue;
-        }
-        allEntries.push({ text: key, country: c.country, count: o.count });
-      }
-    }
-
-    // Token-overlap union-find clustering on the cross-country list.
-    // Strip geo tokens (country names, regulators, major cities) before
-    // matching — same conceptual concern phrased with different
-    // local anchors ("프랑스 ANSM 절차" vs "영국 MHRA 절차") would
-    // otherwise show zero overlap. Lower threshold (0.4) since the
-    // stripped sets are smaller and less forgiving of partial matches.
-    const tokenSets = allEntries.map((e) => tokenizeStripGeo(e.text));
-    const parentArr = allEntries.map((_, i) => i);
+  function legacyFuzzyCrossCountryCluster(
+    entries: Array<{ text: string; country: string; count: number }>,
+  ): Array<{ text: string; countries: string[]; count: number }> {
+    if (entries.length === 0) return [];
+    const tokenSets = entries.map((e) => tokenizeStripGeo(e.text));
+    const parentArr = entries.map((_, i) => i);
     const find = (x: number): number => {
       while (parentArr[x] !== x) {
         parentArr[x] = parentArr[parentArr[x]];
@@ -5565,8 +5533,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       const rb = find(b);
       if (ra !== rb) parentArr[ra] = rb;
     };
-    for (let i = 0; i < allEntries.length; i++) {
-      for (let j = i + 1; j < allEntries.length; j++) {
+    for (let i = 0; i < entries.length; i++) {
+      for (let j = i + 1; j < entries.length; j++) {
         if (overlapCoefficient(tokenSets[i], tokenSets[j]) >= 0.4) {
           union(i, j);
         }
@@ -5576,9 +5544,9 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       number,
       { texts: Map<string, number>; countries: Set<string>; count: number }
     >();
-    for (let i = 0; i < allEntries.length; i++) {
+    for (let i = 0; i < entries.length; i++) {
       const root = find(i);
-      const e = allEntries[i];
+      const e = entries[i];
       const cur = byCluster.get(root) ?? {
         texts: new Map<string, number>(),
         countries: new Set<string>(),
@@ -5589,9 +5557,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       cur.count += e.count;
       byCluster.set(root, cur);
     }
-    // Pick representative text per cluster — most-mentioned variant,
-    // ties broken by shortest.
-    const clustered = [...byCluster.values()].map((c) => {
+    return [...byCluster.values()].map((c) => {
       const rep = [...c.texts.entries()].sort((a, b) => {
         if (b[1] !== a[1]) return b[1] - a[1];
         return a[0].length - b[0].length;
@@ -5602,6 +5568,128 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         count: c.count,
       };
     });
+  }
+
+  /**
+   * Cross-country common objections — top objections that surface in
+   * 2+ candidate countries. Universal blockers (= product-level
+   * issues to fix) versus country-specific blockers (= localisation
+   * issues to handle per market). Answers "what should we fix
+   * everywhere vs only here?".
+   *
+   * Picks the top frequency-ranked objections that appear in multiple
+   * countries. Each row shows the objection + which countries flagged
+   * it + total mention count.
+   */
+  const renderCommonObjectionsPage = () => {
+    if (!tierBudget.showCommonObjections) return null;
+    // Cross-country aggregation. Two paths:
+    //  1) Taxonomy (Phase 2+): every country emits an objectionCategoryDistribution.
+    //     Aggregate by category code — no cross-country fuzzy matching
+    //     needed, since the LLM has already routed wording variants into
+    //     a fixed code set (price_relative / size_fit / etc.) that's
+    //     stable across countries by construction. This eliminates the
+    //     "프랑스 ANSM 절차" vs "영국 MHRA 절차" fragmentation the fuzzy
+    //     path patched with tokenizeStripGeo + a low overlap threshold.
+    //  2) Fuzzy fallback: legacy aggregates predating the distribution.
+    //     Per-country topObjections → drop noise/generic/wrong-direction
+    //     entries → cross-country union-find on tokenizeStripGeo overlap.
+    const hasTaxonomy = aggregate.countryStats.some(
+      (c) =>
+        c.detail?.objectionCategoryDistribution &&
+        c.detail.objectionCategoryDistribution.length > 0,
+    );
+
+    let clustered: Array<{ text: string; countries: string[]; count: number }>;
+
+    if (hasTaxonomy) {
+      // Aggregate category-keyed across countries. Skip 'other' — no
+      // meaningful localised label, and per-country 'other' details
+      // tend to be one-off niche concerns that don't compose into a
+      // universal blocker. Skip price_* categories during the primary
+      // pass — if every market gripes about price, the universal column
+      // collapses into a single price row with zero comparative signal;
+      // a second pass adds it back when nothing else is available.
+      const PRICE_CODES = new Set(["price_relative", "price_absolute"]);
+      type Bucket = {
+        detail: string;
+        countries: Map<string, number>;
+        total: number;
+      };
+      const byCategory = new Map<string, Bucket>();
+      for (const c of aggregate.countryStats) {
+        const dist = c.detail?.objectionCategoryDistribution;
+        if (!dist) continue;
+        for (const entry of dist) {
+          if (entry.category === "other") continue;
+          const cur =
+            byCategory.get(entry.category) ??
+            ({ detail: "", countries: new Map(), total: 0 } as Bucket);
+          if (!cur.detail && entry.representativeDetail) {
+            cur.detail = entry.representativeDetail;
+          }
+          cur.countries.set(
+            c.country,
+            (cur.countries.get(c.country) ?? 0) + entry.count,
+          );
+          cur.total += entry.count;
+          byCategory.set(entry.category, cur);
+        }
+      }
+      const rowsFromCategory = (allowPrice: boolean) =>
+        [...byCategory.entries()]
+          .filter(([cat]) => (allowPrice ? true : !PRICE_CODES.has(cat)))
+          .map(([cat, b]) => {
+            const label = categoryLabel(
+              "objection",
+              cat,
+              isKo ? "ko" : "en",
+            );
+            return {
+              text: b.detail ? `${label} — ${b.detail}` : label,
+              countries: [...b.countries.keys()],
+              count: b.total,
+            };
+          });
+      // Pass 1: non-price categories.
+      clustered = rowsFromCategory(false);
+      // Pass 2: if pass 1 was thin (no universal row), fold price back in
+      // so the page isn't empty for ensembles where the only consistent
+      // complaint is price.
+      const hasUniversalRow = clustered.some((r) => r.countries.length >= 2);
+      if (!hasUniversalRow) {
+        clustered = rowsFromCategory(true);
+      }
+    } else {
+      // Legacy fuzzy path — collect raw per-country topObjections,
+      // strip the same noise the country drilldown does, then fuzzy-
+      // cluster across countries via tokenizeStripGeo overlap.
+      const allEntries: Array<{ text: string; country: string; count: number }> =
+        [];
+      for (const c of aggregate.countryStats) {
+        const objs = c.detail?.topObjections;
+        if (!objs) continue;
+        for (const o of objs) {
+          const key = o.text.trim();
+          if (!key) continue;
+          if (
+            isPersonaMismatchNoise(key) ||
+            isGenericPriceObjection(key) ||
+            isGenericLaunchConcern(key) ||
+            isBareAdjectiveSignal(key) ||
+            isFactuallyWrongCompetitorPriceClaim(
+              key,
+              project?.base_price_cents ?? 0,
+              aggregate.pricing?.competitorPrices,
+            )
+          ) {
+            continue;
+          }
+          allEntries.push({ text: key, country: c.country, count: o.count });
+        }
+      }
+      clustered = legacyFuzzyCrossCountryCluster(allEntries);
+    }
 
     // Universal: appears in ≥2 countries. Sort by country count
     // descending, then total mention count.
@@ -5970,35 +6058,52 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     // Without this, the page rendered "98% 가격이 다소 높음" as the
     // top blocker and "99% 편안한 착용감" as the top trust signal,
     // burying the actually differentiating concerns and trust levers.
-    const objectionsFiltered = (stats?.detail?.topObjections ?? []).filter(
-      (o) =>
-        !isPersonaMismatchNoise(o.text) &&
-        !isGenericPriceObjection(o.text) &&
-        !isGenericLaunchConcern(o.text) &&
-        !isBareAdjectiveSignal(o.text) &&
-        !isFactuallyWrongCompetitorPriceClaim(
-          o.text,
-          project?.base_price_cents ?? 0,
-          aggregate.pricing?.competitorPrices,
-        ),
-    );
-    const trustFactorsFiltered = (stats?.detail?.topTrustFactors ?? []).filter(
-      (t) => !isGenericTrustFactor(t.text) && !isBareAdjectiveSignal(t.text),
-    );
+    //
+    // Objections take the unified taxonomy / fuzzy path; trust factors
+    // still use the older fuzzy filter list (their categorisation
+    // consistency fix is queued as a follow-up).
     const personasInCountry = aggregate.personas?.byCountry?.find(
       (b) => b.country.toUpperCase() === rec.toUpperCase(),
     );
-    // Structural anti-dominance pass — content-based predicates above
-    // can't enumerate every safe-default phrase the LLM might emit
-    // ("메리노 울 부드러움" for a wool-shoe sim). When one cluster
-    // absorbs ≥60% of the country pool it stops being a
-    // differentiating signal, so demote it to the tail of the list
-    // and surface the next-most-common (actually distinctive) entries
-    // at the top.
     const personaCount = personasInCountry?.count ?? 0;
-    const objections = demoteDominantClusters(objectionsFiltered, personaCount);
+    let objectionRows = buildObjectionRows(
+      stats?.detail?.topObjections,
+      stats?.detail?.objectionCategoryDistribution,
+      isKo ? "ko" : "en",
+      {
+        limit: 5,
+        fuzzyFilter: (text) =>
+          isPersonaMismatchNoise(text) ||
+          isGenericPriceObjection(text) ||
+          isGenericLaunchConcern(text) ||
+          isBareAdjectiveSignal(text) ||
+          isFactuallyWrongCompetitorPriceClaim(
+            text,
+            project?.base_price_cents ?? 0,
+            aggregate.pricing?.competitorPrices,
+          ),
+      },
+    );
+    // Anti-dominance pass on the fuzzy path only — taxonomy rows are
+    // pre-grouped by category code and don't have the "one phrase
+    // absorbs everything" failure mode.
+    if (objectionRows.length > 0 && objectionRows[0].source === "fuzzy") {
+      const demoted = demoteDominantClusters(
+        objectionRows.map((r) => ({ text: r.label, count: r.count })),
+        personaCount,
+      );
+      objectionRows = demoted.map((d) => ({
+        label: d.text,
+        detail: "",
+        count: d.count,
+        source: "fuzzy" as const,
+      }));
+    }
+    const trustFactorsFiltered = (stats?.detail?.topTrustFactors ?? []).filter(
+      (t) => !isGenericTrustFactor(t.text) && !isBareAdjectiveSignal(t.text),
+    );
     const trustFactors = demoteDominantClusters(trustFactorsFiltered, personaCount);
-    if (objections.length === 0 && trustFactors.length === 0 && !personasInCountry) return null;
+    if (objectionRows.length === 0 && trustFactors.length === 0 && !personasInCountry) return null;
     return (
       <Page size="A4" style={styles.page}>
         {pageHeader}
@@ -6112,10 +6217,10 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             <MText style={{ fontSize: 8, color: C.muted, marginBottom: 8 }}>
               {isKo ? "이걸 못 풀면 의향 하락" : "Fail to address → intent drops"}
             </MText>
-            {objections.length === 0 ? (
+            {objectionRows.length === 0 ? (
               <MText style={{ fontSize: 9, color: C.muted }}>—</MText>
             ) : (
-              objections.map((o, i) => {
+              objectionRows.map((o, i) => {
                 const denom = personasInCountry?.count ?? 0;
                 const rawShare = denom > 0 ? (o.count / denom) * 100 : null;
                 const sharePct =
@@ -6153,7 +6258,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                         lineHeight: 1.5,
                       }}
                     >
-                      {o.text}
+                      {o.detail ? `${o.label} — ${o.detail}` : o.label}
                     </MText>
                   </View>
                 );

@@ -1,3 +1,5 @@
+import { categoryLabel } from "./taxonomy";
+
 /**
  * Algorithmic recount of surfacedInSims for merged risks / actions.
  *
@@ -661,4 +663,86 @@ export function clusterStrings(
     }
     return { text: rep, count: total };
   });
+}
+
+/* ──────────────────────────────────────────────────────────────
+ * buildObjectionRows — unified row builder for "top objections" UI
+ *
+ * Phase 2 of the taxonomy rollout (objectionCategoryDistribution)
+ * landed in 2026-04. Renderers should prefer the categorised
+ * distribution when present, since it deduplicates the "비싸다 /
+ * 가격이 부담 / 더 저렴한 대안 있음" fragmentation that fuzzy text
+ * clustering can't fully collapse — three separate fuzzy clusters
+ * become one price_relative + price_absolute pair under taxonomy.
+ *
+ * Legacy aggregates (pre-Phase-2) lack the categorised distribution,
+ * so the helper falls back to fuzzy `topObjections`. Callers can
+ * pass a `filter` predicate to drop generic noise patterns from the
+ * fuzzy path — the taxonomy path doesn't need it, since the
+ * categoriser already routes generic complaints to clear codes.
+ *
+ * Returns up to `limit` rows. `source` lets the renderer flag which
+ * path produced the rows for debugging / footnote attribution.
+ * ────────────────────────────────────────────────────────────── */
+
+export interface ObjectionRow {
+  /** Display label — taxonomy category name (e.g. "사이즈·체형 적합성") or raw fuzzy text. */
+  label: string;
+  /** Concrete example sentence — representativeDetail for taxonomy rows, empty for fuzzy. */
+  detail: string;
+  /** Persona count for this row. */
+  count: number;
+  /** Which data path produced this row. */
+  source: "taxonomy" | "fuzzy";
+}
+
+export function buildObjectionRows(
+  topObjections: Array<{ text: string; count: number }> | undefined,
+  categoryDistribution:
+    | Array<{ category: string; count: number; representativeDetail: string }>
+    | undefined,
+  locale: "ko" | "en",
+  options: {
+    limit?: number;
+    /** Predicate to drop rows from the FUZZY fallback path only. */
+    fuzzyFilter?: (text: string) => boolean;
+    /** Move 'other' rows to the end of the taxonomy list. Default true —
+     *  'other' has no meaningful localised label so renderers tend to
+     *  surface the representativeDetail directly, which reads as more
+     *  generic than the explicit category rows. */
+    deprioritiseOther?: boolean;
+  } = {},
+): ObjectionRow[] {
+  const limit = options.limit ?? 5;
+  const deprioritiseOther = options.deprioritiseOther ?? true;
+
+  if (categoryDistribution && categoryDistribution.length > 0) {
+    const sorted = [...categoryDistribution].sort((a, b) => {
+      if (deprioritiseOther) {
+        if (a.category === "other" && b.category !== "other") return 1;
+        if (b.category === "other" && a.category !== "other") return -1;
+      }
+      return b.count - a.count;
+    });
+    return sorted.slice(0, limit).map((e) => ({
+      label:
+        e.category === "other"
+          ? e.representativeDetail || categoryLabel("objection", e.category, locale)
+          : categoryLabel("objection", e.category, locale),
+      detail: e.category === "other" ? "" : e.representativeDetail,
+      count: e.count,
+      source: "taxonomy",
+    }));
+  }
+
+  if (!topObjections || topObjections.length === 0) return [];
+  const filtered = options.fuzzyFilter
+    ? topObjections.filter((o) => !options.fuzzyFilter!(o.text))
+    : topObjections;
+  return filtered.slice(0, limit).map((o) => ({
+    label: o.text,
+    detail: "",
+    count: o.count,
+    source: "fuzzy",
+  }));
 }

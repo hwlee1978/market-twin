@@ -11,6 +11,7 @@ import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
 import { formatPrice } from "@/lib/format/price";
 import { normalizeLLMText } from "@/lib/format/normalize";
 import {
+  buildObjectionRows,
   demoteDominantClusters,
   isBareAdjectiveSignal,
   isFactuallyWrongCompetitorPriceClaim,
@@ -2577,39 +2578,52 @@ function CountryDrilldown({
           </div>
         )}
         {(() => {
-          // Defense-in-depth: content-based filter (drop known generic
-          // patterns), then structural anti-dominance pass that demotes
-          // any cluster absorbing ≥60% of the country pool — content-
-          // agnostic catch for the LLM-default phrases the predicates
-          // haven't been taught yet.
-          const filteredRaw = detail.topObjections.filter(
-            (o) =>
-              !isGenericPriceObjection(o.text) &&
-              !isGenericLaunchConcern(o.text) &&
-              !isBareAdjectiveSignal(o.text) &&
-              // Drop objections that claim "this product is more expensive
-              // than Allbirds" (or any extracted-price competitor) when the
-              // extracted data says the opposite — these survive the
-              // generic-price filter because they ARE specifically anchored
-              // (brand + amount), but their direction inverts reality.
-              !isFactuallyWrongCompetitorPriceClaim(
-                o.text,
-                productPriceCents,
-                competitorPrices,
-              ),
+          // Prefer Phase-2 categoryDistribution when present — collapses
+          // the "비싸다 / 가격 부담 / 더 저렴한 대안 있음" fragmentation
+          // that fuzzy clustering can't fully merge into one
+          // price_relative + price_absolute pair. Falls back to the
+          // fuzzy path with the same filter + anti-dominance defenses
+          // for legacy aggregates predating the taxonomy rollout.
+          let rows = buildObjectionRows(
+            detail.topObjections,
+            detail.objectionCategoryDistribution,
+            isKo ? "ko" : "en",
+            {
+              limit: 5,
+              fuzzyFilter: (text) =>
+                isGenericPriceObjection(text) ||
+                isGenericLaunchConcern(text) ||
+                isBareAdjectiveSignal(text) ||
+                isFactuallyWrongCompetitorPriceClaim(
+                  text,
+                  productPriceCents,
+                  competitorPrices,
+                ),
+            },
           );
-          const filteredObjections = demoteDominantClusters(
-            filteredRaw,
-            detail.persona.count,
-          );
-          if (filteredObjections.length === 0) return null;
+          // Anti-dominance pass still useful for fuzzy rows — taxonomy
+          // rows are pre-grouped and don't need it.
+          if (rows.length > 0 && rows[0].source === "fuzzy") {
+            const demoted = demoteDominantClusters(
+              rows.map((r) => ({ text: r.label, count: r.count })),
+              detail.persona.count,
+            );
+            rows = demoted.map((d) => ({
+              label: d.text,
+              detail: "",
+              count: d.count,
+              source: "fuzzy" as const,
+            }));
+          }
+          if (rows.length === 0) return null;
+          const usingTaxonomy = rows[0]?.source === "taxonomy";
           return (
           <div>
             <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-2">
               {isKo ? "공통 거부 요인 TOP 5" : "Top objections"}
             </div>
             <ul className="space-y-1.5 text-sm">
-              {filteredObjections.map((o) => {
+              {rows.map((o) => {
                 // Count = unique personas (post e01b025 fix) clustered
                 // by fuzzy overlap. Showing as % of the country pool
                 // makes magnitude immediately readable. NOT mutually
@@ -2630,19 +2644,29 @@ function CountryDrilldown({
                       ? `${Math.round(rawShare)}%`
                       : "<1%";
                 return (
-                  <li key={o.text} className="flex items-start gap-2">
+                  <li key={`${o.source}:${o.label}`} className="flex items-start gap-2">
                     <span className="badge bg-slate-100 text-slate-600 shrink-0 tabular-nums">
                       {shareLabel}
                     </span>
-                    <span className="text-slate-700">{o.text}</span>
+                    <span className="text-slate-700">
+                      <span className={o.detail ? "font-medium" : undefined}>
+                        {o.label}
+                      </span>
+                      {o.detail && (
+                        <span className="text-slate-500 text-xs">
+                          {" — "}
+                          {o.detail}
+                        </span>
+                      )}
+                    </span>
                   </li>
                 );
               })}
             </ul>
             <p className="text-[10px] text-slate-400 mt-2">
               {isKo
-                ? "% = 국가 페르소나 중 해당 거부 요인을 제기한 비율. 한 페르소나가 여러 거부 요인을 들 수 있어 합이 100%를 넘을 수 있습니다."
-                : "% = share of country personas who raised the concern. One persona can list multiple, so the column may sum above 100%."}
+                ? `% = 국가 페르소나 중 해당 거부 요인을 제기한 비율. 한 페르소나가 여러 거부 요인을 들 수 있어 합이 100%를 넘을 수 있습니다.${usingTaxonomy ? " 분류 기반 집계 (Phase 2 taxonomy)." : ""}`
+                : `% = share of country personas who raised the concern. One persona can list multiple, so the column may sum above 100%.${usingTaxonomy ? " Grouped by taxonomy category." : ""}`}
             </p>
           </div>
           );
