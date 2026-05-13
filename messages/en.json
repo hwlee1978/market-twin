@@ -371,7 +371,7 @@
         "projectName": "Internal identifier. Shown on the simulation result page.",
         "productName": "Actual product name (brand name + model).",
         "category": "Category drives persona profession mix and channel recommendations. Pick the closest fit (cosmetics → Beauty, software tool → SaaS).",
-        "description": "Minimum 10 characters. Describe features, target audience, and differentiation. The longer the better — persona accuracy improves.",
+        "description": "Minimum 10 characters. Describe features, target audience, differentiation, ingredients, price tier. ⚠ Exclude external facts like market sales / share / current expansion / store count — the sim echoes those back in its recommendations and distorts accuracy (e.g., writing \"US revenue 40%\" auto-biases the sim toward US). Stick to the product itself for a more trustworthy market recommendation.",
         "basePrice": "Current or candidate launch price. Simulation generates the curve at ±50% around this anchor.",
         "objective": "Pick the #1 KPI for this launch. Persona scenarios and channel recommendations adjust accordingly.",
         "originatingCountry": "Where the company is based and runs operations. Simulation evaluates candidate markets as cross-border export targets relative to this origin. Pick from 24 supported origins.",
