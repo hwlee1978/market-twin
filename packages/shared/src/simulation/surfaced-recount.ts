@@ -746,3 +746,65 @@ export function buildObjectionRows(
     source: "fuzzy",
   }));
 }
+
+/* ──────────────────────────────────────────────────────────────
+ * buildTrustFactorRows — mirror of buildObjectionRows for the
+ * trust-factor side. Same data layer pattern: aggregator emits
+ * trustCategoryDistribution alongside the free-text topTrustFactors,
+ * but only the PDF trust-vs-objection page currently surfaces trust
+ * factors at the country level — fuzzy text only. This helper makes
+ * it cheap for any future trust-factor surface (web dashboard, CSV)
+ * to consume the categorised distribution with the same shape +
+ * source attribution the objection surfaces already use.
+ *
+ * The shape is intentionally identical to ObjectionRow so a single
+ * renderer can switch between the two via a discriminator.
+ * ────────────────────────────────────────────────────────────── */
+
+export type TrustFactorRow = ObjectionRow;
+
+export function buildTrustFactorRows(
+  topTrustFactors: Array<{ text: string; count: number }> | undefined,
+  categoryDistribution:
+    | Array<{ category: string; count: number; representativeDetail: string }>
+    | undefined,
+  locale: "ko" | "en",
+  options: {
+    limit?: number;
+    fuzzyFilter?: (text: string) => boolean;
+    deprioritiseOther?: boolean;
+  } = {},
+): TrustFactorRow[] {
+  const limit = options.limit ?? 5;
+  const deprioritiseOther = options.deprioritiseOther ?? true;
+
+  if (categoryDistribution && categoryDistribution.length > 0) {
+    const sorted = [...categoryDistribution].sort((a, b) => {
+      if (deprioritiseOther) {
+        if (a.category === "other" && b.category !== "other") return 1;
+        if (b.category === "other" && a.category !== "other") return -1;
+      }
+      return b.count - a.count;
+    });
+    return sorted.slice(0, limit).map((e) => ({
+      label:
+        e.category === "other"
+          ? e.representativeDetail || categoryLabel("trust", e.category, locale)
+          : categoryLabel("trust", e.category, locale),
+      detail: e.category === "other" ? "" : e.representativeDetail,
+      count: e.count,
+      source: "taxonomy",
+    }));
+  }
+
+  if (!topTrustFactors || topTrustFactors.length === 0) return [];
+  const filtered = options.fuzzyFilter
+    ? topTrustFactors.filter((t) => !options.fuzzyFilter!(t.text))
+    : topTrustFactors;
+  return filtered.slice(0, limit).map((t) => ({
+    label: t.text,
+    detail: "",
+    count: t.count,
+    source: "fuzzy",
+  }));
+}

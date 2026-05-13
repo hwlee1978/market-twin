@@ -41,6 +41,7 @@ import {
   isFactuallyWrongCompetitorPriceClaim,
   demoteDominantClusters,
   buildObjectionRows,
+  buildTrustFactorRows,
 } from "@/lib/simulation/surfaced-recount";
 import {
   COMPONENT_LABEL,
@@ -6125,11 +6126,35 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         source: "fuzzy" as const,
       }));
     }
-    const trustFactorsFiltered = (stats?.detail?.topTrustFactors ?? []).filter(
-      (t) => !isGenericTrustFactor(t.text) && !isBareAdjectiveSignal(t.text),
+    // Trust factors take the same taxonomy-preferred / fuzzy-fallback
+    // path as objections. Phase-2 aggregates carry trustCategoryDistribution
+    // (e.g. peer_review / certification / brand_heritage) which collapses
+    // the "후기 많음 / 리뷰 풍부 / 추천 많음" fuzzy fragmentation into one
+    // peer_review row. Legacy aggregates fall back to fuzzy with the same
+    // generic-noise filter the page already used.
+    let trustFactorRows = buildTrustFactorRows(
+      stats?.detail?.topTrustFactors,
+      stats?.detail?.trustCategoryDistribution,
+      isKo ? "ko" : "en",
+      {
+        limit: 5,
+        fuzzyFilter: (text) =>
+          isGenericTrustFactor(text) || isBareAdjectiveSignal(text),
+      },
     );
-    const trustFactors = demoteDominantClusters(trustFactorsFiltered, personaCount);
-    if (objectionRows.length === 0 && trustFactors.length === 0 && !personasInCountry) return null;
+    if (trustFactorRows.length > 0 && trustFactorRows[0].source === "fuzzy") {
+      const demoted = demoteDominantClusters(
+        trustFactorRows.map((r) => ({ text: r.label, count: r.count })),
+        personaCount,
+      );
+      trustFactorRows = demoted.map((d) => ({
+        label: d.text,
+        detail: "",
+        count: d.count,
+        source: "fuzzy" as const,
+      }));
+    }
+    if (objectionRows.length === 0 && trustFactorRows.length === 0 && !personasInCountry) return null;
     return (
       <Page size="A4" style={styles.page}>
         {pageHeader}
@@ -6166,10 +6191,10 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             <MText style={{ fontSize: 8, color: C.muted, marginBottom: 8 }}>
               {isKo ? "이걸 강조하면 의향 상승" : "Emphasize these → intent rises"}
             </MText>
-            {trustFactors.length === 0 ? (
+            {trustFactorRows.length === 0 ? (
               <MText style={{ fontSize: 9, color: C.muted }}>—</MText>
             ) : (
-              trustFactors.map((t, i) => {
+              trustFactorRows.map((t, i) => {
                 const denom = personasInCountry?.count ?? 0;
                 const rawShare = denom > 0 ? (t.count / denom) * 100 : null;
                 const sharePct =
@@ -6207,7 +6232,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                         lineHeight: 1.5,
                       }}
                     >
-                      {t.text}
+                      {t.detail ? `${t.label} — ${t.detail}` : t.label}
                     </MText>
                   </View>
                 );
