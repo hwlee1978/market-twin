@@ -494,6 +494,31 @@ export const MarketProfileSchema = z.object({
         )
         .default([])
         .optional(),
+      /**
+       * Server-attached grounding-check verdict. Populated post-LLM in
+       * market-profile.ts by comparing the emitted `estimateUsd` against
+       * USD-billion figures extracted from the Tavily snippets the LLM
+       * was shown. UI renders a "출처와 차이 큼" warning chip when
+       * status === "mismatch" so a downstream reader doesn't take the
+       * cited URLs as agreement evidence when they aren't. NOT emitted
+       * by the LLM — never relied on as a Zod-required field on the
+       * input side. Optional + .partial() above keep backwards
+       * compatibility with legacy persisted ensembles.
+       */
+      groundingFlag: z
+        .object({
+          status: z.enum(["ok", "no-snippets", "unknown", "mismatch"]),
+          snippetValuesUsdB: z.array(z.number()).optional(),
+          claimedValueUsdB: z.number().optional(),
+          snippetRangeUsdB: z
+            .object({ low: z.number(), high: z.number() })
+            .optional(),
+          toleranceBandUsdB: z
+            .object({ low: z.number(), high: z.number() })
+            .optional(),
+          direction: z.enum(["above", "below"]).optional(),
+        })
+        .optional(),
     })
     .partial()
     .optional(),

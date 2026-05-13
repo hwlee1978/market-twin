@@ -17,6 +17,7 @@ import {
   type TavilyResult,
 } from "@/lib/market-research/tavily";
 import { MarketProfileSchema, type MarketProfile, type ProjectInput } from "./schemas";
+import { checkMarketSizeGrounding } from "./market-size-sanitizer";
 import { marketProfilePrompt, MARKET_PROFILE_SYSTEM } from "./prompts";
 import { getDisplayPriceCents } from "./pricing-sensitivity";
 import { formatPrice } from "@/lib/format/price";
@@ -190,11 +191,34 @@ export async function buildMarketProfile(
         .slice(0, 3)
         .map((s) => ({ url: s.url, title: s.title }));
     }
+    // Output-side grounding check. Even with the "anchor on these
+    // snippets" hard rule (prompts.ts:894), the LLM sometimes emits a
+    // marketSize.estimateUsd that lands far outside the snippet
+    // evidence — KOTRA-style readers then see both the inflated figure
+    // and the cited sources without knowing they don't actually agree.
+    // Attach the verdict so the UI can render a "출처와 차이 큼"
+    // warning when status === "mismatch".
+    if (profile.marketSize) {
+      const grounding = checkMarketSizeGrounding(
+        profile.marketSize.estimateUsd,
+        marketSnippets,
+      );
+      profile.marketSize.groundingFlag = grounding;
+      if (grounding.status === "mismatch") {
+        console.warn(
+          `[market profile] marketSize grounding mismatch for ${recommendedCountry}: ` +
+            `claimed $${grounding.claimedValueUsdB}B vs snippet range ` +
+            `$${grounding.snippetRangeUsdB.low}-${grounding.snippetRangeUsdB.high}B ` +
+            `(direction: ${grounding.direction})`,
+        );
+      }
+    }
     console.log(
       `[market profile] generated for ${recommendedCountry} · ` +
         `${profile.competitors?.length ?? 0} competitors · ` +
         `${(profile.regulatory?.barriers ?? []).length} regulatory barriers · ` +
         `${profile.marketSize?.citations?.length ?? 0} marketSize citations · ` +
+        `marketSize grounding: ${profile.marketSize?.groundingFlag?.status ?? "n/a"} · ` +
         `${Date.now() - t0}ms`,
     );
     return { profile };

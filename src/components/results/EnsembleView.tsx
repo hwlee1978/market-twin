@@ -3140,6 +3140,20 @@ function MarketProfileTab({
           <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-3">
             {isKo ? "시장 규모" : "Market size"}
           </div>
+          {ms.groundingFlag?.status === "mismatch" && (
+            <div className="mb-3 rounded-md border border-warn/30 bg-warn-soft/40 px-3 py-2 text-xs text-slate-900 leading-relaxed">
+              <span className="font-semibold">
+                {isKo ? "⚠ 출처 범위와 차이 큼" : "⚠ Outside cited-source range"}
+              </span>
+              {ms.groundingFlag.snippetRangeUsdB && ms.groundingFlag.claimedValueUsdB && (
+                <span className="ml-1 text-slate-700">
+                  {isKo
+                    ? `— 추정치 ~$${ms.groundingFlag.claimedValueUsdB.toFixed(1)}B vs 출처 ${ms.groundingFlag.snippetRangeUsdB.low.toFixed(1)}–${ms.groundingFlag.snippetRangeUsdB.high.toFixed(1)}B (${ms.groundingFlag.direction === "above" ? "과대" : "과소"} 추정 가능성). 아래 출처 링크와 직접 대조하세요.`
+                    : `— estimate ~$${ms.groundingFlag.claimedValueUsdB.toFixed(1)}B vs cited ${ms.groundingFlag.snippetRangeUsdB.low.toFixed(1)}–${ms.groundingFlag.snippetRangeUsdB.high.toFixed(1)}B (likely ${ms.groundingFlag.direction === "above" ? "over" : "under"}-estimate). Verify against the source links below.`}
+                </span>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {ms.estimateUsd && (
               <div>

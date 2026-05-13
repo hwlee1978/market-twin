@@ -1812,6 +1812,32 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             <MText style={styles.sectionEyebrow}>
               {isKo ? "시장 규모" : "Market size"}
             </MText>
+            {mp.marketSize.groundingFlag?.status === "mismatch" && (
+              <View
+                style={{
+                  backgroundColor: "#FFF7E6",
+                  borderLeftWidth: 3,
+                  borderLeftColor: C.warn,
+                  paddingVertical: 5,
+                  paddingHorizontal: 8,
+                  borderRadius: 2,
+                  marginBottom: 6,
+                }}
+                wrap={false}
+              >
+                <MText style={{ fontSize: 8, color: C.ink, fontWeight: 700 }}>
+                  {isKo ? "⚠ 출처 범위와 차이 큼" : "⚠ Outside cited-source range"}
+                </MText>
+                {mp.marketSize.groundingFlag.snippetRangeUsdB &&
+                  mp.marketSize.groundingFlag.claimedValueUsdB !== undefined && (
+                    <MText style={{ fontSize: 7, color: C.body, marginTop: 1, lineHeight: 1.4 }}>
+                      {isKo
+                        ? `추정치 ~$${mp.marketSize.groundingFlag.claimedValueUsdB.toFixed(1)}B vs 출처 ${mp.marketSize.groundingFlag.snippetRangeUsdB.low.toFixed(1)}–${mp.marketSize.groundingFlag.snippetRangeUsdB.high.toFixed(1)}B (${mp.marketSize.groundingFlag.direction === "above" ? "과대" : "과소"} 추정 가능성). 출처 링크와 직접 대조하세요.`
+                        : `Estimate ~$${mp.marketSize.groundingFlag.claimedValueUsdB.toFixed(1)}B vs cited ${mp.marketSize.groundingFlag.snippetRangeUsdB.low.toFixed(1)}–${mp.marketSize.groundingFlag.snippetRangeUsdB.high.toFixed(1)}B (likely ${mp.marketSize.groundingFlag.direction === "above" ? "over" : "under"}-estimate). Verify against the source links.`}
+                    </MText>
+                  )}
+              </View>
+            )}
             <View
               style={{
                 backgroundColor: C.card,
