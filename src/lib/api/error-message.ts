@@ -126,8 +126,19 @@ function parseDetail(body: string): string | null {
   try {
     const parsed = JSON.parse(body);
     if (typeof parsed === "string") return parsed;
-    if (typeof parsed?.error === "string") return parsed.error;
-    if (typeof parsed?.message === "string") return parsed.message;
+    // Prefer `message` over `error` — server payloads often use `error`
+    // as a machine-readable code (e.g. "pdf_build_failed", "plan_limit")
+    // and `message` as the human-readable detail. The PDF route in
+    // particular returns both, and seeing the bare code alone hides the
+    // actual exception text the user needs to act on. When both exist,
+    // combine them so the operator sees both the code and the detail.
+    const errCode =
+      typeof parsed?.error === "string" ? parsed.error : null;
+    const msg =
+      typeof parsed?.message === "string" ? parsed.message : null;
+    if (errCode && msg) return `${errCode}: ${msg}`;
+    if (msg) return msg;
+    if (errCode) return errCode;
     // Zod-ish: { error: { fieldErrors: { field: [msg] }, formErrors: [...] } }
     const fieldErrors = parsed?.error?.fieldErrors ?? parsed?.fieldErrors;
     if (fieldErrors && typeof fieldErrors === "object") {
