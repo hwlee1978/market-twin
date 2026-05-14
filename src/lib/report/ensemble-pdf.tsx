@@ -2184,8 +2184,24 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                         style={{ fontSize: 9, color: C.body, lineHeight: 1.4, marginLeft: 6, fontFamily: "AppFont" }}
                       >
                         {"• "}
-                        <Text style={{ fontWeight: 600 }}>{stripUnsupportedGlyphs(item.name)}</Text>
-                        {item.rationale ? ` — ${stripUnsupportedGlyphs(item.rationale)}` : ""}
+                        <Text style={{ fontWeight: 600 }}>
+                          {splitByFont(stripUnsupportedGlyphs(item.name)).map((r, i) =>
+                            r.font ? (
+                              <Text key={i} style={{ fontFamily: r.font }}>{r.text}</Text>
+                            ) : (
+                              r.text
+                            ),
+                          )}
+                        </Text>
+                        {item.rationale
+                          ? splitByFont(` — ${stripUnsupportedGlyphs(item.rationale)}`).map((r, i) =>
+                              r.font ? (
+                                <Text key={`r${i}`} style={{ fontFamily: r.font }}>{r.text}</Text>
+                              ) : (
+                                r.text
+                              ),
+                            )
+                          : ""}
                       </Text>
                     ))}
                   </View>
@@ -3857,7 +3873,13 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                     {r.severity.toUpperCase()}
                     {"  "}
                   </Text>
-                  {r.factor}
+                  {splitByFont(r.factor).map((run, i) =>
+                    run.font ? (
+                      <Text key={i} style={{ fontFamily: run.font }}>{run.text}</Text>
+                    ) : (
+                      run.text
+                    ),
+                  )}
                 </Text>
                 <MText style={styles.riskDesc}>{r.description}</MText>
                 <MText style={styles.riskMeta}>
