@@ -17,6 +17,10 @@ import {
   tavilySearch,
   type TavilyResult,
 } from "@/lib/market-research/tavily";
+import {
+  buildMarketSizeQuerySonar,
+  sonarSearch,
+} from "@/lib/market-research/sonar";
 import { MarketProfileSchema, type MarketProfile, type ProjectInput } from "./schemas";
 import { checkMarketSizeGrounding } from "./market-size-sanitizer";
 import { marketProfilePrompt, MARKET_PROFILE_SYSTEM } from "./prompts";
@@ -107,7 +111,18 @@ export async function buildMarketProfile(
     category: opts.input.category,
     productName: opts.input.productName,
   });
-  const [tavilyResult, tavilyNativeResult] = await Promise.all([
+  // Sonar Pro runs in parallel with Tavily on the SAME stage. Sonar's
+  // generative-search index surfaces the growth-trajectory synthesis
+  // (Korea-IR-style "K-Beauty Germany +200% YoY 2024-2025" stories)
+  // that Tavily's keyword retrieval underweights. Skipped when the
+  // PERPLEXITY_API_KEY env var is unset — graceful fallback to the
+  // Tavily-only path preserves all prior behavior.
+  const sonarQuery = buildMarketSizeQuerySonar({
+    country: recommendedCountry,
+    category: opts.input.category,
+    productName: opts.input.productName,
+  });
+  const [tavilyResult, tavilyNativeResult, sonarResult] = await Promise.all([
     tavilySearch({
       query: englishQuery,
       searchDepth: "advanced",
@@ -122,24 +137,36 @@ export async function buildMarketProfile(
           includeAnswer: false,
         })
       : Promise.resolve(null),
+    sonarSearch({ query: sonarQuery, model: "sonar-pro" }),
   ]);
   const englishSnippets = tavilyResult?.results ?? [];
   const nativeSnippets = tavilyNativeResult?.results ?? [];
-  // Dedup on URL — same article occasionally surfaces in both queries
-  // (Korea Herald publishes both KO + EN versions, etc.). English
-  // snippets keep their slot; native fills only URLs the English pass
-  // missed, biasing toward complementary domestic sources.
+  const sonarSnippets = sonarResult?.results ?? [];
+  // Dedup on URL — same article occasionally surfaces in multiple
+  // queries (Korea Herald publishes KO + EN versions, etc.). English
+  // Tavily keeps its slot; native Tavily fills only URLs the English
+  // pass missed; Sonar Pro fills only URLs neither Tavily call had.
+  // Order matters — formatTrendContextBlock sorts by score afterwards
+  // so dedup priority is about which copy of duplicated metadata to
+  // keep, not visual order.
   const seenUrls = new Set(englishSnippets.map((r) => r.url));
   const nativeUnique = nativeSnippets.filter((r) => !seenUrls.has(r.url));
-  const marketSnippets: TavilyResult[] = [...englishSnippets, ...nativeUnique];
-  if (tavilyResult || tavilyNativeResult) {
+  nativeUnique.forEach((r) => seenUrls.add(r.url));
+  const sonarUnique = sonarSnippets.filter((r) => !seenUrls.has(r.url));
+  const marketSnippets: TavilyResult[] = [
+    ...englishSnippets,
+    ...nativeUnique,
+    ...sonarUnique,
+  ];
+  if (tavilyResult || tavilyNativeResult || sonarResult) {
     console.log(
-      `[market profile] tavily: ${englishSnippets.length}+${nativeUnique.length} (EN+native) snippets for ${recommendedCountry}/${opts.input.category}`,
+      `[market profile] grounding: ${englishSnippets.length}EN + ${nativeUnique.length}native + ${sonarUnique.length}sonar = ${marketSnippets.length} snippets for ${recommendedCountry}/${opts.input.category}`,
     );
-  } else if (process.env.TAVILY_API_KEY) {
-    // Key was set but call failed — log so the operator knows the
-    // fallback path triggered for a non-key reason (rate limit, network).
-    console.warn(`[market profile] tavily call returned null; falling back to LLM-only marketSize`);
+  } else if (process.env.TAVILY_API_KEY || process.env.PERPLEXITY_API_KEY) {
+    // Key was set on at least one provider but every call failed —
+    // log so the operator knows fallback triggered for non-key reasons
+    // (rate limit, network, provider outage).
+    console.warn(`[market profile] all grounding calls returned null; falling back to LLM-only marketSize`);
   }
 
   // Pre-compute the launch price expressed in the recommended target

@@ -26,6 +26,10 @@ import {
   type TavilyResult,
 } from "@/lib/market-research/tavily";
 import {
+  buildCategoryTrendQuerySonar,
+  sonarSearch,
+} from "@/lib/market-research/sonar";
+import {
   extractCompetitorPrices,
   type CompetitorPriceResult,
 } from "@/lib/simulation/competitor-prices";
@@ -157,7 +161,12 @@ export async function runEnsembleOrchestration(
 
   let trendSnippets: TavilyResult[] = [];
   let marginSnippets: TavilyResult[] = [];
-  if (process.env.TAVILY_API_KEY) {
+  // Run grounding when EITHER provider key is set — Sonar Pro alone is
+  // a valid grounding source even without Tavily (cheaper-fallback
+  // scenario), and we want the trend block to fire if any signal is
+  // available. The per-call functions (tavilySearch, sonarSearch) each
+  // gracefully return null when their own key is missing.
+  if (process.env.TAVILY_API_KEY || process.env.PERPLEXITY_API_KEY) {
     // English trend query always runs. For non-English originating
     // countries (K-product launches: KR / JP / CN / TW / HK origin),
     // a parallel native-language query also runs — pulls 조선비즈 /
@@ -169,7 +178,11 @@ export async function runEnsembleOrchestration(
       productName: projectInput.productName,
       originatingCountry: projectInput.originatingCountry,
     });
-    const [trendResult, trendNativeResult] = await Promise.all([
+    const trendSonarQuery = buildCategoryTrendQuerySonar({
+      category: projectInput.category,
+      productName: projectInput.productName,
+    });
+    const [trendResult, trendNativeResult, trendSonarResult] = await Promise.all([
       tavilySearch({
         query: buildCategoryTrendQuery({
           category: projectInput.category,
@@ -187,17 +200,27 @@ export async function runEnsembleOrchestration(
             includeAnswer: false,
           })
         : Promise.resolve(null),
+      // Sonar Pro is best-effort and skipped when PERPLEXITY_API_KEY is
+      // unset — sonarSearch returns null and the merge just sees an
+      // empty third slot. Same Promise.all shape as the Tavily calls
+      // so total latency = max(t_en, t_native, t_sonar) instead of sum.
+      sonarSearch({ query: trendSonarQuery, model: "sonar-pro" }),
     ]);
     const enTrendSnippets = trendResult?.results ?? [];
     const nativeTrendSnippets = trendNativeResult?.results ?? [];
+    const sonarTrendSnippets = trendSonarResult?.results ?? [];
     const seenTrendUrls = new Set(enTrendSnippets.map((r) => r.url));
     const nativeUniqueTrend = nativeTrendSnippets.filter(
       (r) => !seenTrendUrls.has(r.url),
     );
-    trendSnippets = [...enTrendSnippets, ...nativeUniqueTrend];
+    nativeUniqueTrend.forEach((r) => seenTrendUrls.add(r.url));
+    const sonarUniqueTrend = sonarTrendSnippets.filter(
+      (r) => !seenTrendUrls.has(r.url),
+    );
+    trendSnippets = [...enTrendSnippets, ...nativeUniqueTrend, ...sonarUniqueTrend];
     if (trendSnippets.length > 0) {
       console.log(
-        `[ensemble ${ensembleId}] tavily trend: ${enTrendSnippets.length}+${nativeUniqueTrend.length} (EN+native) snippets for ${projectInput.category}`,
+        `[ensemble ${ensembleId}] trend grounding: ${enTrendSnippets.length}EN + ${nativeUniqueTrend.length}native + ${sonarUniqueTrend.length}sonar = ${trendSnippets.length} for ${projectInput.category}`,
       );
     }
 
