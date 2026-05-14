@@ -730,7 +730,14 @@ For every country, also emit a "components" object decomposing the finalScore in
     Counter-example to avoid: Nongshim Shin Ramyun launching in the US scored competition 46 by previous sim runs because "Maruchan and Nissin are strong" — that was wrong: Shin's spice tier + Korean origin + LA-plant story sustains a distinct segment, and Nongshim America actually generates $538M/yr there. Don't repeat that miscall.
   - regulatory: INVERTED — higher means FEWER import duties / certifications / restrictions / FX or tax frictions. A blocker like food-safety registration or wholly-prohibited category should pull this below 30.
 
-finalScore should be a sensible weighted-average reflection of the components, but you can incorporate cross-component interaction (e.g., great marketSize but regulatory < 25 should drag finalScore down sharply — a launch-blocker isn't averaged away). Don't blindly arithmetic-mean the six.`;
+finalScore should be a sensible weighted-average reflection of the components, but you can incorporate cross-component interaction (e.g., great marketSize but regulatory < 25 should drag finalScore down sharply — a launch-blocker isn't averaged away). Don't blindly arithmetic-mean the six.
+
+═══ Weighting guidance (CRITICAL — common miscall) ═══
+When picking finalScore, give marketSize ≥ 25% of the weight. A common mistake in prior sim runs was scoring US / CN / DE in the 50-60 range despite marketSize 75-85, because CAC anxiety + persona-pool low-income skew dragged finalScore toward the mean. Don't do that — a large, growth-trending market with moderate channel / cultural friction (marketSize 80, others 55-65) should land finalScore 70+, NOT 55-60. The persona pool is a sampling artifact, not a constraint on absolute market value. Suggested implicit weights:
+  · marketSize ~30%  (anchor — absolute reachable market matters)
+  · culturalFit ~15% · channelMatch ~15% · competition ~15% · regulatory ~15%
+  · priceCompat ~10% (already partially captured in CAC; don't double-count)
+A post-process pass will mechanically re-derive finalScore from these components anyway — but emitting an aligned LLM finalScore keeps the critique stage cleaner and the rank consistent.`;
 }
 
 export const PRICING_SYSTEM = `${SYSTEM_BASE} For pricing, model how conversion changes across price points — typically conversion drops as price rises, but not linearly. Identify the revenue-maximizing point.`;
