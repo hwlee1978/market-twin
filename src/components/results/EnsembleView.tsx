@@ -25,6 +25,7 @@ import {
   getDisplayPriceCents,
 } from "@/lib/simulation/pricing-sensitivity";
 import { analyzeIncomeIntent } from "@/lib/simulation/segment-analysis";
+import { getLTVMultiplier, getLTVRationale } from "@/lib/simulation/ltv";
 import {
   COMPONENT_LABEL,
   COMPONENT_STRESS_SCENARIOS,
@@ -1034,6 +1035,7 @@ function EnsembleDashboard({
         <DecisionAidTab
           aggregate={aggregate}
           currency={result.project?.currency ?? "USD"}
+          category={result.project?.category ?? "other"}
           isKo={isKo}
         />
       )}
@@ -5988,10 +5990,15 @@ function PricingTab({
 function DecisionAidTab({
   aggregate,
   currency,
+  category,
   isKo,
 }: {
   aggregate: EnsembleAggregate;
   currency: string;
+  /** Drives LTV multiplier — food / beauty / saas etc. anchored on
+   *  category retention norms so single-purchase break-even isn't the
+   *  only signal (see ltv.ts rationale). */
+  category: string;
   isKo: boolean;
 }) {
   const fmt = (cents: number) => formatPrice(cents, currency);
@@ -6180,17 +6187,22 @@ function DecisionAidTab({
             </div>
           </div>
 
-          {/* Marketing-efficiency callout — M:R ratio (CAC / price) is
-              constant across all volume tiers (just 18.50/56), so
-              showing it as a per-row column was tautological. Pulled
-              out to a single colored callout above the volume table
-              with explicit health bands so the user understands what
-              33% actually means. */}
+          {/* Marketing-efficiency callout — shows BOTH the single-
+              purchase M:R (conservative floor) and the LTV-adjusted
+              M:R (category-realistic figure). Single-purchase alone
+              produced misleading "위험" verdicts on three accuracy-
+              validation runs in food / beauty where repeat purchase
+              is the norm. Verdict tone tracks the LTV-adjusted ratio
+              — that's the realistic plan figure once retention is in
+              the picture. See ltv.ts for the per-category anchors. */}
           {(() => {
-            const ratio = cacInTargetCents! / headlinePrice;
-            const ratioPct = (ratio * 100).toFixed(0);
+            const ltvMultiplier = getLTVMultiplier(category);
+            const singleRatio = cacInTargetCents! / headlinePrice;
+            const ltvRatio = cacInTargetCents! / (headlinePrice * ltvMultiplier);
+            const singlePct = (singleRatio * 100).toFixed(0);
+            const ltvPct = (ltvRatio * 100).toFixed(0);
             const tone =
-              ratio < 0.3 ? "success" : ratio < 0.6 ? "warn" : "risk";
+              ltvRatio < 0.3 ? "success" : ltvRatio < 0.6 ? "warn" : "risk";
             const toneClasses: Record<string, string> = {
               success: "border-success/40 bg-success-soft/30 text-success",
               warn: "border-warn/40 bg-warn-soft/40 text-warn",
@@ -6199,32 +6211,48 @@ function DecisionAidTab({
             const verdict =
               tone === "success"
                 ? isKo
-                  ? "건강 (acquisition 부담 낮음)"
-                  : "Healthy (acquisition cost is light)"
+                  ? "건강 (LTV 반영 시 acquisition 부담 낮음)"
+                  : "Healthy (after LTV)"
                 : tone === "warn"
                   ? isKo
-                    ? "주의 (LTV uplift 없으면 압박)"
-                    : "Caution (tight without LTV uplift)"
+                    ? "주의 (LTV 반영해도 압박)"
+                    : "Caution (tight even with LTV)"
                   : isKo
-                    ? "위험 (재구매·LTV 없이 지속 불가)"
-                    : "Unsustainable without repeat / LTV";
+                    ? "위험 (LTV 반영해도 지속 어려움)"
+                    : "Risky (unsustainable even with LTV)";
             return (
               <div
                 className={clsx(
-                  "rounded-lg border px-4 py-3 mb-3 flex flex-wrap items-center gap-x-4 gap-y-1",
+                  "rounded-lg border px-4 py-3 mb-3",
                   toneClasses[tone],
                 )}
               >
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[10px] uppercase tracking-wide font-semibold opacity-80">
-                    {isKo ? "마케팅 효율 (M:R)" : "Marketing efficiency (M:R)"}
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">
+                      {isKo ? "M:R (단발)" : "M:R (single)"}
+                    </span>
+                    <span className="text-base font-bold tabular-nums text-slate-500">
+                      {singlePct}%
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[10px] uppercase tracking-wide font-semibold opacity-80">
+                      {isKo ? `M:R (LTV ${ltvMultiplier}× 반영)` : `M:R (LTV ×${ltvMultiplier})`}
+                    </span>
+                    <span className="text-xl font-bold tabular-nums">{ltvPct}%</span>
+                  </div>
+                  <span className="text-xs font-semibold flex-1 text-right min-w-[6rem]">
+                    {verdict}
                   </span>
-                  <span className="text-xl font-bold tabular-nums">{ratioPct}%</span>
                 </div>
-                <div className="text-xs text-slate-700 leading-relaxed flex-1 min-w-[12rem]">
+                <div className="text-xs text-slate-700 leading-relaxed mt-2">
                   {isKo
-                    ? `매출 ${fmt(headlinePrice)}당 마케팅 ${fmt(cacInTargetCents!)} 소요 → ${verdict}. 기준: <30% 건강, 30-60% 주의, 60%+ 위험.`
-                    : `Every ${fmt(headlinePrice)} of revenue requires ${fmt(cacInTargetCents!)} in marketing → ${verdict}. Bands: <30% healthy, 30-60% caution, 60%+ risk.`}
+                    ? `단발: 매출 ${fmt(headlinePrice)}당 마케팅 ${fmt(cacInTargetCents!)}. LTV: 평균 ${ltvMultiplier}회 재구매 시 LTV ${fmt(headlinePrice * ltvMultiplier)} 대비 마케팅 ${fmt(cacInTargetCents!)} → ${ltvPct}%. 기준: <30% 건강, 30-60% 주의, 60%+ 위험.`
+                    : `Single: ${fmt(headlinePrice)} revenue per ${fmt(cacInTargetCents!)} marketing. LTV: ${ltvMultiplier} reorders → ${fmt(headlinePrice * ltvMultiplier)} LTV per ${fmt(cacInTargetCents!)} marketing = ${ltvPct}%. Bands: <30% healthy, 30-60% caution, 60%+ risk.`}
+                </div>
+                <div className="text-[11px] text-slate-500 leading-relaxed mt-1">
+                  {getLTVRationale(category, isKo ? "ko" : "en")}
                 </div>
               </div>
             );
@@ -6301,6 +6329,7 @@ function DecisionAidTab({
                   marginPct: clamp(baseMarginPct + 10),
                 },
               ];
+              const ltvMultiplier = getLTVMultiplier(category);
               const rows = scenarios.map((s) => {
                 const margin = s.marginPct / 100;
                 const grossPerUnit = Math.round(headlinePrice * margin);
@@ -6309,7 +6338,23 @@ function DecisionAidTab({
                   netPerUnit > 0
                     ? Math.ceil((cacInTargetCents! / netPerUnit) * 1000)
                     : null;
-                return { ...s, grossPerUnit, netPerUnit, breakEvenN };
+                // LTV-adjusted break-even: per-customer net = (gross
+                // per unit × category multiplier) − CAC. Same 1,000-
+                // customer budget assumption, but the breakeven unit
+                // is "customers" rather than "units sold."
+                const grossPerCustomer = grossPerUnit * ltvMultiplier;
+                const netPerCustomer = grossPerCustomer - cacInTargetCents!;
+                const breakEvenCustomers =
+                  netPerCustomer > 0
+                    ? Math.ceil((cacInTargetCents! / netPerCustomer) * 1000)
+                    : null;
+                return {
+                  ...s,
+                  grossPerUnit,
+                  netPerUnit,
+                  breakEvenN,
+                  breakEvenCustomers,
+                };
               });
               return (
                 <>
@@ -6340,7 +6385,10 @@ function DecisionAidTab({
                             {isKo ? "개당 순이익 (−CAC)" : "Net/unit (after CAC)"}
                           </th>
                           <th className="px-2 py-1.5 text-right font-semibold">
-                            {isKo ? "1,000명 모객비 회수 (개)" : "BE @ 1,000 spend"}
+                            {isKo ? "BE 단발 (개)" : "BE single (units)"}
+                          </th>
+                          <th className="px-2 py-1.5 text-right font-semibold">
+                            {isKo ? "BE LTV (고객)" : "BE LTV (customers)"}
                           </th>
                         </tr>
                       </thead>
@@ -6364,9 +6412,28 @@ function DecisionAidTab({
                             >
                               {fmt(r.netPerUnit)}
                             </td>
-                            <td className="px-2 py-2 text-right tabular-nums text-slate-700">
+                            <td
+                              className={clsx(
+                                "px-2 py-2 text-right tabular-nums",
+                                r.breakEvenN != null ? "text-slate-500" : "text-risk",
+                              )}
+                            >
                               {r.breakEvenN != null
                                 ? r.breakEvenN.toLocaleString()
+                                : isKo
+                                  ? "불가"
+                                  : "n/a"}
+                            </td>
+                            <td
+                              className={clsx(
+                                "px-2 py-2 text-right tabular-nums font-semibold",
+                                r.breakEvenCustomers != null
+                                  ? "text-success"
+                                  : "text-risk",
+                              )}
+                            >
+                              {r.breakEvenCustomers != null
+                                ? r.breakEvenCustomers.toLocaleString()
                                 : isKo
                                   ? "불가"
                                   : "n/a"}
@@ -6378,11 +6445,13 @@ function DecisionAidTab({
                   </div>
                   <p className="text-[11px] text-slate-500 mt-3 leading-relaxed">
                     <strong className="font-semibold text-slate-700">
-                      {isKo ? "가정: 1인당 1개 구매." : "Assumes single unit per customer."}
+                      {isKo
+                        ? `BE 단발: 1인당 1개 구매 가정 · BE LTV: 카테고리 평균 ${ltvMultiplier}회 재구매 가정.`
+                        : `BE single: single purchase per customer · BE LTV: category-average ${ltvMultiplier} reorders per customer.`}
                     </strong>{" "}
                     {isKo
-                      ? "마지막 컬럼은 1,000명 모객 마케팅비(CAC × 1,000)를 개당 순이익으로 회수하는 데 필요한 누적 판매량(개). 재구매·LTV는 미반영 — 실제 LTV가 단가의 1.3배 이상이면 위 break-even은 보수적입니다. 음수 net은 \"이 마진 가정에서 수학적 불가\"이지 절대 불가가 아님."
-                      : "The last column is the total units required to recoup CAC × 1,000 of marketing spend at the column's net contribution per unit. Repeat purchases / LTV not modeled — if actual LTV exceeds unit price ×1.3, the break-even above is conservative. Negative net means \"impossible at this margin assumption\", not absolutely unviable."}
+                      ? "두 컬럼 모두 1,000명 모객 마케팅비(CAC × 1,000)를 회수하는 데 필요한 누적량. 단발은 보수적 floor, LTV는 카테고리 재구매 반영한 현실치. 실제 LTV가 카테고리 평균보다 높으면 BE는 더 빠르게 도달. 음수 net은 \"이 마진 가정에서 수학적 불가\"이지 절대 불가가 아님."
+                      : "Both columns count what's needed to recoup CAC × 1,000 of marketing spend. Single is the conservative floor; LTV uses category-average reorders. Actual LTV above category average pulls break-even in further. Negative net means \"impossible at this margin assumption\", not absolutely unviable."}
                   </p>
                 </>
               );

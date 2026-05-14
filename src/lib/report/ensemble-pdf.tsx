@@ -25,6 +25,7 @@ import {
   getDisplayPriceCents,
 } from "@/lib/simulation/pricing-sensitivity";
 import { analyzeIncomeIntent } from "@/lib/simulation/segment-analysis";
+import { getLTVMultiplier, getLTVRationale } from "@/lib/simulation/ltv";
 import { getCountryLabel } from "@/lib/countries";
 import { formatPrice } from "@/lib/format/price";
 import { normalizeLLMText } from "@/lib/format/normalize";
@@ -4734,32 +4735,38 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             {isKo ? "볼륨 티어별 투자 + 매출" : "Investment + revenue per volume tier"}
           </MText>
 
-          {/* Marketing efficiency callout — M:R ratio (CAC / price) is
-              constant across volume tiers, so it lives here as a single
-              colored badge instead of a redundant per-row column. */}
+          {/* Marketing efficiency callout — shows BOTH the single-
+              purchase M:R (conservative floor) and the LTV-adjusted
+              M:R (category-realistic figure). Single-purchase alone
+              produced misleading "위험" verdicts in three accuracy-
+              validation runs for food / beauty categories where
+              repeat purchase is the norm. Showing dual numbers lets
+              the reader see the floor AND the realistic plan number. */}
           {(() => {
-            const ratio = cacInTargetCents / headlinePrice;
-            const ratioPct = (ratio * 100).toFixed(0);
+            const ltvMultiplier = getLTVMultiplier(project?.category ?? "other");
+            const singlePurchaseRatio = cacInTargetCents / headlinePrice;
+            const ltvRatio = cacInTargetCents / (headlinePrice * ltvMultiplier);
+            const singlePct = (singlePurchaseRatio * 100).toFixed(0);
+            const ltvPct = (ltvRatio * 100).toFixed(0);
+            // Verdict tone tracks the LTV-adjusted ratio — that's the
+            // realistic decision figure once retention is in the mix.
             const tone =
-              ratio < 0.3 ? C.success : ratio < 0.6 ? C.warn : C.risk;
+              ltvRatio < 0.3 ? C.success : ltvRatio < 0.6 ? C.warn : C.risk;
             const verdict =
-              ratio < 0.3
+              ltvRatio < 0.3
                 ? isKo
-                  ? "건강 (acquisition 부담 낮음)"
-                  : "Healthy"
-                : ratio < 0.6
+                  ? "건강 (LTV 반영 시 acquisition 부담 낮음)"
+                  : "Healthy (after LTV)"
+                : ltvRatio < 0.6
                   ? isKo
-                    ? "주의 (LTV uplift 없으면 압박)"
-                    : "Caution (tight without LTV uplift)"
+                    ? "주의 (LTV 반영해도 압박)"
+                    : "Caution (tight even with LTV)"
                   : isKo
-                    ? "위험 (재구매·LTV 없이 지속 불가)"
-                    : "Unsustainable without repeat / LTV";
+                    ? "위험 (LTV 반영해도 지속 어려움)"
+                    : "Risky (unsustainable even with LTV)";
             return (
               <View
                 style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
                   paddingHorizontal: 10,
                   paddingVertical: 8,
                   marginBottom: 6,
@@ -4769,16 +4776,30 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                   borderRadius: 4,
                 }}
               >
-                <MText style={{ fontSize: 7, color: C.muted, fontWeight: 700 }}>
-                  {isKo ? "마케팅 효율 (M:R)" : "Marketing efficiency (M:R)"}
-                </MText>
-                <MText style={{ fontSize: 14, color: tone, fontWeight: 700 }}>
-                  {`${ratioPct}%`}
-                </MText>
-                <MText style={{ fontSize: 8, color: C.body, flex: 1 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 700 }}>
+                    {isKo ? "M:R (단발)" : "M:R (single)"}
+                  </MText>
+                  <MText style={{ fontSize: 12, color: C.muted, fontWeight: 700 }}>
+                    {`${singlePct}%`}
+                  </MText>
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 700, marginLeft: 8 }}>
+                    {isKo ? `M:R (LTV ${ltvMultiplier}× 반영)` : `M:R (LTV ×${ltvMultiplier})`}
+                  </MText>
+                  <MText style={{ fontSize: 14, color: tone, fontWeight: 700 }}>
+                    {`${ltvPct}%`}
+                  </MText>
+                  <MText style={{ fontSize: 8, color: tone, fontWeight: 600, flex: 1, textAlign: "right" }}>
+                    {verdict}
+                  </MText>
+                </View>
+                <MText style={{ fontSize: 7, color: C.body, lineHeight: 1.5, marginTop: 4 }}>
                   {isKo
-                    ? `매출 ${fmt(headlinePrice)}당 마케팅 ${fmt(cacInTargetCents)} → ${verdict}. 기준: <30% 건강, 30-60% 주의, 60%+ 위험.`
-                    : `Every ${fmt(headlinePrice)} of revenue requires ${fmt(cacInTargetCents)} in marketing → ${verdict}. Bands: <30% healthy, 30-60% caution, 60%+ risk.`}
+                    ? `단발: 매출 ${fmt(headlinePrice)}당 마케팅 ${fmt(cacInTargetCents)}. LTV: 평균 ${ltvMultiplier}회 재구매 시 LTV ${fmt(headlinePrice * ltvMultiplier)} 대비 마케팅 ${fmt(cacInTargetCents)} → ${ltvPct}%. 기준: <30% 건강, 30-60% 주의, 60%+ 위험.`
+                    : `Single: ${fmt(headlinePrice)} revenue per ${fmt(cacInTargetCents)} marketing. LTV: ${ltvMultiplier} reorders → ${fmt(headlinePrice * ltvMultiplier)} LTV per ${fmt(cacInTargetCents)} marketing = ${ltvPct}%. Bands: <30% healthy, 30-60% caution, 60%+ risk.`}
+                </MText>
+                <MText style={{ fontSize: 6.5, color: C.faint, lineHeight: 1.4, marginTop: 2 }}>
+                  {getLTVRationale(project?.category ?? "other", isKo ? "ko" : "en")}
                 </MText>
               </View>
             );
@@ -4891,8 +4912,11 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                   <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1.2, textAlign: "right" }}>
                     {isKo ? "개당 순이익" : "Net/unit"}
                   </MText>
-                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1.8, textAlign: "right" }}>
-                    {isKo ? "1,000명 모객비 회수 (개)" : "BE units @ 1k CAC"}
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1.4, textAlign: "right" }}>
+                    {isKo ? "BE 단발 (개)" : "BE single"}
+                  </MText>
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, flex: 1.4, textAlign: "right" }}>
+                    {isKo ? "BE LTV (고객)" : "BE w/ LTV"}
                   </MText>
                 </View>
                 {scenarios.map((s, i) => {
@@ -4902,6 +4926,21 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                   const breakEvenN =
                     netPerUnit > 0
                       ? Math.ceil((cacInTargetCents / netPerUnit) * 1000)
+                      : null;
+                  // LTV-adjusted break-even: assume the customer
+                  // delivers `ltvMultiplier` purchases at the same
+                  // gross margin per unit. Net contribution per
+                  // *customer* = grossPerUnit × multiplier − CAC.
+                  const ltvMultiplier = getLTVMultiplier(
+                    project?.category ?? "other",
+                  );
+                  const grossPerCustomer = grossPerUnit * ltvMultiplier;
+                  const netPerCustomer = grossPerCustomer - cacInTargetCents;
+                  const breakEvenCustomers =
+                    netPerCustomer > 0
+                      ? Math.ceil(
+                          (cacInTargetCents / netPerCustomer) * 1000,
+                        )
                       : null;
                   return (
                     <View
@@ -4933,9 +4972,32 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                       >
                         {fmt(netPerUnit)}
                       </MText>
-                      <MText style={{ fontSize: 9, color: C.body, flex: 1.8, textAlign: "right" }}>
+                      <MText
+                        style={{
+                          fontSize: 9,
+                          color: breakEvenN != null ? C.body : C.risk,
+                          flex: 1.4,
+                          textAlign: "right",
+                        }}
+                      >
                         {breakEvenN != null
                           ? breakEvenN.toLocaleString()
+                          : isKo
+                            ? "불가"
+                            : "n/a"}
+                      </MText>
+                      <MText
+                        style={{
+                          fontSize: 9,
+                          color:
+                            breakEvenCustomers != null ? C.success : C.risk,
+                          fontWeight: 600,
+                          flex: 1.4,
+                          textAlign: "right",
+                        }}
+                      >
+                        {breakEvenCustomers != null
+                          ? breakEvenCustomers.toLocaleString()
                           : isKo
                             ? "불가"
                             : "n/a"}
@@ -4950,18 +5012,15 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                       : `${llmMarginPct != null ? "AI-estimated" : "Default"} ${baseMarginPct}% margin ± 10pp. `}
                   </MText>
                   <MText style={{ fontSize: 7, color: C.body, fontWeight: 600, lineHeight: 1.4 }}>
-                    {isKo ? "가정: 1인당 1개 구매. " : "Assumes single unit per customer. "}
-                  </MText>
-                  <MText style={{ fontSize: 7, color: C.muted, lineHeight: 1.4 }}>
                     {isKo
-                      ? "재구매·LTV 미반영 — 실제 LTV가 단가의 1.3배 이상이면 위 BE는 보수적."
-                      : "LTV not modeled — if actual LTV > unit price ×1.3, BE above is conservative."}
+                      ? `BE 단발 = 1인당 1개 구매 가정 / BE LTV = 카테고리 평균 ${getLTVMultiplier(project?.category ?? "other")}회 재구매 가정. `
+                      : `BE single = single purchase per customer / BE LTV = category avg ${getLTVMultiplier(project?.category ?? "other")} reorders per customer. `}
                   </MText>
                 </View>
                 <MText style={{ fontSize: 7, color: C.muted, lineHeight: 1.4, marginTop: 4 }}>
                   {isKo
-                    ? "1,000명 모객비 회수 = 1,000명 모객 마케팅비(CAC × 1,000)를 개당 순이익으로 회수하는 데 필요한 누적 판매 수량 (= CAC × 1,000 ÷ 개당 순이익)."
-                    : "BE units @ 1k CAC = sales needed to recover a 1,000-customer CAC budget at the per-unit net contribution (= CAC × 1,000 ÷ net/unit)."}
+                    ? "BE 단발 = 단발 구매 가정으로 1,000명 모객비 회수에 필요한 누적 판매 수량. BE LTV = 카테고리 평균 재구매 반영 후 1,000명 모객비 회수에 필요한 누적 고객 수. 두 수치 모두 보수적 — 실제 LTV가 카테고리 평균보다 높으면 BE는 더 빠르게 도달."
+                    : "BE single = units to recover 1,000 CAC under single-purchase assumption. BE LTV = customers to recover the same budget after category-average reorders. Both are conservative — actual LTV above the category average pulls BE in further."}
                 </MText>
               </View>
             );
