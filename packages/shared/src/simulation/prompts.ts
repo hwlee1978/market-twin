@@ -658,6 +658,8 @@ export function countryPrompt(
 
   return `Rank these candidate OVERSEAS-EXPANSION TARGET MARKETS for launching the product below. The company is based in ${input.originatingCountry} (the origin / home market) and is validating overseas expansion — score each candidate as an EXPORT TARGET, not as a domestic market. The persona stats below are the bounded grounding signal — read them carefully (intent histograms, top objections, top trust signals, profession mix per country) before incorporating market structure (competition, CAC realism, regulatory friction, cultural fit, distance from origin).
 
+When scoring competition (both the top-level competitionScore and components.competition), do not equate "same product category has strong incumbents" with "low competition score." Real consumer markets carve segments by taste / price tier / origin story / usage occasion / ingredient claim — coexistence is the norm, not the exception. See the components.competition rubric below for the full rule.
+
 CRITICAL: Only include countries from the candidate list. Do NOT add countries that are not in the list. Do NOT include the origin (${input.originatingCountry}) in the ranking — it is the home market, not a target.
 
 Origin (home market, NOT a target): ${input.originatingCountry}
@@ -713,6 +715,19 @@ For every country, also emit a "components" object decomposing the finalScore in
   - channelMatch: availability of distribution channels this product needs (e.g., relevant ecommerce platforms, retail format, cross-border logistics) AND alignment with persona channel preferences. Higher = easier to reach buyers.
   - priceCompat: price tolerance vs local purchasing power, competitor price anchors, and persona priceSensitivity. Higher = price point lands well.
   - competition: INVERTED — higher means LESS crowded / less dominant local incumbent. (Don't confuse with the top-level competitionScore which uses the same convention.)
+    ═══ Segment-differentiation rule (CRITICAL) ═══
+    Do NOT auto-mark competition low just because the same product category already has strong incumbents in this market. Consumer markets routinely sustain multiple brands in one category by carving distinct buyer segments. Before scoring, ask: does the product description name a differentiating axis the incumbents do NOT own? Examples of axes that enable coexistence:
+      · taste / spice / flavor intensity (e.g., Buldak 8,700 SHU vs Nongshim Shin 4,400 SHU vs Nissin 1,000 SHU — three coexisting in US)
+      · price tier (premium import vs mass local)
+      · ingredient story / brand origin (Korean-origin K-product vs domestic mass brand)
+      · usage scenario / occasion (gifting vs everyday, gym vs office, etc.)
+      · ingredient claim / certification (vegan, halal, organic, clean-label)
+    Scoring rubric:
+      · Strong incumbent + clear differentiation axis in description → 50-65 (moderate competition, coexistence viable)
+      · Strong incumbent + weak / generic positioning ("better quality") → 25-40 (genuinely crowded)
+      · Strong incumbent + product is positioned as cheaper-me-too → 15-30 (likely loses)
+      · Few incumbents or fragmented market → 65-85 (open lane)
+    Counter-example to avoid: Nongshim Shin Ramyun launching in the US scored competition 46 by previous sim runs because "Maruchan and Nissin are strong" — that was wrong: Shin's spice tier + Korean origin + LA-plant story sustains a distinct segment, and Nongshim America actually generates $538M/yr there. Don't repeat that miscall.
   - regulatory: INVERTED — higher means FEWER import duties / certifications / restrictions / FX or tax frictions. A blocker like food-safety registration or wholly-prohibited category should pull this below 30.
 
 finalScore should be a sensible weighted-average reflection of the components, but you can incorporate cross-component interaction (e.g., great marketSize but regulatory < 25 should drag finalScore down sharply — a launch-blocker isn't averaged away). Don't blindly arithmetic-mean the six.`;
