@@ -2,6 +2,7 @@ import type { ProjectInput } from "./schemas";
 import type { SimulationAggregate } from "./aggregate";
 import { renderAggregateForPrompt } from "./aggregate";
 import type { PersonaSlot } from "./profession-pool";
+import { INCOME_BRACKET_USD_RANGES } from "./income-distribution";
 import { buildChannelCostsBlock } from "@/lib/reference/channel-costs";
 import { taxonomyPromptBlock } from "./taxonomy";
 
@@ -344,10 +345,18 @@ export function personaPrompt(
   // guarantees across-batch profession diversity (parallel batches each get
   // disjoint slot slices).
   const allSlotsHaveProfession = slots.every((s) => s.profession);
+  // Phase B: render each slot's pre-sampled income bracket inline so the LLM
+  // can constrain incomeBand text to that bracket. Slots without a bracket
+  // (legacy / fixtures) just omit the income hint.
+  const renderSlotIncomeHint = (s: PersonaSlot): string => {
+    if (!s.incomeBracket) return "";
+    const range = INCOME_BRACKET_USD_RANGES[s.incomeBracket];
+    return `, income=${range.label} USD`;
+  };
   const distributionInstruction = allSlotsHaveProfession
-    ? `MANDATORY persona slot assignments — produce EXACTLY ${count} personas in array order, each matching its slot's country code AND base profession. Slot order is the order in your output array.
+    ? `MANDATORY persona slot assignments — produce EXACTLY ${count} personas in array order, each matching its slot's country code, base profession, AND income bracket. Slot order is the order in your output array.
 
-${slots.map((s, i) => `  Slot ${i + 1}: country=${s.country}, base profession=${s.profession}`).join("\n")}
+${slots.map((s, i) => `  Slot ${i + 1}: country=${s.country}, base profession=${s.profession}${renderSlotIncomeHint(s)}`).join("\n")}
 
 Rules:
 - The persona's "country" field MUST equal the slot's country code.
@@ -360,17 +369,29 @@ Rules:
   At least 3 of the 4 axes above MUST differ across personas with the same base profession in this batch. If you can't think of distinct specializations, leave the parenthetical EMPTY rather than repeat — duplicates are worse than absent detail.
 - If an assigned profession doesn't naturally fit the slot's country, adapt to the closest local equivalent BUT keep the same base archetype.
 - Everything else (age, gender, income, intent, objections, trust factors, interests, purchase style) is YOUR creative judgment — vary widely across slots so the personas feel distinct.`
-    : `Distribute personas across these countries (exact counts):
+    : `Distribute personas across these countries (exact counts) AND match the income bracket distribution per country (Phase B: anchored to each country's real income distribution from World Bank / OECD data):
 ${Object.entries(
-        slots.reduce<Record<string, number>>((acc, s) => {
-          acc[s.country] = (acc[s.country] ?? 0) + 1;
+        slots.reduce<Record<string, Record<string, number>>>((acc, s) => {
+          acc[s.country] = acc[s.country] ?? {};
+          const k = s.incomeBracket ?? "unset";
+          acc[s.country][k] = (acc[s.country][k] ?? 0) + 1;
           return acc;
         }, {}),
       )
-        .map(([c, n]) => `  • ${c}: exactly ${n}`)
+        .map(([c, brackets]) => {
+          const total = Object.values(brackets).reduce((a, b) => a + b, 0);
+          const breakdown = Object.entries(brackets)
+            .filter(([k]) => k !== "unset")
+            .map(([k, n]) => {
+              const range = INCOME_BRACKET_USD_RANGES[k as keyof typeof INCOME_BRACKET_USD_RANGES];
+              return range ? `${n}× ${range.label}` : `${n}× ${k}`;
+            })
+            .join(", ");
+          return `  • ${c}: exactly ${total}${breakdown ? ` — income mix: ${breakdown}` : ""}`;
+        })
         .join("\n")}
 
-If you produce more or fewer of any country than specified above, the result is INVALID.`;
+If you produce more or fewer of any country than specified above, the result is INVALID. The income mix per country is a target distribution — incomeBand text for each persona must convert to USD within the assigned bracket so cross-country comparisons stay anchored to real economic distribution.`;
 
   const referenceSection = referenceBlock
     ? `\n${referenceBlock}
@@ -422,7 +443,7 @@ Force yourself to use at least ${Math.max(6, Math.ceil(count / 2))} DIFFERENT ba
 
 CRITICAL constraints (re-read the system prompt rules):
 - ALL text fields (profession, purchaseStyle, interests, trustFactors, objections) in the LOCALE language — even for non-${locale.toUpperCase()} personas. Do NOT switch to the country's native language.
-- incomeBand realistic for the persona's country AND life stage. A student or homemaker MUST NOT have a salary-like figure.
+- incomeBand realistic for the persona's country AND life stage. A student or homemaker MUST NOT have a salary-like figure. **When a slot specifies an income bracket (e.g. "$30-60k USD"), the incomeBand text MUST convert to within that USD range** — emit local currency formatting (e.g. "연 ¥6M-¥8M (~$43-57k USD)") but the USD parenthetical must land in the assigned bracket. This anchors persona income to the country's actual income distribution (World Bank / OECD data) instead of the LLM's training-prior global average, which was crushing CAC for high-income markets (US $80 vs VN $17) and inflating developing-market finalScores. Brackets are sampled per-slot from the country's real income shape, so honoring them produces an aggregate distribution that matches reality. Reference-data verbatim adherence (for students / homemakers / retirees in the reference table) takes precedence over the bracket when the two conflict — those life stages have specific format rules and the bracket is a guideline for the salary-emitting majority.
 - purchaseIntent (0-100) honest — distribution should include skeptics (low), neutrals, and a few champions.
 - **PRICE-AS-OBJECTION REQUIRES MATH**: before listing any price-related concern in objections, compute (product price USD ÷ persona annual income USD). If ratio < 0.2%, price is NOT a plausible objection for this persona — pick a non-price concern (channel, fit, design, brand familiarity, regulatory, category-fit) instead. If ratio is 0.2-0.5%, price is plausible only with a SPECIFIC comparator (\"Allbirds 대비 비쌈\", \"\$150 for a knit shoe\"). If ratio ≥ 0.5%, generic price concern is plausible. A \$150k earner does not rationally complain an \$87 sneaker is \"expensive\" (ratio 0.06%) — emitting that objection is a credibility failure.
 - **ANCHOR REQUIREMENT**: Every trustFactor and objection MUST contain at least ONE of: real brand/product name, specific certification or regulator, named channel/retailer, price comparator with number, or specific use-case scenario. Bare adjectives without an anchor — \"편안한 착용감\", \"comfort\", \"메리노 울 부드러움\", \"디자인 좋음\", \"가격이 높음\", \"내구성 의문\", \"브랜드 인지도 낮음\" — are REJECTED at runtime regardless of locale. Write \"Allbirds 포지셔닝과 유사\" instead of \"디자인 좋음\"; \"GOTS 인증 RWS 양모\" instead of \"품질 좋음\"; \"Allbirds Tree Runner 대비 ₩30k 비쌈\" instead of \"가격이 높음\".

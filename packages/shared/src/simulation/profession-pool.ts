@@ -17,6 +17,10 @@
  */
 
 import type { PromptLocale } from "./prompts";
+import {
+  sampleIncomeBracket,
+  type IncomeBracket,
+} from "./income-distribution";
 
 interface CategoryPool {
   /** Diverse buyer archetypes for this category, in pool-cycle order. */
@@ -1046,6 +1050,21 @@ export interface PersonaSlot {
   country: string;
   /** Empty string when category has no pool — slot is free for the LLM. */
   profession: string;
+  /**
+   * Phase B (2026-05-15): pre-sampled income bracket constraint for this
+   * persona, drawn from the country's actual income distribution (World
+   * Bank / OECD data — see `income-distribution.ts`). Optional for slots
+   * that originated before Phase B (legacy pool-cached personas, test
+   * fixtures) — the persona prompt simply omits the bracket hint when
+   * unset and the LLM falls back to its free-emit prior behavior.
+   *
+   * Why this exists: the 5th Buldak validation run showed 40% of generated
+   * personas globally landed in <$30k regardless of target country, which
+   * crushed CAC for high-income markets (US $80 vs VN $17) and inflated
+   * developing-market finalScores. The bracket bias slot-level distribution
+   * toward each country's real income shape.
+   */
+  incomeBracket?: IncomeBracket;
 }
 
 /** Returns the profession pool for the category, or null when the category
@@ -1120,10 +1139,17 @@ export function planSlots(
 
   const pool = getProfessionPool(category, locale);
   if (!pool) {
-    // No pool — slots carry country only.
+    // No pool — slots carry country only, but still get income brackets
+    // so Phase B sampling applies to pool-less categories too.
     const slots: PersonaSlot[] = [];
     for (const [country, count] of Object.entries(perCountry)) {
-      for (let i = 0; i < count; i++) slots.push({ country, profession: "" });
+      for (let i = 0; i < count; i++) {
+        slots.push({
+          country,
+          profession: "",
+          incomeBracket: pickIncomeBracketForSlot(country, seed, slots.length),
+        });
+      }
     }
     return slots;
   }
@@ -1156,8 +1182,30 @@ export function planSlots(
         chosen = shuffled[cursor % shuffled.length];
         cursor++;
       }
-      slots.push({ country, profession: chosen });
+      slots.push({
+        country,
+        profession: chosen,
+        incomeBracket: pickIncomeBracketForSlot(country, seed, slots.length),
+      });
     }
   }
   return slots;
+}
+
+/**
+ * Phase B: deterministically picks an income bracket for a slot based on
+ * the country's actual income distribution. Uses a hash of seed + slot
+ * index so the same simulationId reproduces the same income mix, but
+ * different sims get different sampled brackets (and across-sim
+ * aggregates approach the target distribution by law of large numbers).
+ */
+function pickIncomeBracketForSlot(
+  country: string,
+  seed: string,
+  slotIndex: number,
+): IncomeBracket {
+  const h = seedFromString(`${seed}|income|${slotIndex}`);
+  // 32-bit hash → [0, 1) range. Math.pow(2, 32) = 4294967296.
+  const rand = h / 4_294_967_296;
+  return sampleIncomeBracket(country, rand);
 }
