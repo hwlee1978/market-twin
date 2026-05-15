@@ -21,6 +21,7 @@ import {
   sampleIncomeBracket,
   type IncomeBracket,
 } from "./income-distribution";
+import { FOOD_DIET_RESTRICTED_CAPS } from "./calibration/profession-caps";
 
 interface CategoryPool {
   /** Diverse buyer archetypes for this category, in pool-cycle order. */
@@ -288,17 +289,13 @@ const POOLS_KO: Record<string, CategoryPool> = {
       "럭셔리 호텔 F&B 디렉터": 1,
       "미식 평론가·푸드 디렉터": 1,
       "전문의 (식이 권고)": 2,
-      // Diet-restricted personas — cap because Buldak / Shin Ramyun /
-      // COSRX validation runs each had ~167 personas (~3.5%) per
-      // restricted-diet archetype, pulling mean intent down by ~5pt
-      // and burying the actual product fit signal. These archetypes
-      // belong in the pool (a 0% rate would falsely claim no dietary
-      // friction exists), but their natural frequency in K-Food /
-      // K-Beauty buyer populations is well below the uncapped rate.
-      // Cap 2 = max 4 per 200-persona sim = 2%.
-      "비건·식물성 식단 실천자": 2,
-      "글루텐프리·알레르기 관리 소비자": 2,
-      "다이어터 (피트니스 진지)": 2,
+      // Diet-restricted caps — see calibration/profession-caps.ts for provenance.
+      ...Object.fromEntries(
+        FOOD_DIET_RESTRICTED_CAPS.value.archetypesKo.map((a) => [
+          a,
+          FOOD_DIET_RESTRICTED_CAPS.value.perSimCap,
+        ]),
+      ),
     },
   },
   health: {
@@ -796,13 +793,13 @@ const POOLS_EN: Record<string, CategoryPool> = {
       "Luxury hotel F&B director": 1,
       "Food critic / media director": 1,
       "Specialist physician (dietary)": 2,
-      // Mirror of KO caps — diet-restricted personas capped at 2 per
-      // sim to keep their natural frequency in food buyer populations
-      // (~1-2%) rather than the uncapped ~3.5% that dragged the mean
-      // intent across three validation runs.
-      "Vegan / plant-based eater": 2,
-      "Gluten-free / allergy management consumer": 2,
-      "Serious dieter (fitness-driven)": 2,
+      // Mirror of KO caps — see calibration/profession-caps.ts for provenance.
+      ...Object.fromEntries(
+        FOOD_DIET_RESTRICTED_CAPS.value.archetypesEn.map((a) => [
+          a,
+          FOOD_DIET_RESTRICTED_CAPS.value.perSimCap,
+        ]),
+      ),
     },
   },
   health: {

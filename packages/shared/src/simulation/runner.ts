@@ -48,6 +48,10 @@ import {
 import { planSlots, type PersonaSlot } from "./profession-pool";
 import { incomeBandMatchesBracket } from "./income-distribution";
 import {
+  FINAL_SCORE_WEIGHTS,
+  REGULATORY_HARD_FLOOR,
+} from "./calibration/score-weights";
+import {
   notifySimulationComplete,
   notifySimulationFailed,
 } from "@/lib/email/notify";
@@ -313,65 +317,27 @@ function normalizeCountrySampleScale(
   return sample;
 }
 
-/**
- * Phase A fix for "동남아 편향" (Buldak validation runs 1 + 5, 2026-05-14/15).
- *
- * Symptom: even after grounding fixes (Tavily native queries + Sonar Pro)
- * the simulator kept ranking VN / ID / MY above US / CN / DE for products
- * whose actual export revenue concentrates in the latter (Buldak China is
- * the #1 export market by revenue). Root cause: LLM emits both finalScore
- * and components.marketSize, but its self-weighted finalScore systematically
- * under-weights marketSize against CAC-driven priceCompat and channelMatch.
- * A US marketSize=82 still produced finalScore=61 in the 5th run because
- * the LLM mentally averaged against the persona pool's low-income skew.
- *
- * Fix: recompute finalScore mechanically from components with explicit
- * weights, giving marketSize a 30% floor. Keeps the LLM's qualitative
- * judgement (the components are still LLM-emitted) but removes its freedom
- * to under-weight absolute market value during the final aggregation.
- *
- * Weights chosen so the six components sum to 1.0:
- *   marketSize 0.30  — Phase A target; what we're fixing
- *   culturalFit 0.15
- *   channelMatch 0.15
- *   priceCompat 0.10  — already captured implicitly in CAC; small explicit weight
- *   competition 0.15
- *   regulatory 0.15
- *
- * Regulatory hard floor: when regulatory < 30 (launch blocker), cap the
- * computed finalScore at 35 regardless of the other components — preserves
- * the prompt's "great marketSize but reg<25 should drag finalScore down
- * sharply" guidance.
- *
- * Skipped when components are absent (legacy data, malformed LLM output);
- * the LLM-emitted finalScore stands in that case.
- */
-const FINAL_SCORE_WEIGHTS = {
-  marketSize: 0.3,
-  culturalFit: 0.15,
-  channelMatch: 0.15,
-  priceCompat: 0.1,
-  competition: 0.15,
-  regulatory: 0.15,
-} as const;
-
+// Recomputes finalScore mechanically from LLM-emitted components using the
+// weights declared in calibration/score-weights.ts. Skipped when components
+// are absent (legacy / malformed) — the LLM-emitted finalScore stands.
 function recomputeFinalScoreFromComponents(
   sample: z.infer<typeof CountryScoreSchema>[],
 ): z.infer<typeof CountryScoreSchema>[] {
+  const w = FINAL_SCORE_WEIGHTS.value;
+  const floor = REGULATORY_HARD_FLOOR.value;
   return sample.map((row) => {
     const c = row.components;
     if (!c) return row;
     let computed =
-      c.marketSize * FINAL_SCORE_WEIGHTS.marketSize +
-      c.culturalFit * FINAL_SCORE_WEIGHTS.culturalFit +
-      c.channelMatch * FINAL_SCORE_WEIGHTS.channelMatch +
-      c.priceCompat * FINAL_SCORE_WEIGHTS.priceCompat +
-      c.competition * FINAL_SCORE_WEIGHTS.competition +
-      c.regulatory * FINAL_SCORE_WEIGHTS.regulatory;
-    // Regulatory launch-blocker floor — matches the existing prompt
-    // guidance that a regulatory < 25-30 should pull finalScore sharply
-    // down, not be averaged away.
-    if (c.regulatory < 30) computed = Math.min(computed, 35);
+      c.marketSize * w.marketSize +
+      c.culturalFit * w.culturalFit +
+      c.channelMatch * w.channelMatch +
+      c.priceCompat * w.priceCompat +
+      c.competition * w.competition +
+      c.regulatory * w.regulatory;
+    if (c.regulatory < floor.regulatoryThreshold) {
+      computed = Math.min(computed, floor.finalScoreCap);
+    }
     return { ...row, finalScore: Math.round(computed * 10) / 10 };
   });
 }

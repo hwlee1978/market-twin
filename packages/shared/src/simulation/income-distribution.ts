@@ -24,6 +24,8 @@
  * (US, GB, DE) the lower brackets correspond to real working class.
  */
 
+import { INCOME_BRACKET_SLACK } from "./calibration/income-bracket-slack";
+
 export type IncomeBracket = "low" | "lower_mid" | "mid" | "upper_mid" | "high";
 
 /** USD annual income ranges for each bracket — global anchor scale. */
@@ -203,9 +205,7 @@ export function parseIncomeBandUsd(incomeBand: string): number | null {
  * the assigned bracket's USD range. Used by the runner to validate pool-
  * cached personas before reuse — mismatched personas are regenerated.
  *
- * Tolerance: bracket boundaries get ±15% slack (so a $61k USD persona
- * is still "lower_mid" not bumped to "mid"). Without slack, the bracket
- * boundaries are too brittle and almost every cached persona fails.
+ * Slack tolerance lives in calibration/income-bracket-slack.ts.
  *
  * Returns true (accept) when:
  *   - bracket is undefined (Phase B not applied — accept all)
@@ -221,7 +221,7 @@ export function incomeBandMatchesBracket(
   const usd = parseIncomeBandUsd(incomeBand);
   if (usd == null) return true; // unparseable — don't reject
   const range = INCOME_BRACKET_USD_RANGES[bracket];
-  const slack = 0.15;
+  const slack = INCOME_BRACKET_SLACK.value.slack;
   const minOk = range.minUsd === 0 ? 0 : range.minUsd * (1 - slack);
   const maxOk = range.maxUsd == null ? Infinity : range.maxUsd * (1 + slack);
   return usd >= minOk && usd <= maxOk;

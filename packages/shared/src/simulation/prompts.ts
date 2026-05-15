@@ -5,6 +5,30 @@ import type { PersonaSlot } from "./profession-pool";
 import { INCOME_BRACKET_USD_RANGES } from "./income-distribution";
 import { buildChannelCostsBlock } from "@/lib/reference/channel-costs";
 import { taxonomyPromptBlock } from "./taxonomy";
+import { COMPETITION_RUBRIC_BANDS } from "./calibration/competition-rubric";
+import {
+  FINAL_SCORE_WEIGHTS,
+  REGULATORY_HARD_FLOOR,
+} from "./calibration/score-weights";
+
+function renderCompetitionRubricBlock(locale: PromptLocale): string {
+  return COMPETITION_RUBRIC_BANDS.value
+    .map((b) => {
+      const cond = locale === "ko" ? b.conditionKo : b.conditionEn;
+      return `      · ${cond} → ${b.min}-${b.max}`;
+    })
+    .join("\n");
+}
+
+function renderWeightGuidanceLines(): string {
+  const w = FINAL_SCORE_WEIGHTS.value;
+  const pct = (n: number) => `~${Math.round(n * 100)}%`;
+  return [
+    `  · marketSize ${pct(w.marketSize)}  (anchor — absolute reachable market matters)`,
+    `  · culturalFit ${pct(w.culturalFit)} · channelMatch ${pct(w.channelMatch)} · competition ${pct(w.competition)} · regulatory ${pct(w.regulatory)}`,
+    `  · priceCompat ${pct(w.priceCompat)} (already partially captured in CAC; don't double-count)`,
+  ].join("\n");
+}
 
 export type PromptLocale = "ko" | "en";
 
@@ -744,20 +768,15 @@ For every country, also emit a "components" object decomposing the finalScore in
       · usage scenario / occasion (gifting vs everyday, gym vs office, etc.)
       · ingredient claim / certification (vegan, halal, organic, clean-label)
     Scoring rubric:
-      · Strong incumbent + clear differentiation axis in description → 50-65 (moderate competition, coexistence viable)
-      · Strong incumbent + weak / generic positioning ("better quality") → 25-40 (genuinely crowded)
-      · Strong incumbent + product is positioned as cheaper-me-too → 15-30 (likely loses)
-      · Few incumbents or fragmented market → 65-85 (open lane)
+${renderCompetitionRubricBlock(locale)}
     Counter-example to avoid: Nongshim Shin Ramyun launching in the US scored competition 46 by previous sim runs because "Maruchan and Nissin are strong" — that was wrong: Shin's spice tier + Korean origin + LA-plant story sustains a distinct segment, and Nongshim America actually generates $538M/yr there. Don't repeat that miscall.
-  - regulatory: INVERTED — higher means FEWER import duties / certifications / restrictions / FX or tax frictions. A blocker like food-safety registration or wholly-prohibited category should pull this below 30.
+  - regulatory: INVERTED — higher means FEWER import duties / certifications / restrictions / FX or tax frictions. A blocker like food-safety registration or wholly-prohibited category should pull this below ${REGULATORY_HARD_FLOOR.value.regulatoryThreshold}.
 
 finalScore should be a sensible weighted-average reflection of the components, but you can incorporate cross-component interaction (e.g., great marketSize but regulatory < 25 should drag finalScore down sharply — a launch-blocker isn't averaged away). Don't blindly arithmetic-mean the six.
 
 ═══ Weighting guidance (CRITICAL — common miscall) ═══
 When picking finalScore, give marketSize ≥ 25% of the weight. A common mistake in prior sim runs was scoring US / CN / DE in the 50-60 range despite marketSize 75-85, because CAC anxiety + persona-pool low-income skew dragged finalScore toward the mean. Don't do that — a large, growth-trending market with moderate channel / cultural friction (marketSize 80, others 55-65) should land finalScore 70+, NOT 55-60. The persona pool is a sampling artifact, not a constraint on absolute market value. Suggested implicit weights:
-  · marketSize ~30%  (anchor — absolute reachable market matters)
-  · culturalFit ~15% · channelMatch ~15% · competition ~15% · regulatory ~15%
-  · priceCompat ~10% (already partially captured in CAC; don't double-count)
+${renderWeightGuidanceLines()}
 A post-process pass will mechanically re-derive finalScore from these components anyway — but emitting an aligned LLM finalScore keeps the critique stage cleaner and the rank consistent.`;
 }
 
