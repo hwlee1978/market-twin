@@ -46,6 +46,7 @@ import {
   isGenericTrustFactor,
 } from "./surfaced-recount";
 import { planSlots, type PersonaSlot } from "./profession-pool";
+import { incomeBandMatchesBracket } from "./income-distribution";
 import {
   notifySimulationComplete,
   notifySimulationFailed,
@@ -947,6 +948,13 @@ ${entries}
 
       // Allocate slots to pool entries in declaration order. Slots without a
       // matching pool entry (or without slot.profession) drop into misses.
+      // Phase B v2: when slot has an incomeBracket, scan the candidate list
+      // for the first persona whose cached income_band falls within that
+      // bracket. Mismatches are returned to the candidate queue tail so
+      // they can satisfy a later slot that DOES match their bracket. If no
+      // candidate matches, the slot becomes a miss (regenerated fresh with
+      // the bracket constraint enforced via prompt).
+      let bracketRejects = 0;
       for (const slot of allSlots) {
         if (!slot.profession) {
           missSlots.push(slot);
@@ -954,12 +962,28 @@ ${entries}
         }
         const key = `${slot.country}|${slot.profession}`;
         const candidates = poolByCell.get(key) ?? [];
-        const next = candidates.shift();
-        if (next) {
+        // Find the first candidate whose incomeBand matches the slot's
+        // bracket. Linear scan since cells are small (~10-30 personas).
+        let pickedIdx = -1;
+        for (let i = 0; i < candidates.length; i++) {
+          const cand = candidates[i] as PoolBase & { income_band?: string };
+          if (incomeBandMatchesBracket(cand.income_band ?? "", slot.incomeBracket)) {
+            pickedIdx = i;
+            break;
+          }
+        }
+        if (pickedIdx >= 0) {
+          const next = candidates.splice(pickedIdx, 1)[0];
           hits.push({ slot, base: next });
         } else {
+          if ((candidates.length ?? 0) > 0) bracketRejects++;
           missSlots.push(slot);
         }
+      }
+      if (bracketRejects > 0) {
+        console.log(
+          `[sim ${opts.simulationId}] pool: ${bracketRejects} slot(s) sent to fresh-gen due to incomeBracket mismatch (Phase B v2)`,
+        );
       }
     } else {
       // No workspace context (legacy/test path) — skip pool, generate everything fresh.

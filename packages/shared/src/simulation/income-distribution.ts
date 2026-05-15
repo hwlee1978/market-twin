@@ -148,6 +148,86 @@ export function sampleIncomeBracket(
 }
 
 /**
+ * Phase B v2 (2026-05-15): Parses `incomeBand` text and returns the
+ * approximate USD annual income (midpoint when range, single value when
+ * scalar). Returns null when no USD figure is found in the text.
+ *
+ * Why this exists: Phase B v1 set `slot.incomeBracket` and injected the
+ * constraint into the persona prompt, but the runner's pool-reuse layer
+ * pulled cached personas (generated before Phase B) by `country|profession`
+ * key alone — completely bypassing the bracket. Result: the 6th Buldak
+ * validation showed <$30k still at 40% of personas, no bracket effect at
+ * all. v2 fixes this by validating each pool-hit persona's incomeBand
+ * against the slot bracket; mismatched personas get demoted to misses
+ * (regenerated fresh with the bracket constraint enforced).
+ *
+ * Heuristic patterns this matches (covers the prompt examples):
+ *   "$130-160k", "$34-42k USD", "(~$43-57k USD)", "(~$3-6k USD)",
+ *   "$1.5-7k USD", "$130k", "USD 75k", "$74,000"
+ */
+export function parseIncomeBandUsd(incomeBand: string): number | null {
+  if (!incomeBand) return null;
+  const text = incomeBand.replace(/[,]/g, ""); // strip thousand-sep commas
+
+  // Pattern 1: ranges like "$30-60k", "$3-6k USD", "$1.5-7k"
+  const rangeK = text.match(/\$\s*(\d+(?:\.\d+)?)\s*[-–~]\s*(\d+(?:\.\d+)?)\s*k/i);
+  if (rangeK) {
+    const lo = parseFloat(rangeK[1]) * 1000;
+    const hi = parseFloat(rangeK[2]) * 1000;
+    return (lo + hi) / 2;
+  }
+
+  // Pattern 2: ranges in absolute dollars "$30000-60000"
+  const rangeAbs = text.match(/\$\s*(\d{4,7})\s*[-–~]\s*(\d{4,7})\b/);
+  if (rangeAbs) {
+    return (parseInt(rangeAbs[1], 10) + parseInt(rangeAbs[2], 10)) / 2;
+  }
+
+  // Pattern 3: single value with k suffix "$74k" or "$74k USD"
+  const singleK = text.match(/\$\s*(\d+(?:\.\d+)?)\s*k\b/i);
+  if (singleK) {
+    return parseFloat(singleK[1]) * 1000;
+  }
+
+  // Pattern 4: single absolute value "$74000"
+  const singleAbs = text.match(/\$\s*(\d{4,7})\b/);
+  if (singleAbs) {
+    return parseInt(singleAbs[1], 10);
+  }
+
+  return null;
+}
+
+/**
+ * Phase B v2: Returns true when the persona's incomeBand text falls within
+ * the assigned bracket's USD range. Used by the runner to validate pool-
+ * cached personas before reuse — mismatched personas are regenerated.
+ *
+ * Tolerance: bracket boundaries get ±15% slack (so a $61k USD persona
+ * is still "lower_mid" not bumped to "mid"). Without slack, the bracket
+ * boundaries are too brittle and almost every cached persona fails.
+ *
+ * Returns true (accept) when:
+ *   - bracket is undefined (Phase B not applied — accept all)
+ *   - incomeBand has no parseable USD figure (can't validate, give benefit
+ *     of the doubt rather than mass-regenerate the entire pool)
+ *   - parsed USD falls within bracket range with slack
+ */
+export function incomeBandMatchesBracket(
+  incomeBand: string,
+  bracket: IncomeBracket | undefined,
+): boolean {
+  if (!bracket) return true;
+  const usd = parseIncomeBandUsd(incomeBand);
+  if (usd == null) return true; // unparseable — don't reject
+  const range = INCOME_BRACKET_USD_RANGES[bracket];
+  const slack = 0.15;
+  const minOk = range.minUsd === 0 ? 0 : range.minUsd * (1 - slack);
+  const maxOk = range.maxUsd == null ? Infinity : range.maxUsd * (1 + slack);
+  return usd >= minOk && usd <= maxOk;
+}
+
+/**
  * Renders the bracket constraint string injected into the persona prompt.
  * Locale-aware so KO sims get Korean-format hints and EN sims get English.
  * Includes the USD range so the LLM can convert to local currency for the

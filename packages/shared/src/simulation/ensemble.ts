@@ -899,7 +899,10 @@ export function aggregateEnsemble(
     return emptyAggregate();
   }
 
-  // ── bestCountry distribution ──
+  // ── bestCountry distribution (vote mode — kept for display) ──
+  // Per-sim bestCountry is the country that won within that sim. Mode
+  // across sims gives "agreement frequency" which is informative even when
+  // the actual recommendation is decided by aggregate score (Phase D below).
   const bestFreq = new Map<string, number>();
   for (const s of sims) {
     const k = s.bestCountry ?? "?";
@@ -913,7 +916,40 @@ export function aggregateEnsemble(
     }))
     .sort((a, b) => b.count - a.count);
 
-  const winner = bestCountryDistribution[0];
+  // ── Phase D (2026-05-15): winner picked by aggregate finalScore mean ──
+  // Why we override the vote-mode winner: 6th Buldak validation showed
+  // mean finalScore says US > ID (68.2 vs 66.6) yet vote mode picked ID 41%
+  // because per-sim bestCountry is dominated by whichever country spikes
+  // highest in that individual sim (high-variance LLM emits). Aggregate
+  // mean is more robust to that bimodal noise. Confidence is recomputed
+  // as "% of sims where this country is in top-3 by finalScore" — softer
+  // than strict #1 vote, captures consistent high-rank performance.
+  // Falls back to vote-mode winner when no sim-level finalScore data is
+  // available (legacy / corrupt sims).
+  const meanByCountry = new Map<string, { sum: number; n: number }>();
+  for (const s of sims) {
+    for (const c of s.countries) {
+      const k = c.country.toUpperCase();
+      const cur = meanByCountry.get(k) ?? { sum: 0, n: 0 };
+      cur.sum += c.finalScore;
+      cur.n += 1;
+      meanByCountry.set(k, cur);
+    }
+  }
+  const meanRanking = [...meanByCountry.entries()]
+    .map(([country, agg]) => ({ country, mean: agg.n > 0 ? agg.sum / agg.n : 0 }))
+    .sort((a, b) => b.mean - a.mean);
+  const phaseDWinnerCountry = meanRanking[0]?.country ?? null;
+  // top-3 hit rate for the mean winner across sims
+  let top3Hits = 0;
+  for (const s of sims) {
+    const sorted = [...s.countries].sort((a, b) => b.finalScore - a.finalScore);
+    const top3 = sorted.slice(0, 3).map((c) => c.country.toUpperCase());
+    if (phaseDWinnerCountry && top3.includes(phaseDWinnerCountry)) top3Hits++;
+  }
+  const winner = phaseDWinnerCountry
+    ? { country: phaseDWinnerCountry, count: top3Hits, percent: Math.round((top3Hits / simCount) * 100) }
+    : bestCountryDistribution[0];
   const consensusPercent = winner ? Math.round((winner.count / simCount) * 100) : 0;
   const confidence: "STRONG" | "MODERATE" | "WEAK" =
     consensusPercent >= 80 ? "STRONG" : consensusPercent >= 50 ? "MODERATE" : "WEAK";
