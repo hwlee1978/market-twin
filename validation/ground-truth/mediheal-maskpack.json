@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "product": "메디힐 시트 마스크팩 (MediHeal sheet mask)",
+  "category": "beauty",
+  "priceUsd": 2.5,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "HOLDOUT",
+  "candidateCountries": ["CN", "JP", "US", "TH", "VN", "ID", "MY", "TW", "HK", "PH"],
+  "evidence": [
+    {
+      "country": "CN",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "IR",
+        "title": "L&P코스메틱 (메디힐 모기업) 2025 IR — 중국 매출 dominant",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "high",
+      "notes": "한한령 (2016-2020)으로 한국 화장품 전반 위축됐으나 메디힐은 sheet mask 카테고리에서 회복 — 티몰·타오바오·라이브커머스 채널. 매출의 약 50% 중국."
+    },
+    {
+      "country": "CN",
+      "metric": "market_share_pct",
+      "value": 15,
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "market_research",
+        "title": "중국 sheet mask 카테고리 — 메디힐 시장 점유율 추정",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "중국 sheet mask 시장 자국 브랜드 (Pechoin·Proya 등) + K-Beauty 다수 경쟁. 메디힐은 K-Beauty 카테고리 내 top-2."
+    },
+    {
+      "country": "JP",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "일본 K-Beauty sheet mask — 메디힐 드럭스토어 (마츠모토·스기) 입점",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "high",
+      "notes": "일본은 sheet mask 카테고리 자체가 큼 (자국 LuLuLun·KOSE 등). 메디힐은 K-Beauty 코너 dominant."
+    },
+    {
+      "country": "TH",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "태국 K-Beauty — 메디힐 Watsons·Boots 입점",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "BLACKPINK 효과로 태국 K-Beauty 인지도 폭발. 메디힐 가성비 SKU로 Gen Z·Millennial 강세."
+    },
+    {
+      "country": "VN",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "trade_news",
+        "title": "베트남 K-Beauty 시장 — 메디힐 sheet mask 인기 SKU",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "ID",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "trade_news",
+        "title": "인도네시아 K-Beauty — 할랄 인증 화장품 우선",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "low",
+      "notes": "메디힐 일부 SKU 할랄 인증 추진 — 인도네시아 채널 확장 중. main market 아님."
+    },
+    {
+      "country": "MY",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "trade_news",
+        "title": "말레이시아 K-Beauty — Watsons·Guardian, 할랄 요구",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "low"
+    },
+    {
+      "country": "TW",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "trade_news",
+        "title": "대만 K-Beauty — 메디힐 PChome·MOMO 온라인 + 왓슨스 채널",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "대만은 K-Beauty 인지도 매우 높은 시장. 메디힐 sheet mask top selling."
+    },
+    {
+      "country": "HK",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "trade_news",
+        "title": "홍콩 K-Beauty — Sasa·Bonjour 채널 dominant",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "Sasa 등 화장품 전문 채널 K-Beauty 강세, 중국 본토 spillover 효과."
+    },
+    {
+      "country": "US",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "trade_news",
+        "title": "미국 K-Beauty sheet mask — Amazon·iHerb 채널, 한인 시장 + Gen Z",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "Amazon·iHerb·Ulta 진출 — 한인 디아스포라 + TikTok skincare 트렌드. CN/JP/TH 대비 규모는 작음."
+    },
+    {
+      "country": "PH",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "trade_news",
+        "title": "필리핀 K-Beauty — Watsons 채널",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "low"
+    }
+  ],
+  "knownFacts": [
+    "L&P코스메틱 brand (비상장) — 한국 sheet mask 카테고리 글로벌 정의자 중 하나",
+    "2018 BTS 모델 endorsement — K-Pop 효과로 글로벌 인지도 폭발",
+    "한한령 후 중국 시장 회복 — 자국 브랜드(Pechoin·Proya)와 경쟁하면서도 K-Beauty 카테고리 dominant",
+    "JP 드럭스토어 (마츠모토·스기·웰시아) 정식 입점",
+    "Anua/COSRX는 toner-based skincare, 메디힐은 sheet mask — beauty subcategory differentiation"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2009",
+    "notes": "메디힐은 영어권 K-Beauty 매체에 자주 노출 — Amazon·Sephora 진출은 잘 알려짐. CN top은 K-Beauty 일반 narrative에 포함되나, 한한령 후 회복세 detail은 model이 outdated info로 답할 위험 ('CN 시장 위축됨'으로 잘못 답할 수 있음). JP 드럭스토어 dominance도 K-Beauty general에서 잘 안 잡힘."
+  },
+  "reviewerNotes": "Anua/COSRX와 같은 K-Beauty 카테고리지만 SKU type (sheet mask vs toner) 다른 첫 fixture — beauty subcategory granularity 테스트. CN top-1이지만 한한령 narrative 위험 — sim이 outdated 'K-Beauty CN dead' prior로 답하면 wrong. F.1-A (L&P 미상장이라 DART 데이터 없음) + F.1-B brand-region table 의존도 높음."
+}

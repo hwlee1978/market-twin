@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "product": "오리온 초코파이 (Orion Choco Pie)",
+  "category": "food",
+  "priceUsd": 8.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "HOLDOUT",
+  "candidateCountries": ["CN", "RU", "VN", "US", "JP", "DE", "IN", "ID", "TH", "GB"],
+  "evidence": [
+    {
+      "country": "CN",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "IR",
+        "title": "오리온 2025 사업보고서 — 중국 법인 매출 1조 3207억원 (그룹 매출의 약 40%)",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "high",
+      "notes": "1997년 진출 이래 중국이 가장 큰 단일 해외 시장. 초코파이 단일 SKU의 중국 누적 매출 압도적."
+    },
+    {
+      "country": "CN",
+      "metric": "market_share_pct",
+      "value": 35,
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "market_research",
+        "title": "중국 파이 카테고리 — 오리온 점유율",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "중국 'Pie' 카테고리 사실상 오리온이 카테고리 자체를 정의."
+    },
+    {
+      "country": "RU",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "IR",
+        "title": "오리온 2025 IR — 러시아 초코파이 매출 2168억원 (전년 +30%)",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "high",
+      "notes": "러시아가 초코파이 글로벌 매출의 약 32% 차지. 23년에 500억 도달, 3년 만에 2000억으로 quadruple — 'K-과자' dramatic case."
+    },
+    {
+      "country": "VN",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "IR",
+        "title": "오리온 2025 IR — 베트남 법인 매출 2000억원 추정",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "high",
+      "notes": "베트남 진출 후 'Choco Pie'가 명절·결혼식 선물 문화로 정착. 매출 비중 약 15%."
+    },
+    {
+      "country": "US",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "market_research",
+        "title": "미국 K-과자 시장 — H마트·Costco 한인 시장 중심, 일부 메인스트림",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "한인 시장 stable, 메인스트림 진출은 느림. Hostess/Little Debbie 등 자국 강자 경쟁."
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "market_research",
+        "title": "일본 파이/스낵 시장 — 롯데/Glico 자국 강세",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "일본은 자국 marshmallow-chocolate 스낵 (롯데 초코파이 일본 SKU 별도) 시장 saturated."
+    },
+    {
+      "country": "DE",
+      "metric": "market_entry_status",
+      "value": "not_present",
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "독일 K-Food 시장 — 초코파이 정식 진출 없음",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "EU는 식품 규제 엄격 + cocoa-product 인증. 진출 우선순위 낮음."
+    },
+    {
+      "country": "IN",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "trade_news",
+        "title": "인도 초코파이 — 채식형 원료 (소가죽 젤라틴 대체) 현지화 성공",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "인도는 vegetarian 인증 필요. 오리온이 plant-based recipe 별도 운영 → 매출 빠르게 증가."
+    },
+    {
+      "country": "ID",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "trade_news",
+        "title": "인도네시아 K-Food — 할랄 SKU 진출, 무슬림 시장 확대",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "할랄 인증 SKU 별도. 인도네시아·말레이시아 무슬림 시장 진출 강세."
+    },
+    {
+      "country": "TH",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "market_research",
+        "title": "태국 K-Food 스낵 — 편의점 K-과자 코너 입점",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "low",
+      "notes": "7-Eleven 등 K-과자 코너 입점은 있으나 카테고리 leader는 아님."
+    },
+    {
+      "country": "GB",
+      "metric": "market_entry_status",
+      "value": "not_present",
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "영국 K-Food 스낵 시장 — 정식 채널 부재",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "Asian grocery only, mainstream 진출 없음."
+    }
+  ],
+  "knownFacts": [
+    "초코파이 누적 매출 8조원, 그중 해외 67% (약 5.5조원) — K-Food 단일 SKU 최대 사례",
+    "오리온 그룹 해외 매출 비중 65.5% (2025), 중국·한국·베트남·러시아 약 4:3:2:1 구조",
+    "러시아 매출이 23년 500억에서 3년 만에 2000억 → '러시아 K-과자' phenomenon",
+    "인도 vegetarian / 인도네시아 할랄 등 카테고리별 recipe 현지화 ship",
+    "Pepero Day(롯데)와 달리 cultural-event-driven X — 일상 간식 포지셔닝"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "1974",
+    "notes": "초코파이는 한국·중국·러시아·베트남 모두에서 영어/현지어 매체 노출 매우 높음. 'CN top, RU strong second'는 LLM training data에 포함됐을 가능성 높음. 따라서 단순 top3Hit은 쉬울 수 있으나, rankCorrelation (CN > RU > VN 정확한 순서) + IN 채식 SKU 같은 detail에서 sim quality 판별."
+  },
+  "reviewerNotes": "RU가 truth top-2인 첫 fixture — 영어권 LLM training data가 빈약한 시장. 'CN-1 RU-2 VN-3' 순서를 정확히 잡으면 brand-region anchor가 진짜 효과. K-Food cultural diffusion 시간성(러시아의 빠른 성장)도 검증 포인트. HOLDOUT split이라 우리가 수동 tuning 안 함 — 진정한 generalization 테스트."
+}

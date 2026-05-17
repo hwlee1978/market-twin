@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "product": "라네즈 Lip Sleeping Mask (LANEIGE Lip Sleeping Mask)",
+  "category": "beauty",
+  "priceUsd": 24.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "HOLDOUT",
+  "candidateCountries": ["US", "CN", "JP", "TW", "SG", "MY", "TH", "AU", "FR", "CA"],
+  "evidence": [
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "IR",
+        "title": "아모레퍼시픽 2025 IR — 미국 라네즈 매출 1위 해외 시장",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "high",
+      "notes": "2017 Sephora 미국 단독 진입 → Lip Sleeping Mask가 Sephora 베스트셀러 카테고리 정착. 2023 Amazon · 2024 Kohl's 추가 확장."
+    },
+    {
+      "country": "US",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "market_research",
+        "title": "Sephora US — Top 10 Lip Care 카테고리에 Lip Sleeping Mask 다년간 상위",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "high",
+      "notes": "TikTok GRWM 트렌드와 결합되며 Gen Z·Millennial demographic 강세."
+    },
+    {
+      "country": "CN",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "IR",
+        "title": "아모레퍼시픽 2025 IR — 중국 라네즈 매출 (한한령 후 회복세, 여전히 top-2 overseas)",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "high",
+      "notes": "한한령 (2016-2020) 이후 한국 화장품 중국 시장 위축 — 라네즈는 럭셔리 K-Beauty 포지션으로 일부 회복. 티몰 글로벌·세포라 차이나 채널."
+    },
+    {
+      "country": "JP",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "일본 K-Beauty 시장 — 라네즈 Lip Sleeping Mask 드럭스토어 진출",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "@cosme 랭킹 립케어 카테고리 상위. K-Pop·K-Drama 영향으로 Gen Z 인지도."
+    },
+    {
+      "country": "TW",
+      "metric": "revenue_rank_overseas",
+      "value": 4,
+      "rank": 4,
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "대만 K-Beauty — 라네즈 백화점 + 왓슨스 채널",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "SG",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "market_research",
+        "title": "싱가포르 Sephora — 라네즈 베스트셀러",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "Sephora SEA 허브, 영어권 마케팅 침투 강함."
+    },
+    {
+      "country": "MY",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "trade_news",
+        "title": "말레이시아 K-Beauty — 할랄 인증 제품 우선",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "low",
+      "notes": "Lip Sleeping Mask 할랄 인증 여부 미확인 — 진출은 있으나 채널 제한적."
+    },
+    {
+      "country": "TH",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "market_research",
+        "title": "태국 K-Beauty 시장 — 라네즈 백화점 + 온라인",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "BLACKPINK 효과로 K-Beauty 인지도 폭발 — 태국 Gen Z 마켓."
+    },
+    {
+      "country": "AU",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "trade_news",
+        "title": "호주 Sephora — 라네즈 라인 입점",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "low"
+    },
+    {
+      "country": "FR",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "market_research",
+        "title": "프랑스 화장품 시장 — 자국 럭셔리 브랜드 강세, K-Beauty niche",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "프랑스 Sephora 일부 입점은 있으나 main 시장 아님. L'Oréal·Dior 등 자국 강자 saturated."
+    },
+    {
+      "country": "CA",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "trade_news",
+        "title": "캐나다 Sephora — 라네즈 베스트셀러",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "Sephora Canada → 미국 시장의 spillover. Top market은 아니지만 안정."
+    }
+  ],
+  "knownFacts": [
+    "1994년 아모레퍼시픽이 론칭한 한국 럭셔리 K-Beauty 브랜드",
+    "2017년 Sephora 미국 단독 진입 — Lip Sleeping Mask가 entry SKU, 이후 Amazon/Kohl's 확대",
+    "Sephora 글로벌 카테고리 Top 10 Lip Care에 다년간 상위 진입",
+    "한한령 후 중국 매출 회복세 — 럭셔리 K-Beauty 포지셔닝으로 차별화",
+    "BLACKPINK·BTS 글로벌 K-Pop 효과로 SEA·일본 Gen Z 시장 침투"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "1994",
+    "notes": "라네즈는 영어권 K-Beauty 시장에서 가장 marketed brand 중 하나 — US Sephora 베스트셀러는 LLM training data 다수 포함됐을 가능성 매우 높음. CN top-2는 한한령 이슈로 narrative 두 가지 (회복세 vs 영구 감소) 존재 — sim이 어느 쪽 prior로 답하는지 중요."
+  },
+  "reviewerNotes": "Sephora 채널 anchoring 첫 fixture — Anua (Amazon·iHerb 채널) 와 대조군. F.1-C KOTRA에서 아모레퍼시픽 미국 법인 매칭 → US prior 강화 확인 가능. Sleeping Mask 카테고리는 lip-product subcategory라 'K-Beauty general'로 답하면 정확도 떨어짐 — 카테고리 granularity 테스트."
+}

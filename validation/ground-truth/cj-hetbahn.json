@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "product": "CJ 햇반 (CJ Hetbahn microwave rice)",
+  "category": "food",
+  "priceUsd": 3.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "HOLDOUT",
+  "candidateCountries": ["US", "JP", "CN", "GB", "DE", "AU", "CA", "VN", "TH", "NZ"],
+  "evidence": [
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "IR",
+        "title": "CJ제일제당 2025 사업보고서 — 햇반 미국 매출 1억 달러+ 추정",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "high",
+      "notes": "한인 디아스포라 시장으로 시작 → Costco 입점 + 메인스트림 확장. 2020년대 single-serve microwave rice 카테고리가 미국에서 새로 정의됨 (이전엔 Uncle Ben's 등 unboxed). CJ가 새 카테고리의 dominant share."
+    },
+    {
+      "country": "US",
+      "metric": "market_share_pct",
+      "value": 60,
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "market_research",
+        "title": "미국 single-serve rice bowl 카테고리 — 햇반 점유율 추정",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "Minute Rice, Annie Chun's 등 경쟁이지만 microwave-only category에서 햇반 dominant."
+    },
+    {
+      "country": "JP",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "일본 K-Food 시장 — 햇반 편의점·드럭스토어 입점",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "사토食品 등 일본 자국 microwave rice 강자 있음. 햇반은 K-Wave 코너로 niche but stable."
+    },
+    {
+      "country": "CN",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "IR",
+        "title": "CJ제일제당 IR — 중국 가공식품 카테고리",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "중국 자국 microwave rice 자체 시장 아직 작음 — K-Food 코너로 진출."
+    },
+    {
+      "country": "GB",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "market_research",
+        "title": "영국 ready-meal 시장 — Tilda·Uncle Ben's saturated",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "DE",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "general_news",
+        "title": "독일 microwave rice — Asian grocery only",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "독일은 fresh rice cooking culture, microwave rice 카테고리 자체 작음."
+    },
+    {
+      "country": "AU",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "trade_news",
+        "title": "호주 Asian grocery — 햇반 한인·아시아 시장",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "low"
+    },
+    {
+      "country": "CA",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "trade_news",
+        "title": "캐나다 Costco·H마트 — 햇반 입점, 미국 시장 spillover",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "medium",
+      "notes": "Top 3는 아니지만 US와 같은 유통 채널 spillover로 안정."
+    },
+    {
+      "country": "VN",
+      "metric": "market_entry_status",
+      "value": "not_present",
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "베트남 — 자국 쌀 시장 강세, microwave rice 카테고리 부재",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "high",
+      "notes": "베트남은 쌀 수출 강국 + 가정 취사 문화. 햇반 같은 instant rice 시장 형성 안 됨."
+    },
+    {
+      "country": "TH",
+      "metric": "market_entry_status",
+      "value": "not_present",
+      "asOf": "2025-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "태국 — Jasmine rice 자국 강세",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "NZ",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2025-2026",
+      "source": {
+        "type": "general_news",
+        "title": "뉴질랜드 Asian grocery — 한인 시장",
+        "accessedAt": "2026-05-17"
+      },
+      "confidence": "low"
+    }
+  ],
+  "knownFacts": [
+    "1996년 CJ제일제당 출시 — 한국 microwave rice 카테고리 정의",
+    "미국 매출 1억 달러+ (2024-2025 추정) — 한인 디아스포라 → Costco 메인스트림 확장 모델",
+    "Bibigo와 같은 CJ제일제당 자회사 (corp_code 097950) — 동일 모기업, 다른 segment",
+    "VN·TH 같은 쌀 자국 강세 시장에는 진출 안 함 — reject_recall 테스트 유효",
+    "Single-serve microwave rice 카테고리가 미국에서 햇반 진입 이후 빠르게 성장"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "1996",
+    "notes": "햇반은 영어권 매체에 'instant Korean rice'로 자주 노출 — US Costco 진입은 잘 알려짐. 다만 매출 순위 (US 압도적 1위 + JP/CN 그 다음) 정확도는 IR 자료 의존이라 sim hallucination 가능. 무엇보다 VN/TH reject (쌀 자국 시장)를 정확히 잡는지가 sim quality 지표."
+  },
+  "reviewerNotes": "Bibigo와 같은 CJ 자회사 — F.1-A scale anchor (CJ 29조)는 동일하지만 product-level region 분포는 완전히 다름. F.1-B brand-region table이 product-level differentiation을 정확히 잡는지 stress test. VN/TH reject 정답은 confidenceCalibration에 중요 — sim이 'K-Food = SEA 강세' generic prior로 답하면 틀림."
+}
