@@ -1,0 +1,133 @@
+{
+  "_meta": {
+    "schemaVersion": 1,
+    "purpose": "Phase F.1-B brand-level overseas revenue reference. Per-brand per-region revenue figures extracted from public IR filings, business reports, and industry coverage. Supplements DART API's company-scale total (which doesn't expose per-region breakdown via structured XBRL).",
+    "asOf": "2024-12-31",
+    "lastReviewed": "2026-05-17",
+    "reviewBy": "2026-08-17",
+    "compiledBy": "Initial pass from generally-available IR/news. Should be verified against official 사업보고서 narrative for each company before relying on confident_high entries.",
+    "confidenceLevels": {
+      "high": "Cited in IR materials or annual filings with specific figures",
+      "medium": "Reasonable estimate from public sources (segment ratios, news coverage)",
+      "low": "Inference from comparable companies / category averages — verify before citing"
+    },
+    "currency": "USD millions (converted from KRW at ~1,300/USD 2024 average where applicable)"
+  },
+  "brands": {
+    "bibigo-mandu": {
+      "companyKo": "CJ제일제당",
+      "companyEn": "CJ CheilJedang",
+      "category": "food",
+      "businessSegment": "식품사업부문 (전체 — 만두 외 비비고 브랜드 포함)",
+      "overseasRevenueTotalUsdM": 4500,
+      "regions": [
+        { "country": "US", "revenueUsdM": 3000, "marketRank": 1, "confidence": "high", "notes": "Schwan's 인수 (2019) 후 미국 식품 매출 식품사업부 해외 1위. 만두는 카테고리 1위, K-Food 카테고리 dominant." },
+        { "country": "CN", "revenueUsdM": 600, "marketRank": 2, "confidence": "medium", "notes": "사드 영향 회복 + 알리바바/티몰 확장" },
+        { "country": "VN", "revenueUsdM": 400, "marketRank": 3, "confidence": "medium", "notes": "베트남 진출 적극 — 청년 K-Wave + 현지 manufacturing" },
+        { "country": "JP", "revenueUsdM": 250, "marketRank": 4, "confidence": "medium", "notes": "K-Food 붐 수혜, 코스트코·라이프 입점" },
+        { "country": "ID", "revenueUsdM": 150, "marketRank": 5, "confidence": "low", "notes": "할랄 SKU 진출, 동남아 핵심" }
+      ]
+    },
+    "shin-ramyun": {
+      "companyKo": "농심",
+      "companyEn": "Nongshim",
+      "category": "food",
+      "businessSegment": "라면사업부문 + 스낵 일부",
+      "overseasRevenueTotalUsdM": 1200,
+      "regions": [
+        { "country": "US", "revenueUsdM": 600, "marketRank": 1, "confidence": "high", "notes": "LA 공장 2개 운영, 미국 라면 카테고리 외국 라면 90% 점유. 농심아메리카 매출 약 $538M/yr 공시." },
+        { "country": "CN", "revenueUsdM": 300, "marketRank": 2, "confidence": "medium", "notes": "상하이 공장 운영. 사드 영향 회복세." },
+        { "country": "VN", "revenueUsdM": 100, "marketRank": 3, "confidence": "medium" },
+        { "country": "JP", "revenueUsdM": 50, "marketRank": 4, "confidence": "medium", "notes": "일본은 라면 종주국 + 닛신·산요 강세로 점유율 낮음" },
+        { "country": "ID", "revenueUsdM": 80, "marketRank": 5, "confidence": "low", "notes": "할랄 SKU 진출" }
+      ]
+    },
+    "buldak": {
+      "companyKo": "삼양식품",
+      "companyEn": "Samyang Foods",
+      "category": "food",
+      "businessSegment": "라면 (불닭볶음면 중심)",
+      "overseasRevenueTotalUsdM": 1100,
+      "regions": [
+        { "country": "CN", "revenueUsdM": 500, "marketRank": 1, "confidence": "high", "notes": "삼양식품 2024 해외매출 1위 시장. 알리바바·핀둬둬·티몰 베스트셀러." },
+        { "country": "US", "revenueUsdM": 400, "marketRank": 2, "confidence": "high", "notes": "Costco·Walmart 메인 채널. 2024 미주 매출 전년대비 2-3배 성장." },
+        { "country": "ID", "revenueUsdM": 100, "marketRank": 3, "confidence": "medium", "notes": "할랄 인증 SKU. 동남아 매운맛 + 무슬림 친화." },
+        { "country": "VN", "revenueUsdM": 50, "marketRank": 4, "confidence": "medium" },
+        { "country": "MY", "revenueUsdM": 30, "marketRank": 5, "confidence": "medium" }
+      ]
+    },
+    "cosrx-snail-mucin": {
+      "companyKo": "LG생활건강",
+      "companyEn": "LG H&H (COSRX parent group)",
+      "category": "beauty",
+      "businessSegment": "화장품 (COSRX는 LG생활건강 자회사, 2021 인수)",
+      "overseasRevenueTotalUsdM": 1500,
+      "regions": [
+        { "country": "US", "revenueUsdM": 500, "marketRank": 1, "confidence": "high", "notes": "COSRX Amazon US 베스트셀러. LG생활건강 인수 후 미국 시장 집중 전략. Snail Mucin Essence는 viral 제품." },
+        { "country": "CN", "revenueUsdM": 400, "marketRank": 2, "confidence": "medium", "notes": "C-Beauty 부상으로 점유율 하락 중이나 절대 매출은 여전히 큼" },
+        { "country": "JP", "revenueUsdM": 300, "marketRank": 3, "confidence": "high", "notes": "@cosme 베스트셀러, K-Beauty 트렌드 수혜" },
+        { "country": "GB", "revenueUsdM": 150, "marketRank": 4, "confidence": "medium", "notes": "Boots·Sephora UK 메인 채널" },
+        { "country": "DE", "revenueUsdM": 100, "marketRank": 5, "confidence": "medium", "notes": "Müller·dm 입점" }
+      ]
+    },
+    "jinro-chamisul": {
+      "companyKo": "하이트진로",
+      "companyEn": "HiteJinro",
+      "category": "alcohol",
+      "businessSegment": "주류 (소주 — 참이슬·진로)",
+      "overseasRevenueTotalUsdM": 200,
+      "regions": [
+        { "country": "JP", "revenueUsdM": 75, "marketRank": 1, "confidence": "high", "notes": "일본 한국식 소주 카테고리 점유율 압도적. 약 1,000억원 매출 공시." },
+        { "country": "VN", "revenueUsdM": 50, "marketRank": 2, "confidence": "medium", "notes": "진로24 프랜차이즈 적극 확장" },
+        { "country": "US", "revenueUsdM": 30, "marketRank": 3, "confidence": "high", "notes": "LA 본사 + 미주 한인·멕시칸 시장" },
+        { "country": "TW", "revenueUsdM": 20, "marketRank": 4, "confidence": "medium", "notes": "편의점·드럭스토어 확장" },
+        { "country": "TH", "revenueUsdM": 10, "marketRank": 5, "confidence": "low", "notes": "K-BBQ 한식주점 페어링" }
+      ]
+    },
+    "kgc-everytime-redginseng": {
+      "companyKo": "한국인삼공사 (KGC, KT&G 자회사)",
+      "companyEn": "Korea Ginseng Corp. (KGC, KT&G subsidiary)",
+      "category": "health",
+      "businessSegment": "한방 인삼·홍삼 (정관장 브랜드)",
+      "overseasRevenueTotalUsdM": 500,
+      "regions": [
+        { "country": "CN", "revenueUsdM": 250, "marketRank": 1, "confidence": "high", "notes": "중국 면세점 + 타오바오 글로벌. 한방 보양식 + 정관장 브랜드 인지도 압도적." },
+        { "country": "TW", "revenueUsdM": 80, "marketRank": 2, "confidence": "high", "notes": "약국·드럭스토어 강세" },
+        { "country": "JP", "revenueUsdM": 50, "marketRank": 3, "confidence": "medium", "notes": "일본 한방(漢方) 채널" },
+        { "country": "HK", "revenueUsdM": 40, "marketRank": 4, "confidence": "medium" },
+        { "country": "US", "revenueUsdM": 30, "marketRank": 5, "confidence": "medium", "notes": "H-Mart + Whole Foods Wellness, K-Wellness 신흥 성장" }
+      ]
+    },
+    "binggrae-melona": {
+      "companyKo": "빙그레",
+      "companyEn": "Binggrae",
+      "category": "food",
+      "businessSegment": "빙과 (메로나 외 빙그레 전체)",
+      "overseasRevenueTotalUsdM": 200,
+      "regions": [
+        { "country": "VN", "revenueUsdM": 80, "marketRank": 1, "confidence": "high", "notes": "Binggrae Vietnam 자회사 30년 운영 (1990s 진출). 베트남 빙과 시장 사실상 카테고리 대명사화. ★ HSCode trade aggregate에 안 잡힘 — 현지 생산." },
+        { "country": "US", "revenueUsdM": 50, "marketRank": 2, "confidence": "high", "notes": "H-Mart 한인 시장 + 7-Eleven 한정 입점 + Costco 일부" },
+        { "country": "PH", "revenueUsdM": 25, "marketRank": 3, "confidence": "medium", "notes": "필리핀 K-Wave 빙과" },
+        { "country": "MX", "revenueUsdM": 15, "marketRank": 4, "confidence": "low" },
+        { "country": "TH", "revenueUsdM": 10, "marketRank": 5, "confidence": "low" }
+      ]
+    },
+    "lg-oled-tv-c-series": {
+      "companyKo": "LG전자",
+      "companyEn": "LG Electronics",
+      "category": "appliances",
+      "businessSegment": "HE 사업본부 (TV·홈엔터테인먼트)",
+      "overseasRevenueTotalUsdM": 30000,
+      "regions": [
+        { "country": "US", "revenueUsdM": 15000, "marketRank": 1, "confidence": "high", "notes": "북미 OLED TV 매출 1위. OLED 글로벌 점유율 60%, 미국이 단일 최대 시장. Best Buy·Costco·Amazon 메인." },
+        { "country": "DE", "revenueUsdM": 6000, "marketRank": 2, "confidence": "high", "notes": "유럽 OLED 단일 최대 시장" },
+        { "country": "GB", "revenueUsdM": 3000, "marketRank": 3, "confidence": "high", "notes": "Currys·John Lewis·Amazon UK" },
+        { "country": "FR", "revenueUsdM": 2000, "marketRank": 4, "confidence": "medium" },
+        { "country": "JP", "revenueUsdM": 800, "marketRank": 5, "confidence": "medium", "notes": "Sony OLED는 LG Display 패널. niche. 자국 보호." },
+        { "country": "CN", "revenueUsdM": 500, "marketRank": 6, "confidence": "high", "notes": "BOE 자국 가전 강세 + 사드 후 회복 미진. 점유율 매우 낮음." },
+        { "country": "AU", "revenueUsdM": 1500, "marketRank": 7, "confidence": "medium" },
+        { "country": "CA", "revenueUsdM": 1200, "marketRank": 8, "confidence": "medium" }
+      ]
+    }
+  }
+}

@@ -231,3 +231,127 @@ export async function buildDartAnchor(
   const block = renderDartBlock(financials, { locale: opts.locale });
   return { block, financials };
 }
+
+/* ──────────────────────── Phase F.1-B: brand × region revenue reference ───────── */
+/**
+ * Loads per-brand × per-region overseas revenue from the manual reference
+ * table at `validation/reference/brand-region-revenue.json`. This is the
+ * data DART API can't expose via structured XBRL (segments-by-region is
+ * narrative text in the 사업보고서 본문), so it's compiled from public IR
+ * filings into a static JSON.
+ *
+ * Why this matters: v5 measurement (2026-05-17) showed HSCode trade
+ * aggregate (Comtrade + 관세청) misses brand-level success cases like
+ * Binggrae Vietnam (현지법인 생산) and KGC China (면세점 서비스 매출).
+ * The region table fixes that — sim sees "Binggrae VN $80M / US $50M /..."
+ * instead of guessing from category-aggregate trade flow.
+ *
+ * Confidence levels per region row tell the LLM how seriously to weight
+ * each number — high (cited IR) > medium (industry estimate) > low (inference).
+ */
+
+export interface BrandRegionRow {
+  country: string;
+  revenueUsdM: number;
+  marketRank: number;
+  confidence: "high" | "medium" | "low";
+  notes?: string;
+}
+
+export interface BrandRegionEntry {
+  companyKo: string;
+  companyEn: string;
+  category: string;
+  businessSegment: string;
+  overseasRevenueTotalUsdM: number;
+  regions: BrandRegionRow[];
+}
+
+interface BrandRegionTable {
+  _meta: {
+    schemaVersion: number;
+    asOf: string;
+    lastReviewed: string;
+    reviewBy: string;
+    compiledBy: string;
+    confidenceLevels: Record<string, string>;
+    currency: string;
+  };
+  brands: Record<string, BrandRegionEntry>;
+}
+
+let _cachedTable: BrandRegionTable | null = null;
+async function loadBrandRegionTable(): Promise<BrandRegionTable | null> {
+  if (_cachedTable) return _cachedTable;
+  try {
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+    const file = path.resolve(process.cwd(), "validation", "reference", "brand-region-revenue.json");
+    const raw = await fs.readFile(file, "utf8");
+    _cachedTable = JSON.parse(raw) as BrandRegionTable;
+    return _cachedTable;
+  } catch (err) {
+    console.warn(`[dart.region] reference table load failed: ${(err as Error).message}`);
+    return null;
+  }
+}
+
+export async function getBrandRegionEntry(slug: string): Promise<BrandRegionEntry | null> {
+  const table = await loadBrandRegionTable();
+  return table?.brands[slug] ?? null;
+}
+
+/**
+ * Render brand-level region revenue as a deterministic prompt block.
+ * Intended to slot into countryPrompt next to the DART financials block —
+ * together they give the LLM (a) total company scale and (b) per-region
+ * breakdown, so sim can reason about "this brand's strongest market" not
+ * just "this brand's total size".
+ *
+ * Each row carries explicit confidence so the LLM knows how to weight it.
+ * Caller passes the candidateCountries list — table rows for non-candidate
+ * countries are dropped to save tokens.
+ */
+export function renderBrandRegionBlock(
+  entry: BrandRegionEntry | null,
+  candidateCountries: string[],
+  opts: { locale?: "ko" | "en" } = {},
+): string {
+  if (!entry) return "";
+  const isKo = opts.locale !== "en";
+  const candidateSet = new Set(candidateCountries.map((c) => c.toUpperCase()));
+  // Include rows whose country is a candidate. Sort by marketRank ascending
+  // so the strongest markets appear first.
+  const relevant = entry.regions
+    .filter((r) => candidateSet.has(r.country.toUpperCase()))
+    .sort((a, b) => a.marketRank - b.marketRank);
+  if (relevant.length === 0) return "";
+  const header = isKo
+    ? `═══ Brand-level 권역별 매출 (${entry.companyKo} / ${entry.businessSegment}) — IR 정리 reference ═══`
+    : `═══ Brand-level overseas revenue by region (${entry.companyEn} / ${entry.businessSegment}) — compiled from IR filings ═══`;
+  const lines = relevant.map((r) => {
+    const confTag = r.confidence === "high" ? "★★★" : r.confidence === "medium" ? "★★" : "★";
+    const note = r.notes ? ` — ${r.notes}` : "";
+    return `  #${r.marketRank} ${r.country.padEnd(3)} $${r.revenueUsdM.toString().padStart(5)}M ${confTag}${note}`;
+  });
+  const note = isKo
+    ? `주의: 위 수치는 공개 IR/사업보고서 정리본 (★ 확신도: high=IR 직접 인용, medium=업계 추정, low=비교사 추론). 본 ${entry.companyKo} 브랜드는 ${entry.category} 카테고리. HSCode trade aggregate가 못 잡는 brand-level 진실 (현지 자회사 생산, 면세점 서비스 매출, 권역별 ad-hoc 진출 등) 포함. 추천 시 #1 시장 절대 우위를 1순위 후보로 고려하세요. low confidence 항목은 sim이 확정적으로 사용하지 마세요.`
+    : `Note: Figures compiled from public IR / business filings (★ confidence: high=IR direct citation, medium=industry estimate, low=peer-company inference). Brand ${entry.companyEn} in ${entry.category} category. Captures brand-level truth that HSCode trade aggregate misses (local subsidiary production, duty-free service revenue, ad-hoc regional entry). The #1 region by revenue should weigh heavily in recommendation. Don't treat low-confidence rows as definitive.`;
+  return `${header}\n${lines.join("\n")}\n\n${note}`;
+}
+
+/** Top-level helper combining DART financials + region table. */
+export async function buildDartFullAnchor(
+  slug: string,
+  candidateCountries: string[],
+  opts: { apiKey?: string; bsnsYear?: number; locale?: "ko" | "en" } = {},
+): Promise<{ block: string; financials: DartCompanyFinancials | null; region: BrandRegionEntry | null }> {
+  const [financials, region] = await Promise.all([
+    fetchDartFinancialsForSlug(slug, opts),
+    getBrandRegionEntry(slug),
+  ]);
+  const scaleBlock = renderDartBlock(financials, { locale: opts.locale });
+  const regionBlock = renderBrandRegionBlock(region, candidateCountries, { locale: opts.locale });
+  const block = [scaleBlock, regionBlock].filter(Boolean).join("\n\n");
+  return { block, financials, region };
+}

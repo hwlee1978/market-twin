@@ -293,24 +293,31 @@ async function main() {
     console.warn(`Korea Customs anchor build failed: ${(err as Error).message}`);
   }
 
-  // Phase F.1-A (2026-05-17): DART consolidated financials prefetch.
-  // Brand-level supplement to HSCode trade aggregates — addresses the v5
-  // brand-mismatch hypothesis (Binggrae Vietnam 자회사 / KGC China 면세점).
-  // Slug inferred from product name (heuristic). Unlisted brands (BOJ,
-  // Anua) return empty block.
+  // Phase F.1-A + F.1-B (2026-05-17): DART consolidated financials + brand
+  // region revenue reference. Targets v5 brand-mismatch finding (HSCode
+  // aggregate misses 자회사 production like Binggrae VN and 면세점
+  // service revenue like KGC CN). Region table is the cheap fix; DART
+  // company-scale gives absolute size prior.
   try {
-    const { buildDartAnchor, inferSlugFromProductName } = await import(
+    const { buildDartFullAnchor, inferSlugFromProductName } = await import(
       "../packages/shared/src/market-research/dart"
     );
     const slug = inferSlugFromProductName(projectInput.productName);
     if (slug) {
-      const { block, financials } = await buildDartAnchor(slug, { locale: "ko" });
+      const { block, financials, region } = await buildDartFullAnchor(
+        slug,
+        projectInput.candidateCountries,
+        { locale: "ko" },
+      );
       if (block) {
         const rev = financials?.revenueKrw ?? 0;
-        console.log(`DART anchor: ${financials?.corpNameKo ?? slug} (${(rev / 1e12).toFixed(2)}T KRW revenue)`);
+        const regionCount = region?.regions?.length ?? 0;
+        console.log(
+          `DART anchor: ${financials?.corpNameKo ?? slug} (${(rev / 1e12).toFixed(2)}T KRW + ${regionCount} region rows)`,
+        );
         tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
       } else {
-        console.log(`DART anchor: empty for slug=${slug} (unlisted or fetch failed)`);
+        console.log(`DART anchor: empty for slug=${slug} (unlisted + no region table entry)`);
       }
     } else {
       console.log(`DART anchor: no slug match for "${projectInput.productName}"`);

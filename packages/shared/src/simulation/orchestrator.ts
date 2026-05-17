@@ -240,17 +240,22 @@ export async function runEnsembleOrchestration(
     console.warn(`[ensemble ${ensembleId}] Korea Customs anchor build failed: ${(err as Error).message}`);
   }
 
-  // Phase F.1-A (2026-05-17): DART consolidated financials — brand-level
-  // supplement. Targets v5 brand-mismatch finding (HSCode aggregate misses
-  // 자회사 production like Binggrae VN, service-based 면세점 like KGC CN).
+  // Phase F.1-A + F.1-B (2026-05-17): DART scale + brand region revenue.
   try {
-    const { buildDartAnchor, inferSlugFromProductName } = await import("@/lib/market-research/dart");
+    const { buildDartFullAnchor, inferSlugFromProductName } = await import("@/lib/market-research/dart");
     const slug = inferSlugFromProductName(projectInput.productName);
     if (slug) {
-      const { block, financials } = await buildDartAnchor(slug, { locale });
+      const { block, financials, region } = await buildDartFullAnchor(
+        slug,
+        projectInput.candidateCountries,
+        { locale },
+      );
       if (block) {
         const rev = financials?.revenueKrw ?? 0;
-        console.log(`[ensemble ${ensembleId}] DART anchor: ${financials?.corpNameKo ?? slug} (${(rev / 1e12).toFixed(2)}T KRW)`);
+        const regionCount = region?.regions?.length ?? 0;
+        console.log(
+          `[ensemble ${ensembleId}] DART anchor: ${financials?.corpNameKo ?? slug} (${(rev / 1e12).toFixed(2)}T KRW + ${regionCount} regions)`,
+        );
         tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
       }
     }
