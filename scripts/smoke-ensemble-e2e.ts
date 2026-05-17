@@ -326,10 +326,37 @@ async function main() {
     console.warn(`DART anchor build failed: ${(err as Error).message}`);
   }
 
+  // Phase F.3 (2026-05-18): MFDS narrow regulatory anchor (sunscreen only).
+  try {
+    const { buildMfdsAnchor } = await import(
+      "../packages/shared/src/market-research/mfds"
+    );
+    const { inferSlugFromProductName } = await import(
+      "../packages/shared/src/market-research/dart"
+    );
+    const slug = inferSlugFromProductName(projectInput.productName);
+    if (slug) {
+      const { block, result } = buildMfdsAnchor(slug, { locale: "ko" });
+      if (block && result) {
+        console.log(
+          `MFDS anchor: ${slug} — ${result.matched.length} matched, ${result.unmatchedIngredients.length} not-in-list`,
+        );
+        tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
+      }
+    }
+  } catch (err) {
+    console.warn(`MFDS anchor build failed: ${(err as Error).message}`);
+  }
+
   // Phase F.1-C (2026-05-17): KOTRA per-country Korean-companies anchor.
   // Closes the Phase F.0 gap: sims that missed Binggrae VN / KGC CN now see
   // explicit parent-company presence from KOTRA's registry.
-  try {
+  //
+  // KOTRA_ANCHOR_ENABLED=false disables for A/B diagnostic (see orchestrator
+  // comment for context). Default ON.
+  if (process.env.KOTRA_ANCHOR_ENABLED === "false") {
+    console.log(`KOTRA anchor: disabled via KOTRA_ANCHOR_ENABLED=false`);
+  } else try {
     const { buildKotraNationalAnchor } = await import(
       "../packages/shared/src/market-research/kotra"
     );
@@ -338,7 +365,8 @@ async function main() {
     );
     const { block, bundles } = await buildKotraNationalAnchor(
       projectInput.candidateCountries,
-      { categoryKeywords: keywords, locale: "ko", maxPerCountry: 5 },
+      // Cap 3 per country (v2 2026-05-18) — see orchestrator note for rationale.
+      { categoryKeywords: keywords, locale: "ko", maxPerCountry: 3 },
     );
     if (block) {
       const totalComps = bundles.reduce((n, b) => n + b.koreanCompanies.length, 0);

@@ -263,18 +263,52 @@ export async function runEnsembleOrchestration(
     console.warn(`[ensemble ${ensembleId}] DART anchor build failed: ${(err as Error).message}`);
   }
 
+  // Phase F.3 (2026-05-18): MFDS narrow regulatory anchor (sunscreen only).
+  // Activates only when fixture has a brand-ingredients.json entry with
+  // uvFilters list — currently BoJ Relief Sun. Skips otherwise (empty block).
+  // Why narrow: MFDS reg has 7,257 internationally-regulated ingredients;
+  // safe skincare actives (Centella, snail mucin, niacinamide) aren't there,
+  // so this anchor only adds value for sunscreens where ingredient × country
+  // restrictions are dramatic (Korean-developed UV filters lack US FDA approval).
+  try {
+    const { buildMfdsAnchor } = await import("@/lib/market-research/mfds");
+    const { inferSlugFromProductName } = await import("@/lib/market-research/dart");
+    const slug = inferSlugFromProductName(projectInput.productName);
+    if (slug) {
+      const { block, result } = buildMfdsAnchor(slug, { locale });
+      if (block && result) {
+        console.log(
+          `[ensemble ${ensembleId}] MFDS anchor: ${slug} — ${result.matched.length} matched, ${result.unmatchedIngredients.length} not-in-list`,
+        );
+        tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
+      }
+    }
+  } catch (err) {
+    console.warn(`[ensemble ${ensembleId}] MFDS anchor build failed: ${(err as Error).message}`);
+  }
+
   // Phase F.1-C (2026-05-17): KOTRA per-country Korean-companies anchor.
   // Names Korean parent companies already operating in each candidate market —
   // direct brand-presence signal that closes the Phase F.0 gap where sims
   // missed Binggrae VN (own subsidiary) and KGC CN (duty-free service).
-  try {
+  //
+  // KOTRA_ANCHOR_ENABLED=false disables this anchor. Used for A/B diagnostic
+  // when v8 (n=10) measurement revealed confident_wrong on buldak/jinro
+  // (non-US-top fixtures) suggesting US-heavy KOTRA registry was over-
+  // weighting the US prior. Default ON.
+  if (process.env.KOTRA_ANCHOR_ENABLED === "false") {
+    console.log(`[ensemble ${ensembleId}] KOTRA anchor: disabled via KOTRA_ANCHOR_ENABLED=false`);
+  } else try {
     const { buildKotraNationalAnchor } = await import("@/lib/market-research/kotra");
     const keywords = [projectInput.category, projectInput.productName].filter(
       (s): s is string => typeof s === "string" && s.length > 0,
     );
     const { block, bundles } = await buildKotraNationalAnchor(
       projectInput.candidateCountries,
-      { categoryKeywords: keywords, locale, maxPerCountry: 5 },
+      // Cap 3 per country (v2 2026-05-18) to balance per-country weight after
+      // v8a diagnostic showed US-heavy KOTRA registry was amplifying US-prior
+      // on non-US-top fixtures (jinro JP regressed -22pt under v1 cap=5).
+      { categoryKeywords: keywords, locale, maxPerCountry: 3 },
     );
     if (block) {
       const totalComps = bundles.reduce((n, b) => n + b.koreanCompanies.length, 0);

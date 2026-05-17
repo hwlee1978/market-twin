@@ -187,7 +187,12 @@ export function renderKotraNationalBlock(
   const filtered = bundles.filter((b) => b.koreanCompanies.length > 0);
   if (filtered.length === 0) return "";
   const isKo = opts.locale !== "en";
-  const max = opts.maxPerCountry ?? 5;
+  // Per-country cap (v2, 2026-05-18). Original v1 used maxPerCountry=5 which
+  // injected US-heavy weight because the US has 430 registered Korean companies
+  // vs ~10-30 in non-US markets. v8a diagnostic showed jinro JP fixture
+  // regressed -22pt under v1 KOTRA (sim's US-prior amplified). Cap at 3 to
+  // keep per-country weight comparable across markets.
+  const max = opts.maxPerCountry ?? 3;
   const kws = (opts.categoryKeywords ?? []).map((k) => k.toLowerCase());
 
   const sections: string[] = [];
@@ -231,10 +236,13 @@ export function renderKotraNationalBlock(
       const cat = c.category ? ` — ${c.category}` : c.industry ? ` — ${c.industry}` : "";
       return `    ${yr.padEnd(4)} ${form.padEnd(5)} ${parent}${local}${cat}`;
     });
-    const shown = Math.min(max, comps.length);
-    const more = comps.length > shown ? ` (+${comps.length - shown} more matching)` : "";
+    // v2 (2026-05-18): hide raw counts. v1 exposed "(+N more matching, total
+    // M on KOTRA registry)" where M was ~430 for US vs ~10-30 for other markets;
+    // sims read that as "US is the dominant market" and amplified US-prior on
+    // non-US-top fixtures. Now we just list cap-3 entries per country with no
+    // total counts. The presence signal itself is preserved.
     sections.push(
-      `  ${bundle.iso2} — Korean companies in matching industry (${shown}/${comps.length}${more}, total ${totalRaw} on KOTRA registry):\n${lines.join("\n")}`,
+      `  ${bundle.iso2} — Korean companies in matching industry:\n${lines.join("\n")}`,
     );
   }
   if (sections.length === 0) return "";

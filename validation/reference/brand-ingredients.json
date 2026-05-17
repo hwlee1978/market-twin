@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "description": "Hand-curated K-Beauty fixture → key ingredient mapping for MFDS regulatory anchor. Narrow scope: sunscreen UV filters only, where MFDS data has dramatic country-specific regulation differences. Skincare actives (Centella, snail mucin, niacinamide) are safe per MFDS and skipped here.",
+    "lastReviewed": "2026-05-18",
+    "reviewer": "MFDS coverage analysis showed <30% fixture-level benefit for general K-Beauty; narrowing to sunscreen category only avoids noise injection on other fixtures (per Phase F.3 rejection criteria in PHASE_F3_MFDS_DESIGN.md)."
+  },
+  "brands": {
+    "boj-relief-sun": {
+      "category": "sunscreen",
+      "productKo": "Beauty of Joseon Relief Sun: Rice + Probiotics SPF50+",
+      "uvFilters": [
+        {
+          "ingredientKo": "에칠헥실살리실레이트",
+          "ingredientEn": "Ethylhexyl Salicylate",
+          "purpose": "UVB chemical filter"
+        },
+        {
+          "ingredientKo": "에칠헥실트라이아존",
+          "ingredientEn": "Ethylhexyl Triazone",
+          "purpose": "UVB chemical filter"
+        },
+        {
+          "ingredientKo": "다이에칠헥실뷰타미도트라이아존",
+          "ingredientEn": "Diethylhexyl Butamido Triazone",
+          "purpose": "UVB chemical filter"
+        },
+        {
+          "ingredientKo": "비스에칠헥실옥시페놀메톡시페닐트라이아진",
+          "ingredientEn": "Bis-Ethylhexyloxyphenol Methoxyphenyl Triazine",
+          "purpose": "Broad-spectrum filter (UVA+UVB)"
+        }
+      ],
+      "notes": "Korean-style chemical sunscreen — no inorganic (TiO2/ZnO) — uses next-gen UV filters approved in EU/KR/ASEAN/JP but several are NOT approved in the US (FDA still uses 1999 monograph). This is the precise mismatch the MFDS anchor surfaces: ingredient legal in KR/EU, restricted/unapproved in US/AU."
+    }
+  }
+}
