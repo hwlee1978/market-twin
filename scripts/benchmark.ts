@@ -54,8 +54,8 @@ function parseSpecs(args: string[]): EnsembleSpec[] {
 }
 
 async function fetchEnsembleAggregate(c: Client, prefix: string, slug: string): Promise<SimAggregate> {
-  const { rows: ens } = await c.query<{ id: string }>(
-    `select e.id::text as id from public.ensembles e
+  const { rows: ens } = await c.query<{ id: string; aggregate_result: { recommendation?: { country?: string; consensusPercent?: number } } | null }>(
+    `select e.id::text as id, e.aggregate_result from public.ensembles e
        where e.id::text like $1 and e.status = 'completed'
        order by e.created_at desc limit 1`,
     [`${prefix}%`],
@@ -86,10 +86,21 @@ async function fetchEnsembleAggregate(c: Client, prefix: string, slug: string): 
   for (const k of Object.keys(perCountrySum)) {
     perCountryMeanScore[k] = perCountrySum[k] / perCountryCount[k];
   }
+  // Phase F.0.5 fix: surface ensemble.recommendation.country (Phase E
+  // mean-rank winner) so confidenceCalibration scores against the runner's
+  // actual recommendation, not the legacy vote mode. Falls back to null
+  // when ensembles row pre-dates Phase E or aggregate_result is missing.
+  const rec =
+    typeof ens[0].aggregate_result === "object" && ens[0].aggregate_result
+      ? ens[0].aggregate_result.recommendation
+      : null;
+  const pickedWinner = rec?.country ?? null;
   return {
     ensembleId,
     perCountryMeanScore,
     bestCountryVotes: bestVotes,
+    pickedWinner: pickedWinner && pickedWinner !== "?" ? pickedWinner.toUpperCase() : null,
+    pickedWinnerConsensusPercent: rec?.consensusPercent ?? null,
     totalSims: sims.length,
   };
 }

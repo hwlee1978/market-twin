@@ -53,8 +53,24 @@ export interface SimAggregate {
   ensembleId: string;
   /** Per country: mean finalScore across the ensemble's sims. */
   perCountryMeanScore: Record<string, number>;
-  /** Per country: votes won as bestCountry (count). */
+  /** Per country: votes won as bestCountry (count, legacy Phase D vote mode). */
   bestCountryVotes: Record<string, number>;
+  /**
+   * Phase E winner — country picked by mean rank across sims, tie-broken
+   * by mean score (ensemble.ts:919-967). May differ from the mode of
+   * bestCountryVotes when sim-level winners spike high in one sim but
+   * rank consistently lower elsewhere. When provided, scoring prefers
+   * this over the vote mode. Optional for backward compatibility with
+   * callers that haven't been updated to read recommendation.country.
+   */
+  pickedWinner?: string | null;
+  /**
+   * Consensus percent (0-100) for the picked winner — Phase E uses
+   * "% of sims where the winner landed in Top-3", which is softer than
+   * strict #1-vote share. When pickedWinner is supplied, this is the
+   * matching confidence metric. Falls back to vote-share when absent.
+   */
+  pickedWinnerConsensusPercent?: number | null;
   /** Number of completed sims that contributed. */
   totalSims: number;
 }
@@ -195,23 +211,43 @@ function computeRejectRecall(agg: SimAggregate, truth: GroundTruth): number {
 }
 
 function computeConfidenceCalibration(agg: SimAggregate, truth: GroundTruth): number {
-  // Top-1 vote share = sim's consensus. Higher = STRONG. We score correctness
-  // of the top vote with that consensus as the weight.
+  // Phase F.0.5 fix (2026-05-17): use Phase E picker winner instead of vote
+  // mode. Earlier scoring read bestCountryVotes mode, which is the Phase D
+  // pre-mean-rank metric. When Phase E winner picker (mean rank, tie-break
+  // mean score) disagrees with vote mode (single-sim spikes inflating a
+  // country's vote count without consistent rank), confidenceCalibration
+  // was effectively scoring an output the runner didn't actually ship.
+  // boj-relief-sun was the first observed mismatch: vote picked VN 50%
+  // while mean-rank correctly picked US 69.5 (truth top).
+  //
+  // When agg.pickedWinner is supplied, score it against the truth top.
+  // Consensus = fraction of sims where the picked winner placed in Top-3
+  // (matches Phase E winner picker's confidence definition — see
+  // ensemble.ts top3Hits). Falls back to vote mode for older callers.
   const totalVotes = Object.values(agg.bestCountryVotes).reduce((a, b) => a + b, 0);
   if (totalVotes === 0) return NaN;
-  const [topCountry, topVotes] = Object.entries(agg.bestCountryVotes).sort(
-    (a, b) => b[1] - a[1],
-  )[0];
-  const consensus = topVotes / totalVotes;
   const truthTop = truth.evidence
     .filter((e) => e.metric === "revenue_rank_overseas" && e.rank === 1)
     .map((e) => e.country)[0];
   if (!truthTop) return NaN;
-  const correct = topCountry === truthTop;
-  // STRONG + correct = perfect. STRONG + wrong = worst (confident wrong).
-  // WEAK + either = middle. Maps {correct, consensus} → [0,1].
-  if (correct) return consensus; // 1.0 if 100% consensus, 0.5 if 50% consensus
-  return 1 - consensus; // confident wrong is most punished
+  let winner: string;
+  let consensus: number;
+  if (agg.pickedWinner) {
+    winner = agg.pickedWinner;
+    // Phase E winner's consensus is "% of sims where winner landed in Top-3"
+    // (ensemble.ts:944-953). Fall back to vote share only if upstream caller
+    // didn't pass the consensus metric.
+    consensus = agg.pickedWinnerConsensusPercent != null
+      ? agg.pickedWinnerConsensusPercent / 100
+      : (agg.bestCountryVotes[winner] ?? 0) / totalVotes;
+  } else {
+    const top = Object.entries(agg.bestCountryVotes).sort((a, b) => b[1] - a[1])[0];
+    winner = top[0];
+    consensus = top[1] / totalVotes;
+  }
+  const correct = winner === truthTop;
+  if (correct) return consensus;
+  return 1 - consensus;
 }
 
 function computeTrendMatch(_agg: SimAggregate, truth: GroundTruth): number {

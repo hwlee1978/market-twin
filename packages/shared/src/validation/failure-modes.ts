@@ -59,6 +59,19 @@ const WEAK_CONSENSUS = 0.35;
 function getTopVote(agg: SimAggregate): { country: string; share: number } | null {
   const total = Object.values(agg.bestCountryVotes).reduce((a, b) => a + b, 0);
   if (total === 0) return null;
+  // Phase F.0.5 fix (2026-05-17): prefer Phase E picker winner over vote
+  // mode. Same rationale as score.ts confidenceCalibration — the runner
+  // ships `recommendation.country` (mean rank winner), so failure-mode
+  // classification must score *that* country, not the vote mode that may
+  // disagree. Consensus comes from pickedWinnerConsensusPercent (Top-3
+  // hit rate) when supplied. boj-relief-sun was the first observed
+  // mismatch where vote=VN (wrong) but picker=US (truth top).
+  if (agg.pickedWinner) {
+    const share = agg.pickedWinnerConsensusPercent != null
+      ? agg.pickedWinnerConsensusPercent / 100
+      : (agg.bestCountryVotes[agg.pickedWinner] ?? 0) / total;
+    return { country: agg.pickedWinner, share };
+  }
   const top = Object.entries(agg.bestCountryVotes).sort((a, b) => b[1] - a[1])[0];
   return { country: top[0], share: top[1] / total };
 }
