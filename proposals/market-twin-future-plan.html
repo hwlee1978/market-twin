@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>AI Market Twin — 향후 계획</title>
+<style>
+  @page {
+    size: A4;
+    margin: 16mm 14mm 16mm 14mm;
+  }
+  body {
+    font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo",
+      "Noto Sans KR", "Pretendard", sans-serif;
+    color: #111827;
+    font-size: 10.5pt;
+    line-height: 1.5;
+    margin: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Document title (small, above the form) */
+  .doc-eyebrow {
+    text-align: center;
+    font-size: 9pt;
+    color: #475569;
+    letter-spacing: 0.18em;
+    margin: 6mm 0 4mm 0;
+  }
+
+  /* Outer form frame — matches the screenshot's bordered rectangle */
+  .plan-form {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1.2pt solid #1f3a1f;
+  }
+  .plan-form caption {
+    background: #d9e8d3;
+    color: #1f3a1f;
+    font-size: 14pt;
+    font-weight: 700;
+    padding: 6mm 4mm;
+    border: 1.2pt solid #1f3a1f;
+    border-bottom: 0;
+    letter-spacing: 0.1em;
+    caption-side: top;
+  }
+  .plan-form th,
+  .plan-form td {
+    border: 0.8pt solid #1f3a1f;
+    padding: 4mm 3mm;
+    vertical-align: middle;
+    word-break: keep-all;
+  }
+  /* Left-column label cells (pink/cream tint like the screenshot) */
+  .lbl {
+    background: #fbe9c8;
+    color: #6b3d18;
+    font-weight: 700;
+    text-align: center;
+    width: 70px;
+    letter-spacing: 0.1em;
+  }
+  .lbl.tall {
+    writing-mode: horizontal-tb;
+  }
+  .lbl-strong {
+    background: #fbe9c8;
+    color: #6b3d18;
+    font-weight: 700;
+    text-align: center;
+    width: 100px;
+    letter-spacing: 0.05em;
+  }
+  /* Top-row prompt cells (yellow tint) — vision + final goal blanks
+     filled with our actual content, the screenshot shows them in
+     pink-italic placeholder text. */
+  .prompt-cell {
+    background: #fdf6c7;
+    color: #1f3a1f;
+    padding: 4mm;
+    font-size: 10pt;
+    line-height: 1.55;
+  }
+  .prompt-cell strong { color: #0a1f4d; }
+
+  /* Year-target header row */
+  .year-head {
+    background: #fdf6c7;
+    text-align: center;
+    font-weight: 700;
+    color: #1f3a1f;
+    font-size: 10pt;
+  }
+  .year-head.label {
+    background: #fbe9c8;
+    color: #6b3d18;
+  }
+
+  /* Numeric cells */
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: #0a1f4d;
+    font-weight: 600;
+    font-size: 9.5pt;
+  }
+  .num .note {
+    display: block;
+    color: #475569;
+    font-weight: 400;
+    font-size: 8.5pt;
+    margin-top: 1mm;
+  }
+  /* Sub-label for nested rows (제품 mix / 수출) */
+  .sublbl {
+    background: #fef3d8;
+    color: #6b3d18;
+    text-align: center;
+    font-weight: 600;
+    width: 80px;
+    font-size: 9.5pt;
+  }
+  .row-mix .lbl,
+  .row-export .lbl {
+    text-align: center;
+  }
+
+  /* Rotated vertical label for the merged "제품 mix" / "수출" cells */
+  .v-merge {
+    width: 26px;
+    background: #fbe9c8;
+    color: #6b3d18;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.4em;
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    padding: 4mm 1mm;
+  }
+
+  /* Footnotes */
+  .footnotes {
+    margin-top: 6mm;
+    font-size: 8.5pt;
+    color: #475569;
+    line-height: 1.55;
+    border-top: 0.6pt dashed #94a3b8;
+    padding-top: 3mm;
+  }
+  .footnotes li { margin-bottom: 1mm; }
+  .footnotes strong { color: #0a1f4d; }
+</style>
+</head>
+<body>
+
+<div class="doc-eyebrow">2026년 혁신 프리미어 1000 · AI·디지털 / 기술사업화 분야 — AI Market Twin</div>
+
+<table class="plan-form">
+  <caption>향후 계획</caption>
+
+  <!-- 비전 -->
+  <tr>
+    <td class="lbl-strong">비&nbsp;&nbsp;전</td>
+    <td colspan="6" class="prompt-cell">
+      <strong>2030년까지 K-product의 해외 진출 의사결정을 24시간 안에 검증하는 글로벌 표준 SaaS가 된다.</strong><br>
+      정부 통계 기반 페르소나 + 다중 LLM 앙상블 검증을 결합하여 "출처가 명확하고 재현 가능한"
+      해외 시장 진출 분석 시장을 새롭게 정의하고, KOTRA·중기부 등 국내 수출 지원 인프라부터
+      글로벌 액셀러레이터·정부기관까지 표준 도구로 자리 잡는다.
+    </td>
+  </tr>
+
+  <!-- 최종 목표 -->
+  <tr>
+    <td class="lbl-strong">최종 목표</td>
+    <td colspan="6" class="prompt-cell">
+      <strong>2030년 매출 ₩15,000M · 누적 진단 시뮬레이션 50,000건 · 진출 검증 서비스 24→50개국 확장 ·
+      해외 매출 비중 40%+ · API/정부 라이선스 매출 20%+ 달성.</strong>
+    </td>
+  </tr>
+
+  <!-- 연도별 목표치 헤더 -->
+  <tr>
+    <td class="lbl-strong">연도별 목표치</td>
+    <td class="year-head">2026</td>
+    <td class="year-head">2027</td>
+    <td class="year-head">2028</td>
+    <td class="year-head">2029</td>
+    <td class="year-head">2030</td>
+  </tr>
+
+  <!-- 총 매출액 -->
+  <tr>
+    <td class="lbl-strong">총 매출액</td>
+    <td class="num">₩50M<span class="note">베타→유료 전환</span></td>
+    <td class="num">₩300M<span class="note">Decision 확장</span></td>
+    <td class="num">₩1,500M<span class="note">Enterprise 본격</span></td>
+    <td class="num">₩5,000M<span class="note">정부 라이선스</span></td>
+    <td class="num">₩15,000M<span class="note">Global SaaS</span></td>
+  </tr>
+
+  <!-- 제품 mix (3-row merged left label) -->
+  <tr class="row-mix">
+    <td class="v-merge" rowspan="3">제품 mix</td>
+  </tr>
+  <tr class="row-mix">
+    <td class="sublbl">시뮬<br>SaaS</td>
+    <td class="num">₩50M<span class="note">100%</span></td>
+    <td class="num">₩270M<span class="note">90%</span></td>
+    <td class="num">₩1,050M<span class="note">70%</span></td>
+    <td class="num">₩2,500M<span class="note">50%</span></td>
+    <td class="num">₩6,000M<span class="note">40%</span></td>
+  </tr>
+  <tr class="row-mix">
+    <td class="sublbl">정부·<br>Enterprise</td>
+    <td class="num">—</td>
+    <td class="num">₩30M<span class="note">10%</span></td>
+    <td class="num">₩375M<span class="note">25%</span></td>
+    <td class="num">₩1,750M<span class="note">35%</span></td>
+    <td class="num">₩6,000M<span class="note">40%</span></td>
+  </tr>
+  <tr class="row-mix">
+    <td class="sublbl">API·<br>라이선스</td>
+    <td class="num">—</td>
+    <td class="num">—</td>
+    <td class="num">₩75M<span class="note">5%</span></td>
+    <td class="num">₩750M<span class="note">15%</span></td>
+    <td class="num">₩3,000M<span class="note">20%</span></td>
+  </tr>
+
+  <!-- 수출 (2-row merged left label) -->
+  <tr class="row-export">
+    <td class="v-merge" rowspan="2">수&nbsp;출</td>
+    <td class="sublbl">직수출액</td>
+    <td class="num">—</td>
+    <td class="num">—</td>
+    <td class="num">₩100M<span class="note">해외 베타</span></td>
+    <td class="num">₩1,000M<span class="note">영문 본격</span></td>
+    <td class="num">₩5,000M<span class="note">Global 확장</span></td>
+  </tr>
+  <tr class="row-export">
+    <td class="sublbl">기타<br>(간접수출)</td>
+    <td class="num">—</td>
+    <td class="num">—</td>
+    <td class="num">₩50M<span class="note">파트너 채널</span></td>
+    <td class="num">₩200M<span class="note">액셀러레이터</span></td>
+    <td class="num">₩1,000M<span class="note">정부기관 라이선스</span></td>
+  </tr>
+
+  <!-- 인력 확보 -->
+  <tr>
+    <td class="lbl-strong">인력 확보</td>
+    <td class="num">1명<span class="note">1인 창업</span></td>
+    <td class="num">3명<span class="note">+엔지니어, 영업</span></td>
+    <td class="num">8명<span class="note">+해외 영업, BD</span></td>
+    <td class="num">15명<span class="note">+해외법인</span></td>
+    <td class="num">25명<span class="note">팀 확립</span></td>
+  </tr>
+
+</table>
+
+<ul class="footnotes">
+  <li><strong>비고 1.</strong> 본 목표치는 (i) 베타→유료 전환율 30%, (ii) 평균 객단가 Decision tier(₩690K/시뮬) 기준,
+    (iii) 정부기관 Enterprise 라이선스 2027년 1건 → 2030년 10건 확보 시나리오를 전제로 합니다.</li>
+  <li><strong>비고 2.</strong> 제품 mix는 <em>시뮬레이션 SaaS</em>(Starter·Decision 플랜) / <em>정부·Enterprise 라이선스</em>(KOTRA·중기부 등 기관 라이선스) /
+    <em>API·임베디드 라이선스</em>(액셀러레이터·VC·플랫폼 임베디드)의 3개 라인업으로 구성됩니다.</li>
+  <li><strong>비고 3.</strong> 직수출액은 해외 고객 직접 결제 매출, 기타는 국내 정부기관·액셀러레이터를 통한 간접수출 매출입니다.</li>
+  <li><strong>비고 4.</strong> 인력 확보 계획은 매출 단계별 운영 임계점(고객 50건, 200건, 500건, 1,000건)을 기준으로 단계적으로 확장합니다.</li>
+</ul>
+
+</body>
+</html>
