@@ -214,6 +214,49 @@ export async function runEnsembleOrchestration(
   } catch (err) {
     console.warn(`[ensemble ${ensembleId}] World Bank anchor build failed: ${(err as Error).message}`);
   }
+
+  // Phase F.1-1 (2026-05-17): 관세청 trade statistics — appended to
+  // Comtrade block since they confirm each other (same underlying data,
+  // different aggregation granularity).
+  try {
+    const { buildKoreaCustomsAnchor } = await import("@/lib/market-research/korea-customs");
+    const { hsCodesForCategory } = await import("@/lib/market-research/comtrade");
+    const hsCodes = hsCodesForCategory(projectInput.category);
+    if (hsCodes.length > 0) {
+      const { block, rows } = await buildKoreaCustomsAnchor(
+        projectInput.category,
+        projectInput.candidateCountries,
+        hsCodes,
+        { locale },
+      );
+      if (block) {
+        console.log(`[ensemble ${ensembleId}] Korea Customs anchor: ${rows.length} rows`);
+        tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
+      } else {
+        console.log(`[ensemble ${ensembleId}] Korea Customs anchor: empty`);
+      }
+    }
+  } catch (err) {
+    console.warn(`[ensemble ${ensembleId}] Korea Customs anchor build failed: ${(err as Error).message}`);
+  }
+
+  // Phase F.1-A (2026-05-17): DART consolidated financials — brand-level
+  // supplement. Targets v5 brand-mismatch finding (HSCode aggregate misses
+  // 자회사 production like Binggrae VN, service-based 면세점 like KGC CN).
+  try {
+    const { buildDartAnchor, inferSlugFromProductName } = await import("@/lib/market-research/dart");
+    const slug = inferSlugFromProductName(projectInput.productName);
+    if (slug) {
+      const { block, financials } = await buildDartAnchor(slug, { locale });
+      if (block) {
+        const rev = financials?.revenueKrw ?? 0;
+        console.log(`[ensemble ${ensembleId}] DART anchor: ${financials?.corpNameKo ?? slug} (${(rev / 1e12).toFixed(2)}T KRW)`);
+        tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
+      }
+    }
+  } catch (err) {
+    console.warn(`[ensemble ${ensembleId}] DART anchor build failed: ${(err as Error).message}`);
+  }
   // Run grounding when EITHER provider key is set — Sonar Pro alone is
   // a valid grounding source even without Tavily (cheaper-fallback
   // scenario), and we want the trend block to fire if any signal is

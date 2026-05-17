@@ -263,6 +263,62 @@ async function main() {
     console.warn(`World Bank anchor build failed: ${(err as Error).message}`);
   }
 
+  // Phase F.1-1 (2026-05-17): 관세청 (Korea Customs) trade statistics
+  // prefetch. Same HSCode mapping as Comtrade. Appended to Comtrade block
+  // when both succeed — they confirm each other (same underlying trade
+  // data) but 관세청 supports finer HSCode and more recent months.
+  try {
+    const { buildKoreaCustomsAnchor } = await import(
+      "../packages/shared/src/market-research/korea-customs"
+    );
+    const { hsCodesForCategory } = await import(
+      "../packages/shared/src/market-research/comtrade"
+    );
+    const hsCodes = hsCodesForCategory(projectInput.category);
+    if (hsCodes.length > 0) {
+      const { block, rows } = await buildKoreaCustomsAnchor(
+        projectInput.category,
+        projectInput.candidateCountries,
+        hsCodes,
+        { locale: "ko" },
+      );
+      if (block) {
+        console.log(`Korea Customs anchor: ${rows.length} (HSCode × country) rows`);
+        tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
+      } else {
+        console.log("Korea Customs anchor: empty");
+      }
+    }
+  } catch (err) {
+    console.warn(`Korea Customs anchor build failed: ${(err as Error).message}`);
+  }
+
+  // Phase F.1-A (2026-05-17): DART consolidated financials prefetch.
+  // Brand-level supplement to HSCode trade aggregates — addresses the v5
+  // brand-mismatch hypothesis (Binggrae Vietnam 자회사 / KGC China 면세점).
+  // Slug inferred from product name (heuristic). Unlisted brands (BOJ,
+  // Anua) return empty block.
+  try {
+    const { buildDartAnchor, inferSlugFromProductName } = await import(
+      "../packages/shared/src/market-research/dart"
+    );
+    const slug = inferSlugFromProductName(projectInput.productName);
+    if (slug) {
+      const { block, financials } = await buildDartAnchor(slug, { locale: "ko" });
+      if (block) {
+        const rev = financials?.revenueKrw ?? 0;
+        console.log(`DART anchor: ${financials?.corpNameKo ?? slug} (${(rev / 1e12).toFixed(2)}T KRW revenue)`);
+        tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
+      } else {
+        console.log(`DART anchor: empty for slug=${slug} (unlisted or fetch failed)`);
+      }
+    } else {
+      console.log(`DART anchor: no slug match for "${projectInput.productName}"`);
+    }
+  } catch (err) {
+    console.warn(`DART anchor build failed: ${(err as Error).message}`);
+  }
+
   const runOne = async ({
     id: simId,
     index,
