@@ -262,6 +262,32 @@ export async function runEnsembleOrchestration(
   } catch (err) {
     console.warn(`[ensemble ${ensembleId}] DART anchor build failed: ${(err as Error).message}`);
   }
+
+  // Phase F.1-C (2026-05-17): KOTRA per-country Korean-companies anchor.
+  // Names Korean parent companies already operating in each candidate market —
+  // direct brand-presence signal that closes the Phase F.0 gap where sims
+  // missed Binggrae VN (own subsidiary) and KGC CN (duty-free service).
+  try {
+    const { buildKotraNationalAnchor } = await import("@/lib/market-research/kotra");
+    const keywords = [projectInput.category, projectInput.productName].filter(
+      (s): s is string => typeof s === "string" && s.length > 0,
+    );
+    const { block, bundles } = await buildKotraNationalAnchor(
+      projectInput.candidateCountries,
+      { categoryKeywords: keywords, locale, maxPerCountry: 5 },
+    );
+    if (block) {
+      const totalComps = bundles.reduce((n, b) => n + b.koreanCompanies.length, 0);
+      console.log(
+        `[ensemble ${ensembleId}] KOTRA anchor: ${bundles.length}/${projectInput.candidateCountries.length} countries (${totalComps} Korean companies)`,
+      );
+      tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
+    } else {
+      console.log(`[ensemble ${ensembleId}] KOTRA anchor: empty`);
+    }
+  } catch (err) {
+    console.warn(`[ensemble ${ensembleId}] KOTRA anchor build failed: ${(err as Error).message}`);
+  }
   // Run grounding when EITHER provider key is set — Sonar Pro alone is
   // a valid grounding source even without Tavily (cheaper-fallback
   // scenario), and we want the trend block to fire if any signal is

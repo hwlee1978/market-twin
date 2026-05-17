@@ -326,6 +326,33 @@ async function main() {
     console.warn(`DART anchor build failed: ${(err as Error).message}`);
   }
 
+  // Phase F.1-C (2026-05-17): KOTRA per-country Korean-companies anchor.
+  // Closes the Phase F.0 gap: sims that missed Binggrae VN / KGC CN now see
+  // explicit parent-company presence from KOTRA's registry.
+  try {
+    const { buildKotraNationalAnchor } = await import(
+      "../packages/shared/src/market-research/kotra"
+    );
+    const keywords = [projectInput.category, projectInput.productName].filter(
+      (s): s is string => typeof s === "string" && s.length > 0,
+    );
+    const { block, bundles } = await buildKotraNationalAnchor(
+      projectInput.candidateCountries,
+      { categoryKeywords: keywords, locale: "ko", maxPerCountry: 5 },
+    );
+    if (block) {
+      const totalComps = bundles.reduce((n, b) => n + b.koreanCompanies.length, 0);
+      console.log(
+        `KOTRA anchor: ${bundles.length}/${projectInput.candidateCountries.length} countries (${totalComps} Korean companies)`,
+      );
+      tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
+    } else {
+      console.log(`KOTRA anchor: empty`);
+    }
+  } catch (err) {
+    console.warn(`KOTRA anchor build failed: ${(err as Error).message}`);
+  }
+
   const runOne = async ({
     id: simId,
     index,
