@@ -42,4 +42,9 @@ generate_professional_pptx.js
 # Editor / IDE
 .vscode/
 
+# Office / Word temporary lock files (e.g., ~$file.docx when Word holds open)
+~$*.docx
+~$*.xlsx
+~$*.pptx
+
 .vercel
