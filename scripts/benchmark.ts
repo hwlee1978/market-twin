@@ -2,10 +2,14 @@
  * Run the accuracy benchmark.
  *
  * Modes:
- *   single  : Score one ensemble per product (the latest matching the product
- *             name) and print composite + sub-scores.
- *   compare : Pair products by slug between two ensemble sets (build A vs B)
- *             and run a paired t-test with FDR correction across products.
+ *   single         : Score one ensemble per product (the latest matching the
+ *                    product name) and print composite + sub-scores.
+ *   compare        : Pair products by slug between two ensemble sets (A vs B)
+ *                    and run a paired t-test. Prefixes provided by user.
+ *   compare-latest : Like --compare, but auto-resolves A and B as the latest
+ *                    two completed ensembles per product (B = newest, A = its
+ *                    immediate predecessor). For the common "I just ran a new
+ *                    benchmark, compare it to the previous one" workflow.
  *
  * Usage:
  *   tsx scripts/benchmark.ts --single
@@ -13,6 +17,8 @@
  *     cosrx-snail-mucin=22357286 jinro-chamisul=315a49ae
  *   tsx scripts/benchmark.ts --compare \
  *     buldak=10dbb41a,d226eff6  jinro-chamisul=315a49ae,79934f1f
+ *   tsx scripts/benchmark.ts --compare-latest
+ *   tsx scripts/benchmark.ts --compare-latest --products bibigo-mandu,binggrae-melona
  */
 
 import { Client } from "pg";
@@ -118,6 +124,33 @@ async function autoResolveSpecs(c: Client, truths: LoadedTruth[]): Promise<Ensem
       [`%${t.truth.product.split(" ")[0]}%`],
     );
     if (rows.length) out.push({ slug: t.slug, prefixes: [rows[0].id.slice(0, 8)] });
+  }
+  return out;
+}
+
+/** For --compare-latest: per product, fetch the 2 most-recent completed
+ *  ensembles. Returns slug=prefixA,prefixB pairs where prefixB is newest. */
+async function autoResolveCompareLatest(
+  c: Client,
+  truths: LoadedTruth[],
+  productFilter?: Set<string>,
+): Promise<EnsembleSpec[]> {
+  const out: EnsembleSpec[] = [];
+  for (const t of truths) {
+    if (productFilter && !productFilter.has(t.slug)) continue;
+    const { rows } = await c.query<{ id: string }>(
+      `select e.id::text as id from public.ensembles e
+       join public.projects p on p.id = e.project_id
+       where e.status = 'completed' and p.product_name ilike $1
+       order by e.created_at desc limit 2`,
+      [`%${t.truth.product.split(" ")[0]}%`],
+    );
+    if (rows.length < 2) {
+      console.warn(`  ⚠ ${t.slug}: only ${rows.length} completed ensemble(s) found, skipping`);
+      continue;
+    }
+    // A = previous, B = newest. Order matches user-facing "A vs B (Δ = B-A)".
+    out.push({ slug: t.slug, prefixes: [rows[1].id.slice(0, 8), rows[0].id.slice(0, 8)] });
   }
   return out;
 }
@@ -241,9 +274,24 @@ async function main() {
     } else if (mode === "--compare") {
       if (!rest.length) throw new Error("--compare needs at least one slug=prefixA,prefixB spec");
       await compare(c, truths, parseSpecs(rest));
+    } else if (mode === "--compare-latest") {
+      let productFilter: Set<string> | undefined;
+      const pIdx = rest.indexOf("--products");
+      if (pIdx >= 0 && rest[pIdx + 1]) {
+        productFilter = new Set(rest[pIdx + 1].split(",").map((s) => s.trim()).filter(Boolean));
+      }
+      const specs = await autoResolveCompareLatest(c, truths, productFilter);
+      if (specs.length < 2) {
+        throw new Error(`compare-latest needs ≥2 products with 2+ ensembles each (got ${specs.length})`);
+      }
+      console.log(`Auto-resolved ${specs.length} product pairs (prev vs newest):`);
+      for (const s of specs) console.log(`  ${s.slug.padEnd(28)}  A=${s.prefixes[0]}  →  B=${s.prefixes[1]}`);
+      console.log();
+      await compare(c, truths, specs);
     } else {
       console.error("Usage: tsx scripts/benchmark.ts --single [slug=prefix ...]");
       console.error("       tsx scripts/benchmark.ts --compare slug=prefixA,prefixB ...");
+      console.error("       tsx scripts/benchmark.ts --compare-latest [--products slug1,slug2,...]");
       process.exit(1);
     }
   } finally {
