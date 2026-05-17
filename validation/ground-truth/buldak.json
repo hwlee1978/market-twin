@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "product": "삼양 불닭볶음면",
+  "category": "food",
+  "priceUsd": 2.0,
+  "originCountry": "KR",
+  "asOf": "2024-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["US", "JP", "ID", "CN", "GB", "DE", "TH", "VN", "MX", "MY"],
+  "evidence": [
+    {
+      "country": "CN",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "삼양식품 2024 사업보고서 — 해외매출 지역별 비중",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "high",
+      "notes": "중국이 해외 매출의 단일 최대 시장. 알리바바·핀둬둬·티몰 채널 다수 진출."
+    },
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "삼양식품 2024 IR — 미주 매출 성장",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "high",
+      "notes": "Costco·Walmart 진출. 2024 미주 매출 전년 대비 2-3배 성장."
+    },
+    {
+      "country": "EU",
+      "metric": "growth_trajectory",
+      "value": "growing",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "K-Food EU 수출 급증 보도 (매일경제·Financial Times 등)",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium",
+      "notes": "독일·영국·프랑스 신흥 성장. EU 한국식품 매출 2년 연속 50%+ 성장."
+    },
+    {
+      "country": "DE",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "독일 매운맛 트렌드 — 불닭 챌린지 SNS 화제",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium",
+      "notes": "독일 평균 매운맛 수용도는 낮으나, 25-34 SNS 세대에서 챌린지 형태로 침투. 메인스트림은 아니지만 NO-GO도 아님."
+    },
+    {
+      "country": "JP",
+      "metric": "market_entry_status",
+      "value": "entered",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "삼양 일본 진출 — 도키텔·돈키호테 채널",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "high",
+      "notes": "일본 라면 시장 자체가 saturated (이키킷·닛신 등 거대 incumbent). 진출은 했으나 점유율은 niche."
+    },
+    {
+      "country": "ID",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "market_research",
+        "title": "삼양 동남아 — 인도네시아 매출 (할랄 SKU)",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium",
+      "notes": "할랄 인증 SKU + 매운맛 친화 인구. ASEAN K-Food viral 메인 시장."
+    },
+    {
+      "country": "VN",
+      "metric": "revenue_rank_overseas",
+      "value": 4,
+      "rank": 4,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "베트남 K-Wave 라면 시장 — 불닭 침투",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "GB",
+      "metric": "revenue_rank_overseas",
+      "value": 5,
+      "rank": 5,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "영국 K-Food 라면 — 불닭 챌린지 + Tesco/Sainsbury 입점",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "ID",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "인도네시아 K-Food 수용 — 할랄 인증 + 매운맛 친화도",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium",
+      "notes": "할랄 인증된 불닭 SKU 있음. 동남아 매운맛 친화 + 무슬림 시장 진입 가능."
+    },
+    {
+      "country": "MX",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "멕시코 K-Food 라면 — TikTok 챌린지 viral + 한인 시장",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium",
+      "notes": "매운맛 친화 시장이지만 자국 매운 라면 (Maruchan) 압도. 한인 마트 + viral 한정."
+    },
+    {
+      "country": "MY",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "말레이시아 K-Food — 할랄 + K-Wave 청년층",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "삼양식품 2024 해외매출 1조원 돌파",
+    "미주 시장 Costco/Walmart 대형 채널 진출",
+    "중국 알리바바·핀둬둬에서 K-Food 카테고리 베스트셀러"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2012",
+    "notes": "불닭볶음면은 2012년 출시, 글로벌 화제 제품으로 LLM 학습 데이터에 다수 포함되었을 가능성 매우 높음. confident-correct 답은 reasoning 아닌 recall일 수 있음."
+  },
+  "reviewerNotes": "5차 sim (10dbb41a) recommendation = VN 29% WEAK. 실제 CN 1위/US 2위는 sim에서 6-7위로 under. 결함 #1 (EU/CN under-rating) + #7 (CN mass-average)의 대표 케이스."
+}

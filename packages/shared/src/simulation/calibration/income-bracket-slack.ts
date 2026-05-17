@@ -21,7 +21,11 @@ export const INCOME_BRACKET_SLACK = calibrated(
     informedByRuns: [
       "Buldak 6th run (Phase B v2 verification) — pool reuse rate target",
     ],
-    holdoutProducts: [],
+    // All three HOLDOUT products draw from the persona pool, so each is
+    // affected by this slack. Jinro is the highest-stakes case because the
+    // overfit-signal analysis (2026-05-16) traced VN/JP cultural drops to
+    // income-bracket shuffling killing the K-Wave ICP sub-segment.
+    holdoutProducts: ["jinro-chamisul", "anua-heartleaf-toner", "lg-oled-tv-c-series"],
     lastReviewed: "2026-05-15",
     reviewBy: "2026-08-15",
   },

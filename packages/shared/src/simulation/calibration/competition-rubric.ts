@@ -61,7 +61,11 @@ export const COMPETITION_RUBRIC_BANDS = calibrated<CompetitionBand[]>(
       "Shin Ramyun (2nd run, 2026-05-14) — competition 46 miscall",
       "Buldak (1st + 5th runs) — same pattern",
     ],
-    holdoutProducts: [],
+    // Each HOLDOUT exercises a different incumbent pattern:
+    //   jinro     — strong incumbent (CN baijiu, JP self-soju) + clear taste/origin axis
+    //   anua      — moderately fragmented incumbents (CN C-Beauty, US fragmented K-Beauty)
+    //   lg-oled   — strong self-protection markets (JP/CN) + open EU/US for premium tier
+    holdoutProducts: ["jinro-chamisul", "anua-heartleaf-toner", "lg-oled-tv-c-series"],
     lastReviewed: "2026-05-14",
     reviewBy: "2026-08-14",
   },

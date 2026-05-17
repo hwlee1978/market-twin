@@ -138,6 +138,18 @@ interface RunOptions {
     status: "extracted" | "fetch_failed" | "no_price_found" | "low_confidence";
     reason?: string;
   }>;
+  /**
+   * UN Comtrade trade-flow anchor block (Phase E Week 4-5, 2026-05-16).
+   * Pre-fetched per ensemble by orchestrator. Empty string when fetch
+   * failed or category has no HSCode mapping — country prompt then runs
+   * without the anchor, same behavior as pre-anchor sims.
+   */
+  tradeAnchorBlock?: string;
+  /**
+   * World Bank macro indicators block (Phase F.0-2, 2026-05-17).
+   * Pre-fetched per ensemble. Empty string when fetch failed.
+   */
+  worldBankBlock?: string;
 }
 
 // Smaller batches are more reliably completed by the LLM.
@@ -1576,7 +1588,7 @@ ${entries}
       if (Number.isFinite(env) && env > 0 && env <= 9) return Math.floor(env);
       return 5;
     })();
-    const countryPromptText = countryPrompt(projectInput, aggregate, locale);
+    const countryPromptText = countryPrompt(projectInput, aggregate, locale, opts.tradeAnchorBlock, opts.worldBankBlock);
     const runCountryRound = async (sampleCount: number, attemptTag: string) =>
       Promise.all(
         Array.from({ length: sampleCount }, () =>

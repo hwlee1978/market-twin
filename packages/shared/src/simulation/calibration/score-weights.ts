@@ -24,7 +24,10 @@ export const FINAL_SCORE_WEIGHTS = calibrated(
       "Buldak ensemble 10dbb41a (5th run, 2026-05-15)",
       "Shin Ramyun (2nd run, 2026-05-14) — same EU/CN under-weight pattern",
     ],
-    holdoutProducts: [],
+    // Slugs match validation/ground-truth/*.json filenames. Sync is enforced
+    // by scripts/validation-status.ts which fails if any HOLDOUT product is
+    // missing from this list (or vice versa).
+    holdoutProducts: ["jinro-chamisul"],
     lastReviewed: "2026-05-15",
     reviewBy: "2026-08-15",
   },

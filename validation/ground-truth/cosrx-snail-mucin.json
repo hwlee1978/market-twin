@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "product": "COSRX Advanced Snail 96 Mucin Power Essence",
+  "category": "beauty",
+  "priceUsd": 20.0,
+  "originCountry": "KR",
+  "asOf": "2024-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["US", "JP", "ID", "CN", "GB", "DE", "TH", "VN", "MX", "MY"],
+  "evidence": [
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "COSRX 모회사 LG생활건강 2024 IR — COSRX 미국 매출 1위",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "high",
+      "notes": "Amazon US 뷰티 베스트셀러 (snail mucin essence 카테고리). LG생활건강 인수 후 미국 시장 집중 전략."
+    },
+    {
+      "country": "JP",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "COSRX 일본 @cosme 베스트셀러 — K-Beauty 트렌드 수혜",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "CN",
+      "metric": "market_entry_status",
+      "value": "rejected",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "COSRX/K-Beauty 중국 시장 약세 — 자국 C-Beauty 부상",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "high",
+      "notes": "COSRX 매출에서 ex-China 비중 90%+. 중국은 PROYA·Florasis 등 자국 C-Beauty 부상으로 K-Beauty 점유율 지속 하락. 신규 진입 시장으로는 매우 약함."
+    },
+    {
+      "country": "CN",
+      "metric": "growth_trajectory",
+      "value": "declining",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "중국 K-Beauty 점유율 — 2020 30% → 2024 12%",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "EU",
+      "metric": "growth_trajectory",
+      "value": "growing",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "Sephora EU K-Beauty 코너 확장 — COSRX 입점 확대",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "DE",
+      "metric": "market_entry_status",
+      "value": "entered",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "company_press_release",
+        "title": "COSRX Müller·dm 독일 입점 발표",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "ID",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "동남아 K-Beauty 침투 — 인도네시아 Sociolla·Watsons 베스트셀러",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium",
+      "notes": "$20 가격대는 인도네시아 mass-market 대비 prestige 포지셔닝. ICP는 중상위 도시 여성."
+    },
+    {
+      "country": "GB",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "company_press_release",
+        "title": "COSRX UK 매출 — Boots + Sephora UK 진출",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "GB",
+      "metric": "channel_presence",
+      "value": "mainstream",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "company_press_release",
+        "title": "COSRX Boots UK 입점 — 영국 최대 H&B 체인",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "TH",
+      "metric": "revenue_rank_overseas",
+      "value": 4,
+      "rank": 4,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "COSRX 태국 — Eveandboy·Watsons K-Beauty 베스트셀러",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "DE",
+      "metric": "revenue_rank_overseas",
+      "value": 5,
+      "rank": 5,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "company_press_release",
+        "title": "COSRX 독일 — Müller·dm 입점 후 EU 매출",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "MX",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "멕시코 K-Beauty — 한인 시장 + Sephora 일부 입점, mass 진입 부재",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium",
+      "notes": "라틴 시장 자체 SPF/스킨케어 자국 브랜드 강. K-Beauty 카테고리는 Sephora MX 한정. $20은 mid-tier."
+    },
+    {
+      "country": "MY",
+      "metric": "regulatory_barrier",
+      "value": "obstacle",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "industry_report",
+        "title": "말레이시아 화장품 수입 — Halal 친화 + NPRA 등록",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "COSRX LG생활건강 자회사 (2021 인수)",
+    "Amazon US 뷰티 카테고리 베스트셀러",
+    "ex-China 매출 비중 90%+"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2014",
+    "notes": "COSRX 2014 출시, Snail Mucin Essence는 viral 제품. LLM이 'Amazon US 베스트셀러' 사실은 알 가능성. 단, CN 점유율 하락 같은 trend는 최신 데이터 → recall 어려움."
+  },
+  "reviewerNotes": "3차 검증 (22357286) accuracy 50%. CN over-rate (5위), EU under-rate (DE 10위), JP 1위 추천은 적중 (38% deepseek). description은 깨끗 (시장 사실 없음)."
+}

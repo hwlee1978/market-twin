@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "product": "LG OLED TV C-series (C3/C4 65인치)",
+  "category": "appliances",
+  "priceUsd": 1500.0,
+  "originCountry": "KR",
+  "asOf": "2024-12-31",
+  "split": "HOLDOUT",
+  "candidateCountries": ["US", "JP", "CN", "GB", "DE", "FR", "AU", "CA", "BR", "IN"],
+  "evidence": [
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "LG전자 2024 사업보고서 — 북미 OLED TV 매출 1위",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high",
+      "notes": "OLED TV 글로벌 점유율 LG ~60%, 미국이 최대 단일 시장. Best Buy·Costco·Amazon 메인 채널."
+    },
+    {
+      "country": "US",
+      "metric": "market_share_pct",
+      "value": 65,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "market_research",
+        "title": "미국 OLED TV 시장 점유율 — LG 압도적 1위 (Omdia·NPD)",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high",
+      "notes": "Sony OLED는 LG 패널 사용. 자체 LCD/QLED 카테고리는 삼성이 1위."
+    },
+    {
+      "country": "DE",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "LG전자 2024 IR — 유럽 OLED TV 매출 (DE 단일 최대)",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "GB",
+      "metric": "channel_presence",
+      "value": "mainstream",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "company_press_release",
+        "title": "LG OLED TV UK — Currys·John Lewis·Amazon 메인 채널",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "일본 TV 시장 — 자국 Sony/Panasonic/Sharp 점유율 90%+",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high",
+      "notes": "일본은 자국 가전 보호주의 + Sony OLED 강세. LG 진출은 했으나 niche. 일본 hi-end 가전 점유율 매우 낮음."
+    },
+    {
+      "country": "CN",
+      "metric": "market_entry_status",
+      "value": "rejected",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "중국 TV 시장 — 자국 Hisense·TCL·Skyworth + BOE 패널 자급률 향상",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high",
+      "notes": "중국 자국 가전 정책 + BOE OLED 패널 자체 양산 + Mini-LED 우선 전환. LG OLED 점유율 매우 낮음. 사드 이후 회복 미진."
+    },
+    {
+      "country": "FR",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "프랑스 프리미엄 TV 시장 — LG OLED Boulanger·Darty 강세",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "AU",
+      "metric": "channel_presence",
+      "value": "mainstream",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "호주 JB Hi-Fi·Harvey Norman LG OLED 메인 진열",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "IN",
+      "metric": "regulatory_barrier",
+      "value": "obstacle",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "industry_report",
+        "title": "인도 TV 시장 — 관세 + 자국 생산 인센티브 (PLI 스킴)",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium",
+      "notes": "$1500 가격대는 인도 mass-market 대비 prestige. 중상위 도시 시장 한정."
+    },
+    {
+      "country": "GB",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "LG전자 2024 IR — 영국 OLED TV 매출",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "FR",
+      "metric": "revenue_rank_overseas",
+      "value": 4,
+      "rank": 4,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "market_research",
+        "title": "프랑스 OLED TV 시장 — LG 메인 프리미엄",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "CA",
+      "metric": "revenue_rank_overseas",
+      "value": 5,
+      "rank": 5,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "LG전자 2024 IR — 캐나다 매출 (북미 권역)",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "BR",
+      "metric": "regulatory_barrier",
+      "value": "obstacle",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "industry_report",
+        "title": "브라질 TV 시장 — 수입 관세 + 자국 SUDAM 인센티브",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium",
+      "notes": "$1500 = 브라질 평균 가구 소득 대비 prestige. 자국 조립 (Tonomac, Semp) 강."
+    },
+    {
+      "country": "AU",
+      "metric": "revenue_rank_overseas",
+      "value": 6,
+      "rank": 6,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "market_research",
+        "title": "호주 프리미엄 TV — JB Hi-Fi·Harvey Norman 매출",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "LG OLED TV 글로벌 점유율 60% (Sony 2위 ~20%)",
+    "Sony·Panasonic OLED TV는 LG Display 패널 사용",
+    "중국 BOE OLED 패널 자체 양산 시작 (2023~)"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2013",
+    "notes": "LG OLED 글로벌 시장 점유율은 가전업계 공개 자료로 LLM이 잘 알고 있음. 단, 'C-series 단일 모델' 차원의 매출 분포는 비공개."
+  },
+  "reviewerNotes": "HOLDOUT — 가전 카테고리 첫 fixture. 식품·뷰티 위주 calibration이 가전에서도 작동하는지 검증. 특히 일본 자국 보호 + 중국 자국 가전 정책이 sim에 반영되는지 (결함 #7 CN mass-average는 가전에서는 정반대로 작동해야 함)."
+}

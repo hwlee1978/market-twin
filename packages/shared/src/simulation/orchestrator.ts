@@ -51,9 +51,17 @@ export const TIER_PRESETS = {
     marketProfile: false,
   },
   decision: {
-    parallelSims: 5,
+    parallelSims: 6,
     perSimPersonas: 200,
-    llmProviders: ["anthropic"] as const,
+    // Multi-LLM round-robin neutralizes single-provider bias surfaced by
+    // benchmark v1 (defect #9, 2026-05-16): Anthropic-only decision tier
+    // produced STRONG-but-wrong CN/VN picks on 3/6 K-product fixtures.
+    // 6 sims across 3 providers → 2 each by index round-robin. Different
+    // model priors cancel at aggregation. Bumped from 5→6 so the split is
+    // even rather than 2-2-1 (cheap insurance against single-provider tie-
+    // breakers when one provider's 2 sims happen to spike the same wrong
+    // country).
+    llmProviders: ["anthropic", "openai", "deepseek"] as const,
     marketProfile: true,
   },
   decision_plus: {
@@ -90,7 +98,10 @@ export type ProviderName =
  */
 const TIER_BUDGET_CENTS: Record<Tier, number> = {
   hypothesis: 900,
-  decision: 4200,
+  // Decision bumped from 4200→5400 to cover the extra sim (5→6) + the
+  // mix of provider rates after multi-LLM rollout (defect #9 fix). Still
+  // ~3× expected unit-economics cost — kill switch room preserved.
+  decision: 5400,
   decision_plus: 8100,
   deep: 9300,
   deep_pro: 18600,
@@ -161,6 +172,48 @@ export async function runEnsembleOrchestration(
 
   let trendSnippets: TavilyResult[] = [];
   let marginSnippets: TavilyResult[] = [];
+  // UN Comtrade trade-flow anchor — Phase E Week 4-5 (2026-05-16).
+  // Pre-fetched once per ensemble; same block passed to every sim's
+  // country-scoring stage so all 6/25 sims see identical trade evidence.
+  // Best-effort: empty string when API down or category lacks HSCode
+  // mapping, in which case sims revert to pre-anchor behavior.
+  let tradeAnchorBlock = "";
+  try {
+    const { buildComtradeAnchor } = await import("@/lib/market-research/comtrade");
+    const { block } = await buildComtradeAnchor(
+      projectInput.category,
+      projectInput.candidateCountries,
+      { apiKey: process.env.COMTRADE_API_KEY, locale },
+    );
+    tradeAnchorBlock = block;
+    if (block) {
+      console.log(
+        `[ensemble ${ensembleId}] Comtrade anchor: ${block.split("\n").length} lines, ${(block.length / 100).toFixed(0)}×100 chars`,
+      );
+    } else {
+      console.log(`[ensemble ${ensembleId}] Comtrade anchor: empty (no data or unsupported category)`);
+    }
+  } catch (err) {
+    console.warn(`[ensemble ${ensembleId}] Comtrade anchor build failed: ${(err as Error).message}`);
+  }
+
+  // Phase F.0-2 (2026-05-17): World Bank macro indicators prefetch.
+  let worldBankBlock = "";
+  try {
+    const { buildWorldBankAnchor } = await import("@/lib/market-research/world-bank");
+    const { block, rows } = await buildWorldBankAnchor(
+      projectInput.candidateCountries,
+      locale,
+    );
+    worldBankBlock = block;
+    if (block) {
+      console.log(`[ensemble ${ensembleId}] World Bank anchor: ${rows.length} countries`);
+    } else {
+      console.log(`[ensemble ${ensembleId}] World Bank anchor: empty`);
+    }
+  } catch (err) {
+    console.warn(`[ensemble ${ensembleId}] World Bank anchor build failed: ${(err as Error).message}`);
+  }
   // Run grounding when EITHER provider key is set — Sonar Pro alone is
   // a valid grounding source even without Tavily (cheaper-fallback
   // scenario), and we want the trend block to fire if any signal is
@@ -291,6 +344,8 @@ export async function runEnsembleOrchestration(
         trendSnippets,
         marginSnippets,
         competitorPrices,
+        tradeAnchorBlock,
+        worldBankBlock,
       });
     } catch (err) {
       console.error(`[ensemble ${ensembleId}] sim ${sim.id} failed:`, err);

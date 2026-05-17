@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "product": "비비고 왕교자 (Bibigo Mandu / Korean Dumplings)",
+  "category": "food",
+  "priceUsd": 8.0,
+  "originCountry": "KR",
+  "asOf": "2024-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["US", "JP", "ID", "CN", "GB", "DE", "TH", "VN", "MX", "MY"],
+  "evidence": [
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "CJ제일제당 2024 사업보고서 — 비비고 미국 매출 1위",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high",
+      "notes": "비비고 만두는 미국 만두 카테고리 점유율 1위 (Schwan's 인수 + 미국 현지 공장 4개)."
+    },
+    {
+      "country": "US",
+      "metric": "market_share_pct",
+      "value": 40,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "market_research",
+        "title": "미국 냉동만두 시장 점유율 — 비비고 압도적 1위 (Nielsen)",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high",
+      "notes": "Costco·Walmart 메인 진열. 미국에서 'Mandu' 단어 자체를 비비고가 보편화."
+    },
+    {
+      "country": "CN",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "CJ제일제당 2024 IR — 중국 비비고 만두 알리바바·티몰 입점",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high",
+      "notes": "중국 자체 만두 시장 거대 (중국식 jiao zi). 한국식 王餃子 차별 포지셔닝. 사드 영향 회복."
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "일본 비비고 만두 — 코스트코·라이프 입점 확대",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium",
+      "notes": "일본 만두(餃子, 교자) 시장은 큰데 한국식 차별화 성공. K-Food 붐 수혜."
+    },
+    {
+      "country": "DE",
+      "metric": "market_entry_status",
+      "value": "exploring",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "비비고 EU 진출 — REWE·Edeka 한국식 코너",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium",
+      "notes": "EU 식품 규제 통과 후 시범 진출. 메인스트림 아직 아님."
+    },
+    {
+      "country": "ID",
+      "metric": "regulatory_barrier",
+      "value": "obstacle",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "industry_report",
+        "title": "인도네시아 식품 수입 — 할랄 인증 의무",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium",
+      "notes": "돼지고기 포함 SKU 다수 → 할랄 인증 별도 SKU 필요. 진출 가능하나 SKU 분리 비용."
+    },
+    {
+      "country": "VN",
+      "metric": "growth_trajectory",
+      "value": "growing",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "베트남 K-Food 시장 성장 — 청년층 침투",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "JP",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "CJ제일제당 2024 IR — 일본 비비고 만두 매출",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "VN",
+      "metric": "revenue_rank_overseas",
+      "value": 4,
+      "rank": 4,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "베트남 비비고 — 청년 K-Wave 시장 침투",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "TH",
+      "metric": "revenue_rank_overseas",
+      "value": 5,
+      "rank": 5,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "태국 비비고 만두 — 7-Eleven 입점",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "low"
+    },
+    {
+      "country": "MX",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "멕시코 만두 시장 — 자국식 dumpling 약함, K-Food 한인 한정",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "low",
+      "notes": "라틴 시장은 dumpling 카테고리 자체가 small. tortilla/empanada 문화. K-Food 한인 마트 한정."
+    },
+    {
+      "country": "MY",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "말레이시아 K-Food 만두 — 할랄 SKU 진출",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "CJ제일제당 미국 Schwan's 인수 (2019) — 미국 만두 시장 압도",
+    "미국 만두 카테고리 점유율 40%+",
+    "Costco 한국식 만두 카테고리 베스트셀러"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2013",
+    "notes": "비비고 브랜드 글로벌 확장은 2019 Schwan's 인수 후 LLM 학습 데이터에 노출도 매우 높음. '미국 만두 시장 1위'는 거의 확실히 model이 알고 있음."
+  },
+  "reviewerNotes": "K-Food 미국 강세 케이스. 결함 #1 EU under-rating + #7 CN mass-average 검증용으로 좋은 fixture (CN이 truth top 2이지만 sim은 mass-average로 깎을 가능성)."
+}

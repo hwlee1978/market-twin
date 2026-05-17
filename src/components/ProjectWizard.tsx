@@ -11,6 +11,7 @@ import { CountryChipRow } from "@/components/ui/CountryChip";
 import { WIZARD_TEMPLATES } from "@/lib/wizard/templates";
 import type { FormState } from "@/lib/wizard/types";
 import { capture } from "@/lib/analytics/posthog";
+import { detectEchoBias, summarizeEchoBias } from "@/lib/validation/echo-bias-detector";
 
 const STEPS = ["product", "pricing", "countries", "competitors", "assets", "review"] as const;
 
@@ -514,6 +515,7 @@ export function ProjectWizard({ locale }: { locale: string }) {
                 onChange={(e) => update("description", e.target.value)}
               />
               <CharCounter value={form.description} min={10} />
+              <EchoBiasWarning text={form.description} />
             </Field>
           </>
         )}
@@ -1038,6 +1040,39 @@ function CharCounter({ value, min }: { value: string; min: number }) {
     >
       {enough ? `${len} characters` : `${len} / ${min} minimum`}
     </p>
+  );
+}
+
+// Defect #11 active sanitizer (Phase E Week 3, 2026-05-16).
+// Detects external-market-fact phrases in the description and flags them.
+// The simulator echoes facts in the description back as recommendations
+// instead of reasoning about them — surfaced first in validation memory
+// defect #6, reconfirmed in benchmark v1 (Bibigo 93.3 = description-echo
+// inflation of a leakage-high product).
+function EchoBiasWarning({ text }: { text: string }) {
+  const findings = useMemo(() => detectEchoBias(text), [text]);
+  const summary = summarizeEchoBias(findings);
+  if (!summary) return null;
+  return (
+    <div className="mt-2 flex gap-2 rounded-md border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900">
+      <AlertCircle className="mt-0.5 size-4 shrink-0" />
+      <div className="space-y-1">
+        <div className="font-medium">
+          외부 시장 사실로 보이는 {summary.count}개 표현이 감지되었습니다.
+        </div>
+        <div className="text-amber-800/90">
+          <span className="font-mono text-[11px]">
+            {summary.preview.map((p) => `"${p}"`).join(" · ")}
+          </span>
+          {summary.count > 3 ? ` 외 ${summary.count - 3}건` : ""}
+        </div>
+        <div>
+          시뮬레이션은 이 사실을 추론보다 그대로 echo할 수 있습니다 (정확도
+          저하 위험). 제품 본질(원료·기능·타겟·차별점)로 다시 쓰는 것을
+          권장합니다.
+        </div>
+      </div>
+    </div>
   );
 }
 

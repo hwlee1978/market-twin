@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "product": "Anua Heartleaf 77% Soothing Toner",
+  "category": "beauty",
+  "priceUsd": 20.0,
+  "originCountry": "KR",
+  "asOf": "2024-12-31",
+  "split": "HOLDOUT",
+  "candidateCountries": ["US", "JP", "ID", "CN", "GB", "DE", "TH", "VN", "MX", "MY"],
+  "evidence": [
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "company_press_release",
+        "title": "Anua 미국 매출 — Amazon US K-Beauty 베스트셀러",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium",
+      "notes": "2023-2024 TikTok / Sephora UK·US viral. Anua 브랜드 자체 매출 미공개 — Sephora·Amazon 베스트셀러 순위로 추정."
+    },
+    {
+      "country": "JP",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "Anua 일본 진출 2024 — @cosme + Qoo10 매출",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium",
+      "notes": "@cosme 베스트셀러 + 일본 K-Beauty 새 viral 브랜드 패턴."
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "일본 @cosme — Anua Heartleaf Toner 2024 신상품 1위",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium",
+      "notes": "어성초(Heartleaf) 진정 토너 카테고리 일본 viral. Qoo10·로프트 메인 채널."
+    },
+    {
+      "country": "GB",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "company_press_release",
+        "title": "Anua UK — Sephora UK + Cult Beauty 매출 (2024)",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "TH",
+      "metric": "revenue_rank_overseas",
+      "value": 4,
+      "rank": 4,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "태국 Anua 매출 — Eveandboy·Watsons 진정 토너 카테고리",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "low"
+    },
+    {
+      "country": "ID",
+      "metric": "revenue_rank_overseas",
+      "value": 5,
+      "rank": 5,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "인도네시아 Anua — Sociolla·Watsons Z세대 토너",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "low"
+    },
+    {
+      "country": "MX",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "멕시코 K-Beauty 침투 — 한인 시장 한정, K-Wave Z세대 일부",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium",
+      "notes": "스페인어권 메인 채널 부재. Sephora MX K-Beauty 코너 작음. $20은 mass-market mid-tier."
+    },
+    {
+      "country": "MY",
+      "metric": "regulatory_barrier",
+      "value": "obstacle",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "industry_report",
+        "title": "말레이시아 화장품 수입 — Halal 친화 인증 표기 + NPRA 등록",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "GB",
+      "metric": "channel_presence",
+      "value": "mainstream",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "company_press_release",
+        "title": "Anua UK Sephora·Cult Beauty 입점",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high",
+      "notes": "2024 Sephora UK K-Beauty 카테고리 확장의 핵심 브랜드."
+    },
+    {
+      "country": "DE",
+      "metric": "market_entry_status",
+      "value": "exploring",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "Anua 독일 진출 — Müller·dm 시범 입점",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "low",
+      "notes": "EU 진출 초기 단계. UK 대비 침투 지연."
+    },
+    {
+      "country": "CN",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "중국 샤오홍슈 — Anua 어성초 인지도 vs C-Beauty 경쟁",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "low",
+      "notes": "샤오홍슈 후기 일부 있으나 자국 C-Beauty (PROYA, Florasis) 경쟁 격렬."
+    },
+    {
+      "country": "ID",
+      "metric": "growth_trajectory",
+      "value": "growing",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "인도네시아 Sociolla·Watsons Anua 인기 — Z세대 진정 토너 트렌드",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "TH",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "태국 Eveandboy·Watsons Anua — K-Beauty 진정 카테고리",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "어성초 77% 진정 토너 — K-Beauty 진정/회복 카테고리 viral 신상",
+    "Sephora UK·US 2024 K-Beauty 신상 입점",
+    "Amazon US 토너 카테고리 베스트셀러"
+  ],
+  "leakageRisk": {
+    "inTrainingData": false,
+    "launchedBefore": "2022",
+    "notes": "Anua는 2022 출시 indie brand. 글로벌 viral은 2023-2024 — LLM 학습 데이터 cutoff에 일부 걸칠 가능성. 'Anua Heartleaf Toner Amazon 베스트셀러'까진 model이 알 수도 있으나, 정확한 국가별 매출 분포는 거의 확실히 모름. 본 fixture의 핵심 가치 = leakage-LOW 첫 HOLDOUT."
+  },
+  "reviewerNotes": "HOLDOUT + 비교적 낮은 leakage (post-cutoff viral). Anua는 2024-2025 K-Beauty viral인데 description에 사실 명시하지 않으면 sim이 'C-Beauty 강세 CN 추천' 같은 추론 오류 낼 수 있는지 검증. 결함 #4 LLM bias 진단용."
+}

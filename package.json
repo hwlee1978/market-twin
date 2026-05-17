@@ -29,7 +29,12 @@
     "analyze:ensemble": "tsx --env-file=.env.local scripts/ensemble-analysis.ts",
     "ensemble:run": "tsx --env-file=.env.local scripts/run-ensemble.ts",
     "smoke:ensemble-pdf": "tsx --env-file=.env.local scripts/smoke-ensemble-pdf.ts",
-    "smoke:ensemble-e2e": "tsx --env-file=.env.local scripts/smoke-ensemble-e2e.ts"
+    "smoke:ensemble-e2e": "tsx --env-file=.env.local scripts/smoke-ensemble-e2e.ts",
+    "validation:status": "tsx --env-file=.env.local scripts/validation-status.ts",
+    "benchmark": "tsx --env-file=.env.local scripts/benchmark.ts",
+    "benchmark:auto": "tsx --env-file=.env.local scripts/benchmark.ts --single",
+    "benchmark:run": "tsx --env-file=.env.local scripts/benchmark-run.ts",
+    "compare:ensembles": "tsx --env-file=.env.local scripts/compare-ensembles.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

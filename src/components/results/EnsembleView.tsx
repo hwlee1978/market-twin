@@ -113,6 +113,68 @@ interface EnsembleResult {
  * KO / EN — neutral copy, no marketing fluff, geared at non-marketing
  * founders reading the report.
  */
+/**
+ * Defect #12 badge (Phase E Week 3, 2026-05-16). Even a STRONG consensus
+ * is weak evidence when it comes from a single provider — Anthropic's
+ * CN bias on K-Beauty in benchmark v1 produced 80% STRONG that was
+ * wrong 4/5 times. The badge tells the user *what kind* of consensus
+ * they're looking at so they can read STRONG correctly.
+ *
+ *   cross-model      — green, "different model providers agree"
+ *   single-provider  — amber, "one provider dominates" (caution flag)
+ *   mixed / n/a      — neutral or hidden
+ */
+function ConsensusTypeBadge({
+  type,
+  isKo,
+}: {
+  type?: "cross-model" | "single-provider" | "mixed" | "n/a";
+  isKo: boolean;
+}) {
+  if (!type || type === "n/a") return null;
+  if (type === "cross-model") {
+    return (
+      <span
+        className="ml-2 inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-800"
+        title={
+          isKo
+            ? "여러 LLM 제공자가 일관되게 동의한 합의. 단일 모델 prior에 의존하지 않은 결과입니다."
+            : "Multiple LLM providers agreed consistently. Result not driven by a single-model prior."
+        }
+      >
+        {isKo ? "교차모델 합의" : "cross-model"}
+      </span>
+    );
+  }
+  if (type === "single-provider") {
+    return (
+      <span
+        className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800"
+        title={
+          isKo
+            ? "하나의 LLM 제공자가 합의를 주도합니다. 그 모델의 prior가 결과를 결정한 가능성이 있어 다른 tier(deep)에서 재검증을 권장합니다."
+            : "One LLM provider drives the consensus. The model's prior may be dominating the result; re-validate at a higher tier (deep) before acting."
+        }
+      >
+        {isKo ? "⚠ 단일모델 우세" : "⚠ single-provider"}
+      </span>
+    );
+  }
+  // type === "mixed"
+  return (
+    <span
+      className="ml-2 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700"
+      title={
+        isKo
+          ? "여러 모델이 부분적으로 동의하나 명확한 cross-model 합의는 아닙니다."
+          : "Providers partially agree but no clear cross-model consensus."
+      }
+    >
+      {isKo ? "혼합" : "mixed"}
+    </span>
+  );
+}
+
 function IncomeIntentHelpKo() {
   return (
     <>
@@ -1286,6 +1348,7 @@ function SummaryTab({
                   {recommendation.consensusPercent}% {isKo ? "합의" : "consensus"}
                 </span>
                 <span className="text-slate-500 ml-2">({recommendation.confidence})</span>
+                <ConsensusTypeBadge type={recommendation.consensusType} isKo={isKo} />
               </div>
             </div>
           </div>

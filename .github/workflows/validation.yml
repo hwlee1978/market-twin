@@ -1,0 +1,69 @@
+name: Validation
+
+# Two jobs:
+#
+#   schema-status  — runs on every push/PR. Cheap (no DB, no LLM). Validates
+#                    ground-truth JSON against the schema and audits
+#                    calibration-anchor↔HOLDOUT split sync. Fails the build if
+#                    a critical sync finding exists. Catches "TUNING_ANCHOR
+#                    declares jinro-chamisul as holdout but ground truth says
+#                    TUNING" style drift before it ships.
+#
+#   benchmark      — manual trigger only (`workflow_dispatch`). Connects to
+#                    Supabase and scores the latest ensembles against ground
+#                    truth, then posts a summary to the run log. Skipped by
+#                    default because it hits live DB and costs minutes of
+#                    runtime. Intended for pre-release verification.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_benchmark:
+        description: 'Also run benchmark job (requires DATABASE_URL secret)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+
+jobs:
+  schema-status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      # No DB env needed — validation-status only reads files. Stub the
+      # DATABASE_URL so dotenv doesn't fail-fast.
+      - name: Validation status
+        env:
+          DATABASE_URL: postgresql://stub
+        run: npx tsx scripts/validation-status.ts
+
+  benchmark:
+    # Only runs on manual dispatch with run_benchmark=true. Requires
+    # DATABASE_URL secret pointing at a read-only role on the production DB,
+    # OR a staging snapshot.
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_benchmark == 'true'
+    needs: schema-status
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL_READONLY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - name: Auto-resolve latest ensembles + score
+        run: npx tsx scripts/benchmark.ts --single

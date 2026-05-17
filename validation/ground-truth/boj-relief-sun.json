@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "product": "Beauty of Joseon Relief Sun: Rice + Probiotics SPF50+",
+  "category": "beauty",
+  "priceUsd": 18.0,
+  "originCountry": "KR",
+  "asOf": "2024-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["US", "JP", "ID", "CN", "GB", "DE", "TH", "VN", "MX", "MY"],
+  "evidence": [
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "Beauty of Joseon Relief Sun — Amazon US 2024 K-Beauty 자외선차단제 부동의 1위",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high",
+      "notes": "2023-2024 TikTok viral '한국 선크림' 카테고리 대명사. Sephora US·Ulta·Amazon 매출 1위. Relief Sun 단일 SKU로 카테고리 압도."
+    },
+    {
+      "country": "US",
+      "metric": "market_share_pct",
+      "value": 30,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "market_research",
+        "title": "미국 K-Beauty 자외선차단제 시장 — BOJ 단일 SKU 점유율",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium",
+      "notes": "K-Beauty 카테고리 내 점유율 (전체 미국 자외선차단제는 Neutrogena·CeraVe 등이 더 큼)."
+    },
+    {
+      "country": "GB",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "Beauty of Joseon UK — Sephora·Boots·Cult Beauty 2024 매출 1위",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "GB",
+      "metric": "channel_presence",
+      "value": "mainstream",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "company_press_release",
+        "title": "BOJ Relief Sun — Sephora UK·Boots·Cult Beauty 메인 진열",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high",
+      "notes": "UK Sephora K-Beauty 카테고리 #1 자외선차단제."
+    },
+    {
+      "country": "TH",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "태국 BOJ — Eveandboy·Watsons K-Beauty 자외선차단제",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "DE",
+      "metric": "revenue_rank_overseas",
+      "value": 4,
+      "rank": 4,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "BOJ 독일 — Müller·dm 입점 후 EU 매출 증가",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "low"
+    },
+    {
+      "country": "ID",
+      "metric": "revenue_rank_overseas",
+      "value": 5,
+      "rank": 5,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "market_research",
+        "title": "인도네시아 BOJ — Sociolla 자외선차단제 카테고리",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "low"
+    },
+    {
+      "country": "MX",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "멕시코 K-Beauty 자외선차단제 — 한인 시장 외 mainstream 부재",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium",
+      "notes": "라틴 시장은 현지 SPF (La Roche-Posay, Eucerin) + 자국 인지도 강. $18 mass entry 어려움."
+    },
+    {
+      "country": "MY",
+      "metric": "regulatory_barrier",
+      "value": "obstacle",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "industry_report",
+        "title": "말레이시아 자외선차단제 — NPRA 등록 + Halal 친화 마케팅",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "일본 자외선차단제 시장 — 자국 Biore·Anessa 압도, BOJ niche",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high",
+      "notes": "일본 자외선차단제 시장 자체가 saturated. Biore UV Aqua Rich, Anessa, Allie 등 자국 브랜드 강세. BOJ는 @cosme 한국 자외선차단제 카테고리 1위 정도 — 일본 전체 mainstream 아님."
+    },
+    {
+      "country": "DE",
+      "metric": "growth_trajectory",
+      "value": "growing",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "독일 K-Beauty 자외선차단제 — BOJ Müller·dm 입점 확대",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "CN",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "중국 자외선차단제 시장 — Mistine, 자국 C-Beauty 강세",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium",
+      "notes": "중국 자국 SPF 브랜드 + 자외선차단제 카테고리 자국 점유율 매우 높음. K-Beauty 자외선차단제 침투 미약."
+    },
+    {
+      "country": "TH",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "태국 K-Beauty viral — BOJ Eveandboy·Watsons 입점",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium",
+      "notes": "동남아 자외선차단제 수요 + K-Wave 결합. 가격대 $18 = 도시 중상위 ICP."
+    },
+    {
+      "country": "ID",
+      "metric": "growth_trajectory",
+      "value": "growing",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "인도네시아 자외선차단제 — Z세대 K-Beauty 침투 가속",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "Beauty of Joseon Relief Sun — TikTok '한국 선크림' 2023 viral",
+    "Amazon US K-Beauty 자외선차단제 카테고리 1위",
+    "Sephora UK·US K-Beauty 진출 핵심 브랜드"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2022",
+    "notes": "BOJ Relief Sun viral은 2023 TikTok에서 — LLM 학습 데이터에 다수 포함. 'Amazon US 1위' 같은 사실은 잘 알려짐. Anua보다 leakage 높음."
+  },
+  "reviewerNotes": "TUNING — 미국 mass-channel + 영국 mainstream + 동남아 신흥 성장 패턴. 일본 자국 자외선차단제 강세 + 중국 약세는 K-Beauty 일관 패턴 (COSRX와 동일)."
+}

@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "product": "농심 신라면",
+  "category": "food",
+  "priceUsd": 1.5,
+  "originCountry": "KR",
+  "asOf": "2024-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["US", "JP", "ID", "CN", "GB", "DE", "TH", "VN", "MX", "MY"],
+  "evidence": [
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "농심 2024 사업보고서 — 미국 단일 시장 매출 1위",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "high",
+      "notes": "LA 공장 2개 가동. 미국 라면 시장에서 한국 라면 카테고리 압도적 1위."
+    },
+    {
+      "country": "US",
+      "metric": "market_share_pct",
+      "value": 25,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "market_research",
+        "title": "미국 라면 시장 점유율 — 농심·삼양·CJ 합산 약 25%",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium",
+      "notes": "외국 라면 (non-Japanese) 카테고리 90%+ 농심. 일본 닛신·동양수산 강세 일부 시장 잠식 중."
+    },
+    {
+      "country": "CN",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "농심 2024 IR — 중국 매출 회복세",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "high",
+      "notes": "사드 영향으로 2017-2020 침체. 2023-2024 회복세. 상하이 공장 운영 중."
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "일본 라면 시장 — 자국 브랜드 90%+ saturation",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "high",
+      "notes": "일본은 라면 종주국이자 닛신·산요 등 강력 incumbent 보유. 한국 라면 수용도 낮음. 진출은 했으나 niche."
+    },
+    {
+      "country": "EU",
+      "metric": "growth_trajectory",
+      "value": "growing",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "EU K-Food 수출 급성장 — 농심 유럽법인 매출 50%+ 증가",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "DE",
+      "metric": "market_entry_status",
+      "value": "exploring",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "농심 독일 진출 — Edeka·Rewe 채널 시범 입점",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium",
+      "notes": "EU 식품 첨가물 규제 통과 후 본격 확장 중. NO-GO 아님."
+    },
+    {
+      "country": "VN",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "market_research",
+        "title": "농심 동남아 — 베트남 매출 성장 (K-Wave 라면)",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "ID",
+      "metric": "revenue_rank_overseas",
+      "value": 4,
+      "rank": 4,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "인도네시아 한국 라면 시장 — 할랄 SKU + 무슬림 침투",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "TH",
+      "metric": "revenue_rank_overseas",
+      "value": 5,
+      "rank": 5,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "태국 K-Food 라면 — 7-Eleven·BigC 입점 확대",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "low"
+    },
+    {
+      "country": "VN",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "베트남 K-Food 시장 — 청년층 K-Wave 침투",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "MX",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "멕시코 라면 시장 — Maruchan 자국 강세 + Nongshim 한인 시장",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium",
+      "notes": "멕시코는 라면 시장 자체가 큰데 Maruchan이 압도. 한국 라면은 한인 마트 + Costco 한정."
+    },
+    {
+      "country": "MY",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "말레이시아 K-Food 라면 — 할랄 친화 마케팅",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "농심 미국 LA 공장 2개 운영",
+    "미국 라면 시장에서 외국 라면 90%+ 점유",
+    "농심 2024 해외매출 비중 40%+"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "1986",
+    "notes": "신라면 1986 출시. 글로벌 1위 K-Food 브랜드. 'LA 공장 2개' 같은 공개 사실은 LLM이 학습으로 알고 있을 가능성 높음. Description echo bias 위험 가장 큰 케이스 (4차 검증서 description에 'LA 공장 2개'/'외국 라면 90% 점유' 명시 → JP 1위 추천 48% STRONG-ish 합의 발생). Echo-제거된 description으로 재검증 필수."
+  },
+  "reviewerNotes": "4차 검증 (4fc8bfef) accuracy 50% — echo bias 포함된 과대평가. 깨끗한 description 베이스라인은 40% 추정. JP 67% recommendation 명백한 over (실제 weak market)."
+}

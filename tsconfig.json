@@ -31,6 +31,7 @@
       "@/lib/decision-aid/*": ["./packages/shared/src/decision-aid/*"],
       "@/lib/market-research/*": ["./packages/shared/src/market-research/*"],
       "@/lib/quality/*": ["./packages/shared/src/quality/*"],
+      "@/lib/validation/*": ["./packages/shared/src/validation/*"],
       "@/lib/format/*": ["./packages/shared/src/format/*"],
       "@/lib/countries": ["./packages/shared/src/countries"],
       "@/lib/supabase/admin": ["./packages/shared/src/supabase/admin"],

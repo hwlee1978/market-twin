@@ -314,6 +314,23 @@ export interface EnsembleAggregate {
     country: string;
     consensusPercent: number;
     confidence: "STRONG" | "MODERATE" | "WEAK";
+    /**
+     * Defect #12 fix (Phase E Week 3, 2026-05-16). Whether the consensus
+     * is genuinely cross-model or dominated by one provider's prior.
+     *
+     *   - "cross-model"     ≥2 providers each contributed ≥40% of their
+     *                       sims agreeing with the winner. Genuine
+     *                       inter-model consensus.
+     *   - "single-provider" one provider produced ≥50% of the
+     *                       winner-agreeing sims AND other providers
+     *                       disagreed. Risk of single-model bias.
+     *   - "mixed"           single-LLM tier (hypothesis), or providers
+     *                       split without one dominating. Default-cautious.
+     *   - "n/a"             can't be computed (single provider only, or
+     *                       no winner). UI should fall back to displaying
+     *                       confidence alone.
+     */
+    consensusType?: "cross-model" | "single-provider" | "mixed" | "n/a";
   };
 
   countryStats: CountryStats[];
@@ -916,39 +933,61 @@ export function aggregateEnsemble(
     }))
     .sort((a, b) => b.count - a.count);
 
-  // ── Phase D (2026-05-15): winner picked by aggregate finalScore mean ──
-  // Why we override the vote-mode winner: 6th Buldak validation showed
-  // mean finalScore says US > ID (68.2 vs 66.6) yet vote mode picked ID 41%
-  // because per-sim bestCountry is dominated by whichever country spikes
-  // highest in that individual sim (high-variance LLM emits). Aggregate
-  // mean is more robust to that bimodal noise. Confidence is recomputed
-  // as "% of sims where this country is in top-3 by finalScore" — softer
-  // than strict #1 vote, captures consistent high-rank performance.
-  // Falls back to vote-mode winner when no sim-level finalScore data is
-  // available (legacy / corrupt sims).
-  const meanByCountry = new Map<string, { sum: number; n: number }>();
+  // ── Phase E (2026-05-16): winner picked by mean rank, tie-broken by mean score ──
+  // Supersedes the Phase D mean-finalScore picker. Benchmark v1
+  // (2026-05-16) found 6/10 products had the truth top in the sim's
+  // finalScore Top-3 yet the picker selected a different country. Root
+  // cause: a single sim where the wrong country spikes 90+ inflates that
+  // country's *mean finalScore* enough to outrank a country that ranks
+  // 2-3 consistently across every sim.
+  //
+  // Mean rank ignores magnitude and only rewards consistent placement:
+  // ranking 2 in every sim beats ranking 1 once and 8 four times. Tie-
+  // breaking by mean finalScore preserves the original signal when ranks
+  // are genuinely close. Confidence remains "% of sims where the winner
+  // lands in Top-3" — same metric as Phase D, still meaningful.
+  //
+  // Falls back to vote-mode winner when no sim has finalScore data.
+  const rankByCountry = new Map<string, number[]>();
+  const scoreByCountry = new Map<string, { sum: number; n: number }>();
   for (const s of sims) {
-    for (const c of s.countries) {
+    const sorted = [...s.countries].sort((a, b) => b.finalScore - a.finalScore);
+    sorted.forEach((c, i) => {
       const k = c.country.toUpperCase();
-      const cur = meanByCountry.get(k) ?? { sum: 0, n: 0 };
-      cur.sum += c.finalScore;
-      cur.n += 1;
-      meanByCountry.set(k, cur);
-    }
+      const ranks = rankByCountry.get(k) ?? [];
+      ranks.push(i + 1);
+      rankByCountry.set(k, ranks);
+      const score = scoreByCountry.get(k) ?? { sum: 0, n: 0 };
+      score.sum += c.finalScore;
+      score.n += 1;
+      scoreByCountry.set(k, score);
+    });
   }
-  const meanRanking = [...meanByCountry.entries()]
-    .map(([country, agg]) => ({ country, mean: agg.n > 0 ? agg.sum / agg.n : 0 }))
-    .sort((a, b) => b.mean - a.mean);
-  const phaseDWinnerCountry = meanRanking[0]?.country ?? null;
-  // top-3 hit rate for the mean winner across sims
+  const meanRanking = [...rankByCountry.entries()]
+    .map(([country, ranks]) => {
+      const meanRank = ranks.reduce((a, b) => a + b, 0) / ranks.length;
+      const score = scoreByCountry.get(country)!;
+      const meanScore = score.n > 0 ? score.sum / score.n : 0;
+      return { country, meanRank, meanScore };
+    })
+    // Primary: lowest mean rank (1=best). Secondary tie-break: higher mean
+    // score. The 1e-3 floor avoids float jitter triggering a tie-break flip
+    // for effectively-identical ranks.
+    .sort((a, b) => {
+      const dr = a.meanRank - b.meanRank;
+      if (Math.abs(dr) > 1e-3) return dr;
+      return b.meanScore - a.meanScore;
+    });
+  const phaseEWinnerCountry = meanRanking[0]?.country ?? null;
+  // Top-3 hit rate as confidence — same definition as Phase D.
   let top3Hits = 0;
   for (const s of sims) {
     const sorted = [...s.countries].sort((a, b) => b.finalScore - a.finalScore);
     const top3 = sorted.slice(0, 3).map((c) => c.country.toUpperCase());
-    if (phaseDWinnerCountry && top3.includes(phaseDWinnerCountry)) top3Hits++;
+    if (phaseEWinnerCountry && top3.includes(phaseEWinnerCountry)) top3Hits++;
   }
-  const winner = phaseDWinnerCountry
-    ? { country: phaseDWinnerCountry, count: top3Hits, percent: Math.round((top3Hits / simCount) * 100) }
+  const winner = phaseEWinnerCountry
+    ? { country: phaseEWinnerCountry, count: top3Hits, percent: Math.round((top3Hits / simCount) * 100) }
     : bestCountryDistribution[0];
   const consensusPercent = winner ? Math.round((winner.count / simCount) * 100) : 0;
   const confidence: "STRONG" | "MODERATE" | "WEAK" =
@@ -1388,6 +1427,45 @@ export function aggregateEnsemble(
   // ── provider breakdown (only when sims span 2+ providers) ──
   const providerBreakdown = computeProviderBreakdown(sims, winner?.country ?? null);
 
+  // ── Defect #12 (Phase E Week 3): cross-model vs single-provider consensus ──
+  // STRONG label alone misled users on benchmark v1 where Anthropic-only
+  // tier produced 80% STRONG on K-Beauty CN that was wrong 4/5 times.
+  // Now we classify whether the consensus is real (multiple providers
+  // agreeing) or a single-provider echo (one provider dominating the
+  // agreeing sims). UI uses this to badge STRONG label appropriately.
+  const consensusType: "cross-model" | "single-provider" | "mixed" | "n/a" = (() => {
+    if (!winner || !providerBreakdown || providerBreakdown.length === 0) return "n/a";
+    if (providerBreakdown.length === 1) return "n/a"; // single-LLM tier
+    const agreeingByProvider = providerBreakdown
+      .map((p) => ({ provider: p.provider, agreePct: p.agreementWithOverallPercent, simCount: p.simCount }))
+      .filter((p) => p.agreePct > 0);
+    if (agreeingByProvider.length === 0) return "mixed";
+    // "cross-model": ≥2 providers each agree ≥40% within their own sims
+    const strongAgreers = agreeingByProvider.filter((p) => p.agreePct >= 40);
+    if (strongAgreers.length >= 2) return "cross-model";
+    // "single-provider": one provider's sims account for >50% of all
+    // winner-agreeing sims AND that provider's agreement >= 50% while the
+    // others are <30%
+    const totalAgreeingSims = agreeingByProvider.reduce(
+      (acc, p) => acc + (p.simCount * p.agreePct) / 100,
+      0,
+    );
+    if (totalAgreeingSims === 0) return "mixed";
+    const sortedByContribution = [...agreeingByProvider].sort((a, b) => {
+      const aContrib = (a.simCount * a.agreePct) / 100;
+      const bContrib = (b.simCount * b.agreePct) / 100;
+      return bContrib - aContrib;
+    });
+    const topContribution =
+      (sortedByContribution[0].simCount * sortedByContribution[0].agreePct) / 100;
+    const topShareOfAgreers = topContribution / totalAgreeingSims;
+    const othersWeak = sortedByContribution
+      .slice(1)
+      .every((p) => p.agreePct < 30);
+    if (topShareOfAgreers >= 0.5 && othersWeak) return "single-provider";
+    return "mixed";
+  })();
+
   // ── personas / pricing / creative aggregates ──
   const personas = computePersonasAggregate(sims);
   const pricing = computePricingAggregate(sims);
@@ -1417,6 +1495,7 @@ export function aggregateEnsemble(
       country: winner?.country ?? "?",
       consensusPercent,
       confidence,
+      consensusType,
     },
     countryStats,
     segments,

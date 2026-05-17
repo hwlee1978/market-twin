@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "product": "진로 참이슬 오리지널",
+  "category": "alcohol",
+  "priceUsd": 2.5,
+  "originCountry": "KR",
+  "asOf": "2024-12-31",
+  "split": "HOLDOUT",
+  "candidateCountries": ["US", "JP", "TW", "TH", "VN", "SG", "CN", "AU", "DE", "GB"],
+  "evidence": [
+    {
+      "country": "JP",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "하이트진로 2024 사업보고서 — 일본 시장 해외매출 1위",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "high",
+      "notes": "일본 소주 시장 약 1000억원 규모, 진로 점유율 압도적. 일본 자체 소주(芋焼酎)와 별개 카테고리."
+    },
+    {
+      "country": "JP",
+      "metric": "market_share_pct",
+      "value": 60,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "market_research",
+        "title": "일본 한국식 소주 시장 점유율 — 진로/처음처럼 양강",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium",
+      "notes": "한국식 희석식 소주(韓国焼酎) 카테고리 내 점유율. 일본 전체 주류는 아님."
+    },
+    {
+      "country": "VN",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "하이트진로 2024 IR — 베트남 진로24 진출 가속",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "high",
+      "notes": "베트남 진로24 프랜차이즈 한식주점 확장. K-Wave 청년층 수요."
+    },
+    {
+      "country": "US",
+      "metric": "market_entry_status",
+      "value": "entered",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "company_press_release",
+        "title": "하이트진로 LA 본사 — 미주 직판 운영",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "high",
+      "notes": "LA 본사 통해 미주 한인 시장 + 멕시칸 시장 일부 접근. 한인 식당·H-Mart·Korean BBQ 채널 중심."
+    },
+    {
+      "country": "TW",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "대만 K-Wave 음주문화 침투 — 진로 편의점 입점 확대",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium",
+      "notes": "대만 7-Eleven·Family Mart 한국식 소주 코너 보편화."
+    },
+    {
+      "country": "CN",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "중국 주류 시장 — 백주(白酒) 절대 우위",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "high",
+      "notes": "중국은 백주(마오타이·우량예) 압도적. 외국 증류주 진입 매우 어려움. 진로 매출 미미."
+    },
+    {
+      "country": "TH",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "태국 K-Wave 한식주점 확장 — 진로 BBQ·삼겹살집 페어링",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "DE",
+      "metric": "regulatory_barrier",
+      "value": "obstacle",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "industry_report",
+        "title": "EU 주류 수입 규제 + 독일 주류세",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium",
+      "notes": "20% 도수 + 주류세로 가격 경쟁력 약화. 진출은 가능하나 채널 확장 어려움."
+    },
+    {
+      "country": "AU",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "호주 K-BBQ 인기 — 한식주점 채널 진로 페어링",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "low"
+    },
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "하이트진로 2024 IR — 미주 매출 (LA 본사 + 한인 + 멕시칸)",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "TW",
+      "metric": "revenue_rank_overseas",
+      "value": 4,
+      "rank": 4,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "대만 한국식 소주 매출 — 편의점·드럭스토어 확장",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "TH",
+      "metric": "revenue_rank_overseas",
+      "value": 5,
+      "rank": 5,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "태국 K-BBQ 한식주점 페어링 + 진로 매출",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "low"
+    },
+    {
+      "country": "SG",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "싱가포르 K-Wave 알코올 시장 — 한식주점 + 프리미엄 채널",
+        "accessedAt": "2026-05-15"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "하이트진로 LA 본사 운영 (미주 직판)",
+    "베트남 진로24 프랜차이즈 확장 중",
+    "일본 한국식 소주 시장 1위"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "1998",
+    "notes": "참이슬 1998 출시, 글로벌 K-Wave 상징. 일본 시장 1위는 LLM이 학습으로 알 가능성 매우 높음. HOLDOUT으로 지정했지만 leakage 위험 자체는 큼 — 정확한 holdout 효과 측정 위해서는 출시 1년 미만 신상품 추가 필요."
+  },
+  "reviewerNotes": "HOLDOUT split — calibration framework가 진로를 holdout으로 고정. 4차 검증 (315a49ae) 60% accuracy = #5 LTV 단독 효과 (worker 미배포 상태). 7차 검증 (79934f1f, Phase A+B+v2+D) US 33% + TW 33% 공동 1위 — 실제 JP 1위 + VN 2위 ground truth와 over-correction 의심 (JP 24%→10%, VN 20%→0%)."
+}

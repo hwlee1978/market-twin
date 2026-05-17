@@ -23,6 +23,10 @@ voice-compare-*.md
 validate-categories-*.md
 smoke-ensemble-*.pdf
 
+# Private validation holdouts (NDA'd interviews, sensitive commercial data).
+# Public ground truth lives in validation/ground-truth/ — committed.
+validation/ground-truth-private/
+
 # Pitch deck experiments / superseded artifacts
 # (PITCH_DECK.html is the canonical, committed deck)
 *.pptx

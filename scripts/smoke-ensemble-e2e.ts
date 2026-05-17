@@ -26,6 +26,12 @@ import type {
   ProjectInput,
 } from "../packages/shared/src/simulation/schemas";
 
+// Mirrors packages/shared/src/simulation/orchestrator.ts TIER_PRESETS exactly.
+// When provider mix or parallelSim count changes there, change it here too
+// (two locations because this script doesn't go through Next.js routes and
+// can't import the orchestrator module without bringing in supabase admin).
+// `deep-3` and `decision_plus` here intentionally differ from orchestrator:
+// they're dev-only variants exercising multi-LLM cheaply.
 const TIER_PRESETS = {
   hypothesis: {
     parallelSims: 1,
@@ -33,19 +39,20 @@ const TIER_PRESETS = {
     llmProviders: ["anthropic"] as const,
   },
   decision: {
-    parallelSims: 5,
+    parallelSims: 6,
     perSimPersonas: 200,
-    llmProviders: ["anthropic"] as const,
+    // Synced with orchestrator after defect #9 fix (2026-05-16).
+    llmProviders: ["anthropic", "openai", "deepseek"] as const,
   },
   decision_plus: {
     parallelSims: 15,
     perSimPersonas: 200,
-    llmProviders: ["anthropic"] as const,
+    llmProviders: ["anthropic", "openai", "deepseek"] as const,
   },
   deep: {
     parallelSims: 25,
     perSimPersonas: 200,
-    llmProviders: ["anthropic", "openai", "gemini"] as const,
+    llmProviders: ["anthropic", "openai", "deepseek"] as const,
   },
   deep_pro: {
     parallelSims: 50,
@@ -58,12 +65,12 @@ const TIER_PRESETS = {
   "deep-3": {
     parallelSims: 3,
     perSimPersonas: 200,
-    llmProviders: ["anthropic", "openai", "gemini"] as const,
+    llmProviders: ["anthropic", "openai", "deepseek"] as const,
     storedTier: "deep" as const,
   },
 } as const;
 type Tier = keyof typeof TIER_PRESETS;
-type ProviderName = "anthropic" | "openai" | "gemini";
+type ProviderName = "anthropic" | "openai" | "gemini" | "deepseek";
 
 // Mirrors src/app/api/projects/[id]/run-ensemble/route.ts so the smoke
 // driver exercises the same per-provider concurrency cap as production.
@@ -72,6 +79,7 @@ const PROVIDER_SIM_CONCURRENCY: Record<ProviderName, number> = {
   anthropic: 12,
   openai: 12,
   gemini: 4,
+  deepseek: 12,
 };
 
 function admin() {
@@ -212,6 +220,49 @@ async function main() {
     `\nRunning ${preset.parallelSims} sim(s) (${groupSummary}) — gemini cap ${PROVIDER_SIM_CONCURRENCY.gemini}`,
   );
 
+  // Phase E Week 4-5 (2026-05-16): UN Comtrade prefetch. Same logic as
+  // orchestrator.ts so smoke-driven runs see the same anchor as
+  // production-routed runs.
+  let tradeAnchorBlock = "";
+  try {
+    const { buildComtradeAnchor } = await import(
+      "../packages/shared/src/market-research/comtrade"
+    );
+    const { block } = await buildComtradeAnchor(
+      projectInput.category,
+      projectInput.candidateCountries,
+      { apiKey: process.env.COMTRADE_API_KEY, locale: "ko" },
+    );
+    tradeAnchorBlock = block;
+    if (block) {
+      console.log(`Comtrade anchor: ${block.split("\n").length} lines (HSCode-aggregate K-export evidence)`);
+    } else {
+      console.log("Comtrade anchor: empty (no data or unsupported category)");
+    }
+  } catch (err) {
+    console.warn(`Comtrade anchor build failed: ${(err as Error).message}`);
+  }
+
+  // Phase F.0-2 (2026-05-17): World Bank macro indicators prefetch.
+  let worldBankBlock = "";
+  try {
+    const { buildWorldBankAnchor } = await import(
+      "../packages/shared/src/market-research/world-bank"
+    );
+    const { block, rows } = await buildWorldBankAnchor(
+      projectInput.candidateCountries,
+      "ko",
+    );
+    worldBankBlock = block;
+    if (block) {
+      console.log(`World Bank macro anchor: ${rows.length} countries fetched`);
+    } else {
+      console.log("World Bank macro anchor: empty (fetch failed)");
+    }
+  } catch (err) {
+    console.warn(`World Bank anchor build failed: ${(err as Error).message}`);
+  }
+
   const runOne = async ({
     id: simId,
     index,
@@ -225,6 +276,8 @@ async function main() {
         locale: "ko",
         seedOverride: `${ensembleId}-${index}`,
         provider,
+        tradeAnchorBlock,
+        worldBankBlock,
       });
       console.log(`  ✓ sim ${index} (${simId.slice(0, 8)}) [${provider}] done`);
     } catch (err) {

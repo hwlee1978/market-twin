@@ -51,7 +51,13 @@ export const CATEGORY_LTV_MULTIPLIER = calibrated<Record<Category, number>>(
       "Shin Ramyun (2nd run, 2026-05-14) — single-purchase M:R 2,751% wrong call",
       "COSRX (3rd run, 2026-05-14) — single-purchase M:R 205% wrong call",
     ],
-    holdoutProducts: [],
+    // anua (beauty=4) and lg-oled (electronics=1.2) exercise the upper and
+    // lower bands of the multiplier table. jinro maps via fallback (alcohol →
+    // other → 1.5), which is itself a calibration question worth verifying:
+    // alcohol's true repeat cycle is monthly+ for incumbents like Jinro, so
+    // the fallback to 1.5 likely understates LTV. Treat any jinro M:R red
+    // flag in benchmark as a hint that this anchor needs an alcohol entry.
+    holdoutProducts: ["anua-heartleaf-toner", "lg-oled-tv-c-series", "jinro-chamisul"],
     lastReviewed: "2026-05-14",
     reviewBy: "2026-08-14",
   },

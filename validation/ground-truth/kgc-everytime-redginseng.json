@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 1,
+  "product": "정관장 홍삼정 에브리타임 (KGC CheongKwanJang Everytime Red Ginseng Sticks)",
+  "category": "health",
+  "priceUsd": 30.0,
+  "originCountry": "KR",
+  "asOf": "2024-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["US", "JP", "CN", "TW", "HK", "TH", "VN", "SG", "MY", "ID"],
+  "evidence": [
+    {
+      "country": "CN",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "한국인삼공사 (KGC) 2024 사업보고서 — 중국 면세점 매출 1위",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high",
+      "notes": "중국 면세점 + 타오바오 글로벌 강세. 한방 보양 전통 + 정관장 브랜드 인지도 압도적."
+    },
+    {
+      "country": "TW",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "KGC 2024 IR — 대만 약국·드럭스토어 채널 강세",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "US",
+      "metric": "growth_trajectory",
+      "value": "growing",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "정관장 미국 시장 진출 — H-Mart + Whole Foods 입점",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium",
+      "notes": "한인 시장 + Wellness 트렌드. K-Wellness 카테고리 등장."
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "일본 한방 보양식 시장 — 정관장 점유율",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium",
+      "notes": "일본 한방(漢方) 전통 + 정관장 브랜드 인지도. 약국 + 백화점 채널."
+    },
+    {
+      "country": "VN",
+      "metric": "growth_trajectory",
+      "value": "growing",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "베트남 정관장 매장 확장 — K-Wave 건강식품 수요",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "SG",
+      "metric": "channel_presence",
+      "value": "mainstream",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "company_press_release",
+        "title": "정관장 싱가포르 Watsons·Guardian 입점",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "MY",
+      "metric": "regulatory_barrier",
+      "value": "obstacle",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "industry_report",
+        "title": "말레이시아 건강식품 수입 — Halal 인증 요구",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium",
+      "notes": "할랄 인증 별도 SKU. 인삼 자체 할랄이지만 캡슐 젤라틴 등 부재료 검토."
+    },
+    {
+      "country": "ID",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "인도네시아 한방 건강식품 침투 — 도시 중상위층",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "low"
+    },
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "KGC 2024 IR — 미주 한방 wellness 매출",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium",
+      "notes": "H-Mart + Whole Foods Wellness 카테고리. K-Wellness 미국 신흥 성장."
+    },
+    {
+      "country": "JP",
+      "metric": "revenue_rank_overseas",
+      "value": 4,
+      "rank": 4,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "KGC 2024 IR — 일본 한방(漢方) 채널 매출",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "HK",
+      "metric": "revenue_rank_overseas",
+      "value": 5,
+      "rank": 5,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "market_research",
+        "title": "홍콩 한방 건강식품 — 정관장 매장 안정",
+        "accessedAt": "2026-05-16"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "정관장(KGC) = 한국인삼공사, 정부 출자 한방 인삼 독점 브랜드",
+    "중국 면세점 한방 보양식 카테고리 1위",
+    "대만·홍콩 드럭스토어 안정 채널"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2003",
+    "notes": "정관장 중국 강세는 한방 보양식 시장 특성으로 LLM이 인지 가능성. 단 '에브리타임 스틱' SKU 별 매출은 비공개라 model이 정확히 모를 수 있음."
+  },
+  "reviewerNotes": "결함 #7 (CN mass-average) 반대 케이스 — CN이 진짜로 top인 카테고리. K-Beauty (COSRX)에서는 CN over-rate이 문제였지만, K-Wellness에서는 CN under-rate가 정답을 놓침. 카테고리별 CN 신호 차별이 가능한지 검증용."
+}

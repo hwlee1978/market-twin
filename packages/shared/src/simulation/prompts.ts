@@ -4,6 +4,7 @@ import { renderAggregateForPrompt } from "./aggregate";
 import type { PersonaSlot } from "./profession-pool";
 import { INCOME_BRACKET_USD_RANGES } from "./income-distribution";
 import { buildChannelCostsBlock } from "@/lib/reference/channel-costs";
+import { renderHofstedeTable, renderHofstedeBlock } from "@/lib/reference/hofstede-dimensions";
 import { taxonomyPromptBlock } from "./taxonomy";
 import { COMPETITION_RUBRIC_BANDS } from "./calibration/competition-rubric";
 import {
@@ -443,6 +444,10 @@ Competitor references: ${input.competitorUrls.length ? input.competitorUrls.join
 
 Each persona is a CONSUMER in their candidate target market evaluating an imported ${input.originatingCountry}-origin product. Their objections / trust factors / interests should reflect a foreign-market buyer's view of an imported brand (cultural translation distance, official-import channel concerns, price-relative-to-local-equivalents, etc.).
 
+${renderHofstedeTable(input.candidateCountries, locale === "ko" ? "ko" : "en")}
+
+When generating each persona, let the cultural dimensions of their country shape decision-making style: high UAI → demands certification / refund guarantees / official-channel signal before trial; high LTO → references brand history and looks for sustained quality rather than viral hype; high IND → impulse / hedonic openness shows up in purchaseIntent for non-essential categories; low IDV → social-cascade adoption (cites family / peer recommendations as objection-resolvers); high PD → trusts expert / KOL endorsement over peer reviews. Do NOT mention "Hofstede" or "UAI/LTO" in voice strings — internalize the prior, let the *behavior* show through.
+
 ${distributionInstruction}
 
 Mix in different life stages — not just full-time professionals. Include some students, homemakers, retirees, freelancers, or part-time workers where they realistically belong in the target market.${
@@ -691,6 +696,21 @@ export function countryPrompt(
   input: ProjectInput,
   aggregate: SimulationAggregate,
   locale: PromptLocale = "en",
+  /**
+   * Optional UN Comtrade trade-flow anchor block (Phase E Week 4-5,
+   * 2026-05-16). Pre-fetched per ensemble by orchestrator and passed in
+   * as a deterministic string. Empty when fetch failed or category has
+   * no HSCode mapping. When present, injected immediately before the
+   * channel-cost grounding so the LLM sees Korea→partner export
+   * evidence before it starts scoring market size.
+   */
+  tradeAnchorBlock?: string,
+  /**
+   * Optional World Bank macro indicators block (Phase F.0-2, 2026-05-17).
+   * Pre-fetched per ensemble. Grounds marketSize sub-score in
+   * pop × GDP/cap PPP × household consumption PPP. Empty on fetch failure.
+   */
+  worldBankBlock?: string,
 ): string {
   // Channel-cost grounding block — built per candidate country so the
   // LLM anchors cacEstimateUsd on real industry medians (Meta CPM,
@@ -716,7 +736,9 @@ Candidate target markets (ONLY these allowed): ${input.candidateCountries.join("
 
 ${renderAggregateForPrompt(aggregate, locale)}
 
-═══ CAC GROUNDING — CHANNEL COSTS PER CANDIDATE COUNTRY ═══
+${renderHofstedeTable(input.candidateCountries, locale === "ko" ? "ko" : "en")}
+
+${worldBankBlock ? `${worldBankBlock}\n\n` : ""}${tradeAnchorBlock ? `${tradeAnchorBlock}\n\n` : ""}═══ CAC GROUNDING — CHANNEL COSTS PER CANDIDATE COUNTRY ═══
 Use these medians as the basis for cacEstimateUsd. Do NOT free-style a number — start from the channel mix you'd realistically run for this category and arithmetic from there.
 
 ${channelCostsBlock}

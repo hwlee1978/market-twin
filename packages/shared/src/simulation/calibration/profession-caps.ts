@@ -37,6 +37,13 @@ export const FOOD_DIET_RESTRICTED_CAPS = calibrated(
       "Shin Ramyun (2nd run, 2026-05-14)",
       "COSRX (3rd run, 2026-05-14) — beauty side, same pattern",
     ],
+    // No eligible HOLDOUT in current dataset — the three HOLDOUT products
+    // (jinro/alcohol, anua/beauty, lg-oled/appliances) don't trigger this
+    // food-only cap. To verify this anchor doesn't over- or under-suppress,
+    // designate one food product (bibigo-mandu or binggrae-melona) as
+    // HOLDOUT in the next dataset revision. Leaving empty here is honest;
+    // future tuning revisions must add the food HOLDOUT or surrender the
+    // claim that this cap is verified.
     holdoutProducts: [],
     lastReviewed: "2026-05-14",
     reviewBy: "2026-08-14",
