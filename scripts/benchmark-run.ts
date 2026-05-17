@@ -166,15 +166,36 @@ async function main() {
   }
   await c.end();
 
+  // Workaround for Win32 STATUS_STACK_BUFFER_OVERRUN (exit 3221226505) —
+  // see memory/bibigo_win32_crash.md. Hypothesis: native module resource
+  // pressure accumulates across sequential spawn calls and tips over on
+  // certain product/seed combinations. Mitigation: when a fresh-spawn
+  // crash is detected, retry the same product ONCE with extra delay so
+  // the prior process's FDs / heap / OS pipes have settled. Empirically
+  // a single-product fresh-process retry succeeded both prior observed
+  // crashes (bibigo v2 + v3 single-retry both passed).
+  const NATIVE_CRASH_CODES = new Set([3221226505, 0xC0000409, 134, 139]);
   const ensembleSpecs: string[] = [];
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   for (const { slug, project } of planned) {
     console.log(`\n${"=".repeat(72)}\nSimulating: ${slug}  (${project.id.slice(0, 8)})\n${"=".repeat(72)}`);
-    const { code, stdout } = await runSubprocess(
+    let { code, stdout } = await runSubprocess(
       "npx",
       ["tsx", "--env-file=.env.local", "scripts/smoke-ensemble-e2e.ts", project.id.slice(0, 8), tier],
     );
+    if (code !== 0 && NATIVE_CRASH_CODES.has(code)) {
+      console.warn(`⚠️  ${slug} native crash (exit ${code}). Cooling 8s before single retry...`);
+      await sleep(8000);
+      const retry = await runSubprocess(
+        "npx",
+        ["tsx", "--env-file=.env.local", "scripts/smoke-ensemble-e2e.ts", project.id.slice(0, 8), tier],
+      );
+      code = retry.code;
+      stdout = retry.stdout;
+      if (code === 0) console.log(`   ✓ ${slug} succeeded on retry.`);
+    }
     if (code !== 0) {
-      console.error(`✗ ${slug} smoke ensemble failed (exit ${code}).`);
+      console.error(`✗ ${slug} smoke ensemble failed (exit ${code}). Skipping.`);
       continue;
     }
     const ensId = extractEnsembleId(stdout);
