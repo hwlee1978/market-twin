@@ -24,6 +24,7 @@ import {
   isPersonaMismatchNoise,
 } from "./surfaced-recount";
 import { computeCacFromPersonas } from "@/lib/decision-aid/cac-from-personas";
+import { getProviderWeight, normalizeCategory } from "./calibration/provider-weights";
 
 /* ────────────────────────────────── stats helpers ─── */
 function median(xs: number[]): number {
@@ -948,18 +949,33 @@ export function aggregateEnsemble(
   // lands in Top-3" — same metric as Phase D, still meaningful.
   //
   // Falls back to vote-mode winner when no sim has finalScore data.
+  //
+  // ── Phase F.2 B1 (2026-05-18): per-LLM × per-category trust weighting ──
+  // When PHASE_F2_ENABLED=true, each per-sim rank is divided by the
+  // provider weight before averaging. Higher weight = sim contributes
+  // smaller (better) ranks to the average = winner picker biases toward
+  // that provider's pick. Calibration source:
+  // calibration/provider-weights.ts (provenance-tagged TUNING_ANCHOR).
+  // Default off; flag flip will be gated on A/B benchmark showing
+  // ≥+5pt mean improvement at p<0.10.
+  const normalizedCategory = normalizeCategory(opts.category ?? null);
+
   const rankByCountry = new Map<string, number[]>();
   const scoreByCountry = new Map<string, { sum: number; n: number }>();
   for (const s of sims) {
     const sorted = [...s.countries].sort((a, b) => b.finalScore - a.finalScore);
+    const weight = getProviderWeight(normalizedCategory, s.provider ?? null);
     sorted.forEach((c, i) => {
       const k = c.country.toUpperCase();
+      // Phase F.2: per-sim rank divided by provider weight. Weight=1.0
+      // (default off OR uniform fallback) → unchanged behavior.
+      const weightedRank = (i + 1) / weight;
       const ranks = rankByCountry.get(k) ?? [];
-      ranks.push(i + 1);
+      ranks.push(weightedRank);
       rankByCountry.set(k, ranks);
       const score = scoreByCountry.get(k) ?? { sum: 0, n: 0 };
-      score.sum += c.finalScore;
-      score.n += 1;
+      score.sum += c.finalScore * weight;
+      score.n += weight;
       scoreByCountry.set(k, score);
     });
   }

@@ -15,6 +15,7 @@ import { INCOME_BRACKET_SLACK } from "@/lib/simulation/calibration/income-bracke
 import { CATEGORY_LTV_MULTIPLIER } from "@/lib/simulation/calibration/ltv-multipliers";
 import { FOOD_DIET_RESTRICTED_CAPS } from "@/lib/simulation/calibration/profession-caps";
 import { FINAL_SCORE_WEIGHTS, REGULATORY_HARD_FLOOR } from "@/lib/simulation/calibration/score-weights";
+import { PROVIDER_WEIGHTS } from "@/lib/simulation/calibration/provider-weights";
 import type { CalibrationConstant } from "@/lib/simulation/calibration/provenance";
 import type { LoadedTruth } from "./loader";
 
@@ -30,6 +31,7 @@ const ALL_ANCHORS: AnchorRef[] = [
   { name: "COMPETITION_RUBRIC_BANDS", anchor: COMPETITION_RUBRIC_BANDS },
   { name: "CATEGORY_LTV_MULTIPLIER", anchor: CATEGORY_LTV_MULTIPLIER },
   { name: "FOOD_DIET_RESTRICTED_CAPS", anchor: FOOD_DIET_RESTRICTED_CAPS },
+  { name: "PROVIDER_WEIGHTS", anchor: PROVIDER_WEIGHTS },
 ];
 
 export interface SyncFinding {
