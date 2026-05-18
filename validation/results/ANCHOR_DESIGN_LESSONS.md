@@ -72,6 +72,29 @@ across all K-Beauty fixtures would inject empty/irrelevant signal on 14 of
 fixtures get any signal, scope the anchor narrowly (category-only opt-in)
 rather than running it everywhere.
 
+### 5. Small-sample illusion of progress
+
+**v7 → v8 → v9 sample-expansion trajectory**.
+
+v7 reported mean composite **72.0** at n=6 with **HOLDOUT 75.4 > TUNING 70.4**,
+read as "real generalization." v8 (n=10) and v9 (n=15) progressively
+exposed it: v9 mean **58.7** with **HOLDOUT 51.7 < TUNING 66.7 (-15pt)**.
+The original 6 fixtures were heavily US-top (5/6); the 9 new fixtures added
+across v8/v9 included CN/JP/RU/PH-top truths that the LLM US-prior could
+not overcome even with the full anchor stack. Each sample expansion
+revealed the anchors were grounding US-leaning categories well and
+non-US-top categories poorly.
+
+**Mitigation**:
+- Generalization claims require **n ≥ 5 per split** (HOLDOUT and TUNING each)
+- Don't report mean lift as evidence of progress until n ≥ 12 with a
+  category-balanced split
+- Anchor-stack improvements that show big lift on n=6 should be
+  pre-emptively tested against a held-out n=3 non-US-top fixture set
+  before being celebrated
+- Flag every Phase-F-style measurement with "fixture distribution: X US-top,
+  Y CN-top, Z JP/other" so the reader can mentally normalize
+
 ## Pre-ship checklist for new anchors
 
 Copy this into the design doc for every new anchor (Phase F.2+, F.3+, ...).

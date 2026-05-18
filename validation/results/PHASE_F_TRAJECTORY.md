@@ -13,7 +13,11 @@ ensemble run scored against the same 6-product TUNING+HOLDOUT split.
 | v4 (F.0 Hofstede + WB) | 2026-05-17 | + Hofstede 6D + World Bank | **47.9** | **+13.7** | **0.087** | First statistically meaningful improvement. |
 | v5 (관세청) | 2026-05-17 | + Korea Customs OpenAPI | 44.9 | -3.0 | 0.97 | Confirmed HSCode-aggregate intrinsic limit (Binggrae VN, KGC CN). |
 | v6 (DART F.1-A + partial F.1-B) | 2026-05-17 | + DART scale + 2 region tables | 54.6 | +9.7 | 0.67 | **KGC perfect 100/100** outlier. Std~36. Scale-only ship risky (Bibigo -17). |
-| **v7 (full F.1-B)** | **2026-05-17** | **+ all-fixture region tables** | **72.0** | **+17.5** | **0.0086 ✓** | **First stat-significant Phase F win. Holdout 75.4 > tuning 70.4.** |
+| **v7 (full F.1-B)** | **2026-05-17** | **+ all-fixture region tables** | **72.0** | **+17.5** | **0.0086 ✓** | First stat-significant Phase F win, but **6-fixture overfit** (see v9). |
+| v8 (KOTRA v1 added, n=10) | 2026-05-18 | + KOTRA F.1-C raw | 65.7 | (sample expansion) | — | KOTRA US-heavy bias (430 vs 10-30) noised non-US-top fixtures; jinro -22, buldak no recovery. |
+| v8b (KOTRA v2 cap + MFDS narrow) | 2026-05-18 | + KOTRA cap 3 + MFDS BoJ-only | 67.3 | +1.6 (vs v8) | 0.32 | MFDS BoJ +5.6 validated; KOTRA cap partial fix. |
+| **v9 (n=15 sample expansion)** | **2026-05-18** | (unchanged anchors, +5 new HOLDOUT fixtures) | **58.7** | **-8.6** | — | **Honest reality**. HOLDOUT 51.7 < TUNING 66.7 (-15pt). 4 confident_wrong all "truth CN, sim US STRONG". v7's 72 was 6-fixture US-top-friendly sample. |
+| v10 (KOTRA v3 K-Food/K-Alcohol off) | in-flight 2026-05-18 | KOTRA auto-skip for food/alcohol | TBD | TBD | TBD | Re-spawn 8 K-Food/K-Alcohol fixtures; measure recovery on CN-top fixtures. |
 
 ## Per-product Δ (v6 → v7, all-region-table activation)
 
@@ -26,7 +30,7 @@ ensemble run scored against the same 6-product TUNING+HOLDOUT split.
 | boj-relief-sun | 52.8 | 55.0 | +2.2 | noise level |
 | kgc-everytime-redginseng | 100.0 | 96.4 | -3.6 | stable near ceiling |
 
-## Anchor stack as of v7
+## Anchor stack as of v9
 
 1. **Hofstede 6D** (static, 28 countries) — cultural decision priors
 2. **World Bank Open Data** — GDP per capita PPP, population, household consumption (live)
@@ -34,46 +38,72 @@ ensemble run scored against the same 6-product TUNING+HOLDOUT split.
 4. **관세청 OpenAPI** (data.go.kr 1220000/nitemtrade) — finer HSCode granularity
 5. **DART F.1-A** (`fnlttSinglAcntAll`) — corporate scale per Korean parent
 6. **DART F.1-B** (validation/reference/brand-region-revenue.json) — per-region revenue per brand
-7. **KOTRA F.1-C** (data.go.kr B410001, shipped 82b3b74 — pending first measurement)
+7. **KOTRA F.1-C v3** (data.go.kr B410001, commit 154db0e) — cap 3, raw counts hidden, auto-skip K-Food/K-Alcohol
+8. **MFDS F.3 narrow** (data.go.kr 1471000, commit b936ea4) — sunscreen-category opt-in only (BoJ Relief Sun)
+9. **Provider weights F.2 B1** (commit 198cc4c) — off by default; PHASE_F2_ENABLED=true opt-in
 
 ## Key mechanisms confirmed
 
-### F.1-B brand-region-revenue table is the dominant lever
+### F.1-B brand-region-revenue table works for fixtures whose row exists
 v6 (KGC + LG OLED only had region rows) → 1 perfect win, 1 stable, 4 mixed.
-v7 (all fixtures have region rows) → 4 dramatic wins, 1 stable, 0 regression.
+v7 (all 6 fixtures have region rows) → 4 dramatic wins, 1 stable, 0 regression.
+v9 caveat: 5 new HOLDOUT fixtures all have region rows, but 3 of 5 still
+land in confident_wrong because the LLM US-prior overrides the region
+hint when truth is CN/JP/RU and US has any plausible secondary signal.
 
 ### F.1-A scale anchor MUST ship with F.1-B region table
 - v6 Bibigo: CJ 29T scale alone pushed sim toward generic US mass-market → -17.
 - v7 Bibigo: same scale + region table (US $3B, CN $0.6B) → US/CN concrete prior → +33.
 - Bare-scale ship is **strictly worse** than no anchor.
 
-### HOLDOUT > TUNING means real generalization
-TUNING n=4: 70.4 vs HOLDOUT n=2: 75.4. The improvement is not a calibration
-artifact specific to the fixtures we hand-tuned.
+### HOLDOUT > TUNING was a 6-fixture artifact, not generalization
+v7 reported HOLDOUT 75.4 > TUNING 70.4 (n=2 vs 4) as a generalization signal.
+v9 with HOLDOUT n=8 (5 new + 3 existing): HOLDOUT 51.7 < TUNING 66.7 (-15pt).
+The v7 reading was inverted by tiny n=2 HOLDOUT happening to be BoJ + Bibigo
+(both US-top, both well-handled). **Generalization claims require n≥5 per split**.
 
-## Pending verification (n=10 in flight)
+### Sample-expansion illusion — "small-sample progress" is the next anti-pattern
+v7→v8→v9 mean trajectory: 72 → 65.7 → 58.7. Each sample expansion exposed
+US-prior bias on the new fixtures (non-US-top CN/JP/RU truths). The anchor
+stack mostly grounds US-leaning categories; for non-US-top truths it
+helps modestly at best. Document this as anti-pattern #5 in
+[[anchor-design-lessons]] when v10 lands.
 
-Currently spawning 4 missing fixtures (buldak, shin-ramyun, cosrx-snail-mucin,
-jinro-chamisul) to extend the sample. Will run on v7 codebase + KOTRA F.1-C
-applied. Expected outcomes:
+## Pending verification (v10 in flight — superseded planning text below)
 
-- **Best case**: mean stays in 70+ range across n=10 → KOTRA neutral-or-additive,
-  generalization confirmed at broader sample. Triggers Phase F.1 close.
-- **Drift case**: KOTRA noise injection drops one or more fixtures by 15+. Diagnose
-  via per-fixture findings; consider tightening KOTRA filter further or scoping it
-  to specific categories.
-- **Mid case**: mean drifts down 5-10 but no single product regresses critically.
-  Likely real (some new fixtures are harder); proceed with B (5 new ground-truth
-  fixtures) for sample size n=15.
+v10 (K-Food/K-Alcohol fixtures re-spawn with KOTRA v3 auto-off) is the
+current measurement. Will reveal whether the 4 confident_wrong findings
+from v9 (buldak, lotte-pepero, mediheal-maskpack via category bypass,
+orion-chocopie) recover when KOTRA is removed from the prompt.
 
-## v0.1 ship readiness mapping
+Expected outcomes:
+- **Best case**: K-Food fixtures recover +5-30 each, n=15 mean climbs back
+  to 63-68. Phase F.1 close gated on per-fixture KOTRA toggle for K-Beauty
+  CN-top (mediheal).
+- **Mid case**: K-Food recovery modest (+0-10), confirms the LLM US-prior
+  is largely independent of KOTRA — anchor work is near its ceiling.
+  Pivot to outcome-feedback path ([[outcome-feedback-design]]).
+- **Worst case**: K-Food doesn't recover, means KOTRA isn't the dominant
+  noise source — re-spawn with PHASE_F2_ENABLED=true to test provider
+  weighting in combination.
 
-| Mean composite | Reading |
+## v0.1 ship readiness mapping (revised after v9)
+
+| Mean composite (n=15+) | Reading |
 |---|---|
 | <40 | Pre-Phase-E baseline |
-| 40-60 | Phase E close range — direction-correct but not production |
-| 60-75 | **v7 region** — top3 mostly right, calibration usable for advisory |
-| 75-85 | Phase E formal gate target. Ready for paid pilot. |
-| 85+ | Marketing-visible accuracy commitment. |
+| 40-55 | Phase E close range — direction-correct but not production |
+| **55-65** | **v9 honest reality** — top3 mostly right on US-top fixtures, frequently miss on CN/JP/RU-top fixtures. Usable for advisory + clearly-labeled caveats. |
+| 65-75 | Anchor stack at its ceiling. Per-fixture toggles + per-LLM weighting + outcome feedback bootstrap required to climb further. |
+| 75-85 | Outcome-feedback corpus (50-500 rows) actively shifting GT. Paid pilot ready. |
+| 85+ | Marketing-visible accuracy commitment after 1,000+ outcome rows. |
 
-v7 mean 72.0 lands in the "advisory-usable" band. Holdout 75.4 brushes the gate.
+**v9 reading**: n=15 mean **58.7** lands in the new "v9 honest reality" band.
+HOLDOUT 51.7 < TUNING 66.7 confirms the v7 6-fixture sample was US-top-biased.
+
+**Path to gate** (revised):
+- v10 KOTRA v3 effect: ±0-5 estimate
+- per-fixture KOTRA toggle + F.2 weight refresh + MFDS broader: ±0-10 cumulative
+- That maxes at maybe mean 65-70 within anchor work alone
+- The 70→85 leap requires the outcome-feedback loop ([[outcome-feedback-design]])
+- v0.1 ship can target **mean 65 honest, labeled as advisory not production**
