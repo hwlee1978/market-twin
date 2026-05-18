@@ -31,6 +31,7 @@ validation/ground-truth-private/
 # Keep the script + a doc note, not the 1MB+ payload.
 validation/reference/mfds-cosmetic-regulations.json
 validation/reference/dart-corp-index.json
+validation/reference/dart-narratives/
 
 # Pitch deck experiments / superseded artifacts
 # (PITCH_DECK.html is the canonical, committed deck)

@@ -388,16 +388,17 @@ export function renderDartAutoRegionBlock(
   return `${header}\n${lines.join("\n")}\n\n${note}`;
 }
 
-/** Top-level helper combining DART financials + region table (manual first, auto fallback). */
+/** Top-level helper combining DART financials + region table (manual first, auto fallback, narrative fallback). */
 export async function buildDartFullAnchor(
   slug: string,
   candidateCountries: string[],
-  opts: { apiKey?: string; bsnsYear?: number; locale?: "ko" | "en" } = {},
+  opts: { apiKey?: string; anthropicKey?: string; bsnsYear?: number; locale?: "ko" | "en" } = {},
 ): Promise<{
   block: string;
   financials: DartCompanyFinancials | null;
   region: BrandRegionEntry | null;
   autoRegion: Awaited<ReturnType<typeof import("./dart-region-parser").fetchDartRegionSegment>> | null;
+  narrative: Awaited<ReturnType<typeof import("./dart-narrative-extractor").extractBrandNarrative>> | null;
 }> {
   const [financials, region] = await Promise.all([
     fetchDartFinancialsForSlug(slug, opts),
@@ -406,30 +407,50 @@ export async function buildDartFullAnchor(
   const scaleBlock = renderDartBlock(financials, { locale: opts.locale });
   const regionBlock = renderBrandRegionBlock(region, candidateCountries, { locale: opts.locale });
 
+  const corp = corpCodeForSlug(slug);
+  const apiKey = opts.apiKey ?? process.env.DART_API_KEY;
+
   // Auto-region fallback when manual brand-region table has no entry for slug.
-  // Production scenario: new user product without manual entry. Falls through
-  // gracefully when corp_code is unknown or auto-parser returns null.
   let autoRegion: Awaited<ReturnType<typeof import("./dart-region-parser").fetchDartRegionSegment>> | null = null;
   let autoBlock = "";
-  if (!region) {
-    const corp = corpCodeForSlug(slug);
-    const apiKey = opts.apiKey ?? process.env.DART_API_KEY;
-    if (corp && apiKey) {
-      try {
-        const mod = await import("./dart-region-parser");
-        autoRegion = await mod.fetchDartRegionSegment(corp.corpCode, apiKey);
-        if (autoRegion) {
-          autoBlock = renderDartAutoRegionBlock(autoRegion, candidateCountries, {
-            corpNameKo: corp.corpNameKo,
-            locale: opts.locale,
-          });
-        }
-      } catch (err) {
-        console.warn(`[dart] auto-region fetch failed for ${slug}: ${(err as Error).message}`);
+  if (!region && corp && apiKey) {
+    try {
+      const mod = await import("./dart-region-parser");
+      autoRegion = await mod.fetchDartRegionSegment(corp.corpCode, apiKey);
+      if (autoRegion) {
+        autoBlock = renderDartAutoRegionBlock(autoRegion, candidateCountries, {
+          corpNameKo: corp.corpNameKo,
+          locale: opts.locale,
+        });
       }
+    } catch (err) {
+      console.warn(`[dart] auto-region fetch failed for ${slug}: ${(err as Error).message}`);
     }
   }
 
-  const block = [scaleBlock, regionBlock, autoBlock].filter(Boolean).join("\n\n");
-  return { block, financials, region, autoRegion };
+  // Narrative fallback (Phase 4-5): runs when manual region table is absent
+  // AND auto-region didn't produce a useful block. Covers single-segment
+  // brands (빙그레/농심/삼양/하이트진로) and asset-only disclosures (LG전자).
+  // LLM cost ~$0.001/brand, 30-day cache. Skipped if ANTHROPIC_API_KEY absent.
+  let narrative: Awaited<ReturnType<typeof import("./dart-narrative-extractor").extractBrandNarrative>> | null = null;
+  let narrativeBlock = "";
+  if (!region && !autoRegion && corp && apiKey) {
+    try {
+      const narrativeMod = await import("./dart-narrative-extractor");
+      narrative = await narrativeMod.extractBrandNarrative(slug, corp.corpCode, corp.corpNameKo, {
+        apiKey,
+        anthropicKey: opts.anthropicKey,
+      });
+      if (narrative) {
+        narrativeBlock = narrativeMod.renderNarrativeBlock(narrative, candidateCountries, {
+          locale: opts.locale,
+        });
+      }
+    } catch (err) {
+      console.warn(`[dart] narrative fetch failed for ${slug}: ${(err as Error).message}`);
+    }
+  }
+
+  const block = [scaleBlock, regionBlock, autoBlock, narrativeBlock].filter(Boolean).join("\n\n");
+  return { block, financials, region, autoRegion, narrative };
 }
