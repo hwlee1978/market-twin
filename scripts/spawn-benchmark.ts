@@ -320,8 +320,17 @@ async function runWithConcurrency<T, R>(
   console.log(`  concurrency: ${args.concurrency}`);
   console.log(`  dry-run:     ${args.dryRun}`);
   console.log(`  LLM mode:    ${process.env.LLM_PROVIDER === "anthropic" ? "Anthropic-only (Haiku override eligible)" : "Multi-LLM per tier preset"}`);
-  console.log(`  Personas:    ${process.env.LLM_PERSONAS_MODEL ?? "default"}`);
-  console.log(`  Synthesis:   ${process.env.LLM_SYNTHESIS_MODEL ?? "default"}\n`);
+  // Per-provider scoped vars take precedence (the runner uses opts.provider=anthropic,
+  // so legacy LLM_<STAGE>_MODEL gets ignored). Fall back to legacy display only when
+  // per-provider isn't set so old configs still print something meaningful.
+  const personasModel = process.env.LLM_ANTHROPIC_PERSONAS_MODEL ?? process.env.LLM_PERSONAS_MODEL ?? "default";
+  const synthesisModel = process.env.LLM_ANTHROPIC_SYNTHESIS_MODEL ?? process.env.LLM_SYNTHESIS_MODEL ?? "default";
+  const countriesModel = process.env.LLM_ANTHROPIC_COUNTRIES_MODEL ?? process.env.LLM_COUNTRIES_MODEL ?? "default";
+  const pricingModel = process.env.LLM_ANTHROPIC_PRICING_MODEL ?? process.env.LLM_PRICING_MODEL ?? "default";
+  console.log(`  Personas:    ${personasModel}`);
+  console.log(`  Countries:   ${countriesModel}`);
+  console.log(`  Pricing:     ${pricingModel}`);
+  console.log(`  Synthesis:   ${synthesisModel}\n`);
 
   if (!process.env.DATABASE_URL) {
     console.error("ERROR: DATABASE_URL env var is required.");
