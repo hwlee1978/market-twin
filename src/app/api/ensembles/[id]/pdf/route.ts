@@ -48,7 +48,7 @@ export async function GET(
   const { data: ensemble, error } = await supabase
     .from("ensembles")
     .select(
-      "id, status, tier, parallel_sims, per_sim_personas, llm_providers, aggregate_result, completed_at, project_id",
+      "id, status, tier, parallel_sims, per_sim_personas, llm_providers, aggregate_result, completed_at, created_at, project_id",
     )
     .eq("id", id)
     .eq("workspace_id", wsCtx.workspaceId)
@@ -84,6 +84,14 @@ export async function GET(
     if (variant === "validation") {
       const aggregate = ensemble.aggregate_result as EnsembleAggregate;
       const candidateCountries = project?.candidate_countries ?? [];
+      const durationMinutes =
+        ensemble.created_at && ensemble.completed_at
+          ? Math.round(
+              (new Date(ensemble.completed_at).getTime() -
+                new Date(ensemble.created_at).getTime()) /
+                60000,
+            )
+          : undefined;
       const validationData = await generateValidationContent(
         aggregate,
         {
@@ -100,6 +108,7 @@ export async function GET(
           tier: ensemble.tier,
           locale,
           llmProviders: ensemble.llm_providers ?? ["anthropic"],
+          durationMinutes,
         },
       );
       if (!validationData) {
