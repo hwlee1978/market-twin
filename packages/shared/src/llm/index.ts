@@ -29,6 +29,24 @@ function envStage(stage: SimulationStage | undefined, key: "PROVIDER" | "MODEL")
 }
 
 /**
+ * Per-provider stage model override — applies even when the caller passes
+ * an explicit provider (e.g. ensemble forces sim N to be anthropic).
+ * Pattern: `LLM_<PROVIDER>_<STAGE>_MODEL` (e.g. LLM_ANTHROPIC_PERSONAS_MODEL).
+ *
+ * Used for benchmarks where the operator wants to swap one provider's
+ * stage model without affecting other providers in a multi-LLM ensemble.
+ * See [[benchmark_haiku_override]].
+ */
+function envProviderStageModel(
+  provider: LLMProviderName | undefined,
+  stage: SimulationStage | undefined,
+): string | undefined {
+  if (!provider || !stage) return undefined;
+  const v = process.env[`LLM_${provider.toUpperCase()}_${stage.toUpperCase()}_MODEL`];
+  return v && v.trim() ? v : undefined;
+}
+
+/**
  * Per-provider model defaults by stage. Used when a caller forces a
  * provider (e.g. ensemble Deep tier round-robins anthropic/openai/gemini
  * across sims) but doesn't supply a model — without this map we'd hand a
@@ -112,12 +130,19 @@ export function getLLMProvider(opts: ProviderOptions = {}): LLMProvider {
     (process.env.LLM_DEFAULT_PROVIDER as LLMProviderName | undefined) ??
     "anthropic";
 
-  // Env-driven model only applies when the caller did NOT pass an explicit
-  // provider override. Otherwise we'd hand e.g. an Anthropic model ID to
-  // OpenAI when the ensemble forces openai for one of its sims.
-  const envModel = opts.provider
-    ? undefined
-    : (envStage(opts.stage, "MODEL") ?? process.env.LLM_DEFAULT_MODEL);
+  // Env-driven model resolution. Two-layer override:
+  //   1. Per-provider stage env (LLM_ANTHROPIC_PERSONAS_MODEL) — applies
+  //      even when caller forces opts.provider, because the env var is
+  //      explicitly scoped to one provider. Safe for multi-LLM ensembles
+  //      since other providers' sims won't pick it up.
+  //   2. Provider-agnostic stage env (LLM_PERSONAS_MODEL) — only applies
+  //      when no explicit provider override (legacy single-provider mode),
+  //      because otherwise we'd hand a Claude model ID to OpenAI's SDK.
+  const perProviderModel = envProviderStageModel(provider, opts.stage);
+  const envModel = perProviderModel
+    ?? (opts.provider
+      ? undefined
+      : (envStage(opts.stage, "MODEL") ?? process.env.LLM_DEFAULT_MODEL));
   const stageDefault = opts.stage ? PROVIDER_STAGE_DEFAULTS[provider][opts.stage] : undefined;
   const model = opts.model ?? envModel ?? stageDefault;
 
