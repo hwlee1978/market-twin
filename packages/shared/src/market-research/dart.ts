@@ -340,18 +340,96 @@ export function renderBrandRegionBlock(
   return `${header}\n${lines.join("\n")}\n\n${note}`;
 }
 
-/** Top-level helper combining DART financials + region table. */
+/**
+ * Render an auto-extracted DART region segment as a prompt block. Used when
+ * the manual brand-region-revenue.json table has no entry for the brand
+ * (production scenario, new user product). Conservative wording —
+ * auto-extracted data has structural caveats:
+ *   - K-IFRS 8 may be region-aggregate (CJ pattern) not country-level
+ *   - Single-segment entities skip disclosure entirely
+ *   - revenue figures are consolidated, not brand-specific
+ */
+export function renderDartAutoRegionBlock(
+  segment: Awaited<ReturnType<typeof import("./dart-region-parser").fetchDartRegionSegment>>,
+  candidateCountries: string[],
+  opts: { corpNameKo?: string; locale?: "ko" | "en" } = {},
+): string {
+  if (!segment) return "";
+  const isKo = opts.locale !== "en";
+  const candidateSet = new Set(candidateCountries.map((c) => c.toUpperCase()));
+  // Map region/country labels to ISO codes for candidate filtering.
+  const regionToIso: Record<string, string[]> = {
+    "본사 소재지 국가": ["KR"], "한국": ["KR"], "대한민국": ["KR"], "내수": ["KR"],
+    "중국": ["CN"], "일본": ["JP"], "미국": ["US"],
+    "북미": ["US", "CA"], "아메리카": ["US", "CA", "MX", "BR"],
+    "중남미": ["MX", "BR", "AR", "CL"],
+    "아시아": ["CN", "JP", "VN", "TH", "ID", "MY", "SG", "HK", "TW", "PH", "IN"],
+    "기타 아시아": ["VN", "TH", "ID", "MY", "SG", "HK", "TW", "PH"],
+    "유럽": ["GB", "DE", "FR", "IT", "ES", "NL"],
+    "아시아 및 아프리카 등": ["CN", "JP", "VN", "TH", "ID", "MY", "SG", "AE", "SA"],
+    "기타 국가": ["AU", "NZ", "AE", "SA"],
+  };
+  const relevant = segment.rows.filter((r) => {
+    const isos = regionToIso[r.regionKo] ?? [r.regionEn ?? ""];
+    return isos.some((iso) => candidateSet.has(iso.toUpperCase()));
+  });
+  if (relevant.length === 0) return "";
+  const header = isKo
+    ? `═══ DART 자동 추출 지역별 매출 (${opts.corpNameKo ?? "corp"}, ${segment.reportName}) — production fallback ═══`
+    : `═══ DART auto-extracted regional revenue (${opts.corpNameKo ?? "corp"}, ${segment.reportName}) — production fallback ═══`;
+  const lines = relevant.map((r) => {
+    const usdB = (r.revenueKrw / 1e12 * (1 / 1.3)).toFixed(2);
+    const t = (r.revenueKrw / 1e12).toFixed(2);
+    return `  ${r.regionKo.padEnd(16)} ${t}조원 (≈ $${usdB}B USD)`;
+  });
+  const note = isKo
+    ? `주의: 자동 추출 = K-IFRS 8 사업보고서 segment 공시. 본사 + 자회사 연결 매출 기준이며 brand-specific 매출 아닐 수 있음. 권역(아시아/아메리카)은 country별 분해 아님 — 후보국 매핑은 추정. Manual brand-region table 부재 시 fallback.`
+    : `Note: Auto-extracted from K-IFRS 8 segment disclosure. Consolidated (parent + subsidiaries), may not be brand-specific. Broad regions (아시아/아메리카) aren't country-level; candidate-country mapping is inferred. Fallback when manual brand-region table is absent.`;
+  return `${header}\n${lines.join("\n")}\n\n${note}`;
+}
+
+/** Top-level helper combining DART financials + region table (manual first, auto fallback). */
 export async function buildDartFullAnchor(
   slug: string,
   candidateCountries: string[],
   opts: { apiKey?: string; bsnsYear?: number; locale?: "ko" | "en" } = {},
-): Promise<{ block: string; financials: DartCompanyFinancials | null; region: BrandRegionEntry | null }> {
+): Promise<{
+  block: string;
+  financials: DartCompanyFinancials | null;
+  region: BrandRegionEntry | null;
+  autoRegion: Awaited<ReturnType<typeof import("./dart-region-parser").fetchDartRegionSegment>> | null;
+}> {
   const [financials, region] = await Promise.all([
     fetchDartFinancialsForSlug(slug, opts),
     getBrandRegionEntry(slug),
   ]);
   const scaleBlock = renderDartBlock(financials, { locale: opts.locale });
   const regionBlock = renderBrandRegionBlock(region, candidateCountries, { locale: opts.locale });
-  const block = [scaleBlock, regionBlock].filter(Boolean).join("\n\n");
-  return { block, financials, region };
+
+  // Auto-region fallback when manual brand-region table has no entry for slug.
+  // Production scenario: new user product without manual entry. Falls through
+  // gracefully when corp_code is unknown or auto-parser returns null.
+  let autoRegion: Awaited<ReturnType<typeof import("./dart-region-parser").fetchDartRegionSegment>> | null = null;
+  let autoBlock = "";
+  if (!region) {
+    const corp = corpCodeForSlug(slug);
+    const apiKey = opts.apiKey ?? process.env.DART_API_KEY;
+    if (corp && apiKey) {
+      try {
+        const mod = await import("./dart-region-parser");
+        autoRegion = await mod.fetchDartRegionSegment(corp.corpCode, apiKey);
+        if (autoRegion) {
+          autoBlock = renderDartAutoRegionBlock(autoRegion, candidateCountries, {
+            corpNameKo: corp.corpNameKo,
+            locale: opts.locale,
+          });
+        }
+      } catch (err) {
+        console.warn(`[dart] auto-region fetch failed for ${slug}: ${(err as Error).message}`);
+      }
+    }
+  }
+
+  const block = [scaleBlock, regionBlock, autoBlock].filter(Boolean).join("\n\n");
+  return { block, financials, region, autoRegion };
 }

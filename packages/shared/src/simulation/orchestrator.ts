@@ -245,7 +245,7 @@ export async function runEnsembleOrchestration(
     const { buildDartFullAnchor, inferSlugFromProductName } = await import("@/lib/market-research/dart");
     const slug = inferSlugFromProductName(projectInput.productName);
     if (slug) {
-      const { block, financials, region } = await buildDartFullAnchor(
+      const { block, financials, region, autoRegion } = await buildDartFullAnchor(
         slug,
         projectInput.candidateCountries,
         { locale },
@@ -253,8 +253,9 @@ export async function runEnsembleOrchestration(
       if (block) {
         const rev = financials?.revenueKrw ?? 0;
         const regionCount = region?.regions?.length ?? 0;
+        const autoTag = autoRegion ? ` + auto-region ${autoRegion.rows.length}` : "";
         console.log(
-          `[ensemble ${ensembleId}] DART anchor: ${financials?.corpNameKo ?? slug} (${(rev / 1e12).toFixed(2)}T KRW + ${regionCount} regions)`,
+          `[ensemble ${ensembleId}] DART anchor: ${financials?.corpNameKo ?? slug} (${(rev / 1e12).toFixed(2)}T KRW + ${regionCount} manual regions${autoTag})`,
         );
         tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
       }
