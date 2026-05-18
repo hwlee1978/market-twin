@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { buildEnsemblePdf } from "@/lib/report/ensemble-pdf";
+import { buildValidationPdf } from "@/lib/report/validation-pdf";
+import { generateValidationContent } from "@/lib/report/validation-content";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 
 export const runtime = "nodejs";
@@ -27,13 +29,17 @@ export async function GET(
   const { id } = await ctx.params;
   const url = new URL(req.url);
   const locale = (url.searchParams.get("locale") ?? "ko") === "en" ? "en" : "ko";
-  // variant switch — "executive" delivers a 2-3 page decision-deck PDF;
-  // "detailed" (default) delivers the full analyst-grade report with
-  // every drilldown page. Default to detailed so existing share/save
-  // flows keep producing the comprehensive report.
+  // variant switch:
+  //   "executive"  — 2-3 page decision-deck PDF
+  //   "detailed"   — full analyst-grade report (default)
+  //   "validation" — McKinsey/BCG-style cross-validation report
   const variantRaw = url.searchParams.get("variant") ?? "detailed";
-  const variant: "executive" | "detailed" =
-    variantRaw === "executive" ? "executive" : "detailed";
+  const variant: "executive" | "detailed" | "validation" =
+    variantRaw === "executive"
+      ? "executive"
+      : variantRaw === "validation"
+        ? "validation"
+        : "detailed";
 
   const wsCtx = await getOrCreatePrimaryWorkspace();
   if (!wsCtx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -75,24 +81,59 @@ export async function GET(
   // the dashboard's catch can display.
   let buffer: Buffer;
   try {
-    buffer = await buildEnsemblePdf({
-      aggregate: ensemble.aggregate_result as EnsembleAggregate,
-      productName,
-      tier: ensemble.tier as
-        | "hypothesis"
-        | "decision"
-        | "decision_plus"
-        | "deep"
-        | "deep_pro",
-      parallelSims: ensemble.parallel_sims,
-      perSimPersonas: ensemble.per_sim_personas,
-      llmProviders: ensemble.llm_providers ?? ["anthropic"],
-      locale,
-      generatedAt: ensemble.completed_at ? new Date(ensemble.completed_at) : new Date(),
-      ensembleId: ensemble.id,
-      project: project ?? null,
-      variant,
-    });
+    if (variant === "validation") {
+      const aggregate = ensemble.aggregate_result as EnsembleAggregate;
+      const candidateCountries = project?.candidate_countries ?? [];
+      const validationData = await generateValidationContent(
+        aggregate,
+        {
+          productName,
+          category: project?.category ?? null,
+          description: project?.description ?? null,
+          basePriceCents: project?.base_price_cents ?? null,
+          currency: project?.currency ?? null,
+          originatingCountry: project?.originating_country ?? null,
+          candidateCountries,
+        },
+        {
+          ensembleId: ensemble.id,
+          tier: ensemble.tier,
+          locale,
+          llmProviders: ensemble.llm_providers ?? ["anthropic"],
+        },
+      );
+      if (!validationData) {
+        return NextResponse.json(
+          {
+            error: "validation_content_failed",
+            message:
+              "Cross-validation content generator did not return data (LLM call failed or missing API key).",
+            ensembleId: id,
+          },
+          { status: 502 },
+        );
+      }
+      buffer = await buildValidationPdf(validationData);
+    } else {
+      buffer = await buildEnsemblePdf({
+        aggregate: ensemble.aggregate_result as EnsembleAggregate,
+        productName,
+        tier: ensemble.tier as
+          | "hypothesis"
+          | "decision"
+          | "decision_plus"
+          | "deep"
+          | "deep_pro",
+        parallelSims: ensemble.parallel_sims,
+        perSimPersonas: ensemble.per_sim_personas,
+        llmProviders: ensemble.llm_providers ?? ["anthropic"],
+        locale,
+        generatedAt: ensemble.completed_at ? new Date(ensemble.completed_at) : new Date(),
+        ensembleId: ensemble.id,
+        project: project ?? null,
+        variant,
+      });
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : undefined;
@@ -115,7 +156,8 @@ export async function GET(
 
   // Filename suffix tells the user which variant they downloaded so
   // saved copies on disk don't get confused.
-  const variantSuffix = variant === "executive" ? "exec" : "detail";
+  const variantSuffix =
+    variant === "executive" ? "exec" : variant === "validation" ? "validation" : "detail";
 
   return new NextResponse(buffer as unknown as BodyInit, {
     headers: {

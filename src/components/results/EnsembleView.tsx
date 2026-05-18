@@ -710,7 +710,7 @@ function EnsembleDashboard({
   locale: string;
 }) {
   const { aggregate, llm_providers, tier, parallel_sims } = result;
-  const [pdfBusy, setPdfBusy] = useState<"executive" | "detailed" | null>(null);
+  const [pdfBusy, setPdfBusy] = useState<"executive" | "detailed" | "validation" | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfMenuOpen, setPdfMenuOpen] = useState(false);
   // Elapsed-seconds counter while a PDF is being built. Reassures the
@@ -735,7 +735,7 @@ function EnsembleDashboard({
   // an inline error if generation fails instead of opening a tab to a
   // raw JSON 4xx page. The variant param forks server-side to a 2-3
   // page executive deck or the full analyst-grade detailed report.
-  const exportPdf = async (variant: "executive" | "detailed") => {
+  const exportPdf = async (variant: "executive" | "detailed" | "validation") => {
     if (pdfBusy) return;
     setPdfBusy(variant);
     setPdfError(null);
@@ -933,7 +933,7 @@ function EnsembleDashboard({
                 {pdfBusy ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                 {pdfBusy
                   ? isKo
-                    ? `PDF 생성 중 (${pdfBusy === "executive" ? "임원용" : "전체"})… ${pdfElapsed}초`
+                    ? `PDF 생성 중 (${pdfBusy === "executive" ? "임원용" : pdfBusy === "validation" ? "교차검증" : "전체"})… ${pdfElapsed}초`
                     : `Generating PDF (${pdfBusy})… ${pdfElapsed}s`
                   : isKo
                     ? "PDF 리포트 ▾"
@@ -971,13 +971,30 @@ function EnsembleDashboard({
                       type="button"
                       role="menuitem"
                       onClick={() => exportPdf("detailed")}
-                      className="w-full text-left px-4 py-3 hover:bg-slate-50"
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100"
                     >
                       <div className="text-sm font-semibold text-slate-900">
                         {detailedReportSummary(tier, isKo).title}
                       </div>
                       <div className="text-xs text-slate-500 mt-0.5">
                         {detailedReportSummary(tier, isKo).body}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => exportPdf("validation")}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50"
+                    >
+                      <div className="text-sm font-semibold text-slate-900">
+                        {isKo
+                          ? "교차검증 리포트 (McKinsey·BCG 스타일)"
+                          : "Cross-Validation Report (McKinsey·BCG style)"}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {isKo
+                          ? "외부 시장 데이터 정합성 · 신뢰 등급 · 단계별 실행"
+                          : "External data alignment · confidence grade · phased plan"}
                       </div>
                     </button>
                   </div>
