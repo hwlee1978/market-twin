@@ -136,15 +136,17 @@ async function createProject(
   workspaceId: string,
   fixture: LoadedTruth,
 ): Promise<string> {
+  const projectName = `[Benchmark] ${fixture.slug}`;
   const { rows } = await pg.query<{ id: string }>(
     `insert into public.projects
-        (workspace_id, product_name, category, description,
+        (workspace_id, name, product_name, category, description,
          base_price_cents, currency, objective, originating_country,
          candidate_countries, status)
-      values ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, 'draft')
+      values ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'draft')
       returning id::text`,
     [
       workspaceId,
+      projectName,
       fixture.truth.product,
       mapCategoryForProject(fixture.truth.category),
       `Ground-truth fixture: ${fixture.slug}. Source: validation/ground-truth/${fixture.slug}.json`,
