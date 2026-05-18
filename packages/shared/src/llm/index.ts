@@ -44,10 +44,16 @@ const PROVIDER_STAGE_DEFAULTS: Record<LLMProviderName, Record<SimulationStage, s
     synthesis: "claude-sonnet-4-6",
   },
   openai: {
-    personas: "gpt-4o",
-    countries: "gpt-4o-mini",
-    pricing: "gpt-4o-mini",
-    synthesis: "gpt-4o",
+    // Upgraded from gpt-4o → gpt-5.4-mini (2026-05-18) after gpt-4o
+    // synthesis stage repeatedly hit Vercel 20-min function timeout on
+    // multi-LLM ensembles (Lingtea/FRONT2LINE: 4-7 sims stuck per run).
+    // gpt-5.4-mini is 2-3x faster on synthesis-class outputs at similar
+    // quality, and ~90% cheaper than gpt-4o per token. Anthropic/DeepSeek
+    // never hit the timeout on the same prompts.
+    personas: "gpt-5.4-mini",
+    countries: "gpt-5.4-mini",
+    pricing: "gpt-5.4-mini",
+    synthesis: "gpt-5.4-mini",
   },
   gemini: {
     personas: "gemini-2.5-flash",

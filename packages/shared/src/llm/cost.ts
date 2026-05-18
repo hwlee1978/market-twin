@@ -28,6 +28,11 @@ const PRICE_TABLE: Record<string, Record<string, PriceUsdPerMTok>> = {
     "gpt-4o-mini": { input: 0.15, output: 0.6 },
     "gpt-4.1": { input: 2.5, output: 10 },
     "gpt-4.1-mini": { input: 0.15, output: 0.6 },
+    // GPT-5.4 family — pricing follows the 4.1 generation pattern until
+    // OpenAI publishes the official 5.4 sheet. Adjust here once verified.
+    "gpt-5.4": { input: 2.5, output: 10 },
+    "gpt-5.4-mini": { input: 0.25, output: 1.0 },
+    "gpt-5.5": { input: 5, output: 20 },
   },
   gemini: {
     "gemini-2.5-pro": { input: 1.25, output: 5 },
