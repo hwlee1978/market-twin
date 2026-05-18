@@ -363,12 +363,14 @@ async function main() {
     const keywords = [projectInput.category, projectInput.productName].filter(
       (s): s is string => typeof s === "string" && s.length > 0,
     );
-    const { block, bundles } = await buildKotraNationalAnchor(
+    const { block, bundles, skipped } = await buildKotraNationalAnchor(
       projectInput.candidateCountries,
-      // Cap 3 per country (v2 2026-05-18) — see orchestrator note for rationale.
-      { categoryKeywords: keywords, locale: "ko", maxPerCountry: 3 },
+      // Cap 3 per country (v2 2026-05-18) + category opt-in (v3 2026-05-18).
+      { categoryKeywords: keywords, locale: "ko", maxPerCountry: 3, category: projectInput.category },
     );
-    if (block) {
+    if (skipped === "category") {
+      console.log(`KOTRA anchor: skipped (category=${projectInput.category})`);
+    } else if (block) {
       const totalComps = bundles.reduce((n, b) => n + b.koreanCompanies.length, 0);
       console.log(
         `KOTRA anchor: ${bundles.length}/${projectInput.candidateCountries.length} countries (${totalComps} Korean companies)`,

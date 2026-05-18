@@ -256,11 +256,41 @@ export function renderKotraNationalBlock(
   return `${header}\n${sections.join("\n\n")}\n\n${note}`;
 }
 
+/**
+ * Returns true when KOTRA anchor should be skipped for this category.
+ *
+ * v8b diagnostic (2026-05-18): non-US-top fixtures (jinro JP, buldak CN) had
+ * KOTRA's US-heavy registry amplifying the sim's US-prior. K-Food and
+ * K-Alcohol categories tend to have non-US-top truths (Asia-first export
+ * patterns), so KOTRA is a net-noise source for them. K-Beauty/K-Tech are
+ * mostly US-top and benefit from KOTRA (e.g. cosrx US-prior, LG OLED US/CA).
+ *
+ * Categories matched here are conservatively excluded; uncategorized or
+ * uncertain categories default to KOTRA-on (the anchor's internal strict
+ * filter further reduces noise when keyword-match is empty).
+ *
+ * Override with KOTRA_CATEGORY_OPT_IN_DISABLED=true (returns false always)
+ * for diagnostic A/B work.
+ */
+export function shouldSkipKotraForCategory(category: string | null | undefined): boolean {
+  if (process.env.KOTRA_CATEGORY_OPT_IN_DISABLED === "true") return false;
+  if (!category) return false;
+  const t = category.toLowerCase();
+  // K-Food and K-Alcohol: known non-US-top patterns, KOTRA = net noise
+  if (t === "food" || t.includes("k-food") || t.includes("식품") || t.includes("음식")) return true;
+  if (t === "alcohol" || t.includes("k-alcohol") || t.includes("주류") || t.includes("liquor")) return true;
+  return false;
+}
+
 /** Top-level convenience — fetch per-country bundles + render in one call. */
 export async function buildKotraNationalAnchor(
   candidateCountries: string[],
-  opts: { apiKey?: string; categoryKeywords?: string[]; locale?: "ko" | "en"; maxPerCountry?: number } = {},
-): Promise<{ block: string; bundles: KotraNationalInfo[] }> {
+  opts: { apiKey?: string; categoryKeywords?: string[]; locale?: "ko" | "en"; maxPerCountry?: number; category?: string | null } = {},
+): Promise<{ block: string; bundles: KotraNationalInfo[]; skipped?: "category" }> {
+  // v8b category opt-in: skip KOTRA entirely for K-Food / K-Alcohol fixtures.
+  if (shouldSkipKotraForCategory(opts.category)) {
+    return { block: "", bundles: [], skipped: "category" };
+  }
   const apiKey = opts.apiKey ?? process.env.DATAGOKR_API_KEY;
   if (!apiKey) return { block: "", bundles: [] };
   const results = await Promise.all(

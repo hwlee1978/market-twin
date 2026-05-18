@@ -303,14 +303,18 @@ export async function runEnsembleOrchestration(
     const keywords = [projectInput.category, projectInput.productName].filter(
       (s): s is string => typeof s === "string" && s.length > 0,
     );
-    const { block, bundles } = await buildKotraNationalAnchor(
+    const { block, bundles, skipped } = await buildKotraNationalAnchor(
       projectInput.candidateCountries,
       // Cap 3 per country (v2 2026-05-18) to balance per-country weight after
       // v8a diagnostic showed US-heavy KOTRA registry was amplifying US-prior
       // on non-US-top fixtures (jinro JP regressed -22pt under v1 cap=5).
-      { categoryKeywords: keywords, locale, maxPerCountry: 3 },
+      // category opt-in (v3 2026-05-18) auto-disables KOTRA for K-Food /
+      // K-Alcohol where US-heavy bias hurt rather than helped.
+      { categoryKeywords: keywords, locale, maxPerCountry: 3, category: projectInput.category },
     );
-    if (block) {
+    if (skipped === "category") {
+      console.log(`[ensemble ${ensembleId}] KOTRA anchor: skipped (category=${projectInput.category})`);
+    } else if (block) {
       const totalComps = bundles.reduce((n, b) => n + b.koreanCompanies.length, 0);
       console.log(
         `[ensemble ${ensembleId}] KOTRA anchor: ${bundles.length}/${projectInput.candidateCountries.length} countries (${totalComps} Korean companies)`,
