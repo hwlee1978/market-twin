@@ -1,25 +1,42 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { AdminSimulationsTable } from "@/components/admin/AdminSimulationsTable";
+import { PageSizeSelect } from "@/components/admin/PageSizeSelect";
 import { createServiceClient } from "@/lib/supabase/server";
+
+const DEFAULT_PAGE_SIZE = 100;
+const MAX_PAGE_SIZE = 1000;
 
 export default async function AdminSimulationsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams?: Promise<{ page?: string; pageSize?: string }>;
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("admin.simulations");
 
+  const sp = (await searchParams) ?? {};
+  const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
+  const pageSize = Math.min(
+    MAX_PAGE_SIZE,
+    Math.max(10, parseInt(sp.pageSize ?? String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE),
+  );
+  const offset = (page - 1) * pageSize;
+
   const admin = createServiceClient();
   // Pull recent simulations with the project name joined for display.
-  const { data } = await admin
+  // Returns total count alongside the page slice so the table can render
+  // page navigation. Default page size 100; cap at 1000.
+  const { data, count } = await admin
     .from("simulations")
     .select(
       "id, workspace_id, project_id, status, current_stage, persona_count, started_at, completed_at, error_message, model_provider, model_version, projects(name)",
+      { count: "exact" },
     )
     .order("started_at", { ascending: false, nullsFirst: false })
-    .limit(100);
+    .range(offset, offset + pageSize - 1);
 
   type RawRow = {
     id: string;
@@ -54,6 +71,9 @@ export default async function AdminSimulationsPage({
     };
   });
 
+  const totalRows = count ?? rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+
   return (
     <div className="space-y-6">
       <div>
@@ -61,6 +81,76 @@ export default async function AdminSimulationsPage({
         <p className="text-sm text-slate-500 mt-1">{t("subtitle")}</p>
       </div>
       <AdminSimulationsTable rows={rows} locale={locale} />
+      <SimulationsPager
+        locale={locale}
+        page={page}
+        pageSize={pageSize}
+        totalRows={totalRows}
+        totalPages={totalPages}
+      />
+    </div>
+  );
+}
+
+function SimulationsPager({
+  locale,
+  page,
+  pageSize,
+  totalRows,
+  totalPages,
+}: {
+  locale: string;
+  page: number;
+  pageSize: number;
+  totalRows: number;
+  totalPages: number;
+}) {
+  const base = `/${locale}/admin/simulations`;
+  const buildHref = (p: number, s: number) => `${base}?page=${p}&pageSize=${s}`;
+  const firstRow = (page - 1) * pageSize + 1;
+  const lastRow = Math.min(page * pageSize, totalRows);
+  const isFirst = page <= 1;
+  const isLast = page >= totalPages;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4 px-1 py-2 text-sm text-slate-600">
+      <div>
+        {totalRows > 0
+          ? `${firstRow.toLocaleString()}–${lastRow.toLocaleString()} / ${totalRows.toLocaleString()} (페이지 ${page} / ${totalPages})`
+          : "결과 없음"}
+      </div>
+      <div className="flex items-center gap-3">
+        <PageSizeSelect baseHref={base} pageSize={pageSize} />
+        <div className="flex items-center gap-1">
+          <a
+            href={isFirst ? "#" : buildHref(1, pageSize)}
+            aria-disabled={isFirst}
+            className={`rounded border px-2 py-1 text-xs ${isFirst ? "pointer-events-none border-slate-200 text-slate-300" : "border-slate-300 text-slate-700 hover:bg-slate-50"}`}
+          >
+            « 처음
+          </a>
+          <a
+            href={isFirst ? "#" : buildHref(page - 1, pageSize)}
+            aria-disabled={isFirst}
+            className={`rounded border px-2 py-1 text-xs ${isFirst ? "pointer-events-none border-slate-200 text-slate-300" : "border-slate-300 text-slate-700 hover:bg-slate-50"}`}
+          >
+            ‹ 이전
+          </a>
+          <a
+            href={isLast ? "#" : buildHref(page + 1, pageSize)}
+            aria-disabled={isLast}
+            className={`rounded border px-2 py-1 text-xs ${isLast ? "pointer-events-none border-slate-200 text-slate-300" : "border-slate-300 text-slate-700 hover:bg-slate-50"}`}
+          >
+            다음 ›
+          </a>
+          <a
+            href={isLast ? "#" : buildHref(totalPages, pageSize)}
+            aria-disabled={isLast}
+            className={`rounded border px-2 py-1 text-xs ${isLast ? "pointer-events-none border-slate-200 text-slate-300" : "border-slate-300 text-slate-700 hover:bg-slate-50"}`}
+          >
+            끝 »
+          </a>
+        </div>
+      </div>
     </div>
   );
 }
