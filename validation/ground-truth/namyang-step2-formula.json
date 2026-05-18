@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "product": "매일유업 앱솔루트 명작 2단계 분유 (Maeil Absolute Masterpiece Stage 2 Formula)",
+  "category": "other",
+  "priceUsd": 42.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "HOLDOUT",
+  "candidateCountries": ["CN", "VN", "TH", "PH", "ID", "MY", "RU", "JP", "US", "MN"],
+  "evidence": [
+    {
+      "country": "CN",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2023-12-31",
+      "source": {
+        "type": "IR",
+        "title": "매일유업 — 중국 분유 매출 한 때 매출의 40%+",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "매일은 남양 다음 K-분유 #2 — 중국 프리미엄 분유로 인기. 단 declining."
+    },
+    {
+      "country": "VN",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "베트남 K-분유 인기 — 매일·남양 동시 진출",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "MN",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "몽골 K-분유 신뢰도 — 한국 분유 1위",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "low",
+      "notes": "몽골 분유 시장 한국산 강세 — niche지만 점유율 높음."
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "일본 분유 — Meiji·Morinaga·Glico 자국 dominant",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "US",
+      "metric": "market_entry_status",
+      "value": "not_present",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "미국 분유 FDA — 한국 분유 미진출",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    }
+  ],
+  "knownFacts": [
+    "매일유업은 한국 분유 #1 (남양 다음으로 큰 회사)",
+    "앱솔루트 명작은 프리미엄 분유 SKU — 중국·동남아 핵심",
+    "FDA 규제로 미국 미진출"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2010",
+    "notes": "매일·남양 K-분유 중국 강세는 매체 다수 보도."
+  },
+  "reviewerNotes": "HOLDOUT — CN top1, US rejected. Namyang fixture와 패턴 유사 (paired test 가능)."
+}

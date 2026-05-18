@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "product": "위닉스 타워 380 공기청정기 (Winix Tower 380 Air Purifier)",
+  "category": "appliances",
+  "priceUsd": 320.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "HOLDOUT",
+  "candidateCountries": ["US", "JP", "CN", "DE", "GB", "FR", "CA", "AU", "TH", "VN"],
+  "evidence": [
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "위닉스 — 미국 공기청정기 시장 #1 K-Brand (Costco·Amazon·Best Buy)",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "Winix는 미국 공기청정기 시장 dominant K-Brand — 산불·미세먼지 시즌마다 Amazon best seller. Coway·Blueair와 경쟁."
+    },
+    {
+      "country": "CA",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "위닉스 캐나다 — 산불 시즌 공기청정기 수요",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "일본 공기청정기 — Sharp·Daikin·Panasonic 자국 dominant",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "DE",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "독일 공기청정기 — 위닉스·Philips Aera",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "CN",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "중국 공기청정기 — 자국 (Xiaomi·Midea·Sharp) dominant",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "위닉스는 한국 공기청정기 — 미국 시장 dominant K-Brand",
+    "Amazon best seller 공기청정기 카테고리 단골",
+    "캐나다 산불 시즌 수요 핵심"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2005",
+    "notes": "위닉스 미국 1위는 K-가전 글로벌 케이스. The Wirecutter / Consumer Reports 1위 다수 노출."
+  },
+  "reviewerNotes": "HOLDOUT — US top1 + Coway와 유사한 패턴 (한국 정수기·공기청정기 미국 dominant). K-가전 패턴 검증."
+}

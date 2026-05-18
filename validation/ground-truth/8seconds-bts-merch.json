@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "product": "8세컨즈 데님 자켓 (8seconds Denim Jacket)",
+  "category": "fashion",
+  "priceUsd": 65.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "HOLDOUT",
+  "candidateCountries": ["CN", "JP", "VN", "TH", "MY", "SG", "ID", "TW", "PH", "US"],
+  "evidence": [
+    {
+      "country": "CN",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2023-12-31",
+      "source": {
+        "type": "IR",
+        "title": "삼성물산 8seconds — 중국 1호점 상하이 (2015) 후 다수 매장",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "삼성물산 SPA 브랜드. 중국 진출 핵심 매장 다수 (한 때 80개 매장)."
+    },
+    {
+      "country": "CN",
+      "metric": "growth_trajectory",
+      "value": "declining",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "중국 SPA fast fashion 시장 saturation",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium",
+      "notes": "최근 중국 fast fashion 시장은 자국 브랜드 (UR·Hotwind) + UNIQLO 강세로 성장 둔화."
+    },
+    {
+      "country": "VN",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "베트남 K-Fashion 인기 — 8세컨즈·SPAO 등",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "JP",
+      "metric": "market_entry_status",
+      "value": "exploring",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "8세컨즈 일본 진출 검토",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "low"
+    },
+    {
+      "country": "US",
+      "metric": "market_entry_status",
+      "value": "not_present",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "8세컨즈 미국 미진출",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "8세컨즈는 삼성물산 SPA 브랜드 (2012년 출시)",
+    "중국 상하이 1호점 2015년 — 핵심 시장",
+    "최근 중국 매장 축소 진행"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2012",
+    "notes": "삼성물산 + 8세컨즈는 K-Fashion 매체 다수 노출."
+  },
+  "reviewerNotes": "HOLDOUT — 중국 한 때 top이지만 최근 declining. sim이 'CN' 추천 시 정합. 다만 declining trajectory 캐치할 수 있을지 테스트."
+}

@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "product": "한샘 유로 시리즈 모듈 책장 (HANSSEM Euro Modular Bookshelf)",
+  "category": "appliances",
+  "priceUsd": 420.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "HOLDOUT",
+  "candidateCountries": ["CN", "VN", "US", "JP", "TH", "MY", "ID", "PH", "SG", "TW"],
+  "evidence": [
+    {
+      "country": "CN",
+      "metric": "market_entry_status",
+      "value": "entered",
+      "asOf": "2023-12-31",
+      "source": {
+        "type": "IR",
+        "title": "한샘 중국 진출 — 상하이 1호점 (2017) 후 철수 (2020)",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium",
+      "notes": "한샘 중국 진출 후 적자 누적으로 2020년 철수. 부동산 침체 + 자국 가구 (IKEA·Red Star Macalline) 경쟁."
+    },
+    {
+      "country": "VN",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "한샘 베트남 — 호치민·하노이 매장",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium",
+      "notes": "베트남 중산층 가구 시장 성장 — 한샘 동남아 핵심."
+    },
+    {
+      "country": "US",
+      "metric": "market_entry_status",
+      "value": "not_present",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "한샘 미국 미진출 — IKEA·Wayfair·Ashley 등 dominant",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "일본 가구 시장 — Nitori·MUJI 강세",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "TH",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "태국 K-Furniture — 한샘 진출 검토",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "low"
+    }
+  ],
+  "knownFacts": [
+    "한샘은 한국 가구 #1 — 1970년 설립",
+    "중국 진출 후 철수 케이스 (2017~2020)",
+    "베트남 동남아 시장 확장 중"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "1970",
+    "notes": "한샘 중국 철수는 매체 다수 보도. 베트남 진출은 상대적으로 낮은 인지도."
+  },
+  "reviewerNotes": "HOLDOUT — 'CN 큰 시장이니까' 추천 함정 fixture. 실제는 철수했고 VN이 top1. sim이 'CN' 추천 시 confident_wrong, 'VN' 잡으면 win."
+}

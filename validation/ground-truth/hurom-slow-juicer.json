@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "product": "휴롬 H320N 슬로우 주서 (Hurom H320N Slow Juicer)",
+  "category": "appliances",
+  "priceUsd": 380.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["US", "JP", "CN", "DE", "GB", "FR", "AU", "CA", "RU", "TW"],
+  "evidence": [
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "휴롬 미국 — HSN·QVC·Williams-Sonoma·Amazon Premium 채널",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "휴롬은 미국 슬로우 주서 시장 dominant — Breville·Omega 등과 프리미엄 경쟁. 2009년 본격 진출."
+    },
+    {
+      "country": "JP",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "휴롬 일본 — 라쿠텐·아마존JP 슬로우 주서 1위",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "일본 wellness 시장 niche에서 강력."
+    },
+    {
+      "country": "CN",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "중국 주서 시장 — 자국 브랜드 (九阳·美的) + 휴롬 프리미엄 niche",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "DE",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "독일 wellness — 휴롬 진출 (Galeria·Manor·Amazon DE)",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "AU",
+      "metric": "revenue_rank_overseas",
+      "value": 4,
+      "rank": 4,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "휴롬 호주 — Myer·David Jones 프리미엄 가전",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "휴롬은 한국 슬로우 주서 발명사 (1974~)",
+    "전 세계 80+ 국가 진출",
+    "미국·일본·유럽 wellness 시장 dominant"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "1974",
+    "notes": "휴롬은 K-가전 대표 글로벌 케이스. LLM에 잘 알려짐."
+  },
+  "reviewerNotes": "Wellness 프리미엄 가전 fixture. US = top1, JP = top2 패턴이 K-수출의 모범. K-Wave 의존 없는 K-tech 케이스."
+}

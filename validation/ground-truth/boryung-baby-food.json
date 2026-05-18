@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "product": "보령메디앙스 닥터아토 유아 보습 로션 (Boryung Medience Dr.Atto Baby Lotion)",
+  "category": "other",
+  "priceUsd": 22.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["CN", "VN", "JP", "TH", "MY", "ID", "PH", "US", "TW", "SG"],
+  "evidence": [
+    {
+      "country": "CN",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "보령메디앙스 — 중국 모자건강 시장 진출",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium",
+      "notes": "닥터아토는 아토피용 baby 스킨케어로 중국 모자보건 채널 진출."
+    },
+    {
+      "country": "TW",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "대만 K-Baby 스킨케어 인기",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "VN",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "베트남 K-Beauty (baby segment 포함)",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "일본 유아 스킨케어 — Wakodo·Pigeon 자국 강세",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "US",
+      "metric": "market_entry_status",
+      "value": "not_present",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "미국 유아 스킨케어 — Johnson's·Aveeno·CeraVe Baby dominant",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    }
+  ],
+  "knownFacts": [
+    "보령메디앙스는 한국 baby care 대기업 — 닥터아토는 아토피 시그니처",
+    "중국·동남아 모자보건 채널 진출",
+    "일본·미국은 자국 dominant"
+  ],
+  "leakageRisk": {
+    "inTrainingData": false,
+    "launchedBefore": "2008",
+    "notes": "보령메디앙스는 한국 외 인지도 낮음."
+  },
+  "reviewerNotes": "CN top1, JP/US rejected. K-Baby skincare 카테고리 fixture."
+}

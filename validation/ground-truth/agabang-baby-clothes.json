@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "product": "아가방앤컴퍼니 유아복 신생아 5종 세트 (Agabang Newborn Apparel 5-piece Set)",
+  "category": "other",
+  "priceUsd": 65.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["CN", "JP", "VN", "TH", "MY", "ID", "PH", "US", "RU", "AU"],
+  "evidence": [
+    {
+      "country": "CN",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "아가방 — 중국 유아복 시장 진출 (베이징·상하이)",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium",
+      "notes": "아가방 중국 진출 15년+. 2자녀 정책 후 K-유아복 인기 (안전성·디자인)."
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "일본 유아복 — Combi Mini·Familiar 자국 강세",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "VN",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "베트남 K-유아복 인기",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "US",
+      "metric": "market_entry_status",
+      "value": "not_present",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "미국 유아복 — Carter's·Old Navy dominant",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "아가방앤컴퍼니는 한국 유아복 #1 (1979~)",
+    "중국·동남아 진출 확대 중",
+    "안전성·디자인 K-baby 포지셔닝"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "1979",
+    "notes": "아가방 자체는 잘 알려진 한국 브랜드. 해외 매출 분포는 인지도 낮음."
+  },
+  "reviewerNotes": "CN top1 (2자녀 정책 K-유아복 인기). 일본 자국 강세로 fail."
+}

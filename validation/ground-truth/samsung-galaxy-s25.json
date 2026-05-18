@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "product": "삼성전자 갤럭시 S25 256GB (Samsung Galaxy S25 256GB Smartphone)",
+  "category": "appliances",
+  "priceUsd": 999.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["US", "IN", "DE", "GB", "BR", "VN", "TH", "ID", "MX", "TR"],
+  "evidence": [
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "삼성전자 2024 IR — 미국 스마트폰 시장 #2 (Apple 다음)",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "갤럭시 S 시리즈 미국 매출 핵심. Apple과 양강 구도. 5G·AI 기능 우위."
+    },
+    {
+      "country": "IN",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "market_research",
+        "title": "인도 스마트폰 시장 — 삼성 #1 (Xiaomi 다음)",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "인도 스마트폰 시장 14억 인구 — 삼성 점유율 18-20% (2024)."
+    },
+    {
+      "country": "DE",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "유럽 스마트폰 시장 — 삼성 점유율 30%+",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "BR",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "market_research",
+        "title": "브라질 스마트폰 — 삼성 1위",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "CN",
+      "metric": "market_entry_status",
+      "value": "rejected",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "market_research",
+        "title": "중국 스마트폰 — 삼성 점유율 1% (애국 소비 + Huawei·Xiaomi dominant)",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "삼성 중국 스마트폰 시장에서 사실상 철수 — 점유율 1% 미만."
+    }
+  ],
+  "knownFacts": [
+    "갤럭시 S 시리즈는 삼성 플래그십 — 글로벌 #1 안드로이드 폰",
+    "미국·인도·유럽 핵심 시장",
+    "중국 스마트폰 시장에서 점유율 1% — 사실상 철수"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2010",
+    "notes": "갤럭시 시리즈는 글로벌 #1 스마트폰 — LLM에 거의 완벽히 알려져 있음. confident_correct 예상."
+  },
+  "reviewerNotes": "US top1, CN rejected — 글로벌 #1 케이스. sim이 쉽게 맞춰야 할 fixture. confidence calibration용."
+}

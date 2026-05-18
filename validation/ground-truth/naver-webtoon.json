@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "product": "네이버 웹툰 글로벌 프리미엄 구독 (Naver Webtoon Global Premium Subscription)",
+  "category": "other",
+  "priceUsd": 7.99,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["US", "JP", "TH", "TW", "VN", "FR", "DE", "ID", "MX", "BR"],
+  "evidence": [
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "네이버 웹툰 — 미국 NASDAQ 상장 (2024 6월) Webtoon Entertainment",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "Webtoon Entertainment NYSE:WBTN 상장 (2024). 미국 웹툰 시장 95%+ 점유 — 카테고리 정의 브랜드."
+    },
+    {
+      "country": "US",
+      "metric": "market_share_pct",
+      "value": 88,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "미국 웹툰 시장 — Webtoon ~88%",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "JP",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "네이버 라인망가 일본 — 픽코마 다음 #2 만화 앱",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "TH",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "태국 웹툰 시장 — Naver Webtoon 1위",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "FR",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "프랑스 웹툰 — 네이버 Webtoon 진출 성공",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium",
+      "notes": "픽코마는 FR 철수, 반면 Webtoon은 진출 성공 — 글로벌 첫 디지털 만화 플랫폼 포지셔닝."
+    }
+  ],
+  "knownFacts": [
+    "네이버 웹툰은 글로벌 #1 웹툰 플랫폼 (Webtoon Entertainment 2024 NYSE 상장)",
+    "미국 웹툰 시장 88% 점유 — 카테고리 정의",
+    "Naver Webtoon = 글로벌, LINE Manga = 일본"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2004",
+    "notes": "Webtoon Entertainment NASDAQ 상장은 매체 다수 보도. K-콘텐츠 대표 글로벌 케이스."
+  },
+  "reviewerNotes": "US top1 (Webtoon은 미국이 home market). 픽코마와 대비 — 같은 K-웹툰 카테고리, 다른 top market."
+}

@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "product": "스타일난다 3CE 벨벳 립스틱 (STYLENANDA 3CE Velvet Lipstick)",
+  "category": "fashion",
+  "priceUsd": 18.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["CN", "JP", "TH", "VN", "MY", "SG", "ID", "TW", "PH", "US"],
+  "evidence": [
+    {
+      "country": "CN",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "LVMH (모회사 L'Oréal China) — 3CE 중국 매출 1위",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "3CE는 2018년 로레알에 6,000억원 매각. 중국 티몰·왓슨스 1위 K-beauty. 한 때 '中 매출의 80%'."
+    },
+    {
+      "country": "JP",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "3CE 일본 진출 — 도쿄 핫이슈 매장 + LOFT 입점",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "TH",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "태국 K-Beauty — 3CE 영구 매대",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "VN",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "베트남 K-Beauty 인기 — 3CE 가성비 립스틱",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "MY",
+      "metric": "revenue_rank_overseas",
+      "value": 4,
+      "rank": 4,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "말레이시아 K-Beauty 시장 — 3CE/이니스프리/에뛰드",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "low"
+    },
+    {
+      "country": "US",
+      "metric": "market_entry_status",
+      "value": "exploring",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "미국 K-Beauty — Sephora 일부 입점",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "3CE는 스타일난다 본체 화장품 라인 — 2018년 로레알 인수",
+    "중국 티몰 K-Beauty 부동의 1위",
+    "립 카테고리 (벨벳 립스틱·립 컬러) 시그니처"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2009",
+    "notes": "3CE·스타일난다는 K-Beauty 글로벌 케이스 — LLM training data에 'CN top market' fact 강하게 포함."
+  },
+  "reviewerNotes": "K-beauty / fashion 크로스오버 fixture. 중국 = top1 명확. 비교적 sim이 잘 맞출 케이스 — confidence calibration용."
+}

@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "product": "YG 블랙핑크 공식 응원봉 라이트스틱 V2 (YG BLACKPINK Official Lightstick V2)",
+  "category": "other",
+  "priceUsd": 55.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "HOLDOUT",
+  "candidateCountries": ["US", "JP", "TH", "PH", "ID", "BR", "MX", "DE", "GB", "IN"],
+  "evidence": [
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "YG엔터테인먼트 — 블랙핑크 글로벌 콘서트·머천 매출",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "블랙핑크 BORN PINK World Tour 매출 — 미국이 글로벌 K-pop 머천 핵심 시장."
+    },
+    {
+      "country": "JP",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "YG 일본 — 블랙핑크·트레저 매출",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "TH",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "태국 BLINK 팬덤 — 리사 (BLACKPINK) 자국민 영향",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "리사 태국인 멤버 → 태국 K-pop 시장 #1 시장 중 하나."
+    },
+    {
+      "country": "PH",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "필리핀 K-pop 팬덤 — 블랙핑크 세계 최대 팬",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "BR",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "브라질 K-pop — 블랙핑크 콘서트",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "YG는 블랙핑크 소속사 — 글로벌 K-pop 핵심",
+    "리사 (BLACKPINK 태국인) → 태국 시장 영향력 큼",
+    "BORN PINK World Tour (2022-2023) 미국 매출 핵심"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2016",
+    "notes": "블랙핑크는 글로벌 K-pop 대표 — LLM training data 매우 강함."
+  },
+  "reviewerNotes": "HOLDOUT — HYBE BTS와 같은 패턴 (US top1) vs 차이점은 태국 비중. sim이 두 fixture를 다르게 처리하는지 (TH 비중) 측정."
+}

@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "product": "모나미 153 볼펜 12자루 세트 (MONAMI 153 Ballpoint Pen 12-pack)",
+  "category": "appliances",
+  "priceUsd": 8.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["VN", "CN", "JP", "US", "TH", "PH", "ID", "MX", "IN", "RU"],
+  "evidence": [
+    {
+      "country": "VN",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "모나미 베트남 현지법인 — B2B 학교·기관 공급",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "모나미 베트남 진출 20년+ — 현지 OEM 공장 + 정부 학용품 공급 채널 확립."
+    },
+    {
+      "country": "CN",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "중국 학용품 — 자국 (晨光·得力) 강세",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium",
+      "notes": "중국 자국 학용품 (Chenguang Stationery) 시장 dominant. 모나미는 K-Wave niche 직구 채널."
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "일본 문구 시장 — Pilot·Zebra·Pentel 등 자국 강세",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "US",
+      "metric": "channel_presence",
+      "value": "niche",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "미국 문구 시장 — Bic·Paper Mate 등 dominant, 모나미 한인 niche",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "PH",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "필리핀 K-문구 인기 — 모나미·플러스펜",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "low"
+    }
+  ],
+  "knownFacts": [
+    "모나미는 한국 문구 #1 (1960~) — 153 볼펜은 대표 시그니처",
+    "베트남 현지 OEM 공장 + 정부 학교 공급 강세",
+    "동남아 (베·필·태) B2B 핵심 시장"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "1963",
+    "notes": "모나미는 한국 국민 문구 브랜드 — 해외는 인지도 낮음."
+  },
+  "reviewerNotes": "VN top1은 K-수출의 B2B niche 케이스. sim이 '큰 시장 CN/US'에 미혹되지 않고 VN/PH 잡는지 테스트."
+}

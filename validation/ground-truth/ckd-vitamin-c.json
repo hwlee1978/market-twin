@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "product": "종근당건강 락토핏 골드 (Chong Kun Dang Lactofit Gold Probiotic)",
+  "category": "health",
+  "priceUsd": 28.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["CN", "VN", "TH", "JP", "TW", "MY", "ID", "PH", "US", "RU"],
+  "evidence": [
+    {
+      "country": "CN",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "종근당건강 — 중국 락토핏 매출 #1 (티몰·왓슨스)",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "락토핏은 K-프로바이오틱스 #1 — 중국 진출 매출 최대. 한 때 매출의 50%+."
+    },
+    {
+      "country": "VN",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "베트남 K-건강기능식품 락토핏 인기",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "TW",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "대만 K-Health 락토핏 momoshop",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "일본 프로바이오틱스 — 자국 (Yakult·Morinaga) dominant",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "US",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "미국 프로바이오틱스 — Culturelle·Align·NOW Foods dominant",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "종근당건강 락토핏은 K-프로바이오틱스 #1 (5년 연속 한국 1위)",
+    "중국 티몰·왓슨스 핵심 매출",
+    "K-건강기능식품 대표 수출 제품"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2013",
+    "notes": "락토핏 중국 인기는 K-Health 글로벌 케이스 매체 다수 보도."
+  },
+  "reviewerNotes": "CN top1 K-Health. JP/US는 자국 강세. 헬스 보강 fixture."
+}

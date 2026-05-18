@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "product": "락앤락 클래식 밀폐용기 12P 세트 (LOCK&LOCK Classic Container 12P Set)",
+  "category": "appliances",
+  "priceUsd": 35.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["CN", "VN", "JP", "US", "TH", "MY", "ID", "PH", "IN", "RU"],
+  "evidence": [
+    {
+      "country": "CN",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "락앤락 2024 사업보고서 — 중국 매출 1위 (전체의 40%+)",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "락앤락 중국 진출 20년 (2004~). 한 때 매출 60% 중국. PE 어피니티 인수 (2017) 후 중국 시장 의존도 핵심."
+    },
+    {
+      "country": "VN",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "락앤락 베트남 현지법인 — 동남아 2위 시장",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "락앤락 미국 Costco·Walmart·Amazon 진출",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium",
+      "notes": "Costco·HSN·QVC 채널 진출. Pyrex·OXO 등 경쟁."
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "일본 밀폐용기 시장 — Iwaki·Hario 등 자국 브랜드 강세",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "TH",
+      "metric": "market_entry_status",
+      "value": "entered",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "락앤락 동남아 (태국·말련) 진출",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "락앤락은 한국 밀폐용기 #1 브랜드 (1985~)",
+    "중국 매출 비중 한 때 60%+ — 핵심 해외 시장",
+    "PE 어피니티 인수 (2017) 후 본사·생산기지 중국 이전"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "1985",
+    "notes": "락앤락 중국 강세는 K-수출 케이스 스터디 다수. LLM training data에 포함 거의 확정."
+  },
+  "reviewerNotes": "중국 압도적 top1. 일본은 자국 브랜드 강세로 weak. sim이 'CN' 못 잡으면 K-수출 기본 패턴도 못 잡는 것."
+}

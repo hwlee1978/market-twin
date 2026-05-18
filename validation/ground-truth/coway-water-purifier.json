@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "product": "코웨이 시루직수 정수기 (Coway CHP-7211N Water Purifier)",
+  "category": "appliances",
+  "priceUsd": 550.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["MY", "US", "TH", "ID", "VN", "PH", "JP", "CN", "IN", "MX"],
+  "evidence": [
+    {
+      "country": "MY",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "코웨이 2024 사업보고서 — 말레이시아 매출 1위 (해외 매출의 60%+)",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "Coway Malaysia 280만+ 계정 (2024) — 말레이시아 정수기 시장 압도적 1위. Coway 본체 매출의 핵심."
+    },
+    {
+      "country": "MY",
+      "metric": "market_share_pct",
+      "value": 47,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "Coway Malaysia 시장 점유율 47% (2024 IR)",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "Coway USA — Costco·Amazon·Best Buy 채널",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "TH",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "Coway 태국 진출 — 동남아 #2 시장",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "ID",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "인도네시아 정수기 시장 — Coway 진출",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "JP",
+      "metric": "market_entry_status",
+      "value": "exploring",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "일본 정수기 시장 — 자국 브랜드 (Cleansui·Brita) 강세",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "코웨이는 한국 정수기 #1 — 렌탈 모델 글로벌 수출",
+    "Coway Malaysia 280만 계정 — 글로벌 K-가전 대표 케이스",
+    "말레이시아 본사 매출의 60%+ 차지"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "1989",
+    "notes": "Coway Malaysia 성공 케이스는 KOTRA·KITA 다수 인용. 사업계획서·정부 보고서 빈출."
+  },
+  "reviewerNotes": "MY top1은 한국 K-export 명실상부 대표 사례. sim이 못 잡으면 동남아 K-가전 패턴 약함 신호. US/TH 보조 candidates."
+}

@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "product": "ANF 6Free 캣 인도어 캣푸드 (ANF 6Free Indoor Cat Food)",
+  "category": "other",
+  "priceUsd": 38.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["US", "JP", "CN", "VN", "TH", "TW", "MY", "SG", "AU", "DE"],
+  "evidence": [
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "ANF 미국 — Chewy·Amazon 진출 (프리미엄 캣푸드)",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium",
+      "notes": "ANF는 한국 OEM (오성앤피) 브랜드 — 프리미엄 NA·미국 진출."
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "일본 프리미엄 펫푸드 — ANF 진출",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "TW",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "대만 ANF 진출 — momoshop",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "CN",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "중국 펫푸드 — 자국 강세",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "low"
+    },
+    {
+      "country": "AU",
+      "metric": "market_entry_status",
+      "value": "exploring",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "호주 프리미엄 펫푸드 — Black Hawk·Royal Canin dominant",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "low"
+    }
+  ],
+  "knownFacts": [
+    "ANF는 한국 프리미엄 펫푸드 브랜드 (1995~)",
+    "Chewy·Amazon US 진출 — 미국 프리미엄 niche",
+    "JP·TW 동아시아 보조 시장"
+  ],
+  "leakageRisk": {
+    "inTrainingData": false,
+    "launchedBefore": "1995",
+    "notes": "ANF는 글로벌 인지도 매우 낮음."
+  },
+  "reviewerNotes": "US top1 프리미엄 펫푸드 — Chewy·Amazon 미국 채널 강세. K-Pet 글로벌 진출 케이스."
+}

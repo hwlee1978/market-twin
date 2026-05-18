@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "product": "SPAO BT21 콜라보 티셔츠 (SPAO BT21 Collab T-shirt)",
+  "category": "fashion",
+  "priceUsd": 22.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["JP", "CN", "PH", "TH", "VN", "MY", "ID", "TW", "SG", "US"],
+  "evidence": [
+    {
+      "country": "JP",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "이랜드월드 SPAO 일본 직영 매장 운영",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "SPAO Japan 도쿄 하라주쿠·시부야 직영 매장. BT21·산리오 콜라보가 일본 메인 트래픽."
+    },
+    {
+      "country": "PH",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "SPAO 필리핀 마닐라 SM몰 진출",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "CN",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "중국 fast fashion — UNIQLO 강세, 한국 브랜드 철수",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium",
+      "notes": "SPAO 중국 진출 후 철수. 자국 fast fashion 강세 + K-방한 트렌드 약화."
+    },
+    {
+      "country": "TH",
+      "metric": "market_entry_status",
+      "value": "entered",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "SPAO 방콕 메가몰 매장",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "VN",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "베트남 K-Fashion 인기 (호치민·하노이)",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "US",
+      "metric": "market_entry_status",
+      "value": "not_present",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "SPAO 미국 미진출 — UNIQLO·Forever21 경쟁 회피",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "SPAO는 이랜드월드 SPA 브랜드 (한국 자체 fast fashion)",
+    "일본 도쿄 직영 매장 운영",
+    "BT21·산리오·라인프렌즈 캐릭터 콜라보가 강점"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2009",
+    "notes": "SPAO·이랜드는 한국 SPA 대표 브랜드. 일본 직영 매장은 K-Fashion 매체 다수 보도."
+  },
+  "reviewerNotes": "K-pop IP 콜라보 fashion 케이스. 일본 = top1 (BT21 일본 시장 핵심). 중국 철수 케이스 → sim이 'CN 큰 시장이니까 추천' 함정 피해야."
+}

@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "product": "남양유업 임페리얼 XO 분유 1단계 (Namyang Imperial XO Stage 1 Formula)",
+  "category": "other",
+  "priceUsd": 38.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["CN", "VN", "TH", "PH", "ID", "MY", "RU", "MN", "KZ", "US"],
+  "evidence": [
+    {
+      "country": "CN",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2023-12-31",
+      "source": {
+        "type": "IR",
+        "title": "남양유업 — 중국 분유 매출 한 때 매출의 80%+",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "한국 분유의 중국 인기 (2014-2018 멜라민 우유 사건 후 한국산 신뢰). 단 사드·코로나 후 매출 급감, 자국 (a2·飞鹤) 회복."
+    },
+    {
+      "country": "CN",
+      "metric": "growth_trajectory",
+      "value": "declining",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "중국 분유 시장 — 자국 브랜드 회복, 한국산 매출 급감",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "사드+코로나+불가리스 사태 (2021) 후 남양 매출 큰 폭 감소. 그래도 누적 매출 기준 CN top1 유지."
+    },
+    {
+      "country": "VN",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "베트남 K-분유 인기 — 신뢰도 + 가성비",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "RU",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "러시아 K-분유 — 사할린·블라디보스토크 등",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "low"
+    },
+    {
+      "country": "US",
+      "metric": "market_entry_status",
+      "value": "not_present",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "미국 분유 FDA 규제 — 한국 분유 미진출",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    }
+  ],
+  "knownFacts": [
+    "남양유업은 한국 분유 #2 (매일 다음)",
+    "임페리얼 XO는 중국 프리미엄 분유 핵심 SKU",
+    "사드 (2017) + 불가리스 사태 (2021) 후 매출 큰 폭 감소"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2008",
+    "notes": "K-분유 중국 인기 + 사드 영향 매체 다수 보도."
+  },
+  "reviewerNotes": "CN top1이지만 declining 추세. sim이 'CN' 잡으면 top1 정합, 'CN declining'까지 잡으면 강력. US는 FDA로 분명히 rejected."
+}

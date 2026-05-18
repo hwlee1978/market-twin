@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "product": "HYBE BTS BT21 공식 머천다이즈 굿즈 박스 (HYBE BTS BT21 Official Merch Box)",
+  "category": "other",
+  "priceUsd": 75.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["US", "JP", "PH", "ID", "TH", "BR", "MX", "DE", "GB", "IN"],
+  "evidence": [
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "HYBE 2024 IR — 미국 매출 50%+ (BTS+TXT+세븐틴 글로벌)",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "HYBE 미국 매출 비중 압도적. Weverse·BTS·BT21 글로벌 fan-driven 매출."
+    },
+    {
+      "country": "JP",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "HYBE 일본 — Weverse JP·BT21 라이프스타일 강세",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "PH",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "필리핀 BTS ARMY — 세계 최대 팬덤 중 하나",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "ID",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "인도네시아 K-pop 팬덤 — 세계 #1 K-pop YouTube views 시장",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "BR",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "브라질 BTS — 라틴 K-pop 시장 강세",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "HYBE는 BTS·TXT·세븐틴·뉴진스 소속사 — 글로벌 K-pop 대표 기업",
+    "미국 매출 50%+ — 글로벌 fan-driven 매출",
+    "Weverse 플랫폼은 글로벌 K-pop 팬 hub"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2017",
+    "notes": "BTS·HYBE는 글로벌 K-pop 대표 — LLM training data 매우 강하게 포함."
+  },
+  "reviewerNotes": "US top1 (BTS 글로벌 매출 중심지). 필·인·브라질 등 신흥 K-pop 시장 보조. K-콘텐츠 globe-wide fixture."
+}

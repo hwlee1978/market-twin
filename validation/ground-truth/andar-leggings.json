@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "product": "안다르 에어리 레깅스 (ANDAR Airy Leggings)",
+  "category": "fashion",
+  "priceUsd": 45.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["JP", "CN", "TW", "US", "VN", "TH", "SG", "ID", "MY", "AU"],
+  "evidence": [
+    {
+      "country": "JP",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "ANDAR 2024 — 일본 진출 본격화 (Qoo10·라쿠텐·아마존JP)",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "ANDAR Japan 공식 진출. 일본 athleisure 시장이 한국 다음 우선순위. 'Korea #1 leggings' 포지셔닝."
+    },
+    {
+      "country": "TW",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "ANDAR 대만 momoshop 입점",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium",
+      "notes": "대만 K-athleisure 수요 강세. MULA·STYLENANDA 동반 진출 패턴."
+    },
+    {
+      "country": "CN",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "중국 athleisure 시장 — 로컬 브랜드 + Lululemon 강세",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium",
+      "notes": "중국 자체 athleisure (MAIA, particle fever) 강함. 직구 채널 위주 진출."
+    },
+    {
+      "country": "US",
+      "metric": "market_entry_status",
+      "value": "exploring",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "ANDAR 미국 진출 검토 단계",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "low",
+      "notes": "Lululemon·Alo·Athleta 등 미국 lokale 강세. 한인 시장 한정."
+    },
+    {
+      "country": "VN",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "베트남 K-Fashion 인기 — athleisure 카테고리",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "low"
+    },
+    {
+      "country": "AU",
+      "metric": "market_entry_status",
+      "value": "not_present",
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "general_news",
+        "title": "호주 athleisure — Lululemon dominant",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "knownFacts": [
+    "ANDAR는 한국 K-athleisure #1 (5년 연속 패션품질대상)",
+    "일본 진출 2022-2023 본격화 (Qoo10·아마존JP·라쿠텐)",
+    "대만 momoshop 입점 패턴 (MULA와 유사)"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "2015",
+    "notes": "ANDAR 자체는 K-Fashion 미디어 다수 노출. 일본 진출도 패션비즈/어패럴뉴스 보도. LLM training data에 일부 facts 포함 가능."
+  },
+  "reviewerNotes": "K-athleisure 카테고리 대표 fixture. 일본 = top1 expected. CN saturated, US too competitive. TW 우호적."
+}

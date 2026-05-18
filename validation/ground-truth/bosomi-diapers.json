@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "product": "깨끗한나라 보솜이 프리미엄 기저귀 (Kkeotjugnara Bosomi Premium Diapers)",
+  "category": "other",
+  "priceUsd": 28.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "HOLDOUT",
+  "candidateCountries": ["VN", "CN", "RU", "TH", "PH", "ID", "MY", "MN", "KZ", "JP"],
+  "evidence": [
+    {
+      "country": "VN",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "깨끗한나라 — 베트남 기저귀 수출 #1",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium",
+      "notes": "베트남 출산율 + 한국 기저귀 신뢰도 → 보솜이 동남아 핵심. 호치민·하노이 중산층 타깃."
+    },
+    {
+      "country": "RU",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "러시아 K-기저귀 인기 — 사할린 등 극동",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium",
+      "notes": "러시아는 한국 기저귀 (보솜이·하기스KOR·잘 만들었네) 신뢰도 높음."
+    },
+    {
+      "country": "CN",
+      "metric": "consumer_acceptance",
+      "value": "mixed",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "중국 기저귀 — Pampers·Huggies·자국 (Babycare) 강세",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "일본 기저귀 — Goon·Merries·Moony 자국 dominant",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "일본은 자국 기저귀 (Goon·Merries) 세계 최상위 품질로 dominant."
+    }
+  ],
+  "knownFacts": [
+    "깨끗한나라 보솜이는 한국 프리미엄 기저귀 #1",
+    "베트남·러시아 동남아·CIS 핵심 수출 시장",
+    "일본은 자국 기저귀 세계 최상위라 진입 어려움"
+  ],
+  "leakageRisk": {
+    "inTrainingData": false,
+    "launchedBefore": "2010",
+    "notes": "보솜이는 한국 외 인지도 매우 낮음. LLM이 'CN'에 misled될 가능성."
+  },
+  "reviewerNotes": "HOLDOUT — VN top1, JP rejected 패턴. sim이 'CN 큰 시장' 함정에 빠지지 않고 VN·RU 동남아/CIS 잡는지 핵심 테스트."
+}

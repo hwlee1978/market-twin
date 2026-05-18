@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "product": "쿠쿠 IH 프리미엄 6인용 압력밥솥 (CUCKOO IH Premium 6-cup Pressure Rice Cooker)",
+  "category": "appliances",
+  "priceUsd": 420.0,
+  "originCountry": "KR",
+  "asOf": "2025-12-31",
+  "split": "TUNING",
+  "candidateCountries": ["CN", "VN", "US", "MY", "JP", "TH", "ID", "PH", "TW", "AU"],
+  "evidence": [
+    {
+      "country": "CN",
+      "metric": "revenue_rank_overseas",
+      "value": 1,
+      "rank": 1,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "쿠쿠 — 중국 프리미엄 밥솥 시장 #1 K-Brand",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "쿠쿠 중국 진출 20년+. 한국 압력밥솥 = 프리미엄 카테고리. Zojirushi (일본)·Toshiba와 경쟁."
+    },
+    {
+      "country": "VN",
+      "metric": "revenue_rank_overseas",
+      "value": 2,
+      "rank": 2,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "IR",
+        "title": "쿠쿠 베트남 — 동남아 핵심 시장",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high"
+    },
+    {
+      "country": "US",
+      "metric": "revenue_rank_overseas",
+      "value": 3,
+      "rank": 3,
+      "asOf": "2024-12-31",
+      "source": {
+        "type": "trade_news",
+        "title": "쿠쿠 미국 — Costco·H-Mart·Amazon",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium",
+      "notes": "미국 한인·아시안 시장 강세. 메인스트림 진출 검토."
+    },
+    {
+      "country": "MY",
+      "metric": "consumer_acceptance",
+      "value": "strong",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "trade_news",
+        "title": "말레이시아 K-가전 — 쿠쿠 진출",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "medium"
+    },
+    {
+      "country": "JP",
+      "metric": "consumer_acceptance",
+      "value": "weak",
+      "asOf": "2024-2025",
+      "source": {
+        "type": "market_research",
+        "title": "일본 밥솥 — Zojirushi·Tiger 자국 dominant",
+        "accessedAt": "2026-05-19"
+      },
+      "confidence": "high",
+      "notes": "일본은 자국 밥솥 (Zojirushi·Tiger·Panasonic) 세계 최상위 — 진입 매우 어려움."
+    }
+  ],
+  "knownFacts": [
+    "쿠쿠는 한국 압력밥솥 #1 (1978~)",
+    "중국·베트남 동남아 핵심 수출",
+    "일본은 자국 밥솥 (Zojirushi) 세계 최상위라 진입 어려움"
+  ],
+  "leakageRisk": {
+    "inTrainingData": true,
+    "launchedBefore": "1978",
+    "notes": "쿠쿠 중국·동남아 강세는 K-가전 글로벌 케이스."
+  },
+  "reviewerNotes": "CN top1 (K-가전 동아시아 패턴). JP rejected — 자국 밥솥 세계 최상위. K-Tech 패턴 일관성 측정."
+}
