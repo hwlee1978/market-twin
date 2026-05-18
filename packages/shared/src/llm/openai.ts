@@ -16,13 +16,28 @@ export class OpenAIProvider implements LLMProvider {
   async generate(req: LLMRequest): Promise<LLMResponse> {
     const wantsJson = !!req.jsonSchema;
 
+    // GPT-5 series and the o-series reasoning models renamed `max_tokens`
+    // → `max_completion_tokens` and dropped support for the old parameter.
+    // The 400 "Unsupported parameter" error blocks every sim that uses
+    // gpt-5.4-mini, so this branch matters at the prefix level. Legacy
+    // 4.x models still expect `max_tokens` and reject the new name.
+    const isModernOutputLimit =
+      this.model.startsWith("gpt-5") ||
+      this.model.startsWith("o1") ||
+      this.model.startsWith("o3") ||
+      this.model.startsWith("o4");
+    const tokensCap = req.maxTokens ?? 4096;
+    const tokenParam = isModernOutputLimit
+      ? { max_completion_tokens: tokensCap }
+      : { max_tokens: tokensCap };
+
     const response = await withLLMRetry(
       () =>
         this.client.chat.completions.create(
           {
             model: this.model,
             temperature: req.temperature ?? 0.7,
-            max_tokens: req.maxTokens ?? 4096,
+            ...tokenParam,
             response_format: wantsJson ? { type: "json_object" } : undefined,
             messages: [
               ...(req.system ? [{ role: "system" as const, content: req.system }] : []),
