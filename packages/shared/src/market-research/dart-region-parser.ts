@@ -111,9 +111,14 @@ export async function fetchReportXml(
  * Extract the K-IFRS 8 region disclosure table from a 사업보고서 XML string.
  * Returns null if no such table is present (single-segment entities).
  *
- * Strategy: locate marker text ("지역에 대한 공시" or "지역별 영업현황"),
- * find the next <TABLE>...</TABLE> block, parse THEAD as column headers,
- * find TBODY row whose first cell text matches "영업수익" or "Revenue".
+ * Handles two observed layouts:
+ *   A) CJ format — THEAD columns = regions (아시아/아메리카/...), TBODY rows = metrics
+ *      (총 매출액/내부매출액/영업수익). Picks 영업수익 row, broad 4-region resolution.
+ *   B) LG생활건강 format — THEAD columns = metrics (매출액/비유동자산), TBODY rows
+ *      = countries (한국/중국/일본/북미/유럽/...). Picks 매출액 column, country-level.
+ *
+ * Layout is inferred from THEAD: if any header contains 매출액/Sales → format B.
+ * Otherwise treat as format A.
  */
 export function extractRegionSegment(xml: string): DartRegionRow[] | null {
   const markers = ["지역에 대한 공시", "지역별 영업현황"];
@@ -124,17 +129,14 @@ export function extractRegionSegment(xml: string): DartRegionRow[] | null {
   }
   if (markerPos < 0) return null;
 
-  // Search forward for the first TABLE with both region headers and a revenue row.
-  // CJ structure has 2 preliminary TABLEs (label + unit note) before the data TABLE.
   let pos = markerPos;
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 5; attempt++) {
     const tableStart = xml.indexOf("<TABLE", pos);
     if (tableStart < 0) return null;
     const tableEnd = xml.indexOf("</TABLE>", tableStart);
     if (tableEnd < 0) return null;
     const tableXml = xml.slice(tableStart, tableEnd + "</TABLE>".length);
 
-    // Parse THEAD column headers — <TH ... ENG="Asia"><P>아시아</P></TH>
     const theadMatch = tableXml.match(/<THEAD[\s\S]*?<\/THEAD>/);
     if (!theadMatch) {
       pos = tableEnd + 1;
@@ -150,17 +152,81 @@ export function extractRegionSegment(xml: string): DartRegionRow[] | null {
       const ko = (pMatch?.[1] ?? inner).replace(/<[^>]+>/g, "").trim();
       headers.push({ ko: ko === "　" || ko === "" ? "(label)" : ko, en });
     }
-    if (headers.length < 3) {
+    if (headers.length < 2) {
       pos = tableEnd + 1;
       continue;
     }
 
-    // Parse TBODY rows, find the row whose first <TE>...</TE> contains 영업수익 or Revenue.
+    // Format detection: any THEAD cell with 매출액/Sales → format B (LG생건)
+    const salesIdx = headers.findIndex(
+      (h) =>
+        h.ko === "매출액" ||
+        h.en === "Sales" ||
+        h.ko === "매출" ||
+        h.en === "Revenue",
+    );
+    const isFormatB = salesIdx >= 0;
+
     const tbodyMatch = tableXml.match(/<TBODY[\s\S]*?<\/TBODY>/);
     if (!tbodyMatch) {
       pos = tableEnd + 1;
       continue;
     }
+
+    if (isFormatB) {
+      // LG생건 format: rows = countries, pick "매출액" column.
+      const rows: DartRegionRow[] = [];
+      const rowRegex = /<TR[^>]*>([\s\S]*?)<\/TR>/g;
+      let rm: RegExpExecArray | null;
+      while ((rm = rowRegex.exec(tbodyMatch[0])) !== null) {
+        const cellsXml = rm[1];
+        const cellRegex = /<TE[^>]*?(?:ENG="([^"]*)")?[^>]*>([\s\S]*?)<\/TE>/g;
+        const cells: Array<{ ko: string; en: string | null }> = [];
+        let cm: RegExpExecArray | null;
+        while ((cm = cellRegex.exec(cellsXml)) !== null) {
+          const en = cm[1] ?? null;
+          const inner = cm[2];
+          const pMatch = inner.match(/<P[^>]*>([\s\S]*?)<\/P>/);
+          const text = (pMatch?.[1] ?? inner).replace(/<[^>]+>/g, "").trim();
+          cells.push({ ko: text, en });
+        }
+        if (cells.length === 0) continue;
+        // LG생건 ROWSPAN "지역" wrapper appears only on the first row. Compute
+        // the offset between header count and this row's cell count so the
+        // salesIdx header maps to the right data cell.
+        // Example: headers = ["", "", "매출액", "비유동자산", "추가설명"] (5)
+        //   First row (with wrapper): ["지역", "한국", "4,707,118", ...] (5) → offset 0
+        //   Other rows: ["중국", "793,046", "85,380", ""] (4) → offset 1
+        const offset = headers.length - cells.length;
+        // Find the country-name cell (header[0] is wrapper, header[1] is country slot,
+        // but in wrapped row cells[0]="지역" wrapper takes that role).
+        const countryCellIdx = cells.length === headers.length ? 1 : 0;
+        const country = cells[countryCellIdx];
+        if (!country) continue;
+        if (
+          country.ko.includes("합계") ||
+          country.en === "Total of Geographical areas" ||
+          country.ko === "지역" ||
+          country.ko === ""
+        ) continue;
+        const valueCell = cells[salesIdx - offset];
+        if (!valueCell) continue;
+        const rawValue = valueCell.ko.replace(/,/g, "").replace(/[()]/g, "");
+        const n = parseFloat(rawValue);
+        if (!Number.isFinite(n) || n === 0) continue;
+        // LG생건 unit is million KRW (see XML); CJ format-B brands may differ.
+        // Caller will scale via unit detection elsewhere if needed; for now,
+        // we record raw value × 1,000,000 (LG생건's million KRW unit).
+        rows.push({ regionKo: country.ko, regionEn: country.en, revenueKrw: n * 1_000_000 });
+      }
+      if (rows.length === 0) {
+        pos = tableEnd + 1;
+        continue;
+      }
+      return rows;
+    }
+
+    // Format A (CJ): rows = metrics, columns = regions.
     const rowRegex = /<TR[^>]*>([\s\S]*?)<\/TR>/g;
     let revenueCells: string[] | null = null;
     let rm: RegExpExecArray | null;
@@ -181,11 +247,9 @@ export function extractRegionSegment(xml: string): DartRegionRow[] | null {
         label === "영업수익" ||
         label === "Revenue" ||
         label.includes("영업수익") ||
-        label.includes("매출액") && !label.includes("내부")
+        (label.includes("매출액") && !label.includes("내부"))
       ) {
         revenueCells = cells;
-        // "영업수익" is the post-elimination preferred row; if "총 매출액" was
-        // seen first, keep searching for the "영업수익" row.
         if (label === "영업수익" || label.includes("영업수익")) break;
       }
     }
@@ -193,17 +257,14 @@ export function extractRegionSegment(xml: string): DartRegionRow[] | null {
       pos = tableEnd + 1;
       continue;
     }
-
-    // Map cells (skip first label cell) → headers (skip first label header)
     const rows: DartRegionRow[] = [];
     for (let i = 1; i < Math.min(headers.length, revenueCells.length); i++) {
       const hdr = headers[i];
-      // Skip "지역 합계" / Total columns
       if (hdr.ko.includes("합계") || hdr.ko === "Total of Geographical areas") continue;
       const rawValue = revenueCells[i].replace(/,/g, "").replace(/[()]/g, "");
       const n = parseFloat(rawValue);
       if (!Number.isFinite(n)) continue;
-      rows.push({ regionKo: hdr.ko, regionEn: hdr.en, revenueKrw: n * 1000 }); // unit was thousand KRW
+      rows.push({ regionKo: hdr.ko, regionEn: hdr.en, revenueKrw: n * 1000 }); // thousand KRW
     }
     if (rows.length === 0) {
       pos = tableEnd + 1;
