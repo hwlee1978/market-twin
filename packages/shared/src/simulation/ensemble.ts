@@ -960,19 +960,23 @@ export function aggregateEnsemble(
   // ≥+5pt mean improvement at p<0.10.
   const normalizedCategory = normalizeCategory(opts.category ?? null);
 
-  const rankByCountry = new Map<string, number[]>();
+  // Phase F.2 weighted aggregation. Math note: dividing each rank by the
+  // provider weight inside a single sim would preserve relative ordering
+  // (every country gets the same division) — it would only scale the mean.
+  // To actually shift winner picks, we keep raw ranks and apply weights at
+  // the AVERAGE step: weighted mean = Σ(rank_i × weight_i) / Σ(weight_i).
+  // Sims from a stronger provider for this category contribute MORE to the
+  // average (their preferred countries get pulled toward lower mean rank).
+  const rankByCountry = new Map<string, { rank: number; weight: number }[]>();
   const scoreByCountry = new Map<string, { sum: number; n: number }>();
   for (const s of sims) {
     const sorted = [...s.countries].sort((a, b) => b.finalScore - a.finalScore);
     const weight = getProviderWeight(normalizedCategory, s.provider ?? null);
     sorted.forEach((c, i) => {
       const k = c.country.toUpperCase();
-      // Phase F.2: per-sim rank divided by provider weight. Weight=1.0
-      // (default off OR uniform fallback) → unchanged behavior.
-      const weightedRank = (i + 1) / weight;
-      const ranks = rankByCountry.get(k) ?? [];
-      ranks.push(weightedRank);
-      rankByCountry.set(k, ranks);
+      const arr = rankByCountry.get(k) ?? [];
+      arr.push({ rank: i + 1, weight });
+      rankByCountry.set(k, arr);
       const score = scoreByCountry.get(k) ?? { sum: 0, n: 0 };
       score.sum += c.finalScore * weight;
       score.n += weight;
@@ -980,8 +984,11 @@ export function aggregateEnsemble(
     });
   }
   const meanRanking = [...rankByCountry.entries()]
-    .map(([country, ranks]) => {
-      const meanRank = ranks.reduce((a, b) => a + b, 0) / ranks.length;
+    .map(([country, entries]) => {
+      const totalW = entries.reduce((a, e) => a + e.weight, 0);
+      const meanRank = totalW > 0
+        ? entries.reduce((a, e) => a + e.rank * e.weight, 0) / totalW
+        : 0;
       const score = scoreByCountry.get(country)!;
       const meanScore = score.n > 0 ? score.sum / score.n : 0;
       return { country, meanRank, meanScore };

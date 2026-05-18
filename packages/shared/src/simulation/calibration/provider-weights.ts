@@ -103,8 +103,10 @@ export function getProviderWeight(category: string | null | undefined, provider:
 export function normalizeCategory(catOrProduct: string | null | undefined): ProviderCategory {
   if (!catOrProduct) return "_default";
   const t = catOrProduct.toLowerCase();
-  if (t.includes("oled") || t.includes("tv") || t.includes("appliance") || t.includes("가전")) return "tech";
-  if (t.includes("정관장") || t.includes("ginseng") || t.includes("wellness") || t.includes("건강기능")) return "wellness";
+  // Pass-through for already-normalized category labels.
+  if (t === "beauty" || t === "food" || t === "wellness" || t === "tech" || t === "alcohol") return t;
+  if (t.includes("oled") || t.includes("tv") || t.includes("appliance") || t.includes("가전") || t.includes("electronics") || t.includes("electronic")) return "tech";
+  if (t.includes("정관장") || t.includes("ginseng") || t.includes("wellness") || t.includes("health") || t.includes("건강기능")) return "wellness";
   if (t.includes("진로") || t.includes("소주") || t.includes("chamisul") || t.includes("alcohol") || t.includes("주류")) return "alcohol";
   if (t.includes("beauty") || t.includes("뷰티") || t.includes("화장품") || t.includes("skincare") || t.includes("toner") || t.includes("mask")) return "beauty";
   if (t.includes("food") || t.includes("식품") || t.includes("ramen") || t.includes("라면") || t.includes("ice")) return "food";
