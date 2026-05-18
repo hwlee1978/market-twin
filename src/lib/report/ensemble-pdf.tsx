@@ -8,6 +8,7 @@
  */
 import {
   Document,
+  Image,
   Link,
   Page,
   StyleSheet,
@@ -783,6 +784,12 @@ interface BuildArgs {
     objective?: string | null;
     originating_country?: string | null;
     candidate_countries?: string[] | null;
+    /** Creative asset image URLs uploaded in the wizard. Rendered as a
+     *  grid on the Creative Analysis page when present + accessible
+     *  from the PDF runtime (react-pdf Image component fetches them). */
+    asset_urls?: string[] | null;
+    /** Free-text concept descriptions aligned with asset_urls by index. */
+    asset_descriptions?: string[] | null;
   } | null;
   /**
    * "executive" — 2-3 page condensed decision deck (hot take + recommendation
@@ -6778,6 +6785,100 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     </Page>
   );
 
+  const renderCreativePage = () => {
+    // Skip when there's no creative content at all — no uploaded asset URLs
+    // AND no LLM-scored creative aggregate. This keeps the page out of the
+    // PDF for projects that didn't supply any creative input.
+    const projectAssetUrls = (project?.asset_urls ?? []).filter(Boolean);
+    const projectAssetDescriptions = project?.asset_descriptions ?? [];
+    const creativeAssets = aggregate.creative?.assets ?? [];
+    if (projectAssetUrls.length === 0 && creativeAssets.length === 0) return null;
+    return (
+      <Page size="A4" style={styles.page}>
+        {pageHeader}
+        <MText style={styles.pageTitle}>{isKo ? "크리에이티브 분석" : "Creative analysis"}</MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? "업로드된 크리에이티브 자산과 시뮬이 매긴 강점·약점 점수를 한 페이지에 정리했습니다."
+            : "Uploaded creative assets paired with simulation strength/weakness scoring."}
+        </MText>
+
+        {projectAssetUrls.length > 0 && (
+          <View style={{ marginTop: 12 }}>
+            <MText style={{ fontSize: 9, color: C.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.6 }}>
+              {isKo ? "업로드 자산" : "Uploaded assets"}
+            </MText>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {projectAssetUrls.slice(0, 6).map((url, i) => {
+                const desc = projectAssetDescriptions[i];
+                const isImage = /\.(png|jpe?g|webp|gif)$/i.test(url) || /^https?:\/\/.+\.(?:supabase|amazonaws|cloudfront)/i.test(url);
+                return (
+                  <View key={i} style={{ width: 158, marginBottom: 8 }}>
+                    {isImage ? (
+                      <Image src={url} style={{ width: 158, height: 110, objectFit: "cover", backgroundColor: C.card }} />
+                    ) : (
+                      <View style={{ width: 158, height: 40, backgroundColor: C.card, padding: 4, justifyContent: "center" }}>
+                        <MText style={{ fontSize: 7, color: C.muted }}>{url.slice(0, 80)}</MText>
+                      </View>
+                    )}
+                    {desc && (
+                      <MText style={{ fontSize: 7, color: C.body, marginTop: 3, lineHeight: 1.3 }}>
+                        {stripUnsupportedGlyphs(desc).slice(0, 140)}
+                      </MText>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {creativeAssets.length > 0 && (
+          <View style={{ marginTop: 16 }}>
+            <MText style={{ fontSize: 9, color: C.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.6 }}>
+              {isKo ? "시뮬 점수" : "Simulation scoring"}
+            </MText>
+            {creativeAssets.slice(0, 4).map((a) => (
+              <View key={a.assetName} style={{ marginBottom: 10, padding: 8, backgroundColor: C.card, borderRadius: 3 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                  <MText style={{ fontSize: 10, fontWeight: 600, color: C.ink, flex: 1 }}>
+                    {stripUnsupportedGlyphs(a.assetName).slice(0, 50)}
+                  </MText>
+                  <MText style={{ fontSize: 14, fontWeight: 700, color: C.brand }}>
+                    {a.meanScore.toFixed(0)}
+                  </MText>
+                </View>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <MText style={{ fontSize: 7, color: C.muted, marginBottom: 2 }}>
+                      {isKo ? "강점" : "Strengths"}
+                    </MText>
+                    {a.topStrengths.slice(0, 3).map((s, i) => (
+                      <MText key={i} style={{ fontSize: 8, color: C.body, marginBottom: 1 }}>
+                        {`• ${stripUnsupportedGlyphs(s.point).slice(0, 60)}`}
+                      </MText>
+                    ))}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <MText style={{ fontSize: 7, color: C.muted, marginBottom: 2 }}>
+                      {isKo ? "약점" : "Weaknesses"}
+                    </MText>
+                    {a.topWeaknesses.slice(0, 3).map((s, i) => (
+                      <MText key={i} style={{ fontSize: 8, color: C.body, marginBottom: 1 }}>
+                        {`• ${stripUnsupportedGlyphs(s.point).slice(0, 60)}`}
+                      </MText>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+        {pageFooter}
+      </Page>
+    );
+  };
+
   const renderAppendixPage = () => {
     if (!tierBudget.showAppendix) return null;
     return (
@@ -7044,6 +7145,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           {renderInvestmentROIPage()}
           {renderRiskActionMappingPage()}
           {renderProviderConsensusPage()}
+          {renderCreativePage()}
           {renderAppendixPage()}
         </>
       )}

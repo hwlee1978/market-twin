@@ -88,6 +88,10 @@ interface ProjectInfo {
   }> | null;
   /** Verbatim names the user typed in the wizard. */
   competitor_names_user?: string[] | null;
+  /** Creative asset URLs (uploaded images or pasted links). */
+  asset_urls?: string[] | null;
+  /** Free-text concept descriptions paired with the asset URLs. */
+  asset_descriptions?: string[] | null;
 }
 
 interface EnsembleResult {
@@ -1123,6 +1127,8 @@ function EnsembleDashboard({
           varianceAssessment={varianceAssessment}
           countryStats={countryStats}
           creative={creative}
+          projectAssetUrls={result.project?.asset_urls ?? null}
+          projectAssetDescriptions={result.project?.asset_descriptions ?? null}
           ensembleId={result.id}
           tier={tier}
           parallelSims={parallel_sims}
@@ -7557,6 +7563,8 @@ function DataTab({
   varianceAssessment,
   countryStats,
   creative,
+  projectAssetUrls,
+  projectAssetDescriptions,
   ensembleId,
   tier,
   parallelSims,
@@ -7569,6 +7577,8 @@ function DataTab({
   varianceAssessment: EnsembleAggregate["varianceAssessment"];
   countryStats: EnsembleAggregate["countryStats"];
   creative: EnsembleAggregate["creative"];
+  projectAssetUrls?: string[] | null;
+  projectAssetDescriptions?: string[] | null;
   ensembleId: string;
   tier: string;
   parallelSims: number;
@@ -7773,6 +7783,53 @@ function DataTab({
         <h2 className="text-base font-semibold text-slate-900 mb-3">
           {isKo ? "크리에이티브 분석" : "Creative analysis"}
         </h2>
+
+        {/* Uploaded creative thumbnails — surface raw assets so the reader
+            can correlate score below with the actual image/concept that
+            was scored. Skips silently when no assets were uploaded. */}
+        {projectAssetUrls && projectAssetUrls.length > 0 && (
+          <div className="mb-4">
+            <div className="text-xs text-slate-500 uppercase tracking-wide mb-2">
+              {isKo ? "업로드 자산" : "Uploaded assets"}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {projectAssetUrls.map((url, i) => {
+                const desc = projectAssetDescriptions?.[i] ?? null;
+                const isImage = /\.(png|jpe?g|webp|gif|avif)$/i.test(url) || /^https?:\/\/.+\.(?:supabase|amazonaws|cloudfront)/i.test(url);
+                return (
+                  <div key={i} className="card overflow-hidden bg-white">
+                    {isImage ? (
+                      <a href={url} target="_blank" rel="noopener noreferrer">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={url}
+                          alt={desc ?? `Asset ${i + 1}`}
+                          className="w-full h-32 object-cover bg-slate-100"
+                          loading="lazy"
+                        />
+                      </a>
+                    ) : (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-full h-32 bg-slate-50 flex items-center justify-center text-xs text-slate-500 break-all px-2"
+                      >
+                        {url.slice(0, 60)}…
+                      </a>
+                    )}
+                    {desc && (
+                      <div className="p-2 text-[11px] text-slate-600 line-clamp-2">
+                        {desc}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {!creative || creative.assets.length === 0 ? (
           // Project ran without uploaded creative assets — the runner
           // skips this stage entirely, so the aggregate has no

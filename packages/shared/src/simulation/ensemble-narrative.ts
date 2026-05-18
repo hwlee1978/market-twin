@@ -592,6 +592,13 @@ function buildMergePrompt(
    - "✓ 5개국 모두 STRONG — 다 가도 됨, US부터 시작해 6개월 후 확장"
    필수 요소: (a) 이모지 1개로 톤 시그널, (b) 명사 + 동사로 결정 표현, (c) — 뒤에 핵심 이유 1-2개 (숫자 포함). 미사여구 금지. 보고서 톤이 아닌 카톡 메시지 톤.
 
+   ⚠ **임의 수치 금지 (절대 위반 불가)**: hotTake에 **CAC $X / ROI X% / payback X개월** 같은 정량 수치를 inline으로 쓰지 마세요. 이 숫자는 서버가 별도 계산해서 UI/PDF의 CAC 카드에 표시합니다. hotTake가 LLM 추정 숫자로 fabricate하면 그 카드 수치와 모순됩니다. 정량 표현 대신 정성 표현 사용:
+   - ❌ "CAC $18+ 인플루언서 시딩 없이 적자 확정" → 수치 사실 확인 불가, 서버 카드와 모순 위험
+   - ✓ "인플루언서 시딩 + Amazon 채널 확보 없이는 첫 6개월 적자 확정" → 정성, 검증 불필요
+   - ❌ "ROI 12% / payback 8개월" → 수치 임의
+   - ✓ "흑자전환까지 채널 비용 부담 큼 — 단가 인상 검토" → 정성, 안전
+   숫자가 꼭 필요하면 **페르소나 % 합의** (예: "73%가 가격 거부") 또는 **시장 갯수** (예: "5개국 STRONG")만 사용. 모두 sim 데이터에 직접 보이는 수치.
+
 1. **executiveSummary**: 모든 시뮬의 합의 narrative를 2-4문장으로 통합. 추천 진출국 + 이유 + 핵심 우려사항을 포함. hotTake와 중복되지 않게 더 자세히.
    ⚠ **국가 일치 (절대 위반 불가)**: 추천 진출국은 **${opts.bestCountry}**입니다. executiveSummary에서 다른 국가를 "1차 교두보", "1순위", "최적", "권장 진출국"으로 단언하지 마세요. 합의는 ${opts.bestCountry}이고 이 섹션은 그 합의를 풀어쓰는 것이지 뒤집는 게 아닙니다. 대안 시장 언급은 "차순위로는 X도 검토 가능"의 보조 framing만 허용.
 
@@ -663,6 +670,13 @@ function buildMergePrompt(
    - "⚠ Japan works only at -20% price — otherwise Maruchan eats your share"
    - "✓ All 5 markets STRONG — go everywhere, lead with US"
    Must have: (a) one emoji for tone, (b) noun-verb decision phrasing, (c) "—" then the 1-2 key reasons with numbers. No fluff. Sound like a Slack DM, not a consulting deck.
+
+   ⚠ **No fabricated quantitative numbers (strict)**: Do NOT inline **CAC $X / ROI X% / payback X mo** style figures. The server computes these separately and surfaces them in the UI/PDF CAC card. If the hotTake fabricates a number, it contradicts that card. Use qualitative phrasing instead:
+   - ❌ "CAC $18+ without influencer seeding kills first 6 months" → unverifiable, contradicts server card
+   - ✓ "Without influencer seeding + Amazon access, first 6 months bleed cash" → qualitative, safe
+   - ❌ "ROI 12% / 8-mo payback" → arbitrary
+   - ✓ "Channel cost burden is heavy — consider raising ASP" → qualitative, safe
+   When you must include a number, use **persona consensus %** ("73% reject price") or **market counts** ("5 markets STRONG") — both directly visible in sim data.
 
 1. **executiveSummary**: 2-4 sentence consensus across all sims. Cover the recommended market, why, and the central concern. Distinct from hotTake — go deeper.
 

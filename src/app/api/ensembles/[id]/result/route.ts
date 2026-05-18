@@ -63,7 +63,7 @@ export async function GET(
   const { data: project } = await supabase
     .from("projects")
     .select(
-      "name, product_name, category, description, base_price_cents, currency, objective, originating_country, candidate_countries, competitors_resolved, competitor_names_user",
+      "name, product_name, category, description, base_price_cents, currency, objective, originating_country, candidate_countries, competitors_resolved, competitor_names_user, asset_urls, asset_descriptions",
     )
     .eq("id", ensemble.project_id)
     .single();
