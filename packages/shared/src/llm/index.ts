@@ -20,6 +20,44 @@ interface ProviderOptions {
   provider?: LLMProviderName;
   /** Caller-supplied model — wins over all env. */
   model?: string;
+  /**
+   * Product category (free-text, typically the project.category enum like
+   * "home" / "pet" / "beauty" / "food"). Used to route Anthropic
+   * personas+synthesis stages to Haiku for categories where v11 benchmark
+   * showed Sonnet has no accuracy advantage (펫/생활용품) — cost saving
+   * without quality loss. See [[benchmark_v11_sonnet_4cat]].
+   */
+  category?: string | null;
+}
+
+/**
+ * Categories where the v11 Sonnet rerun (2026-05-20) showed Sonnet's
+ * personas+synthesis has no accuracy advantage over Haiku (펫 Δ -6.7,
+ * 생활용품 Δ -0.4 flat), and in fact regresses on niche K-export patterns
+ * (ANF pet US→SG, monami pen VN→US). Production routes Anthropic stages
+ * to Haiku for these categories to save 4× cost without quality loss.
+ *
+ * Matched conservatively against the project.category enum from
+ * ProjectWizard.tsx ("pet" / "home"). Free-text Korean / English variants
+ * also matched as a fallback in case the dropdown enum changes.
+ */
+export function shouldDowngradeAnthropicForCategory(
+  category: string | null | undefined,
+): boolean {
+  if (!category) return false;
+  const t = category.toLowerCase().trim();
+  // 펫 (production enum "pet" + Korean/English keywords for free-text)
+  if (t === "pet" || t.includes("동물") || t.includes("반려") || t.includes("펫")) return true;
+  // 생활용품 (production enum "home" + Korean/English keywords)
+  // Note: fixture truths historically used "appliances" for this category,
+  // updated to "home" in the same change as this routing for consistency.
+  if (
+    t === "home" ||
+    t.includes("kitchen") || t.includes("household") || t.includes("lifestyle") ||
+    t.includes("furniture") || t.includes("생활용품") || t.includes("주방") ||
+    t.includes("리빙") || t.includes("가구")
+  ) return true;
+  return false;
 }
 
 function envStage(stage: SimulationStage | undefined, key: "PROVIDER" | "MODEL"): string | undefined {
@@ -143,8 +181,18 @@ export function getLLMProvider(opts: ProviderOptions = {}): LLMProvider {
     ?? (opts.provider
       ? undefined
       : (envStage(opts.stage, "MODEL") ?? process.env.LLM_DEFAULT_MODEL));
+  // Category-based downgrade: route Anthropic personas+synthesis to Haiku
+  // for categories where Sonnet has no accuracy advantage (펫/생활용품).
+  // Sits below env overrides so operators can still pin a specific model
+  // via LLM_ANTHROPIC_<STAGE>_MODEL for benchmark / debug runs.
+  const categoryDowngrade =
+    provider === "anthropic" &&
+    (opts.stage === "personas" || opts.stage === "synthesis") &&
+    shouldDowngradeAnthropicForCategory(opts.category)
+      ? PROVIDER_STAGE_DEFAULTS.anthropic.countries  // = Haiku
+      : undefined;
   const stageDefault = opts.stage ? PROVIDER_STAGE_DEFAULTS[provider][opts.stage] : undefined;
-  const model = opts.model ?? envModel ?? stageDefault;
+  const model = opts.model ?? envModel ?? categoryDowngrade ?? stageDefault;
 
   switch (provider) {
     case "anthropic":

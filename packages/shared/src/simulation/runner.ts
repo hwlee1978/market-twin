@@ -465,10 +465,14 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
   // it falls back to LLM_DEFAULT_*. This is what lets us run cheap+fast
   // models for high-volume persona batches while keeping a stronger model
   // for the executive synthesis stage.
-  const personaLLMRaw = getLLMProvider({ stage: "personas", provider: opts.provider, model: opts.model });
-  const countryLLMRaw = getLLMProvider({ stage: "countries", provider: opts.provider, model: opts.model });
-  const pricingLLMRaw = getLLMProvider({ stage: "pricing", provider: opts.provider, model: opts.model });
-  const synthesisLLMRaw = getLLMProvider({ stage: "synthesis", provider: opts.provider, model: opts.model });
+  // Thread project.category through so getLLMProvider can downgrade
+  // Anthropic personas+synthesis to Haiku for categories where Sonnet
+  // has no accuracy advantage (펫/생활용품, v11 benchmark 2026-05-20).
+  const category = opts.projectInput.category;
+  const personaLLMRaw = getLLMProvider({ stage: "personas", provider: opts.provider, model: opts.model, category });
+  const countryLLMRaw = getLLMProvider({ stage: "countries", provider: opts.provider, model: opts.model, category });
+  const pricingLLMRaw = getLLMProvider({ stage: "pricing", provider: opts.provider, model: opts.model, category });
+  const synthesisLLMRaw = getLLMProvider({ stage: "synthesis", provider: opts.provider, model: opts.model, category });
 
   // Token + cost accumulator. Every LLM call routes through these wrapped
   // providers, so the numbers cover regulatory + personas + reactions +
@@ -503,7 +507,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     // IS Anthropic, switch to OpenAI.
     const primaryName = personaLLMRaw.name; // all stages share opts.provider
     const fallbackName = primaryName === "anthropic" ? "openai" : "anthropic";
-    return getLLMProvider({ stage, provider: fallbackName });
+    return getLLMProvider({ stage, provider: fallbackName, category });
   };
   const personaActualProvider = { name: personaLLMRaw.name as string };
   const countryActualProvider = { name: countryLLMRaw.name as string };
@@ -602,6 +606,7 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       return getLLMProvider({
         stage: "synthesis",
         provider: fallbackName,
+        category,
         // Don't pass opts.model — that's keyed to the primary's model
         // family and would break against a different provider.
       });

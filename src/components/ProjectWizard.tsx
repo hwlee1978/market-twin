@@ -497,7 +497,7 @@ export function ProjectWizard({ locale }: { locale: string }) {
                 value={form.category}
                 onChange={(e) => update("category", e.target.value)}
               >
-                {(["beauty", "fashion", "food", "health", "electronics", "home", "saas", "ip", "other"] as const).map((c) => (
+                {(["beauty", "fashion", "food", "health", "electronics", "home", "pet", "saas", "ip", "other"] as const).map((c) => (
                   <option key={c} value={c}>
                     {tw(`categories.${c}`)}
                   </option>

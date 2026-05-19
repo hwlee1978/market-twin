@@ -113,6 +113,8 @@ export const CategorySchema = z.enum([
   "fashion",
   "beverage",
   "alcohol",
+  "home",
+  "pet",
   "other",
 ]);
 export type ProductCategory = z.infer<typeof CategorySchema>;
