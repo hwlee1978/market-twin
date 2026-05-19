@@ -77,6 +77,7 @@ export async function GET(req: Request) {
   );
 
   let ensemblesFinalized = 0;
+  let ensemblesFinalizedAsFailed = 0;
   for (const eid of ensembleIds) {
     const { count: stillRunning } = await admin
       .from("simulations")
@@ -91,15 +92,45 @@ export async function GET(req: Request) {
       .eq("ensemble_id", eid)
       .eq("status", "completed");
 
+    // Check whether aggregation actually ran. The orchestrator's final
+    // update writes status="completed" + aggregate_result atomically, so
+    // if aggregate_result is null AND we got here via zombie-cleanup, the
+    // orchestrator died between sim completion and aggregation. Marking
+    // such an ensemble "completed" with no aggregate produces a broken
+    // user-facing state (PDF / dashboard reads aggregate_result and
+    // renders nothing). Mark "failed" instead with a clear sentinel so
+    // the operator can re-trigger aggregation via reaggregate-ensembles.ts
+    // (which reuses the cached sim results — no re-spawn cost).
+    const { data: ensRow } = await admin
+      .from("ensembles")
+      .select("aggregate_result")
+      .eq("id", eid)
+      .single();
+    const hasAggregate = ensRow?.aggregate_result != null;
+
+    let finalStatus: "completed" | "failed";
+    let finalMessage: string | null;
+    if (hasAggregate) {
+      // Orchestrator wrote aggregate but somehow didn't flip status —
+      // unusual but recoverable as-is.
+      finalStatus = "completed";
+      finalMessage = null;
+    } else if ((completed ?? 0) > 0) {
+      // Sims completed but aggregation never ran. Operator action required.
+      finalStatus = "failed";
+      finalMessage = `[zombie-cleanup] Orchestrator died mid-run after ${completed} sim(s) completed but before aggregation. Re-run \`scripts/reaggregate-ensembles.ts ${eid}\` to recover the cached sim outputs without re-spawning, then UPDATE status='completed' manually.`;
+      ensemblesFinalizedAsFailed++;
+    } else {
+      finalStatus = "failed";
+      finalMessage = "[zombie-cleanup] All sims timed out before completion.";
+    }
+
     await admin
       .from("ensembles")
       .update({
-        status: (completed ?? 0) > 0 ? "completed" : "failed",
+        status: finalStatus,
         completed_at: new Date().toISOString(),
-        error_message:
-          (completed ?? 0) > 0
-            ? null
-            : "[zombie-cleanup] All sims timed out before completion.",
+        error_message: finalMessage,
       })
       .eq("id", eid)
       .eq("status", "running");
@@ -115,6 +146,7 @@ export async function GET(req: Request) {
       event: "zombie_cleanup",
       cleaned: simIds.length,
       ensembles_finalized: ensemblesFinalized,
+      ensembles_finalized_as_failed: ensemblesFinalizedAsFailed,
       sim_ids: simIds,
     }),
   );
@@ -122,5 +154,6 @@ export async function GET(req: Request) {
   return NextResponse.json({
     cleaned: simIds.length,
     ensemblesFinalized,
+    ensemblesFinalizedAsFailed,
   });
 }
