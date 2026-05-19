@@ -332,6 +332,35 @@ export interface EnsembleAggregate {
      *                       confidence alone.
      */
     consensusType?: "cross-model" | "single-provider" | "mixed" | "n/a";
+    /**
+     * Top-2 display mode (2026-05-20). User feedback: Deep tier × 2 runs of
+     * the same product produced different winners when top 2-3 countries
+     * were bunched within noise margin. Forcing a single winner produced
+     * run-to-run flips and false MODERATE-confidence labels. New default:
+     * show TOP 2 candidates unless top-1 is genuinely dominant.
+     *
+     * Dominance criteria (must pass ≥2 of 3 to render as "single"):
+     *   A. meanGap ≥ 5pt  (top1.meanScore - top2.meanScore)
+     *   B. voteShareTop1 ≥ 50% (sims that picked top1 as their best)
+     *   C. crossLLMAgree (every provider's modal best = top1; single-provider
+     *      runs pass trivially)
+     */
+    displayMode?: "single" | "top2";
+    /** Top-2 alternative — always populated when ≥2 countries scored. UI
+     *  shows it when displayMode="top2" and may hide when "single". */
+    secondary?: {
+      country: string;
+      meanScore: number;
+      voteSharePercent: number;
+      gapToPrimary: number;
+    };
+    /** Diagnostic snapshot of the 3 dominance checks used to set displayMode. */
+    dominanceCriteria?: {
+      meanGap: number;
+      voteShareTop1: number;
+      crossLLMAgree: boolean;
+      passCount: number;
+    };
   };
 
   countryStats: CountryStats[];
@@ -1016,6 +1045,70 @@ export function aggregateEnsemble(
   const confidence: "STRONG" | "MODERATE" | "WEAK" =
     consensusPercent >= 80 ? "STRONG" : consensusPercent >= 50 ? "MODERATE" : "WEAK";
 
+  // ── Top-2 vs single-winner dominance check (2026-05-20) ──
+  // User feedback (Lingtea Deep × 2 runs): single-winner framing was misleading
+  // when top 2-3 countries are bunched within noise margin. New rule: show
+  // TWO candidates unless top-1 is genuinely dominant (2-of-3 criteria pass).
+  const top1Country = phaseEWinnerCountry;
+  const top2Country = meanRanking[1]?.country ?? null;
+  const top1Mean = meanRanking[0]?.meanScore ?? 0;
+  const top2Mean = meanRanking[1]?.meanScore ?? 0;
+  const meanGap = top1Mean - top2Mean;
+
+  const top1Votes = top1Country
+    ? bestCountryDistribution.find((b) => b.country === top1Country)?.count ?? 0
+    : 0;
+  const top2Votes = top2Country
+    ? bestCountryDistribution.find((b) => b.country === top2Country)?.count ?? 0
+    : 0;
+  const voteShareTop1Pct = simCount > 0 ? (top1Votes / simCount) * 100 : 0;
+  const voteShareTop2Pct = simCount > 0 ? (top2Votes / simCount) * 100 : 0;
+
+  // Cross-LLM agreement: every provider's modal best_country = top1.
+  // Single-provider ensembles trivially pass (no LLM to disagree).
+  let crossLLMAgree = true;
+  const providersPresent = new Set(
+    sims.map((s) => s.synthesisProvider ?? s.provider).filter((p): p is string => typeof p === "string" && p.length > 0),
+  );
+  if (providersPresent.size >= 2 && top1Country) {
+    for (const prov of providersPresent) {
+      const provSims = sims.filter((s) => (s.synthesisProvider ?? s.provider) === prov);
+      const dist = new Map<string, number>();
+      for (const s of provSims) {
+        if (!s.bestCountry) continue;
+        const cc = s.bestCountry.toUpperCase();
+        dist.set(cc, (dist.get(cc) ?? 0) + 1);
+      }
+      let modal: string | undefined;
+      let maxN = -1;
+      for (const [c, n] of dist) {
+        if (n > maxN) { maxN = n; modal = c; }
+      }
+      if (modal && modal !== top1Country) { crossLLMAgree = false; break; }
+    }
+  }
+
+  const passCount =
+    (meanGap >= 5 ? 1 : 0) +
+    (voteShareTop1Pct >= 50 ? 1 : 0) +
+    (crossLLMAgree ? 1 : 0);
+  const displayMode: "single" | "top2" = passCount >= 2 ? "single" : "top2";
+
+  const secondary = top2Country
+    ? {
+        country: top2Country,
+        meanScore: round1(top2Mean),
+        voteSharePercent: Math.round(voteShareTop2Pct),
+        gapToPrimary: round1(meanGap),
+      }
+    : undefined;
+  const dominanceCriteria = {
+    meanGap: round1(meanGap),
+    voteShareTop1: Math.round(voteShareTop1Pct),
+    crossLLMAgree,
+    passCount,
+  };
+
   // ── per-country stats ──
   type Bucket = {
     final: number[];
@@ -1519,6 +1612,9 @@ export function aggregateEnsemble(
       consensusPercent,
       confidence,
       consensusType,
+      displayMode,
+      secondary,
+      dominanceCriteria,
     },
     countryStats,
     segments,

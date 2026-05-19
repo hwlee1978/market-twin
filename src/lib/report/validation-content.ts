@@ -85,6 +85,24 @@ export interface ValidationReportData {
     topCountriesTied: boolean;
     runnerUp?: string;
     simExecutiveSummary?: string;
+    /**
+     * Top-2 display state (2026-05-20). When displayMode="top2", primary
+     * alone is not a reliable single answer — top 2 candidates are within
+     * noise margin and should be presented together.
+     */
+    displayMode?: "single" | "top2";
+    secondary?: {
+      country: string;
+      meanScore: number;
+      voteSharePercent: number;
+      gapToPrimary: number;
+    };
+    dominanceCriteria?: {
+      meanGap: number;
+      voteShareTop1: number;
+      crossLLMAgree: boolean;
+      passCount: number;
+    };
   };
   executiveSummary: {
     headline: string;
@@ -288,6 +306,9 @@ function deriveSimData(agg: EnsembleAggregate): ValidationReportData["simResult"
     topCountriesTied: topTied,
     runnerUp: topTied && ranking.length >= 2 ? ranking[1].country : undefined,
     simExecutiveSummary: agg.narrative?.executiveSummary,
+    displayMode: rec?.displayMode,
+    secondary: rec?.secondary,
+    dominanceCriteria: rec?.dominanceCriteria,
   };
 }
 
@@ -589,6 +610,9 @@ function buildPrompt(args: {
 - Vote breakdown: ${simData.voteDistribution.map((v) => `${v.country} ${v.count}/${agg.simCount ?? 0} (${v.percent}%)`).join(", ")}
 - Top score ranking: ${simData.scoreRanking.slice(0, 5).map((s) => `${s.country} ${s.mean.toFixed(1)}±${s.std.toFixed(1)}`).join(" / ")}
 - Tied at top: ${simData.topCountriesTied ? `yes — ${winnerEn} == ${simData.runnerUp ?? ""} on mean` : "no"}
+- Display mode: ${simData.displayMode ?? "single"}${simData.displayMode === "top2" && simData.secondary
+  ? `  ← Top 2 cluster: primary ${winnerEn} + secondary ${simData.secondary.country} (gap ${simData.secondary.gapToPrimary}pt, vote ${simData.secondary.voteSharePercent}%). Per dominance check (${simData.dominanceCriteria?.passCount ?? 0}/3 criteria passed), this product does NOT have a clear single winner — present BOTH candidates as equally viable. The reader is expected to pick between them based on internal capability / risk appetite, not pick the listed "winner" blindly.`
+  : ""}
 - Sim's own executive summary: ${agg.narrative?.executiveSummary?.slice(0, 500) ?? "—"}
 
 # GROUNDED DATA — Source A (Market size + CAGR for ${winnerEn})
@@ -614,7 +638,7 @@ ${competitiveGroundedText ? `# GROUNDED DATA — Competitive landscape\n${compet
 
 {
   "executiveSummary": {
-    "headline": "≤70 chars one-line bold conclusion. Start with one emoji.",
+    "headline": "≤70 chars one-line bold conclusion. Start with one emoji. If Display mode = 'top2', frame as '🥇 X · 🥈 Y 동등 후보' (both countries named) — do NOT pretend single winner exists.",
     "confidenceGrade": "A | B+ | B | C+ | C",
     "confidenceLabel": "≤30 chars label",
     "keyMessage": "2-3 sentences: recommendation, top reason, top risk.",

@@ -825,14 +825,25 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
 
       <View style={styles.coverConclusionCard}>
         <MText style={styles.coverConclusionLabel}>{t.conclusionLabel}</MText>
-        <MText style={styles.coverConclusionMain}>
-          {isKo
-            ? `1순위 진출국  ${winnerLabel} (${simResult.winner})`
-            : `Recommended market  ${winnerLabel} (${simResult.winner})`}
-        </MText>
+        {simResult.displayMode === "top2" && simResult.secondary ? (
+          <MText style={styles.coverConclusionMain}>
+            {isKo
+              ? `Top 2 동등 후보  🥇 ${winnerLabel} (${simResult.winner})  ·  🥈 ${getCountryLabel(simResult.secondary.country, "ko")} (${simResult.secondary.country})`
+              : `Top 2 candidates  🥇 ${winnerLabel} (${simResult.winner})  ·  🥈 ${getCountryLabel(simResult.secondary.country, "en")} (${simResult.secondary.country})`}
+          </MText>
+        ) : (
+          <MText style={styles.coverConclusionMain}>
+            {isKo
+              ? `1순위 진출국  ${winnerLabel} (${simResult.winner})`
+              : `Recommended market  ${winnerLabel} (${simResult.winner})`}
+          </MText>
+        )}
         <Text style={styles.coverConclusionMeta}>
           <Text style={{ fontWeight: 700 }}>{`Multi-LLM ${simResult.consensusPercent}% ${t.consensusWord}`}</Text>
           <Text>{` · ${simResult.confidence} ${simResult.consensusType ?? ""}`}</Text>
+          {simResult.displayMode === "top2" && simResult.secondary && (
+            <Text>{` · ${isKo ? "Top 2 격차" : "Top 2 gap"} ${simResult.secondary.gapToPrimary}pt`}</Text>
+          )}
           {alignmentScoring.weightedAverage > 0 && (
             <Text>{` · ${t.alignWord} ${alignmentScoring.weightedAverage}% ${t.alignSuffix}`}</Text>
           )}
@@ -891,9 +902,21 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
       <MText style={styles.subSectionTitle}>{t.coreFiguresTitle}</MText>
       <View style={styles.kpiGrid}>
         <View style={styles.kpiCard}>
-          <MText style={styles.kpiLabel}>{isKo ? "1순위" : "Winner"}</MText>
-          <MText style={styles.kpiValue}>{winnerLabel}</MText>
-          <MText style={styles.kpiSub}>{simResult.winner}</MText>
+          <MText style={styles.kpiLabel}>{
+            simResult.displayMode === "top2"
+              ? (isKo ? "Top 2" : "Top 2")
+              : (isKo ? "1순위" : "Winner")
+          }</MText>
+          <MText style={styles.kpiValue}>{
+            simResult.displayMode === "top2" && simResult.secondary
+              ? `${simResult.winner} · ${simResult.secondary.country}`
+              : winnerLabel
+          }</MText>
+          <MText style={styles.kpiSub}>{
+            simResult.displayMode === "top2" && simResult.secondary
+              ? (isKo ? `격차 ${simResult.secondary.gapToPrimary}pt` : `gap ${simResult.secondary.gapToPrimary}pt`)
+              : simResult.winner
+          }</MText>
         </View>
         <View style={styles.kpiCard}>
           <MText style={styles.kpiLabel}>{isKo ? "합의도" : "Consensus"}</MText>

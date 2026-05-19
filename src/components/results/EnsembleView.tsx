@@ -1360,11 +1360,15 @@ function SummaryTab({
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-              {isKo ? "추천 진출국" : "Recommended market"}
+              {recommendation.displayMode === "top2" && recommendation.secondary
+                ? (isKo ? "Top 2 동등 후보" : "Top 2 candidates")
+                : (isKo ? "추천 진출국" : "Recommended market")}
             </div>
-            <div className="flex items-baseline gap-3">
+            <div className="flex items-baseline gap-3 flex-wrap">
               <div className="text-4xl font-bold text-slate-900">
-                {recommendation.country}
+                {recommendation.displayMode === "top2" && recommendation.secondary
+                  ? `${recommendation.country} · ${recommendation.secondary.country}`
+                  : recommendation.country}
               </div>
               <div className="text-sm">
                 <span className={clsx("font-semibold", confidenceColor)}>
@@ -1372,8 +1376,20 @@ function SummaryTab({
                 </span>
                 <span className="text-slate-500 ml-2">({recommendation.confidence})</span>
                 <ConsensusTypeBadge type={recommendation.consensusType} isKo={isKo} />
+                {recommendation.displayMode === "top2" && recommendation.secondary && (
+                  <span className="text-slate-500 ml-2">
+                    · {isKo ? "격차" : "gap"} {recommendation.secondary.gapToPrimary}pt
+                  </span>
+                )}
               </div>
             </div>
+            {recommendation.displayMode === "top2" && recommendation.secondary && (
+              <div className="mt-2 text-xs text-slate-500 leading-snug">
+                {isKo
+                  ? `Top 1과 Top 2의 점수 차이가 작아 (${recommendation.secondary.gapToPrimary}pt) 단일 우승국을 단정할 수 없습니다. 두 시장을 동등 후보로 두고 내부 capability·리스크 기준으로 선택하세요.`
+                  : `Top 1 and Top 2 are within noise margin (${recommendation.secondary.gapToPrimary}pt). Treat both as equally viable; pick based on internal capability / risk appetite, not the listed order.`}
+              </div>
+            )}
           </div>
           <CheckCircle2 className={confidenceColor} size={32} />
         </div>
