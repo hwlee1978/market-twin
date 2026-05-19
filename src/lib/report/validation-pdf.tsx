@@ -207,7 +207,6 @@ const styles = StyleSheet.create({
   coverSubtitle2: {
     fontSize: 11,
     color: C.muted,
-    fontStyle: "italic",
     marginBottom: 28,
     lineHeight: 1.5,
   },
@@ -355,7 +354,6 @@ const styles = StyleSheet.create({
   // Exhibit caption
   exhibitCaption: {
     fontSize: 9,
-    fontStyle: "italic",
     color: C.muted,
     marginBottom: 6,
   },
@@ -1066,7 +1064,7 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
       {simResult.simExecutiveSummary && (
         <View style={[styles.calloutCard, styles.calloutBrandBg, { marginTop: 10 }]}>
           <MText style={styles.calloutTitle}>{t.simExecLabel}</MText>
-          <MText style={[styles.calloutBody, { fontStyle: "italic" }]}>
+          <MText style={styles.calloutBody}>
             {`"${stripUnsupportedGlyphs(simResult.simExecutiveSummary).slice(0, 400)}"`}
           </MText>
         </View>
@@ -1661,7 +1659,6 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
         style={{
           fontSize: 8,
           color: C.faint,
-          fontStyle: "italic",
           marginTop: 14,
           lineHeight: 1.5,
         }}
@@ -1698,7 +1695,6 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
             fontSize: 16,
             fontWeight: 700,
             color: C.brand,
-            fontStyle: "italic",
             marginBottom: 24,
             textAlign: "center",
           }}
