@@ -406,9 +406,13 @@
         "beauty": "Beauty",
         "fashion": "Fashion",
         "food": "Food & Beverage",
+        "beverage": "Beverage",
+        "alcohol": "Alcohol",
         "health": "Health & Wellness",
         "electronics": "Electronics",
+        "appliances": "Electronics",
         "home": "Home & Living",
+        "pet": "Pet & Companion Animal",
         "saas": "SaaS / Software",
         "ip": "IP & Content",
         "other": "Other"

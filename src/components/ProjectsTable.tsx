@@ -131,10 +131,15 @@ export function ProjectsTable({ projects, locale }: Props) {
                 <td className="px-6 py-3 text-slate-700">{p.product_name}</td>
                 <td className="px-6 py-3 text-slate-600">
                   {p.category
-                    ? t(
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        `project.wizard.categories.${p.category}` as any,
-                      )
+                    ? // Fall back to the raw category string when the i18n key
+                      // is missing — DB may hold legacy enum values from older
+                      // benchmark fixtures (e.g. "beverage", "alcohol") that
+                      // were never added to ProjectWizard's dropdown.
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      t.has(`project.wizard.categories.${p.category}` as any)
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      ? t(`project.wizard.categories.${p.category}` as any)
+                      : p.category
                     : "—"}
                 </td>
                 <td className="px-6 py-3">

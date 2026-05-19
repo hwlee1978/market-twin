@@ -406,9 +406,13 @@
         "beauty": "뷰티",
         "fashion": "패션",
         "food": "식음료",
+        "beverage": "음료",
+        "alcohol": "주류",
         "health": "건강·웰빙",
         "electronics": "가전·전자",
+        "appliances": "가전·전자",
         "home": "리빙",
+        "pet": "반려동물",
         "saas": "SaaS·소프트웨어",
         "ip": "IP·콘텐츠",
         "other": "기타"
