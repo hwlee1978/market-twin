@@ -27,7 +27,21 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { tavilySearch, type TavilyResult } from "@/lib/market-research/tavily";
-import { fetchKotraSuccessCases } from "@/lib/market-research/kotra";
+import {
+  fetchKotraSuccessCases,
+  fetchKotraNationalInfo,
+  type KotraNationalInfo,
+} from "@/lib/market-research/kotra";
+import {
+  fetchKoreaExportFlows,
+  hsCodesForCategory,
+  type ComtradeFlow,
+} from "@/lib/market-research/comtrade";
+import {
+  fetchDartFinancialsForSlug,
+  inferSlugFromProductName,
+  type DartCompanyFinancials,
+} from "@/lib/market-research/dart";
 
 export interface ProjectContext {
   productName: string;
@@ -106,11 +120,49 @@ export interface ValidationReportData {
       verdictKind: "support" | "neutral" | "caveat";
       citations: Array<{ label: string; url?: string }>;
     };
+    /**
+     * Source C — Composite Korean government data (3 primary sub-sources +
+     * 1 supplementary). Designed 2026-05-20 per [[pdf_source_c_composite_plan]]
+     * to replace single-source compSucsCase. Each sub-source feeds an
+     * independent row in alignmentMatrix; rows with no data get "concern"
+     * alignment and are excluded from the weighted average.
+     */
     sourceC: {
       title: string;
       citationLabel: string;
-      rows: Array<{ company: string; industry: string }>;
-      caveat: string;
+      /** Primary: KOTRA korCompList — Korean entities operating in the target market. */
+      korCompanies: {
+        countryKo: string;
+        rows: Array<{ parentKo: string; localKo: string; industry: string; category: string; year: string; form: string }>;
+        totalRegistered: number;
+        matchingFilter: number;
+        caveat: string;
+        dataAvailable: boolean;
+      };
+      /** Quantitative: Comtrade HSCode export-value time series for KR → target market. */
+      comtrade: {
+        year: number;
+        countryKo: string;
+        hsCodes: string[];
+        exportValueUsd: number | null;
+        caveat: string;
+        dataAvailable: boolean;
+      };
+      /** Corporate filing: DART overseas-revenue segment (KOSPI/KOSDAQ listed only). */
+      dart: {
+        corpNameKo: string | null;
+        bsnsYear: number | null;
+        revenueKrw: number | null;
+        opIncomeKrw: number | null;
+        caveat: string;
+        dataAvailable: boolean;
+      };
+      /** Supplementary: compSucsCase totalCnt (legacy single-line note). */
+      compSucsCase: {
+        totalCount: number;
+        countryKo: string;
+        caveat: string;
+      };
     };
     sourceD: {
       title: string;
@@ -248,6 +300,244 @@ function summarizeTavily(label: string, r: { answer?: string; results: TavilyRes
   return `${ans}${top}`;
 }
 
+/**
+ * Map production category enum → Korean industry keywords used to filter
+ * KOTRA korCompList entries (which return industry/category strings in
+ * Korean). Without this, the PDF dumps the first N registered Korean
+ * entities regardless of relevance — e.g. POSCO Chemical / Doosan /
+ * Samsung Electronics show up for a Lingtea (beverage) report.
+ *
+ * Matching is OR across keyword list, substring-contains, case-insensitive.
+ */
+function categoryToKoreanKeywords(category: string | null): string[] {
+  if (!category) return [];
+  const t = category.toLowerCase().trim();
+  // Note: deliberately exclude broad "유통" (distribution) — KOTRA classifies
+  // most conglomerates (Samsung/LG/Hyundai) as "도소매유통" regardless of
+  // actual product line, so "유통" catches generic trading houses as
+  // false positives. Use narrow keywords that map to the KOTRA "category"
+  // field (취급분야 / tretRealmCntnt) which tends to be specific.
+  if (t === "food" || t === "beverage" || t === "alcohol" || t.includes("음식") || t.includes("식음")) {
+    return ["식음", "음식", "음료", "주류", "식품", "식자재", "농수산", "F&B"];
+  }
+  if (t === "beauty" || t.includes("뷰티") || t.includes("화장")) {
+    return ["화장품", "뷰티", "코스메틱", "스킨", "미용", "cosmetic"];
+  }
+  if (t === "health" || t.includes("건강") || t.includes("헬스")) {
+    return ["건강", "헬스", "의약", "바이오", "제약", "보건", "supplement"];
+  }
+  if (t === "fashion" || t.includes("패션") || t.includes("의류")) {
+    return ["패션", "의류", "섬유", "어패럴", "신발", "fashion", "apparel"];
+  }
+  if (t === "electronics" || t === "appliances" || t.includes("전자") || t.includes("가전")) {
+    return ["전자", "가전", "전기", "기계", "반도체", "electronic"];
+  }
+  if (t === "home" || t.includes("리빙") || t.includes("가구") || t.includes("주방")) {
+    return ["가구", "리빙", "주방", "생활용품", "인테리어", "household"];
+  }
+  if (t === "pet" || t.includes("펫") || t.includes("반려")) {
+    return ["반려동물", "펫", "동물", "사료", "pet"];
+  }
+  if (t === "ip" || t.includes("콘텐츠")) {
+    return ["콘텐츠", "엔터", "미디어", "방송", "IP", "엔터테인먼트"];
+  }
+  if (t === "saas" || t.includes("소프트웨어")) {
+    return ["소프트웨어", "IT", "SI", "솔루션", "SaaS"];
+  }
+  return [];
+}
+
+/**
+ * Filter + rank korCompList entries by category relevance. Returns the
+ * top N entries whose industry/category/parent/local name contains at
+ * least one category keyword. When 0 matches, returns empty array (the
+ * caller renders a "no category-relevant entries" caveat rather than
+ * dumping unrelated entries).
+ */
+function filterKorCompList(
+  comps: Array<{ parentName: string; localName: string; industry: string; category: string; advanceYear: string; advanceForm: string }>,
+  keywords: string[],
+  limit: number,
+): typeof comps {
+  if (keywords.length === 0 || comps.length === 0) return comps.slice(0, limit);
+  const kws = keywords.map((k) => k.toLowerCase());
+  const scored = comps
+    .map((c) => {
+      const haystack = `${c.industry} ${c.category} ${c.parentName} ${c.localName}`.toLowerCase();
+      const hits = kws.reduce((n, kw) => n + (haystack.includes(kw) ? 1 : 0), 0);
+      return { c, hits };
+    })
+    .filter((r) => r.hits > 0)
+    .sort((a, b) => {
+      if (b.hits !== a.hits) return b.hits - a.hits;
+      const ya = parseInt(a.c.advanceYear || "0", 10) || 0;
+      const yb = parseInt(b.c.advanceYear || "0", 10) || 0;
+      return yb - ya;
+    });
+  return scored.slice(0, limit).map((r) => r.c);
+}
+
+/**
+ * Compose the deterministic Source C composite (4 sub-sources) from the
+ * raw KOTRA / Comtrade / DART prefetch results. Each sub-source resolves
+ * an explicit dataAvailable flag — LLM-side and PDF-side both read this
+ * flag to decide whether to render the row vs. mark "데이터 부재".
+ */
+function buildSourceCComposite(args: {
+  isKo: boolean;
+  winnerKo: string;
+  winnerEn: string;
+  winnerCode: string;
+  category: string | null;
+  kotraCases: Array<{ companyName: string; industry: string }>;
+  kotraNational: KotraNationalInfo | null;
+  comtradeFlows: ComtradeFlow[];
+  dartFinancials: DartCompanyFinancials | null;
+  hsCodes: string[];
+}): ValidationReportData["externalCrossCheck"]["sourceC"] {
+  const { isKo, winnerKo, winnerEn, kotraCases, kotraNational, comtradeFlows, dartFinancials, hsCodes } = args;
+
+  // C1 — KOTRA korCompList (Korean entities in target market), filtered by
+  // category-relevant Korean keywords. v8 anchor-design lesson: unfiltered
+  // KOTRA dumps surface irrelevant heavy industry / electronics conglomerates
+  // for beverage / beauty / pet products (POSCO Chemical, Doosan, Samsung,
+  // etc. registered in every major market). Apply the same filter the sim
+  // anchor uses (see [[anchor-design-lessons]]) so the PDF table only
+  // shows entries in the product's industry.
+  const korCompList = kotraNational?.koreanCompanies ?? [];
+  const categoryKeywords = categoryToKoreanKeywords(args.category);
+  const filteredComps = filterKorCompList(korCompList, categoryKeywords, 6);
+  const korCompanies = {
+    countryKo: winnerKo,
+    rows: filteredComps.map((c) => ({
+      parentKo: c.parentName || c.localName,
+      localKo: c.localName && c.localName !== c.parentName ? c.localName : "",
+      industry: c.industry,
+      category: c.category,
+      year: c.advanceYear || "—",
+      form: c.advanceForm || "—",
+    })),
+    totalRegistered: korCompList.length,
+    matchingFilter: filteredComps.length,
+    caveat: korCompList.length === 0
+      ? (isKo
+        ? `⚠ ${winnerKo}에 등록된 한국법인 0건. 해당 시장에 K-브랜드 진출 인프라가 아직 없거나 KOTRA 등록 누락.`
+        : `⚠ Zero Korean entities registered in ${winnerEn}. K-brand infrastructure absent or unregistered in KOTRA.`)
+      : filteredComps.length === 0
+        ? (isKo
+          ? `⚠ ${winnerKo}에 등록된 한국법인 ${korCompList.length}개 중 '${args.category ?? "?"}' 카테고리 매칭 0건. 동일 산업 진출 사례 부재.`
+          : `⚠ Of ${korCompList.length} Korean entities in ${winnerEn}, zero match the '${args.category ?? "?"}' industry — no comparable Korean precedent.`)
+        : (isKo
+          ? `${filteredComps.length}건 매칭 (전체 ${korCompList.length}개 한국법인 중 '${args.category ?? "?"}' 산업) — 모기업 진출은 brand recognition + 유통망 기반을 시사.`
+          : `${filteredComps.length} matching entries (of ${korCompList.length} total Korean entities in ${winnerEn}, filtered to '${args.category ?? "?"}' industry).`),
+    dataAvailable: filteredComps.length > 0,
+  };
+
+  // C2 — Comtrade KR → target export flow
+  const flow = comtradeFlows.find((f) => f.partnerIso === args.winnerCode.toUpperCase());
+  const exportValueUsd = flow?.tradeValueUsd ?? null;
+  const comtradeYear = flow?.period ?? new Date().getUTCFullYear() - 2;
+  const comtrade = {
+    year: comtradeYear,
+    countryKo: winnerKo,
+    hsCodes,
+    exportValueUsd,
+    caveat: hsCodes.length === 0
+      ? (isKo
+        ? `⚠ '${args.category ?? "—"}' 카테고리 HSCode 매핑 부재 — Comtrade 조회 불가.`
+        : `⚠ No HSCode mapping for category '${args.category ?? "—"}' — Comtrade lookup skipped.`)
+      : exportValueUsd == null
+        ? (isKo
+          ? `⚠ Comtrade에서 ${comtradeYear}년 한국→${winnerKo} 해당 HSCode 수출 데이터 부재 (0건 또는 응답 없음).`
+          : `⚠ No Comtrade ${comtradeYear} export data for KR→${winnerEn} on these HSCodes (zero records or API empty).`)
+        : (isKo
+          ? `${comtradeYear}년 한국→${winnerKo} 카테고리 수출액 = $${(exportValueUsd / 1e6).toFixed(2)}M (HSCode ${hsCodes.slice(0, 3).join("·")} 합산).`
+          : `${comtradeYear} KR→${winnerEn} export value on these HSCodes = $${(exportValueUsd / 1e6).toFixed(2)}M.`),
+    dataAvailable: exportValueUsd != null && hsCodes.length > 0,
+  };
+
+  // C3 — DART corporate filings (KOSPI/KOSDAQ only)
+  const dart = {
+    corpNameKo: dartFinancials?.corpNameKo ?? null,
+    bsnsYear: dartFinancials?.bsnsYear ?? null,
+    revenueKrw: dartFinancials?.revenueKrw ?? null,
+    opIncomeKrw: dartFinancials?.operatingIncomeKrw ?? null,
+    caveat: dartFinancials == null
+      ? (isKo
+        ? "⚠ DART 등록 공시 부재 — 비상장 또는 사전 매핑 미보유 종목. 기업 재무 신호 사용 불가."
+        : "⚠ No DART filing (unlisted or pre-mapping absent). Corporate financial signal unavailable.")
+      : dartFinancials.revenueKrw == null
+        ? (isKo
+          ? `⚠ ${dartFinancials.corpNameKo} ${dartFinancials.bsnsYear} 연결재무제표 매출 항목 추출 실패.`
+          : `⚠ Failed to extract revenue from ${dartFinancials.corpNameKo} ${dartFinancials.bsnsYear} consolidated statement.`)
+        : (isKo
+          ? `${dartFinancials.corpNameKo} ${dartFinancials.bsnsYear} 연결매출 ${(dartFinancials.revenueKrw / 1e12).toFixed(2)}조원 — 기업 규모 기반 진출 capacity 추정.`
+          : `${dartFinancials.corpNameKo} ${dartFinancials.bsnsYear} consolidated revenue ${(dartFinancials.revenueKrw / 1e12).toFixed(2)}T KRW — corporate-scale expansion capacity indicator.`),
+    dataAvailable: dartFinancials != null && dartFinancials.revenueKrw != null,
+  };
+
+  // C4 — Supplementary: compSucsCase totalCnt (legacy single-line note)
+  const compSucsCase = {
+    totalCount: kotraCases.length,
+    countryKo: winnerKo,
+    caveat: kotraCases.length === 0
+      ? (isKo
+        ? `⚠ KOTRA compSucsCase DB에 ${winnerKo} 등록 case 0건. DB 자체 sparse — 보조 지표로 부적합.`
+        : `⚠ Zero compSucsCase records for ${winnerEn}. DB is sparse — not usable as supplementary signal.`)
+      : (isKo
+        ? `KOTRA compSucsCase DB ${winnerKo} 등록 case ${kotraCases.length}건 (중소수출기업 중심, 참고 한정).`
+        : `${kotraCases.length} compSucsCase records for ${winnerEn} (SME-skewed, supplementary only).`),
+  };
+
+  return {
+    title: isKo
+      ? `한국 정부 데이터 anchor — ${winnerKo}`
+      : `Korean government data anchors — ${winnerEn}`,
+    citationLabel: "data.go.kr (KOTRA·관세청·DART)",
+    korCompanies,
+    comtrade,
+    dart,
+    compSucsCase,
+  };
+}
+
+/** Format the Source C composite as a strict GROUNDED DATA block for the LLM prompt. */
+function formatSourceCForPrompt(sc: ValidationReportData["externalCrossCheck"]["sourceC"]): string {
+  const lines: string[] = [];
+  lines.push(`[C1 — KOTRA korCompList: Korean entities operating in ${sc.korCompanies.countryKo}]`);
+  if (sc.korCompanies.dataAvailable) {
+    lines.push(`  totalRegistered=${sc.korCompanies.totalRegistered}`);
+    for (const r of sc.korCompanies.rows.slice(0, 4)) {
+      lines.push(`  - ${r.parentKo}${r.localKo ? ` (현지명: ${r.localKo})` : ""} | ${r.industry || "?"} | ${r.year} | ${r.form}`);
+    }
+  } else {
+    lines.push(`  NO DATA — ${sc.korCompanies.caveat}`);
+  }
+  lines.push("");
+  lines.push(`[C2 — UN Comtrade: KR→${sc.comtrade.countryKo} export flow]`);
+  if (sc.comtrade.dataAvailable) {
+    lines.push(`  year=${sc.comtrade.year}  HSCodes=${sc.comtrade.hsCodes.slice(0, 5).join(",")}`);
+    lines.push(`  KR→${sc.comtrade.countryKo} export value = $${((sc.comtrade.exportValueUsd ?? 0) / 1e6).toFixed(2)}M`);
+  } else {
+    lines.push(`  NO DATA — ${sc.comtrade.caveat}`);
+  }
+  lines.push("");
+  lines.push(`[C3 — DART: corporate filings (overseas-revenue segment proxy)]`);
+  if (sc.dart.dataAvailable && sc.dart.revenueKrw != null) {
+    lines.push(`  corp=${sc.dart.corpNameKo}  fy=${sc.dart.bsnsYear}`);
+    lines.push(`  consolidated revenue=${(sc.dart.revenueKrw / 1e12).toFixed(2)}T KRW${sc.dart.opIncomeKrw != null ? `  op income=${(sc.dart.opIncomeKrw / 1e12).toFixed(2)}T KRW` : ""}`);
+  } else {
+    lines.push(`  NO DATA — ${sc.dart.caveat}`);
+  }
+  lines.push("");
+  lines.push(`[C4 — KOTRA compSucsCase totalCnt (supplementary, sparse DB)]`);
+  lines.push(`  ${sc.compSucsCase.countryKo} = ${sc.compSucsCase.totalCount} case(s) registered`);
+  if (sc.compSucsCase.totalCount === 0) {
+    lines.push(`  NOTE: ${sc.compSucsCase.caveat}`);
+  }
+  return lines.join("\n");
+}
+
 function buildPrompt(args: {
   agg: EnsembleAggregate;
   project: ProjectContext;
@@ -257,20 +547,22 @@ function buildPrompt(args: {
   peerBrandGroundedText: string;
   competitiveGroundedText: string;
   internalGrowthGroundedText: string;
-  kotraCases: Array<{ companyName: string; industry: string }>;
+  sourceCComposite: ValidationReportData["externalCrossCheck"]["sourceC"];
   winnerEn: string;
   winnerKo: string;
   candidatesEnList: string;
 }): string {
   const { agg, project, simData, locale, marketGroundedText, peerBrandGroundedText,
-    competitiveGroundedText, internalGrowthGroundedText, kotraCases,
+    competitiveGroundedText, internalGrowthGroundedText, sourceCComposite,
     winnerEn, winnerKo, candidatesEnList } = args;
   const isKo = locale === "ko";
   const lang = isKo ? "Korean (한국어)" : "English";
   const price = formatBasePriceDisplay(project.basePriceCents, project.currency);
-  const kotraTable = kotraCases.length > 0
-    ? kotraCases.map((k) => `  - ${k.companyName} | ${k.industry}`).join("\n")
-    : "  (no records returned from KOTRA compSucsCase API)";
+  const sourceCText = formatSourceCForPrompt(sourceCComposite);
+  // Sub-source availability flags for LLM alignmentMatrix guidance
+  const c1Avail = sourceCComposite.korCompanies.dataAvailable;
+  const c2Avail = sourceCComposite.comtrade.dataAvailable;
+  const c3Avail = sourceCComposite.dart.dataAvailable;
 
   return `You are a senior strategy consultant at a top-tier firm (McKinsey/BCG/Bain) writing a market-entry cross-validation report.
 
@@ -305,10 +597,13 @@ ${marketGroundedText}
 # GROUNDED DATA — Source B (Peer Korean brand entry patterns in ${winnerEn})
 ${peerBrandGroundedText}
 
-# GROUNDED DATA — Source C (KOTRA 대만 K-수출 성공사례 DB — direct API result)
-country=${winnerKo}
-companies:
-${kotraTable}
+# GROUNDED DATA — Source C (한국 정부 데이터 anchor composite, 4 sub-sources, direct API results)
+${sourceCText}
+
+# SOURCE C SUB-SOURCE AVAILABILITY FLAGS — for alignmentMatrix row inclusion
+C1_korCompList_available=${c1Avail}
+C2_comtrade_available=${c2Avail}
+C3_dart_available=${c3Avail}
 
 # GROUNDED DATA — Source D (Internal brand growth + competitive landscape)
 ${internalGrowthGroundedText}
@@ -379,15 +674,37 @@ ${competitiveGroundedText ? `# GROUNDED DATA — Competitive landscape\n${compet
       "alignment": "high | medium | low | concern",
       "note": "≤60 chars"
     }
-    /* 5-6 rows: 시장 성장, 타깃 segment, 경쟁 brand 진입 패턴, 시장 사이즈 절대값, 진입 채널/장벽, Brand 첫 해외 risk */
+    /* EXACTLY 8 rows in this order:
+       1. 시장 성장 / Market growth (Source A)
+       2. 타깃 segment 적합성 (Source A or B)
+       3. 경쟁 brand 진입 패턴 (Source B)
+       4. 시장 사이즈 절대값 (Source A)
+       5. 진입 채널 / 장벽 (Source D)
+       6. 한국기업 진출 패턴 — KOTRA korCompList (Source C1)
+          - If C1_korCompList_available=false: set alignment="concern", note="데이터 부재 (KOTRA 등록 한국법인 0건)" — DO NOT invent
+       7. 한국→${winnerKo} 카테고리 수출 추이 — Comtrade (Source C2)
+          - If C2_comtrade_available=false: set alignment="concern", note="데이터 부재 (Comtrade HSCode 매핑 부재 또는 수출 0건)"
+       8. 동종 한국 기업 재무 신호 — DART (Source C3)
+          - If C3_dart_available=false: set alignment="concern", note="데이터 부재 (비상장 또는 사전 매핑 미보유)"
+       Rows 6-8 are the Korean-government-data composite. Each must use the corresponding
+       sub-source's grounded data ONLY. Do not blend rows. Do not infer C3 from C1.
+    */
   ],
   "alignmentScoring": {
     "rows": [
+      /* 8 rows matching alignmentMatrix order. percent 0-100 per row.
+         Rows where alignmentMatrix.alignment="concern" (data absent) MUST be
+         omitted from this rows list AND excluded from weightedAverage —
+         missing data infrastructure should not deflate the simulation's
+         alignment score. */
       {"dimension": "시장 성장 momentum", "percent": 100},
       {"dimension": "타깃 segment 적합성", "percent": 100},
       {"dimension": "경쟁사 진입 패턴", "percent": 80},
       {"dimension": "시장 absolute 사이즈", "percent": 50},
-      {"dimension": "진입 채널 / 진입 장벽", "percent": 90}
+      {"dimension": "진입 채널 / 진입 장벽", "percent": 90},
+      {"dimension": "한국기업 진출 패턴", "percent": 80},
+      {"dimension": "한국 카테고리 수출 추이", "percent": 70},
+      {"dimension": "기업 재무 신호", "percent": 60}
     ],
     "weightedAverage": 84,
     "label": "매우 높음 | 높음 | 보통 | 낮음",
@@ -469,30 +786,52 @@ export async function generateValidationContent(
 
   // ── Pre-fetch objective data in parallel ─────────────────────────
   const brandQuery = project.brandName ?? project.productName.split(/\s+/)[0];
-  const [marketRes, peerRes, internalRes, competitiveRes, kotraCases] =
-    await Promise.all([
-      tavilySearch({
-        query: `${category} market ${winnerEn} CAGR 2024 2025 2026 growth forecast TAM size`,
-        searchDepth: "advanced",
-        maxResults: 5,
-      }),
-      tavilySearch({
-        query: `Korean ${category} brand entered ${winnerEn} first overseas market expansion case`,
-        searchDepth: "advanced",
-        maxResults: 5,
-      }),
-      tavilySearch({
-        query: `${brandQuery} ${project.corporateName ?? ""} brand growth revenue 2024 2025 2026 Korea`,
-        searchDepth: "advanced",
-        maxResults: 5,
-      }),
-      tavilySearch({
-        query: `${category} ${winnerEn} competition top brands market share 2024 2025`,
-        searchDepth: "advanced",
-        maxResults: 4,
-      }),
-      fetchKotraSuccessCases(winnerKo, { numOfRows: 6 }).catch(() => []),
-    ]);
+  const dartSlug = inferSlugFromProductName(project.productName);
+  const hsCodes = hsCodesForCategory(project.category ?? "");
+  const [
+    marketRes, peerRes, internalRes, competitiveRes,
+    kotraCases, kotraNational, comtradeFlows, dartFinancials,
+  ] = await Promise.all([
+    tavilySearch({
+      query: `${category} market ${winnerEn} CAGR 2024 2025 2026 growth forecast TAM size`,
+      searchDepth: "advanced",
+      maxResults: 5,
+    }),
+    tavilySearch({
+      query: `Korean ${category} brand entered ${winnerEn} first overseas market expansion case`,
+      searchDepth: "advanced",
+      maxResults: 5,
+    }),
+    tavilySearch({
+      query: `${brandQuery} ${project.corporateName ?? ""} brand growth revenue 2024 2025 2026 Korea`,
+      searchDepth: "advanced",
+      maxResults: 5,
+    }),
+    tavilySearch({
+      query: `${category} ${winnerEn} competition top brands market share 2024 2025`,
+      searchDepth: "advanced",
+      maxResults: 4,
+    }),
+    // Source C — supplementary: KOTRA compSucsCase totalCnt only (legacy slot).
+    fetchKotraSuccessCases(winnerKo, { numOfRows: 6 }).catch(() => []),
+    // Source C — primary: KOTRA natnInfo.korCompList (Korean entities in target).
+    fetchKotraNationalInfo(winnerCode).catch(() => null),
+    // Source C — quantitative: Comtrade KR → target export flow for category HSCodes.
+    // Comtrade requires its own subscription key — fall back to public unauthed
+    // endpoint when COMTRADE_API_KEY is unset (rate-limited but still works for
+    // single-product PDF generation cadence).
+    hsCodes.length > 0
+      ? fetchKoreaExportFlows({
+          partnerCountries: [winnerCode],
+          hsCodes,
+          apiKey: process.env.COMTRADE_API_KEY,
+        }).catch(() => [])
+      : Promise.resolve([] as ComtradeFlow[]),
+    // Source C — corporate filing: DART financials (only if product slug is in the curated lookup).
+    dartSlug
+      ? fetchDartFinancialsForSlug(dartSlug).catch(() => null)
+      : Promise.resolve(null as DartCompanyFinancials | null),
+  ]);
 
   const marketGroundedText = summarizeTavily("A", marketRes);
   const peerBrandGroundedText = summarizeTavily("B", peerRes);
@@ -507,12 +846,20 @@ export async function generateValidationContent(
     .map((c) => `${c} (${EN_COUNTRY_NAMES[c.toUpperCase()] ?? c})`)
     .join(", ");
 
+  // Build the composite Source C *before* prompting so the LLM sees the
+  // exact structure that will render in the PDF — no risk of drift between
+  // narrative and deterministic data.
+  const sourceCComposite = buildSourceCComposite({
+    isKo, winnerKo, winnerEn, winnerCode, category: project.category,
+    kotraCases, kotraNational, comtradeFlows, dartFinancials, hsCodes,
+  });
+
   // ── LLM composition ──────────────────────────────────────────────
   const prompt = buildPrompt({
     agg, project, simData, locale: opts.locale,
     marketGroundedText, peerBrandGroundedText, competitiveGroundedText,
     internalGrowthGroundedText,
-    kotraCases: kotraCases.map((k) => ({ companyName: k.companyName, industry: k.industry })),
+    sourceCComposite,
     winnerEn, winnerKo, candidatesEnList,
   });
 
@@ -566,24 +913,10 @@ export async function generateValidationContent(
     limitations: [], perAreaGrades: [], overallVerdict: "",
   };
 
-  // Inject KOTRA-grounded Source C deterministically (NOT from LLM, so it cannot be fabricated)
-  const sourceC: ValidationReportData["externalCrossCheck"]["sourceC"] = {
-    title: isKo
-      ? `KOTRA ${winnerKo} K-수출 성공사례 DB`
-      : `KOTRA Korean export success cases — ${winnerEn}`,
-    citationLabel: "data.go.kr / KOTRA compSucsCase OpenAPI",
-    rows: kotraCases.slice(0, 6).map((k) => ({
-      company: k.companyName,
-      industry: k.industry,
-    })),
-    caveat: kotraCases.length === 0
-      ? (isKo
-        ? `⚠ KOTRA compSucsCase API에서 '${winnerKo}' 검색 결과 없음. API 키 미설정이거나 해당 국가 데이터 부재.`
-        : `⚠ KOTRA compSucsCase API returned no results for '${winnerKo}'. API key may be unset or no data exists for this country.`)
-      : (isKo
-        ? `⚠ ${kotraCases.length}건 — KOTRA DB는 중소수출기업 중심이라 대형 brand 미포함. 직접 비교 가능한 사례 부족 → "참고 한정".`
-        : `⚠ ${kotraCases.length} records — KOTRA DB skews to small/mid exporters; large brands may be absent. Treat as supplemental only.`),
-  };
+  // Source C composite already built above for the prompt. Reuse the
+  // exact same struct in the PDF data — guarantees the narrative and the
+  // visual rendering point at identical facts.
+  const sourceC = sourceCComposite;
 
   const data: ValidationReportData = {
     meta: {
@@ -626,8 +959,10 @@ export async function generateValidationContent(
         },
         {
           label: "C",
-          name: isKo ? "KOTRA K-수출 성공사례 DB" : "KOTRA Korean export success cases",
-          description: "KOTRA compSucsCase OpenAPI (data.go.kr) — direct API call",
+          name: isKo ? "한국 정부 데이터 anchor (KOTRA·관세청·DART 복합)" : "Korean government data composite (KOTRA / Customs / DART)",
+          description: isKo
+            ? "data.go.kr — KOTRA korCompList (진출 한국법인) + UN Comtrade (한국 카테고리 수출 추이) + DART (기업 재무 신호) + KOTRA compSucsCase (보조)"
+            : "data.go.kr — KOTRA korCompList (entities) + UN Comtrade (KR export flow) + DART (corporate filings) + KOTRA compSucsCase (supplementary)",
         },
         {
           label: "D",
@@ -654,7 +989,10 @@ export async function generateValidationContent(
         { category: isKo ? "시뮬 결과" : "Simulation result", source: `AI Market Twin ensemble ${opts.ensembleId.slice(0, 8)} (${opts.llmProviders.length} LLMs × ${agg.simCount ?? 0} sims)`, reliability: "A" },
         { category: isKo ? `${winnerKo} 시장 데이터` : `${winnerEn} market data`, source: "Tavily web search (advanced) — analyst reports + industry press", reliability: "B+" },
         { category: isKo ? "동종 브랜드 진출 사례" : "Peer brand entry cases", source: "Tavily web search (advanced)", reliability: "B" },
-        { category: "KOTRA " + (isKo ? "성공사례 DB" : "success case DB"), source: "data.go.kr / KOTRA compSucsCase OpenAPI", reliability: "A" },
+        { category: isKo ? "KOTRA 진출 한국법인" : "KOTRA korCompList (entities)", source: "data.go.kr / KOTRA natnInfo OpenAPI", reliability: "A" },
+        { category: isKo ? "한국→target 카테고리 수출 추이" : "KR→target category export flow", source: "UN Comtrade public API", reliability: "A" },
+        { category: isKo ? "동종 한국 기업 재무 (상장사)" : "Peer Korean corporate financials (listed)", source: "DART (Financial Supervisory Service) OpenAPI", reliability: "A" },
+        { category: "KOTRA " + (isKo ? "성공사례 DB (보조)" : "compSucsCase (supplementary)"), source: "data.go.kr / KOTRA compSucsCase OpenAPI", reliability: "B" },
         { category: isKo ? "자사 성장 현황" : "Internal brand growth", source: "Tavily web search (advanced)", reliability: "B+" },
       ],
       referenceUrls: [

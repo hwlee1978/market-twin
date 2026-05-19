@@ -1229,7 +1229,11 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
     </>,
   );
 
-  // Source C — KOTRA (deterministic from API)
+  // Source C — Korean government data composite (4 sub-sources)
+  // Each sub-source has its own dataAvailable flag and gets a separate
+  // block. Missing data sections show a muted caveat instead of an empty
+  // table, so the reader can tell "data infrastructure absent" apart from
+  // "real zero on the dimension".
   const srcC = externalCrossCheck.sourceC;
   const sourceCPage = renderSourcePage(
     "C",
@@ -1239,26 +1243,111 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
         <Text style={styles.exhibitNum}>Citation: </Text>
         <Text>{srcC.citationLabel}</Text>
       </Text>
-      {srcC.rows.length > 0 ? (
+
+      {/* C1 — KOTRA korCompList (primary) */}
+      <View wrap={false}>
+      <MText style={[styles.subSubTitle, { marginTop: 12 }]}>
+        {isKo ? "C1. 진출 한국법인 (KOTRA korCompList)" : "C1. Korean entities in market (KOTRA korCompList)"}
+      </MText>
+      {srcC.korCompanies.dataAvailable ? (
         <View style={styles.table}>
           <View style={styles.tableHeader}>
-            <MText style={[styles.th, { flex: 1.4 }]}>{isKo ? "기업" : "Company"}</MText>
-            <MText style={[styles.th, { flex: 2 }]}>{isKo ? "산업분류" : "Industry"}</MText>
+            <MText style={[styles.th, { flex: 1.4 }]}>{isKo ? "모기업" : "Parent"}</MText>
+            <MText style={[styles.th, { flex: 1.6 }]}>{isKo ? "산업·취급분야" : "Industry/Category"}</MText>
+            <MText style={[styles.th, { flex: 0.6 }]}>{isKo ? "진출연도" : "Year"}</MText>
+            <MText style={[styles.th, { flex: 0.8 }]}>{isKo ? "진출형태" : "Form"}</MText>
           </View>
-          {srcC.rows.map((r, i, arr) => (
+          {srcC.korCompanies.rows.map((r, i, arr) => (
             <View key={i} style={[styles.tableRow, i === arr.length - 1 ? styles.tableRowLast : {}]}>
-              <MText style={[styles.tdBold, { flex: 1.4 }]}>{stripUnsupportedGlyphs(r.company)}</MText>
-              <MText style={[styles.td, { flex: 2 }]}>{stripUnsupportedGlyphs(r.industry)}</MText>
+              <MText style={[styles.tdBold, { flex: 1.4 }]}>
+                {stripUnsupportedGlyphs(r.parentKo + (r.localKo ? ` (현지: ${r.localKo})` : ""))}
+              </MText>
+              <MText style={[styles.td, { flex: 1.6 }]}>{stripUnsupportedGlyphs(r.category || r.industry)}</MText>
+              <MText style={[styles.td, { flex: 0.6 }]}>{r.year}</MText>
+              <MText style={[styles.td, { flex: 0.8 }]}>{r.form}</MText>
             </View>
           ))}
+        </View>
+      ) : null}
+      <View style={[styles.calloutCard, srcC.korCompanies.dataAvailable ? styles.calloutWarnBg : styles.calloutWarnBg]}>
+        <MText style={[styles.calloutTitle, styles.calloutTitleWarn]}>
+          {isKo ? "주의 사항" : "Caveat"}
+        </MText>
+        <MText style={styles.calloutBody}>{stripUnsupportedGlyphs(srcC.korCompanies.caveat)}</MText>
+      </View>
+      </View>{/* end C1 wrap */}
+
+      {/* C2 — Comtrade (quantitative) */}
+      <View wrap={false}>
+      <MText style={[styles.subSubTitle, { marginTop: 16 }]}>
+        {isKo ? "C2. 카테고리 수출액 추이 (UN Comtrade)" : "C2. Category export-value flow (UN Comtrade)"}
+      </MText>
+      {srcC.comtrade.dataAvailable ? (
+        <View style={styles.table}>
+          <View style={styles.tableHeader}>
+            <MText style={[styles.th, { flex: 1 }]}>{isKo ? "연도" : "Year"}</MText>
+            <MText style={[styles.th, { flex: 1.5 }]}>{isKo ? "HSCode" : "HS Codes"}</MText>
+            <MText style={[styles.th, { flex: 2 }]}>{isKo ? `한국→${srcC.comtrade.countryKo} 수출액` : `KR→target export value`}</MText>
+          </View>
+          <View style={[styles.tableRow, styles.tableRowLast]}>
+            <MText style={[styles.tdBold, { flex: 1 }]}>{String(srcC.comtrade.year)}</MText>
+            <MText style={[styles.td, { flex: 1.5 }]}>{srcC.comtrade.hsCodes.slice(0, 4).join(", ")}</MText>
+            <MText style={[styles.td, { flex: 2, color: C.brand, fontWeight: 700 }]}>
+              {`$${((srcC.comtrade.exportValueUsd ?? 0) / 1e6).toFixed(2)}M`}
+            </MText>
+          </View>
         </View>
       ) : null}
       <View style={[styles.calloutCard, styles.calloutWarnBg]}>
         <MText style={[styles.calloutTitle, styles.calloutTitleWarn]}>
           {isKo ? "주의 사항" : "Caveat"}
         </MText>
-        <MText style={styles.calloutBody}>{stripUnsupportedGlyphs(srcC.caveat)}</MText>
+        <MText style={styles.calloutBody}>{stripUnsupportedGlyphs(srcC.comtrade.caveat)}</MText>
       </View>
+      </View>{/* end C2 wrap */}
+
+      {/* C3 — DART (corporate filing) */}
+      <View wrap={false}>
+      <MText style={[styles.subSubTitle, { marginTop: 16 }]}>
+        {isKo ? "C3. 기업 재무 신호 (DART 공시)" : "C3. Corporate filing signal (DART)"}
+      </MText>
+      {srcC.dart.dataAvailable && srcC.dart.revenueKrw != null ? (
+        <View style={styles.table}>
+          <View style={styles.tableHeader}>
+            <MText style={[styles.th, { flex: 1.5 }]}>{isKo ? "기업명" : "Company"}</MText>
+            <MText style={[styles.th, { flex: 0.7 }]}>{isKo ? "회계연도" : "FY"}</MText>
+            <MText style={[styles.th, { flex: 1.4 }]}>{isKo ? "연결매출" : "Revenue"}</MText>
+            <MText style={[styles.th, { flex: 1.4 }]}>{isKo ? "영업이익" : "Op Income"}</MText>
+          </View>
+          <View style={[styles.tableRow, styles.tableRowLast]}>
+            <MText style={[styles.tdBold, { flex: 1.5 }]}>{stripUnsupportedGlyphs(srcC.dart.corpNameKo ?? "—")}</MText>
+            <MText style={[styles.td, { flex: 0.7 }]}>{srcC.dart.bsnsYear != null ? String(srcC.dart.bsnsYear) : "—"}</MText>
+            <MText style={[styles.td, { flex: 1.4, color: C.brand, fontWeight: 700 }]}>
+              {`${(srcC.dart.revenueKrw / 1e12).toFixed(2)}T KRW`}
+            </MText>
+            <MText style={[styles.td, { flex: 1.4 }]}>
+              {srcC.dart.opIncomeKrw != null ? `${(srcC.dart.opIncomeKrw / 1e12).toFixed(2)}T KRW` : "—"}
+            </MText>
+          </View>
+        </View>
+      ) : null}
+      <View style={[styles.calloutCard, styles.calloutWarnBg]}>
+        <MText style={[styles.calloutTitle, styles.calloutTitleWarn]}>
+          {isKo ? "주의 사항" : "Caveat"}
+        </MText>
+        <MText style={styles.calloutBody}>{stripUnsupportedGlyphs(srcC.dart.caveat)}</MText>
+      </View>
+      </View>{/* end C3 wrap */}
+
+      {/* C4 — compSucsCase totalCnt (supplementary, single-line note) */}
+      <View wrap={false}>
+      <MText style={[styles.subSubTitle, { marginTop: 16 }]}>
+        {isKo ? "C4. KOTRA K-수출 성공사례 DB (보조 지표)" : "C4. KOTRA compSucsCase DB (supplementary)"}
+      </MText>
+      <View style={[styles.calloutCard, styles.calloutWarnBg]}>
+        <MText style={styles.calloutBody}>{stripUnsupportedGlyphs(srcC.compSucsCase.caveat)}</MText>
+      </View>
+      </View>{/* end C4 wrap */}
     </>,
   );
 
