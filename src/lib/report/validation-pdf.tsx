@@ -949,7 +949,9 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
         {[
           { k: "Ensemble ID", v: meta.ensembleId },
           { k: isKo ? "시뮬 Tier" : "Tier", v: `${meta.tier} · ${meta.simCount} sims` },
-          { k: isKo ? "페르소나 규모" : "Persona scale", v: `${meta.personaCount} × ${meta.simCount} = ${(meta.personaCount * meta.simCount).toLocaleString()}` },
+          // personaCount is the TOTAL effective personas across all sims
+          // (already includes simCount multiplier). Avoid double-multiplying.
+          { k: isKo ? "페르소나 규모" : "Persona scale", v: `${(meta.personaCount / Math.max(1, meta.simCount)).toFixed(0)} × ${meta.simCount} = ${meta.personaCount.toLocaleString()} ${isKo ? "페르소나" : "personas"}` },
           { k: "Multi-LLM", v: meta.llmProviders.join(" · ") },
           ...(meta.durationMinutes ? [{ k: isKo ? "소요 시간" : "Duration", v: `${meta.durationMinutes} min` }] : []),
         ].map((row, i, arr) => (
@@ -1000,7 +1002,7 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
           {`${winnerLabel} (${simResult.winner}) · Consensus: ${simResult.consensusPercent}% (${simResult.confidence})`}
         </MText>
         <MText style={styles.calloutBody}>
-          {`Sample: ${(meta.personaCount * meta.simCount).toLocaleString()} ${isKo ? "페르소나" : "personas"} · ${simResult.consensusType ?? ""}`}
+          {`Sample: ${meta.personaCount.toLocaleString()} ${isKo ? "페르소나" : "personas"} · ${simResult.consensusType ?? ""}`}
         </MText>
       </View>
 
