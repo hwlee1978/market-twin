@@ -55,7 +55,12 @@ export const TIER_PRESETS = {
   // (refine product description or accept cluster recommendation here).
   hypothesis: {
     parallelSims: 3,
-    perSimPersonas: 100,
+    // 200 personas per sim matches other tiers — keeps per-country sample
+    // density consistent (~20 personas / candidate country at 10 candidates),
+    // which Top-2 dominance check needs for stable mean / std estimates.
+    // Total 600 personas across 3 sims is 1/2 of Decision (1200) and 1/8
+    // of Deep (5000). Cost with prompt caching: ~$3-5 per ensemble.
+    perSimPersonas: 200,
     llmProviders: ["anthropic", "openai", "deepseek"] as const,
     marketProfile: false,
   },

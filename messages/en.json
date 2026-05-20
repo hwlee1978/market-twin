@@ -441,16 +441,16 @@
         "label": "Analysis depth",
         "hint": "Confidence scales with the number of personas and parallel sims. Every tier aggregates N independent runs and surfaces consensus + variance alongside the headline recommendation. Recommended workflow: start with Hypothesis to check Top-1 dominance vs Top-2 cluster, then commit to Consensus if a deeper narrative is needed.",
         "hypothesis": {
-          "name": "Hypothesis",
-          "spec": "300 personas · 3 sims · multi-LLM",
+          "name": "Hypothesis (recommended start)",
+          "spec": "600 personas · 3 sims · multi-LLM",
           "desc": "Top-2 cluster check",
-          "time": "~5-8 min"
+          "time": "~7-10 min"
         },
         "decision": {
           "name": "Consensus",
-          "spec": "1,000 personas · 5 sims",
+          "spec": "1,200 personas · 6 sims · multi-LLM",
           "desc": "Decision-grade confidence",
-          "time": "~12 min"
+          "time": "~12-15 min"
         },
         "decision_plus": {
           "name": "Consensus+",

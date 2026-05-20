@@ -89,7 +89,11 @@ export function ProjectWizard({ locale }: { locale: string }) {
     assetDescriptions: "",
     assetUrls: "",
     personaCount: 200,
-    tier: "decision",
+    // 2026-05-20: Default tier is hypothesis (3 sims × 200 personas × multi-LLM).
+    // Recommended workflow — run hypothesis first to check Top-1 dominance
+    // vs Top-2 cluster, then commit to decision-tier only if narrative depth
+    // is needed. ~10× cost saving vs starting at decision tier directly.
+    tier: "hypothesis",
     notifyEmail: "",
   });
 
