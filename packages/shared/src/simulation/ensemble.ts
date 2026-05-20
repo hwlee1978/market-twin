@@ -325,8 +325,8 @@ export interface EnsembleAggregate {
      *   - "single-provider" one provider produced ≥50% of the
      *                       winner-agreeing sims AND other providers
      *                       disagreed. Risk of single-model bias.
-     *   - "mixed"           single-LLM tier (hypothesis), or providers
-     *                       split without one dominating. Default-cautious.
+     *   - "mixed"           providers split without one dominating.
+     *                       Default-cautious.
      *   - "n/a"             can't be computed (single provider only, or
      *                       no winner). UI should fall back to displaying
      *                       confidence alone.
@@ -2237,10 +2237,11 @@ function computePricingAggregate(
       : undefined;
   // When all sims landed on the exact same recommended price, capture
   // it so the UI can render "All N sims converged on $X" instead of a
-  // confusing zero-width "$X – $X" range. Also fires for the single-sim
-  // case (hypothesis tier) — there the UI suppresses the "all sims"
-  // framing via simCount === 1, but we still need the value here so the
-  // legacy mid-50% bullet ("$X – $X") doesn't reappear.
+  // confusing zero-width "$X – $X" range. Also fires for any single-sim
+  // run (rare since hypothesis tier moved to 3 sims, 2026-05-20) — the
+  // UI suppresses the "all sims" framing via simCount === 1, but we
+  // still need the value here so the legacy mid-50% bullet ("$X – $X")
+  // doesn't reappear.
   const allSame = recs.length >= 1 && recs.every((r) => r === recs[0]);
   const recommendedPriceUnanimousAt = allSame ? recs[0] : null;
 

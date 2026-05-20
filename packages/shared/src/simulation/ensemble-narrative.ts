@@ -194,7 +194,9 @@ export async function mergeNarrative(
   }
 
   // Single-sim trivial path: nothing to merge, just promote the per-sim
-  // narrative directly. Saves a redundant LLM call on hypothesis tier.
+  // narrative directly. Rare after 2026-05-20 hypothesis tier upgrade
+  // (1 → 3 sims) but kept as a safety net for any manually-launched
+  // 1-sim run or future degenerate cases.
   if (sims.length === 1) {
     const s = sims[0];
     return {

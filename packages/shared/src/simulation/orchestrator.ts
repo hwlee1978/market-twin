@@ -44,10 +44,19 @@ import { notifyEnsembleComplete } from "@/lib/email/notify";
 /* ────────────────────────────────── tier presets ─── */
 
 export const TIER_PRESETS = {
+  // 2026-05-20: Hypothesis tier upgraded from "1 sim × 200 personas × anthropic
+  // only" to "3 sims × 100 personas × 3 providers" so it has enough cross-LLM
+  // signal for the Top-2 dominance check (which needs ≥2 providers to detect
+  // crossLLMAgree, and needs ≥2 sims for voteShare granularity). 300 personas
+  // total is still 1/4 of Decision (1200) and 1/16 of Deep (5000). Designed
+  // as the recommended FIRST PASS before committing $25+ to Decision/Deep —
+  // hypothesis verdict tells you whether the product has clear top-1 dominance
+  // (proceed to Decision for narrative depth) or borderline top-2 cluster
+  // (refine product description or accept cluster recommendation here).
   hypothesis: {
-    parallelSims: 1,
-    perSimPersonas: 200,
-    llmProviders: ["anthropic"] as const,
+    parallelSims: 3,
+    perSimPersonas: 100,
+    llmProviders: ["anthropic", "openai", "deepseek"] as const,
     marketProfile: false,
   },
   decision: {
