@@ -65,20 +65,34 @@ const PROVIDER_FALLBACK: Record<string, PriceUsdPerMTok> = {
  * Cost for a single LLM call in cents (rounded to nearest integer cent
  * after summing input + output components). Returns 0 when usage data
  * is missing — caller can decide whether to skip recording or warn.
+ *
+ * Anthropic prompt caching pricing (2026-05-20):
+ *   - Cache write: 1.25× normal input rate
+ *   - Cache read:  0.10× normal input rate
+ *   - Regular input (non-cached): 1.0× input rate
+ *
+ * Caller passes cache-write and cache-read tokens separately when known.
+ * The Anthropic SDK's `input_tokens` field excludes both cache writes
+ * and cache reads — they're reported in their own counters. Other
+ * providers don't surface caching today and pass undefined for both.
  */
 export function llmCallCostCents(
   provider: string,
   model: string,
   inputTokens: number | undefined,
   outputTokens: number | undefined,
+  cacheWriteTokens: number | undefined = 0,
+  cacheReadTokens: number | undefined = 0,
 ): number {
-  if (!inputTokens && !outputTokens) return 0;
+  if (!inputTokens && !outputTokens && !cacheWriteTokens && !cacheReadTokens) return 0;
   const price =
     PRICE_TABLE[provider]?.[model] ??
     PROVIDER_FALLBACK[provider] ??
     PROVIDER_FALLBACK.openai;
   const dollars =
     ((inputTokens ?? 0) / 1_000_000) * price.input +
+    ((cacheWriteTokens ?? 0) / 1_000_000) * price.input * 1.25 +
+    ((cacheReadTokens ?? 0) / 1_000_000) * price.input * 0.10 +
     ((outputTokens ?? 0) / 1_000_000) * price.output;
   return Math.round(dollars * 100);
 }

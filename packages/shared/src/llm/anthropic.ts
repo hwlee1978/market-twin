@@ -59,6 +59,21 @@ export class AnthropicProvider implements LLMProvider {
         ? [{ type: "text", text: promptText }, ...imageBlocks]
         : promptText;
 
+    // Prompt caching (2026-05-20): wrap the system prompt in a single
+    // text block with cache_control so subsequent calls with identical
+    // system text hit Anthropic's cache for ~90% input-cost savings.
+    // Anthropic ignores the directive when the block is below the
+    // model's minimum cache size (1024 tok Sonnet / 2048 tok Haiku),
+    // so always-on is safe — the cost is a one-time 1.25× cache-write
+    // premium on the first call within a 5-min window. Caller can opt
+    // out via cacheSystem=false for transient single-use prompts.
+    const cacheSystem = req.cacheSystem ?? true;
+    const systemText = (req.system ?? "") + systemSuffix;
+    const systemParam: string | Anthropic.TextBlockParam[] =
+      cacheSystem && systemText.length > 0
+        ? [{ type: "text", text: systemText, cache_control: { type: "ephemeral" } }]
+        : systemText;
+
     const response = await withLLMRetry(
       () =>
         this.client.messages.create(
@@ -66,7 +81,7 @@ export class AnthropicProvider implements LLMProvider {
             model: this.model,
             max_tokens: req.maxTokens ?? 4096,
             temperature: req.temperature ?? 0.7,
-            system: (req.system ?? "") + systemSuffix,
+            system: systemParam,
             messages: [{ role: "user", content: userContent }],
           },
           // Anthropic SDK forwards signal to the underlying fetch call,
@@ -109,12 +124,22 @@ export class AnthropicProvider implements LLMProvider {
       );
     }
 
+    // Cache hit / write stats are surfaced for cost validation. Anthropic
+    // SDK types include these as optional fields when the message used
+    // cache_control — fall back to undefined when absent.
+    const cacheCreationInputTokens =
+      (response.usage as { cache_creation_input_tokens?: number }).cache_creation_input_tokens;
+    const cacheReadInputTokens =
+      (response.usage as { cache_read_input_tokens?: number }).cache_read_input_tokens;
+
     return {
       text,
       json,
       usage: {
         inputTokens: response.usage.input_tokens,
         outputTokens: response.usage.output_tokens,
+        cacheCreationInputTokens,
+        cacheReadInputTokens,
       },
       raw: response,
     };

@@ -194,7 +194,14 @@ function personaBatchConcurrency(personaCount: number, provider?: string): numbe
  */
 function withUsageTracking(
   llm: LLMProvider,
-  usage: { inputTokens: number; outputTokens: number; costCents: number },
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    costCents: number;
+    /** Anthropic prompt-cache tokens — separate counters surface savings. */
+    cacheWriteTokens?: number;
+    cacheReadTokens?: number;
+  },
 ): LLMProvider {
   return {
     name: llm.name,
@@ -203,9 +210,13 @@ function withUsageTracking(
       const res = await llm.generate(req);
       const inT = res.usage?.inputTokens ?? 0;
       const outT = res.usage?.outputTokens ?? 0;
+      const cacheWrite = res.usage?.cacheCreationInputTokens ?? 0;
+      const cacheRead = res.usage?.cacheReadInputTokens ?? 0;
       usage.inputTokens += inT;
       usage.outputTokens += outT;
-      usage.costCents += llmCallCostCents(llm.name, llm.model, inT, outT);
+      usage.cacheWriteTokens = (usage.cacheWriteTokens ?? 0) + cacheWrite;
+      usage.cacheReadTokens = (usage.cacheReadTokens ?? 0) + cacheRead;
+      usage.costCents += llmCallCostCents(llm.name, llm.model, inT, outT, cacheWrite, cacheRead);
       return res;
     },
   };
@@ -479,7 +490,13 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
   // countries (5x) + pricing (5x) + synthesis + critique. Persisted to
   // simulations.total_input_tokens / total_output_tokens / total_cost_cents
   // at the end of the success path so /admin/billing has data to render.
-  const usage = { inputTokens: 0, outputTokens: 0, costCents: 0 };
+  const usage: {
+    inputTokens: number;
+    outputTokens: number;
+    costCents: number;
+    cacheWriteTokens?: number;
+    cacheReadTokens?: number;
+  } = { inputTokens: 0, outputTokens: 0, costCents: 0 };
 
   // Provider-failover scope: ALL high-volume stages get the wrapper.
   // History: only synthesis used to fall over. Persona stage in Deep
@@ -2206,10 +2223,18 @@ ${entries}
 
     // Top-level wall-clock — print after persistence so the line shows up
     // last in the log stream, makes it easy to scroll back and see the total.
+    // Prompt-cache stats — surfaced inline so the operator can verify
+    // cache hit ratio per sim. Anthropic charges cache reads at 0.1× input
+    // rate, so high cacheRead/inputTokens ratio = high savings realized.
+    const cacheRead = usage.cacheReadTokens ?? 0;
+    const cacheWrite = usage.cacheWriteTokens ?? 0;
+    const cacheTag = cacheRead + cacheWrite > 0
+      ? ` · cache R${(cacheRead / 1000).toFixed(1)}k/W${(cacheWrite / 1000).toFixed(1)}k`
+      : "";
     console.log(
       `[sim ${opts.simulationId}] DONE — ${((Date.now() - tSimStart) / 1000).toFixed(1)}s ` +
         `total · ${personas.length} personas · ${countryScores.length} markets · ` +
-        `${(usage.inputTokens / 1000).toFixed(1)}k in + ${(usage.outputTokens / 1000).toFixed(1)}k out → ` +
+        `${(usage.inputTokens / 1000).toFixed(1)}k in + ${(usage.outputTokens / 1000).toFixed(1)}k out${cacheTag} → ` +
         `$${(usage.costCents / 100).toFixed(2)}`,
     );
 

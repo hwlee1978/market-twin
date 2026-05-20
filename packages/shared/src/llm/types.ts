@@ -57,6 +57,19 @@ export interface LLMRequest {
    * the caller to handle the shape difference).
    */
   expectedArrayKey?: string;
+  /**
+   * When true (default), Anthropic-only: mark the system prompt with
+   * cache_control so subsequent calls with the same system within the
+   * cache TTL hit the cache for ~90% input-cost savings. Anthropic
+   * silently ignores when the system block is below the per-model
+   * minimum (1024 tokens for Sonnet, 2048 for Haiku) so always-on is
+   * safe. Set false explicitly for transient single-use prompts where
+   * the 1.25× cache-write premium would be net-negative.
+   *
+   * Other providers ignore this flag (OpenAI auto-caches via its own
+   * mechanism; Gemini/xAI/DeepSeek don't currently support equivalent).
+   */
+  cacheSystem?: boolean;
 }
 
 export interface LLMResponse {
@@ -66,6 +79,10 @@ export interface LLMResponse {
   usage?: {
     inputTokens?: number;
     outputTokens?: number;
+    /** Anthropic prompt caching: tokens written to cache on this call. */
+    cacheCreationInputTokens?: number;
+    /** Anthropic prompt caching: tokens read from cache (paid at 0.1×). */
+    cacheReadInputTokens?: number;
   };
   raw?: unknown;
 }
