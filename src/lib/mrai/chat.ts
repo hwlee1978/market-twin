@@ -1,12 +1,12 @@
-import { getLLMProvider } from "@/lib/llm";
 import { createServiceClient } from "@/lib/supabase/server";
 import {
   extractMemoriesFromTurn,
-  formatMemoriesForPrompt,
   loadRelevantMemories,
   saveMemories,
   type MemoryRow,
 } from "./memory";
+import { orchestrate, saveAgentTrace } from "./agents/orchestrate";
+import { saveKgFromTurn } from "./kg";
 
 /**
  * Orchestrates one round-trip with Mr. AI:
@@ -24,50 +24,24 @@ import {
  * we just don't grow the memory store this turn. Logged for debugging.
  */
 
-const HISTORY_TURNS_INJECTED = 20;
-
 export type ChatTurn = { role: "user" | "assistant"; content: string };
 
 export type ChatLocale = "ko" | "en";
 
-const MRAI_SYSTEM_PROMPT_KO = `당신은 Mr. AI — CEO를 위한 AI 비서입니다.
-
-성격:
-- 회계사처럼 정확하고, 컨설턴트처럼 간결합니다.
-- 모호한 말 대신 숫자/사실/근거를 우선합니다.
-- 의견을 물으면 트레이드오프를 먼저 말하고 권장안을 마지막에 줍니다.
-
-답변 스타일:
-- 한국어 (사용자가 영어로 묻지 않는 한).
-- 짧게. 보통 3-6 문장. 표·리스트는 정말 필요할 때만.
-- 모르는 건 "잘 모릅니다" 또는 "확인이 필요합니다"라고 답합니다. 추측 금지.
-- CEO에게 보고하는 톤. "~인 것 같아요" 같은 흐릿한 표현 금지.
-
-장기 기억:
-- 아래 Persistent Memory 섹션에 이 워크스페이스에서 이전에 저장한 사실들이 있습니다.
-- 매 답변에서 자연스럽게 활용하세요. "이전에 ~라고 하셨으니" 같은 명시적 인용은 자제.
-- 새로 알게 된 중요 사실은 기억하겠다고 말할 필요 없음 — 시스템이 자동 추출.`;
-
-const MRAI_SYSTEM_PROMPT_EN = `You are Mr. AI — an AI assistant for a CEO.
-
-Personality:
-- Precise like an accountant, concise like a consultant.
-- Prefer numbers, facts, and citations over vague claims.
-- When asked for an opinion, lead with trade-offs and end with the recommendation.
-
-Style:
-- English (unless the user writes to you in Korean).
-- Short. Usually 3-6 sentences. Tables/lists only when truly needed.
-- If you don't know, say "I don't know" or "needs verification". No guessing.
-- CEO-reporting tone. Avoid hedging like "it seems" or "perhaps".
-
-Persistent Memory:
-- The Persistent Memory section below lists facts saved earlier in this workspace.
-- Use them naturally. Don't say things like "as you mentioned before".
-- No need to announce you'll remember new facts — the system extracts them automatically.`;
-
-function systemPromptFor(locale: ChatLocale): string {
-  return locale === "en" ? MRAI_SYSTEM_PROMPT_EN : MRAI_SYSTEM_PROMPT_KO;
+export interface AgentTraceSummary {
+  mode: "full" | "simple";
+  totalMs: number;
+  l1?: { ms: number };
+  l2?: {
+    ms: number;
+    memoryCount: number;
+    signalCount: number;
+    historyCount: number;
+    entityCount: number;
+    relationCount: number;
+    notes: string[];
+  };
+  l3: { ms: number };
 }
 
 export async function runMrAIChat(input: {
@@ -79,7 +53,9 @@ export async function runMrAIChat(input: {
 }): Promise<{
   conversationId: string;
   assistantMessage: string;
+  assistantMessageId: string;
   newMemories: number;
+  trace: AgentTraceSummary;
 }> {
   const supabase = createServiceClient();
 
@@ -109,26 +85,7 @@ export async function runMrAIChat(input: {
     }
   }
 
-  // 2. Load context: memories (semantic retrieval keyed on the user's
-  // message — see loadRelevantMemories for fallback chain) + recent
-  // chronological history.
-  const [memories, historyResp] = await Promise.all([
-    loadRelevantMemories({
-      workspaceId: input.workspaceId,
-      queryText: input.userMessage,
-      matchCount: 20,
-    }),
-    supabase
-      .from("mrai_messages")
-      .select("role, content")
-      .eq("conversation_id", convoId)
-      .order("created_at", { ascending: false })
-      .limit(HISTORY_TURNS_INJECTED),
-  ]);
-  if (historyResp.error) throw new Error(`load history: ${historyResp.error.message}`);
-  const history = ((historyResp.data ?? []) as ChatTurn[]).reverse();
-
-  // 3. Insert the user message first so it's part of the durable record
+  // 2. Insert the user message first so it's part of the durable record
   // even if the LLM call fails on transient errors.
   const { data: userRow, error: userErr } = await supabase
     .from("mrai_messages")
@@ -141,46 +98,47 @@ export async function runMrAIChat(input: {
     .single();
   if (userErr || !userRow) throw new Error(`save user msg: ${userErr?.message}`);
 
-  // 4. Build the system prompt: persona + memory block.
+  // 3. Run the 3-Layer Agent orchestrator (Strategist → Analyst → Synthesizer).
+  // It auto-bypasses to a single cheap LLM call for trivial greetings.
   const locale: ChatLocale = input.locale ?? "ko";
-  const basePrompt = systemPromptFor(locale);
-  const memoryBlock = formatMemoriesForPrompt(memories, locale);
-  const system = memoryBlock ? `${basePrompt}\n\n${memoryBlock}` : basePrompt;
-
-  // 5. Build the conversation prompt. History goes into a transcript that
-  // the LLM sees as one prompt — we don't use multi-turn message format
-  // because the shared LLM gateway is single-shot system+prompt only.
-  const userLabel = locale === "en" ? "User" : "사용자";
-  const transcript = history
-    .map((t) => `${t.role === "user" ? userLabel : "Mr. AI"}: ${t.content}`)
-    .join("\n\n");
-  const prompt = transcript
-    ? `${transcript}\n\n${userLabel}: ${input.userMessage}\n\nMr. AI:`
-    : `${userLabel}: ${input.userMessage}\n\nMr. AI:`;
-
-  const provider = getLLMProvider({ provider: "anthropic" });
-  const res = await provider.generate({
-    system,
-    prompt,
-    temperature: 0.4,
-    maxTokens: 1500,
-    cacheSystem: true,
+  const orchestrated = await orchestrate({
+    workspaceId: input.workspaceId,
+    conversationId: convoId,
+    userMessage: input.userMessage,
+    locale,
   });
-  const assistantText = (res.text ?? "").trim() || "(빈 응답)";
+  const assistantText = orchestrated.text;
 
-  // 6. Save assistant message
+  // We still need the post-extraction memory list (NOT the L2 evidence —
+  // memory extraction wants the broader recent set to dedup properly).
+  const memoriesForExtraction = orchestrated.evidence?.memories
+    ?? (await loadRelevantMemories({
+      workspaceId: input.workspaceId,
+      queryText: input.userMessage,
+      matchCount: 20,
+    }));
+
+  // 4. Save assistant message + agent trace
   const { data: asstRow, error: asstErr } = await supabase
     .from("mrai_messages")
     .insert({
       conversation_id: convoId,
       role: "assistant",
       content: assistantText,
-      input_tokens: res.usage?.inputTokens ?? null,
-      output_tokens: res.usage?.outputTokens ?? null,
+      input_tokens: orchestrated.usage.inputTokens,
+      output_tokens: orchestrated.usage.outputTokens,
     })
     .select("id")
     .single();
   if (asstErr || !asstRow) throw new Error(`save assistant msg: ${asstErr?.message}`);
+
+  await saveAgentTrace({
+    workspaceId: input.workspaceId,
+    conversationId: convoId,
+    userMessageId: userRow.id as string,
+    asstMessageId: asstRow.id as string,
+    result: orchestrated,
+  });
 
   // Bump conversation updated_at so the UI can sort threads
   await supabase
@@ -188,31 +146,69 @@ export async function runMrAIChat(input: {
     .update({ updated_at: new Date().toISOString() })
     .eq("id", convoId);
 
-  // 7. Memory extraction — best effort, never block the response
+  // 5. Memory extraction + KG extraction — run in parallel, both
+  // best-effort. Neither blocks the user-facing response.
   let newMemoryCount = 0;
-  try {
-    const extracted = await extractMemoriesFromTurn({
-      userMessage: input.userMessage,
-      assistantReply: assistantText,
-      existingMemories: memories,
-    });
-    if (extracted.length > 0) {
-      await saveMemories({
-        workspaceId: input.workspaceId,
-        userId: input.userId,
-        sourceMessageId: asstRow.id as string,
-        memories: extracted,
+  const memoryTask = (async () => {
+    try {
+      const extracted = await extractMemoriesFromTurn({
+        userMessage: input.userMessage,
+        assistantReply: assistantText,
+        existingMemories: memoriesForExtraction,
       });
-      newMemoryCount = extracted.length;
+      if (extracted.length > 0) {
+        await saveMemories({
+          workspaceId: input.workspaceId,
+          userId: input.userId,
+          sourceMessageId: asstRow.id as string,
+          memories: extracted,
+        });
+        newMemoryCount = extracted.length;
+      }
+    } catch (e) {
+      console.error("[mrai] memory extraction failed", e);
     }
-  } catch (e) {
-    console.error("[mrai] memory extraction failed", e);
-  }
+  })();
+
+  const kgTask = (async () => {
+    try {
+      await saveKgFromTurn({
+        workspaceId: input.workspaceId,
+        userMessage: input.userMessage,
+        assistantReply: assistantText,
+        sourceMemoryId: null, // KG isn't tied to a specific memory row
+      });
+    } catch (e) {
+      console.error("[mrai] kg extraction failed", e);
+    }
+  })();
+
+  await Promise.all([memoryTask, kgTask]);
+
+  const traceSummary: AgentTraceSummary = {
+    mode: orchestrated.mode,
+    totalMs: orchestrated.totalMs,
+    l1: orchestrated.trace.l1 ? { ms: orchestrated.trace.l1.ms } : undefined,
+    l2: orchestrated.trace.l2
+      ? {
+          ms: orchestrated.trace.l2.ms,
+          memoryCount: orchestrated.trace.l2.evidenceSummary.memoryCount,
+          signalCount: orchestrated.trace.l2.evidenceSummary.signalCount,
+          historyCount: orchestrated.trace.l2.evidenceSummary.historyCount,
+          entityCount: orchestrated.trace.l2.evidenceSummary.entityCount,
+          relationCount: orchestrated.trace.l2.evidenceSummary.relationCount,
+          notes: orchestrated.trace.l2.evidenceSummary.notes,
+        }
+      : undefined,
+    l3: { ms: orchestrated.trace.l3.ms },
+  };
 
   return {
     conversationId: convoId,
     assistantMessage: assistantText,
+    assistantMessageId: asstRow.id as string,
     newMemories: newMemoryCount,
+    trace: traceSummary,
   };
 }
 

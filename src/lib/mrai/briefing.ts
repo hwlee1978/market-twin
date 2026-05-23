@@ -1,6 +1,8 @@
 import { getLLMProvider } from "@/lib/llm";
 import { createServiceClient } from "@/lib/supabase/server";
 import { loadWorkspaceMemories, type MemoryRow } from "./memory";
+import { aggregateRecentFeedback, formatFeedbackForPrompt } from "./feedback";
+import { dispatchToAllChannels } from "./channels";
 
 interface SignalRow {
   source: string;
@@ -203,18 +205,22 @@ export async function generateBriefing(input: {
 }): Promise<BriefingRow> {
   const supabase = createServiceClient();
 
-  const [memories, conversations, signals] = await Promise.all([
+  const [memories, conversations, signals, feedback] = await Promise.all([
     loadWorkspaceMemories(input.workspaceId),
     loadRecentConversationDigests(input.workspaceId),
     loadActiveSignals(input.workspaceId),
+    aggregateRecentFeedback(input.workspaceId),
   ]);
 
-  const { system, prompt } = buildBriefingPrompt({
+  const { system, prompt: basePrompt } = buildBriefingPrompt({
     locale: input.locale,
     memories,
     conversations,
     signals,
   });
+
+  const feedbackBlock = formatFeedbackForPrompt(feedback, input.locale);
+  const prompt = feedbackBlock ? `${feedbackBlock}\n\n---\n\n${basePrompt}` : basePrompt;
 
   const provider = getLLMProvider({ provider: "anthropic" });
   const res = await provider.generate({
@@ -243,8 +249,28 @@ export async function generateBriefing(input: {
     .single();
   if (error || !data) throw new Error(`save briefing: ${error?.message}`);
 
+  // Fire-and-forget auto-dispatch to channels with send_briefing=true.
+  // Per-channel failures are logged to mrai_dispatches and never block
+  // the briefing returning to the caller.
+  const briefingId = data.id as string;
+  const title = input.locale === "en"
+    ? `Mr. AI Briefing · ${new Date().toLocaleDateString("en-US")}`
+    : `Mr. AI 브리핑 · ${new Date().toLocaleDateString("ko-KR")}`;
+  void (async () => {
+    try {
+      await dispatchToAllChannels({
+        workspaceId: input.workspaceId,
+        event: "briefing",
+        payload: { title, body: text },
+        sourceId: briefingId,
+      });
+    } catch (e) {
+      console.error("[mrai] briefing dispatch failed", e);
+    }
+  })();
+
   return {
-    id: data.id as string,
+    id: briefingId,
     content_md: data.content_md as string,
     locale: data.locale as Locale,
     source_memory_ids: (data.source_memory_ids as string[]) ?? [],

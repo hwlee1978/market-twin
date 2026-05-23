@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Brain, Loader2, Send, Trash2, MessageSquarePlus } from "lucide-react";
+import { AgentTrace, type AgentTraceData } from "./AgentTrace";
+import { FeedbackButtons } from "./FeedbackButtons";
 
 type MemoryKind = "fact" | "preference" | "context" | "decision";
 
@@ -20,7 +22,7 @@ type Conversation = {
   updated_at: string;
 };
 
-type ChatTurn = { role: "user" | "assistant"; content: string };
+type ChatTurn = { role: "user" | "assistant"; content: string; trace?: AgentTraceData; messageId?: string };
 
 const KIND_TONE: Record<MemoryKind, string> = {
   fact: "bg-amber-50 text-amber-900 border-amber-200",
@@ -93,10 +95,15 @@ export function MrAIChat({
       const data = (await res.json()) as {
         conversationId: string;
         assistantMessage: string;
+        assistantMessageId: string;
         newMemories: number;
+        trace?: AgentTraceData;
       };
       setActiveConvoId(data.conversationId);
-      setTurns((prev) => [...prev, { role: "assistant", content: data.assistantMessage }]);
+      setTurns((prev) => [
+        ...prev,
+        { role: "assistant", content: data.assistantMessage, trace: data.trace, messageId: data.assistantMessageId },
+      ]);
       setLastNewMemoryCount(data.newMemories);
 
       if (data.newMemories > 0) {
@@ -193,7 +200,7 @@ export function MrAIChat({
               exampleB={tChat("exampleB")}
             />
           ) : (
-            turns.map((t, i) => <TurnBubble key={i} turn={t} />)
+            turns.map((t, i) => <TurnBubble key={i} turn={t} locale={locale} />)
           )}
           {loading && (
             <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -272,10 +279,10 @@ export function MrAIChat({
   );
 }
 
-function TurnBubble({ turn }: { turn: ChatTurn }) {
+function TurnBubble({ turn, locale }: { turn: ChatTurn; locale: "ko" | "en" }) {
   const isUser = turn.role === "user";
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
       <div
         className={`max-w-[80%] rounded-lg px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
           isUser
@@ -285,6 +292,19 @@ function TurnBubble({ turn }: { turn: ChatTurn }) {
       >
         {turn.content}
       </div>
+      {!isUser && (
+        <div className="mt-1 px-1 flex items-center gap-3">
+          {turn.trace && <AgentTrace trace={turn.trace} />}
+          {turn.messageId && (
+            <FeedbackButtons
+              targetType="chat_message"
+              targetId={turn.messageId}
+              locale={locale}
+              size="xs"
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

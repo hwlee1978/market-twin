@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronDown, ChevronUp, FileText, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { FeedbackButtons } from "./FeedbackButtons";
 
 type Briefing = {
   id: string;
@@ -104,7 +105,17 @@ export function BriefingPanel({
             </div>
           )}
           {briefing ? (
-            <BriefingMarkdown md={briefing.content_md} />
+            <>
+              <BriefingMarkdown md={briefing.content_md} />
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end">
+                <FeedbackButtons
+                  targetType="briefing"
+                  targetId={briefing.id}
+                  locale={locale}
+                  size="sm"
+                />
+              </div>
+            </>
           ) : (
             <p className="text-sm text-slate-500 leading-relaxed">{t("empty")}</p>
           )}

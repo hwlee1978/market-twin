@@ -7,6 +7,7 @@ import { loadLatestBriefing } from "@/lib/mrai/briefing";
 import { MrAIChat } from "@/components/mrai/MrAIChat";
 import { BriefingPanel } from "@/components/mrai/BriefingPanel";
 import { IntegrationsPanel } from "@/components/mrai/IntegrationsPanel";
+import { ChannelsPanel } from "@/components/mrai/ChannelsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,7 @@ export default async function MrAIPage({
     <div className="px-6 pt-6 pb-10 max-w-[1400px] mx-auto space-y-6">
       <PageHeader title={t("pageTitle")} subtitle={t("pageSubtitle")} />
       <IntegrationsPanel initialFlash={integrationFlash} locale={safeLocale} />
+      <ChannelsPanel locale={safeLocale} />
       <BriefingPanel initialBriefing={latestBriefing} locale={safeLocale} />
       <MrAIChat
         initialMemories={memories}

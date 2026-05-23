@@ -35,7 +35,8 @@
     "benchmark:auto": "tsx --env-file=.env.local scripts/benchmark.ts --single",
     "benchmark:run": "tsx --env-file=.env.local scripts/benchmark-run.ts",
     "compare:ensembles": "tsx --env-file=.env.local scripts/compare-ensembles.ts",
-    "backfill:mrai-embeddings": "tsx --env-file=.env.local scripts/backfill-mrai-embeddings.ts"
+    "backfill:mrai-embeddings": "tsx --env-file=.env.local scripts/backfill-mrai-embeddings.ts",
+    "backfill:mrai-kg": "tsx --env-file=.env.local scripts/backfill-mrai-kg.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

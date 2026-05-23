@@ -205,6 +205,7 @@
     "dashboard": "Dashboard",
     "projects": "Projects",
     "reports": "Reports",
+    "mrAi": "Mr. AI",
     "billing": "Billing",
     "team": "Team",
     "settings": "Settings",
@@ -1156,6 +1157,33 @@
       "errorPrefix": "Briefing failed",
       "collapse": "Collapse",
       "expand": "Expand"
+    },
+    "channels": {
+      "title": "Auto-publish channels",
+      "subtitle": "Send briefings automatically to Slack, email, or webhooks",
+      "addChannel": "Add channel",
+      "empty": "No channels yet. Add one and your briefing will publish automatically.",
+      "test": "Send test",
+      "remove": "Remove",
+      "removeConfirm": "Remove this channel?",
+      "testOk": "Test message sent.",
+      "testFailed": "Test failed",
+      "type": {
+        "slack_webhook": "Slack Webhook",
+        "email": "Email",
+        "generic_webhook": "Custom Webhook"
+      },
+      "field": {
+        "name": "Name (e.g. CEO Slack DM)",
+        "webhookUrl": "Slack Incoming Webhook URL",
+        "emailTo": "Recipient email",
+        "url": "POST target URL",
+        "headers": "Extra headers (optional, JSON)"
+      },
+      "slackHelp": "Slack workspace settings → Apps → Incoming Webhooks → pick a channel → copy Webhook URL",
+      "emailHelp": "Requires RESEND_API_KEY env var to actually send.",
+      "save": "Save",
+      "cancel": "Cancel"
     },
     "integrations": {
       "title": "Integrations",
