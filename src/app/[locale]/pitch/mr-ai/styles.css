@@ -1,0 +1,462 @@
+/*
+ * Mr. AI Pitch Deck — visual + print system
+ *
+ * Design tokens distinct from Market Twin's navy/cyan (which is for
+ * the operational app). Mr. AI = "executive AI" → near-black backgrounds
+ * with warm amber accent for emphasis and cool cyan for data/tech.
+ *
+ * PDF export: each .slide has `page-break-after: always` and fixed
+ * 1456×819 dimensions matching industry-standard 16:9 pitch decks.
+ * Print Chrome → Save as PDF, Layout=Landscape, Margins=None,
+ * Background graphics=ON.
+ */
+
+.mrai-deck {
+  --mrai-bg-dark: #0a0e1a;
+  --mrai-bg-light: #fafaf7;
+  --mrai-ink-on-dark: #f1f5f9;
+  --mrai-ink-on-light: #0a0e1a;
+  --mrai-ink-muted-dark: #94a3b8;
+  --mrai-ink-muted-light: #475569;
+  --mrai-accent: #f59e0b;        /* amber gold — emphasis + premium */
+  --mrai-accent-soft: #fef3c7;
+  --mrai-cool: #22d3ee;          /* cyan — data, tech, links */
+  --mrai-rule-dark: rgba(241, 245, 249, 0.12);
+  --mrai-rule-light: rgba(10, 14, 26, 0.08);
+  --mrai-card-dark: rgba(241, 245, 249, 0.04);
+  --mrai-card-light: rgba(10, 14, 26, 0.03);
+}
+
+.mrai-slide {
+  width: 1456px;
+  height: 819px;
+  margin: 0 auto 24px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+  font-feature-settings: "ss01", "ss02", "tnum";
+}
+
+.mrai-slide--dark {
+  background: var(--mrai-bg-dark);
+  color: var(--mrai-ink-on-dark);
+}
+
+.mrai-slide--light {
+  background: var(--mrai-bg-light);
+  color: var(--mrai-ink-on-light);
+}
+
+.mrai-slide__inner {
+  flex: 1;
+  padding: 56px 72px 56px 72px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+}
+
+.mrai-slide__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 0;
+  margin-bottom: 28px;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  font-weight: 500;
+}
+
+.mrai-slide__section-label {
+  color: var(--mrai-accent);
+  text-transform: uppercase;
+}
+
+.mrai-slide__page-pos {
+  color: var(--mrai-ink-muted-dark);
+  font-variant-numeric: tabular-nums;
+}
+.mrai-slide--light .mrai-slide__page-pos {
+  color: var(--mrai-ink-muted-light);
+}
+
+.mrai-slide__title {
+  font-size: 52px;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  font-weight: 800;
+  margin-bottom: 12px;
+  max-width: 95%;
+}
+
+.mrai-slide__rule {
+  width: 64px;
+  height: 3px;
+  background: var(--mrai-accent);
+  margin: 8px 0 32px 0;
+  border-radius: 2px;
+}
+
+.mrai-slide__subtitle {
+  font-size: 18px;
+  line-height: 1.55;
+  font-weight: 400;
+  color: var(--mrai-ink-muted-light);
+  max-width: 90%;
+}
+.mrai-slide--dark .mrai-slide__subtitle {
+  color: var(--mrai-ink-muted-dark);
+}
+
+.mrai-slide__footer {
+  position: absolute;
+  bottom: 28px;
+  left: 72px;
+  right: 72px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: var(--mrai-ink-muted-light);
+  font-variant-numeric: tabular-nums;
+}
+.mrai-slide--dark .mrai-slide__footer {
+  color: var(--mrai-ink-muted-dark);
+}
+
+.mrai-slide__brandmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  font-size: 14px;
+}
+
+.mrai-logo {
+  width: 22px;
+  height: 22px;
+  position: relative;
+  display: inline-block;
+}
+.mrai-logo::before,
+.mrai-logo::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+}
+.mrai-logo::before {
+  width: 16px;
+  height: 16px;
+  background: var(--mrai-accent);
+  left: 0;
+  top: 3px;
+}
+.mrai-logo::after {
+  width: 12px;
+  height: 12px;
+  background: var(--mrai-cool);
+  left: 9px;
+  top: 7px;
+  mix-blend-mode: screen;
+  opacity: 0.85;
+}
+
+/* Cover slide — large brand display */
+.mrai-cover {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 84px 96px 56px;
+  height: 100%;
+}
+.mrai-cover__brandblock {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.mrai-cover__bigmark {
+  width: 92px;
+  height: 92px;
+  position: relative;
+}
+.mrai-cover__bigmark::before,
+.mrai-cover__bigmark::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+}
+.mrai-cover__bigmark::before {
+  width: 68px;
+  height: 68px;
+  background: var(--mrai-accent);
+  left: 0;
+  top: 12px;
+}
+.mrai-cover__bigmark::after {
+  width: 52px;
+  height: 52px;
+  background: var(--mrai-cool);
+  left: 38px;
+  top: 28px;
+  mix-blend-mode: screen;
+  opacity: 0.92;
+}
+.mrai-cover__wordmark {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.mrai-cover__hero {
+  font-size: 132px;
+  line-height: 0.94;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+  margin-top: 80px;
+}
+.mrai-cover__tagline {
+  display: inline-block;
+  padding: 6px 16px;
+  margin-top: 30px;
+  border: 1.5px solid var(--mrai-accent);
+  border-radius: 28px;
+  color: var(--mrai-accent);
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.mrai-cover__subtitle {
+  font-size: 28px;
+  font-weight: 400;
+  margin-top: 30px;
+  color: var(--mrai-ink-on-dark);
+  letter-spacing: -0.01em;
+}
+.mrai-cover__url {
+  display: block;
+  font-size: 14px;
+  margin-top: 8px;
+  color: var(--mrai-ink-muted-dark);
+  letter-spacing: 0.04em;
+}
+.mrai-cover__meta-row {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 8px 32px;
+  margin-top: 56px;
+  font-size: 13px;
+  align-items: baseline;
+}
+.mrai-cover__meta-label {
+  letter-spacing: 0.22em;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: var(--mrai-ink-muted-dark);
+}
+.mrai-cover__meta-value {
+  font-weight: 500;
+  color: var(--mrai-ink-on-dark);
+}
+.mrai-cover__footer-rule {
+  height: 1px;
+  background: var(--mrai-rule-dark);
+  margin: 32px 0 18px;
+}
+.mrai-cover__footer-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mrai-ink-muted-dark);
+}
+.mrai-cover__footer-line strong {
+  color: var(--mrai-accent);
+  font-weight: 600;
+}
+
+/* Generic UI primitives */
+.mrai-emph {
+  color: var(--mrai-accent);
+  font-weight: 700;
+}
+
+.mrai-cool {
+  color: var(--mrai-cool);
+  font-weight: 600;
+}
+
+.mrai-card {
+  border: 1px solid var(--mrai-rule-light);
+  background: var(--mrai-card-light);
+  border-radius: 14px;
+  padding: 24px 28px;
+}
+.mrai-slide--dark .mrai-card {
+  border-color: var(--mrai-rule-dark);
+  background: var(--mrai-card-dark);
+}
+
+.mrai-card__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--mrai-accent);
+  margin-bottom: 10px;
+}
+
+.mrai-card__title {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+
+.mrai-card__body {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--mrai-ink-muted-light);
+}
+.mrai-slide--dark .mrai-card__body {
+  color: var(--mrai-ink-muted-dark);
+}
+
+.mrai-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.mrai-table th, .mrai-table td {
+  text-align: left;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--mrai-rule-light);
+  vertical-align: top;
+  line-height: 1.45;
+}
+.mrai-slide--dark .mrai-table th,
+.mrai-slide--dark .mrai-table td {
+  border-bottom-color: var(--mrai-rule-dark);
+}
+.mrai-table th {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--mrai-accent);
+  padding-top: 0;
+  padding-bottom: 14px;
+  border-bottom-width: 1.5px;
+}
+.mrai-table tr:last-child td {
+  border-bottom: none;
+}
+.mrai-table tbody tr.mrai-emphasized td {
+  background: rgba(245, 158, 11, 0.07);
+  font-weight: 600;
+}
+
+.mrai-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mrai-stat__value {
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--mrai-accent);
+  font-variant-numeric: tabular-nums;
+}
+.mrai-stat__unit {
+  font-size: 22px;
+  font-weight: 600;
+  margin-left: 4px;
+  color: var(--mrai-ink-on-light);
+}
+.mrai-slide--dark .mrai-stat__unit {
+  color: var(--mrai-ink-on-dark);
+}
+.mrai-stat__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mrai-ink-muted-light);
+  line-height: 1.45;
+}
+.mrai-slide--dark .mrai-stat__label {
+  color: var(--mrai-ink-muted-dark);
+}
+
+/* TOC strip on left side */
+.mrai-toc-strip {
+  position: fixed;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 10px 8px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(8px);
+}
+.mrai-toc-strip__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.mrai-toc-strip__dot:hover,
+.mrai-toc-strip__dot--active {
+  background: var(--mrai-accent);
+}
+
+/* PRINT: every slide on its own page, no nav clutter */
+@media print {
+  @page {
+    size: 1456px 819px;
+    margin: 0;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+  .mrai-deck {
+    background: white !important;
+    padding: 0 !important;
+  }
+  .mrai-toc-strip,
+  .mrai-print-hide {
+    display: none !important;
+  }
+  .mrai-slide {
+    page-break-after: always;
+    page-break-inside: avoid;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    width: 1456px;
+    height: 819px;
+  }
+  .mrai-slide:last-child {
+    page-break-after: auto;
+  }
+}
+
+/* Screen-only deck container */
+.mrai-deck-screen {
+  background: #1a1d2e;
+  min-height: 100vh;
+  padding: 32px 0;
+}
