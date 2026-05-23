@@ -1115,5 +1115,67 @@
         }
       }
     }
+  },
+  "mrai": {
+    "pageTitle": "Mr. AI",
+    "pageSubtitle": "기억하는 CEO 비서 · W1-3 Foundation. 말한 사실은 자동 저장돼 다음 대화에서 다시 활용됩니다.",
+    "chat": {
+      "newConversation": "새 대화",
+      "noConversations": "아직 대화 없음",
+      "untitled": "(제목 없음)",
+      "inputPlaceholder": "Mr. AI에게 질문하거나 사실을 알려주세요. (Enter 전송, Shift+Enter 줄바꿈)",
+      "send": "전송",
+      "thinking": "Mr. AI가 생각 중...",
+      "errorPrefix": "오류",
+      "newMemoryToast": "새 메모리 {count}개 저장됨",
+      "emptyTitle": "Mr. AI에게 인사하세요",
+      "emptyHint": "먼저 회사·제품·역할을 알려주세요. Mr. AI가 자동으로 기억해서 다음 대화부터 그 맥락 위에서 답합니다.",
+      "exampleA": "\"우리 회사는 Market Twin. 정부 OpenData × AI 페르소나 SaaS. 타겟은 K-product 수출 기업이야.\"",
+      "exampleB": "\"보고서는 짧게, 한국어로, 숫자 우선으로 받고 싶어.\""
+    },
+    "memory": {
+      "title": "Persistent Memory",
+      "countSuffix": "개",
+      "empty": "저장된 메모리가 없습니다. 대화하면서 회사·제품·선호를 알려주면 Mr. AI가 자동으로 기억합니다.",
+      "deleteConfirm": "이 메모리를 잊으시겠습니까? Mr. AI는 이걸 다시 모르게 됩니다.",
+      "deleteTitle": "잊기",
+      "kind": {
+        "fact": "사실",
+        "preference": "선호",
+        "context": "현재 상황",
+        "decision": "결정"
+      }
+    },
+    "briefing": {
+      "title": "오늘의 브리핑",
+      "generate": "지금 생성",
+      "regenerate": "다시 생성",
+      "generating": "생성 중...",
+      "empty": "브리핑이 아직 없습니다. \"지금 생성\"을 눌러 저장된 메모리 + 최근 대화로 오늘의 브리핑을 만드세요.",
+      "generatedAt": "{time} 생성",
+      "errorPrefix": "브리핑 실패",
+      "collapse": "접기",
+      "expand": "펼치기"
+    },
+    "integrations": {
+      "title": "외부 연동",
+      "connect": "연결",
+      "disconnect": "연결 해제",
+      "syncNow": "지금 동기화",
+      "syncing": "동기화 중...",
+      "comingSoon": "준비 중",
+      "lastSyncedPrefix": "마지막 동기화",
+      "lastSyncNever": "동기화 기록 없음",
+      "connectedAs": "{label} 계정 연결됨",
+      "successToast": "HubSpot 연결 성공.",
+      "errorToast": "HubSpot 연결 실패",
+      "syncedToast": "{count}건 deal 동기화 완료",
+      "disconnectConfirm": "{provider} 연결을 해제하시겠습니까? 동기화된 신호도 함께 삭제됩니다.",
+      "providers": {
+        "hubspot": "HubSpot",
+        "linkedin": "LinkedIn"
+      },
+      "envHint": "환경 변수에 HUBSPOT_CLIENT_ID, HUBSPOT_CLIENT_SECRET, APP_BASE_URL 설정 필요."
+    }
   }
 }

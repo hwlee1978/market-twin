@@ -18,6 +18,10 @@
     {
       "path": "/api/admin/zombie-cleanup",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/mrai/briefings/cron",
+      "schedule": "0 23 * * *"
     }
   ]
 }

@@ -1115,5 +1115,67 @@
         }
       }
     }
+  },
+  "mrai": {
+    "pageTitle": "Mr. AI",
+    "pageSubtitle": "Remembering CEO assistant · W1-3 Foundation. Facts you mention are auto-saved and reused in future conversations.",
+    "chat": {
+      "newConversation": "New conversation",
+      "noConversations": "No conversations yet",
+      "untitled": "(untitled)",
+      "inputPlaceholder": "Ask Mr. AI or share a fact. (Enter to send, Shift+Enter for newline)",
+      "send": "Send",
+      "thinking": "Mr. AI is thinking...",
+      "errorPrefix": "Error",
+      "newMemoryToast": "{count} new {count, plural, =1 {memory} other {memories}} saved",
+      "emptyTitle": "Say hi to Mr. AI",
+      "emptyHint": "Start by telling Mr. AI about your company, product, and role. Anything important is auto-remembered and surfaces in future conversations.",
+      "exampleA": "\"Our company is Acme — a SaaS for shoe brands tracking secondary market demand. ICP: indie footwear founders.\"",
+      "exampleB": "\"Keep reports short, in English, lead with numbers.\""
+    },
+    "memory": {
+      "title": "Persistent Memory",
+      "countSuffix": "items",
+      "empty": "No memories saved yet. As you chat, Mr. AI will remember company/product/preferences automatically.",
+      "deleteConfirm": "Forget this memory? Mr. AI won't know it anymore.",
+      "deleteTitle": "Forget",
+      "kind": {
+        "fact": "Fact",
+        "preference": "Preference",
+        "context": "Context",
+        "decision": "Decision"
+      }
+    },
+    "briefing": {
+      "title": "Today's Briefing",
+      "generate": "Generate now",
+      "regenerate": "Regenerate",
+      "generating": "Generating...",
+      "empty": "No briefing yet. Click \"Generate now\" to compose one from saved memories + recent conversations.",
+      "generatedAt": "Generated {time}",
+      "errorPrefix": "Briefing failed",
+      "collapse": "Collapse",
+      "expand": "Expand"
+    },
+    "integrations": {
+      "title": "Integrations",
+      "connect": "Connect",
+      "disconnect": "Disconnect",
+      "syncNow": "Sync now",
+      "syncing": "Syncing...",
+      "comingSoon": "Coming soon",
+      "lastSyncedPrefix": "Last synced",
+      "lastSyncNever": "Never synced",
+      "connectedAs": "Connected as {label}",
+      "successToast": "HubSpot connected.",
+      "errorToast": "HubSpot connection failed",
+      "syncedToast": "Synced {count} {count, plural, =1 {deal} other {deals}}",
+      "disconnectConfirm": "Disconnect {provider}? Synced signals will be removed.",
+      "providers": {
+        "hubspot": "HubSpot",
+        "linkedin": "LinkedIn"
+      },
+      "envHint": "Set HUBSPOT_CLIENT_ID, HUBSPOT_CLIENT_SECRET, and APP_BASE_URL in your environment."
+    }
   }
 }

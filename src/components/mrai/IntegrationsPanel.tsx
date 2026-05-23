@@ -1,0 +1,193 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import { Link2, Loader2, Plug, RefreshCw, Trash2 } from "lucide-react";
+
+type Integration = {
+  provider: "hubspot" | "linkedin";
+  account_label: string | null;
+  connected_at: string;
+  updated_at: string;
+};
+
+type Signal = { summary: string; fetched_at: string };
+
+export function IntegrationsPanel({
+  initialFlash,
+  locale,
+}: {
+  initialFlash: { kind: "ok" | "error"; detail?: string } | null;
+  locale: "ko" | "en";
+}) {
+  const t = useTranslations("mrai.integrations");
+  const tProv = useTranslations("mrai.integrations.providers");
+
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [latestSignal, setLatestSignal] = useState<Record<string, Signal>>({});
+  const [syncing, setSyncing] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialFlash?.kind === "error" ? initialFlash.detail ?? "error" : null);
+  const [toast, setToast] = useState<string | null>(initialFlash?.kind === "ok" ? t("successToast") : null);
+
+  useEffect(() => {
+    loadStatus();
+    if (toast) {
+      const tid = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(tid);
+    }
+  }, [toast]);
+
+  async function loadStatus() {
+    const res = await fetch("/api/mrai/integrations/status", { cache: "no-store" });
+    if (!res.ok) return;
+    const data = (await res.json()) as { integrations: Integration[]; latestSignal: Record<string, Signal> };
+    setIntegrations(data.integrations);
+    setLatestSignal(data.latestSignal);
+  }
+
+  function connect(provider: "hubspot") {
+    // Top-level redirect — server handles OAuth bounce.
+    window.location.href = `/api/mrai/integrations/${provider}/connect`;
+  }
+
+  async function disconnect(provider: "hubspot" | "linkedin") {
+    if (!confirm(t("disconnectConfirm", { provider: tProv(provider) }))) return;
+    const res = await fetch(`/api/mrai/integrations/${provider}/disconnect`, { method: "DELETE" });
+    if (res.ok) {
+      setIntegrations((prev) => prev.filter((i) => i.provider !== provider));
+      setLatestSignal((prev) => {
+        const next = { ...prev };
+        delete next[provider];
+        return next;
+      });
+    }
+  }
+
+  async function sync(provider: "hubspot") {
+    setSyncing(provider);
+    setError(null);
+    try {
+      const res = await fetch(`/api/mrai/integrations/${provider}/sync`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || err.error || "sync_failed");
+      }
+      const data = (await res.json()) as { dealCount: number; summary: string };
+      setToast(t("syncedToast", { count: data.dealCount }));
+      await loadStatus();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "sync_error");
+    } finally {
+      setSyncing(null);
+    }
+  }
+
+  const hubspot = integrations.find((i) => i.provider === "hubspot");
+  const hubspotSignal = latestSignal.hubspot;
+
+  return (
+    <section className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+      <header className="flex items-center gap-3 px-5 py-3 border-b border-slate-200 bg-gradient-to-r from-sky-50 to-white">
+        <Plug className="w-4 h-4 text-sky-600" />
+        <h2 className="text-sm font-semibold text-slate-900">{t("title")}</h2>
+      </header>
+
+      {(toast || error) && (
+        <div className="px-5 pt-3">
+          {toast && (
+            <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2 mb-2">
+              {toast}
+            </div>
+          )}
+          {error && (
+            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-2">
+              {t("errorToast")}: {error}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-5">
+        {/* HubSpot card */}
+        <div className="border border-slate-200 rounded-md p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="inline-flex items-center justify-center w-8 h-8 rounded bg-orange-100 text-orange-700 font-bold text-xs">
+              HS
+            </span>
+            <div className="font-semibold text-slate-900">{tProv("hubspot")}</div>
+          </div>
+          {hubspot ? (
+            <>
+              <div className="text-xs text-slate-500 mb-3">
+                {hubspot.account_label
+                  ? t("connectedAs", { label: hubspot.account_label })
+                  : t("connectedAs", { label: "—" })}
+              </div>
+              {hubspotSignal && (
+                <p className="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded p-2 mb-3 leading-relaxed">
+                  {hubspotSignal.summary}
+                </p>
+              )}
+              <div className="text-[11px] text-slate-400 mb-3">
+                {t("lastSyncedPrefix")}:{" "}
+                {hubspotSignal
+                  ? new Date(hubspotSignal.fetched_at).toLocaleString(locale === "ko" ? "ko-KR" : "en-US")
+                  : t("lastSyncNever")}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => sync("hubspot")}
+                  disabled={syncing === "hubspot"}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 rounded"
+                >
+                  {syncing === "hubspot" ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      {t("syncing")}
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-3 h-3" />
+                      {t("syncNow")}
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => disconnect("hubspot")}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  {t("disconnect")}
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              onClick={() => connect("hubspot")}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-orange-500 hover:bg-orange-600 rounded"
+            >
+              <Link2 className="w-3 h-3" />
+              {t("connect")}
+            </button>
+          )}
+        </div>
+
+        {/* LinkedIn (stub) */}
+        <div className="border border-slate-200 rounded-md p-4 opacity-60">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="inline-flex items-center justify-center w-8 h-8 rounded bg-blue-100 text-blue-700 font-bold text-xs">
+              in
+            </span>
+            <div className="font-semibold text-slate-900">{tProv("linkedin")}</div>
+            <span className="ml-auto text-[10px] uppercase tracking-wider text-slate-400">
+              {t("comingSoon")}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            LinkedIn API requires partner approval — placeholder for the next sprint.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
