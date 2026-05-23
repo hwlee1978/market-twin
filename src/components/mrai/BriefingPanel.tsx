@@ -57,7 +57,9 @@ export function BriefingPanel({
         <Sparkles className="w-4 h-4 text-amber-600" />
         <h2 className="text-sm font-semibold text-slate-900">{t("title")}</h2>
         {generatedLabel && (
-          <span className="text-xs text-slate-500">· {generatedLabel}</span>
+          <span className="text-xs text-slate-500" suppressHydrationWarning>
+            · {generatedLabel}
+          </span>
         )}
         <div className="ml-auto flex items-center gap-2">
           <button
