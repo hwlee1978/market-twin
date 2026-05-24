@@ -1650,15 +1650,40 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
 
       <MText style={styles.subSectionTitle}>{`8.1 ${t.limitsTitle}`}</MText>
       {honestDisclosure.limitations.map((l, i) => (
-        <View key={i} style={styles.bulletRow}>
-          <MText style={[styles.bulletDot, { color: C.brand, fontWeight: 700 }]}>
+        // alignItems flex-start + inner View flexDirection column + the
+        // text nodes drop bulletText's `flex:1` (nested flex collided
+        // with the wrapping View and stacked rows on top of each other).
+        <View
+          key={i}
+          style={[styles.bulletRow, { alignItems: "flex-start", marginBottom: 10 }]}
+        >
+          <MText
+            style={[
+              styles.bulletDot,
+              { color: C.brand, fontWeight: 700, width: 18 },
+            ]}
+          >
             {`${i + 1}.`}
           </MText>
-          <View style={{ flex: 1 }}>
-            <MText style={[styles.bulletText, { fontWeight: 700 }]}>
+          <View style={{ flex: 1, flexDirection: "column" }}>
+            <MText
+              style={{
+                fontSize: 10,
+                color: C.body,
+                lineHeight: 1.5,
+                fontWeight: 700,
+              }}
+            >
               {stripUnsupportedGlyphs(l.title)}
             </MText>
-            <MText style={[styles.bulletText, { color: C.muted, fontSize: 9, marginTop: 1 }]}>
+            <MText
+              style={{
+                fontSize: 9,
+                color: C.muted,
+                lineHeight: 1.55,
+                marginTop: 2,
+              }}
+            >
               {stripUnsupportedGlyphs(l.description)}
             </MText>
           </View>
