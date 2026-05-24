@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Brain, Loader2, Send, Trash2, MessageSquarePlus } from "lucide-react";
+import { Brain, Loader2, Send, Trash2, MessageSquarePlus, Paperclip, FileText, X } from "lucide-react";
 import { AgentTrace, type AgentTraceData } from "./AgentTrace";
 import { FeedbackButtons } from "./FeedbackButtons";
 import { SimulationProposalCard, type SimulationProposalPayload } from "./SimulationProposalCard";
 import { ChannelRecommendationCard, type RecommendedChannelItem } from "./ChannelRecommendationCard";
+import { MemoryPreviewCard, type MemoryCandidate } from "./MemoryPreviewCard";
 
 type MemoryKind = "fact" | "preference" | "context" | "decision";
 
@@ -31,6 +32,14 @@ type ChatAction =
       payload: {
         countries: string[];
         recommendations: RecommendedChannelItem[];
+      };
+    }
+  | {
+      type: "memory_preview";
+      payload: {
+        candidates: MemoryCandidate[];
+        filename: string;
+        costEstimateUsd: number;
       };
     };
 
@@ -70,7 +79,9 @@ export function MrAIChat({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastNewMemoryCount, setLastNewMemoryCount] = useState<number | null>(null);
+  const [uploadingPdf, setUploadingPdf] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -147,6 +158,75 @@ export function MrAIChat({
       setTurns((prev) => prev.slice(0, -1));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function uploadPdf(file: File) {
+    if (!file || uploadingPdf || loading) return;
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      setError("PDF 파일만 업로드 가능합니다");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("파일이 10MB를 초과합니다");
+      return;
+    }
+    setError(null);
+    setUploadingPdf(file.name);
+    // Add a placeholder user turn so the upload is visible in the
+    // conversation flow.
+    setTurns((prev) => [
+      ...prev,
+      { role: "user", content: `📎 ${file.name} 업로드 중...` },
+    ]);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/mrai/actions/extract-pdf-memory", {
+        method: "POST",
+        body: fd,
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          typeof json.detail === "string"
+            ? json.detail
+            : typeof json.error === "string"
+            ? json.error
+            : "extract_failed",
+        );
+      }
+      const candidates = (json.candidates as MemoryCandidate[]) ?? [];
+      // Replace placeholder user turn + add assistant turn with the
+      // memory_preview action.
+      setTurns((prev) => {
+        const next = [...prev];
+        next[next.length - 1] = { role: "user", content: `📎 ${file.name}` };
+        const newCount = candidates.filter((c) => !c.duplicate).length;
+        const dupCount = candidates.length - newCount;
+        next.push({
+          role: "assistant",
+          content: `PDF에서 ${candidates.length}개 인사이트 후보를 찾았습니다 (신규 ${newCount}${dupCount > 0 ? ` · 중복 ${dupCount}` : ""}). 아래에서 메모리에 추가할 항목을 선택해주세요.`,
+          actions: [
+            {
+              type: "memory_preview",
+              payload: {
+                candidates,
+                filename: json.filename ?? file.name,
+                costEstimateUsd: json.costEstimateUsd ?? 0,
+              },
+            },
+          ],
+        });
+        return next;
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "업로드 실패";
+      setError(msg);
+      setTurns((prev) => prev.slice(0, -1));
+    } finally {
+      setUploadingPdf(null);
+      if (pdfInputRef.current) pdfInputRef.current.value = "";
     }
   }
 
@@ -249,6 +329,25 @@ export function MrAIChat({
           onSubmit={sendMessage}
           className="border-t border-slate-200 p-3 flex items-end gap-2"
         >
+          <input
+            ref={pdfInputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void uploadPdf(f);
+            }}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => pdfInputRef.current?.click()}
+            disabled={loading || !!uploadingPdf}
+            title="PDF 업로드 → 메모리 자동 추출"
+            className="inline-flex items-center justify-center w-10 h-[42px] text-slate-500 hover:text-amber-600 hover:bg-amber-50 disabled:opacity-50 border border-slate-200 rounded-md transition-colors"
+          >
+            {uploadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+          </button>
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -258,14 +357,18 @@ export function MrAIChat({
                 sendMessage();
               }
             }}
-            placeholder={tChat("inputPlaceholder")}
+            placeholder={
+              uploadingPdf
+                ? `📎 ${uploadingPdf} 분석 중 (Claude PDF 추출, 20-40초)...`
+                : tChat("inputPlaceholder")
+            }
             rows={2}
-            disabled={loading}
+            disabled={loading || !!uploadingPdf}
             className="flex-1 resize-none text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:bg-slate-50"
           />
           <button
             type="submit"
-            disabled={loading || !input.trim()}
+            disabled={loading || !!uploadingPdf || !input.trim()}
             className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 rounded-md"
           >
             <Send className="w-4 h-4" />
@@ -335,6 +438,16 @@ function TurnBubble({ turn, locale }: { turn: ChatTurn; locale: "ko" | "en" }) {
                   key={i}
                   initial={action.payload.recommendations}
                   countries={action.payload.countries}
+                />
+              );
+            }
+            if (action.type === "memory_preview") {
+              return (
+                <MemoryPreviewCard
+                  key={i}
+                  candidates={action.payload.candidates}
+                  filename={action.payload.filename}
+                  costEstimateUsd={action.payload.costEstimateUsd}
                 />
               );
             }
