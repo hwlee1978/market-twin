@@ -16,6 +16,7 @@ import {
   View,
   renderToBuffer,
 } from "@react-pdf/renderer";
+import type * as React from "react";
 import type { Style } from "@react-pdf/types";
 import { splitByFont } from "./fonts";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
@@ -7087,6 +7088,20 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     </Page>
   );
 
+  // Top-2 secondary candidate pages. Reads aggregate.additional* maps
+  // populated by the dashboard's "TW 시장 분석/액션/리스크 추가 생성"
+  // buttons. When the orchestrator flagged top2 AND the user has
+  // backfilled the secondary data, we append 3 dedicated pages
+  // (market profile / actions / risks) at the end of whichever PDF
+  // variant is being built — so an exec who downloads the PDF after
+  // dogfooding the dashboard sees both candidates at the same depth.
+  const secondaryPages = renderEnsembleSecondaryPages({
+    aggregate,
+    isKo,
+    pageHeader,
+    pageFooter,
+  });
+
   const doc = (
     <Document>
       {coverPage}
@@ -7149,10 +7164,319 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           {renderAppendixPage()}
         </>
       )}
+      {secondaryPages}
     </Document>
   );
 
   return await renderToBuffer(doc);
+}
+
+/**
+ * Render Top-2 secondary candidate as 3 A4 pages (market profile /
+ * actions / risks) appended to whichever PDF variant the user
+ * downloaded. Pulls data straight from aggregate.additional* maps —
+ * no extra LLM call. Returns [] when no tie or no backfilled data.
+ */
+function renderEnsembleSecondaryPages(opts: {
+  aggregate: EnsembleAggregate;
+  isKo: boolean;
+  pageHeader: React.ReactElement;
+  pageFooter: React.ReactElement;
+}): React.ReactElement[] {
+  const { aggregate, isKo, pageHeader, pageFooter } = opts;
+  const rec = aggregate.recommendation;
+  const dist = aggregate.bestCountryDistribution ?? [];
+  if (!rec?.country || dist.length === 0) return [];
+
+  // Detect tie — orchestrator displayMode top2 OR score-winner ≠ vote-winner
+  const recExt = rec as unknown as { displayMode?: string; secondary?: { country?: string } };
+  const distTop = dist[0]?.country;
+  const secondaryCountry: string | null =
+    recExt.secondary?.country && recExt.secondary.country !== rec.country
+      ? recExt.secondary.country
+      : recExt.displayMode === "top2" && distTop && distTop !== rec.country
+      ? distTop
+      : null;
+  if (!secondaryCountry) return [];
+
+  const aggExtra = aggregate as unknown as {
+    additionalMarketProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
+    additionalActions?: Record<
+      string,
+      Array<{ action: string; impact?: number; effort?: number; actionCategory?: string }>
+    >;
+    additionalRisks?: Record<
+      string,
+      Array<{
+        factor: string;
+        description: string;
+        severity: "low" | "medium" | "high";
+        personaCategory?: string;
+      }>
+    >;
+  };
+  const mp = aggExtra.additionalMarketProfiles?.[secondaryCountry] ?? null;
+  const actions = aggExtra.additionalActions?.[secondaryCountry] ?? [];
+  const risks = aggExtra.additionalRisks?.[secondaryCountry] ?? [];
+  if (!mp && actions.length === 0 && risks.length === 0) return [];
+
+  const countryLabel = getCountryLabel(secondaryCountry, isKo ? "ko" : "en");
+  const pages: React.ReactElement[] = [];
+
+  // Local inline styling — ensemble-pdf doesn't share validation-pdf's
+  // sectionTitle/bulletRow primitives, so we use the existing C palette
+  // and styles from this file's stylesheet.
+  const titleStyle = {
+    fontSize: 18,
+    fontWeight: 700 as const,
+    color: C.brand,
+    marginBottom: 4,
+  };
+  const subtitleStyle = {
+    fontSize: 10,
+    color: C.muted,
+    marginBottom: 16,
+  };
+  const sectionHeaderStyle = {
+    fontSize: 11,
+    fontWeight: 700 as const,
+    color: C.brand,
+    marginTop: 12,
+    marginBottom: 6,
+  };
+  const bodyStyle = { fontSize: 9.5, color: C.body, lineHeight: 1.55 };
+  const labelStyle = {
+    fontSize: 8,
+    fontWeight: 700 as const,
+    color: C.muted,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.6,
+    marginBottom: 2,
+  };
+  const tieBadge = {
+    fontSize: 9,
+    fontWeight: 700 as const,
+    color: C.warn,
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 3,
+  };
+  const sevTone = (s: string) =>
+    s === "high" ? C.risk : s === "medium" ? C.warn : C.muted;
+
+  // ── Page S1: Market profile ─────────────────────────────────────
+  if (mp) {
+    pages.push(
+      <Page key="ensemble-secondary-market" size="A4" style={styles.page}>
+        <View style={styles.pageAccent} fixed />
+        {pageHeader}
+        <View style={{ marginBottom: 12 }}>
+          <MText style={tieBadge}>
+            {isKo ? "Top 2 동등 후보 — 시장 분석" : "Top 2 secondary — market profile"}
+          </MText>
+          <MText style={[titleStyle, { marginTop: 6 }]}>
+            {`${countryLabel} (${secondaryCountry})`}
+          </MText>
+          <MText style={subtitleStyle}>
+            {isKo
+              ? `Winner ${rec.country}와 동등 후보 — 같은 깊이로 검증`
+              : `Tied with winner ${rec.country} — same-depth validation`}
+          </MText>
+        </View>
+
+        {(mp.marketSize?.estimateUsd || mp.marketSize?.growthTrend || mp.marketSize?.addressableSegment) && (
+          <>
+            <MText style={sectionHeaderStyle}>{isKo ? "시장 규모" : "Market size"}</MText>
+            {mp.marketSize?.estimateUsd && (
+              <View style={{ marginBottom: 4 }}>
+                <MText style={labelStyle}>TAM</MText>
+                <MText style={bodyStyle}>{stripUnsupportedGlyphs(mp.marketSize.estimateUsd)}</MText>
+              </View>
+            )}
+            {mp.marketSize?.growthTrend && (
+              <View style={{ marginBottom: 4 }}>
+                <MText style={labelStyle}>{isKo ? "성장" : "Growth"}</MText>
+                <MText style={bodyStyle}>{stripUnsupportedGlyphs(mp.marketSize.growthTrend)}</MText>
+              </View>
+            )}
+            {mp.marketSize?.addressableSegment && (
+              <View style={{ marginBottom: 4 }}>
+                <MText style={labelStyle}>{isKo ? "세그먼트" : "Segment"}</MText>
+                <MText style={bodyStyle}>{stripUnsupportedGlyphs(mp.marketSize.addressableSegment)}</MText>
+              </View>
+            )}
+          </>
+        )}
+
+        {(mp.competitors ?? []).length > 0 && (
+          <>
+            <MText style={sectionHeaderStyle}>
+              {isKo ? `경쟁자 (${mp.competitors!.length})` : `Competitors (${mp.competitors!.length})`}
+            </MText>
+            {mp.competitors!.slice(0, 6).map((c, i) => (
+              <View key={i} style={{ marginBottom: 6, flexDirection: "row" }}>
+                <MText style={[bodyStyle, { width: 12, color: C.brand }]}>·</MText>
+                <View style={{ flex: 1 }}>
+                  <MText style={[bodyStyle, { fontWeight: 700 }]}>
+                    {`${stripUnsupportedGlyphs(c.name)}${c.threatLevel ? ` (${c.threatLevel})` : ""}`}
+                  </MText>
+                  {c.brandContext && (
+                    <MText style={[bodyStyle, { fontSize: 8.5, color: C.muted, marginTop: 1 }]}>
+                      {stripUnsupportedGlyphs(c.brandContext)}
+                    </MText>
+                  )}
+                </View>
+              </View>
+            ))}
+          </>
+        )}
+
+        {mp.channels?.primary && mp.channels.primary.length > 0 && (
+          <>
+            <MText style={sectionHeaderStyle}>{isKo ? "주요 채널" : "Primary channels"}</MText>
+            {mp.channels.primary.slice(0, 5).map((c, i) => (
+              <View key={i} style={{ marginBottom: 4 }}>
+                <MText style={[bodyStyle, { fontWeight: 700 }]}>{stripUnsupportedGlyphs(c.name)}</MText>
+                {c.rationale && (
+                  <MText style={[bodyStyle, { fontSize: 8.5, color: C.muted, marginTop: 1 }]}>
+                    {stripUnsupportedGlyphs(c.rationale)}
+                  </MText>
+                )}
+              </View>
+            ))}
+          </>
+        )}
+
+        {mp.regulatory?.barriers && mp.regulatory.barriers.length > 0 && (
+          <>
+            <MText style={sectionHeaderStyle}>{isKo ? "규제·진입 장벽" : "Regulatory"}</MText>
+            {mp.regulatory.barriers.slice(0, 5).map((b, i) => (
+              <View key={i} style={{ marginBottom: 6, flexDirection: "row" }}>
+                <MText
+                  style={[
+                    { fontSize: 8, fontWeight: 700, width: 38, color: sevTone(b.severity) },
+                  ]}
+                >
+                  {b.severity.toUpperCase()}
+                </MText>
+                <View style={{ flex: 1 }}>
+                  <MText style={[bodyStyle, { fontWeight: 700 }]}>{stripUnsupportedGlyphs(b.name)}</MText>
+                  {b.description && (
+                    <MText style={[bodyStyle, { fontSize: 8.5, color: C.muted, marginTop: 1 }]}>
+                      {stripUnsupportedGlyphs(b.description)}
+                    </MText>
+                  )}
+                </View>
+              </View>
+            ))}
+          </>
+        )}
+
+        {mp.goToMarketStrategy?.keyMessage && (
+          <>
+            <MText style={sectionHeaderStyle}>{isKo ? "GTM 핵심 메시지" : "GTM key message"}</MText>
+            <MText style={[bodyStyle, { fontWeight: 700, color: C.body }]}>
+              {stripUnsupportedGlyphs(mp.goToMarketStrategy.keyMessage)}
+            </MText>
+          </>
+        )}
+
+        {pageFooter}
+      </Page>,
+    );
+  }
+
+  // ── Page S2: Actions ────────────────────────────────────────────
+  if (actions.length > 0) {
+    pages.push(
+      <Page key="ensemble-secondary-actions" size="A4" style={styles.page}>
+        <View style={styles.pageAccent} fixed />
+        {pageHeader}
+        <View style={{ marginBottom: 12 }}>
+          <MText style={tieBadge}>
+            {isKo ? "Top 2 동등 후보 — 추천 액션" : "Top 2 secondary — actions"}
+          </MText>
+          <MText style={[titleStyle, { marginTop: 6 }]}>
+            {`${countryLabel} (${secondaryCountry})`}
+          </MText>
+          <MText style={subtitleStyle}>
+            {isKo
+              ? `${actions.length}개 액션 · single LLM pass (cross-sim 합의 아님)`
+              : `${actions.length} actions · single LLM pass (not cross-sim consensus)`}
+          </MText>
+        </View>
+        {actions.map((a, i) => (
+          <View key={i} style={{ marginBottom: 10, flexDirection: "row" }}>
+            <MText style={[bodyStyle, { width: 22, color: C.brand, fontWeight: 700 }]}>
+              {`${i + 1}.`}
+            </MText>
+            <View style={{ flex: 1 }}>
+              <MText style={bodyStyle}>{stripUnsupportedGlyphs(a.action)}</MText>
+              <MText style={[bodyStyle, { fontSize: 8, color: C.muted, marginTop: 2 }]}>
+                {[
+                  a.impact ? `${isKo ? "영향" : "Impact"} ${a.impact}/3` : null,
+                  a.effort ? `${isKo ? "난이도" : "Effort"} ${a.effort}/3` : null,
+                  a.actionCategory ?? null,
+                ]
+                  .filter(Boolean)
+                  .join("  ·  ")}
+              </MText>
+            </View>
+          </View>
+        ))}
+        {pageFooter}
+      </Page>,
+    );
+  }
+
+  // ── Page S3: Risks ──────────────────────────────────────────────
+  if (risks.length > 0) {
+    pages.push(
+      <Page key="ensemble-secondary-risks" size="A4" style={styles.page}>
+        <View style={styles.pageAccent} fixed />
+        {pageHeader}
+        <View style={{ marginBottom: 12 }}>
+          <MText style={tieBadge}>
+            {isKo ? "Top 2 동등 후보 — 리스크" : "Top 2 secondary — risks"}
+          </MText>
+          <MText style={[titleStyle, { marginTop: 6 }]}>
+            {`${countryLabel} (${secondaryCountry})`}
+          </MText>
+          <MText style={subtitleStyle}>
+            {isKo
+              ? `${risks.length}개 리스크 · single LLM pass`
+              : `${risks.length} risks · single LLM pass`}
+          </MText>
+        </View>
+        {risks.map((r, i) => (
+          <View key={i} style={{ marginBottom: 10, flexDirection: "row" }}>
+            <MText
+              style={[
+                { fontSize: 8, fontWeight: 700, width: 50, color: sevTone(r.severity) },
+              ]}
+            >
+              {r.severity.toUpperCase()}
+            </MText>
+            <View style={{ flex: 1 }}>
+              <MText style={[bodyStyle, { fontWeight: 700 }]}>{stripUnsupportedGlyphs(r.factor)}</MText>
+              <MText style={[bodyStyle, { fontSize: 9, color: C.muted, marginTop: 1 }]}>
+                {stripUnsupportedGlyphs(r.description)}
+              </MText>
+              {r.personaCategory && (
+                <MText style={[bodyStyle, { fontSize: 8, color: C.muted, marginTop: 2 }]}>
+                  {`[${r.personaCategory}]`}
+                </MText>
+              )}
+            </View>
+          </View>
+        ))}
+        {pageFooter}
+      </Page>,
+    );
+  }
+
+  return pages;
 }
 
 /* ────────────────────────────────── small helpers ─── */

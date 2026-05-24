@@ -1119,6 +1119,13 @@ function EnsembleDashboard({
           competitorsResolved={result.project?.competitors_resolved ?? null}
           isKo={isKo}
           currency={result.project?.currency ?? "USD"}
+          recommendation={recommendation}
+          bestCountryDistribution={bestCountryDistribution}
+          additionalProfiles={
+            (aggregate as unknown as {
+              additionalMarketProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
+            }).additionalMarketProfiles
+          }
         />
       )}
       {activeTab === "decisionAid" && (
@@ -1127,6 +1134,41 @@ function EnsembleDashboard({
           currency={result.project?.currency ?? "USD"}
           category={result.project?.category ?? "other"}
           isKo={isKo}
+          recommendation={recommendation}
+          bestCountryDistribution={bestCountryDistribution}
+          additionalProfiles={
+            (aggregate as unknown as {
+              additionalMarketProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
+            }).additionalMarketProfiles
+          }
+          additionalActions={
+            (aggregate as unknown as {
+              additionalActions?: Record<
+                string,
+                Array<{
+                  action: string;
+                  surfacedInSims: number;
+                  impact?: number;
+                  effort?: number;
+                  actionCategory?: string;
+                }>
+              >;
+            }).additionalActions
+          }
+          additionalRisks={
+            (aggregate as unknown as {
+              additionalRisks?: Record<
+                string,
+                Array<{
+                  factor: string;
+                  description: string;
+                  severity: "low" | "medium" | "high";
+                  surfacedInSims: number;
+                  personaCategory?: string;
+                }>
+              >;
+            }).additionalRisks
+          }
         />
       )}
       {activeTab === "risks" && (
@@ -1743,6 +1785,27 @@ function SimRunInfoCard({
     </div>
   );
 }
+
+// Shared Top-2 secondary types — defined here so PricingTab,
+// DecisionAidTab, RisksTab, ActionsTab can all reference them
+// without TypeScript ordering issues. The shapes match what
+// /api/ensembles/{id}/secondary-actions and /secondary-risks
+// persist to aggregate.additionalActions[country] /
+// additionalRisks[country].
+type SecondaryActionItem = {
+  action: string;
+  surfacedInSims: number;
+  impact?: number;
+  effort?: number;
+  actionCategory?: string;
+};
+type SecondaryRiskItem = {
+  factor: string;
+  description: string;
+  severity: "low" | "medium" | "high";
+  surfacedInSims: number;
+  personaCategory?: string;
+};
 
 function OverviewTab({
   narrative,
@@ -5983,6 +6046,9 @@ function PricingTab({
   competitorsResolved,
   isKo,
   currency,
+  recommendation,
+  bestCountryDistribution,
+  additionalProfiles,
 }: {
   pricing: EnsembleAggregate["pricing"];
   /** User-input base price — used to surface the user-input vs
@@ -6005,7 +6071,14 @@ function PricingTab({
   }> | null;
   isKo: boolean;
   currency: string;
+  recommendation: EnsembleAggregate["recommendation"];
+  bestCountryDistribution: EnsembleAggregate["bestCountryDistribution"];
+  additionalProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
 }) {
+  const secondaryCountry = detectSecondary(recommendation, bestCountryDistribution);
+  const secondaryProfile = secondaryCountry
+    ? additionalProfiles?.[secondaryCountry] ?? null
+    : null;
   if (!pricing) {
     return (
       <div className="card p-8 text-center text-slate-500">
@@ -6757,6 +6830,120 @@ function PricingTab({
           ))}
         </div>
       </details>
+
+      {secondaryCountry && (
+        <SecondaryPricingBlock
+          country={secondaryCountry}
+          profile={secondaryProfile}
+          isKo={isKo}
+        />
+      )}
+    </div>
+  );
+}
+
+function SecondaryPricingBlock({
+  country,
+  profile,
+  isKo,
+}: {
+  country: string;
+  profile: EnsembleAggregate["marketProfile"] | null;
+  isKo: boolean;
+}) {
+  const pricing = profile?.pricingBenchmarks;
+  const cult = profile?.culturalNotes;
+  if (!pricing && !cult) {
+    return (
+      <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40">
+        <div className="card border-warn/40 bg-warn-soft/20 p-5">
+          <h3 className="text-sm font-semibold text-warn mb-1">
+            {isKo
+              ? `${country} — Top 2 동등 후보 가격 (시장 분석 필요)`
+              : `${country} — Top 2 secondary pricing (market profile required)`}
+          </h3>
+          <p className="text-xs text-slate-700 leading-relaxed">
+            {isKo
+              ? `${country} 시장 분석을 '시장 분석' 탭에서 생성하시면 ${country} 시장 가격 벤치마크 + 구매 행동이 여기 표시됩니다.`
+              : `Generate the ${country} market profile in the Market Profile tab to surface its pricing benchmarks + purchase behavior here.`}
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40 space-y-4">
+      <div className="flex items-baseline gap-3 flex-wrap">
+        <h2 className="text-xl font-semibold text-slate-900">
+          {country} — {isKo ? "Top 2 동등 후보 가격 분석" : "Top 2 secondary pricing"}
+        </h2>
+        <span className="text-[10px] uppercase tracking-wider text-warn bg-warn-soft/40 border border-warn/30 px-2 py-0.5 rounded">
+          {isKo ? "동등 후보" : "tied"}
+        </span>
+      </div>
+      {pricing && (pricing.entryLevel || pricing.mid || pricing.premium || pricing.yourPosition) && (
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">
+            {isKo ? "가격 벤치마크" : "Pricing benchmarks"}
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            {pricing.entryLevel && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">Entry</div>
+                <div className="text-slate-900 mt-0.5">{pricing.entryLevel}</div>
+              </div>
+            )}
+            {pricing.mid && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">Mid</div>
+                <div className="text-slate-900 mt-0.5">{pricing.mid}</div>
+              </div>
+            )}
+            {pricing.premium && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">Premium</div>
+                <div className="text-slate-900 mt-0.5">{pricing.premium}</div>
+              </div>
+            )}
+            {pricing.yourPosition && (
+              <div className="col-span-2 sm:col-span-1 bg-brand-50 px-2.5 py-1.5 rounded">
+                <div className="text-[10px] uppercase tracking-wider text-brand">
+                  {isKo ? "내 포지션" : "Your position"}
+                </div>
+                <div className="text-brand mt-0.5 font-semibold">{pricing.yourPosition}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {cult && (cult.valuesAlignment || cult.purchaseBehavior) && (
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">
+            {isKo ? "가격 의사결정에 영향을 주는 소비자 인사이트" : "Consumer insights affecting pricing"}
+          </h3>
+          {cult.purchaseBehavior && (
+            <div className="mb-2">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                {isKo ? "구매 행동" : "Purchase behavior"}
+              </div>
+              <p className="text-sm text-slate-700 leading-relaxed mt-1">{cult.purchaseBehavior}</p>
+            </div>
+          )}
+          {cult.valuesAlignment && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                {isKo ? "가치관" : "Values"}
+              </div>
+              <p className="text-sm text-slate-700 leading-relaxed mt-1">{cult.valuesAlignment}</p>
+            </div>
+          )}
+        </div>
+      )}
+      <p className="text-[11px] text-slate-400">
+        {isKo
+          ? `* ${country} 가격은 시장 분석 기반 벤치마크입니다. Winner와 동일한 가격 곡선·전환율 분석은 별도 시뮬 (Consensus+ 또는 Deep)이 ${country}를 winner로 도출했을 때 가능합니다.`
+          : `* ${country} pricing is from the market profile benchmarks. Full price curve / conversion analysis at parity requires a separate sim where ${country} comes out as the winner.`}
+      </p>
     </div>
   );
 }
@@ -6773,6 +6960,11 @@ function DecisionAidTab({
   currency,
   category,
   isKo,
+  recommendation,
+  bestCountryDistribution,
+  additionalProfiles,
+  additionalActions,
+  additionalRisks,
 }: {
   aggregate: EnsembleAggregate;
   currency: string;
@@ -6781,7 +6973,22 @@ function DecisionAidTab({
    *  only signal (see ltv.ts rationale). */
   category: string;
   isKo: boolean;
+  recommendation: EnsembleAggregate["recommendation"];
+  bestCountryDistribution: EnsembleAggregate["bestCountryDistribution"];
+  additionalProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
+  additionalActions?: Record<string, SecondaryActionItem[]>;
+  additionalRisks?: Record<string, SecondaryRiskItem[]>;
 }) {
+  const secondaryCountry = detectSecondary(recommendation, bestCountryDistribution);
+  const secondaryProfile = secondaryCountry
+    ? additionalProfiles?.[secondaryCountry] ?? null
+    : null;
+  const secondaryActions = secondaryCountry
+    ? additionalActions?.[secondaryCountry] ?? null
+    : null;
+  const secondaryRisks = secondaryCountry
+    ? additionalRisks?.[secondaryCountry] ?? null
+    : null;
   const fmt = (cents: number) => formatPrice(cents, currency);
   const recCountry = aggregate.recommendation.country;
   const recCountryStats = aggregate.countryStats.find(
@@ -7642,6 +7849,157 @@ function DecisionAidTab({
           </div>
         );
       })()}
+      {secondaryCountry && (
+        <SecondaryDecisionBlock
+          country={secondaryCountry}
+          profile={secondaryProfile}
+          actions={secondaryActions}
+          risks={secondaryRisks}
+          isKo={isKo}
+        />
+      )}
+    </div>
+  );
+}
+
+function SecondaryDecisionBlock({
+  country,
+  profile,
+  actions,
+  risks,
+  isKo,
+}: {
+  country: string;
+  profile: EnsembleAggregate["marketProfile"] | null;
+  actions: SecondaryActionItem[] | null;
+  risks: SecondaryRiskItem[] | null;
+  isKo: boolean;
+}) {
+  const hasData = profile || (actions && actions.length) || (risks && risks.length);
+  if (!hasData) {
+    return (
+      <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40">
+        <div className="card border-warn/40 bg-warn-soft/20 p-5">
+          <h3 className="text-sm font-semibold text-warn mb-1">
+            {isKo
+              ? `${country} — Top 2 동등 후보 의사결정 보조 (데이터 필요)`
+              : `${country} — Top 2 secondary decision-aid (data needed)`}
+          </h3>
+          <p className="text-xs text-slate-700 leading-relaxed">
+            {isKo
+              ? `${country} 시장 분석·추천 액션·리스크를 각 탭에서 생성하시면 여기 의사결정 보조에 통합됩니다.`
+              : `Generate ${country} market profile, actions, and risks on their respective tabs and they'll surface here.`}
+          </p>
+        </div>
+      </div>
+    );
+  }
+  const gtm = profile?.goToMarketStrategy;
+  const reg = profile?.regulatory;
+  const topActions = (actions ?? []).slice(0, 5);
+  const topRisks = (risks ?? []).filter((r) => r.severity === "high").slice(0, 5);
+  const allHighRisks = topRisks.length > 0 ? topRisks : (risks ?? []).slice(0, 5);
+
+  return (
+    <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40 space-y-4">
+      <div className="flex items-baseline gap-3 flex-wrap">
+        <h2 className="text-xl font-semibold text-slate-900">
+          {country} — {isKo ? "Top 2 동등 후보 의사결정 보조" : "Top 2 secondary decision-aid"}
+        </h2>
+        <span className="text-[10px] uppercase tracking-wider text-warn bg-warn-soft/40 border border-warn/30 px-2 py-0.5 rounded">
+          {isKo ? "동등 후보" : "tied"}
+        </span>
+      </div>
+
+      {gtm && (gtm.keyMessage || gtm.primaryAudience) && (
+        <div className="rounded-xl border-t-4 border-success bg-success-soft/30 p-5">
+          <div className="text-[10px] uppercase tracking-wide text-success font-bold mb-3">
+            {isKo ? "GTM 요약" : "GTM summary"}
+          </div>
+          {gtm.keyMessage && (
+            <div className="mb-3">
+              <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                {isKo ? "핵심 메시지" : "Key message"}
+              </div>
+              <p className="text-base font-semibold text-slate-900 leading-relaxed">
+                {gtm.keyMessage}
+              </p>
+            </div>
+          )}
+          {gtm.primaryAudience && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                {isKo ? "1차 타겟 (ICP)" : "Primary audience (ICP)"}
+              </div>
+              <p className="text-sm text-slate-700 leading-relaxed">{gtm.primaryAudience}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {topActions.length > 0 && (
+          <div className="card p-5">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">
+              {isKo
+                ? `즉시 액션 Top ${topActions.length}`
+                : `Top ${topActions.length} immediate actions`}
+            </h3>
+            <ol className="space-y-2">
+              {topActions.map((a, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                  <span className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-warn-soft text-warn font-bold text-[10px] mt-0.5">
+                    {i + 1}
+                  </span>
+                  <span className="leading-relaxed">{a.action}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+        {allHighRisks.length > 0 && (
+          <div className="card p-5">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">
+              {isKo
+                ? `최우선 리스크 ${allHighRisks.length}`
+                : `${allHighRisks.length} top risks`}
+            </h3>
+            <ul className="space-y-2">
+              {allHighRisks.map((r, i) => {
+                const sevTone =
+                  r.severity === "high"
+                    ? "bg-risk text-white"
+                    : r.severity === "medium"
+                    ? "bg-warn text-white"
+                    : "bg-slate-200 text-slate-600";
+                return (
+                  <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                    <span
+                      className={clsx(
+                        "shrink-0 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold mt-0.5",
+                        sevTone,
+                      )}
+                    >
+                      {r.severity}
+                    </span>
+                    <span>
+                      <span className="font-semibold text-slate-900">{r.factor}</span>
+                      <span className="text-slate-600"> — {r.description}</span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {reg?.timeToCompliance && (
+        <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded px-3 py-2">
+          {isKo ? "준수 소요시간 (decision input)" : "Time to compliance (decision input)"}:{" "}
+          <span className="font-semibold">{reg.timeToCompliance}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -7794,14 +8152,6 @@ function SecondaryNotesCard({
     </div>
   );
 }
-
-type SecondaryRiskItem = {
-  factor: string;
-  description: string;
-  severity: "low" | "medium" | "high";
-  surfacedInSims: number;
-  personaCategory?: string;
-};
 
 function RisksTab({
   narrative,
@@ -8235,14 +8585,6 @@ function SecondaryRisksBlock({
     </div>
   );
 }
-
-type SecondaryActionItem = {
-  action: string;
-  surfacedInSims: number;
-  impact?: number;
-  effort?: number;
-  actionCategory?: string;
-};
 
 function ActionsTab({
   narrative,
