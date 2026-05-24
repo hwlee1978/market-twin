@@ -1159,6 +1159,21 @@ function EnsembleDashboard({
               additionalMarketProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
             }).additionalMarketProfiles
           }
+          additionalActions={
+            (aggregate as unknown as {
+              additionalActions?: Record<
+                string,
+                Array<{
+                  action: string;
+                  surfacedInSims: number;
+                  impact?: number;
+                  effort?: number;
+                  actionCategory?: string;
+                }>
+              >;
+            }).additionalActions
+          }
+          ensembleId={result.id}
         />
       )}
       {activeTab === "data" && (
@@ -8043,6 +8058,14 @@ function RisksTab({
   );
 }
 
+type SecondaryActionItem = {
+  action: string;
+  surfacedInSims: number;
+  impact?: number;
+  effort?: number;
+  actionCategory?: string;
+};
+
 function ActionsTab({
   narrative,
   simCount,
@@ -8052,6 +8075,8 @@ function ActionsTab({
   recommendation,
   bestCountryDistribution,
   additionalProfiles,
+  additionalActions,
+  ensembleId,
 }: {
   narrative: EnsembleAggregate["narrative"];
   /** Total ensemble sim count — used as denominator for the
@@ -8066,10 +8091,15 @@ function ActionsTab({
   recommendation: EnsembleAggregate["recommendation"];
   bestCountryDistribution: EnsembleAggregate["bestCountryDistribution"];
   additionalProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
+  additionalActions?: Record<string, SecondaryActionItem[]>;
+  ensembleId: string;
 }) {
   const secondaryCountry = detectSecondary(recommendation, bestCountryDistribution);
   const secondaryProfile = secondaryCountry
     ? additionalProfiles?.[secondaryCountry] ?? null
+    : null;
+  const secondaryActions = secondaryCountry
+    ? additionalActions?.[secondaryCountry] ?? null
     : null;
   if (!narrative?.mergedActions?.length) {
     return (
@@ -8174,14 +8204,173 @@ function ActionsTab({
           })}
         </ol>
       </div>
-      {secondaryCountry && secondaryProfile && (
-        <SecondaryNotesCard
+      {secondaryCountry && (
+        <SecondaryActionsBlock
           country={secondaryCountry}
+          actions={secondaryActions}
           profile={secondaryProfile}
-          showActions
+          ensembleId={ensembleId}
           isKo={isKo}
         />
       )}
+    </div>
+  );
+}
+
+function SecondaryActionsBlock({
+  country,
+  actions,
+  profile,
+  ensembleId,
+  isKo,
+}: {
+  country: string;
+  actions: SecondaryActionItem[] | null;
+  profile: EnsembleAggregate["marketProfile"] | null;
+  ensembleId: string;
+  isKo: boolean;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const generate = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/ensembles/${ensembleId}/secondary-actions?country=${country}`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || err.detail || `status ${res.status}`);
+      }
+      router.refresh();
+      window.location.reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "generation failed");
+      setBusy(false);
+    }
+  };
+
+  // Empty state — show CTA. Mention whether the market profile already
+  // exists (better grounding) or not (less specific output).
+  if (!actions || actions.length === 0) {
+    const hasProfile = !!profile;
+    return (
+      <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40">
+        <div className="card border-warn/40 bg-warn-soft/20 p-6">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-warn text-white shrink-0 font-bold">
+              !
+            </span>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-semibold text-warn mb-1">
+                {isKo
+                  ? `${country} — Top 2 동등 후보 추천 액션 (생성 대기)`
+                  : `${country} — Top 2 secondary recommended actions (pending)`}
+              </h2>
+              <p className="text-xs text-slate-700 leading-relaxed mb-4">
+                {isKo
+                  ? `Top 2 동등 후보이므로 ${country} 시장의 구체적 액션 (입점·PR·인증·가격·채널·파트너십 5~8개)도 별도 생성이 필요합니다. ${
+                      hasProfile
+                        ? `${country} 시장 분석이 이미 있어 풍부한 액션이 생성됩니다.`
+                        : `${country} 시장 분석이 아직 없어 페르소나 시그널만으로 액션이 생성됩니다 (시장 분석 먼저 생성 권장).`
+                    } 단일 LLM 호출 (~$0.10, 30-60초).`
+                  : `Top 2 ties need parallel ${country} actions (entry · PR · compliance · pricing · channels · partnerships, 5-8 items). ${
+                      hasProfile
+                        ? `Market profile already exists — generates rich, grounded actions.`
+                        : `No market profile yet — actions will rely on persona signal only (generate the profile first for better quality).`
+                    } Single LLM call (~$0.10, 30-60s).`}
+              </p>
+              <button
+                type="button"
+                onClick={generate}
+                disabled={busy}
+                className="btn-primary inline-flex items-center gap-2 disabled:opacity-60"
+              >
+                {busy ? <Loader2 size={14} className="animate-spin" /> : <Lightbulb size={14} />}
+                {busy
+                  ? isKo
+                    ? "생성 중..."
+                    : "Generating..."
+                  : isKo
+                    ? `${country} 추천 액션 추가 생성`
+                    : `Generate ${country} recommended actions`}
+              </button>
+              {error && (
+                <p className="text-xs text-risk mt-3">{error}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Populated — render with the same impact/effort/category surfaces
+  // the primary list uses, just labelled as secondary.
+  const impactLabel = (i?: number) =>
+    i === 3 ? (isKo ? "결정적" : "Pivotal") : i === 2 ? (isKo ? "의미 있음" : "Meaningful") : isKo ? "소" : "Small";
+  const effortLabel = (e?: number) =>
+    e === 3 ? (isKo ? "몇 달" : "Months") : e === 2 ? (isKo ? "몇 주" : "Weeks") : isKo ? "며칠" : "Days";
+  const impactTone = (i?: number) =>
+    i === 3 ? "bg-brand text-white" : i === 2 ? "bg-brand/20 text-brand" : "bg-slate-100 text-slate-600";
+
+  return (
+    <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40 space-y-4">
+      <div className="flex items-baseline gap-3 flex-wrap">
+        <h2 className="text-xl font-semibold text-slate-900">
+          {country} —{" "}
+          {isKo ? "Top 2 동등 후보 추천 액션" : "Top 2 secondary recommended actions"}
+        </h2>
+        <span className="text-[10px] uppercase tracking-wider text-warn bg-warn-soft/40 border border-warn/30 px-2 py-0.5 rounded">
+          {isKo ? "동등 후보" : "tied"}
+        </span>
+        <span className="text-[10px] text-slate-500">
+          {isKo
+            ? `${actions.length}개 액션 · single LLM pass (sim 합의 아님)`
+            : `${actions.length} actions · single LLM pass (not cross-sim consensus)`}
+        </span>
+      </div>
+      <ol className="card divide-y divide-slate-100">
+        {actions.map((a, i) => (
+          <li key={i} className="px-5 py-4 flex gap-3 items-start">
+            <span className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full bg-warn-soft text-warn font-bold text-xs">
+              {i + 1}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap">
+                {a.action}
+              </p>
+              <div className="text-xs mt-2 flex items-center gap-2 flex-wrap">
+                {a.impact && (
+                  <span
+                    className={clsx(
+                      "px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider",
+                      impactTone(a.impact),
+                    )}
+                  >
+                    {isKo ? "영향" : "Impact"} {a.impact}/3 · {impactLabel(a.impact)}
+                  </span>
+                )}
+                {a.effort && (
+                  <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-semibold uppercase tracking-wider">
+                    {isKo ? "난이도" : "Effort"} {a.effort}/3 · {effortLabel(a.effort)}
+                  </span>
+                )}
+                {a.actionCategory && (
+                  <span className="text-slate-400 font-mono">
+                    {a.actionCategory}
+                  </span>
+                )}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
