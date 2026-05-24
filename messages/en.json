@@ -844,6 +844,24 @@
       "emailNotifications": "Simulation completion and failure notifications are sent to your email."
     }
   },
+  "workspaceSwitcher": {
+    "label": "Workspace",
+    "dropdownTitle": "My workspaces",
+    "createNew": "Create new workspace",
+    "modalTitle": "New workspace",
+    "modalSubtitle": "Isolate memory, simulations, and channels per client, portfolio, or internal test.",
+    "fieldName": "Workspace name",
+    "fieldNamePlaceholder": "e.g. Le Mouton",
+    "fieldCompany": "Company",
+    "fieldCompanyPlaceholder": "e.g. Le Mouton Co., Ltd.",
+    "fieldIndustry": "Industry",
+    "fieldIndustryPlaceholder": "e.g. Fashion / lifestyle",
+    "fieldCountry": "Country code",
+    "cancel": "Cancel",
+    "create": "Create",
+    "creating": "Creating...",
+    "createFailed": "Failed to create workspace."
+  },
   "settings": {
     "title": "Settings",
     "subtitle": "Manage your profile, workspace, and notifications",
@@ -1157,6 +1175,39 @@
       "errorPrefix": "Briefing failed",
       "collapse": "Collapse",
       "expand": "Expand"
+    },
+    "content": {
+      "title": "Content Briefs",
+      "subtitle": "Enter a topic → ContentStrategist plans the angle using workspace memory + KG. Sprint 6 will draft the actual body.",
+      "newBrief": "New brief",
+      "empty": "No briefs yet. Create one to run the ContentStrategist.",
+      "planning": "Planning...",
+      "regenerate": "Regenerate",
+      "remove": "Remove",
+      "removeConfirm": "Remove this brief?",
+      "form": {
+        "topic": "Topic (required, one line)",
+        "topicPlaceholder": "e.g. K-Beauty go-to-market in Japan 2026",
+        "goal": "Goal (optional)",
+        "goalPlaceholder": "e.g. SEO traffic · thought leadership · lead gen",
+        "targetAudience": "Target audience (optional)",
+        "audiencePlaceholder": "e.g. indie cosmetic D2C founders · export managers",
+        "formats": "Formats (optional)",
+        "tone": "Tone (optional)",
+        "tonePlaceholder": "e.g. data-driven · consulting · conversational",
+        "submit": "Generate plan",
+        "cancel": "Cancel"
+      },
+      "strategy": {
+        "pillar": "Pillar",
+        "keywords": "Keywords",
+        "hook": "Hook",
+        "sections": "Section outlines",
+        "cta": "CTA",
+        "formats": "Per-format recommendations",
+        "publishWindow": "Suggested publish window",
+        "risks": "Risk notes"
+      }
     },
     "channels": {
       "title": "Auto-publish channels",

@@ -16,7 +16,9 @@ import {
 import { clsx } from "clsx";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { LogoMark } from "./ui/Logo";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { createClient } from "@/lib/supabase/client";
+import type { WorkspaceSummary } from "@/lib/workspace";
 
 const NAV = [
   { href: "/dashboard", icon: LayoutDashboard, key: "dashboard" as const },
@@ -32,9 +34,11 @@ const NAV = [
 export function AppShell({
   children,
   userEmail,
+  workspaces = [],
 }: {
   children: React.ReactNode;
   userEmail?: string;
+  workspaces?: WorkspaceSummary[];
 }) {
   const tNav = useTranslations("nav");
   const tCommon = useTranslations("common");
@@ -63,6 +67,8 @@ export function AppShell({
             </div>
           </div>
         </div>
+
+        {workspaces.length > 0 && <WorkspaceSwitcher workspaces={workspaces} />}
 
         <div className="px-3 pt-2 pb-1">
           <div className="text-[10px] uppercase tracking-wider text-brand-200 px-3 pb-2">

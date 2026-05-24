@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
+import { getMyRoleInWorkspace } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -16,20 +16,19 @@ const Body = z.object({
 /**
  * PATCH /api/workspaces/:id
  *
- * Updates editable workspace fields. Only members of the workspace can call
- * this. Used by the /settings page for workspace-level config (name, company,
- * industry, country, email notifications).
+ * Updates editable workspace fields. v0.2: a user may own multiple
+ * workspaces, so we check membership in this specific workspace rather
+ * than equality with their "primary" one.
  */
 export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
   const { id } = await ctx.params;
-  const wsCtx = await getOrCreatePrimaryWorkspace();
-  if (!wsCtx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (wsCtx.workspaceId !== id) {
-    // v0.1: every user owns exactly one workspace, so any other id is forbidden.
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const role = await getMyRoleInWorkspace(id);
+  if (!role) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (role !== "owner" && role !== "admin") {
+    return NextResponse.json({ error: "insufficient_role" }, { status: 403 });
   }
 
   const body = await req.json().catch(() => ({}));

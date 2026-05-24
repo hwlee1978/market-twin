@@ -844,6 +844,24 @@
       "emailNotifications": "시뮬레이션 완료·실패 시 등록된 이메일로 알림을 받습니다."
     }
   },
+  "workspaceSwitcher": {
+    "label": "워크스페이스",
+    "dropdownTitle": "내 워크스페이스",
+    "createNew": "새 워크스페이스 만들기",
+    "modalTitle": "새 워크스페이스",
+    "modalSubtitle": "고객사·포트폴리오·내부 테스트별로 메모리·시뮬·채널을 격리합니다.",
+    "fieldName": "워크스페이스 이름",
+    "fieldNamePlaceholder": "예: 르무통",
+    "fieldCompany": "회사명",
+    "fieldCompanyPlaceholder": "예: Le Mouton Co., Ltd.",
+    "fieldIndustry": "업종",
+    "fieldIndustryPlaceholder": "예: 패션·라이프스타일",
+    "fieldCountry": "국가 코드",
+    "cancel": "취소",
+    "create": "생성",
+    "creating": "생성 중...",
+    "createFailed": "워크스페이스 생성에 실패했습니다."
+  },
   "settings": {
     "title": "설정",
     "subtitle": "프로필·워크스페이스·알림을 관리합니다",
@@ -1157,6 +1175,39 @@
       "errorPrefix": "브리핑 실패",
       "collapse": "접기",
       "expand": "펼치기"
+    },
+    "content": {
+      "title": "콘텐츠 기획",
+      "subtitle": "Topic 입력 → ContentStrategist가 회사 memory + KG로 전략 JSON 생성. Sprint 6에서 실제 글 작성.",
+      "newBrief": "새 brief",
+      "empty": "아직 brief가 없습니다. 새 brief를 만들어 ContentStrategist를 돌려보세요.",
+      "planning": "계획 중...",
+      "regenerate": "재생성",
+      "remove": "삭제",
+      "removeConfirm": "이 brief를 삭제하시겠습니까?",
+      "form": {
+        "topic": "Topic (필수, 한 줄)",
+        "topicPlaceholder": "예: K-Beauty 일본 시장 진입 가이드 2026",
+        "goal": "목표 (선택)",
+        "goalPlaceholder": "예: SEO 트래픽 · thought leadership · lead gen",
+        "targetAudience": "타겟 독자 (선택)",
+        "audiencePlaceholder": "예: 화장품 D2C founders · 수출 담당자",
+        "formats": "포맷 (선택)",
+        "tone": "톤 (선택)",
+        "tonePlaceholder": "예: 데이터 중심 · 컨설팅 톤 · conversational",
+        "submit": "계획 생성",
+        "cancel": "취소"
+      },
+      "strategy": {
+        "pillar": "Pillar",
+        "keywords": "키워드",
+        "hook": "Hook",
+        "sections": "섹션 outline",
+        "cta": "CTA",
+        "formats": "포맷별 추천",
+        "publishWindow": "권장 발행 시점",
+        "risks": "주의 사항"
+      }
     },
     "channels": {
       "title": "자동 발송 채널",

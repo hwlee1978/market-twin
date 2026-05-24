@@ -1,7 +1,7 @@
 import { setRequestLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
 import { AppShell } from "@/components/AppShell";
-import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
+import { getOrCreatePrimaryWorkspace, listMyWorkspaces } from "@/lib/workspace";
 
 export default async function AppLayout({
   children,
@@ -18,5 +18,11 @@ export default async function AppLayout({
     redirect({ href: "/login", locale });
   }
 
-  return <AppShell userEmail={ctx!.email}>{children}</AppShell>;
+  const workspaces = await listMyWorkspaces();
+
+  return (
+    <AppShell userEmail={ctx!.email} workspaces={workspaces}>
+      {children}
+    </AppShell>
+  );
 }
