@@ -1,0 +1,33 @@
+-- Mr. AI assistant actions
+--
+-- When Mr. AI's response includes structured actions the user can take
+-- (run a simulation, regenerate briefing, sync HubSpot, etc.), we attach
+-- the actions JSON to the assistant message so the chat UI can render
+-- inline cards (e.g. SimulationProposalCard) below the text.
+--
+-- Schema: array of { type: string, payload: any }. Keeping it loose
+-- jsonb so new action types ship without migrations.
+--
+-- Example:
+--   [{
+--     "type": "simulation_proposal",
+--     "payload": {
+--       "name": "르무통 메이트 글로벌 진출 검증",
+--       "productName": "Mate",
+--       "category": "fashion",
+--       "basePrice": "109",
+--       "currency": "USD",
+--       "countries": ["JP", "US", "TW", "SG"],
+--       "competitorNames": ["올버즈", "호카", "스케쳐스", "온러닝"],
+--       "description": "...",
+--       "tier": "decision"
+--     }
+--   }]
+--
+-- Persisted so reload-safe: a user who refreshes the page mid-action
+-- sees the same proposal card they saw before reload. When the action
+-- transitions to "running" (after the user clicks Start), the payload
+-- is updated in-place with the new state.
+
+alter table public.mrai_messages
+  add column if not exists actions jsonb;

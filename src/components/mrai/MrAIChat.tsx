@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Brain, Loader2, Send, Trash2, MessageSquarePlus } from "lucide-react";
 import { AgentTrace, type AgentTraceData } from "./AgentTrace";
 import { FeedbackButtons } from "./FeedbackButtons";
+import { SimulationProposalCard, type SimulationProposalPayload } from "./SimulationProposalCard";
 
 type MemoryKind = "fact" | "preference" | "context" | "decision";
 
@@ -22,7 +23,16 @@ type Conversation = {
   updated_at: string;
 };
 
-type ChatTurn = { role: "user" | "assistant"; content: string; trace?: AgentTraceData; messageId?: string };
+type ChatAction =
+  | { type: "simulation_proposal"; payload: SimulationProposalPayload };
+
+type ChatTurn = {
+  role: "user" | "assistant";
+  content: string;
+  trace?: AgentTraceData;
+  messageId?: string;
+  actions?: ChatAction[];
+};
 
 const KIND_TONE: Record<MemoryKind, string> = {
   fact: "bg-amber-50 text-amber-900 border-amber-200",
@@ -97,12 +107,19 @@ export function MrAIChat({
         assistantMessage: string;
         assistantMessageId: string;
         newMemories: number;
+        actions?: ChatAction[];
         trace?: AgentTraceData;
       };
       setActiveConvoId(data.conversationId);
       setTurns((prev) => [
         ...prev,
-        { role: "assistant", content: data.assistantMessage, trace: data.trace, messageId: data.assistantMessageId },
+        {
+          role: "assistant",
+          content: data.assistantMessage,
+          trace: data.trace,
+          messageId: data.assistantMessageId,
+          actions: data.actions,
+        },
       ]);
       setLastNewMemoryCount(data.newMemories);
 
@@ -282,7 +299,7 @@ export function MrAIChat({
 function TurnBubble({ turn, locale }: { turn: ChatTurn; locale: "ko" | "en" }) {
   const isUser = turn.role === "user";
   return (
-    <div className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
+    <div className={`flex flex-col ${isUser ? "items-end" : "items-start"} w-full`}>
       <div
         className={`max-w-[80%] rounded-lg px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
           isUser
@@ -292,6 +309,22 @@ function TurnBubble({ turn, locale }: { turn: ChatTurn; locale: "ko" | "en" }) {
       >
         {turn.content}
       </div>
+      {!isUser && turn.actions && turn.actions.length > 0 && (
+        <div className="mt-2 w-full max-w-[95%]">
+          {turn.actions.map((action, i) => {
+            if (action.type === "simulation_proposal") {
+              return (
+                <SimulationProposalCard
+                  key={i}
+                  initial={action.payload}
+                  locale={locale}
+                />
+              );
+            }
+            return null;
+          })}
+        </div>
+      )}
       {!isUser && (
         <div className="mt-1 px-1 flex items-center gap-3">
           {turn.trace && <AgentTrace trace={turn.trace} />}

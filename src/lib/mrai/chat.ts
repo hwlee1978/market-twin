@@ -7,6 +7,10 @@ import {
 } from "./memory";
 import { orchestrate, saveAgentTrace } from "./agents/orchestrate";
 import { saveKgFromTurn } from "./kg";
+import {
+  proposeSimulation,
+  type SimulationProposal,
+} from "./agents/simulation-proposer";
 
 /**
  * Orchestrates one round-trip with Mr. AI:
@@ -24,9 +28,34 @@ import { saveKgFromTurn } from "./kg";
  * we just don't grow the memory store this turn. Logged for debugging.
  */
 
-export type ChatTurn = { role: "user" | "assistant"; content: string };
+export type ChatTurn = {
+  role: "user" | "assistant";
+  content: string;
+  /** Optional structured actions attached to assistant messages. */
+  actions?: ChatAction[];
+};
 
 export type ChatLocale = "ko" | "en";
+
+export type ChatAction =
+  | { type: "simulation_proposal"; payload: SimulationProposal };
+
+/**
+ * Cheap regex gate for "should we generate a simulation proposal?" Avoids
+ * a Sonnet call on every chat turn. Matches both formal ("시뮬레이션 실행")
+ * and casual ("시뮬 돌려줘") phrasings; English fallback for en locale.
+ *
+ * False-positives (user mentions "시뮬" without wanting to run one) cost
+ * one extra ~$0.02 Sonnet call and a card the user can dismiss. False-
+ * negatives lose the magic; bias toward false-positive.
+ */
+function looksLikeSimulationRequest(message: string): boolean {
+  const m = message.toLowerCase();
+  if (/시뮬|시뮬레이션|진출\s*검증|시장\s*검증|진출\s*분석|돌려\s*줘|돌려줘|run\s*sim|simulate/i.test(m)) {
+    return true;
+  }
+  return false;
+}
 
 export interface AgentTraceSummary {
   mode: "full" | "simple";
@@ -55,6 +84,7 @@ export async function runMrAIChat(input: {
   assistantMessage: string;
   assistantMessageId: string;
   newMemories: number;
+  actions: ChatAction[];
   trace: AgentTraceSummary;
 }> {
   const supabase = createServiceClient();
@@ -118,15 +148,44 @@ export async function runMrAIChat(input: {
       matchCount: 20,
     }));
 
+  // 3.5 Action proposal — if the user is asking us to run a simulation,
+  // generate a ready-to-edit input draft attached to the assistant
+  // message. The chat UI renders it as a SimulationProposalCard.
+  // Failure here doesn't break the response; we just skip the card.
+  const actions: ChatAction[] = [];
+  let finalAssistantText = assistantText;
+  if (looksLikeSimulationRequest(input.userMessage)) {
+    try {
+      const proposal = await proposeSimulation({
+        workspaceId: input.workspaceId,
+        userMessage: input.userMessage,
+        locale,
+      });
+      actions.push({ type: "simulation_proposal", payload: proposal });
+      // Replace orchestrator text with a focused intro to the card —
+      // 3-Layer Agent doesn't know about the proposer fork, so its
+      // generic "what do you mean by 시뮬?" output would clash with
+      // the card right beneath it. The rationale field already
+      // explains the memory-grounded reasoning.
+      finalAssistantText =
+        locale === "en"
+          ? `Prepared a simulation input draft from workspace memory. Review and edit the fields in the card below, then click **Start simulation**. Tier defaults to ${proposal.tier} (you can change it). Estimated wait: 15-25 minutes for Decision tier; you'll get Email + Slack notifications when it completes.`
+          : `워크스페이스 메모리 기반으로 시뮬레이션 input을 준비했습니다. 아래 카드에서 검토·수정 후 **"시뮬 시작"** 버튼을 눌러주세요. 기본 Tier는 ${proposal.tier}이며 다른 옵션으로 변경 가능합니다. 완료까지 약 15-25분 소요되고, Email + Slack로 자동 알림 갑니다.`;
+    } catch (e) {
+      console.error("[mrai] simulation proposal failed", e);
+    }
+  }
+
   // 4. Save assistant message + agent trace
   const { data: asstRow, error: asstErr } = await supabase
     .from("mrai_messages")
     .insert({
       conversation_id: convoId,
       role: "assistant",
-      content: assistantText,
+      content: finalAssistantText,
       input_tokens: orchestrated.usage.inputTokens,
       output_tokens: orchestrated.usage.outputTokens,
+      actions: actions.length > 0 ? actions : null,
     })
     .select("id")
     .single();
@@ -205,9 +264,10 @@ export async function runMrAIChat(input: {
 
   return {
     conversationId: convoId,
-    assistantMessage: assistantText,
+    assistantMessage: finalAssistantText,
     assistantMessageId: asstRow.id as string,
     newMemories: newMemoryCount,
+    actions,
     trace: traceSummary,
   };
 }
@@ -240,13 +300,22 @@ export async function loadConversationMessages(
 
   const { data, error } = await supabase
     .from("mrai_messages")
-    .select("role, content")
+    .select("role, content, actions")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
   if (error) throw new Error(`load messages: ${error.message}`);
-  const rows = (data ?? []) as Array<{ role: string; content: string }>;
+  const rows = (data ?? []) as Array<{
+    role: string;
+    content: string;
+    actions: ChatAction[] | null;
+  }>;
   return rows
-    .filter((m): m is ChatTurn => m.role === "user" || m.role === "assistant");
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+      actions: m.actions ?? undefined,
+    }));
 }
 
 export async function summarizeMemoryCount(memories: MemoryRow[]): Promise<{
