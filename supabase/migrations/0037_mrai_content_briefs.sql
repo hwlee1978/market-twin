@@ -49,6 +49,11 @@ create index if not exists mrai_content_briefs_ws_status_idx
 
 alter table public.mrai_content_briefs enable row level security;
 
+-- Drop first so re-applying the migration is idempotent (Postgres CREATE
+-- POLICY doesn't support IF NOT EXISTS). Cheap because policies are
+-- metadata-only, not data.
+drop policy if exists "mrai_content_briefs_rw_members" on public.mrai_content_briefs;
+
 create policy "mrai_content_briefs_rw_members" on public.mrai_content_briefs
   for all using (public.is_workspace_member(workspace_id))
   with check (public.is_workspace_member(workspace_id));
