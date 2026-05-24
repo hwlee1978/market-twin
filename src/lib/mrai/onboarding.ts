@@ -41,13 +41,16 @@ export async function getOnboardingState(workspaceId: string): Promise<Onboardin
 
   const { data: rows } = await supabase
     .from("mrai_memories")
-    .select("onboarding_step")
+    .select("onboarding_step, body")
     .eq("workspace_id", workspaceId)
     .not("onboarding_step", "is", null);
 
-  const answered = new Set<string>(
-    (rows ?? []).map((r: { onboarding_step: string | null }) => r.onboarding_step as string),
-  );
+  const answers: Partial<Record<OnboardingStepId, string>> = {};
+  for (const r of (rows ?? []) as Array<{ onboarding_step: string | null; body: string | null }>) {
+    if (!r.onboarding_step) continue;
+    answers[r.onboarding_step as OnboardingStepId] = r.body ?? "";
+  }
+  const answered = new Set<string>(Object.keys(answers));
   const answeredSteps = ONBOARDING_STEPS
     .filter((s) => answered.has(s.id))
     .map((s) => s.id);
@@ -65,6 +68,7 @@ export async function getOnboardingState(workspaceId: string): Promise<Onboardin
     completedAt,
     totalSteps: ONBOARDING_STEPS.length,
     answeredSteps,
+    answers,
     currentStep,
   };
 }
