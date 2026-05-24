@@ -4292,59 +4292,67 @@ function SecondaryCountryMarketSection({
         </div>
       )}
 
-      {gtm && (gtm.keyMessage || gtm.primaryAudience || (gtm.differentiators && gtm.differentiators.length) || (gtm.risks && gtm.risks.length)) && (
-        <div className="card p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">
-            {isKo ? "GTM 전략" : "GTM strategy"}
-          </h3>
-          {gtm.keyMessage && (
-            <div className="mb-3">
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
-                {isKo ? "핵심 메시지" : "Key message"}
-              </div>
-              <p className="text-sm text-slate-700 leading-relaxed">{gtm.keyMessage}</p>
+      {gtm &&
+        (gtm.keyMessage ||
+          gtm.primaryAudience ||
+          (gtm.differentiators?.length ?? 0) > 0 ||
+          (gtm.risks?.length ?? 0) > 0) && (
+          <div className="rounded-xl border-t-4 border-success bg-success-soft/30 p-5">
+            <div className="text-[10px] uppercase tracking-wide text-success font-bold mb-3">
+              {isKo ? "GTM 전략 요약" : "GTM strategy summary"}
             </div>
-          )}
-          {gtm.primaryAudience && (
-            <div className="mb-3">
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
-                {isKo ? "1차 타깃" : "Primary audience"}
+            <div className="space-y-4">
+              {gtm.keyMessage && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                    {isKo ? "핵심 메시지" : "Key message"}
+                  </div>
+                  <p className="text-base font-semibold text-slate-900 leading-relaxed">
+                    {gtm.keyMessage}
+                  </p>
+                </div>
+              )}
+              {gtm.primaryAudience && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                    {isKo ? "1차 타겟 (ICP)" : "Primary audience (ICP)"}
+                  </div>
+                  <p className="text-sm text-slate-700 leading-relaxed">{gtm.primaryAudience}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {(gtm.differentiators?.length ?? 0) > 0 && (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-success font-bold mb-1.5">
+                      {isKo ? "차별화 요소" : "Differentiators"}
+                    </div>
+                    <ul className="space-y-1">
+                      {(gtm.differentiators ?? []).map((d, i) => (
+                        <li key={i} className="text-sm text-slate-700 leading-snug">
+                          ✓ {d}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {(gtm.risks?.length ?? 0) > 0 && (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-risk font-bold mb-1.5">
+                      {isKo ? "주요 시장 진입 리스크" : "Market-entry risks"}
+                    </div>
+                    <ul className="space-y-1">
+                      {(gtm.risks ?? []).map((r, i) => (
+                        <li key={i} className="text-sm text-slate-700 leading-snug">
+                          ⚠ {r}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
-              <p className="text-sm text-slate-700 leading-relaxed">{gtm.primaryAudience}</p>
             </div>
-          )}
-          {gtm.differentiators && gtm.differentiators.length > 0 && (
-            <div className="mb-3">
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
-                {isKo ? "차별화 포인트" : "Differentiators"}
-              </div>
-              <ul className="space-y-1 text-sm text-slate-700">
-                {gtm.differentiators.slice(0, 6).map((d, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="text-brand">✓</span>
-                    <span>{d}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {gtm.risks && gtm.risks.length > 0 && (
-            <div>
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
-                {isKo ? "리스크" : "Risks"}
-              </div>
-              <ul className="space-y-1 text-sm text-slate-700">
-                {gtm.risks.slice(0, 5).map((r, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="text-warn">⚠</span>
-                    <span>{r}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
     </div>
   );
 }
