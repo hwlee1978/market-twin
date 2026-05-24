@@ -4,10 +4,13 @@ import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { loadWorkspaceMemories } from "@/lib/mrai/memory";
 import { listConversations } from "@/lib/mrai/chat";
 import { loadLatestBriefing } from "@/lib/mrai/briefing";
+import { getOnboardingState } from "@/lib/mrai/onboarding";
 import { MrAIChat } from "@/components/mrai/MrAIChat";
 import { BriefingPanel } from "@/components/mrai/BriefingPanel";
 import { IntegrationsPanel } from "@/components/mrai/IntegrationsPanel";
 import { ChannelsPanel } from "@/components/mrai/ChannelsPanel";
+import { ContentPanel } from "@/components/mrai/ContentPanel";
+import { OnboardingPanel } from "@/components/mrai/OnboardingPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -36,10 +39,11 @@ export default async function MrAIPage({
 
   const safeLocale: "ko" | "en" = locale === "en" ? "en" : "ko";
 
-  const [memories, conversations, latestBriefing] = await Promise.all([
+  const [memories, conversations, latestBriefing, onboarding] = await Promise.all([
     loadWorkspaceMemories(ctx.workspaceId),
     listConversations(ctx.workspaceId),
     loadLatestBriefing(ctx.workspaceId),
+    getOnboardingState(ctx.workspaceId),
   ]);
 
   const integrationFlash =
@@ -52,8 +56,10 @@ export default async function MrAIPage({
   return (
     <div className="px-6 pt-6 pb-10 max-w-[1400px] mx-auto space-y-6">
       <PageHeader title={t("pageTitle")} subtitle={t("pageSubtitle")} />
+      <OnboardingPanel initialState={onboarding} />
       <IntegrationsPanel initialFlash={integrationFlash} locale={safeLocale} />
       <ChannelsPanel locale={safeLocale} />
+      <ContentPanel locale={safeLocale} />
       <BriefingPanel initialBriefing={latestBriefing} locale={safeLocale} />
       <MrAIChat
         initialMemories={memories}
