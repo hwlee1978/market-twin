@@ -1693,25 +1693,71 @@ function OverviewTab({
   currency: string;
 }) {
   void locale;
-  // Pick the first non-winner entry as the runner-up. Earlier code took
-  // index [1] directly, but the distribution can include the winner
-  // multiple times (e.g. when sims rank it both 1st and 2nd) so the
-  // raw [1] sometimes showed the same country as [0]. Filtering keeps
-  // the "차순위는 X — 1순위가 막혔을 때 즉시 대안" message coherent.
-  const runnerUp = bestCountryDistribution.find(
-    (d) => d.country !== recommendation.country,
-  );
-  // Detect a TIE: multiple countries share the top vote count (each sim
-  // picked a different winner so no single one has majority). Le Mouton
-  // ensemble 0e9451fa exposed this — US and TW both at 33% (2/6) but
-  // the UI rendered "Recommended US, consensus 100% STRONG", grossly
-  // misleading the executive. When tied, we frame the result honestly
-  // as "Top 2 동등 후보" and lean on PDF-style displayMode framing.
+  // Runner-up selection — prefer the orchestrator's curated `secondary`
+  // when it exists (it carries gapToPrimary + score data the raw vote
+  // distribution doesn't), otherwise fall back to the first non-winner
+  // entry from the distribution. We also catch the case where the
+  // orchestrator says "winner = US" but the actual vote-share top is
+  // a different country (TW 48% > US 36%) — that's the Le Mouton
+  // 1265510e bug.
+  const recSecondary = (recommendation as unknown as {
+    secondary?: { country?: string; voteSharePercent?: number; meanScore?: number; gapToPrimary?: number };
+    displayMode?: string;
+  }).secondary;
+  const recDisplayMode = (recommendation as unknown as { displayMode?: string }).displayMode;
+  const winnerCountry = recommendation.country;
+  const distTopCountry = bestCountryDistribution[0]?.country;
+
+  // If the orchestrator's winner is NOT the actual top of the vote
+  // distribution, the vote-share top should be the runner-up label —
+  // otherwise we'd silently hide the strongest competing market.
+  const voteTopMismatch =
+    distTopCountry && distTopCountry !== winnerCountry;
+
+  const runnerUp = (() => {
+    // 1. Orchestrator-curated secondary (richest data when present).
+    if (recSecondary?.country && recSecondary.country !== winnerCountry) {
+      const distMatch = bestCountryDistribution.find(
+        (d) => d.country === recSecondary.country,
+      );
+      return {
+        country: recSecondary.country,
+        percent: recSecondary.voteSharePercent ?? distMatch?.percent ?? 0,
+      };
+    }
+    // 2. If vote-share top is a different country from the winner, use
+    //    that — it's the strongest competing market even when the
+    //    orchestrator picked someone else on score.
+    if (voteTopMismatch) {
+      return bestCountryDistribution[0];
+    }
+    // 3. Fallback: first non-winner entry.
+    return bestCountryDistribution.find((d) => d.country !== winnerCountry);
+  })();
+
+  // TIE detection. Three conditions any of which trigger the warning:
+  //  (a) Orchestrator explicitly chose displayMode "top2"
+  //  (b) Multiple countries share the same top vote-share
+  //  (c) Vote-share top is a country OTHER than the orchestrator's
+  //      winner (score winner ≠ vote-share winner — Le Mouton 1265510e
+  //      had US winner but TW had 48% of vote-picks)
   const top = bestCountryDistribution[0];
   const tiedTops = top
     ? bestCountryDistribution.filter((d) => d.percent === top.percent)
     : [];
-  const isTie = tiedTops.length >= 2;
+  const isTie =
+    recDisplayMode === "top2" ||
+    tiedTops.length >= 2 ||
+    voteTopMismatch === true;
+  // Build the country list shown in the tie warning + KPI label.
+  const tieCountries: string[] = (() => {
+    if (!isTie) return [];
+    const set = new Set<string>([winnerCountry]);
+    if (recSecondary?.country) set.add(recSecondary.country);
+    for (const t of tiedTops) set.add(t.country);
+    if (distTopCountry) set.add(distTopCountry);
+    return Array.from(set).slice(0, 3);
+  })();
   const winnerStats = countryStats.find((c) => c.country === recommendation.country);
   const overallSeg = segments.find((s) => s.id === "overall");
   const topRisk = narrative?.mergedRisks?.[0];
@@ -1728,23 +1774,29 @@ function OverviewTab({
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-semibold text-warn mb-1">
               {isKo
-                ? `Top ${tiedTops.length} 동등 후보 — 단일 winner 결론 불가`
-                : `${tiedTops.length}-way tie — no single winner`}
+                ? `Top ${tieCountries.length} 동등 후보 — 단일 winner 결론 불가`
+                : `${tieCountries.length}-way tie — no single winner`}
             </h3>
             <p className="text-xs text-slate-700 leading-relaxed">
               {isKo
-                ? `${tiedTops.map((t) => `${t.country} (${t.percent}%)`).join(" · ")} 가 winner pick에서 동률입니다. 평균 점수: ${tiedTops
-                    .map((t) => {
-                      const s = countryStats.find((c) => c.country === t.country);
-                      return s ? `${t.country} ${s.finalScore.mean.toFixed(1)}` : t.country;
+                ? `${tieCountries
+                    .map((c) => {
+                      const dist = bestCountryDistribution.find((d) => d.country === c);
+                      const stats = countryStats.find((s) => s.country === c);
+                      const vote = dist ? `vote ${dist.percent}%` : "vote n/a";
+                      const mean = stats ? `평균 ${stats.finalScore.mean.toFixed(1)}` : "";
+                      return `${c} (${vote}${mean ? `, ${mean}` : ""})`;
                     })
-                    .join(" / ")}. 두 국가 모두 진입 검토 권장 — 단일국 결론 도출엔 추가 시뮬 (Consensus+ 15 sims) 필요.`
-                : `${tiedTops.map((t) => `${t.country} (${t.percent}%)`).join(" · ")} are tied on winner picks. Average scores: ${tiedTops
-                    .map((t) => {
-                      const s = countryStats.find((c) => c.country === t.country);
-                      return s ? `${t.country} ${s.finalScore.mean.toFixed(1)}` : t.country;
+                    .join(" / ")} — Score 우위 ≠ Vote 우위 발생. 두 국가 모두 진입 검토 권장. 단일국 결론엔 추가 시뮬 (Consensus+ 또는 Deep) 필요.`
+                : `${tieCountries
+                    .map((c) => {
+                      const dist = bestCountryDistribution.find((d) => d.country === c);
+                      const stats = countryStats.find((s) => s.country === c);
+                      const vote = dist ? `vote ${dist.percent}%` : "vote n/a";
+                      const mean = stats ? `mean ${stats.finalScore.mean.toFixed(1)}` : "";
+                      return `${c} (${vote}${mean ? `, ${mean}` : ""})`;
                     })
-                    .join(" / ")}. Evaluate both — additional sims (Consensus+ 15) needed for a single-country conclusion.`}
+                    .join(" / ")} — score-winner ≠ vote-winner. Evaluate both; additional sims (Consensus+ or Deep) needed for a single-country conclusion.`}
             </p>
           </div>
         </div>
@@ -1752,26 +1804,20 @@ function OverviewTab({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <KpiCard
           label={isKo ? "추천 진출국" : "Recommended"}
-          value={
-            isTie
-              ? tiedTops.map((t) => t.country).join(" · ")
-              : recommendation.country
-          }
-          sub={isTie ? (isKo ? "동률" : "tied") : undefined}
+          value={isTie ? tieCountries.join(" · ") : recommendation.country}
+          sub={isTie ? (isKo ? "동등 후보" : "tied") : undefined}
           accent={isTie ? "warn" : confidenceColor}
         />
         <KpiCard
           label={isKo ? "합의도" : "Consensus"}
           value={
-            isTie
-              ? `${top!.percent}%`
-              : `${recommendation.consensusPercent}%`
+            isTie && top ? `${top.percent}%` : `${recommendation.consensusPercent}%`
           }
           sub={
             isTie
               ? isKo
-                ? `${tiedTops.length}-way 동률`
-                : `${tiedTops.length}-way tie`
+                ? `${tieCountries.length}-way 동등`
+                : `${tieCountries.length}-way tie`
               : recommendation.confidence
           }
           accent={isTie ? "warn" : confidenceColor}
@@ -1800,25 +1846,31 @@ function OverviewTab({
               <span className="shrink-0 text-warn font-bold">·</span>
               <span>
                 <span className="font-semibold text-warn">
-                  {isKo ? "Top 동률 — " : "Tied top — "}
+                  {isKo ? "Top 동등 — " : "Tied top — "}
                 </span>
                 {isKo
-                  ? `${tiedTops
-                      .map((t) => {
-                        const s = countryStats.find((c) => c.country === t.country);
-                        return s
-                          ? `${t.country} (vote ${t.percent}%, 평균 ${s.finalScore.mean.toFixed(1)}±${(s.finalScore.combinedStd ?? s.finalScore.std).toFixed(1)})`
-                          : `${t.country} (vote ${t.percent}%)`;
+                  ? `${tieCountries
+                      .map((c) => {
+                        const dist = bestCountryDistribution.find((d) => d.country === c);
+                        const s = countryStats.find((cs) => cs.country === c);
+                        const vote = dist ? `vote ${dist.percent}%` : "";
+                        const mean = s
+                          ? `평균 ${s.finalScore.mean.toFixed(1)}±${(s.finalScore.combinedStd ?? s.finalScore.std).toFixed(1)}`
+                          : "";
+                        return `${c} (${[vote, mean].filter(Boolean).join(", ")})`;
                       })
-                      .join(" / ")} 의 점수 격차가 1~3pt로 사실상 동률. 단일국 결정 보류 + 두 국가 동시 검토 권장.`
-                  : `${tiedTops
-                      .map((t) => {
-                        const s = countryStats.find((c) => c.country === t.country);
-                        return s
-                          ? `${t.country} (vote ${t.percent}%, mean ${s.finalScore.mean.toFixed(1)}±${(s.finalScore.combinedStd ?? s.finalScore.std).toFixed(1)})`
-                          : `${t.country} (vote ${t.percent}%)`;
+                      .join(" / ")} — Score 1위와 Vote 1위가 다르거나 점수 격차가 작아 사실상 동등. 단일국 결정 보류 + 두 국가 동시 검토 권장.`
+                  : `${tieCountries
+                      .map((c) => {
+                        const dist = bestCountryDistribution.find((d) => d.country === c);
+                        const s = countryStats.find((cs) => cs.country === c);
+                        const vote = dist ? `vote ${dist.percent}%` : "";
+                        const mean = s
+                          ? `mean ${s.finalScore.mean.toFixed(1)}±${(s.finalScore.combinedStd ?? s.finalScore.std).toFixed(1)}`
+                          : "";
+                        return `${c} (${[vote, mean].filter(Boolean).join(", ")})`;
                       })
-                      .join(" / ")} are within 1-3 pts — effectively tied. Defer single-country decision; evaluate both.`}
+                      .join(" / ")} — score-1st ≠ vote-1st or gap is small. Defer single-country decision; evaluate both.`}
               </span>
             </li>
           )}
