@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Wand2,
   Loader2,
@@ -12,6 +12,8 @@ import {
   ChevronUp,
   Plus,
   X,
+  Upload,
+  Image as ImageIcon,
 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -280,11 +282,10 @@ export function SimulationProposalCard({
               placeholder="장면 + 카피 + 호소 포인트를 한 단락으로 작성하면 시뮬이 더 정확합니다"
             />
           </Row>
-          <Row label="크리에이티브 이미지 URL (선택)">
-            <ChipsEditor
+          <Row label="크리에이티브 이미지 (선택 · 파일 업로드 또는 URL)">
+            <ImageAssetEditor
               values={draft.assetUrls}
               onChange={(v) => updateField("assetUrls", v)}
-              placeholder="https://..."
             />
           </Row>
           <Row label="시뮬 Tier">
@@ -509,6 +510,162 @@ function MultilineListEditor({
         <Plus size={12} />
         콘셉트 추가
       </button>
+    </div>
+  );
+}
+
+function ImageAssetEditor({
+  values,
+  onChange,
+}: {
+  values: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [urlDraft, setUrlDraft] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const addUrl = () => {
+    const v = urlDraft.trim();
+    if (!v || !/^https?:\/\//.test(v)) {
+      setError("https:// 로 시작하는 URL이어야 합니다");
+      return;
+    }
+    if (values.includes(v)) {
+      setError("이미 추가된 URL입니다");
+      return;
+    }
+    onChange([...values, v]);
+    setUrlDraft("");
+    setError(null);
+  };
+
+  const remove = (i: number) => {
+    onChange(values.filter((_, j) => j !== i));
+  };
+
+  const uploadFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setError(null);
+    const newUrls: string[] = [];
+    try {
+      for (const file of Array.from(files)) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/api/upload/creative-asset", {
+          method: "POST",
+          body: fd,
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          setError(json.error || `${file.name} 업로드 실패`);
+          break;
+        }
+        if (json.url) newUrls.push(json.url);
+      }
+      if (newUrls.length) onChange([...values, ...newUrls]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "업로드 실패");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {/* Image previews */}
+      {values.length > 0 && (
+        <div className="grid grid-cols-3 gap-2">
+          {values.map((url, i) => {
+            const isImg = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
+            return (
+              <div
+                key={`${url}-${i}`}
+                className="relative border border-slate-200 rounded-md overflow-hidden bg-slate-50 group"
+              >
+                {isImg ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={url}
+                    alt={`creative ${i + 1}`}
+                    className="w-full h-20 object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-20 flex items-center justify-center text-slate-400 px-2">
+                    <ImageIcon size={20} />
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => remove(i)}
+                  className="absolute top-1 right-1 bg-white/90 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-full p-0.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                  aria-label={`remove ${i + 1}`}
+                >
+                  <X size={11} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Upload button */}
+      <div className="flex items-center gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          multiple
+          onChange={(e) => uploadFiles(e.target.files)}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="inline-flex items-center gap-1.5 text-[11px] font-medium text-violet-700 bg-violet-50 hover:bg-violet-100 disabled:opacity-50 px-3 py-1.5 rounded-md border border-violet-200"
+        >
+          {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+          {uploading ? "업로드 중..." : "이미지 파일 업로드"}
+        </button>
+        <span className="text-[10px] text-slate-400">JPG/PNG/WebP/GIF · 최대 4MB</span>
+      </div>
+
+      {/* URL paste */}
+      <div className="flex items-center gap-1.5">
+        <input
+          type="url"
+          value={urlDraft}
+          onChange={(e) => setUrlDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addUrl();
+            }
+          }}
+          placeholder="또는 https:// 로 시작하는 이미지 URL"
+          className="flex-1 text-xs text-slate-900 placeholder:text-slate-400 bg-white border border-slate-200 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-violet-300"
+        />
+        {urlDraft && (
+          <button
+            type="button"
+            onClick={addUrl}
+            className="inline-flex items-center gap-1 text-[11px] text-violet-700 bg-violet-50 hover:bg-violet-100 px-2 py-1.5 rounded-md border border-violet-200"
+          >
+            <Plus size={12} />
+            추가
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div className="text-[11px] text-red-600 bg-red-50 border border-red-100 rounded px-2 py-1">
+          {error}
+        </div>
+      )}
     </div>
   );
 }
