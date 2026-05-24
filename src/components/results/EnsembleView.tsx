@@ -1086,7 +1086,14 @@ function EnsembleDashboard({
       {activeTab === "marketProfile" && (
         <MarketProfileTab
           profile={aggregate.marketProfile}
+          additionalProfiles={
+            (aggregate as unknown as {
+              additionalMarketProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
+            }).additionalMarketProfiles
+          }
           recommendedCountry={recommendation.country}
+          recommendation={recommendation}
+          bestCountryDistribution={bestCountryDistribution}
           ensembleId={result.id}
           basePriceCents={result.project?.base_price_cents ?? null}
           currency={result.project?.currency ?? "USD"}
@@ -3299,7 +3306,10 @@ function FunnelStrip({
  */
 function MarketProfileTab({
   profile,
+  additionalProfiles,
   recommendedCountry,
+  recommendation,
+  bestCountryDistribution,
   ensembleId,
   basePriceCents,
   currency,
@@ -3308,7 +3318,14 @@ function MarketProfileTab({
   isKo,
 }: {
   profile: EnsembleAggregate["marketProfile"];
+  /** Secondary candidates' market profiles, keyed by country code.
+   *  Populated when displayMode "top2" / score-vote winner mismatch
+   *  triggers a secondary build via /api/ensembles/{id}/market-profile?country=XX. */
+  additionalProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
   recommendedCountry: string;
+  /** Full recommendation object so we can detect top2 + secondary country. */
+  recommendation: EnsembleAggregate["recommendation"];
+  bestCountryDistribution: EnsembleAggregate["bestCountryDistribution"];
   ensembleId: string;
   /** User-input base price — fallback for legacy sims whose
    *  yourPositionPriceCents is undefined (pre-2026-05-07 sims always
@@ -3326,7 +3343,46 @@ function MarketProfileTab({
   void locale;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [busySecondary, setBusySecondary] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Detect a secondary candidate the user should also see a market
+  // profile for. Same logic as the Summary/Overview tabs: trust
+  // recommendation.secondary when present, otherwise check whether
+  // the vote-share top differs from the winner.
+  const recSecondary = (recommendation as unknown as {
+    secondary?: { country?: string };
+    displayMode?: string;
+  }).secondary;
+  const recDisplayMode = (recommendation as unknown as { displayMode?: string }).displayMode;
+  const distTopCountry = bestCountryDistribution[0]?.country;
+  const secondaryCountry: string | null =
+    recSecondary?.country && recSecondary.country !== recommendedCountry
+      ? recSecondary.country
+      : recDisplayMode === "top2" && distTopCountry && distTopCountry !== recommendedCountry
+      ? distTopCountry
+      : null;
+  const secondaryProfile = secondaryCountry
+    ? additionalProfiles?.[secondaryCountry] ?? null
+    : null;
+
+  const generateSecondary = async () => {
+    if (busySecondary || !secondaryCountry) return;
+    setBusySecondary(true);
+    setErr(null);
+    try {
+      const res = await fetch(
+        `/api/ensembles/${ensembleId}/market-profile?country=${secondaryCountry}`,
+        { method: "POST" },
+      );
+      if (!res.ok) throw new Error(await friendlyApiError(res, isKo ? "ko" : "en"));
+      router.refresh();
+      window.location.reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+      setBusySecondary(false);
+    }
+  };
 
   const generate = async () => {
     if (busy) return;
@@ -3910,6 +3966,199 @@ function MarketProfileTab({
             </div>
           </div>
         )}
+
+      {/* Secondary candidate (Top 2 / score-vote mismatch) — show a
+          parallel market profile so the exec can compare the two
+          recommended markets side-by-side instead of pretending the
+          winner is unique. */}
+      {secondaryCountry && (
+        <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40">
+          <SecondaryCountryMarketSection
+            country={secondaryCountry}
+            profile={secondaryProfile}
+            ensembleId={ensembleId}
+            onGenerate={generateSecondary}
+            busy={busySecondary}
+            isKo={isKo}
+          />
+        </div>
+      )}
+
+      {err && (
+        <p className="text-xs text-risk mt-2">{err}</p>
+      )}
+    </div>
+  );
+}
+
+function SecondaryCountryMarketSection({
+  country,
+  profile,
+  ensembleId,
+  onGenerate,
+  busy,
+  isKo,
+}: {
+  country: string;
+  profile: EnsembleAggregate["marketProfile"] | null;
+  ensembleId: string;
+  onGenerate: () => void;
+  busy: boolean;
+  isKo: boolean;
+}) {
+  void ensembleId;
+  // Empty state — show generate CTA.
+  if (!profile) {
+    return (
+      <div className="card border-warn/40 bg-warn-soft/20 p-6">
+        <div className="flex items-start gap-3">
+          <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-warn text-white shrink-0 font-bold">
+            !
+          </span>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base font-semibold text-warn mb-1">
+              {isKo
+                ? `${country} — Top 2 동등 후보 시장 분석 (생성 대기)`
+                : `${country} — Top 2 secondary market profile (pending)`}
+            </h2>
+            <p className="text-xs text-slate-700 leading-relaxed mb-4">
+              {isKo
+                ? `Top 2 동등 후보이므로 ${country} 시장 분석도 함께 봐야 의사결정이 완성됩니다. 위 분석과 같은 깊이로 시장 규모·경쟁자·채널·규제·가격·GTM 전략을 추가 LLM 호출(~$0.05, 30-60초)로 생성합니다.`
+                : `Since this is a Top 2 tie, you need a parallel profile for ${country} to make a complete decision. One additional LLM call (~$0.05, 30-60s) generates the same depth of market size · competitors · channels · regulatory · pricing · GTM strategy.`}
+            </p>
+            <button
+              type="button"
+              onClick={onGenerate}
+              disabled={busy}
+              className="btn-primary inline-flex items-center gap-2 disabled:opacity-60"
+            >
+              {busy ? <Loader2 size={14} className="animate-spin" /> : <Lightbulb size={14} />}
+              {busy
+                ? isKo
+                  ? "생성 중..."
+                  : "Generating..."
+                : isKo
+                  ? `${country} 시장 분석 추가 생성`
+                  : `Generate ${country} market profile`}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Populated — render condensed summary (top sections only) so the
+  // tab doesn't double in height. Full detail is still available by
+  // refreshing the page after generation; future improvement: full
+  // collapsible accordion per country.
+  const ms = profile.marketSize;
+  const competitors = profile.competitors ?? [];
+  const channels = profile.channels;
+  const reg = profile.regulatory;
+  return (
+    <div className="space-y-4">
+      <div className="flex items-baseline gap-3">
+        <h2 className="text-xl font-semibold text-slate-900">
+          {country} — {isKo ? "Top 2 동등 후보 시장 분석" : "Top 2 secondary market profile"}
+        </h2>
+        <span className="text-[10px] uppercase tracking-wider text-warn bg-warn-soft/40 border border-warn/30 px-2 py-0.5 rounded">
+          {isKo ? "동등 후보" : "tied"}
+        </span>
+      </div>
+
+      {ms && (
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">
+            {isKo ? "시장 규모" : "Market size"}
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+            {ms.estimateUsd && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">TAM</div>
+                <div className="text-slate-900 mt-1 leading-relaxed">{ms.estimateUsd}</div>
+              </div>
+            )}
+            {ms.growthTrend && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                  {isKo ? "성장 추세" : "Growth"}
+                </div>
+                <div className="text-slate-900 mt-1 leading-relaxed">{ms.growthTrend}</div>
+              </div>
+            )}
+            {ms.addressableSegment && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                  {isKo ? "도달 세그먼트" : "Reachable"}
+                </div>
+                <div className="text-slate-900 mt-1 leading-relaxed">{ms.addressableSegment}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {competitors.length > 0 && (
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">
+            {isKo ? `경쟁자 (${competitors.length})` : `Competitors (${competitors.length})`}
+          </h3>
+          <ul className="space-y-2">
+            {competitors.slice(0, 8).map((c, i) => (
+              <li key={i} className="text-sm text-slate-700">
+                <span className="font-semibold text-slate-900">{c.name}</span>
+                {c.threatLevel && (
+                  <span className="ml-2 text-[10px] uppercase tracking-wider text-slate-500">
+                    {c.threatLevel}
+                  </span>
+                )}
+                {c.brandContext && (
+                  <span className="text-slate-600"> — {c.brandContext}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {channels && (channels.primary?.length || channels.secondary?.length) && (
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">
+            {isKo ? "채널 환경" : "Channels"}
+          </h3>
+          <div className="text-sm text-slate-700 space-y-1">
+            {channels.primary?.map((c, i) => (
+              <div key={`p-${i}`}>
+                <span className="font-semibold">{c.name}</span>
+                {c.rationale && <span className="text-slate-600"> — {c.rationale}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {reg?.barriers && reg.barriers.length > 0 && (
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">
+            {isKo ? "규제·인증" : "Regulatory"}
+          </h3>
+          <ul className="space-y-1.5 text-sm text-slate-700">
+            {reg.barriers.slice(0, 5).map((b, i) => (
+              <li key={i}>
+                <span className="font-semibold">{b.name}</span>
+                {b.severity && (
+                  <span className="ml-2 text-[10px] uppercase tracking-wider text-slate-500">
+                    {b.severity}
+                  </span>
+                )}
+                {b.description && (
+                  <div className="text-xs text-slate-600 mt-0.5">{b.description}</div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

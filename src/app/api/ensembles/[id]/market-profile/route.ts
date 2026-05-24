@@ -22,10 +22,16 @@ export const dynamic = "force-dynamic";
  * their own ensembles.
  */
 export async function POST(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
   const { id } = await ctx.params;
+  // Optional ?country=XX override — when provided we build a market
+  // profile for that secondary candidate and persist it to
+  // aggregate_result.additionalMarketProfiles[XX] (keyed by country code)
+  // rather than overwriting the primary marketProfile.
+  const url = new URL(req.url);
+  const countryOverride = (url.searchParams.get("country") ?? "").toUpperCase().slice(0, 2) || null;
   const wsCtx = await getOrCreatePrimaryWorkspace();
   if (!wsCtx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
@@ -83,7 +89,12 @@ export async function POST(
     (aggregate.recommendation?.country ?? "");
   const locale: "ko" | "en" = /[ㄱ-힝]/.test(sampleText) ? "ko" : "en";
 
-  const result = await buildMarketProfile({ input: projectInput, aggregate, locale });
+  const result = await buildMarketProfile({
+    input: projectInput,
+    aggregate,
+    locale,
+    countryOverride: countryOverride ?? undefined,
+  });
   if (!result.profile) {
     return NextResponse.json(
       { error: result.error ?? "market profile generation failed" },
@@ -91,10 +102,23 @@ export async function POST(
     );
   }
 
-  // Persist the enriched aggregate back. Use service client so the
-  // update bypasses RLS — workspace check above already authorised.
+  // Persist. Primary path overwrites aggregate.marketProfile. Secondary
+  // path (countryOverride present + different from winner) drops into a
+  // sibling map so the primary stays intact and the UI can show both.
   const admin = createServiceClient();
-  const updatedAggregate = { ...aggregate, marketProfile: result.profile };
+  const winnerCountry = aggregate.recommendation?.country;
+  const isSecondary =
+    countryOverride && winnerCountry && countryOverride !== winnerCountry;
+  const updatedAggregate = isSecondary
+    ? {
+        ...aggregate,
+        additionalMarketProfiles: {
+          ...((aggregate as unknown as { additionalMarketProfiles?: Record<string, unknown> })
+            .additionalMarketProfiles ?? {}),
+          [countryOverride!]: result.profile,
+        },
+      }
+    : { ...aggregate, marketProfile: result.profile };
   const { error: updateErr } = await admin
     .from("ensembles")
     .update({ aggregate_result: updatedAggregate })

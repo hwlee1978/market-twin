@@ -36,6 +36,13 @@ export interface BuildMarketProfileOpts {
   input: ProjectInput;
   aggregate: EnsembleAggregate;
   locale: "ko" | "en";
+  /**
+   * Override the target country. Defaults to aggregate.recommendation.country
+   * (winner). Useful when the orchestrator flagged Top 2 / displayMode "top2"
+   * and we want a parallel market profile for the secondary candidate so the
+   * exec can compare both before committing.
+   */
+  countryOverride?: string;
 }
 
 export interface BuildMarketProfileResult {
@@ -52,7 +59,8 @@ export interface BuildMarketProfileResult {
 export async function buildMarketProfile(
   opts: BuildMarketProfileOpts,
 ): Promise<BuildMarketProfileResult> {
-  const recommendedCountry = opts.aggregate.recommendation?.country;
+  const recommendedCountry =
+    opts.countryOverride ?? opts.aggregate.recommendation?.country;
   if (!recommendedCountry) {
     return { error: "no recommendation country on aggregate" };
   }
