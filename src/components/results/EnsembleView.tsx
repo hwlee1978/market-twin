@@ -4047,14 +4047,17 @@ function SecondaryCountryMarketSection({
     );
   }
 
-  // Populated — render condensed summary (top sections only) so the
-  // tab doesn't double in height. Full detail is still available by
-  // refreshing the page after generation; future improvement: full
-  // collapsible accordion per country.
+  // Populated — render the same six sections the primary block has
+  // (market size · competitors · channels · regulatory · cultural ·
+  // pricing · GTM) so the exec sees parity. Future polish: collapsible
+  // per-section so secondary is foldable.
   const ms = profile.marketSize;
   const competitors = profile.competitors ?? [];
   const channels = profile.channels;
   const reg = profile.regulatory;
+  const cult = profile.culturalNotes;
+  const pricing = profile.pricingBenchmarks;
+  const gtm = profile.goToMarketStrategy;
   return (
     <div className="space-y-4">
       <div className="flex items-baseline gap-3">
@@ -4137,26 +4140,193 @@ function SecondaryCountryMarketSection({
         </div>
       )}
 
-      {reg?.barriers && reg.barriers.length > 0 && (
+      {reg && (reg.barriers?.length || reg.requirements?.length || reg.timeToCompliance) && (
         <div className="card p-5">
           <h3 className="text-sm font-semibold text-slate-700 mb-3">
-            {isKo ? "규제·인증" : "Regulatory"}
+            {isKo ? "규제 / 진입 장벽" : "Regulatory / Barriers"}
           </h3>
-          <ul className="space-y-1.5 text-sm text-slate-700">
-            {reg.barriers.slice(0, 5).map((b, i) => (
-              <li key={i}>
-                <span className="font-semibold">{b.name}</span>
-                {b.severity && (
-                  <span className="ml-2 text-[10px] uppercase tracking-wider text-slate-500">
-                    {b.severity}
-                  </span>
-                )}
-                {b.description && (
-                  <div className="text-xs text-slate-600 mt-0.5">{b.description}</div>
-                )}
-              </li>
-            ))}
-          </ul>
+          {reg.barriers && reg.barriers.length > 0 && (
+            <ul className="space-y-2 text-sm text-slate-700">
+              {reg.barriers.slice(0, 5).map((b, i) => {
+                const sevTone =
+                  b.severity === "high"
+                    ? "bg-risk text-white"
+                    : b.severity === "medium"
+                    ? "bg-warn text-white"
+                    : "bg-slate-300 text-slate-700";
+                return (
+                  <li key={i} className="flex items-start gap-2">
+                    <span
+                      className={`shrink-0 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold ${sevTone}`}
+                    >
+                      {b.severity}
+                    </span>
+                    <div>
+                      <span className="font-semibold text-slate-900">{b.name}</span>
+                      {b.description && (
+                        <div className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                          {b.description}
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {reg.requirements && reg.requirements.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">
+                {isKo ? "필수 요구사항" : "Requirements"}
+              </div>
+              <ul className="space-y-1 text-sm text-slate-700">
+                {reg.requirements.map((r, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-slate-400">·</span>
+                    <span>{r}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {reg.timeToCompliance && (
+            <div className="mt-3 text-xs text-slate-500">
+              {isKo ? "준수 소요시간: " : "Time to compliance: "}
+              <span className="text-slate-700">{reg.timeToCompliance}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {cult && (cult.valuesAlignment || cult.purchaseBehavior || cult.languageNotes || cult.seasonality) && (
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">
+            {isKo ? "문화 / 소비자 인사이트" : "Cultural / Consumer insights"}
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            {cult.valuesAlignment && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                  {isKo ? "가치관" : "Values"}
+                </div>
+                <p className="text-slate-700 leading-relaxed">{cult.valuesAlignment}</p>
+              </div>
+            )}
+            {cult.purchaseBehavior && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                  {isKo ? "구매 행동" : "Purchase behavior"}
+                </div>
+                <p className="text-slate-700 leading-relaxed">{cult.purchaseBehavior}</p>
+              </div>
+            )}
+            {cult.languageNotes && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                  {isKo ? "언어·메시지" : "Language"}
+                </div>
+                <p className="text-slate-700 leading-relaxed">{cult.languageNotes}</p>
+              </div>
+            )}
+            {cult.seasonality && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                  {isKo ? "계절성" : "Seasonality"}
+                </div>
+                <p className="text-slate-700 leading-relaxed">{cult.seasonality}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {pricing && (pricing.entryLevel || pricing.mid || pricing.premium || pricing.yourPosition) && (
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">
+            {isKo ? "가격 벤치마크" : "Pricing benchmarks"}
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            {pricing.entryLevel && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">Entry</div>
+                <div className="text-slate-900 mt-0.5">{pricing.entryLevel}</div>
+              </div>
+            )}
+            {pricing.mid && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">Mid</div>
+                <div className="text-slate-900 mt-0.5">{pricing.mid}</div>
+              </div>
+            )}
+            {pricing.premium && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">Premium</div>
+                <div className="text-slate-900 mt-0.5">{pricing.premium}</div>
+              </div>
+            )}
+            {pricing.yourPosition && (
+              <div className="col-span-2 sm:col-span-1 bg-brand-50 px-2.5 py-1.5 rounded">
+                <div className="text-[10px] uppercase tracking-wider text-brand">
+                  {isKo ? "내 포지션" : "Your position"}
+                </div>
+                <div className="text-brand mt-0.5 font-semibold">{pricing.yourPosition}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {gtm && (gtm.keyMessage || gtm.primaryAudience || (gtm.differentiators && gtm.differentiators.length) || (gtm.risks && gtm.risks.length)) && (
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">
+            {isKo ? "GTM 전략" : "GTM strategy"}
+          </h3>
+          {gtm.keyMessage && (
+            <div className="mb-3">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                {isKo ? "핵심 메시지" : "Key message"}
+              </div>
+              <p className="text-sm text-slate-700 leading-relaxed">{gtm.keyMessage}</p>
+            </div>
+          )}
+          {gtm.primaryAudience && (
+            <div className="mb-3">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                {isKo ? "1차 타깃" : "Primary audience"}
+              </div>
+              <p className="text-sm text-slate-700 leading-relaxed">{gtm.primaryAudience}</p>
+            </div>
+          )}
+          {gtm.differentiators && gtm.differentiators.length > 0 && (
+            <div className="mb-3">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                {isKo ? "차별화 포인트" : "Differentiators"}
+              </div>
+              <ul className="space-y-1 text-sm text-slate-700">
+                {gtm.differentiators.slice(0, 6).map((d, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-brand">✓</span>
+                    <span>{d}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {gtm.risks && gtm.risks.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                {isKo ? "리스크" : "Risks"}
+              </div>
+              <ul className="space-y-1 text-sm text-slate-700">
+                {gtm.risks.slice(0, 5).map((r, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-warn">⚠</span>
+                    <span>{r}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>
