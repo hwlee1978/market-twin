@@ -686,7 +686,10 @@ function CompletedCard({
   resetting: boolean;
   onStateChange: (next: OnboardingState) => void;
 }) {
-  const [showAnswers, setShowAnswers] = useState(true);
+  // Collapsed by default — once onboarded the user usually wants the
+  // Briefing/Chat below to be the focus, not the 8-step seed answers
+  // taking up a full screen height every refresh.
+  const [showAnswers, setShowAnswers] = useState(false);
   const [editingStepId, setEditingStepId] = useState<OnboardingStepId | null>(null);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
