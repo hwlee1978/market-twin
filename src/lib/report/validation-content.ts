@@ -638,7 +638,7 @@ ${competitiveGroundedText ? `# GROUNDED DATA — Competitive landscape\n${compet
 
 {
   "executiveSummary": {
-    "headline": "≤70 chars one-line bold conclusion. Start with one emoji. If Display mode = 'top2', frame as '🥇 X · 🥈 Y 동등 후보' (both countries named) — do NOT pretend single winner exists.",
+    "headline": "≤70 chars one-line bold conclusion. NO emojis (PDF renderer's Pretendard font has no emoji glyphs and they cause Hangul overlap). If Display mode = 'top2', frame as '1위 X · 2위 Y 동등 후보' or 'Top 2: X · Y' (both countries named) — do NOT pretend single winner exists.",
     "confidenceGrade": "A | B+ | B | C+ | C",
     "confidenceLabel": "≤30 chars label",
     "keyMessage": "2-3 sentences: recommendation, top reason, top risk.",

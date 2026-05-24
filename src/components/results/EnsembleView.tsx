@@ -1693,7 +1693,25 @@ function OverviewTab({
   currency: string;
 }) {
   void locale;
-  const runnerUp = bestCountryDistribution[1];
+  // Pick the first non-winner entry as the runner-up. Earlier code took
+  // index [1] directly, but the distribution can include the winner
+  // multiple times (e.g. when sims rank it both 1st and 2nd) so the
+  // raw [1] sometimes showed the same country as [0]. Filtering keeps
+  // the "차순위는 X — 1순위가 막혔을 때 즉시 대안" message coherent.
+  const runnerUp = bestCountryDistribution.find(
+    (d) => d.country !== recommendation.country,
+  );
+  // Detect a TIE: multiple countries share the top vote count (each sim
+  // picked a different winner so no single one has majority). Le Mouton
+  // ensemble 0e9451fa exposed this — US and TW both at 33% (2/6) but
+  // the UI rendered "Recommended US, consensus 100% STRONG", grossly
+  // misleading the executive. When tied, we frame the result honestly
+  // as "Top 2 동등 후보" and lean on PDF-style displayMode framing.
+  const top = bestCountryDistribution[0];
+  const tiedTops = top
+    ? bestCountryDistribution.filter((d) => d.percent === top.percent)
+    : [];
+  const isTie = tiedTops.length >= 2;
   const winnerStats = countryStats.find((c) => c.country === recommendation.country);
   const overallSeg = segments.find((s) => s.id === "overall");
   const topRisk = narrative?.mergedRisks?.[0];
@@ -1702,17 +1720,61 @@ function OverviewTab({
     typeof cents === "number" ? formatPrice(cents, currency) : "—";
   return (
     <div className="space-y-6">
+      {isTie && (
+        <div className="card border-warn/40 bg-warn-soft/30 p-4 flex items-start gap-3">
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-warn/20 text-warn shrink-0 font-bold">
+            !
+          </span>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-semibold text-warn mb-1">
+              {isKo
+                ? `Top ${tiedTops.length} 동등 후보 — 단일 winner 결론 불가`
+                : `${tiedTops.length}-way tie — no single winner`}
+            </h3>
+            <p className="text-xs text-slate-700 leading-relaxed">
+              {isKo
+                ? `${tiedTops.map((t) => `${t.country} (${t.percent}%)`).join(" · ")} 가 winner pick에서 동률입니다. 평균 점수: ${tiedTops
+                    .map((t) => {
+                      const s = countryStats.find((c) => c.country === t.country);
+                      return s ? `${t.country} ${s.finalScore.mean.toFixed(1)}` : t.country;
+                    })
+                    .join(" / ")}. 두 국가 모두 진입 검토 권장 — 단일국 결론 도출엔 추가 시뮬 (Consensus+ 15 sims) 필요.`
+                : `${tiedTops.map((t) => `${t.country} (${t.percent}%)`).join(" · ")} are tied on winner picks. Average scores: ${tiedTops
+                    .map((t) => {
+                      const s = countryStats.find((c) => c.country === t.country);
+                      return s ? `${t.country} ${s.finalScore.mean.toFixed(1)}` : t.country;
+                    })
+                    .join(" / ")}. Evaluate both — additional sims (Consensus+ 15) needed for a single-country conclusion.`}
+            </p>
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <KpiCard
           label={isKo ? "추천 진출국" : "Recommended"}
-          value={recommendation.country}
-          accent={confidenceColor}
+          value={
+            isTie
+              ? tiedTops.map((t) => t.country).join(" · ")
+              : recommendation.country
+          }
+          sub={isTie ? (isKo ? "동률" : "tied") : undefined}
+          accent={isTie ? "warn" : confidenceColor}
         />
         <KpiCard
           label={isKo ? "합의도" : "Consensus"}
-          value={`${recommendation.consensusPercent}%`}
-          sub={recommendation.confidence}
-          accent={confidenceColor}
+          value={
+            isTie
+              ? `${top!.percent}%`
+              : `${recommendation.consensusPercent}%`
+          }
+          sub={
+            isTie
+              ? isKo
+                ? `${tiedTops.length}-way 동률`
+                : `${tiedTops.length}-way tie`
+              : recommendation.confidence
+          }
+          accent={isTie ? "warn" : confidenceColor}
         />
         <KpiCard
           label={isKo ? "시뮬 수" : "Sims"}
@@ -1733,6 +1795,33 @@ function OverviewTab({
           {isKo ? "핵심 발견" : "Key findings"}
         </h2>
         <ul className="card p-5 space-y-3 text-sm text-slate-700 leading-relaxed">
+          {isTie && (
+            <li className="flex gap-3">
+              <span className="shrink-0 text-warn font-bold">·</span>
+              <span>
+                <span className="font-semibold text-warn">
+                  {isKo ? "Top 동률 — " : "Tied top — "}
+                </span>
+                {isKo
+                  ? `${tiedTops
+                      .map((t) => {
+                        const s = countryStats.find((c) => c.country === t.country);
+                        return s
+                          ? `${t.country} (vote ${t.percent}%, 평균 ${s.finalScore.mean.toFixed(1)}±${(s.finalScore.combinedStd ?? s.finalScore.std).toFixed(1)})`
+                          : `${t.country} (vote ${t.percent}%)`;
+                      })
+                      .join(" / ")} 의 점수 격차가 1~3pt로 사실상 동률. 단일국 결정 보류 + 두 국가 동시 검토 권장.`
+                  : `${tiedTops
+                      .map((t) => {
+                        const s = countryStats.find((c) => c.country === t.country);
+                        return s
+                          ? `${t.country} (vote ${t.percent}%, mean ${s.finalScore.mean.toFixed(1)}±${(s.finalScore.combinedStd ?? s.finalScore.std).toFixed(1)})`
+                          : `${t.country} (vote ${t.percent}%)`;
+                      })
+                      .join(" / ")} are within 1-3 pts — effectively tied. Defer single-country decision; evaluate both.`}
+              </span>
+            </li>
+          )}
           <li className="flex gap-3">
             <span className="shrink-0 text-brand font-bold">·</span>
             <span>
@@ -7495,7 +7584,7 @@ function ActionPriorityMatrix({
                   <div
                     key={`cell-${impact}-${effort}`}
                     className={clsx(
-                      "rounded-md border p-2 min-h-[72px]",
+                      "rounded-md border p-2 min-h-[72px] min-w-0 overflow-hidden",
                       q?.bg ?? "bg-slate-50",
                       q?.border ?? "border-slate-200",
                     )}
@@ -7509,7 +7598,7 @@ function ActionPriorityMatrix({
                       {items.map((it) => (
                         <div
                           key={`${it.idx}`}
-                          className="flex items-start gap-1.5"
+                          className="flex items-start gap-1.5 min-w-0"
                           title={it.action}
                         >
                           <span
@@ -7522,7 +7611,7 @@ function ActionPriorityMatrix({
                           >
                             {it.idx}
                           </span>
-                          <span className="text-[11px] text-slate-700 leading-snug truncate">
+                          <span className="flex-1 min-w-0 text-[11px] text-slate-700 leading-snug line-clamp-2 break-words">
                             {it.action}
                           </span>
                         </div>

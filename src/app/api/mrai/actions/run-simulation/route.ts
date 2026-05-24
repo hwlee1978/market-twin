@@ -21,6 +21,10 @@ const Body = z.object({
   originatingCountry: z.string().length(2),
   countries: z.array(z.string().length(2)).min(1).max(8),
   competitorNames: z.array(z.string().max(80)).max(8),
+  /** Creative concept descriptions, one per array entry. */
+  assetDescriptions: z.array(z.string().max(600)).max(6).default([]),
+  /** Optional image URLs (Supabase Storage or external). */
+  assetUrls: z.array(z.string().url()).max(6).default([]),
   tier: z.enum([
     "hypothesis",
     "decision",
@@ -107,8 +111,8 @@ export async function POST(req: Request) {
       competitor_urls: derivedCompetitorUrls,
       competitor_names_user: input.competitorNames,
       competitors_resolved: resolved,
-      asset_descriptions: [],
-      asset_urls: [],
+      asset_descriptions: input.assetDescriptions,
+      asset_urls: input.assetUrls,
       status: "ready",
     })
     .select("id")

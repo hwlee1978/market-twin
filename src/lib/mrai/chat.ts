@@ -42,19 +42,37 @@ export type ChatAction =
 
 /**
  * Cheap regex gate for "should we generate a simulation proposal?" Avoids
- * a Sonnet call on every chat turn. Matches both formal ("시뮬레이션 실행")
- * and casual ("시뮬 돌려줘") phrasings; English fallback for en locale.
+ * a Sonnet call on every chat turn.
  *
- * False-positives (user mentions "시뮬" without wanting to run one) cost
- * one extra ~$0.02 Sonnet call and a card the user can dismiss. False-
- * negatives lose the magic; bias toward false-positive.
+ * Earlier version was too loose: any mention of "시뮬" triggered a card,
+ * so "방금 끝난 시뮬 결과를 메모리에 통합해줘" produced a useless new
+ * proposal card (the real intent was memory integration). v2 requires
+ * (a) no negative-intent keywords (결과/통합/보여/취소/상태…) and
+ * (b) either an action verb (돌려/실행/시작) co-occurring with a sim
+ * keyword, OR a direct "진출 검증/시장 분석" phrase.
+ *
+ * False-negative ("메이트 시뮬" alone) is preferable — user can add
+ * "돌려줘" and we'll catch it. False-positive overrides real answers,
+ * which is worse UX than missing an implicit request.
  */
 function looksLikeSimulationRequest(message: string): boolean {
   const m = message.toLowerCase();
-  if (/시뮬|시뮬레이션|진출\s*검증|시장\s*검증|진출\s*분석|돌려\s*줘|돌려줘|run\s*sim|simulate/i.test(m)) {
+
+  // Negative gate: requests *about* a simulation (result, status,
+  // integration, cancel) shouldn't spawn a new proposal card.
+  if (/결과|통합|저장|취소|보여|상태|진행|완료|언제|어디|에러|실패|중단|중지|기억|remember|status|cancel|stop/i.test(m)) {
+    return false;
+  }
+
+  // Direct phrases that always imply running a new simulation.
+  if (/진출\s*검증|시장\s*검증|진출\s*분석|시장\s*분석|run\s*sim|simulate/i.test(m)) {
     return true;
   }
-  return false;
+
+  // Sim keyword + explicit action verb.
+  const hasSimKeyword = /시뮬|시뮬레이션|simulation/i.test(m);
+  if (!hasSimKeyword) return false;
+  return /돌려|실행|시작|시도|run|start|go|new|새로|검증해|분석해/i.test(m);
 }
 
 export interface AgentTraceSummary {

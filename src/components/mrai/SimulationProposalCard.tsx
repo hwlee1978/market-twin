@@ -33,6 +33,15 @@ export interface SimulationProposalPayload {
   originatingCountry: string;
   countries: string[];
   competitorNames: string[];
+  /**
+   * Creative concept descriptions auto-drafted by the simulation
+   * proposer from workspace memory (product features, USP, persona).
+   * Each line becomes one row in the wizard's assetDescriptions
+   * array; users can edit / add / remove.
+   */
+  assetDescriptions: string[];
+  /** Optional image URLs for creative assets — empty by default. */
+  assetUrls: string[];
   tier: SimulationTier;
   rationale: string;
 }
@@ -257,11 +266,25 @@ export function SimulationProposalCard({
               maxLen={2}
             />
           </Row>
-          <Row label="경쟁사">
+          <Row label="경쟁사 (메모리에서 자동 추출)">
             <ChipsEditor
               values={draft.competitorNames}
               onChange={(v) => updateField("competitorNames", v)}
               placeholder="올버즈"
+            />
+          </Row>
+          <Row label="크리에이티브 콘셉트 (Mr. AI 자동 생성 · 한 줄에 한 콘셉트)">
+            <MultilineListEditor
+              values={draft.assetDescriptions}
+              onChange={(v) => updateField("assetDescriptions", v)}
+              placeholder="장면 + 카피 + 호소 포인트를 한 단락으로 작성하면 시뮬이 더 정확합니다"
+            />
+          </Row>
+          <Row label="크리에이티브 이미지 URL (선택)">
+            <ChipsEditor
+              values={draft.assetUrls}
+              onChange={(v) => updateField("assetUrls", v)}
+              placeholder="https://..."
             />
           </Row>
           <Row label="시뮬 Tier">
@@ -424,6 +447,68 @@ function ChipsEditor({
           </button>
         )}
       </span>
+    </div>
+  );
+}
+
+function MultilineListEditor({
+  values,
+  onChange,
+  placeholder,
+}: {
+  values: string[];
+  onChange: (v: string[]) => void;
+  placeholder?: string;
+}) {
+  // Stored internally as one string per textarea row so users can edit
+  // multi-line concepts without losing newlines. Sync to props on every
+  // change so the card payload stays current.
+  const updateItem = (i: number, v: string) => {
+    onChange(values.map((row, j) => (j === i ? v : row)));
+  };
+  const remove = (i: number) => {
+    onChange(values.filter((_, j) => j !== i));
+  };
+  const add = () => {
+    onChange([...values, ""]);
+  };
+  return (
+    <div className="space-y-2">
+      {values.length === 0 && (
+        <p className="text-[11px] text-slate-400 italic">
+          (메모리 정보 부족으로 자동 생성 안 됨 — 직접 추가 가능)
+        </p>
+      )}
+      {values.map((v, i) => (
+        <div key={i} className="flex items-start gap-1.5">
+          <span className="shrink-0 w-5 h-5 inline-flex items-center justify-center text-[10px] font-bold text-violet-600 bg-violet-100 rounded-full mt-1">
+            {i + 1}
+          </span>
+          <textarea
+            value={v}
+            onChange={(e) => updateItem(i, e.target.value)}
+            placeholder={placeholder}
+            rows={2}
+            className="flex-1 text-xs text-slate-900 placeholder:text-slate-400 bg-white border border-slate-200 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-violet-500 resize-y"
+          />
+          <button
+            type="button"
+            onClick={() => remove(i)}
+            className="text-slate-400 hover:text-red-600 p-1 mt-1"
+            aria-label={`remove concept ${i + 1}`}
+          >
+            <X size={12} />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={add}
+        className="inline-flex items-center gap-1 text-[11px] text-violet-600 hover:text-violet-800 hover:bg-violet-50 px-2 py-1 rounded"
+      >
+        <Plus size={12} />
+        콘셉트 추가
+      </button>
     </div>
   );
 }

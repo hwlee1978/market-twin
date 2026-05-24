@@ -211,6 +211,90 @@ export async function notifyEnsembleComplete(args: {
       html,
       text,
     });
+
+    // Fan-out to Mr. AI channels (Slack / generic webhook). Email already
+    // sent above via Resend, so we skip channel_type=email here to avoid
+    // double-sends. Inline because this file lives in packages/shared and
+    // can't import src/lib/mrai/channels.ts (worker bundles don't include
+    // src/). Best-effort: any per-channel failure is logged and skipped.
+    try {
+      const admin = createServiceClient();
+      const { data: channels } = await admin
+        .from("mrai_channels")
+        .select("id, channel_type, name, config, enabled, send_ensemble_complete")
+        .eq("workspace_id", args.workspaceId)
+        .eq("enabled", true)
+        .eq("send_ensemble_complete", true);
+      type ChannelRow = {
+        id: string;
+        channel_type: "slack_webhook" | "email" | "generic_webhook";
+        name: string;
+        config: Record<string, unknown>;
+      };
+      const slackText = isKo
+        ? `*${args.productName}* — ${tierLabel} 분석 완료\n` +
+          `추천 진출국: *${countryLabel}* (합의도 ${args.consensusPercent}%, ${args.confidence})\n` +
+          `<${url}|결과 보기>`
+        : `*${args.productName}* — ${tierLabel} analysis ready\n` +
+          `Recommended: *${countryLabel}* (${args.consensusPercent}% consensus, ${args.confidence})\n` +
+          `<${url}|View results>`;
+      for (const ch of ((channels ?? []) as ChannelRow[])) {
+        if (ch.channel_type === "email") continue;
+        try {
+          if (ch.channel_type === "slack_webhook") {
+            const webhookUrl = typeof ch.config.webhookUrl === "string" ? ch.config.webhookUrl : "";
+            if (!webhookUrl) continue;
+            const blocks: unknown[] = [
+              { type: "header", text: { type: "plain_text", text: `${args.productName} · ${tierLabel}`.slice(0, 150) } },
+              { type: "section", text: { type: "mrkdwn", text: slackText } },
+              { type: "actions", elements: [{ type: "button", text: { type: "plain_text", text: isKo ? "결과 보기" : "View results" }, url }] },
+            ];
+            const res = await fetch(webhookUrl, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ text: subject, blocks }),
+            });
+            await admin.from("mrai_dispatches").insert({
+              workspace_id: args.workspaceId,
+              channel_id: ch.id,
+              source_type: "ensemble_complete",
+              source_id: args.ensembleId,
+              status: res.ok ? "sent" : "failed",
+              error: res.ok ? null : `slack ${res.status}`,
+            });
+          } else if (ch.channel_type === "generic_webhook") {
+            const url2 = typeof ch.config.url === "string" ? ch.config.url : "";
+            if (!url2) continue;
+            const res = await fetch(url2, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                source: "market-twin",
+                event: "ensemble_complete",
+                ensembleId: args.ensembleId,
+                productName: args.productName,
+                bestCountry: args.bestCountry,
+                consensusPercent: args.consensusPercent,
+                confidence: args.confidence,
+                resultsUrl: url,
+              }),
+            });
+            await admin.from("mrai_dispatches").insert({
+              workspace_id: args.workspaceId,
+              channel_id: ch.id,
+              source_type: "ensemble_complete",
+              source_id: args.ensembleId,
+              status: res.ok ? "sent" : "failed",
+              error: res.ok ? null : `webhook ${res.status}`,
+            });
+          }
+        } catch (e) {
+          console.warn(`[notify] channel ${ch.channel_type} dispatch failed`, e);
+        }
+      }
+    } catch (err) {
+      console.warn("[notify] mrai channels fan-out failed", err);
+    }
   } catch (err) {
     console.warn("[notify] ensemble email failed", err);
   }

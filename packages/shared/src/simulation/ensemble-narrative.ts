@@ -610,6 +610,7 @@ function buildMergePrompt(
    숫자가 꼭 필요하면 **페르소나 % 합의** (예: "73%가 가격 거부") 또는 **시장 갯수** (예: "5개국 STRONG")만 사용. 모두 sim 데이터에 직접 보이는 수치.
 
 1. **executiveSummary**: 모든 시뮬의 합의 narrative를 2-4문장으로 통합. 추천 진출국 + 이유 + 핵심 우려사항을 포함. hotTake와 중복되지 않게 더 자세히.
+   ⚠ **시뮬 개수 (절대 위반 불가)**: 본 분석은 정확히 **${sims.length}개 시뮬레이션** 결과를 통합한 것입니다. 본문에서 시뮬 개수를 언급할 때 반드시 "${sims.length}개"로 표기 — "2개 시뮬레이션 모두", "3개 sim에서" 같은 임의 숫자 사용 금지. 정확한 개수가 불필요하면 "모든 시뮬", "전 시뮬"로 표현.
    ⚠ **국가 일치 (절대 위반 불가)**: 추천 진출국은 **${opts.bestCountry}**입니다. executiveSummary에서 다른 국가를 "1차 교두보", "1순위", "최적", "권장 진출국"으로 단언하지 마세요. 합의는 ${opts.bestCountry}이고 이 섹션은 그 합의를 풀어쓰는 것이지 뒤집는 게 아닙니다. 대안 시장 언급은 "차순위로는 X도 검토 가능"의 보조 framing만 허용.
 
 2. **mergedRisks**: 의미가 같은 리스크는 합치되, **구체성을 우선시하세요**. 같은 원인을 다룬 두 리스크가 있을 때:
@@ -689,6 +690,8 @@ function buildMergePrompt(
    When you must include a number, use **persona consensus %** ("73% reject price") or **market counts** ("5 markets STRONG") — both directly visible in sim data.
 
 1. **executiveSummary**: 2-4 sentence consensus across all sims. Cover the recommended market, why, and the central concern. Distinct from hotTake — go deeper.
+   ⚠ **Sim count (do not invent)**: this analysis aggregates exactly **${sims.length} simulations**. When citing the count, write "${sims.length}" — never "2 sims agreed", "3 of the runs" or any other invented number. If precision is not needed, say "all sims" / "every run".
+   ⚠ **Country lock-in**: the consensus market is **${opts.bestCountry}** — do not promote any other country to "primary beachhead" / "top recommendation" in this section.
 
 2. **mergedRisks**: collapse semantic duplicates, but **prefer specific over generic**. When two risks point at the same cause:
    - Keep the more concrete + quantified version ("Amazon US absence costs 55% of first-90-day revenue") over the abstract one ("distribution channel risk").

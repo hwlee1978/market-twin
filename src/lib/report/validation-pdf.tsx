@@ -827,9 +827,13 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
         <MText style={styles.coverConclusionLabel}>{t.conclusionLabel}</MText>
         {simResult.displayMode === "top2" && simResult.secondary ? (
           <MText style={styles.coverConclusionMain}>
+            {/* Medal emojis (🥇🥈) were removed because Pretendard
+                lacks emoji glyphs — PDF renderer fell back and
+                miscalculated advance widths, causing the next Hangul
+                syllable to overlap the emoji slot (자모 분리 현상). */}
             {isKo
-              ? `Top 2 동등 후보  🥇 ${winnerLabel} (${simResult.winner})  ·  🥈 ${getCountryLabel(simResult.secondary.country, "ko")} (${simResult.secondary.country})`
-              : `Top 2 candidates  🥇 ${winnerLabel} (${simResult.winner})  ·  🥈 ${getCountryLabel(simResult.secondary.country, "en")} (${simResult.secondary.country})`}
+              ? `Top 2 동등 후보  1위 ${winnerLabel} (${simResult.winner})  ·  2위 ${getCountryLabel(simResult.secondary.country, "ko")} (${simResult.secondary.country})`
+              : `Top 2 candidates  #1 ${winnerLabel} (${simResult.winner})  ·  #2 ${getCountryLabel(simResult.secondary.country, "en")} (${simResult.secondary.country})`}
           </MText>
         ) : (
           <MText style={styles.coverConclusionMain}>
