@@ -11,6 +11,7 @@ import { IntegrationsPanel } from "@/components/mrai/IntegrationsPanel";
 import { ChannelsPanel } from "@/components/mrai/ChannelsPanel";
 import { ContentPanel } from "@/components/mrai/ContentPanel";
 import { OnboardingPanel } from "@/components/mrai/OnboardingPanel";
+import { PresetsPanel } from "@/components/mrai/PresetsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,7 @@ export default async function MrAIPage({
       <OnboardingPanel initialState={onboarding} />
       <IntegrationsPanel initialFlash={integrationFlash} locale={safeLocale} />
       <ChannelsPanel locale={safeLocale} />
+      <PresetsPanel />
       <ContentPanel locale={safeLocale} />
       <BriefingPanel initialBriefing={latestBriefing} locale={safeLocale} />
       <MrAIChat

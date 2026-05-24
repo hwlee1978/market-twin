@@ -6,6 +6,7 @@ import { Brain, Loader2, Send, Trash2, MessageSquarePlus } from "lucide-react";
 import { AgentTrace, type AgentTraceData } from "./AgentTrace";
 import { FeedbackButtons } from "./FeedbackButtons";
 import { SimulationProposalCard, type SimulationProposalPayload } from "./SimulationProposalCard";
+import { ChannelRecommendationCard, type RecommendedChannelItem } from "./ChannelRecommendationCard";
 
 type MemoryKind = "fact" | "preference" | "context" | "decision";
 
@@ -24,7 +25,14 @@ type Conversation = {
 };
 
 type ChatAction =
-  | { type: "simulation_proposal"; payload: SimulationProposalPayload };
+  | { type: "simulation_proposal"; payload: SimulationProposalPayload }
+  | {
+      type: "channel_recommendations";
+      payload: {
+        countries: string[];
+        recommendations: RecommendedChannelItem[];
+      };
+    };
 
 type ChatTurn = {
   role: "user" | "assistant";
@@ -318,6 +326,15 @@ function TurnBubble({ turn, locale }: { turn: ChatTurn; locale: "ko" | "en" }) {
                   key={i}
                   initial={action.payload}
                   locale={locale}
+                />
+              );
+            }
+            if (action.type === "channel_recommendations") {
+              return (
+                <ChannelRecommendationCard
+                  key={i}
+                  initial={action.payload.recommendations}
+                  countries={action.payload.countries}
                 />
               );
             }
