@@ -36,14 +36,20 @@ export interface SensitivityCurvePoint {
  */
 export function computeCurveRevenueMaxCents(
   curve: SensitivityCurvePoint[],
+  /** Optional upper bound on the price we'll consider. Points above
+   *  this are skipped — used to avoid extrapolation noise at the
+   *  high-price tail when we know the personas never evaluated those
+   *  prices. When undefined, all curve points are considered. */
+  maxPriceCents?: number,
 ): number | null {
   if (curve.length < 2) return null;
   const sortedAsc = [...curve].sort((a, b) => a.priceCents - b.priceCents);
   let runningMinConv = Infinity;
   let bestRev = -Infinity;
-  let bestPrice = sortedAsc[0].priceCents;
+  let bestPrice: number | null = null;
   for (const p of sortedAsc) {
     runningMinConv = Math.min(runningMinConv, p.meanConversionProbability);
+    if (maxPriceCents != null && p.priceCents > maxPriceCents) continue;
     const rev = p.priceCents * runningMinConv;
     if (rev > bestRev) {
       bestRev = rev;
@@ -114,12 +120,48 @@ export function getDisplayPriceCents(
   const trustCeiling = ceilingBase > 0 ? ceilingBase * 1.5 : Infinity;
   const curveMaxRejectedAsExtrapolation =
     recomputed != null && recomputed > trustCeiling;
-  const wasCorrected =
-    matchesCurve === false &&
-    recomputed != null &&
-    !curveMaxRejectedAsExtrapolation;
+
+  // When the unconstrained curve max is outside the trust ceiling,
+  // don't blindly fall back to the LLM rec — the LLM rec may not even
+  // be on the curve (Le Mouton 1265510e: LLM said $124 but $124 isn't
+  // a curve point and curve points within ceiling peak at $160).
+  // Recompute with the ceiling as an upper bound so we surface the
+  // actual best price the personas evaluated, not an arbitrary point.
+  let constrainedCurveMax: number | null = null;
+  if (curveMaxRejectedAsExtrapolation && Number.isFinite(trustCeiling)) {
+    constrainedCurveMax = computeCurveRevenueMaxCents(curve, trustCeiling);
+  }
+
+  // Choose the headline:
+  //   1. Unconstrained curve max if it's within the trust ceiling AND
+  //      diverges from LLM rec by >10% (i.e. LLM was anchored on input).
+  //   2. Constrained curve max when the unconstrained value was
+  //      rejected as extrapolation — beats falling back to a possibly
+  //      off-curve LLM rec.
+  //   3. Otherwise LLM rec (when it already matches the curve or no
+  //      curve evidence is available).
+  let displayCents = llmRecCents;
+  let wasCorrected = false;
+  if (matchesCurve === false && recomputed != null && !curveMaxRejectedAsExtrapolation) {
+    displayCents = recomputed;
+    wasCorrected = true;
+  } else if (curveMaxRejectedAsExtrapolation && constrainedCurveMax != null) {
+    // Only override the LLM rec if the constrained max also differs
+    // by more than 10%; otherwise the LLM rec is already close enough
+    // to the curve peak and surfacing two near-identical numbers just
+    // adds noise.
+    const constrainedDiffers =
+      llmRecCents > 0
+        ? Math.abs(constrainedCurveMax / llmRecCents - 1) > 0.1
+        : true;
+    if (constrainedDiffers) {
+      displayCents = constrainedCurveMax;
+      wasCorrected = true;
+    }
+  }
+
   return {
-    displayCents: wasCorrected ? recomputed! : llmRecCents,
+    displayCents,
     wasCorrected,
     curveRevenueMaxCents: recomputed,
     curveMaxRejectedAsExtrapolation,
