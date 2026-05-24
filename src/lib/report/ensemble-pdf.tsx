@@ -7090,17 +7090,20 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
 
   // Top-2 secondary candidate pages. Reads aggregate.additional* maps
   // populated by the dashboard's "TW 시장 분석/액션/리스크 추가 생성"
-  // buttons. When the orchestrator flagged top2 AND the user has
-  // backfilled the secondary data, we append 3 dedicated pages
-  // (market profile / actions / risks) at the end of whichever PDF
-  // variant is being built — so an exec who downloads the PDF after
-  // dogfooding the dashboard sees both candidates at the same depth.
-  const secondaryPages = renderEnsembleSecondaryPages({
+  // buttons. Each page is inserted INLINE directly after its primary
+  // counterpart — exec reads "primary US market → secondary TW market
+  // → primary US risks → secondary TW risks → primary US actions →
+  // secondary TW actions" as a parallel comparison flow rather than
+  // "all US first, then a TW afterthought at the very end".
+  const secondary = renderEnsembleSecondaryPages({
     aggregate,
     isKo,
     pageHeader,
     pageFooter,
   });
+  const secondaryMarketPage = secondary.marketPage;
+  const secondaryActionsPage = secondary.actionsPage;
+  const secondaryRisksPage = secondary.risksPage;
 
   const doc = (
     <Document>
@@ -7119,7 +7122,14 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         <>
           {renderOnePageBriefPage()}
           {renderGoNoGoVerdictPage()}
+          {/* Secondary market profile right after Go/No-Go so the exec
+              compares both candidates BEFORE diving into actions. */}
+          {secondaryMarketPage}
           {renderActionsPage()}
+          {secondaryActionsPage}
+          {/* Risks merge into Go/No-Go in executive — surface secondary
+              risks alongside primary by inserting after actions. */}
+          {secondaryRisksPage}
           {renderPricingPage()}
         </>
       ) : (
@@ -7142,6 +7152,9 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           {renderExecutiveSummaryPage()}
           {renderRecommendationPage()}
           {renderMarketProfilePage()}
+          {/* Top-2 secondary market profile right after primary's so
+              the reader compares both market backgrounds together. */}
+          {secondaryMarketPage}
           {renderGtmStrategyPage()}
           {renderCountryDecisionMatrixPage()}
           {renderCountriesPage()}
@@ -7156,7 +7169,9 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           {renderCommonObjectionsPage()}
           {renderPricingPage()}
           {renderRisksPage()}
+          {secondaryRisksPage}
           {renderActionsPage()}
+          {secondaryActionsPage}
           {renderInvestmentROIPage()}
           {renderRiskActionMappingPage()}
           {renderProviderConsensusPage()}
@@ -7164,7 +7179,6 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           {renderAppendixPage()}
         </>
       )}
-      {secondaryPages}
     </Document>
   );
 
@@ -7182,11 +7196,17 @@ function renderEnsembleSecondaryPages(opts: {
   isKo: boolean;
   pageHeader: React.ReactElement;
   pageFooter: React.ReactElement;
-}): React.ReactElement[] {
+}): {
+  marketPage: React.ReactElement | null;
+  actionsPage: React.ReactElement | null;
+  risksPage: React.ReactElement | null;
+} {
   const { aggregate, isKo, pageHeader, pageFooter } = opts;
   const rec = aggregate.recommendation;
   const dist = aggregate.bestCountryDistribution ?? [];
-  if (!rec?.country || dist.length === 0) return [];
+  if (!rec?.country || dist.length === 0) {
+    return { marketPage: null, actionsPage: null, risksPage: null };
+  }
 
   // Detect tie — orchestrator displayMode top2 OR score-winner ≠ vote-winner
   const recExt = rec as unknown as { displayMode?: string; secondary?: { country?: string } };
@@ -7197,7 +7217,9 @@ function renderEnsembleSecondaryPages(opts: {
       : recExt.displayMode === "top2" && distTop && distTop !== rec.country
       ? distTop
       : null;
-  if (!secondaryCountry) return [];
+  if (!secondaryCountry) {
+    return { marketPage: null, actionsPage: null, risksPage: null };
+  }
 
   const aggExtra = aggregate as unknown as {
     additionalMarketProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
@@ -7218,10 +7240,14 @@ function renderEnsembleSecondaryPages(opts: {
   const mp = aggExtra.additionalMarketProfiles?.[secondaryCountry] ?? null;
   const actions = aggExtra.additionalActions?.[secondaryCountry] ?? [];
   const risks = aggExtra.additionalRisks?.[secondaryCountry] ?? [];
-  if (!mp && actions.length === 0 && risks.length === 0) return [];
+  if (!mp && actions.length === 0 && risks.length === 0) {
+    return { marketPage: null, actionsPage: null, risksPage: null };
+  }
 
   const countryLabel = getCountryLabel(secondaryCountry, isKo ? "ko" : "en");
-  const pages: React.ReactElement[] = [];
+  let marketPage: React.ReactElement | null = null;
+  let actionsPage: React.ReactElement | null = null;
+  let risksPage: React.ReactElement | null = null;
 
   // Local inline styling — ensemble-pdf doesn't share validation-pdf's
   // sectionTitle/bulletRow primitives, so we use the existing C palette
@@ -7267,7 +7293,7 @@ function renderEnsembleSecondaryPages(opts: {
 
   // ── Page S1: Market profile ─────────────────────────────────────
   if (mp) {
-    pages.push(
+    marketPage = (
       <Page key="ensemble-secondary-market" size="A4" style={styles.page}>
         <View style={styles.pageAccent} fixed />
         {pageHeader}
@@ -7383,13 +7409,13 @@ function renderEnsembleSecondaryPages(opts: {
         )}
 
         {pageFooter}
-      </Page>,
+      </Page>
     );
   }
 
   // ── Page S2: Actions ────────────────────────────────────────────
   if (actions.length > 0) {
-    pages.push(
+    actionsPage = (
       <Page key="ensemble-secondary-actions" size="A4" style={styles.page}>
         <View style={styles.pageAccent} fixed />
         {pageHeader}
@@ -7426,13 +7452,13 @@ function renderEnsembleSecondaryPages(opts: {
           </View>
         ))}
         {pageFooter}
-      </Page>,
+      </Page>
     );
   }
 
   // ── Page S3: Risks ──────────────────────────────────────────────
   if (risks.length > 0) {
-    pages.push(
+    risksPage = (
       <Page key="ensemble-secondary-risks" size="A4" style={styles.page}>
         <View style={styles.pageAccent} fixed />
         {pageHeader}
@@ -7472,11 +7498,11 @@ function renderEnsembleSecondaryPages(opts: {
           </View>
         ))}
         {pageFooter}
-      </Page>,
+      </Page>
     );
   }
 
-  return pages;
+  return { marketPage, actionsPage, risksPage };
 }
 
 /* ────────────────────────────────── small helpers ─── */
