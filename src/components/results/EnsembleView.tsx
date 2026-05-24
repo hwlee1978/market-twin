@@ -1143,6 +1143,21 @@ function EnsembleDashboard({
               additionalMarketProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
             }).additionalMarketProfiles
           }
+          additionalRisks={
+            (aggregate as unknown as {
+              additionalRisks?: Record<
+                string,
+                Array<{
+                  factor: string;
+                  description: string;
+                  severity: "low" | "medium" | "high";
+                  surfacedInSims: number;
+                  personaCategory?: string;
+                }>
+              >;
+            }).additionalRisks
+          }
+          ensembleId={result.id}
         />
       )}
       {activeTab === "actions" && (
@@ -7780,6 +7795,14 @@ function SecondaryNotesCard({
   );
 }
 
+type SecondaryRiskItem = {
+  factor: string;
+  description: string;
+  severity: "low" | "medium" | "high";
+  surfacedInSims: number;
+  personaCategory?: string;
+};
+
 function RisksTab({
   narrative,
   simCount,
@@ -7789,6 +7812,8 @@ function RisksTab({
   recommendation,
   bestCountryDistribution,
   additionalProfiles,
+  additionalRisks,
+  ensembleId,
 }: {
   narrative: EnsembleAggregate["narrative"];
   /** Total ensemble sim count — used as the denominator on each risk
@@ -7807,10 +7832,15 @@ function RisksTab({
   bestCountryDistribution: EnsembleAggregate["bestCountryDistribution"];
   /** Map of country → market profile for secondary candidates. */
   additionalProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
+  additionalRisks?: Record<string, SecondaryRiskItem[]>;
+  ensembleId: string;
 }) {
   const secondaryCountry = detectSecondary(recommendation, bestCountryDistribution);
   const secondaryProfile = secondaryCountry
     ? additionalProfiles?.[secondaryCountry] ?? null
+    : null;
+  const secondaryRisksList = secondaryCountry
+    ? additionalRisks?.[secondaryCountry] ?? null
     : null;
   if (!narrative?.mergedRisks?.length) {
     return (
@@ -8046,14 +8076,162 @@ function RisksTab({
           </p>
         </GuideSection>
       </ChartGuide>
-      {secondaryCountry && secondaryProfile && (
-        <SecondaryNotesCard
+      {secondaryCountry && (
+        <SecondaryRisksBlock
           country={secondaryCountry}
+          risks={secondaryRisksList}
           profile={secondaryProfile}
-          showRisks
+          ensembleId={ensembleId}
           isKo={isKo}
         />
       )}
+    </div>
+  );
+}
+
+function SecondaryRisksBlock({
+  country,
+  risks,
+  profile,
+  ensembleId,
+  isKo,
+}: {
+  country: string;
+  risks: SecondaryRiskItem[] | null;
+  profile: EnsembleAggregate["marketProfile"] | null;
+  ensembleId: string;
+  isKo: boolean;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const generate = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/ensembles/${ensembleId}/secondary-risks?country=${country}`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || err.detail || `status ${res.status}`);
+      }
+      router.refresh();
+      window.location.reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "generation failed");
+      setBusy(false);
+    }
+  };
+
+  if (!risks || risks.length === 0) {
+    const hasProfile = !!profile;
+    return (
+      <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40">
+        <div className="card border-warn/40 bg-warn-soft/20 p-6">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-warn text-white shrink-0 font-bold">
+              !
+            </span>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-semibold text-warn mb-1">
+                {isKo
+                  ? `${country} — Top 2 동등 후보 리스크 (생성 대기)`
+                  : `${country} — Top 2 secondary risks (pending)`}
+              </h2>
+              <p className="text-xs text-slate-700 leading-relaxed mb-4">
+                {isKo
+                  ? `Top 2 동등 후보이므로 ${country} 시장의 구체적 리스크 (compliance·채널·페르소나 5~8개)도 별도 생성이 필요합니다. ${
+                      hasProfile
+                        ? `${country} 시장 분석이 이미 있어 풍부한 리스크가 생성됩니다.`
+                        : `${country} 시장 분석이 아직 없어 페르소나 시그널만으로 생성됩니다 (시장 분석 먼저 생성 권장).`
+                    } 단일 LLM 호출 (~$0.10, 30-60초).`
+                  : `Top 2 ties need parallel ${country} risks (compliance · channels · personas, 5-8 items). ${
+                      hasProfile
+                        ? `Market profile already exists — generates rich, grounded risks.`
+                        : `No market profile yet — risks will rely on persona signal only (generate the profile first for better quality).`
+                    } Single LLM call (~$0.10, 30-60s).`}
+              </p>
+              <button
+                type="button"
+                onClick={generate}
+                disabled={busy}
+                className="btn-primary inline-flex items-center gap-2 disabled:opacity-60"
+              >
+                {busy ? <Loader2 size={14} className="animate-spin" /> : <Lightbulb size={14} />}
+                {busy
+                  ? isKo
+                    ? "생성 중..."
+                    : "Generating..."
+                  : isKo
+                    ? `${country} 리스크 추가 생성`
+                    : `Generate ${country} risks`}
+              </button>
+              {error && <p className="text-xs text-risk mt-3">{error}</p>}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Populated — render with the same severity / factor / description
+  // card layout the primary mergedRisks list uses.
+  const sevLabel = (s: string) =>
+    s === "high" ? (isKo ? "높음" : "HIGH") : s === "medium" ? (isKo ? "보통" : "MEDIUM") : isKo ? "낮음" : "LOW";
+  const sevTone = (s: string) =>
+    s === "high"
+      ? "bg-risk text-white"
+      : s === "medium"
+      ? "bg-warn text-white"
+      : "bg-slate-200 text-slate-600";
+  const sevText = (s: string) =>
+    s === "high" ? "text-risk" : s === "medium" ? "text-warn" : "text-slate-500";
+
+  return (
+    <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40 space-y-4">
+      <div className="flex items-baseline gap-3 flex-wrap">
+        <h2 className="text-xl font-semibold text-slate-900">
+          {country} —{" "}
+          {isKo ? "Top 2 동등 후보 리스크" : "Top 2 secondary risks"}
+        </h2>
+        <span className="text-[10px] uppercase tracking-wider text-warn bg-warn-soft/40 border border-warn/30 px-2 py-0.5 rounded">
+          {isKo ? "동등 후보" : "tied"}
+        </span>
+        <span className="text-[10px] text-slate-500">
+          {isKo
+            ? `${risks.length}개 리스크 · single LLM pass (sim 합의 아님)`
+            : `${risks.length} risks · single LLM pass (not cross-sim consensus)`}
+        </span>
+      </div>
+      <div className="card divide-y divide-slate-100">
+        {risks.map((r, i) => (
+          <div key={i} className="px-5 py-4">
+            <div className="flex items-baseline gap-2 mb-1.5 flex-wrap">
+              <span
+                className={clsx(
+                  "text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold",
+                  sevTone(r.severity),
+                )}
+              >
+                {sevLabel(r.severity)}
+              </span>
+              <h3 className={clsx("text-sm font-semibold", sevText(r.severity))}>
+                {r.factor}
+              </h3>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed">{r.description}</p>
+            {r.personaCategory && (
+              <div className="text-xs mt-1.5 text-slate-400 font-mono">
+                {r.personaCategory}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
