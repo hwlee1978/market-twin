@@ -1135,6 +1135,14 @@ function EnsembleDashboard({
           simCount={simCount}
           crossCountry={aggregate.crossCountryDistribution}
           isKo={isKo}
+          winnerCountry={recommendation.country}
+          recommendation={recommendation}
+          bestCountryDistribution={bestCountryDistribution}
+          additionalProfiles={
+            (aggregate as unknown as {
+              additionalMarketProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
+            }).additionalMarketProfiles
+          }
         />
       )}
       {activeTab === "actions" && (
@@ -1143,6 +1151,14 @@ function EnsembleDashboard({
           simCount={simCount}
           actionCoverage={aggregate.actionCategoryCoverage}
           isKo={isKo}
+          winnerCountry={recommendation.country}
+          recommendation={recommendation}
+          bestCountryDistribution={bestCountryDistribution}
+          additionalProfiles={
+            (aggregate as unknown as {
+              additionalMarketProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
+            }).additionalMarketProfiles
+          }
         />
       )}
       {activeTab === "data" && (
@@ -7592,11 +7608,164 @@ function DecisionAidTab({
   );
 }
 
+/**
+ * Compute the secondary country (Top 2 runner-up) shared by Risks +
+ * Actions tabs so they can show a "winner-only" warning and pull
+ * secondary-specific info from the additionalMarketProfiles map.
+ */
+function detectSecondary(
+  recommendation: EnsembleAggregate["recommendation"],
+  bestCountryDistribution: EnsembleAggregate["bestCountryDistribution"],
+): string | null {
+  const recSecondary = (recommendation as unknown as {
+    secondary?: { country?: string };
+    displayMode?: string;
+  }).secondary;
+  const recDisplayMode = (recommendation as unknown as { displayMode?: string }).displayMode;
+  const distTopCountry = bestCountryDistribution[0]?.country;
+  if (recSecondary?.country && recSecondary.country !== recommendation.country) {
+    return recSecondary.country;
+  }
+  if (recDisplayMode === "top2" && distTopCountry && distTopCountry !== recommendation.country) {
+    return distTopCountry;
+  }
+  return null;
+}
+
+function TieWinnerOnlyBanner({
+  winner,
+  secondary,
+  scope,
+  isKo,
+}: {
+  winner: string;
+  secondary: string;
+  scope: "risks" | "actions";
+  isKo: boolean;
+}) {
+  const scopeLabel = scope === "risks" ? (isKo ? "리스크" : "Risks") : (isKo ? "추천 액션" : "Actions");
+  return (
+    <div className="card border-warn/40 bg-warn-soft/30 p-4 flex items-start gap-3">
+      <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-warn/20 text-warn shrink-0 font-bold">!</span>
+      <div className="flex-1 min-w-0">
+        <h3 className="text-sm font-semibold text-warn mb-1">
+          {isKo
+            ? `이 ${scopeLabel} 목록은 ${winner} 기준입니다 — ${secondary}도 동등 후보`
+            : `These ${scope} are scoped to ${winner} — ${secondary} is also a tied candidate`}
+        </h3>
+        <p className="text-xs text-slate-700 leading-relaxed">
+          {isKo
+            ? `Top 2 동등 케이스이므로 ${secondary} 시장의 ${scopeLabel}도 별도 검토가 필요합니다. ${secondary} 시장 분석을 '시장 분석' 탭에서 생성하시면 규제·인증·GTM 리스크/액션이 함께 표시됩니다.`
+            : `Since this is a Top 2 tie, ${secondary} ${scope} need separate review. Generate the ${secondary} market profile in the Market Profile tab to surface its regulatory / GTM ${scope}.`}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function SecondaryNotesCard({
+  country,
+  profile,
+  showRisks,
+  showActions,
+  isKo,
+}: {
+  country: string;
+  profile: NonNullable<EnsembleAggregate["marketProfile"]>;
+  showRisks?: boolean;
+  showActions?: boolean;
+  isKo: boolean;
+}) {
+  const reg = profile.regulatory;
+  const gtm = profile.goToMarketStrategy;
+  const risks = gtm?.risks ?? [];
+  const diffs = gtm?.differentiators ?? [];
+  const barriers = reg?.barriers ?? [];
+  if (
+    (showRisks && risks.length === 0 && barriers.length === 0) ||
+    (showActions && diffs.length === 0)
+  ) {
+    return null;
+  }
+  return (
+    <div className="card border-brand/20 bg-brand-50/30 p-5 mt-4">
+      <h3 className="text-sm font-semibold text-brand mb-3">
+        {country} —{" "}
+        {isKo
+          ? showRisks
+            ? "secondary 리스크 (시장 분석 추출)"
+            : "secondary 액션 시드 (시장 분석 추출)"
+          : showRisks
+            ? "secondary risks (from market profile)"
+            : "secondary action seeds (from market profile)"}
+      </h3>
+      {showRisks && barriers.length > 0 && (
+        <div className="mb-3">
+          <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">
+            {isKo ? "규제·진입 장벽" : "Regulatory barriers"}
+          </div>
+          <ul className="space-y-1 text-sm text-slate-700">
+            {barriers.slice(0, 4).map((b, i) => (
+              <li key={i} className="flex gap-2">
+                <span
+                  className={`shrink-0 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold ${
+                    b.severity === "high" ? "bg-risk text-white" : b.severity === "medium" ? "bg-warn text-white" : "bg-slate-300 text-slate-700"
+                  }`}
+                >
+                  {b.severity}
+                </span>
+                <span>
+                  <span className="font-semibold">{b.name}</span>
+                  {b.description && <span className="text-slate-600"> — {b.description}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {showRisks && risks.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">
+            {isKo ? "GTM 리스크" : "GTM risks"}
+          </div>
+          <ul className="space-y-1 text-sm text-slate-700">
+            {risks.slice(0, 5).map((r, i) => (
+              <li key={i} className="flex gap-2">
+                <span className="text-warn">⚠</span>
+                <span>{r}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {showActions && diffs.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">
+            {isKo ? "차별화 포인트 (액션 시드)" : "Differentiators (action seeds)"}
+          </div>
+          <ul className="space-y-1 text-sm text-slate-700">
+            {diffs.slice(0, 6).map((d, i) => (
+              <li key={i} className="flex gap-2">
+                <span className="text-brand">✓</span>
+                <span>{d}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RisksTab({
   narrative,
   simCount,
   crossCountry,
   isKo,
+  winnerCountry,
+  recommendation,
+  bestCountryDistribution,
+  additionalProfiles,
 }: {
   narrative: EnsembleAggregate["narrative"];
   /** Total ensemble sim count — used as the denominator on each risk
@@ -7609,11 +7778,31 @@ function RisksTab({
    *  coverage from this matrix instead of the sim-frequency count. */
   crossCountry: EnsembleAggregate["crossCountryDistribution"];
   isKo: boolean;
+  /** Winner country for the tie banner. */
+  winnerCountry: string;
+  recommendation: EnsembleAggregate["recommendation"];
+  bestCountryDistribution: EnsembleAggregate["bestCountryDistribution"];
+  /** Map of country → market profile for secondary candidates. */
+  additionalProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
 }) {
+  const secondaryCountry = detectSecondary(recommendation, bestCountryDistribution);
+  const secondaryProfile = secondaryCountry
+    ? additionalProfiles?.[secondaryCountry] ?? null
+    : null;
   if (!narrative?.mergedRisks?.length) {
     return (
-      <div className="card p-8 text-center text-slate-500">
-        {isKo ? "통합 리스크 데이터가 없습니다." : "No merged risks available."}
+      <div className="space-y-4">
+        {secondaryCountry && (
+          <TieWinnerOnlyBanner
+            winner={winnerCountry}
+            secondary={secondaryCountry}
+            scope="risks"
+            isKo={isKo}
+          />
+        )}
+        <div className="card p-8 text-center text-slate-500">
+          {isKo ? "통합 리스크 데이터가 없습니다." : "No merged risks available."}
+        </div>
       </div>
     );
   }
@@ -7631,6 +7820,14 @@ function RisksTab({
         : "text-success";
   return (
     <div className="space-y-4">
+      {secondaryCountry && (
+        <TieWinnerOnlyBanner
+          winner={winnerCountry}
+          secondary={secondaryCountry}
+          scope="risks"
+          isKo={isKo}
+        />
+      )}
       <div className="card p-4 flex items-center justify-between">
         <div className="text-sm text-slate-600">
           {isKo ? "종합 리스크 수준" : "Overall risk level"}
@@ -7826,6 +8023,14 @@ function RisksTab({
           </p>
         </GuideSection>
       </ChartGuide>
+      {secondaryCountry && secondaryProfile && (
+        <SecondaryNotesCard
+          country={secondaryCountry}
+          profile={secondaryProfile}
+          showRisks
+          isKo={isKo}
+        />
+      )}
     </div>
   );
 }
@@ -7835,6 +8040,10 @@ function ActionsTab({
   simCount,
   actionCoverage,
   isKo,
+  winnerCountry,
+  recommendation,
+  bestCountryDistribution,
+  additionalProfiles,
 }: {
   narrative: EnsembleAggregate["narrative"];
   /** Total ensemble sim count — used as denominator for the
@@ -7845,11 +8054,29 @@ function ActionsTab({
    *  shows category-level coverage in place of textual sim count. */
   actionCoverage: EnsembleAggregate["actionCategoryCoverage"];
   isKo: boolean;
+  winnerCountry: string;
+  recommendation: EnsembleAggregate["recommendation"];
+  bestCountryDistribution: EnsembleAggregate["bestCountryDistribution"];
+  additionalProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
 }) {
+  const secondaryCountry = detectSecondary(recommendation, bestCountryDistribution);
+  const secondaryProfile = secondaryCountry
+    ? additionalProfiles?.[secondaryCountry] ?? null
+    : null;
   if (!narrative?.mergedActions?.length) {
     return (
-      <div className="card p-8 text-center text-slate-500">
-        {isKo ? "통합 액션 데이터가 없습니다." : "No merged actions available."}
+      <div className="space-y-4">
+        {secondaryCountry && (
+          <TieWinnerOnlyBanner
+            winner={winnerCountry}
+            secondary={secondaryCountry}
+            scope="actions"
+            isKo={isKo}
+          />
+        )}
+        <div className="card p-8 text-center text-slate-500">
+          {isKo ? "통합 액션 데이터가 없습니다." : "No merged actions available."}
+        </div>
       </div>
     );
   }
@@ -7862,6 +8089,14 @@ function ActionsTab({
 
   return (
     <div className="space-y-6">
+      {secondaryCountry && (
+        <TieWinnerOnlyBanner
+          winner={winnerCountry}
+          secondary={secondaryCountry}
+          scope="actions"
+          isKo={isKo}
+        />
+      )}
       {hasScores && <ActionPriorityMatrix actions={narrative.mergedActions} isKo={isKo} />}
       <div>
         {hasScores && (
@@ -7931,6 +8166,14 @@ function ActionsTab({
           })}
         </ol>
       </div>
+      {secondaryCountry && secondaryProfile && (
+        <SecondaryNotesCard
+          country={secondaryCountry}
+          profile={secondaryProfile}
+          showActions
+          isKo={isKo}
+        />
+      )}
     </div>
   );
 }
