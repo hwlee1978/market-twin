@@ -1315,13 +1315,47 @@ function SummaryTab({
     !isFreeRerun &&
     !childRerunId;
 
+  // Compute tie state here so the HotTakeCard gets the same warning as
+  // the Overview tab — keeps the two views consistent.
+  const recSecondaryCountry = (recommendation as unknown as {
+    secondary?: { country?: string };
+    displayMode?: string;
+  }).secondary?.country;
+  const recDisplayMode = (recommendation as unknown as { displayMode?: string }).displayMode;
+  const distTopCountry = bestCountryDistribution[0]?.country;
+  const top = bestCountryDistribution[0];
+  const tiedTopsHere = top
+    ? bestCountryDistribution.filter((d) => d.percent === top.percent)
+    : [];
+  const voteTopMismatchHere =
+    !!distTopCountry && distTopCountry !== recommendation.country;
+  const isTieHere =
+    recDisplayMode === "top2" ||
+    tiedTopsHere.length >= 2 ||
+    voteTopMismatchHere;
+  const tieCountriesHere: string[] = isTieHere
+    ? (() => {
+        const set = new Set<string>([recommendation.country]);
+        if (recSecondaryCountry) set.add(recSecondaryCountry);
+        for (const t of tiedTopsHere) set.add(t.country);
+        if (distTopCountry) set.add(distTopCountry);
+        return Array.from(set).slice(0, 3);
+      })()
+    : [];
+
   return (
     <div className="space-y-6">
       {isFreeRerun && parentEnsembleId && (
         <FreeRerunBadge parentId={parentEnsembleId} locale={locale} isKo={isKo} />
       )}
 
-      {hotTake && <HotTakeCard hotTake={hotTake} isKo={isKo} />}
+      {hotTake && (
+        <HotTakeCard
+          hotTake={hotTake}
+          isKo={isKo}
+          tieCountries={isTieHere ? tieCountriesHere : undefined}
+        />
+      )}
 
       {quality && <QualityBanner quality={quality} isKo={isKo} />}
 
@@ -2469,15 +2503,46 @@ function FreeRerunBadge({
   );
 }
 
-function HotTakeCard({ hotTake, isKo }: { hotTake: string; isKo: boolean }) {
+function HotTakeCard({
+  hotTake,
+  isKo,
+  tieCountries,
+}: {
+  hotTake: string;
+  isKo: boolean;
+  /**
+   * When present, the orchestrator flagged Top 2 (or more) as
+   * effectively tied — the hot take was authored before that signal
+   * fully resolved, so we surface a small disclaimer so the reader
+   * doesn't take "X로 가자" as a single-country mandate.
+   */
+  tieCountries?: string[];
+}) {
+  const tied = tieCountries && tieCountries.length >= 2;
   return (
     <div className="rounded-xl bg-gradient-to-r from-brand-50 to-accent-50 border-2 border-accent/30 p-5 shadow-sm">
-      <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-accent mb-2">
-        {isKo ? "30초 핫테이크" : "30-second hot take"}
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-accent">
+          {isKo ? "30초 핫테이크" : "30-second hot take"}
+        </div>
+        {tied && (
+          <span className="text-[10px] font-bold uppercase tracking-wider text-warn bg-warn-soft/50 border border-warn/40 px-2 py-0.5 rounded">
+            {isKo
+              ? `⚠ Top ${tieCountries!.length} 동등 (${tieCountries!.join("·")}) — 단일국 단정 주의`
+              : `⚠ Top ${tieCountries!.length} tied (${tieCountries!.join(" · ")}) — read as one of N`}
+          </span>
+        )}
       </div>
       <p className="text-lg sm:text-xl font-semibold text-slate-900 leading-snug break-keep">
         {hotTake}
       </p>
+      {tied && (
+        <p className="mt-2 text-xs text-slate-600 leading-relaxed">
+          {isKo
+            ? `핫테이크는 ${tieCountries![0]} 기준으로 작성됐지만, ${tieCountries!.slice(1).join("·")}도 동등 후보입니다. 단일국 결정 전 두 시장 모두 검토하세요.`
+            : `Hot take is written from the ${tieCountries![0]} angle, but ${tieCountries!.slice(1).join(", ")} also qualifies. Evaluate both before committing.`}
+        </p>
+      )}
     </div>
   );
 }
