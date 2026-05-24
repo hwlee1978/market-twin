@@ -238,6 +238,63 @@ export interface ValidationReportData {
     contact: string;
     tagline: string;
   };
+  /**
+   * Top-2 secondary candidate detail. Populated by the PDF endpoint
+   * when (a) the orchestrator flagged displayMode "top2" (or score-
+   * winner ≠ vote-winner) AND (b) the user has already generated the
+   * additionalMarketProfiles / additionalActions / additionalRisks
+   * payloads on the dashboard. The PDF renderer appends a dedicated
+   * "Secondary candidate" section so executives see both candidates
+   * with the same depth instead of winner-only content.
+   *
+   * Optional throughout — when absent (no tie, or user hasn't backfilled
+   * the secondary data), the PDF skips this section entirely.
+   */
+  secondaryAnalysis?: {
+    country: string;
+    marketProfile?: {
+      tam?: string;
+      growth?: string;
+      segment?: string;
+      competitors: Array<{ name: string; threatLevel?: string; brandContext?: string }>;
+      channels: Array<{ name: string; rationale?: string }>;
+      regulatory: {
+        barriers: Array<{ name: string; severity: string; description?: string }>;
+        requirements: string[];
+        timeToCompliance?: string;
+      };
+      culturalNotes: {
+        valuesAlignment?: string;
+        purchaseBehavior?: string;
+        languageNotes?: string;
+        seasonality?: string;
+      };
+      pricingBenchmarks: {
+        entry?: string;
+        mid?: string;
+        premium?: string;
+        yourPosition?: string;
+      };
+      gtm: {
+        keyMessage?: string;
+        primaryAudience?: string;
+        differentiators: string[];
+        risks: string[];
+      };
+    };
+    actions: Array<{
+      action: string;
+      impact?: number;
+      effort?: number;
+      actionCategory?: string;
+    }>;
+    risks: Array<{
+      factor: string;
+      description: string;
+      severity: "low" | "medium" | "high";
+      personaCategory?: string;
+    }>;
+  };
 }
 
 // ── ISO → Korean country name (for KOTRA compSucsCase search1) ──────

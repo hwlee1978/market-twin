@@ -32,6 +32,7 @@ import {
   View,
   renderToBuffer,
 } from "@react-pdf/renderer";
+import type * as React from "react";
 import type { Style } from "@react-pdf/types";
 import { splitByFont } from "./fonts";
 import { normalizeLLMText } from "@/lib/format/normalize";
@@ -572,7 +573,7 @@ function fitTitleSize(text: string): number {
 export async function buildValidationPdf(data: ValidationReportData): Promise<Buffer> {
   const { meta, simResult, executiveSummary, methodology, externalCrossCheck,
     alignmentMatrix, alignmentScoring, riskAssessment, phasedExecution,
-    honestDisclosure, appendix } = data;
+    honestDisclosure, appendix, secondaryAnalysis } = data;
   const isKo = meta.locale === "ko";
   const generatedAt = new Date(meta.generatedAt);
   const generatedAtStr = generatedAt.toLocaleDateString(
@@ -1852,6 +1853,21 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
     </Page>
   );
 
+  // Top-2 secondary candidate — full parallel analysis pages so the
+  // PDF doesn't read as winner-only when displayMode = top2. We split
+  // across multiple A4 pages so the reader can compare each section
+  // against the primary at the same depth.
+  const secondaryPages = secondaryAnalysis
+    ? renderSecondaryAnalysisPages({
+        secondary: secondaryAnalysis,
+        winnerLabel,
+        winnerCode: simResult.winner,
+        isKo,
+        pageHeader,
+        pageFooter,
+      })
+    : [];
+
   const doc = (
     <Document>
       {coverPage}
@@ -1868,9 +1884,411 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
       {actionPage}
       {honestPage}
       {appendixPage}
+      {secondaryPages}
       {closingPage}
     </Document>
   );
 
   return await renderToBuffer(doc);
+}
+
+/**
+ * Render the Top-2 secondary candidate as 3 dedicated A4 pages:
+ *   1) Market profile (TAM / growth / competitors / channels /
+ *      regulatory / cultural / pricing / GTM)
+ *   2) Recommended actions
+ *   3) Risks
+ *
+ * Mirrors the primary content depth so the exec can compare Top-2
+ * candidates side-by-side without falling back to the winner.
+ */
+function renderSecondaryAnalysisPages(opts: {
+  secondary: NonNullable<ValidationReportData["secondaryAnalysis"]>;
+  winnerLabel: string;
+  winnerCode: string;
+  isKo: boolean;
+  pageHeader: React.ReactElement;
+  pageFooter: React.ReactElement;
+}): React.ReactElement[] {
+  const { secondary, winnerLabel, winnerCode, isKo, pageHeader, pageFooter } = opts;
+  const countryLabel = getCountryLabel(secondary.country, isKo ? "ko" : "en");
+  const pages: React.ReactElement[] = [];
+
+  const sectionTitle = (text: string) => (
+    <MText style={styles.subSectionTitle}>{text}</MText>
+  );
+  const intro = (
+    <View style={{ marginBottom: 12 }}>
+      <View style={[styles.coverConclusionCard, { padding: 12, marginBottom: 8 }]}>
+        <MText style={[styles.coverConclusionLabel, { color: C.warn }]}>
+          {isKo ? "Top 2 동등 후보" : "Top 2 secondary candidate"}
+        </MText>
+        <MText style={[styles.coverConclusionMain, { fontSize: 18, color: C.brand }]}>
+          {`${countryLabel} (${secondary.country})`}
+        </MText>
+        <MText style={[styles.coverConclusionMeta, { color: C.muted }]}>
+          {isKo
+            ? `Winner ${winnerLabel} (${winnerCode})와 동등 후보 — 다음 페이지부터 같은 깊이로 검증`
+            : `Tied with winner ${winnerLabel} (${winnerCode}) — same-depth validation follows`}
+        </MText>
+      </View>
+    </View>
+  );
+
+  // ── Page A: Market profile ──────────────────────────────────────
+  const mp = secondary.marketProfile;
+  if (mp) {
+    pages.push(
+      <Page key="secondary-market" size="A4" style={styles.page}>
+        <View style={styles.pageAccent} fixed />
+        {pageHeader}
+        <View style={styles.pageTitleRow}>
+          <MText style={styles.sectionNum}>S1</MText>
+          <MText style={styles.pageTitle}>
+            {isKo
+              ? `${countryLabel} — 시장 분석 (Top 2 동등 후보)`
+              : `${countryLabel} — Market profile (Top 2 secondary)`}
+          </MText>
+        </View>
+        {intro}
+
+        {(mp.tam || mp.growth || mp.segment) && (
+          <View style={{ marginBottom: 12 }}>
+            {sectionTitle(isKo ? "시장 규모" : "Market size")}
+            {mp.tam && (
+              <View style={styles.bulletRow}>
+                <MText style={[styles.bulletDot, { color: C.brand }]}>TAM</MText>
+                <MText style={styles.bulletText}>{stripUnsupportedGlyphs(mp.tam)}</MText>
+              </View>
+            )}
+            {mp.growth && (
+              <View style={styles.bulletRow}>
+                <MText style={[styles.bulletDot, { color: C.brand }]}>{isKo ? "성장" : "Growth"}</MText>
+                <MText style={styles.bulletText}>{stripUnsupportedGlyphs(mp.growth)}</MText>
+              </View>
+            )}
+            {mp.segment && (
+              <View style={styles.bulletRow}>
+                <MText style={[styles.bulletDot, { color: C.brand }]}>{isKo ? "세그먼트" : "Segment"}</MText>
+                <MText style={styles.bulletText}>{stripUnsupportedGlyphs(mp.segment)}</MText>
+              </View>
+            )}
+          </View>
+        )}
+
+        {mp.competitors.length > 0 && (
+          <View style={{ marginBottom: 12 }}>
+            {sectionTitle(isKo ? `경쟁자 (${mp.competitors.length})` : `Competitors (${mp.competitors.length})`)}
+            {mp.competitors.slice(0, 6).map((c, i) => (
+              <View key={i} style={[styles.bulletRow, { alignItems: "flex-start" }]}>
+                <MText style={[styles.bulletDot, { color: C.brand, width: 14, fontWeight: 700 }]}>·</MText>
+                <View style={{ flex: 1 }}>
+                  <MText style={[styles.bulletText, { fontWeight: 700 }]}>
+                    {`${stripUnsupportedGlyphs(c.name)}${c.threatLevel ? ` (${c.threatLevel})` : ""}`}
+                  </MText>
+                  {c.brandContext && (
+                    <MText style={[styles.bulletText, { fontSize: 9, color: C.muted, marginTop: 1 }]}>
+                      {stripUnsupportedGlyphs(c.brandContext)}
+                    </MText>
+                  )}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {mp.channels.length > 0 && (
+          <View style={{ marginBottom: 12 }}>
+            {sectionTitle(isKo ? "채널 환경" : "Channels")}
+            {mp.channels.slice(0, 6).map((c, i) => (
+              <View key={i} style={[styles.bulletRow, { alignItems: "flex-start" }]}>
+                <MText style={[styles.bulletDot, { color: C.brand, width: 14 }]}>·</MText>
+                <View style={{ flex: 1 }}>
+                  <MText style={[styles.bulletText, { fontWeight: 700 }]}>
+                    {stripUnsupportedGlyphs(c.name)}
+                  </MText>
+                  {c.rationale && (
+                    <MText style={[styles.bulletText, { fontSize: 9, color: C.muted, marginTop: 1 }]}>
+                      {stripUnsupportedGlyphs(c.rationale)}
+                    </MText>
+                  )}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {(mp.regulatory.barriers.length > 0 || mp.regulatory.requirements.length > 0) && (
+          <View style={{ marginBottom: 12 }}>
+            {sectionTitle(isKo ? "규제·진입 장벽" : "Regulatory / barriers")}
+            {mp.regulatory.barriers.slice(0, 5).map((b, i) => (
+              <View key={i} style={[styles.bulletRow, { alignItems: "flex-start" }]}>
+                <MText
+                  style={[
+                    styles.bulletDot,
+                    {
+                      color: b.severity === "high" ? C.risk : b.severity === "medium" ? C.warn : C.muted,
+                      fontWeight: 700,
+                      width: 36,
+                      fontSize: 9,
+                    },
+                  ]}
+                >
+                  {b.severity.toUpperCase()}
+                </MText>
+                <View style={{ flex: 1 }}>
+                  <MText style={[styles.bulletText, { fontWeight: 700 }]}>
+                    {stripUnsupportedGlyphs(b.name)}
+                  </MText>
+                  {b.description && (
+                    <MText style={[styles.bulletText, { fontSize: 9, color: C.muted, marginTop: 1 }]}>
+                      {stripUnsupportedGlyphs(b.description)}
+                    </MText>
+                  )}
+                </View>
+              </View>
+            ))}
+            {mp.regulatory.requirements.length > 0 && (
+              <View style={{ marginTop: 6 }}>
+                <MText style={[styles.bulletText, { fontSize: 9, color: C.muted, fontWeight: 700 }]}>
+                  {isKo ? "필수 요구사항:" : "Requirements:"}
+                </MText>
+                {mp.regulatory.requirements.slice(0, 5).map((r, i) => (
+                  <MText
+                    key={i}
+                    style={[styles.bulletText, { fontSize: 9, color: C.muted, marginLeft: 8 }]}
+                  >
+                    {`· ${stripUnsupportedGlyphs(r)}`}
+                  </MText>
+                ))}
+              </View>
+            )}
+            {mp.regulatory.timeToCompliance && (
+              <MText
+                style={[styles.bulletText, { fontSize: 9, color: C.muted, marginTop: 4 }]}
+              >
+                {`${isKo ? "준수 소요시간" : "Time to compliance"}: ${stripUnsupportedGlyphs(mp.regulatory.timeToCompliance)}`}
+              </MText>
+            )}
+          </View>
+        )}
+
+        {(mp.culturalNotes.valuesAlignment ||
+          mp.culturalNotes.purchaseBehavior ||
+          mp.culturalNotes.languageNotes ||
+          mp.culturalNotes.seasonality) && (
+          <View style={{ marginBottom: 12 }}>
+            {sectionTitle(isKo ? "문화·소비자 인사이트" : "Cultural / consumer insights")}
+            {mp.culturalNotes.valuesAlignment && (
+              <View style={styles.bulletRow}>
+                <MText style={[styles.bulletDot, { color: C.brand, width: 50 }]}>
+                  {isKo ? "가치관" : "Values"}
+                </MText>
+                <MText style={styles.bulletText}>
+                  {stripUnsupportedGlyphs(mp.culturalNotes.valuesAlignment)}
+                </MText>
+              </View>
+            )}
+            {mp.culturalNotes.purchaseBehavior && (
+              <View style={styles.bulletRow}>
+                <MText style={[styles.bulletDot, { color: C.brand, width: 50 }]}>
+                  {isKo ? "구매 행동" : "Behavior"}
+                </MText>
+                <MText style={styles.bulletText}>
+                  {stripUnsupportedGlyphs(mp.culturalNotes.purchaseBehavior)}
+                </MText>
+              </View>
+            )}
+          </View>
+        )}
+
+        {(mp.pricingBenchmarks.entry || mp.pricingBenchmarks.mid || mp.pricingBenchmarks.premium) && (
+          <View style={{ marginBottom: 12 }}>
+            {sectionTitle(isKo ? "가격 벤치마크" : "Pricing benchmarks")}
+            <View style={{ flexDirection: "row", gap: 12, flexWrap: "wrap" }}>
+              {mp.pricingBenchmarks.entry && (
+                <MText style={[styles.bulletText, { fontSize: 10 }]}>
+                  {`Entry: ${stripUnsupportedGlyphs(mp.pricingBenchmarks.entry)}`}
+                </MText>
+              )}
+              {mp.pricingBenchmarks.mid && (
+                <MText style={[styles.bulletText, { fontSize: 10 }]}>
+                  {`Mid: ${stripUnsupportedGlyphs(mp.pricingBenchmarks.mid)}`}
+                </MText>
+              )}
+              {mp.pricingBenchmarks.premium && (
+                <MText style={[styles.bulletText, { fontSize: 10 }]}>
+                  {`Premium: ${stripUnsupportedGlyphs(mp.pricingBenchmarks.premium)}`}
+                </MText>
+              )}
+              {mp.pricingBenchmarks.yourPosition && (
+                <MText style={[styles.bulletText, { fontSize: 10, fontWeight: 700, color: C.brand }]}>
+                  {`${isKo ? "내 포지션" : "Your position"}: ${stripUnsupportedGlyphs(mp.pricingBenchmarks.yourPosition)}`}
+                </MText>
+              )}
+            </View>
+          </View>
+        )}
+
+        {(mp.gtm.keyMessage || mp.gtm.differentiators.length > 0 || mp.gtm.risks.length > 0) && (
+          <View style={{ marginBottom: 12 }}>
+            {sectionTitle(isKo ? "GTM 전략" : "GTM strategy")}
+            {mp.gtm.keyMessage && (
+              <View style={{ marginBottom: 6 }}>
+                <MText style={[styles.bulletText, { fontSize: 9, color: C.muted, fontWeight: 700 }]}>
+                  {isKo ? "핵심 메시지" : "Key message"}
+                </MText>
+                <MText style={[styles.bulletText, { fontWeight: 700 }]}>
+                  {stripUnsupportedGlyphs(mp.gtm.keyMessage)}
+                </MText>
+              </View>
+            )}
+            {mp.gtm.primaryAudience && (
+              <View style={{ marginBottom: 6 }}>
+                <MText style={[styles.bulletText, { fontSize: 9, color: C.muted, fontWeight: 700 }]}>
+                  {isKo ? "1차 타깃 (ICP)" : "Primary audience (ICP)"}
+                </MText>
+                <MText style={styles.bulletText}>
+                  {stripUnsupportedGlyphs(mp.gtm.primaryAudience)}
+                </MText>
+              </View>
+            )}
+            {mp.gtm.differentiators.length > 0 && (
+              <View style={{ marginBottom: 6 }}>
+                <MText style={[styles.bulletText, { fontSize: 9, color: C.muted, fontWeight: 700 }]}>
+                  {isKo ? "차별화 요소" : "Differentiators"}
+                </MText>
+                {mp.gtm.differentiators.slice(0, 5).map((d, i) => (
+                  <MText key={i} style={[styles.bulletText, { fontSize: 9, marginLeft: 6 }]}>
+                    {`✓ ${stripUnsupportedGlyphs(d)}`}
+                  </MText>
+                ))}
+              </View>
+            )}
+            {mp.gtm.risks.length > 0 && (
+              <View>
+                <MText style={[styles.bulletText, { fontSize: 9, color: C.risk, fontWeight: 700 }]}>
+                  {isKo ? "주요 진입 리스크" : "Market-entry risks"}
+                </MText>
+                {mp.gtm.risks.slice(0, 5).map((r, i) => (
+                  <MText key={i} style={[styles.bulletText, { fontSize: 9, marginLeft: 6 }]}>
+                    {`! ${stripUnsupportedGlyphs(r)}`}
+                  </MText>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
+        {pageFooter}
+      </Page>,
+    );
+  }
+
+  // ── Page B: Recommended actions ─────────────────────────────────
+  if (secondary.actions.length > 0) {
+    pages.push(
+      <Page key="secondary-actions" size="A4" style={styles.page}>
+        <View style={styles.pageAccent} fixed />
+        {pageHeader}
+        <View style={styles.pageTitleRow}>
+          <MText style={styles.sectionNum}>S2</MText>
+          <MText style={styles.pageTitle}>
+            {isKo
+              ? `${countryLabel} — 추천 액션 (Top 2 동등 후보)`
+              : `${countryLabel} — Recommended actions (Top 2 secondary)`}
+          </MText>
+        </View>
+        <MText style={[styles.bulletText, { fontSize: 9, color: C.muted, marginBottom: 10 }]}>
+          {isKo
+            ? `${secondary.actions.length}개 액션 · single LLM pass (cross-sim 합의 아님)`
+            : `${secondary.actions.length} actions · single LLM pass (not cross-sim consensus)`}
+        </MText>
+        {secondary.actions.map((a, i) => (
+          <View
+            key={i}
+            style={[styles.bulletRow, { alignItems: "flex-start", marginBottom: 10 }]}
+          >
+            <MText style={[styles.bulletDot, { color: C.brand, fontWeight: 700, width: 18 }]}>
+              {`${i + 1}.`}
+            </MText>
+            <View style={{ flex: 1 }}>
+              <MText style={[styles.bulletText, { lineHeight: 1.55 }]}>
+                {stripUnsupportedGlyphs(a.action)}
+              </MText>
+              <MText style={[styles.bulletText, { fontSize: 8, color: C.muted, marginTop: 2 }]}>
+                {[
+                  a.impact ? `${isKo ? "영향" : "Impact"} ${a.impact}/3` : null,
+                  a.effort ? `${isKo ? "난이도" : "Effort"} ${a.effort}/3` : null,
+                  a.actionCategory ?? null,
+                ]
+                  .filter(Boolean)
+                  .join("  ·  ")}
+              </MText>
+            </View>
+          </View>
+        ))}
+        {pageFooter}
+      </Page>,
+    );
+  }
+
+  // ── Page C: Risks ───────────────────────────────────────────────
+  if (secondary.risks.length > 0) {
+    pages.push(
+      <Page key="secondary-risks" size="A4" style={styles.page}>
+        <View style={styles.pageAccent} fixed />
+        {pageHeader}
+        <View style={styles.pageTitleRow}>
+          <MText style={styles.sectionNum}>S3</MText>
+          <MText style={styles.pageTitle}>
+            {isKo
+              ? `${countryLabel} — 리스크 (Top 2 동등 후보)`
+              : `${countryLabel} — Risks (Top 2 secondary)`}
+          </MText>
+        </View>
+        <MText style={[styles.bulletText, { fontSize: 9, color: C.muted, marginBottom: 10 }]}>
+          {isKo
+            ? `${secondary.risks.length}개 리스크 · single LLM pass`
+            : `${secondary.risks.length} risks · single LLM pass`}
+        </MText>
+        {secondary.risks.map((r, i) => (
+          <View
+            key={i}
+            style={[styles.bulletRow, { alignItems: "flex-start", marginBottom: 10 }]}
+          >
+            <MText
+              style={[
+                styles.bulletDot,
+                {
+                  color: r.severity === "high" ? C.risk : r.severity === "medium" ? C.warn : C.muted,
+                  fontWeight: 700,
+                  width: 50,
+                  fontSize: 9,
+                },
+              ]}
+            >
+              {r.severity.toUpperCase()}
+            </MText>
+            <View style={{ flex: 1 }}>
+              <MText style={[styles.bulletText, { fontWeight: 700 }]}>
+                {stripUnsupportedGlyphs(r.factor)}
+              </MText>
+              <MText style={[styles.bulletText, { fontSize: 9, color: C.muted, marginTop: 1, lineHeight: 1.5 }]}>
+                {stripUnsupportedGlyphs(r.description)}
+              </MText>
+              {r.personaCategory && (
+                <MText style={[styles.bulletText, { fontSize: 8, color: C.muted, marginTop: 2 }]}>
+                  {`[${r.personaCategory}]`}
+                </MText>
+              )}
+            </View>
+          </View>
+        ))}
+        {pageFooter}
+      </Page>,
+    );
+  }
+
+  return pages;
 }

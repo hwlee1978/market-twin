@@ -122,6 +122,98 @@ export async function GET(
           { status: 502 },
         );
       }
+
+      // Inject Top-2 secondary analysis if (a) it's a tie case AND
+      // (b) the user already backfilled additionalMarketProfiles /
+      // Actions / Risks on the dashboard. No extra LLM call here —
+      // we just reshape the persisted aggregate into the
+      // ValidationReportData.secondaryAnalysis schema.
+      const secondaryCountry =
+        validationData.simResult.displayMode === "top2"
+          ? validationData.simResult.secondary?.country
+          : undefined;
+      if (secondaryCountry) {
+        const aggExtra = aggregate as unknown as {
+          additionalMarketProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
+          additionalActions?: Record<
+            string,
+            Array<{ action: string; impact?: number; effort?: number; actionCategory?: string }>
+          >;
+          additionalRisks?: Record<
+            string,
+            Array<{
+              factor: string;
+              description: string;
+              severity: "low" | "medium" | "high";
+              personaCategory?: string;
+            }>
+          >;
+        };
+        const mp = aggExtra.additionalMarketProfiles?.[secondaryCountry] ?? null;
+        const actions = aggExtra.additionalActions?.[secondaryCountry] ?? [];
+        const risks = aggExtra.additionalRisks?.[secondaryCountry] ?? [];
+        if (mp || actions.length || risks.length) {
+          validationData.secondaryAnalysis = {
+            country: secondaryCountry,
+            marketProfile: mp
+              ? {
+                  tam: mp.marketSize?.estimateUsd,
+                  growth: mp.marketSize?.growthTrend,
+                  segment: mp.marketSize?.addressableSegment,
+                  competitors: (mp.competitors ?? []).map((c) => ({
+                    name: c.name,
+                    threatLevel: c.threatLevel,
+                    brandContext: c.brandContext,
+                  })),
+                  channels: (mp.channels?.primary ?? []).map((c) => ({
+                    name: c.name,
+                    rationale: c.rationale,
+                  })),
+                  regulatory: {
+                    barriers: (mp.regulatory?.barriers ?? []).map((b) => ({
+                      name: b.name,
+                      severity: b.severity,
+                      description: b.description,
+                    })),
+                    requirements: mp.regulatory?.requirements ?? [],
+                    timeToCompliance: mp.regulatory?.timeToCompliance,
+                  },
+                  culturalNotes: {
+                    valuesAlignment: mp.culturalNotes?.valuesAlignment,
+                    purchaseBehavior: mp.culturalNotes?.purchaseBehavior,
+                    languageNotes: mp.culturalNotes?.languageNotes,
+                    seasonality: mp.culturalNotes?.seasonality,
+                  },
+                  pricingBenchmarks: {
+                    entry: mp.pricingBenchmarks?.entryLevel,
+                    mid: mp.pricingBenchmarks?.mid,
+                    premium: mp.pricingBenchmarks?.premium,
+                    yourPosition: mp.pricingBenchmarks?.yourPosition,
+                  },
+                  gtm: {
+                    keyMessage: mp.goToMarketStrategy?.keyMessage,
+                    primaryAudience: mp.goToMarketStrategy?.primaryAudience,
+                    differentiators: mp.goToMarketStrategy?.differentiators ?? [],
+                    risks: mp.goToMarketStrategy?.risks ?? [],
+                  },
+                }
+              : undefined,
+            actions: actions.map((a) => ({
+              action: a.action,
+              impact: a.impact,
+              effort: a.effort,
+              actionCategory: a.actionCategory,
+            })),
+            risks: risks.map((r) => ({
+              factor: r.factor,
+              description: r.description,
+              severity: r.severity,
+              personaCategory: r.personaCategory,
+            })),
+          };
+        }
+      }
+
       buffer = await buildValidationPdf(validationData);
     } else {
       buffer = await buildEnsemblePdf({
