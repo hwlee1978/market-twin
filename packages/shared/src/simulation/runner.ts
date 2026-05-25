@@ -1891,31 +1891,75 @@ ${entries}
             `[sim ${opts.simulationId}] pricing candidate kept after dropping ${droppedCurvePoints} off-scale curve point(s)`,
           );
         }
+        // Post-peak monotonic clamp — belt-and-braces in case the LLM
+        // ignored the prompt's "no U-curve" rule. Walk ascending, find
+        // the conversion peak, then force every point after the peak
+        // to be ≤ the prior point's conversion. Le Mouton 1265510e
+        // sim emitted a wave curve (conv climbed again past $220)
+        // that produced "$300 = highest visible peak" in the chart
+        // while the algorithm correctly suppressed it via envelope.
+        // Clamping here means the persisted curve is clean by
+        // construction — the chart shows what the algorithm uses
+        // instead of needing a separate envelope overlay.
+        const sortedAsc = [...filteredCurve].sort(
+          (a, b) => a.priceCents - b.priceCents,
+        );
+        let peakIdx = 0;
+        for (let i = 1; i < sortedAsc.length; i++) {
+          if (sortedAsc[i].conversionProbability > sortedAsc[peakIdx].conversionProbability) {
+            peakIdx = i;
+          }
+        }
+        let clampCount = 0;
+        for (let i = peakIdx + 1; i < sortedAsc.length; i++) {
+          if (sortedAsc[i].conversionProbability > sortedAsc[i - 1].conversionProbability) {
+            sortedAsc[i] = {
+              ...sortedAsc[i],
+              conversionProbability: sortedAsc[i - 1].conversionProbability,
+              // Recompute estimatedRevenueIndex to stay consistent
+              // with the clamped conversionProbability. Without this,
+              // the persisted revenue index would still reference the
+              // pre-clamp wave bump and mislead any consumer that
+              // trusts the LLM's index over a fresh recompute.
+              estimatedRevenueIndex:
+                (sortedAsc[i].priceCents * sortedAsc[i - 1].conversionProbability) /
+                (sortedAsc[peakIdx].priceCents * sortedAsc[peakIdx].conversionProbability),
+            };
+            clampCount += 1;
+          }
+        }
+        if (clampCount > 0) {
+          console.warn(
+            `[sim ${opts.simulationId}] pricing curve clamped — ${clampCount}/${sortedAsc.length} post-peak point(s) violated monotonic rule, conv lowered to running-min`,
+          );
+        }
+        const cleanedCurve = sortedAsc;
+
         if (inBounds(cand.recommendedPriceCents)) {
-          correctedCandidates.push({ ...cand, curve: filteredCurve });
+          correctedCandidates.push({ ...cand, curve: cleanedCurve });
           continue;
         }
-        // Map LLM curve (conversionProbability) to the shared helper's
+        // Map cleaned curve (conversionProbability) to the shared helper's
         // shape (meanConversionProbability) — the helper is also used
         // post-aggregation where points carry mean across sims.
         const curveMax = computeCurveRevenueMaxCents(
-          filteredCurve.map((p) => ({
+          cleanedCurve.map((p) => ({
             priceCents: p.priceCents,
             meanConversionProbability: p.conversionProbability,
           })),
         );
         if (curveMax != null && inBounds(curveMax)) {
           console.warn(
-            `[sim ${opts.simulationId}] pricing rec out of bounds (${cand.recommendedPriceCents} cents vs base ${basePriceCents}); replacing rec with filtered-curve revenue max (${curveMax} cents)`,
+            `[sim ${opts.simulationId}] pricing rec out of bounds (${cand.recommendedPriceCents} cents vs base ${basePriceCents}); replacing rec with cleaned-curve revenue max (${curveMax} cents)`,
           );
           correctedCandidates.push({
             ...cand,
-            curve: filteredCurve,
+            curve: cleanedCurve,
             recommendedPriceCents: curveMax,
           });
         } else {
           console.warn(
-            `[sim ${opts.simulationId}] pricing candidate dropped — rec (${cand.recommendedPriceCents}) out of bounds and filtered-curve max (${curveMax}) didn't recover it`,
+            `[sim ${opts.simulationId}] pricing candidate dropped — rec (${cand.recommendedPriceCents}) out of bounds and cleaned-curve max (${curveMax}) didn't recover it`,
           );
         }
       }

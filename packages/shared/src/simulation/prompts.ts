@@ -802,7 +802,7 @@ ${renderWeightGuidanceLines()}
 A post-process pass will mechanically re-derive finalScore from these components anyway — but emitting an aligned LLM finalScore keeps the critique stage cleaner and the rank consistent.`;
 }
 
-export const PRICING_SYSTEM = `${SYSTEM_BASE} For pricing, model how conversion changes across price points — typically conversion drops as price rises, but not linearly. Identify the revenue-maximizing point.`;
+export const PRICING_SYSTEM = `${SYSTEM_BASE} For pricing, model how conversion changes across price points — find the conversion peak (which may sit slightly above the lowest price when there's a "too cheap → suspicion" zone), then conversion MUST decrease monotonically as price rises past the peak. Real demand curves are non-increasing past the peak; do NOT emit U-shaped or wave curves where conversion climbs again at high prices. Identify the revenue-maximizing point (price × conversion argmax), which lies between the peak and the steep drop-off.`;
 
 export interface PricingRangeContext {
   minCents: number;
@@ -874,6 +874,32 @@ TW for a KRW-input project: emit prices as KRW cents, NOT TWD).
 DO NOT silently convert to a different currency. If recommendedPriceCents
 ends up < 30% or > 500% of the base price (${(input.basePriceCents / 100).toFixed(2)} ${input.currency}),
 you are almost certainly emitting the wrong scale — recompute.
+
+═══ CURVE SHAPE — POST-PEAK MONOTONIC, NO U-CURVES ═══
+The curve MUST follow a single conversion peak (which may sit slightly
+above the cheapest price if a "too cheap → suspicion" zone exists) and
+then decrease — or stay flat — as price rises past the peak. Demand
+does not increase again at high prices once the peak has passed.
+
+Forbidden patterns (will be auto-corrected and flagged):
+  ❌ U-shape: conv 50% at $100 → 30% at $200 → 45% at $260 → 60% at $300
+     (revenue would spuriously max at $300; real demand doesn't recover)
+  ❌ Wave: conv 40% → 30% → 38% → 25% → 32%
+     (noise pattern — collapse to a clean monotonic decline)
+  ❌ Climbing tail: conv 35% at $150 → 25% at $250 → 35% at $400
+     (high-price climb is unphysical for consumer goods)
+
+Required pattern:
+  ✓ Optional small "suspicion" ramp at very low prices (conv 30% at
+    base*0.5 → 45% at base*0.7 → 50% peak at base*0.9), THEN strictly
+    non-increasing: 50% peak → 40% → 30% → 18% → 8%.
+  ✓ Conversion at the highest sampled price must be ≤ conversion at
+    every price between the peak and that highest point.
+
+Self-check before emitting: scan your curve ascending. Find the peak.
+After the peak, every subsequent point's conversionProbability must be
+≤ the previous point's. If any point violates, lower it to match the
+prior point's conversion. Then recompute revenue argmax.
 
 ═══ recommendedPriceCents — DO NOT ANCHOR ON BASE PRICE ═══
 The base price (${(input.basePriceCents / 100).toFixed(2)} ${input.currency}) is INPUT context, not a default answer. Many models default to "recommended = base" without doing the math — that's a critical error.
