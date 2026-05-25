@@ -113,7 +113,14 @@ ${existingBlock}
   const client = new Anthropic({ apiKey });
   const response = await client.messages.create({
     model: MODEL,
-    max_tokens: 6000,
+    // Bumped 6000 → 24000 on 2026-05-26. Le Mouton 15-page exec PDF
+    // already produced 25 candidates × ~230 tokens + JSON scaffold ≈
+    // 7k+ output (user saw "Expected ',' or ']' at position 8145").
+    // Detailed report is 30+ pages and the validation cross-check is
+    // also long — 24k gives full headroom. Input tokens dominate
+    // cost on the PDF read anyway, output cap doesn't materially
+    // change billing.
+    max_tokens: 24000,
     system,
     messages: [
       {
@@ -155,13 +162,72 @@ ${existingBlock}
 
 function parseJsonLoose(text: string): unknown {
   const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+
+  // Fast path — well-formed JSON.
   try {
     return JSON.parse(cleaned);
   } catch {
+    // Try the legacy "outermost braces" extraction (handles wrapper
+    // text the LLM occasionally adds despite the system prompt).
     const m = cleaned.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error("extractor returned non-JSON");
-    return JSON.parse(m[0]);
+    if (m) {
+      try {
+        return JSON.parse(m[0]);
+      } catch {
+        // fall through to truncation recovery
+      }
+    }
   }
+
+  // Truncation recovery — when max_tokens trips the response, the
+  // output ends mid-candidate. Recover the last complete candidate by
+  // tracking brace depth INSIDE the candidates array, then close the
+  // array + outer object manually so JSON.parse succeeds.
+  //
+  // We look for `"candidates": [` (whitespace-tolerant) as the anchor,
+  // then walk forward counting `{` / `}` while ignoring braces inside
+  // string literals + escaped chars. Every time depth drops to 0 we
+  // record the position — that's the end of a complete candidate. On
+  // failure (truncated), we truncate at the last good position and
+  // emit `]}` to close.
+  const anchorMatch = cleaned.match(/"candidates"\s*:\s*\[/);
+  if (!anchorMatch) throw new Error("extractor returned non-JSON (no candidates anchor)");
+  const arrayStart = anchorMatch.index! + anchorMatch[0].length;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  let lastCompleteEnd = arrayStart; // position right after last "}," / "}"
+  for (let i = arrayStart; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        lastCompleteEnd = i + 1;
+      }
+    }
+  }
+  if (lastCompleteEnd === arrayStart) {
+    throw new Error("extractor returned no complete candidates (response too truncated)");
+  }
+  const recovered = cleaned.slice(0, lastCompleteEnd) + "]}";
+  console.warn(
+    `[pdf-memory-extractor] JSON truncation recovered — using ${lastCompleteEnd}/${cleaned.length} chars`,
+  );
+  return JSON.parse(recovered);
 }
 
 const VALID_KINDS = new Set<MemoryKind>(["fact", "preference", "context", "decision"]);
