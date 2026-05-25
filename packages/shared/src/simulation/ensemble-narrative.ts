@@ -615,7 +615,10 @@ function buildMergePrompt(
   ✓ "🤔 단일국 결정 보류 — ${opts.top2.primary}·${opts.top2.secondary} 동등, 두 시장 모두 6개월 파일럿 권장"
   ✓ "⚠ Top-2 동률 — Score 1위 ${opts.top2.primary} (${opts.top2.primaryVotePct}%) vs Vote 1위 ${opts.top2.secondary} (${opts.top2.secondaryVotePct}%), 자본 capability로 선택"
 
-**mergedRisks / mergedActions**: 두 후보 시장에 공통되는 리스크/액션 우선. ${opts.top2.primary}-only 항목과 ${opts.top2.secondary}-only 항목이 섞여 있어도 scope 태깅(country-specific vs cross-market)으로 구분되므로 양쪽 시장 모두 다루세요.
+**mergedRisks / mergedActions** (⚠ PRIMARY 전용 — 절대 위반 불가): 입력으로 제공된 sim들은 모두 ${opts.top2.primary}을(를) best country로 picked한 시뮬입니다 — ${opts.top2.secondary}에 대한 페르소나/리스크/액션 데이터는 입력에 없습니다. 따라서 mergedRisks와 mergedActions는 반드시 **${opts.top2.primary} 진출 기준** 으로만 작성하세요. ${opts.top2.secondary}를 위한 리스크/액션은 별도 LLM 파이프라인(/api/ensembles/{id}/secondary-actions, /secondary-risks)이 ${opts.top2.secondary} 시장 분석 결과를 ground로 별도 생성해 dedicated page로 노출합니다.
+  ❌ "${opts.top2.secondary} 입점 시 high tariff 우려" 같이 ${opts.top2.secondary}-specific 항목을 mergedRisks에 넣지 마세요 — 입력 데이터에 없는 hallucination입니다.
+  ❌ "${opts.top2.secondary} GTM은 ZOZOTOWN 활용" 같이 ${opts.top2.secondary}-specific 액션을 mergedActions에 넣지 마세요.
+  ✓ mergedRisks/mergedActions는 ${opts.top2.primary} 시장 기준으로 single-winner와 동일한 깊이로 작성. executiveSummary/hotTake만 Top-2 framing을 적용.
 `
         : `
 
@@ -634,7 +637,10 @@ This analysis cannot pick a single winner. ${opts.top2.primary} (1st-place vote 
   ✓ "🤔 Defer the call — ${opts.top2.primary}/${opts.top2.secondary} are tied; pilot both for 6 months"
   ✓ "⚠ Top-2 tied — score winner ${opts.top2.primary} (${opts.top2.primaryVotePct}%) ≠ vote winner ${opts.top2.secondary} (${opts.top2.secondaryVotePct}%), choose by internal capability"
 
-**mergedRisks / mergedActions**: prioritise items that apply to both candidate markets. When ${opts.top2.primary}-only and ${opts.top2.secondary}-only items mix, the scope tag (country-specific vs cross-market) separates them — cover BOTH markets, not just the score winner.
+**mergedRisks / mergedActions** (⚠ PRIMARY ONLY — strict): the per-sim inputs you've been given are all simulations that picked ${opts.top2.primary} as best country — there is NO ${opts.top2.secondary} persona/risk/action data in your input. mergedRisks and mergedActions MUST therefore be written for **${opts.top2.primary} market only**. The ${opts.top2.secondary} risks/actions are produced by separate downstream pipelines (/api/ensembles/{id}/secondary-actions, /secondary-risks) that ground on the ${opts.top2.secondary} market profile and render as dedicated pages.
+  ❌ Do NOT include ${opts.top2.secondary}-specific items like "${opts.top2.secondary} tariff exposure on entry" in mergedRisks — that's a hallucination relative to your input data.
+  ❌ Do NOT include ${opts.top2.secondary}-specific actions like "use ZOZOTOWN for ${opts.top2.secondary} GTM" in mergedActions.
+  ✓ Treat mergedRisks/mergedActions as you would for a single-winner case — full depth on ${opts.top2.primary}. Only executiveSummary and hotTake get the Top-2 framing.
 `)
     : "";
 
