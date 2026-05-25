@@ -4331,10 +4331,17 @@ function SecondaryCountryMarketSection({
     );
   }
 
-  // Populated — render the same six sections the primary block has
-  // (market size · competitors · channels · regulatory · cultural ·
-  // pricing · GTM) so the exec sees parity. Future polish: collapsible
-  // per-section so secondary is foldable.
+  // Populated — render with identical visual treatment to the primary
+  // MarketProfileTab so users see the secondary at the same depth.
+  // Differences vs primary kept minimal:
+  //  • Heading carries a "2순위" warn badge instead of plain
+  //  • TOP-2 banner card placed under heading mirroring the page-level
+  //    tieBanner pattern used everywhere else in the PDF/UI
+  //  • Citation block omitted (secondary LLM doesn't surface citations)
+  //  • Everything else (card padding, section header sizes, length-aware
+  //    TAM, competitor strengths/weaknesses cards, regulatory chips,
+  //    cultural grid, pricing benchmark cards, GTM block) matches the
+  //    primary 1:1.
   const ms = profile.marketSize;
   const competitors = profile.competitors ?? [];
   const channels = profile.channels;
@@ -4342,131 +4349,323 @@ function SecondaryCountryMarketSection({
   const cult = profile.culturalNotes;
   const pricing = profile.pricingBenchmarks;
   const gtm = profile.goToMarketStrategy;
+
+  const threatToneClass = (t: string) =>
+    t === "high"
+      ? "bg-risk text-white"
+      : t === "medium"
+        ? "bg-warn text-white"
+        : "bg-slate-300 text-slate-700";
+  const threatBorder = (t: string) =>
+    t === "high" ? "border-risk" : t === "medium" ? "border-warn" : "border-slate-300";
+  const compTypeLabel = (t: string) => {
+    if (t === "direct") return isKo ? "직접 경쟁" : "Direct";
+    if (t === "indirect") return isKo ? "간접" : "Indirect";
+    return isKo ? "대체재" : "Substitute";
+  };
+  const threatLabel = (t: string) => {
+    if (t === "high") return isKo ? "위협 높음" : "HIGH threat";
+    if (t === "medium") return isKo ? "위협 중" : "MEDIUM threat";
+    return isKo ? "위협 낮음" : "LOW threat";
+  };
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-baseline gap-3">
-        <h2 className="text-xl font-semibold text-slate-900">
-          {country} — {isKo ? "Top 2 동등 후보 시장 분석" : "Top 2 secondary market profile"}
-        </h2>
-        <span className="text-[10px] uppercase tracking-wider text-warn bg-warn-soft/40 border border-warn/30 px-2 py-0.5 rounded">
-          {isKo ? "동등 후보" : "tied"}
-        </span>
+    <div className="space-y-6">
+      {/* Header — same scale as primary MarketProfileTab heading */}
+      <div>
+        <div className="flex items-baseline gap-3 flex-wrap">
+          <h2 className="text-xl font-semibold text-slate-900">
+            {isKo
+              ? `${country} — 시장 상황 + 경쟁자 분석`
+              : `${country} — Market profile + competitive analysis`}
+          </h2>
+          <span className="text-[10px] uppercase tracking-wider text-warn bg-warn-soft/40 border border-warn/30 px-2 py-0.5 rounded">
+            {isKo ? "2순위 후보" : "2nd candidate"}
+          </span>
+        </div>
+        <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+          {isKo
+            ? `Top 2 동등 후보 ${country} 시장 분석. 1순위와 동일한 깊이로 시장 규모, 명명된 경쟁자, 채널 환경, 규제, 가격 벤치마크, GTM 전략 — 단, 별도 single LLM 호출 결과 (sim 합의 아님).`
+            : `${country} as the parallel Top-2 candidate — same depth as the primary: market size, named competitors, channels, regulatory, pricing, GTM. Note: single LLM pass (not cross-sim consensus).`}
+        </p>
       </div>
 
-      {ms && (
+      {/* Top-2 tie banner — mirrors the page-level tieBanner the PDF
+          renders on every primary-only page, surfaced here so users
+          understand this whole block is the parallel "2위" deep-dive. */}
+      <div className="rounded-md border border-warn/30 bg-warn-soft/30 px-3 py-2">
+        <div className="text-[10px] uppercase tracking-wider text-warn font-bold mb-0.5">
+          {isKo ? "TOP-2 동등 후보 — 본 섹션은 2순위 기준" : "TOP-2 TIE — 2nd candidate covered in this section"}
+        </div>
+        <p className="text-xs text-slate-700 leading-relaxed">
+          {isKo
+            ? `1순위 분석은 위쪽 메인 섹션을 참고하세요. 두 시장 모두 동등 후보로 검토 권장.`
+            : `Primary candidate analysis is in the main section above. Treat both markets as equally viable.`}
+        </p>
+      </div>
+
+      {/* Market sizing — same card pattern as primary, length-aware TAM
+          typography, no citations block (secondary LLM doesn't emit). */}
+      {ms && (ms.estimateUsd || ms.growthTrend || ms.addressableSegment) && (
         <div className="card p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">
+          <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-3">
             {isKo ? "시장 규모" : "Market size"}
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {ms.estimateUsd && (
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-500">TAM</div>
-                <div className="text-slate-900 mt-1 leading-relaxed">{ms.estimateUsd}</div>
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                  {isKo ? "TAM 추정" : "TAM"}
+                </div>
+                <div
+                  className={clsx(
+                    "text-balance break-keep",
+                    ms.estimateUsd.length <= 50
+                      ? "text-2xl font-bold tabular-nums text-slate-900"
+                      : "text-sm text-slate-700 leading-relaxed",
+                  )}
+                >
+                  {ms.estimateUsd}
+                </div>
               </div>
             )}
             {ms.growthTrend && (
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-500">
-                  {isKo ? "성장 추세" : "Growth"}
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                  {isKo ? "성장 추세" : "Growth trend"}
                 </div>
-                <div className="text-slate-900 mt-1 leading-relaxed">{ms.growthTrend}</div>
+                <div className="text-sm text-slate-700 leading-relaxed text-balance break-keep">{ms.growthTrend}</div>
               </div>
             )}
             {ms.addressableSegment && (
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-500">
-                  {isKo ? "도달 세그먼트" : "Reachable"}
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                  {isKo ? "도달 세그먼트" : "Addressable segment"}
                 </div>
-                <div className="text-slate-900 mt-1 leading-relaxed">{ms.addressableSegment}</div>
+                <div className="text-sm text-slate-700 leading-relaxed text-balance break-keep">{ms.addressableSegment}</div>
               </div>
             )}
           </div>
         </div>
       )}
 
+      {/* Competitors — same card-per-competitor pattern with border-l-4
+          severity stripe, brand context, strengths/weaknesses grid. */}
       {competitors.length > 0 && (
-        <div className="card p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">
-            {isKo ? `경쟁자 (${competitors.length})` : `Competitors (${competitors.length})`}
+        <div>
+          <h3 className="text-base font-semibold text-slate-900 mb-3">
+            {isKo ? "경쟁자 분석" : "Competitive landscape"}
           </h3>
-          <ul className="space-y-2">
-            {competitors.slice(0, 8).map((c, i) => (
-              <li key={i} className="text-sm text-slate-700">
-                <span className="font-semibold text-slate-900">{c.name}</span>
-                {c.threatLevel && (
-                  <span className="ml-2 text-[10px] uppercase tracking-wider text-slate-500">
-                    {c.threatLevel}
+          <div className="space-y-3">
+            {competitors.map((c, i) => (
+              <div
+                key={i}
+                className={clsx(
+                  "card p-4 border-l-4",
+                  threatBorder(c.threatLevel),
+                )}
+              >
+                <div className="flex items-baseline gap-3 flex-wrap mb-2">
+                  <span className="text-lg font-bold text-slate-900">{c.name}</span>
+                  <span className="text-xs text-slate-500">{compTypeLabel(c.type)}</span>
+                  <span
+                    className={clsx(
+                      "text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full",
+                      threatToneClass(c.threatLevel),
+                    )}
+                  >
+                    {threatLabel(c.threatLevel)}
                   </span>
+                  {c.pricePoint && (
+                    <span className="ml-auto text-sm text-slate-700 tabular-nums font-medium">
+                      {c.pricePoint}
+                    </span>
+                  )}
+                </div>
+                {(c.originCountry || c.brandContext) && (
+                  <div className="flex items-baseline gap-2 flex-wrap mb-2">
+                    {c.originCountry && (
+                      <span className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
+                        {isKo ? `원산지 ${c.originCountry}` : `Origin ${c.originCountry}`}
+                      </span>
+                    )}
+                    {c.brandContext && (
+                      <span className="text-xs text-slate-600 leading-snug flex-1 min-w-[12rem]">
+                        {c.brandContext}
+                      </span>
+                    )}
+                  </div>
                 )}
-                {c.brandContext && (
-                  <span className="text-slate-600"> — {c.brandContext}</span>
+                {c.marketShareEstimate && (
+                  <div className="text-xs text-slate-500 mb-2">{c.marketShareEstimate}</div>
                 )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {channels && (channels.primary?.length || channels.secondary?.length) && (
-        <div className="card p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">
-            {isKo ? "채널 환경" : "Channels"}
-          </h3>
-          <div className="text-sm text-slate-700 space-y-1">
-            {channels.primary?.map((c, i) => (
-              <div key={`p-${i}`}>
-                <span className="font-semibold">{c.name}</span>
-                {c.rationale && <span className="text-slate-600"> — {c.rationale}</span>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {(c.strengths ?? []).length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wide text-success font-bold mb-1">
+                        {isKo ? "강점" : "Strengths"}
+                      </div>
+                      <ul className="space-y-0.5">
+                        {(c.strengths ?? []).map((s, idx) => (
+                          <li key={idx} className="text-sm text-slate-700 leading-snug">
+                            • {s}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {(c.weaknesses ?? []).length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wide text-risk font-bold mb-1">
+                        {isKo ? "약점" : "Weaknesses"}
+                      </div>
+                      <ul className="space-y-0.5">
+                        {(c.weaknesses ?? []).map((w, idx) => (
+                          <li key={idx} className="text-sm text-slate-700 leading-snug">
+                            • {w}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         </div>
       )}
 
+      {/* Pricing benchmarks — same card-per-tier layout with big bold
+          tabular-num figures matching primary. */}
+      {pricing &&
+        (pricing.entryLevel || pricing.mid || pricing.premium || pricing.yourPosition) && (
+          <div>
+            <h3 className="text-base font-semibold text-slate-900 mb-3">
+              {isKo ? "현지 가격 벤치마크" : "Local pricing benchmarks"}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+              {pricing.entryLevel && (
+                <div className="card p-4">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                    {isKo ? "엔트리" : "Entry"}
+                  </div>
+                  <div className="text-base font-semibold text-slate-900 tabular-nums">
+                    {pricing.entryLevel}
+                  </div>
+                </div>
+              )}
+              {pricing.mid && (
+                <div className="card p-4">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                    {isKo ? "미드" : "Mid"}
+                  </div>
+                  <div className="text-base font-semibold text-slate-900 tabular-nums">
+                    {pricing.mid}
+                  </div>
+                </div>
+              )}
+              {pricing.premium && (
+                <div className="card p-4">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                    {isKo ? "프리미엄" : "Premium"}
+                  </div>
+                  <div className="text-base font-semibold text-slate-900 tabular-nums">
+                    {pricing.premium}
+                  </div>
+                </div>
+              )}
+            </div>
+            {pricing.yourPosition && (
+              <div className="rounded-xl border-l-4 border-brand bg-brand-50/50 p-4">
+                <div className="text-[10px] uppercase tracking-wide text-brand font-bold mb-1">
+                  {isKo ? "내 제품 포지션" : "Your position"}
+                </div>
+                <p className="text-sm text-slate-700 leading-relaxed">
+                  {pricing.yourPosition}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+      {/* Channels — same section-header style + per-channel rows */}
+      {channels && (channels.primary?.length || channels.secondary?.length) && (
+        <div>
+          <h3 className="text-base font-semibold text-slate-900 mb-3">
+            {isKo ? "채널 환경" : "Channel landscape"}
+          </h3>
+          {channels.primary && channels.primary.length > 0 && (
+            <div className="mb-3">
+              <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1.5">
+                {isKo ? "주요 채널" : "Primary channels"}
+              </div>
+              <ul className="space-y-1.5">
+                {channels.primary.map((c, i) => (
+                  <li key={`p-${i}`} className="text-sm text-slate-700 leading-snug">
+                    <span className="font-semibold text-slate-900">{c.name}</span>
+                    {c.rationale && <span className="text-slate-600"> — {c.rationale}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {channels.secondary && channels.secondary.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1.5">
+                {isKo ? "보조 채널" : "Secondary channels"}
+              </div>
+              <ul className="space-y-1">
+                {channels.secondary.map((c, i) => (
+                  <li key={`s-${i}`} className="text-sm text-slate-700 leading-snug">
+                    <span className="font-semibold text-slate-900">{c.name}</span>
+                    {c.rationale && <span className="text-slate-600"> — {c.rationale}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Regulatory — same chip-styled barriers + requirements list */}
       {reg && (reg.barriers?.length || reg.requirements?.length || reg.timeToCompliance) && (
-        <div className="card p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">
+        <div>
+          <h3 className="text-base font-semibold text-slate-900 mb-3">
             {isKo ? "규제 / 진입 장벽" : "Regulatory / Barriers"}
           </h3>
           {reg.barriers && reg.barriers.length > 0 && (
-            <ul className="space-y-2 text-sm text-slate-700">
-              {reg.barriers.slice(0, 5).map((b, i) => {
-                const sevTone =
-                  b.severity === "high"
-                    ? "bg-risk text-white"
-                    : b.severity === "medium"
-                    ? "bg-warn text-white"
-                    : "bg-slate-300 text-slate-700";
-                return (
-                  <li key={i} className="flex items-start gap-2">
-                    <span
-                      className={`shrink-0 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold ${sevTone}`}
-                    >
-                      {b.severity}
-                    </span>
-                    <div>
-                      <span className="font-semibold text-slate-900">{b.name}</span>
-                      {b.description && (
-                        <div className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-                          {b.description}
-                        </div>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
+            <ul className="space-y-2 mb-3">
+              {reg.barriers.slice(0, 5).map((b, i) => (
+                <li key={i} className="card p-3 flex items-start gap-3">
+                  <span
+                    className={clsx(
+                      "shrink-0 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold",
+                      threatToneClass(b.severity),
+                    )}
+                  >
+                    {b.severity}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-slate-900">{b.name}</div>
+                    {b.description && (
+                      <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                        {b.description}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              ))}
             </ul>
           )}
           {reg.requirements && reg.requirements.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-slate-100">
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">
+            <div className="card p-4 mb-3">
+              <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-2">
                 {isKo ? "필수 요구사항" : "Requirements"}
               </div>
-              <ul className="space-y-1 text-sm text-slate-700">
+              <ul className="space-y-1">
                 {reg.requirements.map((r, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="text-slate-400">·</span>
+                  <li key={i} className="text-sm text-slate-700 flex gap-2 leading-snug">
+                    <span className="text-slate-400 shrink-0">·</span>
                     <span>{r}</span>
                   </li>
                 ))}
@@ -4474,92 +4673,58 @@ function SecondaryCountryMarketSection({
             </div>
           )}
           {reg.timeToCompliance && (
-            <div className="mt-3 text-xs text-slate-500">
+            <div className="text-xs text-slate-500">
               {isKo ? "준수 소요시간: " : "Time to compliance: "}
-              <span className="text-slate-700">{reg.timeToCompliance}</span>
+              <span className="text-slate-700 font-medium">{reg.timeToCompliance}</span>
             </div>
           )}
         </div>
       )}
 
+      {/* Cultural — same 2-col grid */}
       {cult && (cult.valuesAlignment || cult.purchaseBehavior || cult.languageNotes || cult.seasonality) && (
         <div className="card p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">
+          <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-3">
             {isKo ? "문화 / 소비자 인사이트" : "Cultural / Consumer insights"}
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {cult.valuesAlignment && (
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
                   {isKo ? "가치관" : "Values"}
                 </div>
-                <p className="text-slate-700 leading-relaxed">{cult.valuesAlignment}</p>
+                <p className="text-sm text-slate-700 leading-relaxed">{cult.valuesAlignment}</p>
               </div>
             )}
             {cult.purchaseBehavior && (
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
                   {isKo ? "구매 행동" : "Purchase behavior"}
                 </div>
-                <p className="text-slate-700 leading-relaxed">{cult.purchaseBehavior}</p>
+                <p className="text-sm text-slate-700 leading-relaxed">{cult.purchaseBehavior}</p>
               </div>
             )}
             {cult.languageNotes && (
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
                   {isKo ? "언어·메시지" : "Language"}
                 </div>
-                <p className="text-slate-700 leading-relaxed">{cult.languageNotes}</p>
+                <p className="text-sm text-slate-700 leading-relaxed">{cult.languageNotes}</p>
               </div>
             )}
             {cult.seasonality && (
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
                   {isKo ? "계절성" : "Seasonality"}
                 </div>
-                <p className="text-slate-700 leading-relaxed">{cult.seasonality}</p>
+                <p className="text-sm text-slate-700 leading-relaxed">{cult.seasonality}</p>
               </div>
             )}
           </div>
         </div>
       )}
 
-      {pricing && (pricing.entryLevel || pricing.mid || pricing.premium || pricing.yourPosition) && (
-        <div className="card p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">
-            {isKo ? "가격 벤치마크" : "Pricing benchmarks"}
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-            {pricing.entryLevel && (
-              <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-500">Entry</div>
-                <div className="text-slate-900 mt-0.5">{pricing.entryLevel}</div>
-              </div>
-            )}
-            {pricing.mid && (
-              <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-500">Mid</div>
-                <div className="text-slate-900 mt-0.5">{pricing.mid}</div>
-              </div>
-            )}
-            {pricing.premium && (
-              <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-500">Premium</div>
-                <div className="text-slate-900 mt-0.5">{pricing.premium}</div>
-              </div>
-            )}
-            {pricing.yourPosition && (
-              <div className="col-span-2 sm:col-span-1 bg-brand-50 px-2.5 py-1.5 rounded">
-                <div className="text-[10px] uppercase tracking-wider text-brand">
-                  {isKo ? "내 포지션" : "Your position"}
-                </div>
-                <div className="text-brand mt-0.5 font-semibold">{pricing.yourPosition}</div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
+      {/* GTM strategy — identical to primary's GTM block */}
       {gtm &&
         (gtm.keyMessage ||
           gtm.primaryAudience ||
