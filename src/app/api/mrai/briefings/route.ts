@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { generateBriefing, listBriefings, type Locale } from "@/lib/mrai/briefing";
+import { withLLMContext } from "@/lib/llm-context";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -34,11 +35,15 @@ export async function POST(req: Request) {
   }
 
   try {
-    const briefing = await generateBriefing({
-      workspaceId: ctx.workspaceId,
-      userId: ctx.userId,
-      locale: parsed.data.locale as Locale,
-    });
+    const briefing = await withLLMContext(
+      { workspaceId: ctx.workspaceId, stageLabel: "mrai-briefing" },
+      () =>
+        generateBriefing({
+          workspaceId: ctx.workspaceId,
+          userId: ctx.userId,
+          locale: parsed.data.locale as Locale,
+        }),
+    );
     return NextResponse.json({ briefing });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "internal_error";

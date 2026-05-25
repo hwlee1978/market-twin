@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { syncHubSpotForWorkspace } from "@/lib/mrai/integrations/hubspot";
+import { withLLMContext } from "@/lib/llm-context";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -20,7 +21,10 @@ export async function POST() {
   }
 
   try {
-    const result = await syncHubSpotForWorkspace(ctx.workspaceId);
+    const result = await withLLMContext(
+      { workspaceId: ctx.workspaceId, stageLabel: "hubspot-sync" },
+      () => syncHubSpotForWorkspace(ctx.workspaceId),
+    );
     return NextResponse.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "internal_error";

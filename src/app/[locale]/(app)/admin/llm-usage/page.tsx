@@ -48,10 +48,9 @@ export default async function LLMUsagePage({
 
   const admin = createServiceClient();
 
-  // Last 60 days — enough window to spot weekly patterns without
-  // pulling years of data. Time-series chart aggregates by day.
-  const sinceIso = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
-
+  // All-time data — user explicitly asked for full history (not 60d).
+  // 100k row cap to avoid pulling unbounded payload as the log grows;
+  // when it overflows we'll add a date-range picker.
   type RawRow = {
     workspace_id: string;
     provider: string;
@@ -66,9 +65,8 @@ export default async function LLMUsagePage({
   const { data: rowsRaw, error: rowsErr } = await admin
     .from("llm_usage_log")
     .select("workspace_id, provider, model, stage, input_tokens, output_tokens, cost_usd, created_at")
-    .gte("created_at", sinceIso)
     .order("created_at", { ascending: false })
-    .limit(50000);
+    .limit(100000);
   if (rowsErr) {
     return (
       <div className="px-6 pt-6 pb-10 max-w-3xl mx-auto">
@@ -132,7 +130,7 @@ export default async function LLMUsagePage({
     <div className="px-6 pt-6 pb-10 max-w-[1400px] mx-auto space-y-6">
       <PageHeader
         title="LLM 사용량"
-        subtitle={`최근 60일 · ${rows.length.toLocaleString()}개 호출 · 슈퍼 어드민: ${adminEmail}`}
+        subtitle={`전체 기간 · ${rows.length.toLocaleString()}개 호출 · 슈퍼 어드민: ${adminEmail}`}
       />
       <LLMUsageDashboard
         rows={rows.map((r) => ({

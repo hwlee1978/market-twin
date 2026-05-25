@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { getLLMProvider } from "@/lib/llm";
+import { withLLMContext } from "@/lib/llm-context";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -142,12 +143,16 @@ ${basePrice ? `- Price: ${basePrice}` : ""}
   const llm = getLLMProvider({ stage: "synthesis" });
   try {
     const t0 = Date.now();
-    const res = await llm.generate({
-      system,
-      prompt,
-      temperature: 0.6,
-      maxTokens: 600,
-    });
+    const res = await withLLMContext(
+      { workspaceId: ctx.workspaceId, stageLabel: "persona-chat" },
+      () =>
+        llm.generate({
+          system,
+          prompt,
+          temperature: 0.6,
+          maxTokens: 600,
+        }),
+    );
     const reply = (res.text ?? "").trim();
     if (!reply) {
       return NextResponse.json({ error: "empty_response" }, { status: 502 });

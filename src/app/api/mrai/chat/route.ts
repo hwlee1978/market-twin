@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { runMrAIChat } from "@/lib/mrai/chat";
+import { withLLMContext } from "@/lib/llm-context";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -40,13 +41,21 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await runMrAIChat({
-      workspaceId: ctx.workspaceId,
-      userId: ctx.userId,
-      conversationId: parsed.data.conversationId ?? null,
-      userMessage: parsed.data.message,
-      locale: parsed.data.locale,
-    });
+    const result = await withLLMContext(
+      {
+        workspaceId: ctx.workspaceId,
+        stageLabel: "mrai-chat",
+        conversationId: parsed.data.conversationId ?? undefined,
+      },
+      () =>
+        runMrAIChat({
+          workspaceId: ctx.workspaceId,
+          userId: ctx.userId,
+          conversationId: parsed.data.conversationId ?? null,
+          userMessage: parsed.data.message,
+          locale: parsed.data.locale,
+        }),
+    );
     return NextResponse.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "internal_error";

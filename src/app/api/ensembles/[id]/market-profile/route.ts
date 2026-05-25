@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { buildMarketProfile } from "@/lib/simulation/market-profile";
+import { withLLMContext } from "@/lib/llm-context";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import type { ProjectInput } from "@/lib/simulation/schemas";
 
@@ -89,12 +90,20 @@ export async function POST(
     (aggregate.recommendation?.country ?? "");
   const locale: "ko" | "en" = /[ㄱ-힝]/.test(sampleText) ? "ko" : "en";
 
-  const result = await buildMarketProfile({
-    input: projectInput,
-    aggregate,
-    locale,
-    countryOverride: countryOverride ?? undefined,
-  });
+  const result = await withLLMContext(
+    {
+      workspaceId: wsCtx.workspaceId,
+      stageLabel: countryOverride ? "market-profile-secondary" : "market-profile",
+      ensembleId: id,
+    },
+    () =>
+      buildMarketProfile({
+        input: projectInput,
+        aggregate,
+        locale,
+        countryOverride: countryOverride ?? undefined,
+      }),
+  );
   if (!result.profile) {
     return NextResponse.json(
       { error: result.error ?? "market profile generation failed" },

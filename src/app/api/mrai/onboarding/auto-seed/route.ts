@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { runAutoSeed } from "@/lib/mrai/auto-seed";
 import { getOnboardingState } from "@/lib/mrai/onboarding";
+import { withLLMContext } from "@/lib/llm-context";
 
 export const dynamic = "force-dynamic";
 // Generous so 5 Tavily searches + 1 Sonnet pass can run sequentially
@@ -45,13 +46,17 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   try {
-    const result = await runAutoSeed({
-      workspaceId: ctx.workspaceId,
-      userId: user.id,
-      companyName: parsed.data.companyName,
-      websiteUrl: parsed.data.websiteUrl,
-      extraContext: parsed.data.extraContext,
-    });
+    const result = await withLLMContext(
+      { workspaceId: ctx.workspaceId, stageLabel: "mrai-auto-seed" },
+      () =>
+        runAutoSeed({
+          workspaceId: ctx.workspaceId,
+          userId: user.id,
+          companyName: parsed.data.companyName,
+          websiteUrl: parsed.data.websiteUrl,
+          extraContext: parsed.data.extraContext,
+        }),
+    );
 
     const state = await getOnboardingState(ctx.workspaceId);
     return NextResponse.json({

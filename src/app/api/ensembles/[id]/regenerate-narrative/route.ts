@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { mergeNarrative } from "@/lib/simulation/ensemble-narrative";
+import { withLLMContext } from "@/lib/llm-context";
 import type {
   EnsembleAggregate,
   EnsembleSimSnapshot,
@@ -178,16 +179,24 @@ export async function POST(
 
   let narrative;
   try {
-    narrative = await mergeNarrative({
-      snapshots,
-      productName: project.product_name,
-      bestCountry: aggregate.recommendation.country,
-      consensusPercent: aggregate.recommendation.consensusPercent,
-      locale,
-      crossCountryDistribution: aggregate.crossCountryDistribution,
-      candidateCountries: project.candidate_countries ?? undefined,
-      top2: top2Info,
-    });
+    narrative = await withLLMContext(
+      {
+        workspaceId: wsCtx.workspaceId,
+        stageLabel: "regenerate-narrative",
+        ensembleId: id,
+      },
+      () =>
+        mergeNarrative({
+          snapshots,
+          productName: project.product_name,
+          bestCountry: aggregate.recommendation.country,
+          consensusPercent: aggregate.recommendation.consensusPercent,
+          locale,
+          crossCountryDistribution: aggregate.crossCountryDistribution,
+          candidateCountries: project.candidate_countries ?? undefined,
+          top2: top2Info,
+        }),
+    );
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "narrative merge failed" },

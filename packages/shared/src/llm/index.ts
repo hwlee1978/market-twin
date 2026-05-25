@@ -244,17 +244,27 @@ export function getLLMProvider(opts: ProviderOptions = {}): LLMProvider {
       throw new Error(`Unknown LLM provider: ${provider}`);
   }
 
-  // Wrap with usage tracking when the caller passed a workspaceId.
-  // Falls through (no-op) for legacy callers — they keep producing
-  // tokens but won't show on the super-admin dashboard. As call sites
-  // get instrumented over time the dashboard fills out.
-  if (opts.usageContext?.workspaceId) {
+  // Wrap with usage tracking. Two sources of workspace context:
+  //   1. opts.usageContext.workspaceId — explicit per-call
+  //   2. Ambient context provider — AsyncLocalStorage set by the
+  //      enclosing API route (auto-covers nested calls without
+  //      threading workspaceId through every function signature).
+  // Explicit opts win when both are present. Falls through (no
+  // wrapping) only when neither resolves a workspaceId.
+  const ambient = contextProvider?.() ?? null;
+  const resolvedWorkspaceId = opts.usageContext?.workspaceId ?? ambient?.workspaceId;
+  if (resolvedWorkspaceId) {
     return wrapWithUsageLogging(raw, {
-      workspaceId: opts.usageContext.workspaceId,
-      stage: opts.usageContext.stageLabel ?? opts.stage ?? "unknown",
-      ensembleId: opts.usageContext.ensembleId,
-      simulationId: opts.usageContext.simulationId,
-      conversationId: opts.usageContext.conversationId,
+      workspaceId: resolvedWorkspaceId,
+      stage:
+        opts.usageContext?.stageLabel ??
+        ambient?.stageLabel ??
+        opts.stage ??
+        "unknown",
+      ensembleId: opts.usageContext?.ensembleId ?? ambient?.ensembleId,
+      simulationId: opts.usageContext?.simulationId ?? ambient?.simulationId,
+      conversationId:
+        opts.usageContext?.conversationId ?? ambient?.conversationId,
     });
   }
   return raw;
@@ -297,6 +307,25 @@ export function setLLMUsageLogger(
   fn: (payload: UsageLogPayload) => Promise<void> | void,
 ): void {
   usageLogger = fn;
+}
+
+/** Ambient request-context resolver — when set, getLLMProvider falls
+ *  back to this when opts.usageContext is missing. Lets API routes
+ *  wrap their handler in an AsyncLocalStorage and have every nested
+ *  getLLMProvider() call auto-log without each call site threading
+ *  workspaceId through opts. Registered from src/lib/llm-context.ts. */
+type AmbientLLMContext = {
+  workspaceId?: string;
+  stageLabel?: string;
+  ensembleId?: string;
+  simulationId?: string;
+  conversationId?: string;
+};
+let contextProvider: (() => AmbientLLMContext | null) | null = null;
+export function setLLMContextProvider(
+  fn: () => AmbientLLMContext | null,
+): void {
+  contextProvider = fn;
 }
 
 function wrapWithUsageLogging(

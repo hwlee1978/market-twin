@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { buildSecondaryActions } from "@/lib/simulation/secondary-actions";
+import { withLLMContext } from "@/lib/llm-context";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import type { MarketProfile, ProjectInput } from "@/lib/simulation/schemas";
 
@@ -102,13 +103,21 @@ export async function POST(
     (aggregate.recommendation?.country ?? "");
   const locale: "ko" | "en" = /[ㄱ-힝]/.test(sampleText) ? "ko" : "en";
 
-  const result = await buildSecondaryActions({
-    input: projectInput,
-    aggregate,
-    country,
-    secondaryProfile: secondaryProfile ?? undefined,
-    locale,
-  });
+  const result = await withLLMContext(
+    {
+      workspaceId: wsCtx.workspaceId,
+      stageLabel: "secondary-actions",
+      ensembleId: id,
+    },
+    () =>
+      buildSecondaryActions({
+        input: projectInput,
+        aggregate,
+        country,
+        secondaryProfile: secondaryProfile ?? undefined,
+        locale,
+      }),
+  );
   if (!result.actions) {
     return NextResponse.json(
       { error: result.error ?? "generation failed" },

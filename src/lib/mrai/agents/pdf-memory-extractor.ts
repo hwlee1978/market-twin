@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { loadWorkspaceMemories } from "../memory";
 import type { MemoryKind } from "../memory";
+import { createServiceClient } from "@/lib/supabase/server";
 
 /**
  * Mr. AI PDF → Memory Extractor
@@ -171,6 +172,33 @@ ${existingBlock}
   // in the streaming loop above.
   const costEstimateUsd =
     Math.round(((inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15) * 1000) / 1000;
+
+  // Manual usage log — this module uses the Anthropic SDK directly
+  // (not getLLMProvider) because it needs native PDF document input,
+  // so the ALS-based wrapper doesn't run automatically. Fire-and-
+  // forget insert; failure is logged but never blocks the response.
+  try {
+    const admin = createServiceClient();
+    void admin
+      .from("llm_usage_log")
+      .insert({
+        workspace_id: input.workspaceId,
+        provider: "anthropic",
+        model: MODEL,
+        stage: "mrai-pdf-extract",
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        cost_usd: costEstimateUsd,
+        context: { filename: input.filename },
+      })
+      .then((res: { error: { message: string } | null }) => {
+        if (res.error) {
+          console.warn("[pdf-memory-extractor] usage log failed:", res.error.message);
+        }
+      });
+  } catch (err) {
+    console.warn("[pdf-memory-extractor] usage log build failed:", err);
+  }
 
   return {
     candidates,

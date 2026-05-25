@@ -3,9 +3,16 @@
  * (packages/shared/src/llm) to the Next-side createServiceClient().
  * Imported once for side-effect from a server entrypoint so the
  * logger is registered before any LLM call fires.
+ *
+ * Also pulls in @/lib/llm-context so its `setLLMContextProvider`
+ * side-effect runs — that's what lets API routes wrap with
+ * `withLLMContext({ workspaceId, ... })` and have every nested
+ * getLLMProvider() call auto-resolve the workspace via
+ * AsyncLocalStorage.
  */
 import { setLLMUsageLogger } from "@/lib/llm";
 import { createServiceClient } from "@/lib/supabase/server";
+import "@/lib/llm-context";
 
 setLLMUsageLogger(async (payload) => {
   const admin = createServiceClient();

@@ -336,7 +336,22 @@ export async function POST(
       tier: tier as Tier,
     });
     if (!dispatched) {
-      await runEnsembleOrchestration(orchestrationCtx);
+      // Wrap the inline orchestration in withLLMContext so every
+      // nested getLLMProvider() call (per-sim personas / countries /
+      // pricing / synthesis + post-sim mergeNarrative +
+      // buildMarketProfile + competitor-prices/resolver) auto-logs
+      // to public.llm_usage_log. The Cloud Run worker variant wraps
+      // separately at its own entry. Imported lazily so the route's
+      // happy path doesn't pay the cost on every dispatch.
+      const { withLLMContext } = await import("@/lib/llm-context");
+      await withLLMContext(
+        {
+          workspaceId: project.workspace_id,
+          stageLabel: "ensemble-orchestrator",
+          ensembleId: ensemble.id,
+        },
+        () => runEnsembleOrchestration(orchestrationCtx),
+      );
     }
   });
 

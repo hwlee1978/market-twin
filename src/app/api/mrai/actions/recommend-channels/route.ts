@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { recommendChannels } from "@/lib/mrai/agents/channel-recommender";
+import { withLLMContext } from "@/lib/llm-context";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 90;
@@ -41,14 +42,22 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await recommendChannels({
-      workspaceId: ctx.workspaceId,
-      ensembleId: parsed.data.ensembleId ?? null,
-      countries: parsed.data.countries,
-      productName: parsed.data.productName,
-      category: parsed.data.category,
-      locale: parsed.data.locale,
-    });
+    const result = await withLLMContext(
+      {
+        workspaceId: ctx.workspaceId,
+        stageLabel: "mrai-recommend-channels",
+        ensembleId: parsed.data.ensembleId ?? undefined,
+      },
+      () =>
+        recommendChannels({
+          workspaceId: ctx.workspaceId,
+          ensembleId: parsed.data.ensembleId ?? null,
+          countries: parsed.data.countries,
+          productName: parsed.data.productName,
+          category: parsed.data.category,
+          locale: parsed.data.locale,
+        }),
+    );
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "internal_error";

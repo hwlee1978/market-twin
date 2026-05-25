@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { generateBriefing, type Locale } from "@/lib/mrai/briefing";
+import { withLLMContext } from "@/lib/llm-context";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 800;
@@ -90,11 +91,15 @@ export async function GET(req: Request) {
       continue;
     }
     try {
-      const b = await generateBriefing({
-        workspaceId: wsId,
-        userId: ownerId,
-        locale,
-      });
+      const b = await withLLMContext(
+        { workspaceId: wsId, stageLabel: "mrai-briefing-cron" },
+        () =>
+          generateBriefing({
+            workspaceId: wsId,
+            userId: ownerId,
+            locale,
+          }),
+      );
       results.push({ workspaceId: wsId, status: "ok", briefingId: b.id });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "internal_error";
