@@ -2317,6 +2317,41 @@ function OverviewTab({
           <h2 className="text-base font-semibold text-slate-900 mb-2">
             {isKo ? "종합 의견 (시뮬 통합)" : "Executive summary (cross-sim consensus)"}
           </h2>
+          {/* The narrative.executiveSummary text is LLM-generated at sim
+              aggregation time and may reference "전 시뮬이 X 지목 / 합의도
+              96%" framing — wrong when the orchestrator later flagged
+              the result as a Top-2 tie. We can't rewrite the persisted
+              text without re-running aggregation, so render an honest
+              disclaimer ABOVE it so readers don't take "전 시뮬이 미국
+              지목" at face value. */}
+          {isTie && tieCountries.length >= 2 && (
+            <div className="card border-warn/40 bg-warn-soft/20 p-4 mb-3">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-warn mb-1">
+                {isKo
+                  ? "⚠ 본 종합 의견은 단일 winner 가정 하에 작성됨"
+                  : "⚠ This summary was written assuming a single winner"}
+              </div>
+              <p className="text-xs text-slate-700 leading-relaxed">
+                {(() => {
+                  const tieFrag = tieCountries
+                    .map((c) => {
+                      const d = bestCountryDistribution.find((x) => x.country === c);
+                      return d ? `${c} 1순위 vote ${d.percent}%` : c;
+                    })
+                    .join(" · ");
+                  const tieFragEn = tieCountries
+                    .map((c) => {
+                      const d = bestCountryDistribution.find((x) => x.country === c);
+                      return d ? `${c} 1st-place ${d.percent}%` : c;
+                    })
+                    .join(" · ");
+                  return isKo
+                    ? `실제 결과는 Top-2 동등 후보 (${tieFrag}). 본문이 "전 시뮬이 X 지목" 또는 "합의도 96%"라고 적혀 있어도 그건 단일 winner 관점으로 작성된 LLM 텍스트입니다 — 위쪽 KPI/배너와 모순될 수 있습니다. 두 시장 모두 동등 후보로 검토하세요.`
+                    : `Actual result is a Top-2 tie (${tieFragEn}). If the prose below says "all sims picked X" or "96% consensus", that's the LLM writing from a single-winner angle — it may contradict the KPI/banner above. Treat both candidates as equally viable.`;
+                })()}
+              </p>
+            </div>
+          )}
           <div className="card p-5">
             <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
               {narrative.executiveSummary}

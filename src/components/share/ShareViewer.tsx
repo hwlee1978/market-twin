@@ -226,19 +226,50 @@ export function ShareViewer({
           );
         })()}
 
-        {/* Executive summary */}
-        {narrative?.executiveSummary && (
-          <div>
-            <h2 className="text-base font-semibold text-slate-900 mb-2">
-              {isKo ? "종합 의견" : "Executive summary"}
-            </h2>
-            <div className="card p-5">
-              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                {narrative.executiveSummary}
-              </p>
+        {/* Executive summary — narrative text is LLM-generated at sim
+            aggregation time and may say "전 시뮬이 X 지목 / 합의도 96%"
+            even when the result is a Top-2 tie. Render an honest
+            disclaimer ABOVE so the public reader doesn't take the
+            single-winner framing at face value. */}
+        {narrative?.executiveSummary && (() => {
+          const recExt2 = recommendation as unknown as {
+            displayMode?: string;
+            secondary?: { country?: string };
+          };
+          const isTie2 = recExt2.displayMode === "top2" && !!recExt2.secondary?.country;
+          const primaryPct = bestCountryDistribution.find(
+            (d) => d.country === recommendation.country,
+          )?.percent;
+          const secondaryPct = isTie2
+            ? bestCountryDistribution.find((d) => d.country === recExt2.secondary!.country!)?.percent
+            : undefined;
+          return (
+            <div>
+              <h2 className="text-base font-semibold text-slate-900 mb-2">
+                {isKo ? "종합 의견" : "Executive summary"}
+              </h2>
+              {isTie2 && (
+                <div className="card border-warn/40 bg-warn-soft/20 p-4 mb-3">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-warn mb-1">
+                    {isKo
+                      ? "⚠ 본 종합 의견은 단일 winner 가정 하에 작성됨"
+                      : "⚠ This summary was written assuming a single winner"}
+                  </div>
+                  <p className="text-xs text-slate-700 leading-relaxed">
+                    {isKo
+                      ? `실제 결과는 Top-2 동등 후보 (${recommendation.country} 1순위 vote ${primaryPct ?? "?"}% · ${recExt2.secondary!.country!} ${secondaryPct ?? "?"}%). 본문이 "전 시뮬이 X 지목" 또는 "합의도 96%"라고 적혀 있어도 그건 단일 winner 관점으로 작성된 LLM 텍스트입니다 — 위쪽 카드와 모순될 수 있습니다.`
+                      : `Actual result is a Top-2 tie (${recommendation.country} 1st-place ${primaryPct ?? "?"}% · ${recExt2.secondary!.country!} ${secondaryPct ?? "?"}%). If the prose says "all sims picked X" or "96% consensus", that's the LLM writing from a single-winner angle — may contradict the hero above.`}
+                  </p>
+                </div>
+              )}
+              <div className="card p-5">
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                  {narrative.executiveSummary}
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Strategy picks */}
         {segments.length > 0 && (
