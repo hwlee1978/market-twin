@@ -342,9 +342,15 @@ export function EnsembleView({
     const rec = result.aggregate.recommendation;
     const isKo = locale === "ko";
     const title = isKo ? "Market Twin · 분석 완료" : "Market Twin · Analysis complete";
-    const body = isKo
-      ? `추천: ${rec.country} (${rec.consensusPercent}% ${rec.confidence})`
-      : `Top market: ${rec.country} (${rec.consensusPercent}% ${rec.confidence})`;
+    // Top-2 tie: surface both candidates so the desktop notification
+    // doesn't claim a single winner when the orchestrator deferred.
+    const body = rec.displayMode === "top2" && rec.secondary
+      ? isKo
+        ? `Top 2 동등: ${rec.country} · ${rec.secondary.country} (격차 ${rec.secondary.gapToPrimary}pt)`
+        : `Top 2 tied: ${rec.country} · ${rec.secondary.country} (gap ${rec.secondary.gapToPrimary}pt)`
+      : isKo
+        ? `추천: ${rec.country} (${rec.consensusPercent}% ${rec.confidence})`
+        : `Top market: ${rec.country} (${rec.consensusPercent}% ${rec.confidence})`;
     try {
       const n = new Notification(title, {
         body,
@@ -1506,15 +1512,42 @@ function SummaryTab({
                   : recommendation.country}
               </div>
               <div className="text-sm">
-                <span className={clsx("font-semibold", confidenceColor)}>
-                  {recommendation.consensusPercent}% {isKo ? "합의" : "consensus"}
-                </span>
-                <span className="text-slate-500 ml-2">({recommendation.confidence})</span>
-                <ConsensusTypeBadge type={recommendation.consensusType} isKo={isKo} />
-                {recommendation.displayMode === "top2" && recommendation.secondary && (
-                  <span className="text-slate-500 ml-2">
-                    · {isKo ? "격차" : "gap"} {recommendation.secondary.gapToPrimary}pt
-                  </span>
+                {recommendation.displayMode === "top2" && recommendation.secondary ? (
+                  // Tie: relabel as top-3 hit rate (Phase E semantics)
+                  // and show actual 1st-place vote shares for both
+                  // candidates so the reader sees the real split,
+                  // not the misleading "96% 합의".
+                  (() => {
+                    const pv = bestCountryDistribution.find(
+                      (d) => d.country === recommendation.country,
+                    )?.percent;
+                    const sv = bestCountryDistribution.find(
+                      (d) => d.country === recommendation.secondary!.country,
+                    )?.percent;
+                    return (
+                      <>
+                        <span className="font-semibold text-warn">
+                          {isKo
+                            ? `1순위 vote ${pv ?? "?"}% vs ${sv ?? "?"}%`
+                            : `1st-place vote ${pv ?? "?"}% vs ${sv ?? "?"}%`}
+                        </span>
+                        <span className="text-slate-500 ml-2">
+                          · {isKo ? "Top-3 출현률" : "top-3 hit rate"} {recommendation.consensusPercent}%
+                        </span>
+                        <span className="text-slate-500 ml-2">
+                          · {isKo ? "격차" : "gap"} {recommendation.secondary.gapToPrimary}pt
+                        </span>
+                      </>
+                    );
+                  })()
+                ) : (
+                  <>
+                    <span className={clsx("font-semibold", confidenceColor)}>
+                      {recommendation.consensusPercent}% {isKo ? "합의" : "consensus"}
+                    </span>
+                    <span className="text-slate-500 ml-2">({recommendation.confidence})</span>
+                    <ConsensusTypeBadge type={recommendation.consensusType} isKo={isKo} />
+                  </>
                 )}
               </div>
             </div>

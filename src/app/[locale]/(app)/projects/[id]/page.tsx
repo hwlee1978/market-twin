@@ -67,7 +67,13 @@ export default async function ProjectDetailPage({
     created_at: string;
     completed_at: string | null;
     aggregate_result: {
-      recommendation?: { country: string; consensusPercent: number; confidence: string };
+      recommendation?: {
+        country: string;
+        consensusPercent: number;
+        confidence: string;
+        displayMode?: string;
+        secondary?: { country?: string } | null;
+      };
     } | null;
   };
   const ensemblesList = (ensembles ?? []) as unknown as EnsembleRow[];
@@ -154,10 +160,23 @@ export default async function ProjectDetailPage({
                       {rec && e.status === "completed" && (
                         <div className="mt-1.5 text-xs text-slate-600">
                           {t("projectDetail.recommendation")}:{" "}
-                          <span className="font-semibold text-slate-900">{rec.country}</span>{" "}
-                          <span className="text-slate-400">
-                            · {rec.consensusPercent}% {t("projectDetail.consensus")}
-                          </span>
+                          {rec.displayMode === "top2" && rec.secondary?.country ? (
+                            <>
+                              <span className="font-semibold text-slate-900">
+                                {`${rec.country} · ${rec.secondary.country}`}
+                              </span>{" "}
+                              <span className="text-[10px] font-bold uppercase text-warn bg-warn-soft/40 border border-warn/30 px-1.5 py-0 rounded">
+                                {locale === "ko" ? "Top 2 동등" : "Top 2 tie"}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-semibold text-slate-900">{rec.country}</span>{" "}
+                              <span className="text-slate-400">
+                                · {rec.consensusPercent}% {t("projectDetail.consensus")}
+                              </span>
+                            </>
+                          )}
                         </div>
                       )}
                     </Link>

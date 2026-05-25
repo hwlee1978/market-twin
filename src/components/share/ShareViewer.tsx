@@ -144,28 +144,73 @@ export function ShareViewer({
           </div>
         )}
 
-        {/* Top recommendation — hero card with brand-color left rule */}
+        {/* Top recommendation — hero card with brand-color left rule.
+            Top-2 tie: render both candidates side by side and frame
+            the consensus % as top-3 hit rate (not vote share) so the
+            public share viewer doesn't claim a single winner the
+            orchestrator deferred. */}
+        {(() => {
+          const recExt = recommendation as unknown as {
+            displayMode?: string;
+            secondary?: { country?: string; gapToPrimary?: number };
+          };
+          const isTie =
+            recExt.displayMode === "top2" && !!recExt.secondary?.country;
+          const secondaryCountry = isTie ? recExt.secondary!.country! : null;
+          const pv = bestCountryDistribution.find(
+            (d) => d.country === recommendation.country,
+          )?.percent;
+          const sv = secondaryCountry
+            ? bestCountryDistribution.find((d) => d.country === secondaryCountry)?.percent
+            : undefined;
+          return (
         <div className="card p-5 sm:p-6 bg-gradient-to-br from-brand-50/40 to-white border-brand/20 border-l-4 border-l-brand">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="text-[10px] uppercase tracking-wider text-brand font-semibold mb-2">
-                {isKo ? "추천 진출국" : "Recommended market"}
+                {isTie
+                  ? (isKo ? "Top 2 동등 후보" : "Top 2 candidates")
+                  : (isKo ? "추천 진출국" : "Recommended market")}
               </div>
               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
                 <div className="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">
-                  {recommendation.country}
+                  {isTie
+                    ? `${recommendation.country} · ${secondaryCountry}`
+                    : recommendation.country}
                 </div>
                 <div className="text-sm">
-                  <span className={clsx("font-semibold", confidenceColor)}>
-                    {recommendation.consensusPercent}% {isKo ? "합의" : "consensus"}
-                  </span>
-                  <span className="text-slate-500 ml-2">({recommendation.confidence})</span>
+                  {isTie ? (
+                    <>
+                      <span className="font-semibold text-warn">
+                        {isKo
+                          ? `1순위 vote ${pv ?? "?"}% vs ${sv ?? "?"}%`
+                          : `1st-place vote ${pv ?? "?"}% vs ${sv ?? "?"}%`}
+                      </span>
+                      <span className="text-slate-500 ml-2">
+                        · {isKo ? "Top-3 출현률" : "top-3 hit rate"} {recommendation.consensusPercent}%
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className={clsx("font-semibold", confidenceColor)}>
+                        {recommendation.consensusPercent}% {isKo ? "합의" : "consensus"}
+                      </span>
+                      <span className="text-slate-500 ml-2">({recommendation.confidence})</span>
+                    </>
+                  )}
                 </div>
               </div>
+              {isTie && (
+                <div className="mt-2 text-xs text-warn leading-snug">
+                  {isKo
+                    ? `점수 격차가 작아 단일 winner 결론 불가. 두 시장 모두 진입 검토 권장.`
+                    : `Score gap is narrow — defer single-country decision and evaluate both.`}
+                </div>
+              )}
             </div>
             <CheckCircle2 className={clsx(confidenceColor, "shrink-0")} size={32} />
           </div>
-          {runnerUp && (
+          {!isTie && runnerUp && (
             <div className="mt-3 text-xs text-slate-500">
               {isKo
                 ? `2위: ${runnerUp.country} (${runnerUp.count}/${simCount} 시뮬, ${runnerUp.percent}%)`
@@ -178,6 +223,8 @@ export function ShareViewer({
               : `Consensus across ${simCount} independent sims · ${effectivePersonas.toLocaleString()} aggregated personas`}
           </div>
         </div>
+          );
+        })()}
 
         {/* Executive summary */}
         {narrative?.executiveSummary && (

@@ -28,7 +28,13 @@ type EnsembleRow = {
   created_at: string;
   completed_at: string | null;
   aggregate_result: {
-    recommendation?: { country: string; consensusPercent: number; confidence: string };
+    recommendation?: {
+      country: string;
+      consensusPercent: number;
+      confidence: string;
+      displayMode?: string;
+      secondary?: { country?: string } | null;
+    };
   } | null;
   projects: ProjectMeta | null;
 };
@@ -341,26 +347,42 @@ function EnsembleRowItem({
       </div>
       <div className="min-w-0 flex-1 flex items-center gap-3">
         {rec && ensemble.status === "completed" ? (
-          <>
-            <CountryChip code={rec.country} size="sm" />
-            <span className="text-sm font-medium text-slate-900">
-              {getCountryLabel(rec.country, locale) || rec.country}
-            </span>
-            <span className="text-xs text-slate-500 tabular-nums">
-              {rec.consensusPercent}%
-            </span>
-            <span
-              className={`text-[10px] font-bold uppercase ${
-                rec.confidence === "STRONG"
-                  ? "text-success"
-                  : rec.confidence === "MODERATE"
-                    ? "text-warn"
-                    : "text-risk"
-              }`}
-            >
-              {rec.confidence}
-            </span>
-          </>
+          rec.displayMode === "top2" && rec.secondary?.country ? (
+            // Top-2 tie: show both candidates side by side instead of
+            // a single chip + STRONG badge that contradicts the tie.
+            <>
+              <CountryChip code={rec.country} size="sm" />
+              <span className="text-xs text-slate-400">·</span>
+              <CountryChip code={rec.secondary.country} size="sm" />
+              <span className="text-sm font-medium text-slate-900">
+                {`${getCountryLabel(rec.country, locale) || rec.country} · ${getCountryLabel(rec.secondary.country, locale) || rec.secondary.country}`}
+              </span>
+              <span className="text-[10px] font-bold uppercase text-warn bg-warn-soft/40 border border-warn/30 px-1.5 py-0.5 rounded">
+                {isKo ? "TOP 2 동등" : "TOP 2 TIE"}
+              </span>
+            </>
+          ) : (
+            <>
+              <CountryChip code={rec.country} size="sm" />
+              <span className="text-sm font-medium text-slate-900">
+                {getCountryLabel(rec.country, locale) || rec.country}
+              </span>
+              <span className="text-xs text-slate-500 tabular-nums">
+                {rec.consensusPercent}%
+              </span>
+              <span
+                className={`text-[10px] font-bold uppercase ${
+                  rec.confidence === "STRONG"
+                    ? "text-success"
+                    : rec.confidence === "MODERATE"
+                      ? "text-warn"
+                      : "text-risk"
+                }`}
+              >
+                {rec.confidence}
+              </span>
+            </>
+          )
         ) : (
           <StatusBadge
             status={ensemble.status}
