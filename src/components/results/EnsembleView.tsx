@@ -6282,45 +6282,46 @@ function PricingTab({
     null,
   );
 
-  // Auto-corrected recommended price — when the curve's revenue-max
-  // point disagrees with what the LLM claimed, trust the data. The
-  // LLM tends to anchor on the input base price; the curve is what
-  // it actually generated, so the argmax is more honest.
-  //
-  // We RECOMPUTE curveRevenueMaxCents at render time using the
-  // monotonic-envelope helper. Legacy ensembles persisted a naive-
-  // argmax value that picked up high-price noise bumps as "max".
-  // Render-time recompute fixes those without re-aggregating.
+  // Auto-corrected recommended price — routed through the SHARED
+  // `getDisplayPriceCents` helper so this tab agrees with the
+  // Summary/Overview/Decision-Aid surfaces. Earlier this block held
+  // its OWN inline trust-ceiling logic that fell straight back to
+  // `pricing.recommendedPriceCents` when curve max landed above the
+  // trust ceiling — but the shared helper has a more nuanced
+  // `constrainedCurveMax` fallback (recompute envelope with the
+  // ceiling as an upper bound, then use that price). Le Mouton
+  // 1265510e surfaced the divergence: Overview said $160 (the
+  // ceiling-constrained curve max) while Pricing tab said $124 (the
+  // LLM rec, which isn't even on the curve). Now both call the same
+  // helper.
   const recomputedCurveMax = computeCurveRevenueMaxCents(pricing.curve);
   const effectiveCurveMax = recomputedCurveMax ?? pricing.curveRevenueMaxCents;
-  const recComputedMatchesCurve =
-    effectiveCurveMax != null && pricing.recommendedPriceCents > 0
-      ? Math.abs(effectiveCurveMax / pricing.recommendedPriceCents - 1) <= 0.1
-      : null;
-  // Trust ceiling — reject curve max as headline when it lands above
-  // 1.5× the higher of (P75 of per-sim recs, LLM rec). The monotonic-
-  // envelope walk above can still pick up high-price points the LLM
-  // included for completeness but personas never actually evaluated.
-  // Le Mouton 2026-05-09 sim: LLM rec ₩158,900, IQR ₩116,900-₩216,000,
-  // but curve max landed at ₩480,000 — 2.2× P75. The auto-correction
-  // surfaced ₩480k as the headline, which is meaningless because no
-  // persona's willingness-to-pay supports that level. Same logic
-  // mirrors getDisplayPriceCents in pricing-sensitivity.ts.
+  const {
+    displayCents: headlinePriceCents,
+    wasCorrected,
+    curveMaxRejectedAsExtrapolation,
+  } = getDisplayPriceCents(
+    pricing.recommendedPriceCents,
+    pricing.curve,
+    pricing.curveRevenueMaxCents,
+    pricing.recommendedPriceP75,
+  );
+  // Trust ceiling values still computed for the "추가 정보" annotations
+  // below (the helper doesn't return them; they drive UI explanations
+  // like "곡선 매출 최대점 outside trusted range").
   const trustCeilingBase = Math.max(
     pricing.recommendedPriceP75 ?? 0,
     pricing.recommendedPriceCents > 0 ? pricing.recommendedPriceCents : 0,
   );
   const trustCeilingCents =
     trustCeilingBase > 0 ? trustCeilingBase * 1.5 : Infinity;
-  const curveMaxRejectedAsExtrapolation =
-    effectiveCurveMax != null && effectiveCurveMax > trustCeilingCents;
-  const headlinePriceCents =
-    recComputedMatchesCurve === false &&
-    effectiveCurveMax != null &&
-    !curveMaxRejectedAsExtrapolation
-      ? effectiveCurveMax
-      : pricing.recommendedPriceCents;
-  const wasCorrected = headlinePriceCents !== pricing.recommendedPriceCents;
+  // Kept for backwards-compat with downstream conditionals that reference
+  // matchesCurve. Helper already accounts for this internally, but the
+  // explanatory copy below still inspects it.
+  const recComputedMatchesCurve =
+    effectiveCurveMax != null && pricing.recommendedPriceCents > 0
+      ? Math.abs(effectiveCurveMax / pricing.recommendedPriceCents - 1) <= 0.1
+      : null;
 
   // Three-way relationship between user-input base price, LLM
   // recommendation, and curve revenue max. Used to drive a clear
@@ -6930,8 +6931,8 @@ function PricingTab({
           <PricingCurveChart data={pricing.curve} currency={currency} />
           <p className="text-xs text-slate-500 mt-3 leading-relaxed">
             {isKo
-              ? "각 가격대에서 모든 시뮬의 평균 전환 확률입니다. 곡선의 정점이 가장 많은 페르소나가 구매로 이어진 지점이며, 곡선이 완만하면 가격 민감도가 낮음을 의미합니다."
-              : "Mean conversion probability at each price point across every sim. The peak shows where the most personas convert; a flat curve means low price sensitivity."}
+              ? '실선(파랑) = LLM 원본 전환율. 점선(주황, 보일 때) = "monotonic envelope" — 가격이 오를수록 거부율도 늘어난다는 경제 원리에 따라 곡선이 다시 올라가는 noise 지점을 직전 running-min으로 클램프한 보정 곡선. 권장가/매출 최대점 계산은 envelope 기준 (즉 점선이 있으면 실선 우측의 위로 솟은 부분은 일부러 무시됩니다). 두 선이 겹치면 곡선이 깨끗한 단조감소라 점선 미표시.'
+              : 'Solid (blue) = raw LLM conversion. Dashed (amber, when shown) = "monotonic envelope" — the curve clamped to the running min, on the principle that real demand cannot reverse upward as price rises. Recommended-price / revenue-max computations use the envelope (so any high-price bumps on the solid line are intentionally suppressed). When the two overlap perfectly the dashed line is hidden — the curve is cleanly monotonic.'}
           </p>
         </div>
         <ChartGuide isKo={isKo}>

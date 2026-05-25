@@ -219,12 +219,30 @@ export function PricingCurveChart({
       }))
       .sort((a, b) => a.priceCents - b.priceCents);
   })();
-  const enriched = bucketed.map((d) => ({
-    price: formatPrice(d.priceCents, currency),
-    priceCents: d.priceCents,
-    conv: Math.round(d.meanConversionProbability * 1000) / 10, // %
-    n: d.sampleCount,
-  }));
+  // Monotonic envelope overlay — running min of conversion as price
+  // ascends. Visible as a dashed line so the user can SEE what the
+  // algorithm uses for revenue-max computation vs the raw LLM output.
+  // Le Mouton 1265510e curve drifts up after $220 (LLM emitted
+  // $260=45%, $300=60%) — the envelope clamps those to the prior
+  // running min, surfacing the high-price bumps as suppressed noise
+  // rather than treating them as real demand growth.
+  let runningMin = Infinity;
+  const enriched = bucketed.map((d) => {
+    runningMin = Math.min(runningMin, d.meanConversionProbability);
+    return {
+      price: formatPrice(d.priceCents, currency),
+      priceCents: d.priceCents,
+      conv: Math.round(d.meanConversionProbability * 1000) / 10, // raw %
+      envelope: Math.round(runningMin * 1000) / 10, // envelope %
+      n: d.sampleCount,
+    };
+  });
+  // Only show envelope line when it actually diverges from raw —
+  // monotonic curves overlap perfectly and the dashed line just adds
+  // visual clutter.
+  const envelopeDiverges = enriched.some(
+    (d) => Math.abs(d.conv - d.envelope) > 0.5,
+  );
   return (
     <ResponsiveContainer width="100%" height={260}>
       <LineChart data={enriched} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
@@ -237,9 +255,13 @@ export function PricingCurveChart({
         />
         <Tooltip
           contentStyle={{ fontSize: 12, border: `1px solid ${COLORS.divider}`, borderRadius: 4 }}
-          formatter={(value, _name, item) => {
+          formatter={(value, name, item) => {
             const p = (item as { payload?: { n?: number; price?: string } }).payload ?? {};
-            return [`${Number(value)}% conv (n=${p.n})`, p.price ?? ""] as [string, string];
+            const label =
+              name === "envelope"
+                ? `${Number(value)}% envelope (clamped)`
+                : `${Number(value)}% raw conv (n=${p.n})`;
+            return [label, p.price ?? ""] as [string, string];
           }}
           labelFormatter={() => ""}
         />
@@ -249,7 +271,21 @@ export function PricingCurveChart({
           stroke={COLORS.brand}
           strokeWidth={2}
           dot={{ r: 3, fill: COLORS.brand }}
+          name="raw"
+          isAnimationActive={false}
         />
+        {envelopeDiverges && (
+          <Line
+            type="monotone"
+            dataKey="envelope"
+            stroke={COLORS.warn}
+            strokeWidth={2}
+            strokeDasharray="4 3"
+            dot={{ r: 2, fill: COLORS.warn }}
+            name="envelope"
+            isAnimationActive={false}
+          />
+        )}
       </LineChart>
     </ResponsiveContainer>
   );
