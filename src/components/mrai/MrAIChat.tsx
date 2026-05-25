@@ -58,6 +58,12 @@ const KIND_TONE: Record<MemoryKind, string> = {
   decision: "bg-violet-50 text-violet-900 border-violet-200",
 };
 
+/** localStorage key for the last-active Mr.AI conversation. Persists
+ *  across page navigations so leaving /mr-ai and coming back resumes
+ *  the same thread instead of starting a fresh empty one. Falls back
+ *  to most-recent conversation if the stored id is missing or stale. */
+const ACTIVE_CONVO_STORAGE_KEY = "mrai-active-convo-id";
+
 export function MrAIChat({
   initialMemories,
   initialConversations,
@@ -73,7 +79,7 @@ export function MrAIChat({
 
   const [memories, setMemories] = useState<Memory[]>(initialMemories);
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
-  const [activeConvoId, setActiveConvoId] = useState<string | null>(null);
+  const [activeConvoId, setActiveConvoIdRaw] = useState<string | null>(null);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -83,9 +89,52 @@ export function MrAIChat({
   const scrollRef = useRef<HTMLDivElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
+  // Wrap activeConvoId setter so every change persists to localStorage.
+  // Lets the chat resume the same thread after navigating away and
+  // coming back — without this, the component remounts with null and
+  // the user sees an empty pane even though the conversation row is
+  // still in the sidebar.
+  const setActiveConvoId = (id: string | null) => {
+    setActiveConvoIdRaw(id);
+    if (typeof window === "undefined") return;
+    try {
+      if (id) window.localStorage.setItem(ACTIVE_CONVO_STORAGE_KEY, id);
+      else window.localStorage.removeItem(ACTIVE_CONVO_STORAGE_KEY);
+    } catch {
+      // localStorage can throw in private mode / quota — silently
+      // degrade to the "no resume" behaviour.
+    }
+  };
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [turns, loading]);
+
+  // Auto-resume the last-active conversation on mount. Order of
+  // preference: (1) localStorage stored id IF it still exists in the
+  // conversations list, (2) most-recent conversation (top of list).
+  // No-op when the workspace has zero conversations — empty state is
+  // correct in that case.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (initialConversations.length === 0) return;
+    let target: string | null = null;
+    try {
+      const stored = window.localStorage.getItem(ACTIVE_CONVO_STORAGE_KEY);
+      if (stored && initialConversations.some((c) => c.id === stored)) {
+        target = stored;
+      }
+    } catch {
+      // ignore
+    }
+    if (!target) {
+      target = initialConversations[0]?.id ?? null;
+    }
+    if (target) {
+      void loadConversation(target);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // mount-only — re-running would interrupt active chats
 
   async function refreshMemories() {
     const res = await fetch("/api/mrai/memories", { cache: "no-store" });
