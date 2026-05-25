@@ -2743,27 +2743,56 @@ function renderSecondaryActionsPage(opts: SecondaryRenderOpts): React.ReactEleme
           ? `${secondary.actions.length}개 액션 · single LLM pass (cross-sim 합의 아님)`
           : `${secondary.actions.length} actions · single LLM pass (not cross-sim consensus)`}
       </MText>
-      {secondary.actions.map((a, i) => (
-        <View key={i} style={{ marginBottom: 12 }}>
-          <View style={{ flexDirection: "row" }}>
-            <MText style={{ fontSize: 10, color: C.brand, fontWeight: 700, width: 22 }}>
-              {`${i + 1}.`}
-            </MText>
-            <MText style={[secondaryBulletTextSafe, { flex: 1 }]}>
-              {stripUnsupportedGlyphs(a.action)}
-            </MText>
+      {/* Use the primary phasedExecution row chrome (phaseRow +
+          phaseLeft + phaseRight + phaseLabel + phaseGoal +
+          phaseDeliverable) for each action so the secondary actions
+          page looks like a peer of the primary action plan page.
+          Secondary doesn't have phases, so the left column shows the
+          action number + impact/effort badges instead of phase label
+          + duration. The right column carries the action prose + a
+          single deliverable-style meta line. */}
+      {secondary.actions.map((a, i) => {
+        const impactLabel =
+          a.impact === 3
+            ? isKo ? "결정적" : "Pivotal"
+            : a.impact === 2
+              ? isKo ? "의미 있음" : "Meaningful"
+              : a.impact === 1
+                ? isKo ? "경미" : "Small"
+                : null;
+        const effortLabel =
+          a.effort === 3
+            ? isKo ? "몇 달" : "Months"
+            : a.effort === 2
+              ? isKo ? "몇 주" : "Weeks"
+              : a.effort === 1
+                ? isKo ? "며칠" : "Days"
+                : null;
+        return (
+          <View key={i} style={styles.phaseRow}>
+            <View style={styles.phaseLeft}>
+              <MText style={styles.phaseLabel}>{`#${i + 1}`}</MText>
+              {effortLabel && (
+                <MText style={styles.phaseDuration}>{effortLabel}</MText>
+              )}
+            </View>
+            <View style={styles.phaseRight}>
+              <MText style={styles.phaseGoal}>{stripUnsupportedGlyphs(a.action)}</MText>
+              {(impactLabel || effortLabel || a.actionCategory) && (
+                <MText style={[styles.phaseDeliverable, { color: C.muted, fontSize: 8.5 }]}>
+                  {[
+                    impactLabel ? `${isKo ? "영향" : "Impact"} ${a.impact}/3 · ${impactLabel}` : null,
+                    effortLabel ? `${isKo ? "난이도" : "Effort"} ${a.effort}/3 · ${effortLabel}` : null,
+                    a.actionCategory,
+                  ]
+                    .filter(Boolean)
+                    .join("  ·  ")}
+                </MText>
+              )}
+            </View>
           </View>
-          <MText style={[secondaryBulletTextSmall, { fontSize: 8, marginLeft: 22, marginTop: 2 }]}>
-            {[
-              a.impact ? `${isKo ? "영향" : "Impact"} ${a.impact}/3` : null,
-              a.effort ? `${isKo ? "난이도" : "Effort"} ${a.effort}/3` : null,
-              a.actionCategory ?? null,
-            ]
-              .filter(Boolean)
-              .join("  ·  ")}
-          </MText>
-        </View>
-      ))}
+        );
+      })}
       {pageFooter}
     </Page>
   );
@@ -2926,6 +2955,11 @@ function renderSecondaryRisksPage(opts: SecondaryRenderOpts): React.ReactElement
   const { secondary, isKo, pageHeader, pageFooter } = opts;
   if (secondary.risks.length === 0) return null;
   const countryLabel = getCountryLabel(secondary.country, isKo ? "ko" : "en");
+  // Map severity → star count to match primary risk page chrome.
+  // High = ★★★, Medium = ★★, Low = ★ — same starsToText helper the
+  // primary uses, just derived from the secondary's severity field.
+  const sevStars = (s: "low" | "medium" | "high"): 1 | 2 | 3 =>
+    s === "high" ? 3 : s === "medium" ? 2 : 1;
   return (
     <Page key="secondary-risks" size="A4" style={styles.page}>
       <View style={styles.pageAccent} fixed />
@@ -2944,28 +2978,34 @@ function renderSecondaryRisksPage(opts: SecondaryRenderOpts): React.ReactElement
           ? `${secondary.risks.length}개 리스크 · single LLM pass`
           : `${secondary.risks.length} risks · single LLM pass`}
       </MText>
+      {/* Use the primary RiskRow chrome: borderLeftColor + riskMain +
+          riskTitle + riskMitigation + riskStarsCol + riskStars so the
+          secondary risks page looks like a peer of the primary page,
+          not a thin alternate. The "Mitigation:" prefix is reused
+          even though secondary uses `description` (not a separate
+          mitigation field) — the visual chrome is what matters. */}
       {secondary.risks.map((r, i) => {
-        const sevColor = r.severity === "high" ? C.risk : r.severity === "medium" ? C.warn : C.muted;
+        const stars = sevStars(r.severity);
+        const borderColor = stars === 3 ? C.risk : stars === 2 ? C.warn : C.muted;
+        const starColor = stars === 3 ? C.risk : stars === 2 ? C.warn : C.faint;
         return (
-          <View key={i} style={{ marginBottom: 12 }}>
-            <View style={{ flexDirection: "row" }}>
-              <MText style={{ fontSize: 9, color: sevColor, fontWeight: 700, width: 60 }}>
-                {r.severity.toUpperCase()}
-              </MText>
-              <MText style={{ fontSize: 10, color: C.body, fontWeight: 700, flex: 1 }}>
-                {stripUnsupportedGlyphs(r.factor)}
+          <View key={i} style={[styles.riskRow, { borderLeftColor: borderColor }]}>
+            <View style={styles.riskMain}>
+              <MText style={styles.riskTitle}>{stripUnsupportedGlyphs(r.factor)}</MText>
+              <Text style={styles.riskMitigation}>
+                <Text>{stripUnsupportedGlyphs(r.description)}</Text>
+              </Text>
+              {r.personaCategory && (
+                <Text style={{ fontSize: 8, color: C.muted, marginTop: 4 }}>
+                  {`[${r.personaCategory}]`}
+                </Text>
+              )}
+            </View>
+            <View style={styles.riskStarsCol}>
+              <MText style={[styles.riskStars, { color: starColor }]}>
+                {starsToText(stars)}
               </MText>
             </View>
-            <MText style={[secondaryBulletTextSmall, { marginLeft: 60 }]}>
-              {stripUnsupportedGlyphs(r.description)}
-            </MText>
-            {r.personaCategory && (
-              <MText
-                style={{ fontSize: 8, color: C.muted, marginLeft: 60, marginTop: 2 }}
-              >
-                {`[${r.personaCategory}]`}
-              </MText>
-            )}
           </View>
         );
       })}
