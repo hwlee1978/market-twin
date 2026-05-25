@@ -2044,7 +2044,14 @@ function OverviewTab({
               </span>
             </li>
           )}
-          <li className="flex gap-3">
+          {/* Hide the legacy "X 진출이 합의 우위 (96%)" bullet when
+              isTie — the consensusPercent is Phase E top-3 hit rate
+              (not 1st-place vote share), so showing "US 합의 우위
+              96%" directly under a "Top 2 동등" bullet that says
+              "US vote 36% / TW vote 48%" is a direct contradiction
+              to the reader. The Top-2 bullet above already covers
+              the score + std fact for both candidates. */}
+          {!isTie && <li className="flex gap-3">
             <span className="shrink-0 text-brand font-bold">·</span>
             <span>
               {(() => {
@@ -2116,8 +2123,10 @@ function OverviewTab({
                 );
               })()}
             </span>
-          </li>
-          {runnerUp && (
+          </li>}
+          {/* Runner-up bullet duplicates the Top-2 bullet upstream
+              when tied — hide so the section reads cleanly. */}
+          {!isTie && runnerUp && (
             <li className="flex gap-3">
               <span className="shrink-0 text-brand font-bold">·</span>
               <span>
