@@ -2489,6 +2489,114 @@ function renderSecondaryMarketPage(opts: SecondaryRenderOpts): React.ReactElemen
   const mp = secondary.marketProfile;
   if (!mp) return null;
   const countryLabel = getCountryLabel(secondary.country, isKo ? "ko" : "en");
+
+  // Cross-check row builder — each row mirrors the primary alignment
+  // matrix at Section 5: dimension | sim signal | external evidence /
+  // confidence | alignment pill. Secondary lacks proper external data
+  // sources (KOSIS / Comtrade / KOTRA / etc. are primary-only), so the
+  // "external" column distinguishes Tavily-grounded items (citations
+  // present) from AI-only inferences. Reader sees what's verified vs
+  // what's LLM extrapolation — true cross-check framing, not a
+  // disguised market profile.
+  type CrossCheckRow = {
+    dimension: string;
+    simSignal: string;
+    externalEvidence: string;
+    alignment: "high" | "medium" | "low" | "concern";
+  };
+  const crossCheckRows: CrossCheckRow[] = [];
+  if (mp.tam) {
+    crossCheckRows.push({
+      dimension: isKo ? "TAM (시장 규모)" : "TAM (market size)",
+      simSignal: mp.tam,
+      externalEvidence: isKo
+        ? "AI 추정 (외부 통계 미연결 — primary 시장만 KOSIS·Comtrade·KOTRA cross-check 수행)"
+        : "AI estimate (no external stats linked — only primary covered by KOSIS / Comtrade / KOTRA cross-check)",
+      alignment: "low",
+    });
+  }
+  if (mp.growth) {
+    crossCheckRows.push({
+      dimension: isKo ? "성장 추세" : "Growth trend",
+      simSignal: mp.growth,
+      externalEvidence: isKo
+        ? "AI 추정 — 외부 시장조사 데이터로 미검증"
+        : "AI estimate — not externally validated",
+      alignment: "low",
+    });
+  }
+  if (mp.segment) {
+    crossCheckRows.push({
+      dimension: isKo ? "도달 세그먼트" : "Addressable segment",
+      simSignal: mp.segment,
+      externalEvidence: isKo
+        ? "AI 추정 (페르소나 시뮬 신호 기반)"
+        : "AI estimate (derived from persona sim signal)",
+      alignment: "medium",
+    });
+  }
+  if (mp.competitors.length > 0) {
+    const compNames = mp.competitors.slice(0, 5).map((c) => c.name).join(", ");
+    crossCheckRows.push({
+      dimension: isKo ? "현지 경쟁자" : "Local competitors",
+      simSignal: compNames,
+      externalEvidence: isKo
+        ? `${mp.competitors.length}개 브랜드 명명 — 실재 브랜드 (수동 cross-check 가능). 시장 점유율·매출 수치는 AI 추정.`
+        : `${mp.competitors.length} named brands — real brands (manually cross-checkable). Share / revenue figures are AI estimates.`,
+      alignment: "medium",
+    });
+  }
+  if (mp.channels.length > 0) {
+    const ch = mp.channels.slice(0, 4).map((c) => c.name).join(", ");
+    crossCheckRows.push({
+      dimension: isKo ? "유통 채널" : "Distribution channels",
+      simSignal: ch,
+      externalEvidence: isKo
+        ? "실재 채널명 — 채널 존재는 verifiable, 페르소나 시뮬에서 추출한 신뢰 신호."
+        : "Real channel names — verifiable existence, derived from persona sim trust signals.",
+      alignment: "medium",
+    });
+  }
+  if (mp.regulatory.barriers.length > 0 || mp.regulatory.requirements.length > 0) {
+    const barriers = mp.regulatory.barriers.slice(0, 3).map((b) => b.name).join(", ");
+    crossCheckRows.push({
+      dimension: isKo ? "규제 / 진입 장벽" : "Regulatory / Barriers",
+      simSignal: barriers || (isKo ? "요구사항 명시" : "Requirements listed"),
+      externalEvidence: isKo
+        ? "규제 기관·법령은 실재 (BSMI·관세청 등). 적용 범위와 timeline은 AI 추정 — 현지 법무 검토 필요."
+        : "Regulators / statutes are real (BSMI / customs, etc.). Scope and timelines are AI estimates — local counsel review needed.",
+      alignment: "medium",
+    });
+  }
+  if (mp.pricingBenchmarks.entry || mp.pricingBenchmarks.mid || mp.pricingBenchmarks.premium) {
+    const tier =
+      [
+        mp.pricingBenchmarks.entry ? `entry ${mp.pricingBenchmarks.entry}` : null,
+        mp.pricingBenchmarks.mid ? `mid ${mp.pricingBenchmarks.mid}` : null,
+        mp.pricingBenchmarks.premium ? `premium ${mp.pricingBenchmarks.premium}` : null,
+      ]
+        .filter(Boolean)
+        .join(" / ");
+    crossCheckRows.push({
+      dimension: isKo ? "가격 벤치마크" : "Pricing benchmarks",
+      simSignal: tier,
+      externalEvidence: isKo
+        ? "AI 추정 — 경쟁자 retail price 직접 추출은 별도 secondary pricing 모듈에서 수행."
+        : "AI estimate — competitor retail prices not directly extracted here; see secondary pricing module.",
+      alignment: "medium",
+    });
+  }
+  if (mp.gtm.keyMessage) {
+    crossCheckRows.push({
+      dimension: isKo ? "GTM 핵심 메시지" : "GTM key message",
+      simSignal: mp.gtm.keyMessage,
+      externalEvidence: isKo
+        ? "AI 합성 — 외부 광고 효과·메시지 테스트 데이터 미연결."
+        : "AI synthesis — no ad-effectiveness or message-testing data linked.",
+      alignment: "low",
+    });
+  }
+
   return (
     <Page key="secondary-market" size="A4" style={styles.page}>
       <View style={styles.pageAccent} fixed />
@@ -2497,47 +2605,89 @@ function renderSecondaryMarketPage(opts: SecondaryRenderOpts): React.ReactElemen
         <MText style={styles.sectionNum}>S1</MText>
         <MText style={styles.pageTitle}>
           {isKo
-            ? `${countryLabel} — 시장 분석 (Top 2 동등 후보)`
-            : `${countryLabel} — Market profile (Top 2 secondary)`}
+            ? `${countryLabel} — 진출 Cross-Check (Top 2 동등 후보)`
+            : `${countryLabel} — Entry Cross-Check (Top 2 secondary)`}
         </MText>
       </View>
-      {renderSecondaryHeader(opts, isKo ? "시장 분석" : "market profile")}
+      {renderSecondaryHeader(opts, isKo ? "진출 Cross-Check" : "entry cross-check")}
 
-      {(mp.tam || mp.growth || mp.segment) && (
-        <View style={{ marginBottom: 12 }}>
-          <MText style={styles.subSectionTitle}>{isKo ? "시장 규모" : "Market size"}</MText>
-          {mp.tam && (
-            <View style={{ flexDirection: "row", marginBottom: 4 }}>
-              <MText style={{ fontSize: 10, color: C.brand, fontWeight: 700, width: 56 }}>TAM</MText>
-              <MText style={[secondaryBulletTextSafe, { flex: 1 }]}>{stripUnsupportedGlyphs(mp.tam)}</MText>
+      {/* Cross-check scope disclaimer — explicit about what's
+          externally validated vs AI-only for this secondary candidate. */}
+      <View
+        style={{
+          backgroundColor: "#FFFBEB",
+          borderLeftWidth: 3,
+          borderLeftColor: C.warn,
+          padding: 8,
+          borderRadius: 3,
+          marginBottom: 12,
+        }}
+        wrap={false}
+      >
+        <MText style={{ fontSize: 8, color: C.warn, fontWeight: 700, letterSpacing: 0.4 }}>
+          {isKo
+            ? `⚠ ${countryLabel} CROSS-CHECK 범위 안내`
+            : `⚠ ${countryLabel} CROSS-CHECK SCOPE`}
+        </MText>
+        <MText style={{ fontSize: 8.5, color: C.body, marginTop: 2, lineHeight: 1.5 }}>
+          {isKo
+            ? `본 페이지는 ${countryLabel} 진출 가능성에 대한 시뮬 신호와 그에 대한 외부 데이터 cross-check 가능성을 정리합니다. 1순위 시장과 달리 ${countryLabel}는 KOSIS / Comtrade / KOTRA / DART 4-source 외부 데이터 cross-check를 거치지 않았습니다 — 현지 진출 전 별도 1차 자료 검증 필요.`
+            : `This page summarises the ${countryLabel} entry signal from the sim and what external cross-check is/isn't applied. Unlike the primary market, ${countryLabel} has NOT been validated against the 4-source external dataset (KOSIS / Comtrade / KOTRA / DART) — independent verification required before any commitment.`}
+        </MText>
+      </View>
+
+      {/* Alignment matrix — mirrors Section 5 (Integrated Analysis) chrome */}
+      {crossCheckRows.length > 0 && (
+        <View style={{ marginBottom: 14 }}>
+          <MText style={styles.subSectionTitle}>
+            {isKo ? `S1.1 ${countryLabel} 정합성 매트릭스` : `S1.1 ${countryLabel} alignment matrix`}
+          </MText>
+          <View style={styles.table}>
+            <View style={styles.tableHeader}>
+              <MText style={[styles.th, { flex: 1.1 }]}>{isKo ? "평가 차원" : "Dimension"}</MText>
+              <MText style={[styles.th, { flex: 1.4 }]}>{isKo ? "시뮬 신호" : "Sim signal"}</MText>
+              <MText style={[styles.th, { flex: 1.6 }]}>{isKo ? "외부 검증" : "External evidence"}</MText>
+              <MText style={[styles.th, { flex: 0.9, textAlign: "center" }]}>{isKo ? "정합성" : "Alignment"}</MText>
             </View>
-          )}
-          {mp.growth && (
-            <View style={{ flexDirection: "row", marginBottom: 4 }}>
-              <MText style={{ fontSize: 10, color: C.brand, fontWeight: 700, width: 56 }}>
-                {isKo ? "성장" : "Growth"}
-              </MText>
-              <MText style={[secondaryBulletTextSafe, { flex: 1 }]}>{stripUnsupportedGlyphs(mp.growth)}</MText>
-            </View>
-          )}
-          {mp.segment && (
-            <View style={{ flexDirection: "row", marginBottom: 4 }}>
-              <MText style={{ fontSize: 10, color: C.brand, fontWeight: 700, width: 56 }}>
-                {isKo ? "세그먼트" : "Segment"}
-              </MText>
-              <MText style={[secondaryBulletTextSafe, { flex: 1 }]}>{stripUnsupportedGlyphs(mp.segment)}</MText>
-            </View>
-          )}
+            {crossCheckRows.map((row, idx, arr) => {
+              const last = idx === arr.length - 1;
+              const palette = alignmentPalette(row.alignment);
+              return (
+                <View key={idx} style={[styles.tableRow, last ? styles.tableRowLast : {}]}>
+                  <View style={{ flex: 1.1 }}>
+                    <MText style={styles.tdBold}>{stripUnsupportedGlyphs(row.dimension)}</MText>
+                  </View>
+                  <MText style={[styles.td, { flex: 1.4 }]}>{stripUnsupportedGlyphs(row.simSignal)}</MText>
+                  <MText style={[styles.td, { flex: 1.6 }]}>{stripUnsupportedGlyphs(row.externalEvidence)}</MText>
+                  <View style={{ flex: 0.9, alignItems: "center", justifyContent: "center" }}>
+                    <View style={[styles.alignPill, { backgroundColor: palette.bg }]}>
+                      <MText style={[styles.alignPillText, { color: palette.ink }]}>
+                        {alignmentLabel(row.alignment, isKo)}
+                      </MText>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
         </View>
       )}
 
+      {/* Sim-side detail dump — kept so a reader who wants to see the
+          raw market profile (competitors, channels, regulatory detail,
+          cultural notes, GTM) doesn't have to click through. Framed as
+          "S1.2 시뮬 신호 상세" to keep cross-check framing. */}
+      <MText style={[styles.subSectionTitle, { marginTop: 14 }]}>
+        {isKo ? `S1.2 시뮬 신호 상세 (${countryLabel})` : `S1.2 Sim signal detail (${countryLabel})`}
+      </MText>
+
       {mp.competitors.length > 0 && (
-        <View style={{ marginBottom: 12 }}>
-          <MText style={styles.subSectionTitle}>
-            {isKo ? `경쟁자 (${mp.competitors.length})` : `Competitors (${mp.competitors.length})`}
+        <View style={{ marginBottom: 10 }}>
+          <MText style={{ fontSize: 9.5, color: C.muted, fontWeight: 700, marginBottom: 3 }}>
+            {isKo ? `명명된 경쟁자 (${mp.competitors.length})` : `Named competitors (${mp.competitors.length})`}
           </MText>
           {mp.competitors.slice(0, 6).map((c, i) => (
-            <View key={i} style={{ marginBottom: 6 }}>
+            <View key={i} style={{ marginBottom: 4 }}>
               <MText style={{ fontSize: 10, color: C.body, fontWeight: 700 }}>
                 {`· ${stripUnsupportedGlyphs(c.name)}${c.threatLevel ? ` (${c.threatLevel})` : ""}`}
               </MText>
@@ -2552,10 +2702,12 @@ function renderSecondaryMarketPage(opts: SecondaryRenderOpts): React.ReactElemen
       )}
 
       {mp.channels.length > 0 && (
-        <View style={{ marginBottom: 12 }}>
-          <MText style={styles.subSectionTitle}>{isKo ? "채널 환경" : "Channels"}</MText>
+        <View style={{ marginBottom: 10 }}>
+          <MText style={{ fontSize: 9.5, color: C.muted, fontWeight: 700, marginBottom: 3 }}>
+            {isKo ? "주요 채널" : "Primary channels"}
+          </MText>
           {mp.channels.slice(0, 6).map((c, i) => (
-            <View key={i} style={{ marginBottom: 6 }}>
+            <View key={i} style={{ marginBottom: 4 }}>
               <MText style={{ fontSize: 10, color: C.body, fontWeight: 700 }}>
                 {`· ${stripUnsupportedGlyphs(c.name)}`}
               </MText>
@@ -2570,12 +2722,14 @@ function renderSecondaryMarketPage(opts: SecondaryRenderOpts): React.ReactElemen
       )}
 
       {(mp.regulatory.barriers.length > 0 || mp.regulatory.requirements.length > 0) && (
-        <View style={{ marginBottom: 12 }}>
-          <MText style={styles.subSectionTitle}>{isKo ? "규제·진입 장벽" : "Regulatory"}</MText>
+        <View style={{ marginBottom: 10 }}>
+          <MText style={{ fontSize: 9.5, color: C.muted, fontWeight: 700, marginBottom: 3 }}>
+            {isKo ? "규제 / 진입 장벽 상세" : "Regulatory / Barriers detail"}
+          </MText>
           {mp.regulatory.barriers.slice(0, 5).map((b, i) => {
             const sevColor = b.severity === "high" ? C.risk : b.severity === "medium" ? C.warn : C.muted;
             return (
-              <View key={i} style={{ marginBottom: 6 }}>
+              <View key={i} style={{ marginBottom: 4 }}>
                 <View style={{ flexDirection: "row" }}>
                   <MText style={{ fontSize: 9, color: sevColor, fontWeight: 700, width: 50 }}>
                     {b.severity.toUpperCase()}
@@ -2593,7 +2747,7 @@ function renderSecondaryMarketPage(opts: SecondaryRenderOpts): React.ReactElemen
             );
           })}
           {mp.regulatory.requirements.length > 0 && (
-            <View style={{ marginTop: 6 }}>
+            <View style={{ marginTop: 4 }}>
               <MText style={{ fontSize: 9, color: C.muted, fontWeight: 700 }}>
                 {isKo ? "필수 요구사항:" : "Requirements:"}
               </MText>
