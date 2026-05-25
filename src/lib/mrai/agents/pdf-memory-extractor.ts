@@ -111,15 +111,22 @@ ${existingBlock}
 위 PDF를 분석해 메모리 후보를 추출하세요.`;
 
   const client = new Anthropic({ apiKey });
-  const response = await client.messages.create({
+  // Use streaming. The non-streaming `client.messages.create()` path
+  // refuses requests whose worst-case generation time exceeds 10 min,
+  // and our max_tokens=24000 on a 15+ page PDF crosses that threshold
+  // (Anthropic SDK error: "Streaming is required for operations that
+  // may take longer than 10 minutes"). Streaming accumulates the
+  // response chunk-by-chunk so the SDK keeps the connection open
+  // for the full generation regardless of duration. Final cost +
+  // token count come from the `message_delta` events at the end.
+  let raw = "";
+  let inputTokens = 0;
+  let outputTokens = 0;
+  const stream = client.messages.stream({
     model: MODEL,
-    // Bumped 6000 → 24000 on 2026-05-26. Le Mouton 15-page exec PDF
-    // already produced 25 candidates × ~230 tokens + JSON scaffold ≈
-    // 7k+ output (user saw "Expected ',' or ']' at position 8145").
-    // Detailed report is 30+ pages and the validation cross-check is
-    // also long — 24k gives full headroom. Input tokens dominate
-    // cost on the PDF read anyway, output cap doesn't materially
-    // change billing.
+    // 24000 token cap covers the longest detailed/validation PDFs
+    // (~30 pages, 25+ candidates). Input tokens dominate billing on
+    // PDF reads, so the output cap doesn't materially change cost.
     max_tokens: 24000,
     system,
     messages: [
@@ -139,18 +146,29 @@ ${existingBlock}
       },
     ],
   });
-
-  // Sonnet returns content array; take the first text block.
-  const textBlock = response.content.find((b) => b.type === "text");
-  const raw = textBlock && textBlock.type === "text" ? textBlock.text : "";
+  for await (const event of stream) {
+    if (
+      event.type === "content_block_delta" &&
+      event.delta.type === "text_delta"
+    ) {
+      raw += event.delta.text;
+    } else if (event.type === "message_start") {
+      inputTokens = event.message.usage?.input_tokens ?? 0;
+      outputTokens = event.message.usage?.output_tokens ?? 0;
+    } else if (event.type === "message_delta") {
+      // Final usage tally — message_delta carries the updated
+      // output_tokens count as streaming finishes.
+      outputTokens = event.usage?.output_tokens ?? outputTokens;
+    }
+  }
   if (!raw) throw new Error("empty extractor response");
 
   const parsed = parseJsonLoose(raw);
   const candidates = normalizeCandidates(parsed);
 
-  // Cost estimate: Sonnet 4.6 = $3/M input + $15/M output.
-  const inputTokens = response.usage?.input_tokens ?? 0;
-  const outputTokens = response.usage?.output_tokens ?? 0;
+  // Cost estimate: Sonnet 4.6 = $3/M input + $15/M output. inputTokens
+  // + outputTokens populated from message_start / message_delta events
+  // in the streaming loop above.
   const costEstimateUsd =
     Math.round(((inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15) * 1000) / 1000;
 
