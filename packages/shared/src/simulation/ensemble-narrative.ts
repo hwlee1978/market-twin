@@ -161,6 +161,26 @@ export interface MergeNarrativeOpts {
    * non-zero category counts.
    */
   candidateCountries?: string[];
+  /**
+   * Top-2 tie context. When the orchestrator detected displayMode
+   * "top2" (score-winner ≠ vote-winner OR gap ≤ ~3pt), the narrative
+   * MUST acknowledge that the result is effectively two-candidates,
+   * not a single winner. The prompt uses this to:
+   *  - Reframe executiveSummary as "Top-2 동등 — X와 Y 모두 검토 권장"
+   *    instead of "전 시뮬이 X 지목 (합의도 96%)" (which is wrong:
+   *    consensusPercent is top-3-hit-rate, not 1st-place vote share)
+   *  - Force the hotTake into the "동등 후보" framing
+   *  - Reference the actual 1st-place vote shares for both candidates
+   * Absent for single-winner cases — prompt falls back to existing
+   * single-country guidance unchanged.
+   */
+  top2?: {
+    primary: string;
+    secondary: string;
+    primaryVotePct: number;
+    secondaryVotePct: number;
+    gapToPrimary: number;
+  };
 }
 
 export async function mergeNarrative(
@@ -555,9 +575,68 @@ function buildMergePrompt(
     ? `${sims.length}개 독립 시뮬레이션의 결과를 통합 분석하세요. 같은 의미의 리스크/액션은 하나로 합치고 빈도(surfacedInSims)를 표기하세요. 모든 출력은 한국어로 작성하세요.`
     : `Synthesize ${sims.length} independent simulation results into one consensus narrative. Collapse semantically equivalent risks/actions into single entries with a frequency count (surfacedInSims). Write everything in English.`;
 
-  const productLine = isKo
-    ? `제품: ${opts.productName} · 추천 진출국: ${opts.bestCountry} (합의도 ${opts.consensusPercent}%)`
-    : `Product: ${opts.productName} · Recommended market: ${opts.bestCountry} (consensus ${opts.consensusPercent}%)`;
+  // Top-2 tie: the productLine + entire prompt framing must
+  // acknowledge that result is two-candidates. Otherwise the LLM
+  // reads "추천 진출국: US (합의도 96%)" and dutifully writes "전
+  // 시뮬이 US 지목 (합의도 96%)" — directly contradicting the Top-2
+  // banner the UI shows. consensusPercent is top-3-hit-rate under
+  // Phase E semantics, NOT 1st-place vote share; in a tie BOTH
+  // candidates have similar top-3 rates while actual 1st-place
+  // votes are split.
+  const productLine = opts.top2
+    ? (isKo
+        ? `제품: ${opts.productName} · Top-2 동등 후보: ${opts.top2.primary} (1순위 vote ${opts.top2.primaryVotePct}%) · ${opts.top2.secondary} (1순위 vote ${opts.top2.secondaryVotePct}%) · 격차 ${opts.top2.gapToPrimary}pt · top-3 출현률 ${opts.consensusPercent}% (단일 winner 판정 불가)`
+        : `Product: ${opts.productName} · Top-2 tied: ${opts.top2.primary} (1st-place vote ${opts.top2.primaryVotePct}%) · ${opts.top2.secondary} (1st-place vote ${opts.top2.secondaryVotePct}%) · gap ${opts.top2.gapToPrimary}pt · top-3 hit rate ${opts.consensusPercent}% (no single winner)`)
+    : (isKo
+        ? `제품: ${opts.productName} · 추천 진출국: ${opts.bestCountry} (합의도 ${opts.consensusPercent}%)`
+        : `Product: ${opts.productName} · Recommended market: ${opts.bestCountry} (consensus ${opts.consensusPercent}%)`);
+
+  // Top-2 explicit framing block — injected at the very top of the
+  // guidance, BEFORE the existing per-section rules. The existing
+  // rules already include a "Top 2 동등 케이스" rule deep in section 0,
+  // but that rule fires only on a substring match the LLM might
+  // miss. This block makes it unmissable.
+  const top2Framing = opts.top2
+    ? (isKo
+        ? `
+
+⚠ **TOP-2 동등 후보 (필수 framing — 모든 출력에 적용)**:
+본 분석은 단일 winner 도출 불가 케이스입니다. ${opts.top2.primary} (1순위 vote ${opts.top2.primaryVotePct}%)와 ${opts.top2.secondary} (1순위 vote ${opts.top2.secondaryVotePct}%)의 점수 격차가 ${opts.top2.gapToPrimary}pt로 매우 작아 사실상 동등한 후보입니다. consensusPercent ${opts.consensusPercent}%는 **vote 점유율이 아니라 top-3 출현률**입니다 — 두 후보 모두 거의 모든 시뮬의 top-3에 들었다는 의미일 뿐, 어느 한쪽이 압도적으로 합의됐다는 뜻이 아닙니다.
+
+**executiveSummary 및 hotTake 작성 시 절대 금지**:
+  ❌ "전 시뮬이 ${opts.top2.primary}을(를) 지목" — 사실 ${opts.top2.primary} 1순위는 ${opts.top2.primaryVotePct}%, ${opts.top2.secondary}는 ${opts.top2.secondaryVotePct}%. 거짓.
+  ❌ "${opts.top2.primary} 합의도 ${opts.consensusPercent}%" — consensusPercent의 의미를 사용자가 오해. top-3 hit rate임을 명시하거나 vote share만 사용.
+  ❌ "${opts.top2.primary}이 최우선 진출국" — orchestrator가 단일 winner 결정을 거부했는데 narrative가 단정하면 모순.
+
+**executiveSummary 필수 framing**:
+  ✓ "본 분석은 ${opts.top2.primary}와 ${opts.top2.secondary}를 Top-2 동등 후보로 도출했습니다. ${opts.top2.primary} 1순위 vote ${opts.top2.primaryVotePct}% vs ${opts.top2.secondary} ${opts.top2.secondaryVotePct}%로 점수 격차 ${opts.top2.gapToPrimary}pt 수준. 단일국 결정은 보류하고 두 시장 모두 진입 검토를 권장합니다. [그 다음에 두 시장 각각의 주요 장단점·핵심 리스크·핵심 기회를 균형 있게 서술]"
+
+**hotTake 필수 framing** (단일국 단정 금지):
+  ✓ "🤔 단일국 결정 보류 — ${opts.top2.primary}·${opts.top2.secondary} 동등, 두 시장 모두 6개월 파일럿 권장"
+  ✓ "⚠ Top-2 동률 — Score 1위 ${opts.top2.primary} (${opts.top2.primaryVotePct}%) vs Vote 1위 ${opts.top2.secondary} (${opts.top2.secondaryVotePct}%), 자본 capability로 선택"
+
+**mergedRisks / mergedActions**: 두 후보 시장에 공통되는 리스크/액션 우선. ${opts.top2.primary}-only 항목과 ${opts.top2.secondary}-only 항목이 섞여 있어도 scope 태깅(country-specific vs cross-market)으로 구분되므로 양쪽 시장 모두 다루세요.
+`
+        : `
+
+⚠ **TOP-2 TIED CANDIDATES (mandatory framing — applies to all output)**:
+This analysis cannot pick a single winner. ${opts.top2.primary} (1st-place vote ${opts.top2.primaryVotePct}%) and ${opts.top2.secondary} (1st-place vote ${opts.top2.secondaryVotePct}%) are within ${opts.top2.gapToPrimary}pt — effectively tied. consensusPercent ${opts.consensusPercent}% is **top-3 hit rate, NOT 1st-place vote share** — both candidates appeared in nearly every sim's top-3; it does NOT mean one dominated.
+
+**Forbidden phrasings in executiveSummary and hotTake**:
+  ❌ "Every sim picked ${opts.top2.primary}" — false; ${opts.top2.primary} won 1st place in ${opts.top2.primaryVotePct}% of sims, ${opts.top2.secondary} in ${opts.top2.secondaryVotePct}%.
+  ❌ "${opts.top2.primary} consensus ${opts.consensusPercent}%" — reader will misread it as vote dominance.
+  ❌ "${opts.top2.primary} is the top market" — orchestrator declined to pick; narrative must not unilaterally pick.
+
+**Required executiveSummary framing**:
+  ✓ "This analysis surfaces ${opts.top2.primary} and ${opts.top2.secondary} as Top-2 tied candidates. 1st-place vote: ${opts.top2.primary} ${opts.top2.primaryVotePct}% vs ${opts.top2.secondary} ${opts.top2.secondaryVotePct}%, gap ${opts.top2.gapToPrimary}pt. Defer single-country decision; evaluate both. [Then a balanced summary of strengths/weaknesses/risks/opportunities for each market]"
+
+**Required hotTake framing** (no single-country claim):
+  ✓ "🤔 Defer the call — ${opts.top2.primary}/${opts.top2.secondary} are tied; pilot both for 6 months"
+  ✓ "⚠ Top-2 tied — score winner ${opts.top2.primary} (${opts.top2.primaryVotePct}%) ≠ vote winner ${opts.top2.secondary} (${opts.top2.secondaryVotePct}%), choose by internal capability"
+
+**mergedRisks / mergedActions**: prioritise items that apply to both candidate markets. When ${opts.top2.primary}-only and ${opts.top2.secondary}-only items mix, the scope tag (country-specific vs cross-market) separates them — cover BOTH markets, not just the score winner.
+`)
+    : "";
 
   const scaleLine = isKo
     ? `규모: 총 ${totalPersonas.toLocaleString()}명 페르소나 (시뮬당 약 ${perSimPersonas}명 × ${sims.length}회).`
@@ -767,10 +846,17 @@ function buildMergePrompt(
     productLine,
     scaleLine,
     riskLevelLine,
-    "",
-    "## Per-sim outputs",
-    simBlocks,
   ];
+  // Top-2 framing block — sits HIGH in the prompt right after the
+  // header lines so the LLM sees the tie context before reading any
+  // per-sim data. Putting it deep in `guidance` section 0 wasn't
+  // enough — the model kept regurgitating "전 시뮬이 X 지목" from
+  // habit. Lifting it to the top forces the constraint to be the
+  // first framing the model encounters.
+  if (top2Framing) {
+    sections.push(top2Framing);
+  }
+  sections.push("", "## Per-sim outputs", simBlocks);
   if (distributionBlock) {
     sections.push("", distributionBlock);
   }

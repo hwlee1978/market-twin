@@ -1072,6 +1072,7 @@ function EnsembleDashboard({
           personas={personas}
           locale={locale}
           currency={result.project?.currency ?? "USD"}
+          ensembleId={result.id}
         />
       )}
       {activeTab === "countries" && (
@@ -1877,6 +1878,7 @@ function OverviewTab({
   personas,
   locale,
   currency,
+  ensembleId,
 }: {
   narrative: EnsembleAggregate["narrative"];
   recommendation: EnsembleAggregate["recommendation"];
@@ -1894,6 +1896,7 @@ function OverviewTab({
   personas: EnsembleAggregate["personas"];
   locale: string;
   currency: string;
+  ensembleId: string;
 }) {
   void locale;
   // Runner-up selection — prefer the orchestrator's curated `secondary`
@@ -2325,32 +2328,12 @@ function OverviewTab({
               disclaimer ABOVE it so readers don't take "전 시뮬이 미국
               지목" at face value. */}
           {isTie && tieCountries.length >= 2 && (
-            <div className="card border-warn/40 bg-warn-soft/20 p-4 mb-3">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-warn mb-1">
-                {isKo
-                  ? "⚠ 본 종합 의견은 단일 winner 가정 하에 작성됨"
-                  : "⚠ This summary was written assuming a single winner"}
-              </div>
-              <p className="text-xs text-slate-700 leading-relaxed">
-                {(() => {
-                  const tieFrag = tieCountries
-                    .map((c) => {
-                      const d = bestCountryDistribution.find((x) => x.country === c);
-                      return d ? `${c} 1순위 vote ${d.percent}%` : c;
-                    })
-                    .join(" · ");
-                  const tieFragEn = tieCountries
-                    .map((c) => {
-                      const d = bestCountryDistribution.find((x) => x.country === c);
-                      return d ? `${c} 1st-place ${d.percent}%` : c;
-                    })
-                    .join(" · ");
-                  return isKo
-                    ? `실제 결과는 Top-2 동등 후보 (${tieFrag}). 본문이 "전 시뮬이 X 지목" 또는 "합의도 96%"라고 적혀 있어도 그건 단일 winner 관점으로 작성된 LLM 텍스트입니다 — 위쪽 KPI/배너와 모순될 수 있습니다. 두 시장 모두 동등 후보로 검토하세요.`
-                    : `Actual result is a Top-2 tie (${tieFragEn}). If the prose below says "all sims picked X" or "96% consensus", that's the LLM writing from a single-winner angle — it may contradict the KPI/banner above. Treat both candidates as equally viable.`;
-                })()}
-              </p>
-            </div>
+            <NarrativeTieDisclaimer
+              tieCountries={tieCountries}
+              bestCountryDistribution={bestCountryDistribution}
+              ensembleId={ensembleId}
+              isKo={isKo}
+            />
           )}
           <div className="card p-5">
             <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
@@ -2712,6 +2695,101 @@ function FreeRerunBadge({
           ← {parentId.slice(0, 8)}
         </span>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Tie-aware disclaimer card rendered ABOVE the LLM-generated
+ * `narrative.executiveSummary` text when the orchestrator flagged
+ * Top-2. The card also exposes a "Regenerate" button that POSTs to
+ * /api/ensembles/:id/regenerate-narrative — re-runs the merge LLM
+ * against the persisted snapshots WITH the Top-2 framing context the
+ * upgraded prompt now expects. No re-aggregation, ~$0.10.
+ *
+ * Why this lives outside OverviewTab: it owns local busy/error state
+ * for the regen button. Splitting keeps OverviewTab's render path
+ * free of the action-handling logic.
+ */
+function NarrativeTieDisclaimer({
+  tieCountries,
+  bestCountryDistribution,
+  ensembleId,
+  isKo,
+}: {
+  tieCountries: string[];
+  bestCountryDistribution: EnsembleAggregate["bestCountryDistribution"];
+  ensembleId: string;
+  isKo: boolean;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const regenerate = async () => {
+    if (busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/ensembles/${ensembleId}/regenerate-narrative`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || e.detail || `status ${res.status}`);
+      }
+      router.refresh();
+      window.location.reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "regenerate failed");
+      setBusy(false);
+    }
+  };
+  const tieFrag = tieCountries
+    .map((c) => {
+      const d = bestCountryDistribution.find((x) => x.country === c);
+      return d ? `${c} 1순위 vote ${d.percent}%` : c;
+    })
+    .join(" · ");
+  const tieFragEn = tieCountries
+    .map((c) => {
+      const d = bestCountryDistribution.find((x) => x.country === c);
+      return d ? `${c} 1st-place ${d.percent}%` : c;
+    })
+    .join(" · ");
+  return (
+    <div className="card border-warn/40 bg-warn-soft/20 p-4 mb-3">
+      <div className="flex items-start justify-between gap-3 mb-1">
+        <div className="text-[10px] font-bold uppercase tracking-wider text-warn">
+          {isKo
+            ? "⚠ 본 종합 의견은 단일 winner 가정 하에 작성됨"
+            : "⚠ This summary was written assuming a single winner"}
+        </div>
+        <button
+          type="button"
+          onClick={regenerate}
+          disabled={busy}
+          className="text-[11px] font-semibold text-brand hover:text-brand-600 underline decoration-dotted underline-offset-2 disabled:opacity-60 shrink-0"
+          title={
+            isKo
+              ? "Top-2 인식 프롬프트로 narrative 재생성 (단일 LLM 호출, 약 30~60초)"
+              : "Regenerate narrative using the upgraded Top-2-aware prompt (single LLM call, 30-60s)"
+          }
+        >
+          {busy
+            ? isKo
+              ? "재생성 중…"
+              : "Regenerating…"
+            : isKo
+              ? "Top-2 prompt로 재생성"
+              : "Regenerate with Top-2 prompt"}
+        </button>
+      </div>
+      <p className="text-xs text-slate-700 leading-relaxed">
+        {isKo
+          ? `실제 결과는 Top-2 동등 후보 (${tieFrag}). 본문이 "전 시뮬이 X 지목" 또는 "합의도 96%"라고 적혀 있어도 그건 단일 winner 관점으로 작성된 LLM 텍스트입니다 — 위쪽 KPI/배너와 모순될 수 있습니다. 두 시장 모두 동등 후보로 검토하거나 우측의 "재생성"으로 prompt 갱신본을 다시 받으세요.`
+          : `Actual result is a Top-2 tie (${tieFragEn}). If the prose below says "all sims picked X" or "96% consensus", that's the LLM writing from a single-winner angle — it may contradict the KPI/banner above. Treat both candidates as equally viable, or hit "Regenerate" to re-run with the upgraded Top-2 prompt.`}
+      </p>
+      {err && <p className="text-xs text-risk mt-2">{err}</p>}
     </div>
   );
 }

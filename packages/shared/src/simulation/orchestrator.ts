@@ -790,6 +790,35 @@ export async function aggregateAndPersist(opts: {
   }
 
   if (snapshots.length > 0) {
+    // Top-2 detection mirrors the aggregator's displayMode logic — when
+    // the orchestrator deferred to "two candidates", the narrative
+    // merge prompt MUST know about it so the LLM doesn't write "전
+    // 시뮬이 X 지목 / 합의도 96%" which contradicts the Top-2 framing
+    // every UI surface shows.
+    const recExt = aggregate.recommendation as unknown as {
+      displayMode?: string;
+      secondary?: { country?: string; gapToPrimary?: number };
+    };
+    const top2Info =
+      recExt.displayMode === "top2" && recExt.secondary?.country
+        ? (() => {
+            const primary = aggregate.recommendation.country;
+            const secondary = recExt.secondary!.country!;
+            const primaryVotePct =
+              aggregate.bestCountryDistribution?.find((b) => b.country === primary)
+                ?.percent ?? 0;
+            const secondaryVotePct =
+              aggregate.bestCountryDistribution?.find((b) => b.country === secondary)
+                ?.percent ?? 0;
+            return {
+              primary,
+              secondary,
+              primaryVotePct,
+              secondaryVotePct,
+              gapToPrimary: recExt.secondary!.gapToPrimary ?? 0,
+            };
+          })()
+        : undefined;
     const narrative = await mergeNarrative({
       snapshots,
       productName,
@@ -798,6 +827,7 @@ export async function aggregateAndPersist(opts: {
       locale,
       crossCountryDistribution: aggregate.crossCountryDistribution,
       candidateCountries: projectInput?.candidateCountries,
+      top2: top2Info,
     });
     if (narrative) aggregate.narrative = narrative;
   }
