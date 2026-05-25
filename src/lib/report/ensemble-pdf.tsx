@@ -952,6 +952,62 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       : aggregate.recommendation.confidence === "MODERATE"
         ? C.warn
         : C.risk;
+
+  // Top-2 tie detection — shared by cover, brief, Go/No-Go, and every
+  // primary-only page that needs a tie-disclaimer banner. Returns null
+  // when the result is a clean single-winner; otherwise returns the
+  // labels + codes for both candidates. Single source of truth so all
+  // surfaces stay coherent (cover says "Top 2 US · TW" while brief
+  // showed "추천 미국 96%" was the bug we're closing).
+  const topTwo = (() => {
+    const recExt = aggregate.recommendation as unknown as {
+      displayMode?: string;
+      secondary?: { country?: string };
+    };
+    const distTop = aggregate.bestCountryDistribution?.[0]?.country;
+    const isTie =
+      recExt.displayMode === "top2" ||
+      (!!distTop && distTop !== aggregate.recommendation.country);
+    const secondaryCode =
+      recExt.secondary?.country ||
+      (distTop && distTop !== aggregate.recommendation.country ? distTop : null);
+    if (!isTie || !secondaryCode) return null;
+    const secondaryLabel = getCountryLabel(secondaryCode, locale) || secondaryCode;
+    return {
+      primaryCode: aggregate.recommendation.country,
+      primaryLabel: recCountryLabel,
+      secondaryCode,
+      secondaryLabel,
+    };
+  })();
+
+  // Reusable banner placed below pageTitle on every primary-only page
+  // when topTwo is set. Sits as a thin amber bar so it scans as a
+  // disclaimer rather than fighting the main content. Returns null
+  // when no tie — pages just render `{tieBanner}` unconditionally.
+  const tieBanner = topTwo ? (
+    <View
+      style={{
+        backgroundColor: "#FFFBEB",
+        borderLeftWidth: 3,
+        borderLeftColor: C.warn,
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 3,
+        marginBottom: 10,
+      }}
+      wrap={false}
+    >
+      <MText style={{ fontSize: 8, color: C.warn, fontWeight: 700, letterSpacing: 0.5 }}>
+        {isKo ? "TOP-2 동등 후보 — 본 페이지는 1순위 기준" : "TOP-2 TIE — primary candidate shown on this page"}
+      </MText>
+      <MText style={{ fontSize: 9, color: C.body, marginTop: 2, lineHeight: 1.5 }}>
+        {isKo
+          ? `점수 격차가 작아 ${topTwo.primaryLabel}(${topTwo.primaryCode})와 ${topTwo.secondaryLabel}(${topTwo.secondaryCode})가 사실상 동등합니다. 2순위 ${topTwo.secondaryLabel} 분석은 별도 secondary 페이지를 참고하세요.`
+          : `Score gap is narrow — ${topTwo.primaryLabel} (${topTwo.primaryCode}) and ${topTwo.secondaryLabel} (${topTwo.secondaryCode}) are effectively tied. See the dedicated secondary pages for ${topTwo.secondaryLabel} analysis.`}
+      </MText>
+    </View>
+  ) : null;
   const varianceColor =
     aggregate.varianceAssessment.label === "high"
       ? C.warn
@@ -1080,17 +1136,46 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           </View>
         )}
 
-        {/* 3-column KPI strip: recommended market / variance / overall risk */}
-        <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
-          <View style={[styles.kpiCard, { flex: 1 }]}>
-            <MText style={styles.kpiLabel}>{isKo ? "추천 진출국" : "Recommended"}</MText>
-            <MText style={[styles.kpiValue, { color: confidenceColor }]}>
-              {recommendation.country}
+        {/* 3-column KPI strip: recommended market / variance / overall risk
+            (or 2-row layout: full-width Top-2 card + 2-column variance/risk
+            when the orchestrator flagged a tie). */}
+        {topTwo && (
+          <View
+            style={{
+              backgroundColor: "#FFFBEB",
+              borderLeftWidth: 4,
+              borderLeftColor: C.warn,
+              padding: 12,
+              borderRadius: 4,
+              marginBottom: 10,
+            }}
+            wrap={false}
+          >
+            <MText style={{ fontSize: 8, color: C.warn, fontWeight: 700, letterSpacing: 0.6 }}>
+              {isKo ? "TOP 2 동등 후보" : "TOP 2 CANDIDATES"}
             </MText>
-            <MText style={styles.kpiSub}>
-              {`${recommendation.consensusPercent}% ${isKo ? "합의" : "consensus"} · ${recommendation.confidence}`}
+            <MText style={{ fontSize: 18, fontWeight: 700, color: C.ink, marginTop: 2 }}>
+              {`${topTwo.primaryLabel} · ${topTwo.secondaryLabel}`}
+            </MText>
+            <MText style={{ fontSize: 9, color: C.body, marginTop: 4, lineHeight: 1.5 }}>
+              {isKo
+                ? `1위 ${topTwo.primaryLabel} (${topTwo.primaryCode}) · 2위 ${topTwo.secondaryLabel} (${topTwo.secondaryCode}) — 점수 격차 작아 단일국 결정 보류 권장 (${recommendation.consensusPercent}% 합의)`
+                : `#1 ${topTwo.primaryLabel} (${topTwo.primaryCode}) · #2 ${topTwo.secondaryLabel} (${topTwo.secondaryCode}) — narrow score gap, defer single-country decision (${recommendation.consensusPercent}% agreement)`}
             </MText>
           </View>
+        )}
+        <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
+          {!topTwo && (
+            <View style={[styles.kpiCard, { flex: 1 }]}>
+              <MText style={styles.kpiLabel}>{isKo ? "추천 진출국" : "Recommended"}</MText>
+              <MText style={[styles.kpiValue, { color: confidenceColor }]}>
+                {recommendation.country}
+              </MText>
+              <MText style={styles.kpiSub}>
+                {`${recommendation.consensusPercent}% ${isKo ? "합의" : "consensus"} · ${recommendation.confidence}`}
+              </MText>
+            </View>
+          )}
           <View style={[styles.kpiCard, { flex: 1 }]}>
             <MText style={styles.kpiLabel}>{isKo ? "변동성" : "Variance"}</MText>
             <MText style={[styles.kpiValue, { color: variance.label === "high" ? C.warn : variance.label === "moderate" ? C.muted : C.success }]}>
@@ -1329,6 +1414,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             ? `${aggregate.simCount}개 시뮬의 결과를 통합한 합의 narrative입니다.`
             : `Cross-sim consensus narrative from ${aggregate.simCount} runs.`}
         </MText>
+
+        {tieBanner}
 
         <View style={styles.summaryBox}>
           <MText style={{ fontSize: 11, color: C.body, lineHeight: 1.7 }}>
@@ -1604,8 +1691,12 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     }
     signals.push({
       label: isKo ? "추천 시장" : "Target market",
-      value: aggregate.recommendation.country,
-      status: "ok",
+      // Top-2 tie: signal shows both candidates so the exec doesn't
+      // walk away thinking the verdict only covers the primary country.
+      value: topTwo
+        ? `${topTwo.primaryCode} + ${topTwo.secondaryCode} (Top-2)`
+        : aggregate.recommendation.country,
+      status: topTwo ? "warn" : "ok",
     });
     if (aggregate.pricing?.recommendedPriceCents) {
       // Use shared helper so this signal stays in sync with the Pricing
@@ -1635,6 +1726,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             ? "이 페이지는 분석 전체를 한 줄로 요약합니다. 데이터에 기반한 진출 권장 + 그 결정이 바뀌려면 어떤 조건이 충족돼야 하는지."
             : "One-page synthesis of the entire analysis: data-driven verdict + the conditions that would change it."}
         </MText>
+
+        {tieBanner}
 
         {/* Verdict hero */}
         <View
@@ -1815,6 +1908,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             ? "추천 진출국에 대한 시장 규모, 명명된 경쟁자, 채널 환경, 규제, 가격 벤치마크, GTM 전략 요약. 진출 의사결정의 실세계 맥락."
             : "Recommended-market deep-dive: TAM, named competitors, channel landscape, regulatory, pricing benchmarks, and GTM strategy."}
         </MText>
+
+        {tieBanner}
 
         {/* Market size */}
         {mp.marketSize?.estimateUsd && (
@@ -2359,6 +2454,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             : `Key message, ICP, differentiators, and market-entry risks for ${mp?.country ?? "the recommended market"} — direct input for campaign and landing design.`}
         </MText>
 
+        {tieBanner}
+
         <View
           style={{
             marginTop: 4,
@@ -2699,6 +2796,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             : "Recommended actions placed by effort: Phase 1 done in 30d, Phase 2 = validation milestones, Phase 3 = scale."}
         </MText>
 
+        {tieBanner}
+
         {phases.map((phase) => {
           const items = grouped[phase.id];
           return (
@@ -2801,6 +2900,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           ? "시뮬 합의 기반 1순위 시장과 전략별 대안입니다."
           : "Consensus-driven primary market and strategy-specific alternatives."}
       </MText>
+
+      {tieBanner}
 
       {championQuote && (
         <QuoteCallout
@@ -2978,6 +3079,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             ? `상위 ${detailed.length}개 시장의 선정 사유 · 페르소나 요약 · 거부 요인입니다.`
             : `Selection rationale, persona summary, and objections for the top ${detailed.length} markets.`}
         </MText>
+
+        {tieBanner}
 
         {detailed.map((c) => {
           const d = c.detail;
@@ -3582,6 +3685,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             : "Cross-sim recommended price, mid-50% range, and conversion curve."}
         </MText>
 
+        {tieBanner}
+
         {priceSkepticQuote && (
           <QuoteCallout
             quote={priceSkepticQuote}
@@ -3788,6 +3893,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             : `Risks dedup'd across ${aggregate.simCount} sims — overall: ${riskLevelLabel(aggregate.narrative.overallRiskLevel, false)}.`}
         </MText>
 
+        {tieBanner}
+
         {skepticQuote && (
           <QuoteCallout
             quote={skepticQuote}
@@ -3926,6 +4033,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             ? `시뮬 합의 기반 우선순위 액션 플랜입니다.`
             : `Cross-sim consensus action plan, in priority order.`}
         </MText>
+
+        {tieBanner}
 
         {motivationQuote && (
           <QuoteCallout
@@ -4704,6 +4813,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             ? `추천 시장 ${recCountry} 기준. 각 볼륨 티어별 마케팅 예산 + 예상 매출 + 시나리오별 변동. 실제 결과는 ±30% 변동 가능.`
             : `Based on the recommended market ${recCountry}. Marketing budget + projected revenue per volume tier, with optimistic / base / pessimistic scenarios. Actual outcomes can vary ±30%.`}
         </MText>
+
+        {tieBanner}
 
         <View style={styles.sectionBlock}>
           <MText style={styles.sectionEyebrow}>
@@ -6335,6 +6446,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             : "Top trust factors and top objections from personas in the recommended market — direct input for messaging, FAQ, and reassurance design."}
         </MText>
 
+        {tieBanner}
+
         <View style={{ flexDirection: "row", gap: 12 }}>
           <View
             style={{
@@ -7071,17 +7184,86 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           </View>
         </View>
         <View>
-          <View style={styles.coverRecCard}>
-            <MText style={styles.coverRecLabel}>{t.coverRecLabel}</MText>
-            <MText style={styles.coverRecCountry}>{recCountryLabel}</MText>
-            <Text style={styles.coverRecMeta}>
-              <Text style={{ fontWeight: 700 }}>{aggregate.recommendation.consensusPercent}%</Text>
-              <Text>{` ${t.consensus} · `}</Text>
-              <Text style={{ fontWeight: 700, color: confidenceColor === C.success ? "#86EFAC" : confidenceColor === C.warn ? "#FEF08A" : "#FCA5A5" }}>
-                {t.confidence[aggregate.recommendation.confidence]}
-              </Text>
-            </Text>
-          </View>
+          {/* Top-2 tie detection — when the orchestrator flagged
+              displayMode="top2" OR the vote-share top differs from
+              the score winner, the cover must NOT display a single
+              "추천 진출국 미국 96% 합의도 강함" because that mis-
+              represents the result (Le Mouton 1265510e: US winner on
+              score 68.2 vs TW 65.5, but TW won vote 48% vs 36%).
+              Frame as "Top 2 동등 후보 1위 X · 2위 Y" instead. */}
+          {(() => {
+            const recExt = aggregate.recommendation as unknown as {
+              displayMode?: string;
+              secondary?: { country?: string };
+            };
+            const distTop = aggregate.bestCountryDistribution?.[0]?.country;
+            const isTie =
+              recExt.displayMode === "top2" ||
+              (!!distTop && distTop !== aggregate.recommendation.country);
+            const secondaryCountry =
+              recExt.secondary?.country ||
+              (distTop && distTop !== aggregate.recommendation.country ? distTop : null);
+            if (isTie && secondaryCountry) {
+              const secondaryLabel =
+                getCountryLabel(secondaryCountry, locale) || secondaryCountry;
+              return (
+                <View style={styles.coverRecCard}>
+                  <MText style={[styles.coverRecLabel, { color: "#FEF08A" }]}>
+                    {isKo ? "Top 2 동등 후보" : "Top 2 candidates"}
+                  </MText>
+                  <MText style={[styles.coverRecCountry, { fontSize: 28 }]}>
+                    {`${recCountryLabel} · ${secondaryLabel}`}
+                  </MText>
+                  <Text style={styles.coverRecMeta}>
+                    <Text style={{ fontWeight: 700 }}>
+                      {isKo ? "1위 " : "#1 "}
+                      {recCountryLabel} ({aggregate.recommendation.country})
+                    </Text>
+                    <Text>{` · `}</Text>
+                    <Text style={{ fontWeight: 700 }}>
+                      {isKo ? "2위 " : "#2 "}
+                      {secondaryLabel} ({secondaryCountry})
+                    </Text>
+                  </Text>
+                  <MText
+                    style={{
+                      fontSize: 9,
+                      color: "rgba(255,255,255,0.7)",
+                      marginTop: 8,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {isKo
+                      ? `점수 격차가 작아 사실상 동등 — 단일국 결정 보류, 두 시장 모두 검토 권장. (Multi-LLM ${aggregate.recommendation.consensusPercent}% 합의)`
+                      : `Score gap is narrow — defer single-country decision, evaluate both. (Multi-LLM ${aggregate.recommendation.consensusPercent}% agreement)`}
+                  </MText>
+                </View>
+              );
+            }
+            return (
+              <View style={styles.coverRecCard}>
+                <MText style={styles.coverRecLabel}>{t.coverRecLabel}</MText>
+                <MText style={styles.coverRecCountry}>{recCountryLabel}</MText>
+                <Text style={styles.coverRecMeta}>
+                  <Text style={{ fontWeight: 700 }}>{aggregate.recommendation.consensusPercent}%</Text>
+                  <Text>{` ${t.consensus} · `}</Text>
+                  <Text
+                    style={{
+                      fontWeight: 700,
+                      color:
+                        confidenceColor === C.success
+                          ? "#86EFAC"
+                          : confidenceColor === C.warn
+                          ? "#FEF08A"
+                          : "#FCA5A5",
+                    }}
+                  >
+                    {t.confidence[aggregate.recommendation.confidence]}
+                  </Text>
+                </Text>
+              </View>
+            );
+          })()}
           <MText style={styles.coverFooter}>{t.coverFooter}</MText>
         </View>
       </View>
@@ -7100,10 +7282,12 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     isKo,
     pageHeader,
     pageFooter,
+    currency: project?.currency ?? undefined,
   });
   const secondaryMarketPage = secondary.marketPage;
   const secondaryActionsPage = secondary.actionsPage;
   const secondaryRisksPage = secondary.risksPage;
+  const secondaryPricingPage = secondary.pricingPage;
 
   const doc = (
     <Document>
@@ -7131,6 +7315,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
               risks alongside primary by inserting after actions. */}
           {secondaryRisksPage}
           {renderPricingPage()}
+          {secondaryPricingPage}
         </>
       ) : (
         // Detailed report — order set by user 2026-05-09. Five pages
@@ -7168,6 +7353,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           {renderVoicesPage()}
           {renderCommonObjectionsPage()}
           {renderPricingPage()}
+          {secondaryPricingPage}
           {renderRisksPage()}
           {secondaryRisksPage}
           {renderActionsPage()}
@@ -7196,16 +7382,18 @@ function renderEnsembleSecondaryPages(opts: {
   isKo: boolean;
   pageHeader: React.ReactElement;
   pageFooter: React.ReactElement;
+  currency?: string;
 }): {
   marketPage: React.ReactElement | null;
   actionsPage: React.ReactElement | null;
   risksPage: React.ReactElement | null;
+  pricingPage: React.ReactElement | null;
 } {
-  const { aggregate, isKo, pageHeader, pageFooter } = opts;
+  const { aggregate, isKo, pageHeader, pageFooter, currency } = opts;
   const rec = aggregate.recommendation;
   const dist = aggregate.bestCountryDistribution ?? [];
   if (!rec?.country || dist.length === 0) {
-    return { marketPage: null, actionsPage: null, risksPage: null };
+    return { marketPage: null, actionsPage: null, risksPage: null, pricingPage: null };
   }
 
   // Detect tie — orchestrator displayMode top2 OR score-winner ≠ vote-winner
@@ -7218,8 +7406,19 @@ function renderEnsembleSecondaryPages(opts: {
       ? distTop
       : null;
   if (!secondaryCountry) {
-    return { marketPage: null, actionsPage: null, risksPage: null };
+    return { marketPage: null, actionsPage: null, risksPage: null, pricingPage: null };
   }
+
+  type SecondaryPricingShape = {
+    recommendedPriceCents: number;
+    recommendedPriceP25: number;
+    recommendedPriceP75: number;
+    marginEstimate: string;
+    marginEstimatePct?: number;
+    curveRevenueMaxCents?: number | null;
+    rationale: string;
+    curve: Array<{ priceCents: number; meanConversionProbability: number; sampleCount: number }>;
+  };
 
   const aggExtra = aggregate as unknown as {
     additionalMarketProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
@@ -7236,18 +7435,21 @@ function renderEnsembleSecondaryPages(opts: {
         personaCategory?: string;
       }>
     >;
+    additionalPricing?: Record<string, SecondaryPricingShape>;
   };
   const mp = aggExtra.additionalMarketProfiles?.[secondaryCountry] ?? null;
   const actions = aggExtra.additionalActions?.[secondaryCountry] ?? [];
   const risks = aggExtra.additionalRisks?.[secondaryCountry] ?? [];
-  if (!mp && actions.length === 0 && risks.length === 0) {
-    return { marketPage: null, actionsPage: null, risksPage: null };
+  const secondaryPricing = aggExtra.additionalPricing?.[secondaryCountry] ?? null;
+  if (!mp && actions.length === 0 && risks.length === 0 && !secondaryPricing) {
+    return { marketPage: null, actionsPage: null, risksPage: null, pricingPage: null };
   }
 
   const countryLabel = getCountryLabel(secondaryCountry, isKo ? "ko" : "en");
   let marketPage: React.ReactElement | null = null;
   let actionsPage: React.ReactElement | null = null;
   let risksPage: React.ReactElement | null = null;
+  let pricingPage: React.ReactElement | null = null;
 
   // Local inline styling — ensemble-pdf doesn't share validation-pdf's
   // sectionTitle/bulletRow primitives, so we use the existing C palette
@@ -7502,7 +7704,142 @@ function renderEnsembleSecondaryPages(opts: {
     );
   }
 
-  return { marketPage, actionsPage, risksPage };
+  // ── Page S4: Secondary pricing ───────────────────────────────────
+  if (secondaryPricing) {
+    const fmt = (cents: number) => formatPrice(cents, currency ?? null);
+    const maxConv = Math.max(
+      ...secondaryPricing.curve.map((p) => p.meanConversionProbability),
+      0.0001,
+    );
+    const peakPoint = secondaryPricing.curve.reduce<typeof secondaryPricing.curve[number] | null>(
+      (best, p) =>
+        best === null || p.meanConversionProbability > best.meanConversionProbability ? p : best,
+      null,
+    );
+    pricingPage = (
+      <Page key="ensemble-secondary-pricing" size="A4" style={styles.page}>
+        <View style={styles.pageAccent} fixed />
+        {pageHeader}
+        <View style={{ marginBottom: 12 }}>
+          <MText style={tieBadge}>
+            {isKo ? "Top 2 동등 후보 — 가격 분석" : "Top 2 secondary — pricing"}
+          </MText>
+          <MText style={[titleStyle, { marginTop: 6 }]}>
+            {`${countryLabel} (${secondaryCountry})`}
+          </MText>
+          <MText style={subtitleStyle}>
+            {isKo
+              ? `Winner ${rec.country} 대비 ${secondaryCountry} 시장 가격 분석 (single LLM pass — cross-sim 합의 아님)`
+              : `${secondaryCountry} pricing analysis parallel to winner ${rec.country} (single LLM pass — not cross-sim consensus)`}
+          </MText>
+        </View>
+
+        {/* Headline price */}
+        <View
+          style={{
+            flexDirection: "row",
+            gap: 24,
+            alignItems: "flex-end",
+            paddingBottom: 12,
+            borderBottomWidth: 0.5,
+            borderBottomColor: C.divider,
+            marginBottom: 12,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <MText style={labelStyle}>{isKo ? "권장 가격" : "Recommended"}</MText>
+            <MText style={{ fontSize: 22, fontWeight: 700, color: C.ink, marginTop: 2 }}>
+              {fmt(secondaryPricing.recommendedPriceCents)}
+            </MText>
+            <MText style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>
+              {isKo
+                ? `추정 신뢰구간 ${fmt(secondaryPricing.recommendedPriceP25)}–${fmt(secondaryPricing.recommendedPriceP75)} (±15%)`
+                : `Inferred band ${fmt(secondaryPricing.recommendedPriceP25)}–${fmt(secondaryPricing.recommendedPriceP75)} (±15%)`}
+            </MText>
+          </View>
+          {peakPoint && (
+            <View>
+              <MText style={labelStyle}>{isKo ? "최고 전환" : "Peak conversion"}</MText>
+              <MText style={{ fontSize: 14, fontWeight: 700, color: C.ink, marginTop: 2 }}>
+                {fmt(peakPoint.priceCents)}
+              </MText>
+              <MText style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>
+                {`${(peakPoint.meanConversionProbability * 100).toFixed(1)}%`}
+              </MText>
+            </View>
+          )}
+          {secondaryPricing.curveRevenueMaxCents != null && (
+            <View>
+              <MText style={labelStyle}>{isKo ? "곡선 매출 최대" : "Curve revenue max"}</MText>
+              <MText style={{ fontSize: 14, fontWeight: 700, color: C.ink, marginTop: 2 }}>
+                {fmt(secondaryPricing.curveRevenueMaxCents)}
+              </MText>
+            </View>
+          )}
+        </View>
+
+        {/* Rationale */}
+        <MText style={sectionHeaderStyle}>{isKo ? "권장 가격 근거" : "Rationale"}</MText>
+        <MText style={bodyStyle}>{secondaryPricing.rationale}</MText>
+
+        {/* Curve */}
+        {secondaryPricing.curve.length > 0 && (
+          <View style={{ marginTop: 12 }}>
+            <MText style={sectionHeaderStyle}>
+              {isKo ? "가격 – 전환 곡선" : "Price – conversion curve"}
+            </MText>
+            {secondaryPricing.curve.map((p) => (
+              <View
+                key={p.priceCents}
+                style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 3 }}
+              >
+                <MText style={{ width: 56, fontSize: 9, color: C.body }}>{fmt(p.priceCents)}</MText>
+                <View
+                  style={{
+                    flex: 1,
+                    height: 6,
+                    backgroundColor: "#F1F5F9",
+                    borderRadius: 2,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: `${(p.meanConversionProbability / maxConv) * 100}%`,
+                      height: 6,
+                      backgroundColor: C.brand,
+                      borderRadius: 2,
+                    }}
+                  />
+                </View>
+                <MText style={{ width: 56, fontSize: 9, color: C.body, textAlign: "right" }}>
+                  {`${(p.meanConversionProbability * 100).toFixed(1)}%`}
+                </MText>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Margin */}
+        {secondaryPricing.marginEstimate && (
+          <View style={{ marginTop: 12 }}>
+            <MText style={sectionHeaderStyle}>{isKo ? "예상 마진" : "Margin estimate"}</MText>
+            <MText style={bodyStyle}>{secondaryPricing.marginEstimate}</MText>
+            {secondaryPricing.marginEstimatePct != null && (
+              <MText style={{ fontSize: 9, color: C.muted, marginTop: 3 }}>
+                {isKo
+                  ? `약 ${secondaryPricing.marginEstimatePct}% 매출총이익률`
+                  : `~${secondaryPricing.marginEstimatePct}% gross margin`}
+              </MText>
+            )}
+          </View>
+        )}
+
+        {pageFooter}
+      </Page>
+    );
+  }
+
+  return { marketPage, actionsPage, risksPage, pricingPage };
 }
 
 /* ────────────────────────────────── small helpers ─── */

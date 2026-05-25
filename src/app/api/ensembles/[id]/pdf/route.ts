@@ -133,6 +133,16 @@ export async function GET(
           ? validationData.simResult.secondary?.country
           : undefined;
       if (secondaryCountry) {
+        type SecondaryPricingShape = {
+          recommendedPriceCents: number;
+          recommendedPriceP25: number;
+          recommendedPriceP75: number;
+          marginEstimate: string;
+          marginEstimatePct?: number;
+          curveRevenueMaxCents?: number | null;
+          rationale: string;
+          curve: Array<{ priceCents: number; meanConversionProbability: number; sampleCount: number }>;
+        };
         const aggExtra = aggregate as unknown as {
           additionalMarketProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
           additionalActions?: Record<
@@ -148,11 +158,13 @@ export async function GET(
               personaCategory?: string;
             }>
           >;
+          additionalPricing?: Record<string, SecondaryPricingShape>;
         };
         const mp = aggExtra.additionalMarketProfiles?.[secondaryCountry] ?? null;
         const actions = aggExtra.additionalActions?.[secondaryCountry] ?? [];
         const risks = aggExtra.additionalRisks?.[secondaryCountry] ?? [];
-        if (mp || actions.length || risks.length) {
+        const secondaryPricing = aggExtra.additionalPricing?.[secondaryCountry] ?? null;
+        if (mp || actions.length || risks.length || secondaryPricing) {
           validationData.secondaryAnalysis = {
             country: secondaryCountry,
             marketProfile: mp
@@ -210,6 +222,7 @@ export async function GET(
               severity: r.severity,
               personaCategory: r.personaCategory,
             })),
+            pricing: secondaryPricing ?? undefined,
           };
         }
       }

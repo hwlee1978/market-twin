@@ -1126,6 +1126,12 @@ function EnsembleDashboard({
               additionalMarketProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
             }).additionalMarketProfiles
           }
+          additionalPricing={
+            (aggregate as unknown as {
+              additionalPricing?: Record<string, SecondaryPricingItem>;
+            }).additionalPricing
+          }
+          ensembleId={result.id}
         />
       )}
       {activeTab === "decisionAid" && (
@@ -1805,6 +1811,20 @@ type SecondaryRiskItem = {
   severity: "low" | "medium" | "high";
   surfacedInSims: number;
   personaCategory?: string;
+};
+type SecondaryPricingItem = {
+  recommendedPriceCents: number;
+  recommendedPriceP25: number;
+  recommendedPriceP75: number;
+  marginEstimate: string;
+  marginEstimatePct?: number;
+  curveRevenueMaxCents?: number | null;
+  rationale: string;
+  curve: Array<{
+    priceCents: number;
+    meanConversionProbability: number;
+    sampleCount: number;
+  }>;
 };
 
 function OverviewTab({
@@ -6049,6 +6069,8 @@ function PricingTab({
   recommendation,
   bestCountryDistribution,
   additionalProfiles,
+  additionalPricing,
+  ensembleId,
 }: {
   pricing: EnsembleAggregate["pricing"];
   /** User-input base price — used to surface the user-input vs
@@ -6074,10 +6096,15 @@ function PricingTab({
   recommendation: EnsembleAggregate["recommendation"];
   bestCountryDistribution: EnsembleAggregate["bestCountryDistribution"];
   additionalProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
+  additionalPricing?: Record<string, SecondaryPricingItem>;
+  ensembleId: string;
 }) {
   const secondaryCountry = detectSecondary(recommendation, bestCountryDistribution);
   const secondaryProfile = secondaryCountry
     ? additionalProfiles?.[secondaryCountry] ?? null
+    : null;
+  const secondaryPricing = secondaryCountry
+    ? additionalPricing?.[secondaryCountry] ?? null
     : null;
   if (!pricing) {
     return (
@@ -6835,6 +6862,9 @@ function PricingTab({
         <SecondaryPricingBlock
           country={secondaryCountry}
           profile={secondaryProfile}
+          pricing={secondaryPricing}
+          ensembleId={ensembleId}
+          currency={currency}
           isKo={isKo}
         />
       )}
@@ -6845,32 +6875,133 @@ function PricingTab({
 function SecondaryPricingBlock({
   country,
   profile,
+  pricing,
+  ensembleId,
+  currency,
   isKo,
 }: {
   country: string;
   profile: EnsembleAggregate["marketProfile"] | null;
+  pricing: SecondaryPricingItem | null;
+  ensembleId: string;
+  currency: string;
   isKo: boolean;
 }) {
-  const pricing = profile?.pricingBenchmarks;
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const pricingBenchmarks = profile?.pricingBenchmarks;
   const cult = profile?.culturalNotes;
-  if (!pricing && !cult) {
+  const fmt = (cents: number) => formatPrice(cents, currency);
+
+  const generate = async () => {
+    if (busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(
+        `/api/ensembles/${ensembleId}/secondary-pricing?country=${country}`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || e.detail || `status ${res.status}`);
+      }
+      router.refresh();
+      window.location.reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "generation failed");
+      setBusy(false);
+    }
+  };
+
+  // No LLM pricing yet — show CTA. Surface benchmark/cultural context
+  // inline as background so the user understands what data the
+  // generation will be grounded in.
+  if (!pricing) {
+    const hasProfile = !!profile;
     return (
       <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40">
-        <div className="card border-warn/40 bg-warn-soft/20 p-5">
-          <h3 className="text-sm font-semibold text-warn mb-1">
-            {isKo
-              ? `${country} — Top 2 동등 후보 가격 (시장 분석 필요)`
-              : `${country} — Top 2 secondary pricing (market profile required)`}
-          </h3>
-          <p className="text-xs text-slate-700 leading-relaxed">
-            {isKo
-              ? `${country} 시장 분석을 '시장 분석' 탭에서 생성하시면 ${country} 시장 가격 벤치마크 + 구매 행동이 여기 표시됩니다.`
-              : `Generate the ${country} market profile in the Market Profile tab to surface its pricing benchmarks + purchase behavior here.`}
-          </p>
+        <div className="card border-warn/40 bg-warn-soft/20 p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-warn text-white shrink-0 font-bold">
+              !
+            </span>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-semibold text-warn mb-1">
+                {isKo
+                  ? `${country} — Top 2 동등 후보 가격 분석 (생성 대기)`
+                  : `${country} — Top 2 secondary pricing analysis (pending)`}
+              </h2>
+              <p className="text-xs text-slate-700 leading-relaxed mb-4">
+                {isKo
+                  ? `Top 2 동등 후보이므로 ${country} 시장의 권장 가격 · 전환 곡선 · 마진 추정을 별도로 생성해야 winner와 동일 깊이의 가격 분석이 됩니다. ${
+                      hasProfile
+                        ? `${country} 시장 분석이 있어 competitor 벤치마크 + 문화적 인사이트로 grounded한 결과가 나옵니다.`
+                        : `${country} 시장 분석이 아직 없어 페르소나 신호만으로 가격이 생성됩니다 (시장 분석 먼저 권장).`
+                    } 단일 LLM 호출 (~$0.10, 30-60초).`
+                  : `Top 2 ties need a parallel ${country} pricing analysis (recommended price, conversion curve, margin) to reach winner-parity depth. ${
+                      hasProfile
+                        ? `Market profile already exists — generation grounded on competitor benchmarks + cultural insights.`
+                        : `No market profile yet — pricing will rely on persona signal only (generate the profile first for better grounding).`
+                    } Single LLM call (~$0.10, 30-60s).`}
+              </p>
+              <button
+                type="button"
+                onClick={generate}
+                disabled={busy}
+                className="btn-primary inline-flex items-center gap-2 disabled:opacity-60"
+              >
+                {busy ? <Loader2 size={14} className="animate-spin" /> : <Lightbulb size={14} />}
+                {busy
+                  ? isKo
+                    ? "생성 중..."
+                    : "Generating..."
+                  : isKo
+                    ? `${country} 가격 분석 추가 생성`
+                    : `Generate ${country} pricing analysis`}
+              </button>
+              {err && <p className="text-xs text-risk mt-3">{err}</p>}
+            </div>
+          </div>
+          {pricingBenchmarks && (pricingBenchmarks.entryLevel || pricingBenchmarks.mid || pricingBenchmarks.premium) && (
+            <div className="border-t border-warn/20 pt-4">
+              <h3 className="text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wider">
+                {isKo ? "참고: 시장 분석 가격 벤치마크" : "For reference: market profile benchmarks"}
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                {pricingBenchmarks.entryLevel && (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-500">Entry</div>
+                    <div className="text-slate-900 mt-0.5">{pricingBenchmarks.entryLevel}</div>
+                  </div>
+                )}
+                {pricingBenchmarks.mid && (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-500">Mid</div>
+                    <div className="text-slate-900 mt-0.5">{pricingBenchmarks.mid}</div>
+                  </div>
+                )}
+                {pricingBenchmarks.premium && (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-500">Premium</div>
+                    <div className="text-slate-900 mt-0.5">{pricingBenchmarks.premium}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
   }
+
+  // LLM pricing already persisted — render full analysis with curve.
+  const maxConv = Math.max(...pricing.curve.map((p) => p.meanConversionProbability), 0.0001);
+  const peakPoint = pricing.curve.reduce<typeof pricing.curve[number] | null>(
+    (best, p) => (best === null || p.meanConversionProbability > best.meanConversionProbability ? p : best),
+    null,
+  );
   return (
     <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40 space-y-4">
       <div className="flex items-baseline gap-3 flex-wrap">
@@ -6880,70 +7011,131 @@ function SecondaryPricingBlock({
         <span className="text-[10px] uppercase tracking-wider text-warn bg-warn-soft/40 border border-warn/30 px-2 py-0.5 rounded">
           {isKo ? "동등 후보" : "tied"}
         </span>
+        <span className="text-[10px] text-slate-500">
+          {isKo ? "single LLM pass (sim 합의 아님)" : "single LLM pass (not cross-sim consensus)"}
+        </span>
       </div>
-      {pricing && (pricing.entryLevel || pricing.mid || pricing.premium || pricing.yourPosition) && (
+
+      {/* Headline price card */}
+      <div className="card p-5">
+        <div className="flex items-end gap-6 flex-wrap">
+          <div className="min-w-0">
+            <div className="text-xs uppercase tracking-wider text-slate-500">
+              {isKo ? `${country} 권장 가격` : `${country} recommended`}
+            </div>
+            <div className="text-3xl font-semibold text-slate-900 mt-1 tabular-nums">
+              {fmt(pricing.recommendedPriceCents)}
+            </div>
+            <div className="text-xs text-slate-500 mt-1">
+              {isKo
+                ? `추정 신뢰구간: ${fmt(pricing.recommendedPriceP25)} – ${fmt(pricing.recommendedPriceP75)} (±15%)`
+                : `Inferred band: ${fmt(pricing.recommendedPriceP25)} – ${fmt(pricing.recommendedPriceP75)} (±15%)`}
+            </div>
+          </div>
+          {peakPoint && (
+            <div>
+              <div className="text-xs uppercase tracking-wider text-slate-500">
+                {isKo ? "최고 전환 가격" : "Peak conversion"}
+              </div>
+              <div className="text-lg font-semibold text-slate-700 mt-1 tabular-nums">
+                {fmt(peakPoint.priceCents)}
+              </div>
+              <div className="text-xs text-slate-500 mt-0.5">
+                {(peakPoint.meanConversionProbability * 100).toFixed(1)}%
+              </div>
+            </div>
+          )}
+          {pricing.curveRevenueMaxCents != null && (
+            <div>
+              <div className="text-xs uppercase tracking-wider text-slate-500">
+                {isKo ? "곡선 매출 최대점" : "Curve revenue max"}
+              </div>
+              <div className="text-lg font-semibold text-slate-700 mt-1 tabular-nums">
+                {fmt(pricing.curveRevenueMaxCents)}
+              </div>
+            </div>
+          )}
+        </div>
+        <p className="text-xs text-slate-600 leading-relaxed mt-3 border-t pt-3">
+          {pricing.rationale}
+        </p>
+      </div>
+
+      {/* Curve */}
+      {pricing.curve.length > 0 && (
         <div className="card p-5">
           <h3 className="text-sm font-semibold text-slate-700 mb-3">
-            {isKo ? "가격 벤치마크" : "Pricing benchmarks"}
+            {isKo ? "가격 – 전환 곡선" : "Price – conversion curve"}
           </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-            {pricing.entryLevel && (
+          <div className="space-y-1.5">
+            {pricing.curve.map((p) => (
+              <div key={p.priceCents} className="flex items-center gap-3 text-xs">
+                <div className="w-16 text-slate-700 tabular-nums">{fmt(p.priceCents)}</div>
+                <div className="flex-1 h-2 bg-slate-100 rounded overflow-hidden">
+                  <div
+                    className="h-2 bg-brand"
+                    style={{ width: `${(p.meanConversionProbability / maxConv) * 100}%` }}
+                  />
+                </div>
+                <div className="w-14 text-right text-slate-600 tabular-nums">
+                  {(p.meanConversionProbability * 100).toFixed(1)}%
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Margin */}
+      {pricing.marginEstimate && (
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-slate-700 mb-1">
+            {isKo ? "예상 마진" : "Margin estimate"}
+          </h3>
+          <p className="text-sm text-slate-700 leading-relaxed">{pricing.marginEstimate}</p>
+          {pricing.marginEstimatePct != null && (
+            <div className="text-xs text-slate-500 mt-1">
+              {isKo ? `약 ${pricing.marginEstimatePct}% 매출총이익률` : `~${pricing.marginEstimatePct}% gross margin`}
+            </div>
+          )}
+        </div>
+      )}
+
+      {pricingBenchmarks && (pricingBenchmarks.entryLevel || pricingBenchmarks.mid || pricingBenchmarks.premium) && (
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">
+            {isKo ? "시장 분석 가격 벤치마크 (참고)" : "Market profile benchmarks (reference)"}
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+            {pricingBenchmarks.entryLevel && (
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-slate-500">Entry</div>
-                <div className="text-slate-900 mt-0.5">{pricing.entryLevel}</div>
+                <div className="text-slate-900 mt-0.5">{pricingBenchmarks.entryLevel}</div>
               </div>
             )}
-            {pricing.mid && (
+            {pricingBenchmarks.mid && (
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-slate-500">Mid</div>
-                <div className="text-slate-900 mt-0.5">{pricing.mid}</div>
+                <div className="text-slate-900 mt-0.5">{pricingBenchmarks.mid}</div>
               </div>
             )}
-            {pricing.premium && (
+            {pricingBenchmarks.premium && (
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-slate-500">Premium</div>
-                <div className="text-slate-900 mt-0.5">{pricing.premium}</div>
-              </div>
-            )}
-            {pricing.yourPosition && (
-              <div className="col-span-2 sm:col-span-1 bg-brand-50 px-2.5 py-1.5 rounded">
-                <div className="text-[10px] uppercase tracking-wider text-brand">
-                  {isKo ? "내 포지션" : "Your position"}
-                </div>
-                <div className="text-brand mt-0.5 font-semibold">{pricing.yourPosition}</div>
+                <div className="text-slate-900 mt-0.5">{pricingBenchmarks.premium}</div>
               </div>
             )}
           </div>
         </div>
       )}
-      {cult && (cult.valuesAlignment || cult.purchaseBehavior) && (
+      {cult?.purchaseBehavior && (
         <div className="card p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">
-            {isKo ? "가격 의사결정에 영향을 주는 소비자 인사이트" : "Consumer insights affecting pricing"}
+          <h3 className="text-sm font-semibold text-slate-700 mb-1">
+            {isKo ? "구매 행동" : "Purchase behavior"}
           </h3>
-          {cult.purchaseBehavior && (
-            <div className="mb-2">
-              <div className="text-[10px] uppercase tracking-wider text-slate-500">
-                {isKo ? "구매 행동" : "Purchase behavior"}
-              </div>
-              <p className="text-sm text-slate-700 leading-relaxed mt-1">{cult.purchaseBehavior}</p>
-            </div>
-          )}
-          {cult.valuesAlignment && (
-            <div>
-              <div className="text-[10px] uppercase tracking-wider text-slate-500">
-                {isKo ? "가치관" : "Values"}
-              </div>
-              <p className="text-sm text-slate-700 leading-relaxed mt-1">{cult.valuesAlignment}</p>
-            </div>
-          )}
+          <p className="text-sm text-slate-700 leading-relaxed">{cult.purchaseBehavior}</p>
         </div>
       )}
-      <p className="text-[11px] text-slate-400">
-        {isKo
-          ? `* ${country} 가격은 시장 분석 기반 벤치마크입니다. Winner와 동일한 가격 곡선·전환율 분석은 별도 시뮬 (Consensus+ 또는 Deep)이 ${country}를 winner로 도출했을 때 가능합니다.`
-          : `* ${country} pricing is from the market profile benchmarks. Full price curve / conversion analysis at parity requires a separate sim where ${country} comes out as the winner.`}
-      </p>
     </div>
   );
 }

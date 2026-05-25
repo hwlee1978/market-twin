@@ -71,6 +71,10 @@ export interface ValidationReportData {
     locale: "ko" | "en";
     category: string | null;
     basePriceDisplay: string;
+    /** Raw ISO currency code (USD/KRW/JPY/…) — needed by the secondary
+     *  pricing page to format LLM-derived secondary pricing in the
+     *  user's currency. Nullable for legacy validations. */
+    currency?: string | null;
     candidateCountries: string[];
     originCountry: string | null;
     durationMinutes?: number;
@@ -294,6 +298,27 @@ export interface ValidationReportData {
       severity: "low" | "medium" | "high";
       personaCategory?: string;
     }>;
+    /**
+     * LLM-generated parallel pricing for the secondary candidate —
+     * recommended price + conversion curve + margin estimate. Populated
+     * by the PDF endpoint when aggregate.additionalPricing[secondary]
+     * exists. Optional; when absent the validation PDF skips this page
+     * (or surfaces a "pricing not generated" disclaimer).
+     */
+    pricing?: {
+      recommendedPriceCents: number;
+      recommendedPriceP25: number;
+      recommendedPriceP75: number;
+      marginEstimate: string;
+      marginEstimatePct?: number;
+      curveRevenueMaxCents?: number | null;
+      rationale: string;
+      curve: Array<{
+        priceCents: number;
+        meanConversionProbability: number;
+        sampleCount: number;
+      }>;
+    };
   };
 }
 
@@ -1013,6 +1038,7 @@ export async function generateValidationContent(
       locale: opts.locale,
       category: project.category,
       basePriceDisplay,
+      currency: project.currency,
       candidateCountries: candidates,
       originCountry: project.originatingCountry,
       durationMinutes: opts.durationMinutes,

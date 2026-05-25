@@ -37,6 +37,7 @@ import type { Style } from "@react-pdf/types";
 import { splitByFont } from "./fonts";
 import { normalizeLLMText } from "@/lib/format/normalize";
 import { getCountryLabel } from "@/lib/countries";
+import { formatPrice } from "@/lib/format/price";
 import type { ValidationReportData } from "./validation-content";
 
 const C = {
@@ -582,6 +583,20 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
   );
   const winnerLabel = getCountryLabel(simResult.winner, isKo ? "ko" : "en");
 
+  // Top-2 tie detection — when the orchestrator flagged
+  // displayMode="top2", every primary-only section needs a tie banner
+  // so the reader sees that the validation also covers a parallel
+  // secondary candidate (interleaved in dedicated pages right after
+  // their primary counterparts).
+  const topTwo = simResult.displayMode === "top2" && simResult.secondary
+    ? {
+        primaryCode: simResult.winner,
+        primaryLabel: winnerLabel,
+        secondaryCode: simResult.secondary.country,
+        secondaryLabel: getCountryLabel(simResult.secondary.country, isKo ? "ko" : "en"),
+      }
+    : null;
+
   const t = isKo
     ? {
         coverHeaderTitle: "MARKET TWIN",
@@ -771,6 +786,36 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
       <Text render={({ pageNumber }) => `Page ${pageNumber}`} />
     </View>
   );
+
+  // Reusable Top-2 tie disclaimer banner — placed at the top of every
+  // primary-only validation section (simResults / integrated / risk /
+  // action) when the ensemble was flagged as a Top-2 tie. Tells the
+  // reader the section focuses on the primary candidate and that the
+  // dedicated secondary pages follow it inline.
+  const tieBanner = topTwo ? (
+    <View
+      style={{
+        backgroundColor: "#FFFBEB",
+        borderLeftWidth: 3,
+        borderLeftColor: C.warn,
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 3,
+        marginTop: 4,
+        marginBottom: 8,
+      }}
+      wrap={false}
+    >
+      <MText style={{ fontSize: 8, color: C.warn, fontWeight: 700, letterSpacing: 0.5 }}>
+        {isKo ? "TOP-2 동등 후보 — 본 섹션은 1순위 기준" : "TOP-2 TIE — primary candidate covered in this section"}
+      </MText>
+      <MText style={{ fontSize: 9, color: C.body, marginTop: 2, lineHeight: 1.5 }}>
+        {isKo
+          ? `점수 격차가 작아 ${topTwo.primaryLabel}(${topTwo.primaryCode})와 ${topTwo.secondaryLabel}(${topTwo.secondaryCode})가 사실상 동등합니다. 2순위 ${topTwo.secondaryLabel} 검증은 다음 secondary 페이지에 동일 깊이로 별도 수록.`
+          : `Score gap is narrow — ${topTwo.primaryLabel} (${topTwo.primaryCode}) and ${topTwo.secondaryLabel} (${topTwo.secondaryCode}) are effectively tied. ${topTwo.secondaryLabel} validation follows in the secondary page below at equal depth.`}
+      </MText>
+    </View>
+  ) : null;
 
   // ── 1. COVER ─────────────────────────────────────────────────────
   const coverPage = (
@@ -1024,10 +1069,16 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
       <View style={styles.pageTitleRule} />
       <MText style={styles.pageSubtitle}>{t.sec3Sub}</MText>
 
+      {tieBanner}
+
       <View style={[styles.calloutCard, styles.calloutSuccessBg]}>
         <MText style={[styles.calloutTitle, styles.calloutTitleSuccess]}>{t.winnerLabel}</MText>
         <MText style={[styles.calloutBody, { fontWeight: 700, fontSize: 12 }]}>
-          {`${winnerLabel} (${simResult.winner}) · Consensus: ${simResult.consensusPercent}% (${simResult.confidence})`}
+          {topTwo
+            ? isKo
+              ? `Top 2 동등 후보: ${topTwo.primaryLabel} (${topTwo.primaryCode}) · ${topTwo.secondaryLabel} (${topTwo.secondaryCode}) — Consensus: ${simResult.consensusPercent}% (${simResult.confidence})`
+              : `Top 2 tied: ${topTwo.primaryLabel} (${topTwo.primaryCode}) · ${topTwo.secondaryLabel} (${topTwo.secondaryCode}) — Consensus: ${simResult.consensusPercent}% (${simResult.confidence})`
+            : `${winnerLabel} (${simResult.winner}) · Consensus: ${simResult.consensusPercent}% (${simResult.confidence})`}
         </MText>
         <MText style={styles.calloutBody}>
           {`Sample: ${meta.personaCount.toLocaleString()} ${isKo ? "페르소나" : "personas"} · ${simResult.consensusType ?? ""}`}
@@ -1449,6 +1500,8 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
       <View style={styles.pageTitleRule} />
       <MText style={styles.pageSubtitle}>{t.sec5Sub}</MText>
 
+      {tieBanner}
+
       <MText style={styles.subSectionTitle}>{`5.1 ${t.matrixTitle}`}</MText>
       <View style={styles.table}>
         <View style={styles.tableHeader}>
@@ -1533,6 +1586,8 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
       <View style={styles.pageTitleRule} />
       <MText style={styles.pageSubtitle}>{t.sec6Sub}</MText>
 
+      {tieBanner}
+
       {riskAssessment.map((r, i) => {
         const stars = r.severityStars;
         const borderColor = stars === 3 ? C.risk : stars === 2 ? C.warn : C.muted;
@@ -1569,6 +1624,8 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
       </View>
       <View style={styles.pageTitleRule} />
       <MText style={styles.pageSubtitle}>{t.sec7Sub}</MText>
+
+      {tieBanner}
 
       {/* Phase 1 with step table */}
       <View style={styles.phaseRow}>
@@ -1879,6 +1936,10 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
     secondaryCtx && secondaryAnalysis?.risks && secondaryAnalysis.risks.length > 0
       ? renderSecondaryRisksPage(secondaryCtx)
       : null;
+  const secondaryPricingPage =
+    secondaryCtx && secondaryAnalysis?.pricing
+      ? renderSecondaryPricingPage(secondaryCtx, meta.currency ?? "USD")
+      : null;
 
   const doc = (
     <Document>
@@ -1897,6 +1958,10 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
       {secondaryRisksPage}
       {actionPage}
       {secondaryActionsPage}
+      {/* Secondary pricing slots in after actions so the reader reads
+          "primary actions → secondary actions → secondary pricing"
+          as a complete secondary deck before the honest disclosure. */}
+      {secondaryPricingPage}
       {honestPage}
       {appendixPage}
       {closingPage}
@@ -2649,6 +2714,159 @@ function renderSecondaryActionsPage(opts: SecondaryRenderOpts): React.ReactEleme
           </MText>
         </View>
       ))}
+      {pageFooter}
+    </Page>
+  );
+}
+
+/**
+ * Top-2 secondary pricing page — renders the LLM-generated parallel
+ * pricing analysis (recommended price + curve + margin) at the same
+ * depth as the primary winner's pricing. Returns null when the user
+ * hasn't yet generated the secondary pricing via the dashboard CTA.
+ */
+function renderSecondaryPricingPage(
+  opts: SecondaryRenderOpts,
+  currency: string,
+): React.ReactElement | null {
+  const { secondary, isKo, pageHeader, pageFooter } = opts;
+  const pricing = secondary.pricing;
+  if (!pricing) return null;
+  const countryLabel = getCountryLabel(secondary.country, isKo ? "ko" : "en");
+  const fmt = (cents: number) => formatPrice(cents, currency);
+  const maxConv = Math.max(...pricing.curve.map((p) => p.meanConversionProbability), 0.0001);
+  const peakPoint = pricing.curve.reduce<typeof pricing.curve[number] | null>(
+    (best, p) => (best === null || p.meanConversionProbability > best.meanConversionProbability ? p : best),
+    null,
+  );
+  return (
+    <Page key="secondary-pricing" size="A4" style={styles.page}>
+      <View style={styles.pageAccent} fixed />
+      {pageHeader}
+      <View style={styles.pageTitleRow}>
+        <MText style={styles.sectionNum}>S4</MText>
+        <MText style={styles.pageTitle}>
+          {isKo
+            ? `${countryLabel} — 가격 분석 (Top 2 동등 후보)`
+            : `${countryLabel} — Pricing (Top 2 secondary)`}
+        </MText>
+      </View>
+      {renderSecondaryHeader(opts, isKo ? "가격 분석" : "pricing")}
+
+      <View
+        style={{
+          flexDirection: "row",
+          gap: 24,
+          alignItems: "flex-end",
+          paddingBottom: 12,
+          borderBottomWidth: 0.5,
+          borderBottomColor: C.divider,
+          marginBottom: 12,
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <MText style={{ fontSize: 8, color: C.muted, fontWeight: 700, letterSpacing: 0.6 }}>
+            {isKo ? "권장 가격" : "RECOMMENDED"}
+          </MText>
+          <MText style={{ fontSize: 22, fontWeight: 700, color: C.ink, marginTop: 2 }}>
+            {fmt(pricing.recommendedPriceCents)}
+          </MText>
+          <MText style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>
+            {isKo
+              ? `추정 신뢰구간 ${fmt(pricing.recommendedPriceP25)}–${fmt(pricing.recommendedPriceP75)} (±15%)`
+              : `Inferred band ${fmt(pricing.recommendedPriceP25)}–${fmt(pricing.recommendedPriceP75)} (±15%)`}
+          </MText>
+        </View>
+        {peakPoint && (
+          <View>
+            <MText style={{ fontSize: 8, color: C.muted, fontWeight: 700, letterSpacing: 0.6 }}>
+              {isKo ? "최고 전환" : "PEAK"}
+            </MText>
+            <MText style={{ fontSize: 14, fontWeight: 700, color: C.ink, marginTop: 2 }}>
+              {fmt(peakPoint.priceCents)}
+            </MText>
+            <MText style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>
+              {`${(peakPoint.meanConversionProbability * 100).toFixed(1)}%`}
+            </MText>
+          </View>
+        )}
+        {pricing.curveRevenueMaxCents != null && (
+          <View>
+            <MText style={{ fontSize: 8, color: C.muted, fontWeight: 700, letterSpacing: 0.6 }}>
+              {isKo ? "매출 최대" : "REV MAX"}
+            </MText>
+            <MText style={{ fontSize: 14, fontWeight: 700, color: C.ink, marginTop: 2 }}>
+              {fmt(pricing.curveRevenueMaxCents)}
+            </MText>
+          </View>
+        )}
+      </View>
+
+      <MText style={{ fontSize: 10, color: C.body, lineHeight: 1.55, marginBottom: 12 }}>
+        {pricing.rationale}
+      </MText>
+
+      {pricing.curve.length > 0 && (
+        <View style={{ marginBottom: 12 }}>
+          <MText
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: C.brand,
+              marginBottom: 6,
+            }}
+          >
+            {isKo ? "가격 – 전환 곡선" : "Price – conversion curve"}
+          </MText>
+          {pricing.curve.map((p) => (
+            <View
+              key={p.priceCents}
+              style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 3 }}
+            >
+              <MText style={{ width: 56, fontSize: 9, color: C.body }}>{fmt(p.priceCents)}</MText>
+              <View
+                style={{
+                  flex: 1,
+                  height: 6,
+                  backgroundColor: "#F1F5F9",
+                  borderRadius: 2,
+                }}
+              >
+                <View
+                  style={{
+                    width: `${(p.meanConversionProbability / maxConv) * 100}%`,
+                    height: 6,
+                    backgroundColor: C.brand,
+                    borderRadius: 2,
+                  }}
+                />
+              </View>
+              <MText style={{ width: 56, fontSize: 9, color: C.body, textAlign: "right" }}>
+                {`${(p.meanConversionProbability * 100).toFixed(1)}%`}
+              </MText>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {pricing.marginEstimate && (
+        <View>
+          <MText style={{ fontSize: 11, fontWeight: 700, color: C.brand, marginBottom: 4 }}>
+            {isKo ? "예상 마진" : "Margin estimate"}
+          </MText>
+          <MText style={{ fontSize: 10, color: C.body, lineHeight: 1.55 }}>
+            {pricing.marginEstimate}
+          </MText>
+          {pricing.marginEstimatePct != null && (
+            <MText style={{ fontSize: 9, color: C.muted, marginTop: 3 }}>
+              {isKo
+                ? `약 ${pricing.marginEstimatePct}% 매출총이익률`
+                : `~${pricing.marginEstimatePct}% gross margin`}
+            </MText>
+          )}
+        </View>
+      )}
+
       {pageFooter}
     </Page>
   );
