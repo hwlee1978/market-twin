@@ -59,6 +59,27 @@ export function computeCurveRevenueMaxCents(
   return bestPrice;
 }
 
+/** Trust ceiling multiplier — narrowed from 1.5× to 1.2× on
+ *  2026-05-25. The wider 1.5× allowed Le Mouton's algorithm to
+ *  promote $160 (29% above LLM rec $124) for a no-brand-awareness
+ *  US launch, which the user flagged as too aggressive. 1.2× still
+ *  permits the algorithm to override an LLM that's clearly anchored
+ *  on input base, but keeps the override within a sensible band. */
+const TRUST_CEILING_MULTIPLIER = 1.2;
+
+/** Conversion floor as fraction of raw peak conversion. A candidate
+ *  price gets the headline only if its envelope-clamped conversion
+ *  is ≥ this fraction × peak conv. Otherwise we fall back to the
+ *  LLM rec. Reasoning: revenue argmax (price × conv) can pick a
+ *  high-price low-conversion point that "wins" arithmetically while
+ *  killing the very volume a no-brand-awareness D2C launch needs to
+ *  build early-buyer momentum (volume → reviews → ad ROI). 70% gives
+ *  the algorithm room to nudge price up when conversion barely
+ *  drops, but blocks "max revenue at half the conversion" outcomes.
+ *  Tunable — bump to 0.8 for more conservative, drop to 0.5 for
+ *  more aggressive. */
+const CONVERSION_FLOOR_FRACTION = 0.7;
+
 /**
  * Single source of truth for "what price should the user actually see?".
  *
@@ -70,20 +91,21 @@ export function computeCurveRevenueMaxCents(
  * card) needs the SAME number or the report contradicts itself.
  *
  * Returns the curve revenue max when it diverges from the LLM rec by
- * more than ±10%, otherwise the LLM rec. Matches the inline logic at
- * EnsembleView.tsx:4578 and ensemble-pdf.tsx:3033.
+ * more than ±10%, the curve max is within the trust ceiling, AND the
+ * conversion floor is satisfied at the curve max. Otherwise the LLM rec.
  *
- * **Trust ceiling** — pricingP75 (and llmRec) bound how far the curve
- * max is allowed to override. The naive monotonic-envelope walk inside
- * `computeCurveRevenueMaxCents` can still latch onto extrapolated high-
- * price points the LLM included for completeness but the personas
- * never actually evaluated. Le Mouton 2026-05-09 sim: LLM rec ₩158,900,
- * IQR ₩116,900-₩216,000, but curve revenue max landed at ₩480,000 —
- * 2.2× P75, well outside any persona's willingness-to-pay band, and
- * the auto-correction surfaced it as the headline. When that happens
- * (curve max > 1.5× max(P75, LLM rec)), we reject the correction and
- * fall back to the LLM rec — the curve has been extrapolated past the
- * region the personas vouched for.
+ * **Trust ceiling** (1.2× max(P75, LLM rec)) — caps how far above the
+ * LLM rec / IQR we'll override. Reflects the band the personas actually
+ * evaluated. Beyond this point the curve has been extrapolated.
+ *
+ * **Conversion floor** (70% of peak conv) — added 2026-05-25. The
+ * unconstrained envelope-revenue argmax can latch onto a high-price
+ * point with crashed conversion that's still arithmetically the highest
+ * `price × conv` — fine for mature pricing optimization, but a launch
+ * trap for a no-brand-awareness D2C founder who needs early conversion
+ * volume to build momentum. Requires the override candidate's
+ * envelope-clamped conversion to be ≥ 70% of the raw peak conversion;
+ * otherwise the override is rejected and the LLM rec wins (safer floor).
  */
 export function getDisplayPriceCents(
   llmRecCents: number,
@@ -102,6 +124,12 @@ export function getDisplayPriceCents(
    * (recomputed > trust ceiling). Lets the UI annotate "curve max
    * outside trusted range" rather than silently hiding the value. */
   curveMaxRejectedAsExtrapolation: boolean;
+  /** True when an override candidate was rejected because its
+   * envelope-clamped conversion dropped below CONVERSION_FLOOR_FRACTION
+   * × peak. Lets the UI annotate "would-be revenue max sacrifices too
+   * much conversion volume; sticking with LLM rec" instead of silently
+   * hiding why the curve max didn't win. */
+  curveMaxRejectedAsConversionCrash: boolean;
 } {
   const recomputed =
     computeCurveRevenueMaxCents(curve) ?? persistedCurveRevenueMaxCents ?? null;
@@ -117,46 +145,82 @@ export function getDisplayPriceCents(
     pricingP75Cents ?? 0,
     llmRecCents > 0 ? llmRecCents : 0,
   );
-  const trustCeiling = ceilingBase > 0 ? ceilingBase * 1.5 : Infinity;
+  const trustCeiling =
+    ceilingBase > 0 ? ceilingBase * TRUST_CEILING_MULTIPLIER : Infinity;
   const curveMaxRejectedAsExtrapolation =
     recomputed != null && recomputed > trustCeiling;
 
   // When the unconstrained curve max is outside the trust ceiling,
-  // don't blindly fall back to the LLM rec — the LLM rec may not even
-  // be on the curve (Le Mouton 1265510e: LLM said $124 but $124 isn't
-  // a curve point and curve points within ceiling peak at $160).
-  // Recompute with the ceiling as an upper bound so we surface the
-  // actual best price the personas evaluated, not an arbitrary point.
+  // recompute with the ceiling as an upper bound so we have a
+  // candidate the personas actually evaluated.
   let constrainedCurveMax: number | null = null;
   if (curveMaxRejectedAsExtrapolation && Number.isFinite(trustCeiling)) {
     constrainedCurveMax = computeCurveRevenueMaxCents(curve, trustCeiling);
   }
 
+  // Conversion-floor check — given a candidate price, walk the curve
+  // ascending with the running-min envelope and return whether the
+  // candidate's effective conversion is ≥ CONVERSION_FLOOR_FRACTION ×
+  // raw peak conv. We use envelope (not raw) conversion at the
+  // candidate because that's what the revenue computation actually
+  // used; raw conv at the same point could be a noise bump.
+  const peakConv =
+    curve.length > 0
+      ? Math.max(...curve.map((p) => p.meanConversionProbability))
+      : 0;
+  const passesConversionFloor = (candidateCents: number): boolean => {
+    if (peakConv <= 0 || curve.length === 0) return true; // no signal — can't reject
+    const sortedAsc = [...curve].sort((a, b) => a.priceCents - b.priceCents);
+    let runningMin = Infinity;
+    let envelopeConvAtCandidate: number | null = null;
+    for (const p of sortedAsc) {
+      runningMin = Math.min(runningMin, p.meanConversionProbability);
+      if (p.priceCents <= candidateCents) {
+        envelopeConvAtCandidate = runningMin;
+      } else {
+        break;
+      }
+    }
+    // If no curve point ≤ candidate (candidate is below the cheapest
+    // sampled price), accept — there's no envelope value to compare.
+    if (envelopeConvAtCandidate == null) return true;
+    return envelopeConvAtCandidate >= CONVERSION_FLOOR_FRACTION * peakConv;
+  };
+
   // Choose the headline:
   //   1. Unconstrained curve max if it's within the trust ceiling AND
-  //      diverges from LLM rec by >10% (i.e. LLM was anchored on input).
-  //   2. Constrained curve max when the unconstrained value was
-  //      rejected as extrapolation — beats falling back to a possibly
-  //      off-curve LLM rec.
-  //   3. Otherwise LLM rec (when it already matches the curve or no
-  //      curve evidence is available).
+  //      diverges from LLM rec by >10% AND passes the conversion floor.
+  //   2. Constrained curve max when (1) was rejected as extrapolation
+  //      AND it passes the conversion floor AND it differs from LLM
+  //      rec by >10% (otherwise it's noise vs LLM rec).
+  //   3. Otherwise LLM rec (matches the curve already, OR the curve
+  //      max would sacrifice too much conversion volume).
   let displayCents = llmRecCents;
   let wasCorrected = false;
-  if (matchesCurve === false && recomputed != null && !curveMaxRejectedAsExtrapolation) {
-    displayCents = recomputed;
-    wasCorrected = true;
+  let curveMaxRejectedAsConversionCrash = false;
+  if (
+    matchesCurve === false &&
+    recomputed != null &&
+    !curveMaxRejectedAsExtrapolation
+  ) {
+    if (passesConversionFloor(recomputed)) {
+      displayCents = recomputed;
+      wasCorrected = true;
+    } else {
+      curveMaxRejectedAsConversionCrash = true;
+    }
   } else if (curveMaxRejectedAsExtrapolation && constrainedCurveMax != null) {
-    // Only override the LLM rec if the constrained max also differs
-    // by more than 10%; otherwise the LLM rec is already close enough
-    // to the curve peak and surfacing two near-identical numbers just
-    // adds noise.
     const constrainedDiffers =
       llmRecCents > 0
         ? Math.abs(constrainedCurveMax / llmRecCents - 1) > 0.1
         : true;
     if (constrainedDiffers) {
-      displayCents = constrainedCurveMax;
-      wasCorrected = true;
+      if (passesConversionFloor(constrainedCurveMax)) {
+        displayCents = constrainedCurveMax;
+        wasCorrected = true;
+      } else {
+        curveMaxRejectedAsConversionCrash = true;
+      }
     }
   }
 
@@ -165,6 +229,7 @@ export function getDisplayPriceCents(
     wasCorrected,
     curveRevenueMaxCents: recomputed,
     curveMaxRejectedAsExtrapolation,
+    curveMaxRejectedAsConversionCrash,
   };
 }
 

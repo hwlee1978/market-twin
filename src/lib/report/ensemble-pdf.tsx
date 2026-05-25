@@ -3673,28 +3673,26 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     // envelope helper. Legacy ensembles persisted a naive-argmax value
     // that picked high-price noise bumps; render-time recompute fixes
     // those without re-aggregating.
-    const recomputedCurveMax =
-      computeCurveRevenueMaxCents(pr.curve) ?? pr.curveRevenueMaxCents;
-    const recComputedMatchesCurve =
-      recomputedCurveMax != null && pr.recommendedPriceCents > 0
-        ? Math.abs(recomputedCurveMax / pr.recommendedPriceCents - 1) <= 0.1
-        : null;
-    // Trust ceiling — same logic as PricingTab + getDisplayPriceCents.
-    // When the curve revenue max lands above 1.5× the higher of (P75
-    // of per-sim recs, LLM rec), it's extrapolation past the personas'
-    // evaluated range and we must NOT promote it to the headline.
-    const trustCeilingBase = Math.max(
-      pr.recommendedPriceP75 ?? 0,
-      pr.recommendedPriceCents > 0 ? pr.recommendedPriceCents : 0,
+    // Route the headline price through the shared helper so the PDF
+    // agrees with the dashboard (PricingTab + Summary + Overview +
+    // Decision Aid). Earlier this block had its OWN inline trust
+    // ceiling + matchesCurve logic that drifted from the helper —
+    // when the helper gained the conversion-floor check 2026-05-25,
+    // the PDF stayed on the old 1.5× ceiling without conversion
+    // floor and surfaced a different headline. Unifying here is the
+    // permanent fix.
+    const display = getDisplayPriceCents(
+      pr.recommendedPriceCents,
+      pr.curve,
+      pr.curveRevenueMaxCents,
+      pr.recommendedPriceP75,
     );
-    const trustCeilingCents =
-      trustCeilingBase > 0 ? trustCeilingBase * 1.5 : Infinity;
-    const curveMaxRejectedAsExtrapolation =
-      recomputedCurveMax != null && recomputedCurveMax > trustCeilingCents;
-    const wasCorrected =
-      recComputedMatchesCurve === false &&
-      recomputedCurveMax != null &&
-      !curveMaxRejectedAsExtrapolation;
+    const headlinePriceCents = display.displayCents;
+    const wasCorrected = display.wasCorrected;
+    // Used by the "auto-corrected" annotation copy below — what the
+    // recomputed envelope-revenue argmax was, regardless of whether
+    // it passed the trust/conversion gates.
+    const recomputedCurveMax = display.curveRevenueMaxCents;
     // Negative quote for the pricing callout — must actually mention
     // price/cost vocabulary. pickQuote returns null if no price-content
     // match exists (rather than surfacing an unrelated low-intent voice
@@ -3730,9 +3728,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             value as the headline; the LLM number becomes a small
             annotation. */}
         {(() => {
-          const headlineCents = wasCorrected
-            ? recomputedCurveMax!
-            : pr.recommendedPriceCents;
+          const headlineCents = headlinePriceCents;
           return (
             <View style={styles.priceHero}>
               <View style={{ flex: 1 }}>
@@ -3826,9 +3822,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           // the corrected baseline so ±10% scenarios anchor on the
           // headline price the user is reading, not the LLM's stale
           // anchored value.
-          const effectiveBaseline = wasCorrected
-            ? recomputedCurveMax!
-            : pr.recommendedPriceCents;
+          const effectiveBaseline = headlinePriceCents;
           const effectiveSensitivity = wasCorrected
             ? computePricingSensitivity(pr.curve, effectiveBaseline)
             : pr.sensitivity;
@@ -3894,8 +3888,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             >
               <MText style={{ fontSize: 9, color: C.muted, lineHeight: 1.5 }}>
                 {isKo
-                  ? `LLM 마진 분석은 기본가(${fmt(pr.recommendedPriceCents)}) anchor 가정 하에 작성되어 보정된 권장가(${fmt(recomputedCurveMax!)})와 모순됩니다. 보정된 권장가 기준 마진 분석은 새 시뮬에서 LLM이 anchor를 벗어나야 신뢰 가능 — 현재 분석은 표시 생략.`
-                  : `The LLM margin analysis was written assuming the base price (${fmt(pr.recommendedPriceCents)}) was optimal, contradicting the auto-corrected recommended price (${fmt(recomputedCurveMax!)}). Skipped here; a margin analysis grounded in the corrected price requires a fresh sim with the LLM not anchored on base.`}
+                  ? `LLM 마진 분석은 기본가(${fmt(pr.recommendedPriceCents)}) anchor 가정 하에 작성되어 보정된 권장가(${fmt(headlinePriceCents)})와 모순됩니다. 보정된 권장가 기준 마진 분석은 새 시뮬에서 LLM이 anchor를 벗어나야 신뢰 가능 — 현재 분석은 표시 생략.`
+                  : `The LLM margin analysis was written assuming the base price (${fmt(pr.recommendedPriceCents)}) was optimal, contradicting the auto-corrected recommended price (${fmt(headlinePriceCents)}). Skipped here; a margin analysis grounded in the corrected price requires a fresh sim with the LLM not anchored on base.`}
               </MText>
             </View>
           </View>
