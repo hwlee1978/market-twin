@@ -22,6 +22,7 @@
     "inspect:sim": "tsx --env-file=.env.local scripts/inspect-sim.ts",
     "inspect:actions": "tsx --env-file=.env.local scripts/inspect-actions.ts",
     "backfill:surfaced": "tsx --env-file=.env.local scripts/backfill-surfaced-counts.ts",
+    "backfill:llm-usage": "tsx --env-file=.env.local scripts/backfill-llm-usage.ts",
     "inspect:objections": "tsx --env-file=.env.local scripts/inspect-objections.ts",
     "inspect:today": "tsx --env-file=.env.local scripts/inspect-today.ts",
     "inspect:ensemble": "tsx --env-file=.env.local scripts/inspect-ensemble.ts",
