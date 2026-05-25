@@ -308,7 +308,7 @@ export function MrAIChat({
   }
 
   return (
-    <div className="grid grid-cols-[240px_1fr_320px] gap-4 h-[calc(100vh-380px)] min-h-[480px]">
+    <div className="grid grid-cols-[200px_1fr_280px] gap-3 h-[calc(100vh-380px)] min-h-[480px]">
       {/* Threads sidebar */}
       <aside className="bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col">
         <div className="p-3 border-b border-slate-200">
