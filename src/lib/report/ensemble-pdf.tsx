@@ -7337,14 +7337,23 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         <>
           {renderOnePageBriefPage()}
           {renderGoNoGoVerdictPage()}
-          {/* Secondary market profile right after Go/No-Go so the exec
-              compares both candidates BEFORE diving into actions. */}
+          {/* Primary market profile FIRST so the exec sees the winner's
+              market context (TAM, competitors, channels, regulatory,
+              cultural, pricing benchmarks, GTM) BEFORE the secondary
+              comparison. Added 2026-05-25 — earlier exec variant
+              skipped this page entirely, producing a visible asymmetry
+              where TW had a dedicated market page but US did not.
+              User correctly read this as "TW만 나옴". */}
+          {renderMarketProfilePage()}
           {secondaryMarketPage}
+          {/* Primary risks page — same fix as market profile. Earlier
+              exec variant merged risks into Go/No-Go to keep the deck
+              tight, but pairing a dedicated TW risks page with no
+              dedicated US risks page broke symmetry. Both now present. */}
+          {renderRisksPage()}
+          {secondaryRisksPage}
           {renderActionsPage()}
           {secondaryActionsPage}
-          {/* Risks merge into Go/No-Go in executive — surface secondary
-              risks alongside primary by inserting after actions. */}
-          {secondaryRisksPage}
           {renderPricingPage()}
           {secondaryPricingPage}
         </>
