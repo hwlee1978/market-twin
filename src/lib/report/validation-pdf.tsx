@@ -889,11 +889,32 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
           </MText>
         )}
         <Text style={styles.coverConclusionMeta}>
-          <Text style={{ fontWeight: 700 }}>{`Multi-LLM ${simResult.consensusPercent}% ${t.consensusWord}`}</Text>
-          <Text>{` · ${simResult.confidence} ${simResult.consensusType ?? ""}`}</Text>
-          {simResult.displayMode === "top2" && simResult.secondary && (
-            <Text>{` · ${isKo ? "Top 2 격차" : "Top 2 gap"} ${simResult.secondary.gapToPrimary}pt`}</Text>
-          )}
+          {(() => {
+            // Top-2 tie: surface the actual 1st-place vote shares for
+            // both candidates and frame the 96% as "top-3 hit rate" so
+            // readers don't misread it as "96% picked winner".
+            if (simResult.displayMode === "top2" && simResult.secondary) {
+              const pv = simResult.voteDistribution.find((v) => v.country === simResult.winner)?.percent;
+              const sv = simResult.voteDistribution.find((v) => v.country === simResult.secondary!.country)?.percent;
+              return (
+                <>
+                  <Text style={{ fontWeight: 700 }}>
+                    {isKo
+                      ? `1순위 vote ${pv ?? "?"}% vs ${sv ?? "?"}%`
+                      : `1st-place vote ${pv ?? "?"}% vs ${sv ?? "?"}%`}
+                  </Text>
+                  <Text>{` · ${isKo ? "Top-3 출현률" : "top-3 hit rate"} ${simResult.consensusPercent}% (${simResult.confidence})`}</Text>
+                  <Text>{` · ${isKo ? "Top 2 격차" : "Top 2 gap"} ${simResult.secondary.gapToPrimary}pt`}</Text>
+                </>
+              );
+            }
+            return (
+              <>
+                <Text style={{ fontWeight: 700 }}>{`Multi-LLM ${simResult.consensusPercent}% ${t.consensusWord}`}</Text>
+                <Text>{` · ${simResult.confidence} ${simResult.consensusType ?? ""}`}</Text>
+              </>
+            );
+          })()}
           {alignmentScoring.weightedAverage > 0 && (
             <Text>{` · ${t.alignWord} ${alignmentScoring.weightedAverage}% ${t.alignSuffix}`}</Text>
           )}
@@ -969,9 +990,33 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
           }</MText>
         </View>
         <View style={styles.kpiCard}>
-          <MText style={styles.kpiLabel}>{isKo ? "합의도" : "Consensus"}</MText>
-          <MText style={styles.kpiValue}>{`${simResult.consensusPercent}%`}</MText>
-          <MText style={styles.kpiSub}>{simResult.confidence}</MText>
+          {/* Top-2 tie: relabel the KPI as "top-3 hit rate" and show
+              both vote shares as the sub-line so readers don't read
+              "96% consensus" as "96% picked winner" — those two are
+              different metrics under Phase E aggregation. */}
+          {simResult.displayMode === "top2" && simResult.secondary ? (
+            (() => {
+              const pv = simResult.voteDistribution.find((v) => v.country === simResult.winner)?.percent;
+              const sv = simResult.voteDistribution.find((v) => v.country === simResult.secondary!.country)?.percent;
+              return (
+                <>
+                  <MText style={styles.kpiLabel}>{isKo ? "Top-3 출현률" : "Top-3 hit rate"}</MText>
+                  <MText style={styles.kpiValue}>{`${simResult.consensusPercent}%`}</MText>
+                  <MText style={styles.kpiSub}>{
+                    isKo
+                      ? `1순위 vote ${pv ?? "?"}% vs ${sv ?? "?"}%`
+                      : `1st-place ${pv ?? "?"}% vs ${sv ?? "?"}%`
+                  }</MText>
+                </>
+              );
+            })()
+          ) : (
+            <>
+              <MText style={styles.kpiLabel}>{isKo ? "합의도" : "Consensus"}</MText>
+              <MText style={styles.kpiValue}>{`${simResult.consensusPercent}%`}</MText>
+              <MText style={styles.kpiSub}>{simResult.confidence}</MText>
+            </>
+          )}
         </View>
         <View style={styles.kpiCard}>
           <MText style={styles.kpiLabel}>{isKo ? "신뢰 등급" : "Confidence grade"}</MText>
@@ -1074,11 +1119,16 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
       <View style={[styles.calloutCard, styles.calloutSuccessBg]}>
         <MText style={[styles.calloutTitle, styles.calloutTitleSuccess]}>{t.winnerLabel}</MText>
         <MText style={[styles.calloutBody, { fontWeight: 700, fontSize: 12 }]}>
-          {topTwo
-            ? isKo
-              ? `Top 2 동등 후보: ${topTwo.primaryLabel} (${topTwo.primaryCode}) · ${topTwo.secondaryLabel} (${topTwo.secondaryCode}) — Consensus: ${simResult.consensusPercent}% (${simResult.confidence})`
-              : `Top 2 tied: ${topTwo.primaryLabel} (${topTwo.primaryCode}) · ${topTwo.secondaryLabel} (${topTwo.secondaryCode}) — Consensus: ${simResult.consensusPercent}% (${simResult.confidence})`
-            : `${winnerLabel} (${simResult.winner}) · Consensus: ${simResult.consensusPercent}% (${simResult.confidence})`}
+          {(() => {
+            if (topTwo) {
+              const pv = simResult.voteDistribution.find((v) => v.country === simResult.winner)?.percent;
+              const sv = simResult.voteDistribution.find((v) => v.country === topTwo.secondaryCode)?.percent;
+              return isKo
+                ? `Top 2 동등 후보: ${topTwo.primaryLabel} (${topTwo.primaryCode}) 1순위 vote ${pv ?? "?"}% · ${topTwo.secondaryLabel} (${topTwo.secondaryCode}) 1순위 vote ${sv ?? "?"}% — top-3 출현률 ${simResult.consensusPercent}% (${simResult.confidence})`
+                : `Top 2 tied: ${topTwo.primaryLabel} (${topTwo.primaryCode}) 1st-place ${pv ?? "?"}% · ${topTwo.secondaryLabel} (${topTwo.secondaryCode}) 1st-place ${sv ?? "?"}% — top-3 hit rate ${simResult.consensusPercent}% (${simResult.confidence})`;
+            }
+            return `${winnerLabel} (${simResult.winner}) · Consensus: ${simResult.consensusPercent}% (${simResult.confidence})`;
+          })()}
         </MText>
         <MText style={styles.calloutBody}>
           {`Sample: ${meta.personaCount.toLocaleString()} ${isKo ? "페르소나" : "personas"} · ${simResult.consensusType ?? ""}`}

@@ -1159,8 +1159,16 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             </MText>
             <MText style={{ fontSize: 9, color: C.body, marginTop: 4, lineHeight: 1.5 }}>
               {isKo
-                ? `1위 ${topTwo.primaryLabel} (${topTwo.primaryCode}) · 2위 ${topTwo.secondaryLabel} (${topTwo.secondaryCode}) — 점수 격차 작아 단일국 결정 보류 권장 (${recommendation.consensusPercent}% 합의)`
-                : `#1 ${topTwo.primaryLabel} (${topTwo.primaryCode}) · #2 ${topTwo.secondaryLabel} (${topTwo.secondaryCode}) — narrow score gap, defer single-country decision (${recommendation.consensusPercent}% agreement)`}
+                ? (() => {
+                    const pv = aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.primaryCode)?.percent;
+                    const sv = aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.secondaryCode)?.percent;
+                    return `1순위 vote: ${topTwo.primaryLabel} ${pv ?? "?"}% · ${topTwo.secondaryLabel} ${sv ?? "?"}% — 점수 격차 작아 단일국 결정 보류 권장 (top-3 출현률은 ${recommendation.consensusPercent}%)`;
+                  })()
+                : (() => {
+                    const pv = aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.primaryCode)?.percent;
+                    const sv = aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.secondaryCode)?.percent;
+                    return `1st-place vote: ${topTwo.primaryLabel} ${pv ?? "?"}% · ${topTwo.secondaryLabel} ${sv ?? "?"}% — narrow score gap, defer single-country decision (top-3 hit rate ${recommendation.consensusPercent}%)`;
+                  })()}
             </MText>
           </View>
         )}
@@ -1429,8 +1437,25 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             <BulletItem
               text={(() => {
                 const fs = winnerStats?.finalScore;
-                const headKo = `${recCountryLabel} 진출이 합의 우위 (${aggregate.recommendation.consensusPercent}% / ${aggregate.recommendation.confidence})`;
-                const headEn = `${recCountryLabel} leads consensus (${aggregate.recommendation.consensusPercent}% / ${aggregate.recommendation.confidence})`;
+                // Top-2 tie — the consensusPercent is top-3-hit-rate
+                // (Phase E definition), not vote share. In a tie the
+                // top-3-hit-rate is ~identical for BOTH candidates so
+                // "X 합의 우위 (96%)" is misleading. Show the actual
+                // vote shares on both candidates + the score gap
+                // instead so the reader sees why the orchestrator
+                // promoted to Top-2.
+                const primaryVote = aggregate.bestCountryDistribution?.find(
+                  (b) => b.country === aggregate.recommendation.country,
+                );
+                const secondaryVote = topTwo
+                  ? aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.secondaryCode)
+                  : null;
+                const headKo = topTwo
+                  ? `Top 2 동등 후보 — ${topTwo.primaryLabel} 1순위 vote ${primaryVote?.percent ?? "?"}% · ${topTwo.secondaryLabel} 1순위 vote ${secondaryVote?.percent ?? "?"}% (top-3 출현률 ${aggregate.recommendation.consensusPercent}% — 둘 다 거의 모든 시뮬의 top-3 안에 있다는 뜻)`
+                  : `${recCountryLabel} 진출이 합의 우위 (${aggregate.recommendation.consensusPercent}% / ${aggregate.recommendation.confidence})`;
+                const headEn = topTwo
+                  ? `Top 2 tied — ${topTwo.primaryLabel} 1st-place vote ${primaryVote?.percent ?? "?"}% · ${topTwo.secondaryLabel} 1st-place vote ${secondaryVote?.percent ?? "?"}% (top-3 hit rate ${aggregate.recommendation.consensusPercent}% — both placed in nearly every sim's top-3)`
+                  : `${recCountryLabel} leads consensus (${aggregate.recommendation.consensusPercent}% / ${aggregate.recommendation.confidence})`;
                 if (!fs) return isKo ? `${headKo}.` : `${headEn}.`;
                 const within = fs.withinSimStdMean;
                 const noise =
@@ -1460,7 +1485,10 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                   : `${headEn} — mean ${fs.mean.toFixed(0)}, std ${noiseStd.toFixed(1)}.`;
               })()}
             />
-            {runnerUp && (
+            {/* Hide "runner-up" bullet when displaying Top-2 — already
+                handled in the headline bullet above with both vote
+                shares + the tied-candidates banner upstream. */}
+            {!topTwo && runnerUp && (
               <BulletItem
                 text={
                   isKo
@@ -7233,9 +7261,18 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                       lineHeight: 1.5,
                     }}
                   >
-                    {isKo
-                      ? `점수 격차가 작아 사실상 동등 — 단일국 결정 보류, 두 시장 모두 검토 권장. (Multi-LLM ${aggregate.recommendation.consensusPercent}% 합의)`
-                      : `Score gap is narrow — defer single-country decision, evaluate both. (Multi-LLM ${aggregate.recommendation.consensusPercent}% agreement)`}
+                    {(() => {
+                      const pv = aggregate.bestCountryDistribution?.find((b) => b.country === aggregate.recommendation.country)?.percent;
+                      const sv = aggregate.bestCountryDistribution?.find((b) => b.country === secondaryCountry)?.percent;
+                      const voteFrag = pv != null && sv != null
+                        ? isKo
+                          ? `1순위 vote ${pv}% vs ${sv}%`
+                          : `1st-place vote ${pv}% vs ${sv}%`
+                        : isKo ? "1순위 vote 분산" : "1st-place vote split";
+                      return isKo
+                        ? `점수 격차가 작아 사실상 동등 — 단일국 결정 보류, 두 시장 모두 검토 권장. (${voteFrag}; top-3 출현률 ${aggregate.recommendation.consensusPercent}%)`
+                        : `Score gap is narrow — defer single-country decision, evaluate both. (${voteFrag}; top-3 hit rate ${aggregate.recommendation.consensusPercent}%)`;
+                    })()}
                   </MText>
                 </View>
               );
