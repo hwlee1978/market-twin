@@ -12,6 +12,7 @@ import {
   Settings as SettingsIcon,
   HelpCircle,
   LogOut,
+  ShieldCheck,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { LocaleSwitcher } from "./LocaleSwitcher";
@@ -29,6 +30,11 @@ const NAV = [
   { href: "/team", icon: Users, key: "team" as const },
   { href: "/settings", icon: SettingsIcon, key: "settings" as const },
   { href: "/help", icon: HelpCircle, key: "help" as const },
+  // LLM usage admin — link visible to all users (intentional, helps
+  // operators discover where to look) but the page enforces a
+  // SUPERADMIN_EMAILS env match before rendering data. Non-admins
+  // hit a "접근 권한 없음" gate notice.
+  { href: "/admin/llm-usage", icon: ShieldCheck, key: "llmUsageAdmin" as const },
 ];
 
 export function AppShell({

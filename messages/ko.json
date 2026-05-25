@@ -209,7 +209,8 @@
     "billing": "결제",
     "team": "팀",
     "settings": "설정",
-    "help": "도움말"
+    "help": "도움말",
+    "llmUsageAdmin": "LLM 사용량"
   },
   "auth": {
     "loginTitle": "로그인",

@@ -28,6 +28,33 @@ interface ProviderOptions {
    * without quality loss. See [[benchmark_v11_sonnet_4cat]].
    */
   category?: string | null;
+  /**
+   * Per-workspace LLM usage tracking. When provided, every generate()
+   * call on the returned provider auto-logs to public.llm_usage_log
+   * (workspace_id, provider, model, stage, tokens, cost_usd, context
+   * jsonb). Powers the super-admin /admin/llm-usage dashboard.
+   *
+   * Pure side-effect logging — failures swallowed silently so a
+   * usage-log outage never breaks a live sim. Pass workspaceId from
+   * any caller that knows it (orchestrator, mrai routes, secondary-
+   * actions/risks/pricing endpoints, etc.). Calls without
+   * usageContext don't log — drops the entry but preserves existing
+   * behaviour for legacy call sites.
+   */
+  usageContext?: {
+    workspaceId: string;
+    /** Free-text stage label override — falls back to opts.stage when
+     *  the caller is in the sim pipeline. Use this for non-stage
+     *  callers (e.g. "mrai-chat", "secondary-actions", "narrative-
+     *  merge"). Keeps the stage column populated for every row. */
+    stageLabel?: string;
+    /** Optional referencing IDs — ensembleId / simulationId /
+     *  conversationId — persisted in the context jsonb column for
+     *  per-entity drilldowns. */
+    ensembleId?: string;
+    simulationId?: string;
+    conversationId?: string;
+  };
 }
 
 /**
@@ -194,20 +221,209 @@ export function getLLMProvider(opts: ProviderOptions = {}): LLMProvider {
   const stageDefault = opts.stage ? PROVIDER_STAGE_DEFAULTS[provider][opts.stage] : undefined;
   const model = opts.model ?? envModel ?? categoryDowngrade ?? stageDefault;
 
+  let raw: LLMProvider;
   switch (provider) {
     case "anthropic":
-      return new AnthropicProvider(model ?? PROVIDER_STAGE_DEFAULTS.anthropic.synthesis);
+      raw = new AnthropicProvider(model ?? PROVIDER_STAGE_DEFAULTS.anthropic.synthesis);
+      break;
     case "openai":
-      return new OpenAIProvider(model ?? PROVIDER_STAGE_DEFAULTS.openai.synthesis);
+      raw = new OpenAIProvider(model ?? PROVIDER_STAGE_DEFAULTS.openai.synthesis);
+      break;
     case "gemini":
-      return new GeminiProvider(model ?? PROVIDER_STAGE_DEFAULTS.gemini.synthesis);
+      raw = new GeminiProvider(model ?? PROVIDER_STAGE_DEFAULTS.gemini.synthesis);
+      break;
     case "xai":
-      return new XaiProvider(model ?? PROVIDER_STAGE_DEFAULTS.xai.synthesis);
+      raw = new XaiProvider(model ?? PROVIDER_STAGE_DEFAULTS.xai.synthesis);
+      break;
     case "deepseek":
-      return new DeepSeekProvider(
+      raw = new DeepSeekProvider(
         model ?? PROVIDER_STAGE_DEFAULTS.deepseek.synthesis,
       );
+      break;
     default:
       throw new Error(`Unknown LLM provider: ${provider}`);
   }
+
+  // Wrap with usage tracking when the caller passed a workspaceId.
+  // Falls through (no-op) for legacy callers — they keep producing
+  // tokens but won't show on the super-admin dashboard. As call sites
+  // get instrumented over time the dashboard fills out.
+  if (opts.usageContext?.workspaceId) {
+    return wrapWithUsageLogging(raw, {
+      workspaceId: opts.usageContext.workspaceId,
+      stage: opts.usageContext.stageLabel ?? opts.stage ?? "unknown",
+      ensembleId: opts.usageContext.ensembleId,
+      simulationId: opts.usageContext.simulationId,
+      conversationId: opts.usageContext.conversationId,
+    });
+  }
+  return raw;
+}
+
+/**
+ * Wrap an LLMProvider so every generate() call fires an async insert
+ * into public.llm_usage_log. The wrapper preserves the original
+ * provider's behaviour 1:1 (same generate signature, same response
+ * shape, same errors) — logging is purely additive. Async + fire-
+ * and-forget so a usage-log outage / DB downtime never breaks a live
+ * sim. The optional `usageLogger` injection lets the wrapper run in
+ * the packages/shared bundle without pulling in the @/lib/supabase
+ * Next-only client at import time.
+ */
+type UsageLogPayload = {
+  workspaceId: string;
+  provider: LLMProviderName;
+  model: string;
+  stage: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationInputTokens?: number;
+  cacheReadInputTokens?: number;
+  costUsd: number;
+  ensembleId?: string;
+  simulationId?: string;
+  conversationId?: string;
+};
+
+let usageLogger:
+  | ((payload: UsageLogPayload) => Promise<void> | void)
+  | null = null;
+
+/** Caller (Next-side bootstrap) registers the actual DB-writing
+ *  function. Until set, wrapped providers run normally but skip
+ *  logging — failsafe for unit tests, scripts, and other contexts
+ *  without a Supabase connection. */
+export function setLLMUsageLogger(
+  fn: (payload: UsageLogPayload) => Promise<void> | void,
+): void {
+  usageLogger = fn;
+}
+
+function wrapWithUsageLogging(
+  inner: LLMProvider,
+  ctx: {
+    workspaceId: string;
+    stage: string;
+    ensembleId?: string;
+    simulationId?: string;
+    conversationId?: string;
+  },
+): LLMProvider {
+  return {
+    name: inner.name,
+    model: inner.model,
+    async generate(req) {
+      const result = await inner.generate(req);
+      if (usageLogger) {
+        try {
+          const inputTokens = result.usage?.inputTokens ?? 0;
+          const outputTokens = result.usage?.outputTokens ?? 0;
+          const cacheCreation = result.usage?.cacheCreationInputTokens;
+          const cacheRead = result.usage?.cacheReadInputTokens;
+          const costUsd = estimateCostUsd(
+            inner.name,
+            inner.model,
+            inputTokens,
+            outputTokens,
+            cacheCreation,
+            cacheRead,
+          );
+          // Fire-and-forget: don't await inside the generate path so
+          // a slow DB doesn't add latency to LLM calls.
+          void Promise.resolve(
+            usageLogger({
+              workspaceId: ctx.workspaceId,
+              provider: inner.name,
+              model: inner.model,
+              stage: ctx.stage,
+              inputTokens,
+              outputTokens,
+              cacheCreationInputTokens: cacheCreation,
+              cacheReadInputTokens: cacheRead,
+              costUsd,
+              ensembleId: ctx.ensembleId,
+              simulationId: ctx.simulationId,
+              conversationId: ctx.conversationId,
+            }),
+          ).catch((err) =>
+            console.warn("[llm-usage] log failed (non-fatal):", err),
+          );
+        } catch (err) {
+          console.warn("[llm-usage] log build failed (non-fatal):", err);
+        }
+      }
+      return result;
+    },
+  };
+}
+
+/**
+ * Per-1M-token USD pricing for each provider × model. Updated
+ * 2026-05-26. Defaults to Sonnet-tier pricing for unknown models so
+ * the dashboard still shows a non-zero estimate. Cache pricing:
+ * Anthropic creation is 1.25× input, cache read is 0.1× input.
+ */
+function estimateCostUsd(
+  provider: LLMProviderName,
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  cacheCreationTokens?: number,
+  cacheReadTokens?: number,
+): number {
+  const lc = model.toLowerCase();
+  let inputPer1M = 3;
+  let outputPer1M = 15;
+  if (provider === "anthropic") {
+    if (lc.includes("haiku")) {
+      inputPer1M = 1;
+      outputPer1M = 5;
+    } else if (lc.includes("opus")) {
+      inputPer1M = 15;
+      outputPer1M = 75;
+    } else {
+      // sonnet default
+      inputPer1M = 3;
+      outputPer1M = 15;
+    }
+  } else if (provider === "openai") {
+    if (lc.includes("mini") || lc.includes("nano")) {
+      inputPer1M = 0.15;
+      outputPer1M = 0.6;
+    } else if (lc.includes("gpt-4") || lc.includes("o1") || lc.includes("o3")) {
+      inputPer1M = 2.5;
+      outputPer1M = 10;
+    } else {
+      inputPer1M = 1;
+      outputPer1M = 4;
+    }
+  } else if (provider === "gemini") {
+    if (lc.includes("flash")) {
+      inputPer1M = 0.075;
+      outputPer1M = 0.3;
+    } else {
+      inputPer1M = 1.25;
+      outputPer1M = 5;
+    }
+  } else if (provider === "deepseek") {
+    inputPer1M = 0.27;
+    outputPer1M = 1.1;
+  } else if (provider === "xai") {
+    inputPer1M = 2;
+    outputPer1M = 10;
+  }
+  const inputCost = (inputTokens / 1_000_000) * inputPer1M;
+  const outputCost = (outputTokens / 1_000_000) * outputPer1M;
+  const cacheCreate =
+    cacheCreationTokens != null
+      ? (cacheCreationTokens / 1_000_000) * inputPer1M * 1.25
+      : 0;
+  const cacheRead =
+    cacheReadTokens != null
+      ? (cacheReadTokens / 1_000_000) * inputPer1M * 0.1
+      : 0;
+  return (
+    Math.round((inputCost + outputCost + cacheCreate + cacheRead) * 1_000_000) /
+    1_000_000
+  );
 }

@@ -209,7 +209,8 @@
     "billing": "Billing",
     "team": "Team",
     "settings": "Settings",
-    "help": "Help"
+    "help": "Help",
+    "llmUsageAdmin": "LLM Usage"
   },
   "auth": {
     "loginTitle": "Welcome back",
