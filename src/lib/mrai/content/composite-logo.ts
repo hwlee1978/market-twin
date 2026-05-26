@@ -151,11 +151,13 @@ export async function compositeLogoOnImage(
     const bgW = logoW + padX * 2;
     const bgH = logoH + padY * 2;
     const radius = Math.round(Math.min(bgW, bgH) * 0.18);
-    // Crisper backdrop — was 0.82 alpha which washed out the logo.
-    // 0.92 gives strong contrast against busy backgrounds while still
-    // feeling integrated (not a hard white box).
+    // Crisper backdrop — 0.95 alpha + hairline border for definition
+    // against any background. Drop-shadow filter via SVG would be
+    // perfect but Sharp doesn't render SVG filters reliably, so we
+    // approximate with a thin dark stroke.
+    const stroke = Math.max(1, Math.round(Math.min(bgW, bgH) * 0.008));
     const svg = `<svg width="${bgW}" height="${bgH}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="${bgW}" height="${bgH}" rx="${radius}" ry="${radius}" fill="white" fill-opacity="0.92" />
+      <rect x="${stroke / 2}" y="${stroke / 2}" width="${bgW - stroke}" height="${bgH - stroke}" rx="${radius}" ry="${radius}" fill="white" fill-opacity="0.95" stroke="rgba(0,0,0,0.10)" stroke-width="${stroke}" />
     </svg>`;
     const bgBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
     overlays.push({

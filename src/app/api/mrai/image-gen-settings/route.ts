@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 const DEFAULTS = {
   logo_position: "bottom-right" as const,
-  logo_size_pct: 11,
+  logo_size_pct: 16,
   logo_padding_pct: 3.5,
   logo_opacity: 1.0,
   logo_with_backdrop: true,
