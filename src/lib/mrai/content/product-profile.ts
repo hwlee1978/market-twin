@@ -43,6 +43,11 @@ export type ProductProfile = {
     materials?: string[];
     colors?: string[];
     distinguishing?: string[];
+    /** What the product is NOT — used as negative guidance for image
+     * generation so the model doesn't drift toward similar-category
+     * products with different details (e.g. "no laces", "no perforations",
+     * "not a derby"). */
+    not_features?: string[];
     typical_angles?: string[];
     /** True only when at least one reference photo clearly shows a
      * brand logo on the product surface. Drives whether image-gen
@@ -71,6 +76,7 @@ You will see 1-5 reference photos of the same product (or product line). Extract
    - colors: 1-3 dominant colors ("cream/off-white", "cream sole")
    - distinguishing: 1-3 features that differentiate this product ("velcro strap", "side embroidered label")
    - typical_angles: 1-3 angles that look good in marketing ("3/4 side", "top-down", "feet-walking")
+   - NOT_FEATURES: 3-5 features the product DOES NOT have but which similar products in the same category MIGHT have (used as negative guidance for image generation). For footwear examples: ["no laces (slip-on with velcro)", "no perforated upper", "not a derby/oxford", "no leather"]. For apparel: ["no buttons", "not oversized", "no collar"]. Be specific so the image generator knows what to avoid.
 
 4. LOGO_VISIBLE_ON_PRODUCT — boolean. true ONLY if a brand logo is clearly visible on the product surface in at least one reference photo. If logo is absent / hidden / unclear in all photos, return false. This drives whether downstream image generation forces a logo onto generated images (we don't want fake branding when the real product is unbranded).
 
@@ -94,6 +100,7 @@ Output JSON ONLY, no prose:
     "materials": ["..."],
     "colors": ["..."],
     "distinguishing": ["..."],
+    "not_features": ["..."],
     "typical_angles": ["..."],
     "logo_visible_on_product": true | false
   },

@@ -4,7 +4,11 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getPlatformSpec, type Platform } from "./platform-rules";
 import { compositeLogoOnImage } from "./composite-logo";
 import { detectLogoPlacement } from "./logo-placement";
-import { loadProductProfile, type ProductProfile } from "./product-profile";
+import {
+  buildProductProfile,
+  loadProductProfile,
+  type ProductProfile,
+} from "./product-profile";
 
 /**
  * Image generator — Sprint 4 of Phase 9.
@@ -94,6 +98,11 @@ function buildFramePrompt(
     if (specLines.length > 0) {
       parts.push(
         `PRODUCT SPEC (must match exactly — not a different style/color/silhouette):\n${specLines.join("\n")}`,
+      );
+    }
+    if (vf.not_features && vf.not_features.length) {
+      parts.push(
+        `THE PRODUCT IS NOT (do NOT generate these features — model tends to drift toward generic category defaults):\n${vf.not_features.map((f) => `- ${f}`).join("\n")}`,
       );
     }
   }
@@ -324,7 +333,24 @@ export async function generateImagesForDraft(input: {
   // === false), we skip the forced logo composite even if the user
   // uploaded a logo asset — user explicit feedback: "라이브러리 제품
   // 사진에서 로고가 안보인다면 꼭 로고를 억지로 넣어야 할 필요는 없음".
-  const productProfile = await loadProductProfile(input.workspaceId);
+  let productProfile = await loadProductProfile(input.workspaceId);
+  // Auto-trigger profile build if missing AND product photos exist.
+  // One-time cost (~$0.03), then cached forever — eliminates the
+  // "forgot to click extract button" failure mode.
+  if (!productProfile && allRefs.some((r) => r.asset_type === "product")) {
+    try {
+      const r = await buildProductProfile(input.workspaceId);
+      if (r.profile) {
+        productProfile = r.profile;
+        console.log("[image-gen] auto-built product profile:", r.profile.category);
+      }
+    } catch (e) {
+      console.warn(
+        "[image-gen] auto profile build failed:",
+        e instanceof Error ? e.message : e,
+      );
+    }
+  }
   const productHasVisibleLogo =
     productProfile?.visual_features?.logo_visible_on_product !== false;
 
