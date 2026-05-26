@@ -90,7 +90,13 @@ export function ContentDraftsPanel({
         body: JSON.stringify(payload),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "생성 실패");
+      if (!res.ok) {
+        const msg = json.detail ?? json.error ?? "생성 실패";
+        throw new Error(msg);
+      }
+      if (!Array.isArray(json.drafts) || json.drafts.length === 0) {
+        throw new Error("LLM이 0개 variant를 반환했습니다. 다시 시도하세요.");
+      }
       // Prepend the new variants
       setDrafts((prev) => [...(json.drafts as Draft[]), ...(prev ?? [])]);
       setOpenModal(false);

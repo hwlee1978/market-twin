@@ -208,7 +208,10 @@ ${variantStrategies.join("\n")}
     system,
     prompt,
     temperature: 0.7,
-    maxTokens: 4000,
+    // 8K: bilingual output doubles per-variant token count (body +
+    // body_ko + title + title_ko + desc + desc_ko + hashtags + ...).
+    // 3 variants of long Instagram captions can run 6-7K easily.
+    maxTokens: 8000,
     cacheSystem: true,
     jsonSchema: {
       type: "object",

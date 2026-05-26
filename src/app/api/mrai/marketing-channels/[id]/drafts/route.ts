@@ -93,23 +93,42 @@ export async function POST(
     // Memories optional — drafter falls back to channel-only context.
   }
 
-  const result = await runContentDrafter({
-    channel: {
-      platform: channel.platform,
-      handle: channel.handle,
-      display_name: channel.display_name,
-      market_country: channel.market_country,
-      target_segments: channel.target_segments ?? [],
-      posting_style: channel.posting_style,
-      bio_text: channel.bio_text,
-    },
-    topic: parsed.data.topic,
-    campaignLabel: parsed.data.campaignLabel,
-    goal: parsed.data.goal,
-    variantCount: parsed.data.variantCount ?? 3,
-    locale: parsed.data.locale ?? "ko",
-    brandContext: brandContext || undefined,
-  });
+  let result;
+  try {
+    result = await runContentDrafter({
+      channel: {
+        platform: channel.platform,
+        handle: channel.handle,
+        display_name: channel.display_name,
+        market_country: channel.market_country,
+        target_segments: channel.target_segments ?? [],
+        posting_style: channel.posting_style,
+        bio_text: channel.bio_text,
+      },
+      topic: parsed.data.topic,
+      campaignLabel: parsed.data.campaignLabel,
+      goal: parsed.data.goal,
+      variantCount: parsed.data.variantCount ?? 3,
+      locale: parsed.data.locale ?? "ko",
+      brandContext: brandContext || undefined,
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "drafter_failed" },
+      { status: 500 },
+    );
+  }
+  if (result.variants.length === 0) {
+    return NextResponse.json(
+      {
+        error:
+          "drafter_no_variants",
+        detail:
+          "LLM이 유효한 variant를 반환하지 못했습니다. 출력이 잘렸을 가능성 — variant 개수를 2개로 줄이거나 topic을 짧게 다시 시도하세요.",
+      },
+      { status: 500 },
+    );
+  }
 
   // Get auth'd user id for created_by
   const {
