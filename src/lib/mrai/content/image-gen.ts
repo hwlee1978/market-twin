@@ -9,6 +9,7 @@ import {
   loadProductProfile,
   type ProductProfile,
 } from "./product-profile";
+import { pickSourceForFrame, touchupProductImage } from "./product-touchup";
 
 /**
  * Image generator — Sprint 4 of Phase 9.
@@ -280,6 +281,10 @@ export type ImageGenSettings = {
   /** product_surface = Vision-detect + place on product naturally.
    *  corner_watermark = fixed bottom-right (cheap, reliable). */
   logo_placement_mode: "product_surface" | "corner_watermark";
+  /** When true + product photos exist, use library photo as image-edit
+   *  base + mask out product area (100% accurate product). Otherwise
+   *  fall back to reference-based text-to-image (model invents). */
+  use_library_photo_as_base: boolean;
   prompt_strictness: "creative" | "balanced" | "strict";
   quality: "low" | "medium" | "high";
 };
@@ -292,6 +297,7 @@ const DEFAULT_SETTINGS: ImageGenSettings = {
   logo_with_backdrop: true,
   logo_composite_enabled: true,
   logo_placement_mode: "product_surface",
+  use_library_photo_as_base: true,
   prompt_strictness: "strict",
   quality: "medium",
 };
@@ -428,6 +434,71 @@ export async function generateImagesForDraft(input: {
       hasAmbassador,
       productProfile,
     );
+
+    // ─── TOUCHUP MODE — use library product photo as base, mask out
+    // product, regenerate background only. Only for non-lifestyle frames
+    // (lifestyle needs to invent a person which touchup can't do).
+    const roleIdx = totalFrames > 1 && i > 0 ? (i - 1) % 5 : -1;
+    const isLifestyle = roleIdx === 1;
+    const productPhotos = nonLogoRefs.filter((r) => r.asset_type === "product");
+    const useTouchup =
+      settings.use_library_photo_as_base &&
+      productPhotos.length > 0 &&
+      !isLifestyle;
+
+    if (useTouchup) {
+      const sourceUrl = pickSourceForFrame(
+        productPhotos.map((p) => ({ image_url: p.image_url })),
+        i,
+      )!;
+      // Scene-only prompt (the product itself is preserved in the source)
+      const scenePrompt = `${framePrompt}\n\nIMPORTANT: The provided image contains the EXACT product to preserve. Only modify the BACKGROUND/SCENE around the product as described above. Do not change the product's shape, color, material, or branding — those pixels must remain identical to the input.`;
+      try {
+        const tr = await touchupProductImage({
+          sourceImageUrl: sourceUrl,
+          scenePrompt,
+          outputSize: size,
+          quality: settings.quality,
+          logoBuffer: logoBufferForComposite,
+          logoOpts: {
+            position: settings.logo_position,
+            size_pct: settings.logo_size_pct,
+            padding_pct: settings.logo_padding_pct,
+            opacity: settings.logo_opacity,
+            with_backdrop: settings.logo_with_backdrop,
+          },
+          useMask: true,
+        });
+        if (tr) {
+          // Track the source asset as "used"
+          const sourceAsset = productPhotos.find(
+            (p) => p.image_url === sourceUrl,
+          );
+          if (sourceAsset) usedReferenceIds.add(sourceAsset.id);
+          const uploaded = await uploadToStorage(
+            tr.buffer,
+            input.workspaceId,
+            input.draftId,
+            i,
+          );
+          images.push({
+            url: uploaded.url,
+            path: uploaded.path,
+            frame_index: i,
+            size,
+          });
+          console.log(
+            `[image-gen] touchup frame ${i} used_mask=${tr.used_mask} source=${sourceUrl.slice(-40)}`,
+          );
+          continue;
+        }
+      } catch (e) {
+        console.warn(
+          `[image-gen] touchup failed for frame ${i}, falling back:`,
+          e instanceof Error ? e.message : e,
+        );
+      }
+    }
 
     let res;
     if (refFiles.length > 0) {

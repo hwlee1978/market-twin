@@ -14,7 +14,7 @@ export async function loadImageGenSettings(
   const { data } = await svc
     .from("mrai_image_gen_settings")
     .select(
-      "logo_position, logo_size_pct, logo_padding_pct, logo_opacity, logo_with_backdrop, logo_composite_enabled, logo_placement_mode, prompt_strictness, quality",
+      "logo_position, logo_size_pct, logo_padding_pct, logo_opacity, logo_with_backdrop, logo_composite_enabled, logo_placement_mode, use_library_photo_as_base, prompt_strictness, quality",
     )
     .eq("workspace_id", workspaceId)
     .maybeSingle();

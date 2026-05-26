@@ -11,6 +11,7 @@ type Settings = {
   logo_with_backdrop: boolean;
   logo_composite_enabled: boolean;
   logo_placement_mode: "product_surface" | "corner_watermark";
+  use_library_photo_as_base: boolean;
   prompt_strictness: "creative" | "balanced" | "strict";
   quality: "low" | "medium" | "high";
 };
@@ -116,13 +117,15 @@ export function ImageGenSettingsPanel() {
         </div>
         {settings && (
           <div className="shrink-0 text-[10px] text-slate-500 text-right hidden sm:block">
+            {settings.use_library_photo_as_base ? "🎨 Touchup ON" : "텍스트→이미지"}
+            <br />
             {settings.logo_composite_enabled
               ? settings.logo_placement_mode === "product_surface"
                 ? "로고 🎯 제품 표면"
                 : `로고 ${POSITIONS.find((p) => p.value === settings.logo_position)?.emoji} ${settings.logo_size_pct}%`
               : "로고 합성 OFF"}
             <br />
-            품질 {settings.quality} · {settings.prompt_strictness}
+            품질 {settings.quality}
           </div>
         )}
       </button>
@@ -130,6 +133,32 @@ export function ImageGenSettingsPanel() {
       {expanded && settings && (
         <div className="px-5 py-4 border-t border-slate-100 space-y-4">
           {error && <p className="text-xs text-red-600">{error}</p>}
+
+          {/* Touchup mode — biggest fidelity lever */}
+          <div className="rounded-md border border-violet-200 bg-violet-50/40 p-3">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.use_library_photo_as_base}
+                onChange={(e) =>
+                  patch({ use_library_photo_as_base: e.target.checked })
+                }
+                className="mt-1"
+              />
+              <div>
+                <div className="text-sm font-semibold text-violet-900">
+                  🎨 라이브러리 사진을 base로 사용 (Touchup 모드)
+                </div>
+                <p className="text-[10px] text-violet-700 mt-0.5 leading-snug">
+                  <strong>ON (권장):</strong> 업로드된 실제 제품 사진을 그대로 base로 두고 배경/씬만 AI가 새로 생성. 제품 디자인/색상/세부가 100% 정확하게 유지됨 (gpt-image-1 mask edit).
+                  <br />
+                  <strong>OFF:</strong> 텍스트 + reference로부터 제품을 처음부터 그림 — 디자인이 실제와 다르게 drift할 수 있음.
+                  <br />
+                  ※ 라이프스타일 프레임(사람 등장)은 touchup 적용 안 됨 — 사람을 합성할 수 없으므로 기본 모드 사용.
+                </p>
+              </div>
+            </label>
+          </div>
 
           {/* Logo composite */}
           <div className="rounded-md border border-slate-200 p-3">
