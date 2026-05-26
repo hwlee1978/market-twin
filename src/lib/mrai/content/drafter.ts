@@ -29,11 +29,15 @@ export type DrafterChannelContext = {
 export type DraftVariant = {
   variant_label: string;       // "A" / "B" / "C"
   body_text: string;
+  body_text_ko: string | null;       // Korean translation (null when native = ko)
   hashtags: string[];
   cta_text: string | null;
+  cta_text_ko: string | null;
   image_prompt: string | null;
   seo_title: string | null;
+  seo_title_ko: string | null;
   seo_description: string | null;
+  seo_description_ko: string | null;
   seo_keywords: string[];
   seo_meta: Record<string, unknown>;
   seo_score: number;
@@ -76,7 +80,19 @@ A/B/C 차별화 전략:
 - B: 스토리텔링 (감정/페르소나 중심)
 - C: contrarian/질문형 (호기심 트리거)
 
-출력은 JSON. 각 variant마다 platform-specific 필드 채울 것.`;
+⚠️ Bilingual 출력 (CRITICAL):
+- body_text / cta_text / seo_title / seo_description은 채널의 **target market 모국어**로 자연스럽게 작성.
+  · market_country=KR → 한국어
+  · market_country=US → 영어
+  · market_country=JP → 일본어
+  · market_country=TW → 번체 중국어
+  · market_country=CN → 간체 중국어
+- 같은 의미를 **_ko 필드**에 한국어로 번역. 한국 오퍼레이터가 카드에서 원어 + 번역 동시에 봐야 함.
+- market=KR인 경우 _ko 필드는 원본과 동일하게 채우거나 null.
+- hashtags는 번역 불필요 (#LeMouton 같은 보편 태그가 많아 native로 OK).
+- image_prompt는 항상 영문 (이미지 생성 도구가 영어).
+
+출력은 JSON. 각 variant마다 platform-specific 필드 + _ko 번역을 모두 채울 것.`;
 
 const SYSTEM_EN = `You are Mr. AI's ContentDrafter (= the copywriter Agent).
 
@@ -101,7 +117,15 @@ A/B/C differentiation:
 - B: story-driven (emotion / persona)
 - C: contrarian / question-led (curiosity trigger)
 
-Output is JSON with platform-specific fields per variant.`;
+⚠️ Bilingual output (CRITICAL):
+- body_text / cta_text / seo_title / seo_description must be in the
+  channel's target-market native language (KR→Korean, US→English,
+  JP→Japanese, TW→Traditional Chinese, CN→Simplified Chinese).
+- ALSO provide _ko fields with a Korean translation of each so the
+  Korean operator can review.
+- hashtags + image_prompt do NOT need translation.
+
+Output is JSON. Each variant must include both native text AND _ko translations.`;
 
 export async function runContentDrafter(input: DrafterInput): Promise<DrafterResult> {
   const variantCount = Math.min(Math.max(input.variantCount ?? 3, 1), 5);
@@ -200,15 +224,19 @@ ${variantStrategies.join("\n")}
             properties: {
               variant_label: { type: "string", maxLength: 4 },
               body_text: { type: "string", maxLength: 5000 },
+              body_text_ko: { type: ["string", "null"], maxLength: 5000 },
               hashtags: {
                 type: "array",
                 items: { type: "string", maxLength: 60 },
                 maxItems: 15,
               },
               cta_text: { type: "string", maxLength: 200 },
+              cta_text_ko: { type: ["string", "null"], maxLength: 200 },
               image_prompt: { type: "string", maxLength: 500 },
               seo_title: { type: "string", maxLength: 120 },
+              seo_title_ko: { type: ["string", "null"], maxLength: 120 },
               seo_description: { type: "string", maxLength: 300 },
+              seo_description_ko: { type: ["string", "null"], maxLength: 300 },
               seo_keywords: {
                 type: "array",
                 items: { type: "string", maxLength: 60 },
@@ -235,17 +263,51 @@ ${variantStrategies.join("\n")}
           .slice(0, spec.hashtagMaxCount)
           .map((h) => (h.startsWith("#") ? h : `#${h}`))
       : [];
+    const bodyKoRaw = typeof v.body_text_ko === "string" ? v.body_text_ko : null;
+    const bodyKo =
+      bodyKoRaw && bodyKoRaw.trim() && bodyKoRaw.trim() !== body.trim()
+        ? bodyKoRaw.slice(0, spec.bodyMaxChars)
+        : null;
     const cta = typeof v.cta_text === "string" && v.cta_text.trim() ? v.cta_text.trim() : null;
+    const ctaKoRaw = typeof v.cta_text_ko === "string" ? v.cta_text_ko : null;
+    const ctaKo = ctaKoRaw && ctaKoRaw.trim() && ctaKoRaw.trim() !== cta ? ctaKoRaw.trim() : null;
     const imagePrompt = typeof v.image_prompt === "string" ? v.image_prompt : null;
     const seoTitle = typeof v.seo_title === "string" ? v.seo_title : null;
+    const seoTitleKoRaw = typeof v.seo_title_ko === "string" ? v.seo_title_ko : null;
+    const seoTitleKo =
+      seoTitleKoRaw && seoTitleKoRaw.trim() && seoTitleKoRaw.trim() !== seoTitle
+        ? seoTitleKoRaw.trim()
+        : null;
     const seoDescription = typeof v.seo_description === "string" ? v.seo_description : null;
+    const seoDescriptionKoRaw =
+      typeof v.seo_description_ko === "string" ? v.seo_description_ko : null;
+    const seoDescriptionKo =
+      seoDescriptionKoRaw &&
+      seoDescriptionKoRaw.trim() &&
+      seoDescriptionKoRaw.trim() !== seoDescription
+        ? seoDescriptionKoRaw.trim()
+        : null;
     const seoKeywords = Array.isArray(v.seo_keywords)
       ? v.seo_keywords.filter((k): k is string => typeof k === "string").slice(0, 10)
       : [];
-    const seoMeta = (v.seo_meta && typeof v.seo_meta === "object" ? v.seo_meta : {}) as Record<
+    const seoMetaRaw = (v.seo_meta && typeof v.seo_meta === "object" ? v.seo_meta : {}) as Record<
       string,
       unknown
     >;
+    // Stash translations under seo_meta.translations.ko so the DB row
+    // carries them without a schema migration (mrai_content_drafts has
+    // only single-language columns).
+    const seoMeta: Record<string, unknown> = { ...seoMetaRaw };
+    if (bodyKo || ctaKo || seoTitleKo || seoDescriptionKo) {
+      seoMeta.translations = {
+        ko: {
+          body_text: bodyKo,
+          cta_text: ctaKo,
+          seo_title: seoTitleKo,
+          seo_description: seoDescriptionKo,
+        },
+      };
+    }
 
     const score = scoreSEO({
       platform: input.channel.platform,
@@ -260,11 +322,15 @@ ${variantStrategies.join("\n")}
     return {
       variant_label: label,
       body_text: body,
+      body_text_ko: bodyKo,
       hashtags,
       cta_text: cta,
+      cta_text_ko: ctaKo,
       image_prompt: imagePrompt,
       seo_title: seoTitle,
+      seo_title_ko: seoTitleKo,
       seo_description: seoDescription,
+      seo_description_ko: seoDescriptionKo,
       seo_keywords: seoKeywords,
       seo_meta: seoMeta,
       seo_score: score.total,

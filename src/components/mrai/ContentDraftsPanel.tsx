@@ -32,6 +32,16 @@ type Draft = {
   seo_title: string | null;
   seo_description: string | null;
   seo_keywords: string[] | null;
+  seo_meta: {
+    translations?: {
+      ko?: {
+        body_text?: string | null;
+        cta_text?: string | null;
+        seo_title?: string | null;
+        seo_description?: string | null;
+      };
+    };
+  } | null;
   seo_score: number | null;
   seo_notes: Record<string, { weight: number; score: number; note: string }> | null;
   seo_scored_at: string | null;
@@ -271,8 +281,13 @@ function DraftCard({
         </div>
 
         {draft.seo_title && (
-          <div className="text-sm font-semibold text-slate-900 mb-1">
-            {draft.seo_title}
+          <div className="mb-1">
+            <div className="text-sm font-semibold text-slate-900">{draft.seo_title}</div>
+            {draft.seo_meta?.translations?.ko?.seo_title && (
+              <div className="text-xs text-slate-500 mt-0.5">
+                ↳ {draft.seo_meta.translations.ko.seo_title}
+              </div>
+            )}
           </div>
         )}
 
@@ -283,13 +298,21 @@ function DraftCard({
         >
           {draft.body_text}
         </p>
-        {draft.body_text.length > 200 && (
+        {expanded && draft.seo_meta?.translations?.ko?.body_text && (
+          <div className="mt-1.5 pl-3 border-l-2 border-slate-200 text-xs text-slate-600 whitespace-pre-line leading-relaxed">
+            <div className="text-[10px] uppercase tracking-wider text-slate-400 mb-1">
+              ↳ 한국어 번역
+            </div>
+            {draft.seo_meta.translations.ko.body_text}
+          </div>
+        )}
+        {(draft.body_text.length > 200 || draft.seo_meta?.translations?.ko?.body_text) && (
           <button
             type="button"
             onClick={() => setExpanded((e) => !e)}
             className="text-[11px] text-indigo-600 hover:text-indigo-800 mt-1"
           >
-            {expanded ? "접기" : "더 보기"}
+            {expanded ? "접기" : "더 보기 / 한국어"}
           </button>
         )}
 
@@ -301,8 +324,16 @@ function DraftCard({
 
         <div className="mt-2.5 flex flex-wrap gap-2 text-[11px]">
           {draft.cta_text && (
-            <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+            <span
+              className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded"
+              title={draft.seo_meta?.translations?.ko?.cta_text ?? undefined}
+            >
               <Target className="w-3 h-3" /> {draft.cta_text}
+              {draft.seo_meta?.translations?.ko?.cta_text && (
+                <span className="text-amber-500 ml-1">
+                  ↳ {draft.seo_meta.translations.ko.cta_text}
+                </span>
+              )}
             </span>
           )}
           {draft.image_prompt && (
