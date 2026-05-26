@@ -63,6 +63,7 @@ function buildFramePrompt(
   brandHint?: string,
   hasReferences = false,
   hasLogoReference = false,
+  hasAmbassadorReference = false,
 ): string {
   const spec = getPlatformSpec(platform);
   const parts: string[] = [];
@@ -75,6 +76,11 @@ function buildFramePrompt(
   if (hasLogoReference) {
     parts.push(
       "One of the references is the brand LOGO. The product in the generated image MUST carry this exact brand logo (in the same position the references show — e.g. shoe tongue, heel patch, side stamp). The logo must be readable but not over-sized.",
+    );
+  }
+  if (hasAmbassadorReference) {
+    parts.push(
+      "CRITICAL: One or more references contain a contracted brand AMBASSADOR (real celebrity or model under advertising contract). You MUST preserve their exact face, hairstyle, body proportions, skin tone, eye color, and any signature features — they are the most marketing-valuable asset in this content. Do NOT invent a different person, generic model, or generic Asian/Western model — render the SAME individual from the reference, in a different pose / scene / outfit / framing if the prompt asks for one, but ALWAYS the same identifiable face. If the reference shows a partial figure (e.g. just torso), you may extrapolate the rest of the body but the face must match. If you cannot maintain face fidelity, prefer to crop the face out (back-of-head, lower-body-only) rather than substitute a different person.",
     );
   }
 

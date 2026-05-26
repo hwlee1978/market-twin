@@ -20,6 +20,7 @@ type Asset = {
 };
 
 const ASSET_TYPES: Array<{ value: string; label: string; icon: string }> = [
+  { value: "ambassador", label: "광고 모델/연예인", icon: "⭐" },
   { value: "product", label: "제품", icon: "👟" },
   { value: "lifestyle", label: "라이프스타일", icon: "🌿" },
   { value: "logo", label: "로고", icon: "🔖" },

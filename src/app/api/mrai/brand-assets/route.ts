@@ -9,7 +9,15 @@ export const maxDuration = 60;
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB per file
 const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 
-const META_TYPES = ["product", "lifestyle", "logo", "packaging", "pattern", "other"] as const;
+const META_TYPES = [
+  "product",
+  "lifestyle",
+  "logo",
+  "packaging",
+  "pattern",
+  "ambassador",
+  "other",
+] as const;
 
 const MetaSchema = z.object({
   asset_type: z.enum(META_TYPES).default("product"),

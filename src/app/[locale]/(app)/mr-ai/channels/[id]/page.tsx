@@ -213,13 +213,19 @@ export default async function VirtualSpacePage({
         </div>
       </div>
 
-      {/* Audience: personas living in this space */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between">
+      {/* Audience: personas living in this space — collapsed by default */}
+      <details className="rounded-xl border border-slate-200 bg-white shadow-sm group">
+        <summary className="px-5 py-4 cursor-pointer list-none flex items-start justify-between hover:bg-slate-50/50 [&::-webkit-details-marker]:hidden">
           <div>
             <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
               <Users className="w-4 h-4 text-indigo-600" />
               이 공간에 살고 있는 페르소나
+              <span className="text-[10px] font-normal text-slate-400 group-open:hidden">
+                ▶ 펼치기
+              </span>
+              <span className="text-[10px] font-normal text-slate-400 hidden group-open:inline">
+                ▼ 접기
+              </span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
               {channel.market_country
@@ -227,7 +233,7 @@ export default async function VirtualSpacePage({
                 : "워크스페이스 전체 페르소나가 잠재 청중입니다."}
             </p>
           </div>
-          <div className="text-right">
+          <div className="text-right shrink-0">
             <div className="text-2xl font-bold text-slate-900">
               {personaTotal ?? 0}
             </div>
@@ -235,8 +241,8 @@ export default async function VirtualSpacePage({
               매칭 페르소나
             </div>
           </div>
-        </div>
-        <div className="px-5 py-4">
+        </summary>
+        <div className="px-5 py-4 border-t border-slate-100">
           {!personas || personas.length === 0 ? (
             <div className="text-xs text-slate-500 py-8 text-center">
               아직 {channel.market_country ?? "이 워크스페이스"} 시장의 페르소나가 없습니다.
@@ -292,7 +298,7 @@ export default async function VirtualSpacePage({
             </div>
           )}
         </div>
-      </div>
+      </details>
 
       {/* Posting style preview */}
       {(channel.posting_style || channel.target_segments.length > 0) && (

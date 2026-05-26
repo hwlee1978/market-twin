@@ -95,15 +95,31 @@ export async function POST(
     asset_type: string;
     label: string | null;
   }>;
-  // Priority: 1 logo + 1 lifestyle + up to 2 product. Falls back through
-  // the queue if any bucket is empty.
+  // Priority for the 4-slot reference set, in marketing-effect order:
+  //   1. Ambassador (contracted celebrity/model) — face MUST appear in
+  //      output. User explicitly flagged this as the highest-leverage
+  //      asset: "광고 계약된 연예인이 expose되면 더 효과 있음".
+  //   2. Logo — brand mark must appear on the product.
+  //   3. Product — silhouette/colorway reference.
+  //   4. Lifestyle or packaging — for scene continuity.
+  //
+  // Up to 2 ambassador refs allowed when available (one face shot +
+  // one full-body), then 1 logo, 1 product. Falls back through queue
+  // when buckets are empty.
   const pickFrom = (type: string, n: number) =>
     allRefs.filter((r) => r.asset_type === type).slice(0, n);
+  const ambassadors = pickFrom("ambassador", 2);
   const logos = pickFrom("logo", 1);
-  const products = pickFrom("product", 2);
+  const products = pickFrom("product", ambassadors.length >= 2 ? 1 : 2);
   const lifestyle = pickFrom("lifestyle", 1);
   const packaging = pickFrom("packaging", 1);
-  let references = [...logos, ...products, ...lifestyle, ...packaging].slice(0, 4);
+  let references = [
+    ...ambassadors,
+    ...logos,
+    ...products,
+    ...lifestyle,
+    ...packaging,
+  ].slice(0, 4);
   if (references.length === 0) references = allRefs.slice(0, 4);
 
   let result;
