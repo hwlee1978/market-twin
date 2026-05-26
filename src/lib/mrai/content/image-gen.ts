@@ -68,14 +68,21 @@ function buildFramePrompt(
   const spec = getPlatformSpec(platform);
   const parts: string[] = [];
 
-  if (hasReferences) {
-    parts.push(
-      "Use the attached reference photos as the authoritative source for product appearance (silhouette, color, material, branding). DO NOT invent a different product. The generated image must look like the SAME product as the references, just in a different scene / angle / framing.",
-    );
-  }
+  // ─── CRITICAL VISUAL RULES — top of the prompt so the model can't
+  // forget by the time it reads later instructions ───────────────────
   if (hasLogoReference) {
     parts.push(
-      "One of the references is the brand LOGO. The product in the generated image MUST carry this exact brand logo (in the same position the references show — e.g. shoe tongue, heel patch, side stamp). The logo must be readable but not over-sized.",
+      "VISUAL RULE — PRODUCT TEXT/LOGO: The product surface (e.g. shoe upper, side, tongue, heel for footwear) MUST carry ONLY the exact brand logo from the attached reference image, in the same position references show. EXACT MATCH ONLY — same shape, same letterforms, same proportions. Do NOT invent or alter the brand name. Do NOT render any other text on the product (no material tech names like 'H1-TEX' / 'Gore-Tex' / 'Merino' / '100% Wool', no sub-brand names, no certifications, no taglines). If you cannot reproduce the exact logo letterforms, crop / angle the product so the logo isn't visible rather than write a wrong / garbled version.",
+    );
+  } else {
+    parts.push(
+      "VISUAL RULE — NO TEXT ON PRODUCT: There is NO logo reference attached. The product surface (e.g. shoe upper, side, tongue, heel) MUST be COMPLETELY CLEAN — no printed text, no brand marks, no logos, no material trademarks (H1-TEX / Gore-Tex / Merino / etc.), no certification badges, no invented letter shapes. ZERO text on the product. The brand mark will be added in post-production. Hallucinated brand text (e.g. fake Latin-script garbled like 'Lachiisoan') is the #1 failure mode — avoid at all cost.",
+    );
+  }
+
+  if (hasReferences) {
+    parts.push(
+      "Use the attached reference photos as the authoritative source for product appearance (silhouette, color, material). DO NOT invent a different product. The generated image must look like the SAME product as the references, just in a different scene / angle / framing.",
     );
   }
   if (hasAmbassadorReference) {
@@ -91,12 +98,15 @@ function buildFramePrompt(
       `Cover image (frame 1 of ${totalFrames}) for a ${spec.label} carousel. Must work as a thumbnail/hook. ${basePrompt}`,
     );
   } else {
+    // Note: removed the old "CTA card with subtle text" role — it was
+    // actively asking the model to render text, and gpt-image-1 produces
+    // garbled letters far more often than legible ones.
     const detailRoles = [
-      "Detail shot — product texture / material close-up",
-      "Lifestyle shot — product worn in real environment",
-      "Different angle of the same product (3/4, top-down, sole detail for shoes)",
-      "Behind-the-scenes / atelier / packaging shot",
-      "Final CTA card with subtle text (≤4 English words)",
+      "Detail shot — product texture / material close-up (no text)",
+      "Lifestyle shot — product worn in real environment (no signage / price tags / labels visible)",
+      "Different angle of the same product (3/4, top-down, sole detail for shoes — no text)",
+      "Behind-the-scenes / atelier shot (no shop signage, no whiteboard text)",
+      "Pure-color background composition with the product as hero (no text, no badges)",
     ];
     const role = detailRoles[(frameIndex - 1) % detailRoles.length];
     parts.push(
@@ -110,9 +120,25 @@ function buildFramePrompt(
   parts.push(
     "Photographic, editorial fashion magazine aesthetic. Natural lighting.",
   );
-  // Hard constraints — common AI-image failure modes for fashion product shots.
+
+  // ─── HARD NO-TEXT RULE — gpt-image-1 is unreliable at text rendering
+  // (especially Korean / CJK / numbers). Garbled fake letters like
+  // "Bredisn", "Lachiisoan", random digits on scales/price tags etc.
+  // ruin every campaign. So we ban ALL incidental text rendering and
+  // the user's actual logo (if any) is the ONLY permitted text. Even
+  // that should be omitted if the model can't reproduce the exact
+  // letterforms.
   parts.push(
-    "DO NOT render any technical material trademarks or fabric tech names as visible text on the product (e.g. 'H1-TEX', 'Gore-Tex', 'Merino', '100% Wool'). Only the brand's own consumer-facing logo (from the reference) may appear. No watermarks. No fake reviews. No collages or multi-panel layouts. No invented certification badges.",
+    `ABSOLUTE NO-TEXT RULE: Do not render ANY of the following as visible text in the image —
+- Material trademarks: H1-TEX, Gore-Tex, Merino, 100% Wool, etc.
+- Random Latin / Korean / Chinese / Japanese letter shapes anywhere (shoes, walls, signage, scales, displays, price tags, packaging, whiteboards, books, screens, name tags).
+- Numbers on devices (no scales showing "6027", no displays showing arbitrary digits, no price tags with prices).
+- Invented sub-brand names, certifications, awards, ratings, taglines.
+- Any letterforms on the product surface other than the brand's exact logo from the reference image.
+If you cannot reproduce the exact reference logo, OMIT IT — show a clean unbranded surface or crop the product so the logo area is out of frame. Garbled letters are WORSE than no logo. Choose composition / framing / angle that avoids text-bearing surfaces entirely.`,
+  );
+  parts.push(
+    "No watermarks. No fake reviews or testimonials. No collages or multi-panel layouts. No invented certification badges.",
   );
   return parts.join(" ");
 }

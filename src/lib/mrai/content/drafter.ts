@@ -80,6 +80,13 @@ A/B/C 차별화 전략:
 - B: 스토리텔링 (감정/페르소나 중심)
 - C: contrarian/질문형 (호기심 트리거)
 
+⚠️ 소재 vs 브랜드 (CRITICAL):
+- 브랜드명 = 워크스페이스 이름 (예: "Le Mouton" / "르무통"). 소비자 카피에서는 이것만 브랜드로 사용.
+- 소재 기술명 (예: "H1-TEX", "Gore-Tex", "CloudTec") = 자사가 보유한 소재/기술 이름이지 브랜드가 아님. Bio나 컨텍스트에 등장해도 카피 헤드라인이나 CTA에서 브랜드처럼 쓰지 말 것.
+- 잘못된 예: "H1-TEX 整天舒適" / "H1-TEX 새로 만났다" (← H1-TEX를 브랜드처럼 위치)
+- 맞는 예: "르무통의 메리노 울 한 켤레, 종일 부드럽다" / "H1-TEX 기술로 만든 메리노 울 어퍼" (← 소재 기술 설명일 때만)
+- image_prompt에는 절대 "H1-TEX" / "Gore-Tex" 같은 소재명을 텍스트로 새겨달라는 지시 금지.
+
 ⚠️ Bilingual 출력 (CRITICAL):
 - body_text / cta_text / seo_title / seo_description은 채널의 **target market 모국어**로 자연스럽게 작성.
   · market_country=KR → 한국어
