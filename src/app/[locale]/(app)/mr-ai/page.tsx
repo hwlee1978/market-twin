@@ -10,6 +10,8 @@ import { BriefingPanel } from "@/components/mrai/BriefingPanel";
 import { IntegrationsPanel } from "@/components/mrai/IntegrationsPanel";
 import { ChannelsPanel } from "@/components/mrai/ChannelsPanel";
 import { ContentPanel } from "@/components/mrai/ContentPanel";
+import { MarketingChannelsPanel } from "@/components/mrai/MarketingChannelsPanel";
+import { BrandSEOPanel } from "@/components/mrai/BrandSEOPanel";
 import { OnboardingPanel } from "@/components/mrai/OnboardingPanel";
 import { PresetsPanel } from "@/components/mrai/PresetsPanel";
 
@@ -60,6 +62,8 @@ export default async function MrAIPage({
       <OnboardingPanel initialState={onboarding} />
       <IntegrationsPanel initialFlash={integrationFlash} locale={safeLocale} />
       <ChannelsPanel locale={safeLocale} />
+      <MarketingChannelsPanel />
+      <BrandSEOPanel />
       <PresetsPanel />
       <ContentPanel locale={safeLocale} />
       <BriefingPanel initialBriefing={latestBriefing} locale={safeLocale} />
