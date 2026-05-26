@@ -66,24 +66,39 @@ async function callReplicate(
   imageUrl: string,
   token: string,
 ): Promise<Buffer> {
+  // 429 backoff schedule — Replicate throttles new accounts to 6 req/min
+  // with burst of 1 when credit < $5. Generous waits accommodate that.
+  const BACKOFF_MS = [12_000, 22_000, 42_000];
   let lastErr = "";
   let createRes: Response | null = null;
   let createBody = "";
-  // Try each candidate model; pick the first that doesn't 404
-  for (const m of MODEL_CANDIDATES) {
-    const r = await tryModel(m.owner, m.name, imageUrl, token);
-    if (r.res.status !== 404) {
-      createRes = r.res;
-      createBody = r.body;
+
+  modelLoop: for (const m of MODEL_CANDIDATES) {
+    for (let attempt = 0; attempt <= BACKOFF_MS.length; attempt++) {
+      const r = await tryModel(m.owner, m.name, imageUrl, token);
       if (r.res.ok) {
-        console.log(`[bg-removal] using ${m.owner}/${m.name}`);
-        break;
+        createRes = r.res;
+        createBody = r.body;
+        console.log(
+          `[bg-removal] using ${m.owner}/${m.name}${attempt > 0 ? ` (after ${attempt} retries)` : ""}`,
+        );
+        break modelLoop;
       }
-      // Non-404 error — surface this one (likely auth / billing / format)
+      if (r.res.status === 429 && attempt < BACKOFF_MS.length) {
+        const waitMs = BACKOFF_MS[attempt];
+        console.log(
+          `[bg-removal] ${m.owner}/${m.name} rate-limited (429), waiting ${waitMs / 1000}s before retry...`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        continue; // retry same model
+      }
+      if (r.res.status === 404) {
+        lastErr = `${m.owner}/${m.name}: HTTP 404 (not found)`;
+        continue modelLoop; // try next model
+      }
       lastErr = `${m.owner}/${m.name}: HTTP ${r.res.status} — ${r.body.slice(0, 200)}`;
-      break;
+      break modelLoop;
     }
-    lastErr = `${m.owner}/${m.name}: HTTP 404 (not found)`;
   }
   if (!createRes || !createRes.ok) {
     throw new Error(`Replicate create failed. ${lastErr}`);
