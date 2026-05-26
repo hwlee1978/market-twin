@@ -5,6 +5,7 @@ import { ChevronLeft, MessageCircle, Sparkles, Users } from "lucide-react";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { VirtualSpaceFeed } from "@/components/mrai/VirtualSpaceFeed";
+import { ContentDraftsPanel } from "@/components/mrai/ContentDraftsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -327,17 +328,19 @@ export default async function VirtualSpacePage({
         </div>
       )}
 
-      {/* Virtual feed (Sprint 2 will populate with real drafts/publications) */}
+      {/* Drafts: AI-generated copy + per-variant SEO scoring */}
+      <ContentDraftsPanel channelId={channel.id} platform={channel.platform} />
+
+      {/* Virtual feed — past publications + engagement totals */}
       <VirtualSpaceFeed channelId={channel.id} platform={channel.platform} />
 
       <div className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/40 p-5 text-xs text-indigo-900">
         <div className="flex items-start gap-2">
           <Sparkles className="w-4 h-4 mt-0.5 shrink-0" />
           <div>
-            <div className="font-semibold mb-1">Sprint 2 — 콘텐츠 업로드 (진행 중)</div>
+            <div className="font-semibold mb-1">Sprint 3 — 페르소나 반응 시뮬 (진행 중)</div>
             <p className="leading-relaxed">
-              곧 이 공간에 콘텐츠 카피 + 이미지 프롬프트 + SEO 메타를 자동 생성하는 드래프터가 추가됩니다.
-              업로드된 콘텐츠는 위 페르소나들이 즉시 좋아요/댓글/스크롤 패스를 시뮬레이션해 결과 카드로 노출됩니다.
+              위 페르소나들이 각 드래프트에 실제로 좋아요/스크롤패스/댓글로 반응합니다. 곧 각 변형 카드 옆에 "예상 like_rate 27%" 같은 시뮬 결과가 붙습니다.
             </p>
           </div>
         </div>
