@@ -172,6 +172,7 @@ export function ContentDraftsPanel({
 
       {openModal && (
         <GenerateModal
+          channelId={channelId}
           onClose={() => setOpenModal(false)}
           onSubmit={generate}
           busy={generating}
@@ -740,11 +741,31 @@ function RateChip({
   );
 }
 
+type TopicSuggestion = {
+  topic: string;
+  rationale: string;
+  campaign_label: string | null;
+  goal: string | null;
+  tag: string;
+};
+
+const TAG_COLOR: Record<string, string> = {
+  "신상품": "text-emerald-700 bg-emerald-50 border-emerald-200",
+  "트렌드": "text-sky-700 bg-sky-50 border-sky-200",
+  "경쟁사 대응": "text-red-700 bg-red-50 border-red-200",
+  "브랜드 스토리": "text-violet-700 bg-violet-50 border-violet-200",
+  "계절/시즌": "text-amber-700 bg-amber-50 border-amber-200",
+  "고객 인사이트": "text-indigo-700 bg-indigo-50 border-indigo-200",
+  "이벤트": "text-pink-700 bg-pink-50 border-pink-200",
+};
+
 function GenerateModal({
+  channelId,
   onClose,
   onSubmit,
   busy,
 }: {
+  channelId: string;
   onClose: () => void;
   onSubmit: (p: {
     topic: string;
@@ -759,13 +780,47 @@ function GenerateModal({
   const [goal, setGoal] = useState("");
   const [variantCount, setVariantCount] = useState(3);
 
+  // Topic suggestions
+  const [suggestions, setSuggestions] = useState<TopicSuggestion[] | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestErr, setSuggestErr] = useState<string | null>(null);
+  const [sourcesUsed, setSourcesUsed] = useState<{
+    brand_memories: number;
+    crawled_memories: number;
+    recent_campaigns: number;
+  } | null>(null);
+
+  const fetchSuggestions = async () => {
+    setSuggesting(true);
+    setSuggestErr(null);
+    try {
+      const res = await fetch(`/api/mrai/marketing-channels/${channelId}/topic-suggestions`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.detail ?? json.error ?? "제안 실패");
+      setSuggestions((json.suggestions as TopicSuggestion[]) ?? []);
+      setSourcesUsed(json.sources_used ?? null);
+    } catch (e) {
+      setSuggestErr(e instanceof Error ? e.message : "제안 실패");
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
+  const pickSuggestion = (s: TopicSuggestion) => {
+    setTopic(s.topic);
+    if (s.campaign_label) setCampaignLabel(s.campaign_label);
+    if (s.goal) setGoal(s.goal);
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl w-full max-w-lg shadow-2xl"
+        className="bg-white rounded-xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -779,7 +834,97 @@ function GenerateModal({
             <CloseX className="w-4 h-4" />
           </button>
         </div>
-        <div className="px-5 py-4 space-y-3">
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          {/* Topic suggestion section */}
+          <div className="rounded-lg border border-violet-200 bg-violet-50/40 p-3">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div>
+                <div className="text-xs font-semibold text-violet-900">
+                  💡 주제 제안 받기
+                </div>
+                <div className="text-[10px] text-violet-700">
+                  워크스페이스 메모리 + 최근 14일 자동 크롤 데이터를 종합해 5개 주제 제안
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={fetchSuggestions}
+                disabled={suggesting || busy}
+                className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[11px] font-semibold hover:opacity-90 disabled:opacity-60"
+              >
+                {suggesting ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3 h-3" />
+                )}
+                {suggesting
+                  ? "분석 중… (15-30초)"
+                  : suggestions
+                    ? "다시 제안"
+                    : "AI 주제 제안"}
+              </button>
+            </div>
+            {suggestErr && (
+              <p className="text-xs text-red-600 mb-2">{suggestErr}</p>
+            )}
+            {sourcesUsed && (
+              <p className="text-[10px] text-violet-700 mb-2">
+                참고 소스: 브랜드 메모리 {sourcesUsed.brand_memories}개 · 크롤 메모리(14일) {sourcesUsed.crawled_memories}개
+                {sourcesUsed.crawled_memories === 0 && (
+                  <span className="text-amber-700"> ⚠ 자동 크롤 소스 미등록 — 최신 정보 부족</span>
+                )}
+              </p>
+            )}
+            {suggestions && suggestions.length > 0 && (
+              <ul className="space-y-2">
+                {suggestions.map((s, i) => (
+                  <li
+                    key={i}
+                    className="rounded border border-slate-200 bg-white px-2.5 py-2 cursor-pointer hover:border-violet-400 transition"
+                    onClick={() => pickSuggestion(s)}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span
+                        className={`shrink-0 text-[9px] uppercase tracking-wider border px-1.5 py-0.5 rounded ${
+                          TAG_COLOR[s.tag] ?? "text-slate-700 bg-slate-50 border-slate-200"
+                        }`}
+                      >
+                        {s.tag}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-slate-900 leading-snug">
+                          {s.topic}
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                          {s.rationale}
+                        </div>
+                        {(s.campaign_label || s.goal) && (
+                          <div className="flex flex-wrap gap-1 mt-1 text-[10px]">
+                            {s.campaign_label && (
+                              <span className="text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                                #{s.campaign_label}
+                              </span>
+                            )}
+                            {s.goal && (
+                              <span className="text-amber-700 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded">
+                                🎯 {s.goal}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {suggestions && suggestions.length === 0 && (
+              <p className="text-xs text-slate-500 text-center py-3">
+                제안 없음 — 직접 입력 또는 메모리 추가 후 다시 시도
+              </p>
+            )}
+          </div>
+
           <div>
             <label className="text-xs font-semibold text-slate-700 block mb-1">
               주제 <span className="text-red-500">*</span>
@@ -787,7 +932,7 @@ function GenerateModal({
             <input
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              placeholder="예: 가을 FW26 캐시미어 컬렉션 런칭"
+              placeholder="예: 메이트 페블 그레이, 일주일 신은 후기 — 워싱이 다른 이유"
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400"
             />
           </div>
@@ -798,7 +943,7 @@ function GenerateModal({
             <input
               value={campaignLabel}
               onChange={(e) => setCampaignLabel(e.target.value)}
-              placeholder="FW26 런칭"
+              placeholder="FW26 메이트 신상"
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400"
             />
           </div>
@@ -810,7 +955,7 @@ function GenerateModal({
               value={goal}
               onChange={(e) => setGoal(e.target.value)}
               rows={2}
-              placeholder="신규 컬렉션 인지도 + 사전예약 유도"
+              placeholder="신상 인지도 + 사전예약 유도 / Allbirds 대비 차별점 강조 등"
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 resize-none"
             />
           </div>
