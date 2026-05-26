@@ -12,6 +12,8 @@ import {
   X as CloseX,
   Power,
   Pencil,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 
 type Source = {
@@ -51,6 +53,7 @@ export function CrawlSourcesPanel() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fetchingIds, setFetchingIds] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState(false);
 
   const load = async () => {
     setError(null);
@@ -135,25 +138,53 @@ export function CrawlSourcesPanel() {
     }
   };
 
+  const sourceCount = sources?.length ?? 0;
+  const errorCount = sources?.filter((s) => s.fail_count > 2).length ?? 0;
+  const totalMemories = sources?.reduce((s, x) => s + x.memories_emitted, 0) ?? 0;
+
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-            🕷 자동 크롤링 소스
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            자사 웹사이트 / 뉴스 RSS / 경쟁사 페이지를 매일 02:30 KST에 자동 크롤링하여 새 메모리로 변환합니다.
-          </p>
-        </div>
         <button
           type="button"
-          onClick={() => setCreating(true)}
-          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800"
+          onClick={() => setExpanded((e) => !e)}
+          className="flex-1 min-w-0 text-left flex items-start gap-2 hover:opacity-80"
+        >
+          <span className="shrink-0 mt-0.5 text-slate-400">
+            {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          </span>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2 flex-wrap">
+              🕷 자동 크롤링 소스
+              {sourceCount > 0 && (
+                <span className="text-[10px] font-normal text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                  {sourceCount}개 등록 · 누적 메모리 {totalMemories}
+                </span>
+              )}
+              {errorCount > 0 && (
+                <span className="text-[10px] font-semibold text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">
+                  ⚠ {errorCount}개 오류
+                </span>
+              )}
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              자사 웹사이트 / 뉴스 RSS / 경쟁사 페이지를 매일 02:30 KST에 자동 크롤링하여 새 메모리로 변환.
+            </p>
+          </div>
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded(true);
+            setCreating(true);
+          }}
+          className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800"
         >
           <Plus className="w-3.5 h-3.5" /> 소스 추가
         </button>
       </div>
+      {expanded && (
       <div className="px-5 py-4">
         {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
         {sources === null ? (
@@ -276,6 +307,7 @@ export function CrawlSourcesPanel() {
           </ul>
         )}
       </div>
+      )}
 
       {creating && (
         <CreateModal
