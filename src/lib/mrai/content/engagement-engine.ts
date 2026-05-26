@@ -31,7 +31,8 @@
  */
 
 export type EngagementInputs = {
-  audienceTotal: number;       // workspace persona count for this market
+  followerCount: number;        // real channel followers at tick time
+  personaPoolCap: number;       // workspace persona count (max plausible reach)
   likeRate: number;             // 0-100
   clickRate: number;            // 0-100
   shareRate: number;            // 0-100
@@ -54,27 +55,61 @@ export type TickDelta = {
 };
 
 /**
- * Reach curve — % of total expected reach (= followers + spillover via
- * recommendations) achieved by day N.
- * Modeled as a saturation curve: fast ramp then long tail.
+ * Reach curve — % of total expected reach achieved by day N. Models a
+ * realistic small-account: slow ramp on day 0 (algorithm tests the
+ * content with a small explore-page sample), then growing exposure if
+ * engagement signal is good.
+ *
+ * Modeled as a saturation curve: gradual ramp then long tail. New
+ * accounts don't get a 35% day-0 push — that's only true for
+ * established accounts with a large follower base.
  */
 function cumulativeReachPct(dayN: number): number {
   if (dayN < 0) return 0;
   const milestones: Array<[number, number]> = [
-    [0, 35],
-    [1, 55],
-    [2, 70],
-    [3, 80],
-    [4, 86],
-    [5, 90],
-    [6, 93],
+    [0, 8],   // day 0: small initial explore push
+    [1, 22],
+    [2, 38],
+    [3, 52],
+    [4, 64],
+    [5, 73],
+    [6, 80],
+    [7, 85],
   ];
   for (const [d, pct] of milestones) {
     if (dayN <= d) return pct;
   }
-  if (dayN <= 13) return 93 + (dayN - 6) * 1;
-  if (dayN <= 30) return 100 - Math.max(0, 7 - (dayN - 13) * 0.3);
+  if (dayN <= 14) return 85 + (dayN - 7) * 1.5;
+  if (dayN <= 30) return Math.min(100, 95 + (dayN - 14) * 0.3);
   return 100;
+}
+
+/**
+ * Compute the "total potential reach ceiling" for a post.
+ *
+ *   reach = follower_count × engagement_pull          (followers see it)
+ *         + algorithm_spillover                        (explore/recs)
+ *
+ * For a brand-new account with 0 followers, this is just the algorithm
+ * spillover (~30-80 views depending on quality signal). Once you have
+ * real followers, reach scales with them. Capped at the workspace's
+ * persona pool — that's the theoretical max audience that could plausibly
+ * see this content.
+ */
+export function computeTotalReachCeiling(
+  followerCount: number,
+  personaPoolCap: number,
+  likeRate: number,
+): number {
+  // Algorithm spillover scales with content quality (like_rate signal):
+  // weak content (like_rate < 10%) → ~20-40 views from explore
+  // strong content (like_rate > 30%) → ~80-200 views
+  const spillover = Math.round(20 + likeRate * 4);
+  const followerReach = Math.round(followerCount * (0.4 + likeRate / 250));
+  const raw = followerReach + spillover;
+  // Theoretical cap = the persona pool itself (can't reach more humans
+  // than exist in the target market).
+  return Math.max(1, Math.min(raw, personaPoolCap));
 }
 
 function jitter(base: number, pct: number): number {
@@ -82,25 +117,75 @@ function jitter(base: number, pct: number): number {
   return Math.max(0, Math.round(base + j));
 }
 
+/**
+ * Match-quality factor — what fraction of viewers are well-targeted.
+ *
+ * Persona sim's like_rate represents "if this viewer IS the ideal
+ * target, would they like?". But real platform reach includes a lot of
+ * casual non-target viewers (algorithm broad-cast). So we discount the
+ * sim's like_rate by a match factor that grows as the channel
+ * accumulates followers (because the algorithm gets better at targeting
+ * once it has engagement signal).
+ *
+ * Source: this matches the typical 2-7% per-view like rate observed
+ * on real IG/X for small/medium accounts, vs the 20-40% persona-sim
+ * like_rate which measures "engaged consideration".
+ */
+function matchQualityFactor(followerCount: number): number {
+  if (followerCount < 50) return 0.16;   // brand new — algorithm guesses
+  if (followerCount < 200) return 0.21;
+  if (followerCount < 1000) return 0.28;
+  if (followerCount < 5000) return 0.35;
+  if (followerCount < 25000) return 0.42;
+  return 0.48;
+}
+
+/**
+ * Per-action vs per-like behavior dampers — comment / share / save are
+ * harder than tapping like (more friction).
+ */
+const COMMENT_VS_LIKE = 0.18;
+const SHARE_VS_LIKE = 0.25;
+const SAVE_VS_LIKE = 0.55;
+
 export function computeTickDelta(input: EngagementInputs): TickDelta {
-  const totalExpectedReach = Math.max(input.audienceTotal, 100);
+  const totalExpectedReach = computeTotalReachCeiling(
+    input.followerCount,
+    input.personaPoolCap,
+    input.likeRate,
+  );
   const cumPctNow = cumulativeReachPct(input.daysSincePublish);
   const cumPct = Math.max(input.prevCumulativePct, cumPctNow); // never go backwards
   const deltaPct = Math.max(0, cumPct - input.prevCumulativePct);
 
   const newViewsBase = Math.round((deltaPct / 100) * totalExpectedReach);
-  const newViews = jitter(newViewsBase, 0.15);
+  const newViews = jitter(newViewsBase, 0.18);
 
-  // Engagement rates apply to views, then add stochastic noise.
-  const newLikes = jitter(Math.round((input.likeRate / 100) * newViews), 0.2);
-  const newComments = jitter(Math.round((input.commentRate / 100) * newViews), 0.3);
-  const newShares = jitter(Math.round((input.shareRate / 100) * newViews), 0.3);
-  const newSaves = jitter(Math.round((input.saveRate / 100) * newViews), 0.25);
+  // Apply match-quality factor: persona sim's "engaged consideration"
+  // rate is discounted to a realistic per-view rate.
+  const matchFactor = matchQualityFactor(input.followerCount);
+  const effectiveLikeRate = input.likeRate * matchFactor;
+  const effectiveCommentRate = input.commentRate * matchFactor * COMMENT_VS_LIKE;
+  const effectiveShareRate = input.shareRate * matchFactor * SHARE_VS_LIKE;
+  const effectiveSaveRate = input.saveRate * matchFactor * SAVE_VS_LIKE;
 
-  // Follow conversion: 1-3% of engaged viewers (likes ∪ saves) follow.
-  const engaged = Math.max(newLikes, newSaves);
-  const followConversion = 0.012 + Math.random() * 0.022;
-  const newFollows = Math.round(engaged * followConversion);
+  const newLikes = jitter(Math.round((effectiveLikeRate / 100) * newViews), 0.22);
+  const newComments = jitter(Math.round((effectiveCommentRate / 100) * newViews), 0.35);
+  const newShares = jitter(Math.round((effectiveShareRate / 100) * newViews), 0.35);
+  const newSaves = jitter(Math.round((effectiveSaveRate / 100) * newViews), 0.28);
+
+  // Follow conversion — only NON-followers can follow. For brand-new
+  // accounts most viewers are non-followers (algorithm explore = 100%
+  // strangers). As follower base grows, mix shifts toward existing
+  // followers seeing the post (who can't re-follow).
+  const nonFollowerViewRatio =
+    input.followerCount === 0
+      ? 1.0
+      : Math.max(0.3, 1 - input.followerCount / (input.followerCount + 200));
+  const nonFollowerLikes = Math.round(newLikes * nonFollowerViewRatio);
+  // Of non-followers who engaged enough to like, 5-12% follow.
+  const followRate = input.followerCount < 100 ? 0.10 : 0.06;
+  const newFollows = jitter(Math.round(nonFollowerLikes * followRate), 0.3);
 
   return {
     day_n: input.daysSincePublish,

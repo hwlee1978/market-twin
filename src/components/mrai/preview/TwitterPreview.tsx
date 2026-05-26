@@ -66,7 +66,8 @@ export function TwitterPreview({
     })();
   }, [channel.id]);
 
-  const followers = Math.max(audienceTotal * 3, 247);
+  const followers = channel.follower_count ?? 0;
+  void audienceTotal; // persona pool is upper bound, reserved for future projection
 
   return (
     <div className="max-w-[600px] mx-auto bg-white border-x border-slate-200 min-h-screen">
@@ -96,7 +97,7 @@ export function TwitterPreview({
           )}
           <div className="flex gap-4 mt-2 text-sm text-slate-700">
             <span>
-              <b className="text-slate-900">342</b> 팔로잉
+              <b className="text-slate-900">0</b> 팔로잉
             </span>
             <span>
               <b className="text-slate-900">{fmtCount(followers)}</b> 팔로워
@@ -129,10 +130,13 @@ export function TwitterPreview({
           </div>
         ) : (
           drafts.map((d) => {
+            // Pre-publish = 0; published posts will show real totals once
+            // /publications endpoint is wired into this preview.
             const sim = simByDraft[d.id];
-            const likes = sim ? Math.round((sim.like_rate / 100) * followers) : 0;
-            const replies = sim ? Math.round((sim.comment_rate / 100) * followers) : 0;
-            const reposts = sim ? Math.round((sim.share_rate / 100) * followers) : 0;
+            void sim;
+            const likes = 0;
+            const replies = 0;
+            const reposts = 0;
             return (
               <div
                 key={d.id}

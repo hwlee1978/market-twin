@@ -161,10 +161,9 @@ export function InstagramPreview({
   }, [channel.id]);
 
   const displayName = channel.display_name ?? channel.handle;
-  // Real follower count (grows via publish + cron) takes precedence over
-  // the projected audience × 5 fallback.
-  const realFollowers = channel.follower_count ?? 0;
-  const followerCount = realFollowers > 0 ? realFollowers : Math.max(audienceTotal * 5, 247);
+  // Real follower count only — no inflation. Brand-new channels start at 0
+  // and grow via publish + cron.
+  const followerCount = channel.follower_count ?? 0;
   const postCount = drafts?.filter((d) => d.image_url).length ?? 0;
 
   return (
@@ -217,7 +216,7 @@ export function InstagramPreview({
                 팔로워 <b>{fmtCount(followerCount)}</b>
               </span>
               <span>
-                팔로잉 <b>342</b>
+                팔로잉 <b>0</b>
               </span>
             </div>
             <div className="hidden md:block mt-4">
@@ -249,7 +248,7 @@ export function InstagramPreview({
               <div>팔로워</div>
             </div>
             <div>
-              <div className="font-semibold text-slate-900">342</div>
+              <div className="font-semibold text-slate-900">0</div>
               <div>팔로잉</div>
             </div>
           </div>
@@ -292,15 +291,11 @@ export function InstagramPreview({
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition flex items-center justify-center gap-6 text-white opacity-0 group-hover:opacity-100">
                   <span className="flex items-center gap-1 font-semibold">
                     <Heart className="w-5 h-5 fill-white" />
-                    {simByDraft[d.id]
-                      ? fmtCount(Math.round((simByDraft[d.id].like_rate / 100) * followerCount))
-                      : "—"}
+                    {pubByDraft[d.id] ? fmtCount(pubByDraft[d.id].total_likes) : "—"}
                   </span>
                   <span className="flex items-center gap-1 font-semibold">
                     <MessageCircle className="w-5 h-5 fill-white" />
-                    {simByDraft[d.id]
-                      ? fmtCount(Math.round((simByDraft[d.id].comment_rate / 100) * followerCount))
-                      : "—"}
+                    {pubByDraft[d.id] ? fmtCount(pubByDraft[d.id].total_comments) : "—"}
                   </span>
                 </div>
                 {d.image_urls && d.image_urls.length > 0 && (
@@ -356,6 +351,13 @@ function PostDetailModal({
   const [saved, setSaved] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishErr, setPublishErr] = useState<string | null>(null);
+  const [ticking, setTicking] = useState(false);
+  const [localPub, setLocalPub] = useState<Publication | undefined>(publication);
+
+  // Keep local pub in sync with prop (parent may update on initial fetch)
+  if (publication && (!localPub || localPub.id !== publication.id)) {
+    setLocalPub(publication);
+  }
 
   const publish = async () => {
     setPublishing(true);
@@ -366,11 +368,41 @@ function PostDetailModal({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "게시 실패");
-      onPublished(json.publication as Publication);
+      const p = json.publication as Publication;
+      setLocalPub(p);
+      onPublished(p);
     } catch (e) {
       setPublishErr(e instanceof Error ? e.message : "게시 실패");
     } finally {
       setPublishing(false);
+    }
+  };
+
+  const triggerTick = async () => {
+    if (!localPub) return;
+    setTicking(true);
+    try {
+      const res = await fetch(`/api/mrai/publications/${localPub.id}/tick`, {
+        method: "POST",
+      });
+      if (!res.ok) return;
+      const json = (await res.json()) as { delta: Publication["metrics_history"][number] };
+      // Optimistically merge into local pub state
+      setLocalPub((prev) => {
+        if (!prev) return prev;
+        const d = json.delta;
+        return {
+          ...prev,
+          total_views: prev.total_views + d.new_views,
+          total_likes: prev.total_likes + d.new_likes,
+          total_comments: prev.total_comments + d.new_comments,
+          total_shares: prev.total_shares + d.new_shares,
+          total_saves: prev.total_saves + d.new_saves,
+          metrics_history: [...(prev.metrics_history ?? []), d],
+        };
+      });
+    } finally {
+      setTicking(false);
     }
   };
 
@@ -382,16 +414,11 @@ function PostDetailModal({
   const totalSlides = carouselUrls.length;
   const koBody = draft.seo_meta?.translations?.ko?.body_text;
 
-  // Prefer real publication metrics over projected ones
-  const displayLikes = publication
-    ? publication.total_likes + (liked ? 1 : 0)
-    : sim
-      ? Math.round((sim.like_rate / 100) * followerCount) + (liked ? 1 : 0)
-      : liked
-        ? 1
-        : 0;
-  const displayViews = publication?.total_views ?? null;
-  const displayComments = publication?.total_comments ?? 0;
+  // Real publication metrics only — no inflated projections. Pre-publish
+  // = 0; growth happens on tick.
+  const displayLikes = (localPub?.total_likes ?? 0) + (liked ? 1 : 0);
+  const displayViews = localPub?.total_views ?? null;
+  const displayComments = localPub?.total_comments ?? 0;
   const positiveComments = sim?.top_positive_quotes ?? [];
   const negativeComments = sim?.top_objection_quotes ?? [];
 
@@ -565,36 +592,55 @@ function PostDetailModal({
                 <span className="text-slate-500 ml-2 font-normal">· 댓글 {fmtCount(displayComments)}</span>
               )}
             </div>
-            {publication ? (
+            {localPub ? (
               <div className="mt-1 rounded bg-emerald-50 border border-emerald-200 px-2 py-1.5 text-[10px] text-emerald-900">
-                <div className="font-semibold flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3" /> 게시됨 · {timeAgo(publication.published_at)} 전
+                <div className="font-semibold flex items-center gap-1 justify-between">
+                  <span className="flex items-center gap-1">
+                    <TrendingUp className="w-3 h-3" /> 게시됨 · {timeAgo(localPub.published_at)} 전
+                  </span>
+                  <button
+                    type="button"
+                    onClick={triggerTick}
+                    disabled={ticking}
+                    className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-900 disabled:opacity-50"
+                  >
+                    {ticking ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      "🔄 시뮬 진행 (1일+)"
+                    )}
+                  </button>
                 </div>
-                {publication.metrics_history && publication.metrics_history.length > 1 && (
-                  <GrowthSparkline history={publication.metrics_history} />
+                {localPub.metrics_history && localPub.metrics_history.length > 1 && (
+                  <GrowthSparkline history={localPub.metrics_history} />
                 )}
                 <div className="mt-1 text-emerald-700">
-                  매일 02시 KST에 페르소나가 추가 view/like/comment/follow를 추가합니다.
+                  매일 02시 KST 자동 cron + "시뮬 진행" 수동 트리거로 view/like/follow 누적.
                 </div>
               </div>
             ) : sim ? (
-              <div className="mt-1 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={publish}
-                  disabled={publishing}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-gradient-to-r from-pink-500 to-rose-500 text-white text-[11px] font-semibold hover:opacity-90 disabled:opacity-60"
-                >
-                  {publishing ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <Upload className="w-3 h-3" />
-                  )}
-                  {publishing ? "게시 중…" : "📤 가상 IG에 게시"}
-                </button>
-                <span className="text-[10px] text-slate-500">
-                  시뮬 기반 추정 · 좋아요률 {sim.like_rate.toFixed(0)}% × 추정 팔로워 {fmtCount(followerCount)}
-                </span>
+              <div className="mt-1">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={publish}
+                    disabled={publishing}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-gradient-to-r from-pink-500 to-rose-500 text-white text-[11px] font-semibold hover:opacity-90 disabled:opacity-60"
+                  >
+                    {publishing ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Upload className="w-3 h-3" />
+                    )}
+                    {publishing ? "게시 중…" : "📤 가상 IG에 게시"}
+                  </button>
+                  <span className="text-[10px] text-slate-500">
+                    페르소나 시뮬 좋아요률 {sim.like_rate.toFixed(0)}%
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-400 mt-1">
+                  현재 팔로워 {fmtCount(followerCount)}명 · 게시 후 매일 페르소나 view/like/comment/follow로 0부터 성장합니다.
+                </div>
               </div>
             ) : (
               <div className="mt-1 text-[10px] text-slate-500">

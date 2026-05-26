@@ -81,18 +81,19 @@ export async function GET(req: Request) {
         continue;
       }
 
-      let audienceTotal = 1000;
+      let personaPoolCap = 200;
       if (channel.market_country) {
         const { count } = await svc
           .from("personas")
           .select("id", { count: "exact", head: true })
           .eq("workspace_id", pub.workspace_id)
           .eq("country", channel.market_country);
-        audienceTotal = Math.max(count ?? 0, 100) * 5;
+        personaPoolCap = Math.max(count ?? 0, 50);
       }
 
       const delta = computeTickDelta({
-        audienceTotal,
+        followerCount: channel.follower_count ?? 0,
+        personaPoolCap,
         likeRate: sim?.like_rate ?? 0,
         clickRate: sim?.click_rate ?? 0,
         shareRate: sim?.share_rate ?? 0,

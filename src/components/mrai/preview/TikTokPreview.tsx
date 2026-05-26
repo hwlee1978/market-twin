@@ -66,7 +66,8 @@ export function TikTokPreview({
     })();
   }, [channel.id]);
 
-  const followers = Math.max(audienceTotal * 8, 547);
+  const followers = channel.follower_count ?? 0;
+  void audienceTotal;
 
   return (
     <div className="max-w-[420px] mx-auto bg-black min-h-screen relative">
@@ -82,9 +83,10 @@ export function TikTokPreview({
         (() => {
           const d = drafts[activeIdx];
           const sim = simByDraft[d.id];
-          const likes = sim ? Math.round((sim.like_rate / 100) * followers) : 0;
-          const comments = sim ? Math.round((sim.comment_rate / 100) * followers) : 0;
-          const shares = sim ? Math.round((sim.share_rate / 100) * followers) : 0;
+          void sim;
+          const likes = 0;
+          const comments = 0;
+          const shares = 0;
           return (
             <div className="relative h-screen overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
