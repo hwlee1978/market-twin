@@ -61,6 +61,16 @@ export function ContentDraftsPanel({
   const [generating, setGenerating] = useState(false);
   const [openModal, setOpenModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [brandAssetCount, setBrandAssetCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch("/api/mrai/brand-assets", { cache: "no-store" });
+      if (!res.ok) return;
+      const { assets } = (await res.json()) as { assets: unknown[] };
+      setBrandAssetCount(assets.length);
+    })();
+  }, []);
 
   const load = async () => {
     const res = await fetch(`/api/mrai/marketing-channels/${channelId}/drafts`, {
@@ -152,6 +162,7 @@ export function ContentDraftsPanel({
                 key={d.id}
                 draft={d}
                 platform={platform}
+                brandAssetCount={brandAssetCount}
                 onDelete={() => remove(d.id)}
               />
             ))}
@@ -196,10 +207,12 @@ type SimulationRow = {
 function DraftCard({
   draft,
   platform: _platform,
+  brandAssetCount,
   onDelete,
 }: {
   draft: Draft;
   platform: string;
+  brandAssetCount: number | null;
   onDelete: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -365,27 +378,47 @@ function DraftCard({
             </button>
           </div>
         ) : draft.image_prompt ? (
-          <div className="mb-3 rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3 flex items-center justify-between gap-3">
-            <div className="text-xs text-slate-600 flex-1 min-w-0">
-              <div className="flex items-center gap-1 text-slate-500 mb-0.5">
-                <Camera className="w-3 h-3" />
-                <span className="text-[10px] uppercase tracking-wider">이미지 프롬프트</span>
+          <div className="mb-3 rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs text-slate-600 flex-1 min-w-0">
+                <div className="flex items-center gap-1 text-slate-500 mb-0.5">
+                  <Camera className="w-3 h-3" />
+                  <span className="text-[10px] uppercase tracking-wider">이미지 프롬프트</span>
+                </div>
+                <div className="line-clamp-2">{draft.image_prompt}</div>
               </div>
-              <div className="line-clamp-2">{draft.image_prompt}</div>
+              <button
+                type="button"
+                onClick={generateImages}
+                disabled={generatingImage}
+                className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-gradient-to-r from-violet-600 to-pink-500 text-white text-[11px] font-medium hover:from-violet-700 hover:to-pink-600 disabled:opacity-60"
+              >
+                {generatingImage ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Camera className="w-3 h-3" />
+                )}
+                {generatingImage ? "생성 중… (40-80초)" : "🖼 이미지 생성"}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={generateImages}
-              disabled={generatingImage}
-              className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-gradient-to-r from-violet-600 to-pink-500 text-white text-[11px] font-medium hover:from-violet-700 hover:to-pink-600 disabled:opacity-60"
-            >
-              {generatingImage ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <Camera className="w-3 h-3" />
-              )}
-              {generatingImage ? "생성 중… (40-80초)" : "🖼 이미지 생성"}
-            </button>
+            {/* Brand asset reference status */}
+            {brandAssetCount !== null && (
+              <div
+                className={`mt-2 text-[10px] flex items-center gap-1 ${
+                  brandAssetCount === 0 ? "text-red-700" : "text-emerald-700"
+                }`}
+              >
+                {brandAssetCount === 0 ? (
+                  <>
+                    ⚠ 참조 사진 없음 — 일반 컨셉 이미지 생성됨. 실제 제품 사진을 "브랜드 자산 라이브러리"에 업로드 권장.
+                  </>
+                ) : (
+                  <>
+                    ✓ {Math.min(brandAssetCount, 4)}장의 브랜드 자산 reference 사용 (image-edit mode)
+                  </>
+                )}
+              </div>
+            )}
           </div>
         ) : null}
         {imageError && <p className="text-xs text-red-600 mb-2">{imageError}</p>}

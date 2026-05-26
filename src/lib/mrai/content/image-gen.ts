@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { toFile } from "openai/uploads";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getPlatformSpec, type Platform } from "./platform-rules";
 
@@ -60,9 +61,16 @@ function buildFramePrompt(
   frameIndex: number,
   totalFrames: number,
   brandHint?: string,
+  hasReferences = false,
 ): string {
   const spec = getPlatformSpec(platform);
   const parts: string[] = [];
+
+  if (hasReferences) {
+    parts.push(
+      "Use the attached reference photos as the authoritative source for product appearance (silhouette, color, material, logo placement). DO NOT invent a different product. The generated image must look like the SAME product as the references, just in a different scene / angle / framing.",
+    );
+  }
 
   if (totalFrames === 1) {
     parts.push(`Editorial brand image for ${spec.label}. ${basePrompt}`);
@@ -72,10 +80,10 @@ function buildFramePrompt(
     );
   } else {
     const detailRoles = [
-      "Detail shot — product texture / fabric close-up",
+      "Detail shot — product texture / material close-up",
       "Lifestyle shot — product worn in real environment",
-      "Comparison or before-after shot",
-      "Behind-the-scenes / atelier shot",
+      "Different angle of the same product (3/4, top-down, sole detail for shoes)",
+      "Behind-the-scenes / atelier / packaging shot",
       "Final CTA card with subtle text (≤4 English words)",
     ];
     const role = detailRoles[(frameIndex - 1) % detailRoles.length];
@@ -116,6 +124,21 @@ async function uploadToStorage(
   return { url: pub.publicUrl, path };
 }
 
+export type BrandReference = {
+  id: string;
+  image_url: string;
+  asset_type: string;
+  label: string | null;
+};
+
+async function fetchAsFile(url: string, name: string): Promise<File> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`reference fetch failed: ${res.status}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  const mime = res.headers.get("content-type") ?? "image/png";
+  return toFile(buf, name, { type: mime });
+}
+
 export async function generateImagesForDraft(input: {
   workspaceId: string;
   draftId: string;
@@ -124,6 +147,7 @@ export async function generateImagesForDraft(input: {
   frameCount: number;
   brandHint?: string;
   variantLabel?: string;
+  references?: BrandReference[];   // workspace brand assets to use as visual reference
 }): Promise<ImageGenResult> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY not set");
@@ -132,11 +156,25 @@ export async function generateImagesForDraft(input: {
   const t0 = Date.now();
   const size = aspectFor(input.platform);
   const frames = Math.min(Math.max(input.frameCount, 1), 7);
+  const refs = (input.references ?? []).slice(0, 4); // cap to 4 to stay under gpt-image-1's input budget
+
+  // Pre-fetch reference images once; reuse across all frame calls.
+  const refFiles: File[] = [];
+  if (refs.length > 0) {
+    for (let i = 0; i < refs.length; i++) {
+      try {
+        refFiles.push(await fetchAsFile(refs[i].image_url, `ref-${i}.png`));
+      } catch (e) {
+        console.warn(`[image-gen] skipping reference ${i}:`, e instanceof Error ? e.message : e);
+      }
+    }
+  }
 
   const images: GeneratedImage[] = [];
+  const usedReferenceIds = new Set<string>();
   // Sequential generation — gpt-image-1 has aggressive rate limits and
   // we want frame N to remember frame N-1's prompt thread for visual
-  // continuity. Latency: ~10-20s per frame.
+  // continuity. Latency: ~15-25s per frame with references.
   for (let i = 0; i < frames; i++) {
     const framePrompt = buildFramePrompt(
       input.prompt,
@@ -144,14 +182,36 @@ export async function generateImagesForDraft(input: {
       i,
       frames,
       input.brandHint,
+      refs.length > 0,
     );
-    const res = await openai.images.generate({
-      model: "gpt-image-1",
-      prompt: framePrompt,
-      size,
-      quality: "medium",
-      n: 1,
-    });
+
+    let res;
+    if (refFiles.length > 0) {
+      // IMAGE EDIT mode — gpt-image-1 grounds the output on the reference
+      // photos so the generated marketing imagery actually matches the
+      // brand's real product.
+      res = await openai.images.edit({
+        model: "gpt-image-1",
+        image: refFiles,
+        prompt: framePrompt,
+        size,
+        quality: "medium",
+        n: 1,
+      });
+      // Track which references were "used" (we sent all of them with
+      // each frame — count once per generation).
+      if (i === 0) refs.forEach((r) => usedReferenceIds.add(r.id));
+    } else {
+      // No references uploaded → fall back to text-only generate (lower
+      // brand fidelity but doesn't block the user).
+      res = await openai.images.generate({
+        model: "gpt-image-1",
+        prompt: framePrompt,
+        size,
+        quality: "medium",
+        n: 1,
+      });
+    }
     const b64 = res.data?.[0]?.b64_json;
     if (!b64) {
       throw new Error(`gpt-image-1 returned no image for frame ${i}`);
@@ -163,6 +223,25 @@ export async function generateImagesForDraft(input: {
       frame_index: i,
       size,
     });
+  }
+
+  // Increment use_count on the references we actually used. Fire-and-
+  // forget — not fatal if it fails.
+  if (usedReferenceIds.size > 0) {
+    const svc = createServiceClient();
+    void svc
+      .rpc("increment_brand_asset_use_count", { p_ids: Array.from(usedReferenceIds) })
+      .then(({ error }: { error: { message: string } | null }) => {
+        if (error) {
+          // Fallback: per-row update if the RPC isn't defined yet
+          for (const aid of usedReferenceIds) {
+            void svc
+              .from("mrai_brand_assets")
+              .update({ use_count: 1, last_used_at: new Date().toISOString() })
+              .eq("id", aid);
+          }
+        }
+      });
   }
 
   return {

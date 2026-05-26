@@ -79,6 +79,24 @@ export async function POST(
     .join(" — ")
     .slice(0, 200);
 
+  // Load workspace brand assets — prefer product type, fall back to any.
+  // Caps at 4 so gpt-image-1's image-edit input budget isn't blown.
+  const { data: refRows } = await supabase
+    .from("mrai_brand_assets")
+    .select("id, image_url, asset_type, label")
+    .eq("workspace_id", wsCtx.workspaceId)
+    .order("use_count", { ascending: true })
+    .limit(8);
+  const allRefs = (refRows ?? []) as Array<{
+    id: string;
+    image_url: string;
+    asset_type: string;
+    label: string | null;
+  }>;
+  // Prefer product references when available; fall back to whatever exists.
+  const productRefs = allRefs.filter((r) => r.asset_type === "product").slice(0, 4);
+  const references = productRefs.length > 0 ? productRefs : allRefs.slice(0, 4);
+
   let result;
   try {
     result = await generateImagesForDraft({
@@ -89,6 +107,7 @@ export async function POST(
       frameCount,
       brandHint: brandHint || undefined,
       variantLabel: draft.variant_label,
+      references: references.length > 0 ? references : undefined,
     });
   } catch (e) {
     return NextResponse.json(
