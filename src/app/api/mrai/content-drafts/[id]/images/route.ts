@@ -79,23 +79,32 @@ export async function POST(
     .join(" — ")
     .slice(0, 200);
 
-  // Load workspace brand assets — prefer product type, fall back to any.
-  // Caps at 4 so gpt-image-1's image-edit input budget isn't blown.
+  // Load workspace brand assets — mix product + logo + lifestyle so the
+  // image generator can show the real product wearing the real brand logo
+  // (not the material tech name like "H1-TEX"). Cap at 4 to stay within
+  // gpt-image-1's image-edit input budget.
   const { data: refRows } = await supabase
     .from("mrai_brand_assets")
     .select("id, image_url, asset_type, label")
     .eq("workspace_id", wsCtx.workspaceId)
     .order("use_count", { ascending: true })
-    .limit(8);
+    .limit(20);
   const allRefs = (refRows ?? []) as Array<{
     id: string;
     image_url: string;
     asset_type: string;
     label: string | null;
   }>;
-  // Prefer product references when available; fall back to whatever exists.
-  const productRefs = allRefs.filter((r) => r.asset_type === "product").slice(0, 4);
-  const references = productRefs.length > 0 ? productRefs : allRefs.slice(0, 4);
+  // Priority: 1 logo + 1 lifestyle + up to 2 product. Falls back through
+  // the queue if any bucket is empty.
+  const pickFrom = (type: string, n: number) =>
+    allRefs.filter((r) => r.asset_type === type).slice(0, n);
+  const logos = pickFrom("logo", 1);
+  const products = pickFrom("product", 2);
+  const lifestyle = pickFrom("lifestyle", 1);
+  const packaging = pickFrom("packaging", 1);
+  let references = [...logos, ...products, ...lifestyle, ...packaging].slice(0, 4);
+  if (references.length === 0) references = allRefs.slice(0, 4);
 
   let result;
   try {

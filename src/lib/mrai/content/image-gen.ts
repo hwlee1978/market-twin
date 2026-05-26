@@ -62,13 +62,19 @@ function buildFramePrompt(
   totalFrames: number,
   brandHint?: string,
   hasReferences = false,
+  hasLogoReference = false,
 ): string {
   const spec = getPlatformSpec(platform);
   const parts: string[] = [];
 
   if (hasReferences) {
     parts.push(
-      "Use the attached reference photos as the authoritative source for product appearance (silhouette, color, material, logo placement). DO NOT invent a different product. The generated image must look like the SAME product as the references, just in a different scene / angle / framing.",
+      "Use the attached reference photos as the authoritative source for product appearance (silhouette, color, material, branding). DO NOT invent a different product. The generated image must look like the SAME product as the references, just in a different scene / angle / framing.",
+    );
+  }
+  if (hasLogoReference) {
+    parts.push(
+      "One of the references is the brand LOGO. The product in the generated image MUST carry this exact brand logo (in the same position the references show — e.g. shoe tongue, heel patch, side stamp). The logo must be readable but not over-sized.",
     );
   }
 
@@ -96,7 +102,11 @@ function buildFramePrompt(
     parts.push(`Brand voice: ${brandHint}.`);
   }
   parts.push(
-    "Photographic, editorial fashion magazine aesthetic. Natural lighting. No fake text overlays. No watermarks. No collages.",
+    "Photographic, editorial fashion magazine aesthetic. Natural lighting.",
+  );
+  // Hard constraints — common AI-image failure modes for fashion product shots.
+  parts.push(
+    "DO NOT render any technical material trademarks or fabric tech names as visible text on the product (e.g. 'H1-TEX', 'Gore-Tex', 'Merino', '100% Wool'). Only the brand's own consumer-facing logo (from the reference) may appear. No watermarks. No fake reviews. No collages or multi-panel layouts. No invented certification badges.",
   );
   return parts.join(" ");
 }
@@ -172,6 +182,7 @@ export async function generateImagesForDraft(input: {
 
   const images: GeneratedImage[] = [];
   const usedReferenceIds = new Set<string>();
+  const hasLogo = refs.some((r) => r.asset_type === "logo");
   // Sequential generation — gpt-image-1 has aggressive rate limits and
   // we want frame N to remember frame N-1's prompt thread for visual
   // continuity. Latency: ~15-25s per frame with references.
@@ -183,6 +194,7 @@ export async function generateImagesForDraft(input: {
       frames,
       input.brandHint,
       refs.length > 0,
+      hasLogo,
     );
 
     let res;

@@ -192,7 +192,7 @@ ${variantStrategies.join("\n")}
 - body_text (플랫폼 규격 준수)
 - hashtags (배열, 플랫폼 max 이하)
 - cta_text (없으면 빈 문자열)
-- image_prompt (이미지 생성용 영문 프롬프트 — 스타일 + 구도 + 톤)
+- image_prompt (이미지 생성용 영문 프롬프트 — 스타일 + 구도 + 톤. ⚠️ 소재 기술명(H1-TEX, Gore-Tex 등)이나 인증명(RWS, OEKO-TEX 등)을 이미지에 텍스트로 넣지 말 것. 시각적 디테일만 묘사 — 예: "merino wool knit close-up showing fiber direction" OK, "with 'H1-TEX' badge visible" 금지.)
 - seo_title (≤60자 / YouTube/Naver/SmartStore면 필수, 다른 곳은 빈 문자열 가능)
 - seo_description (≤160자 / Naver/YouTube에서 SERP에 노출)
 - seo_keywords (이 콘텐츠로 노릴 primary + secondary 키워드 3-7개)
