@@ -21,11 +21,15 @@ import { createServiceClient } from "@/lib/supabase/server";
  * replicate.com/account/api-tokens).
  */
 
-// Use Replicate's model-name endpoint (auto-resolves to latest version).
-// More resilient than hardcoding version hashes — if the maintainer
-// pushes an update, we get it without code changes.
-const MODEL_OWNER = "851-labs";
-const MODEL_NAME = "background-remover";
+// Replicate background-removal model candidates, tried in order until
+// one accepts. 404 means model name / owner is wrong on that specific
+// Replicate account. The first one that responds wins.
+const MODEL_CANDIDATES: Array<{ owner: string; name: string }> = [
+  { owner: "lucataco", name: "remove-bg" },
+  { owner: "cjwbw", name: "rembg" },
+  { owner: "851-labs", name: "background-remover" },
+  { owner: "pollinations", name: "modnet" },
+];
 
 type ReplicatePrediction = {
   id: string;
@@ -34,13 +38,14 @@ type ReplicatePrediction = {
   error: string | null;
 };
 
-async function callReplicate(
+async function tryModel(
+  owner: string,
+  name: string,
   imageUrl: string,
   token: string,
-): Promise<Buffer> {
-  // Create prediction via model endpoint (auto-resolves latest version)
-  const createRes = await fetch(
-    `https://api.replicate.com/v1/models/${MODEL_OWNER}/${MODEL_NAME}/predictions`,
+): Promise<{ res: Response; body: string }> {
+  const res = await fetch(
+    `https://api.replicate.com/v1/models/${owner}/${name}/predictions`,
     {
       method: "POST",
       headers: {
@@ -49,15 +54,41 @@ async function callReplicate(
         Prefer: "wait",
       },
       body: JSON.stringify({
-        input: { image: imageUrl, format: "png" },
+        input: { image: imageUrl },
       }),
     },
   );
-  if (!createRes.ok) {
-    const errText = await createRes.text();
-    throw new Error(`Replicate create failed (${createRes.status}): ${errText.slice(0, 200)}`);
+  const body = await res.text();
+  return { res, body };
+}
+
+async function callReplicate(
+  imageUrl: string,
+  token: string,
+): Promise<Buffer> {
+  let lastErr = "";
+  let createRes: Response | null = null;
+  let createBody = "";
+  // Try each candidate model; pick the first that doesn't 404
+  for (const m of MODEL_CANDIDATES) {
+    const r = await tryModel(m.owner, m.name, imageUrl, token);
+    if (r.res.status !== 404) {
+      createRes = r.res;
+      createBody = r.body;
+      if (r.res.ok) {
+        console.log(`[bg-removal] using ${m.owner}/${m.name}`);
+        break;
+      }
+      // Non-404 error — surface this one (likely auth / billing / format)
+      lastErr = `${m.owner}/${m.name}: HTTP ${r.res.status} — ${r.body.slice(0, 200)}`;
+      break;
+    }
+    lastErr = `${m.owner}/${m.name}: HTTP 404 (not found)`;
   }
-  let pred = (await createRes.json()) as ReplicatePrediction;
+  if (!createRes || !createRes.ok) {
+    throw new Error(`Replicate create failed. ${lastErr}`);
+  }
+  let pred = JSON.parse(createBody) as ReplicatePrediction;
 
   // If still processing after Prefer:wait, poll until done (max 60s more)
   const t0 = Date.now();
