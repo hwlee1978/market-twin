@@ -34,8 +34,8 @@ export async function GET(
   const { data, error } = await supabase
     .from("mrai_content_publications")
     .select(
-      `id, published_at, total_likes, total_clicks, total_shares,
-       total_comments, total_impressions, status,
+      `id, content_draft_id, published_at, total_views, total_likes, total_clicks, total_shares,
+       total_comments, total_saves, total_impressions, metrics_history, status,
        draft:mrai_content_drafts!content_draft_id(body_text, hashtags, cta_text, image_url)`,
     )
     .eq("marketing_channel_id", id)

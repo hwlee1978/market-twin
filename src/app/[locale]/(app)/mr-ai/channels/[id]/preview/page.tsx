@@ -21,6 +21,8 @@ type Channel = {
   posting_style: string | null;
   bio_text: string | null;
   enabled: boolean;
+  follower_count: number;
+  follower_history: Array<{ ts: string; count: number; delta: number }>;
 };
 
 /**
@@ -50,7 +52,7 @@ export default async function ChannelPreviewPage({
   const { data: channel } = await supabase
     .from("mrai_marketing_channels")
     .select(
-      "id, platform, handle, display_name, market_country, target_segments, posting_style, bio_text, enabled",
+      "id, platform, handle, display_name, market_country, target_segments, posting_style, bio_text, enabled, follower_count, follower_history",
     )
     .eq("id", id)
     .eq("workspace_id", ctx.workspaceId)

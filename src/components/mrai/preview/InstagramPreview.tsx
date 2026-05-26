@@ -12,6 +12,9 @@ import {
   X,
   Grid3x3,
   Loader2,
+  Upload,
+  TrendingUp,
+  Eye,
 } from "lucide-react";
 
 export type PreviewChannel = {
@@ -23,6 +26,8 @@ export type PreviewChannel = {
   target_segments: string[];
   posting_style: string | null;
   bio_text: string | null;
+  follower_count?: number;
+  follower_history?: Array<{ ts: string; count: number; delta: number }>;
 };
 
 type Draft = {
@@ -53,6 +58,26 @@ type Simulation = {
     reason_ko?: string | null;
   }>;
   created_at: string;
+};
+
+type Publication = {
+  id: string;
+  published_at: string;
+  total_views: number;
+  total_likes: number;
+  total_comments: number;
+  total_shares: number;
+  total_saves: number;
+  metrics_history: Array<{
+    day_n: number;
+    ts: string;
+    new_views: number;
+    new_likes: number;
+    new_comments: number;
+    new_shares: number;
+    new_saves: number;
+    new_follows: number;
+  }>;
 };
 
 function fmtCount(n: number): string {
@@ -87,6 +112,7 @@ export function InstagramPreview({
 }) {
   const [drafts, setDrafts] = useState<Draft[] | null>(null);
   const [simByDraft, setSimByDraft] = useState<Record<string, Simulation>>({});
+  const [pubByDraft, setPubByDraft] = useState<Record<string, Publication>>({});
   const [openDraft, setOpenDraft] = useState<Draft | null>(null);
 
   useEffect(() => {
@@ -100,7 +126,24 @@ export function InstagramPreview({
       }
       const { drafts: rows } = (await res.json()) as { drafts: Draft[] };
       setDrafts(rows);
-      // Fetch latest sim per draft (only those that have an image)
+      // Fetch latest sim + publication per draft (only those that have an image)
+      const pubRes = await fetch(
+        `/api/mrai/marketing-channels/${channel.id}/publications`,
+        { cache: "no-store" },
+      );
+      if (pubRes.ok) {
+        const { publications } = (await pubRes.json()) as {
+          publications: Array<Publication & { content_draft_id?: string; draft?: unknown }>;
+        };
+        const pubMap: Record<string, Publication> = {};
+        for (const p of publications) {
+          // The list endpoint joins by content_draft_id — we need to figure out which draft this maps to
+          // Since the endpoint doesn't currently return content_draft_id we'll resolve via a follow-up
+          // fetch per publication if needed. For now just keep them keyed by id.
+          if (p.content_draft_id) pubMap[p.content_draft_id] = p;
+        }
+        setPubByDraft(pubMap);
+      }
       for (const d of rows) {
         if (!d.image_url) continue;
         void (async () => {
@@ -118,9 +161,10 @@ export function InstagramPreview({
   }, [channel.id]);
 
   const displayName = channel.display_name ?? channel.handle;
-  // Map persona pool size to a more believable follower count for IG aesthetic.
-  // Real follower count would be: audienceTotal × % converted to follow. Use 4-6× audience for visual punch.
-  const followerCount = Math.max(audienceTotal * 5, 247);
+  // Real follower count (grows via publish + cron) takes precedence over
+  // the projected audience × 5 fallback.
+  const realFollowers = channel.follower_count ?? 0;
+  const followerCount = realFollowers > 0 ? realFollowers : Math.max(audienceTotal * 5, 247);
   const postCount = drafts?.filter((d) => d.image_url).length ?? 0;
 
   return (
@@ -279,6 +323,8 @@ export function InstagramPreview({
           avatarUrl={avatarUrl}
           followerCount={followerCount}
           sim={simByDraft[openDraft.id]}
+          publication={pubByDraft[openDraft.id]}
+          onPublished={(p) => setPubByDraft((prev) => ({ ...prev, [openDraft.id]: p }))}
           onClose={() => setOpenDraft(null)}
         />
       )}
@@ -292,6 +338,8 @@ function PostDetailModal({
   avatarUrl,
   followerCount,
   sim,
+  publication,
+  onPublished,
   onClose,
 }: {
   draft: Draft;
@@ -299,11 +347,32 @@ function PostDetailModal({
   avatarUrl: string | null;
   followerCount: number;
   sim: Simulation | undefined;
+  publication: Publication | undefined;
+  onPublished: (p: Publication) => void;
   onClose: () => void;
 }) {
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishErr, setPublishErr] = useState<string | null>(null);
+
+  const publish = async () => {
+    setPublishing(true);
+    setPublishErr(null);
+    try {
+      const res = await fetch(`/api/mrai/content-drafts/${draft.id}/publish`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "게시 실패");
+      onPublished(json.publication as Publication);
+    } catch (e) {
+      setPublishErr(e instanceof Error ? e.message : "게시 실패");
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   const carouselUrls = [
     draft.image_url,
@@ -313,11 +382,16 @@ function PostDetailModal({
   const totalSlides = carouselUrls.length;
   const koBody = draft.seo_meta?.translations?.ko?.body_text;
 
-  const simLikes = sim
-    ? Math.round((sim.like_rate / 100) * followerCount) + (liked ? 1 : 0)
-    : liked
-      ? 1
-      : 0;
+  // Prefer real publication metrics over projected ones
+  const displayLikes = publication
+    ? publication.total_likes + (liked ? 1 : 0)
+    : sim
+      ? Math.round((sim.like_rate / 100) * followerCount) + (liked ? 1 : 0)
+      : liked
+        ? 1
+        : 0;
+  const displayViews = publication?.total_views ?? null;
+  const displayComments = publication?.total_comments ?? 0;
   const positiveComments = sim?.top_positive_quotes ?? [];
   const negativeComments = sim?.top_objection_quotes ?? [];
 
@@ -481,15 +555,94 @@ function PostDetailModal({
               </button>
             </div>
             <div className="mt-1 text-sm font-semibold text-slate-900">
-              좋아요 {fmtCount(simLikes)}개
+              {displayViews !== null && (
+                <span className="inline-flex items-center gap-1 mr-3 text-slate-700">
+                  <Eye className="w-3.5 h-3.5" /> {fmtCount(displayViews)} 조회
+                </span>
+              )}
+              좋아요 {fmtCount(displayLikes)}개
+              {displayComments > 0 && (
+                <span className="text-slate-500 ml-2 font-normal">· 댓글 {fmtCount(displayComments)}</span>
+              )}
             </div>
-            {sim && (
-              <div className="text-[10px] text-slate-500">
-                시뮬레이션 기반 · {sim.persona_sample_size}명 페르소나 × 추정 팔로워 {fmtCount(followerCount)} · 좋아요률 {sim.like_rate.toFixed(0)}%
+            {publication ? (
+              <div className="mt-1 rounded bg-emerald-50 border border-emerald-200 px-2 py-1.5 text-[10px] text-emerald-900">
+                <div className="font-semibold flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" /> 게시됨 · {timeAgo(publication.published_at)} 전
+                </div>
+                {publication.metrics_history && publication.metrics_history.length > 1 && (
+                  <GrowthSparkline history={publication.metrics_history} />
+                )}
+                <div className="mt-1 text-emerald-700">
+                  매일 02시 KST에 페르소나가 추가 view/like/comment/follow를 추가합니다.
+                </div>
               </div>
+            ) : sim ? (
+              <div className="mt-1 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={publish}
+                  disabled={publishing}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-gradient-to-r from-pink-500 to-rose-500 text-white text-[11px] font-semibold hover:opacity-90 disabled:opacity-60"
+                >
+                  {publishing ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Upload className="w-3 h-3" />
+                  )}
+                  {publishing ? "게시 중…" : "📤 가상 IG에 게시"}
+                </button>
+                <span className="text-[10px] text-slate-500">
+                  시뮬 기반 추정 · 좋아요률 {sim.like_rate.toFixed(0)}% × 추정 팔로워 {fmtCount(followerCount)}
+                </span>
+              </div>
+            ) : (
+              <div className="mt-1 text-[10px] text-slate-500">
+                💡 페르소나 반응 시뮬을 먼저 돌리면 추정 수치 + 게시 버튼이 나옵니다.
+              </div>
+            )}
+            {publishErr && (
+              <div className="mt-1 text-[10px] text-red-600">{publishErr}</div>
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function GrowthSparkline({
+  history,
+}: {
+  history: Array<{ day_n: number; new_likes: number; new_views: number; new_follows: number }>;
+}) {
+  if (history.length < 2) return null;
+  const maxLikes = Math.max(...history.map((h) => h.new_likes), 1);
+  const w = 200;
+  const h = 30;
+  const stepX = w / Math.max(history.length - 1, 1);
+  const points = history
+    .map((entry, i) => `${i * stepX},${h - (entry.new_likes / maxLikes) * h}`)
+    .join(" ");
+
+  return (
+    <div className="mt-1.5">
+      <svg width={w} height={h} className="text-emerald-600">
+        <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.5" />
+        {history.map((entry, i) => (
+          <circle
+            key={i}
+            cx={i * stepX}
+            cy={h - (entry.new_likes / maxLikes) * h}
+            r="1.5"
+            fill="currentColor"
+          />
+        ))}
+      </svg>
+      <div className="flex justify-between text-[9px] text-emerald-700 mt-0.5">
+        <span>Day {history[0].day_n}</span>
+        <span>일별 신규 좋아요</span>
+        <span>Day {history[history.length - 1].day_n}</span>
       </div>
     </div>
   );
