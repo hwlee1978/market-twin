@@ -60,8 +60,11 @@ export type PersonaReactionResult = {
   save_intent: number;
   comment_intent: number;
   comment_text: string | null;
+  comment_text_ko: string | null;
   rejection_reason: string | null;
+  rejection_reason_ko: string | null;
   reaction_quote: string;
+  reaction_quote_ko: string;
 };
 
 export type ReactorInput = {
@@ -97,11 +100,14 @@ const SYSTEM_KO = `당신은 페르소나 시점의 콘텐츠 반응 시뮬레�
 - comment_text는 "정말 댓글 남길 만한 콘텐츠"일 때만 채움. 보통 null.
 - rejection_reason은 dislike/ignore일 때 1구절 — "가격이 안 보임" / "광고티 남" / "내 관심 분야 아님".
 
-⚠️ 언어 규칙 (CRITICAL):
-- 페르소나가 일본인/대만인/중국인/미국인이어도 reaction_quote / comment_text / rejection_reason은 **반드시 한국어**로 작성.
-- 페르소나의 voice는 살리되 (말투/관점/단어 선택) 언어 자체는 한국어. 사용자가 한국인이라 결과를 한국어로 봐야 함.
-- 예: 일본 30대 디자이너 → 일본어로 쓰지 말고 "이거 일본 감성에 잘 맞네, 인스타에서 자주 보는 톤" 같은 식으로 한국어 + 일본 문화 reference.
-- 예: 미국 20대 마케터 → 영어 X, "딱 봐도 K-fashion 럭셔리 라인이네. 가격 안 보여서 망설여짐" 같은 식.
+⚠️ Bilingual 규칙 (CRITICAL):
+- reaction_quote / comment_text / rejection_reason은 페르소나의 **모국어로 자연스럽게** 작성.
+  · 일본인 → 일본어 / 대만인 → 번체 중국어 / 중국인 → 간체 중국어 / 미국인 → 영어 / 한국인 → 한국어.
+- 같은 의미를 _ko 필드에 한국어로 번역. 사용자(한국인 오퍼레이터)가 카드에서 원어와 한국어 동시에 봐야 함.
+- 한국인 페르소나는 _ko 필드를 원본과 동일하게 채워도 됨.
+- 예: 일본인 → reaction_quote "これ、私の通勤バッグに合いそう", reaction_quote_ko "이거 내 출근가방에 잘 어울릴 것 같아"
+- 예: 대만인 → reaction_quote "看起來太貴族風了, 我穿不出來", reaction_quote_ko "너무 귀족스러워서 내가 소화 못 할 듯"
+- 예: 미국인 → reaction_quote "lowkey gorgeous but I need to see the price first", reaction_quote_ko "은근 예쁘긴 한데 가격부터 봐야 함"
 
 출력 JSON:
 {
@@ -219,7 +225,7 @@ ${personaBlock}
           maxItems: BATCH_SIZE,
           items: {
             type: "object",
-            required: ["persona_id", "reaction", "reaction_quote"],
+            required: ["persona_id", "reaction", "reaction_quote", "reaction_quote_ko"],
             properties: {
               persona_id: { type: "string" },
               reaction: { type: "string", enum: ["love", "like", "neutral", "dislike", "ignore"] },
@@ -229,8 +235,11 @@ ${personaBlock}
               save_intent: { type: "number", minimum: 0, maximum: 1 },
               comment_intent: { type: "number", minimum: 0, maximum: 1 },
               comment_text: { type: ["string", "null"], maxLength: 400 },
+              comment_text_ko: { type: ["string", "null"], maxLength: 400 },
               rejection_reason: { type: ["string", "null"], maxLength: 200 },
+              rejection_reason_ko: { type: ["string", "null"], maxLength: 200 },
               reaction_quote: { type: "string", maxLength: 200 },
+              reaction_quote_ko: { type: "string", maxLength: 200 },
             },
           },
         },
@@ -266,11 +275,25 @@ ${personaBlock}
       comment_intent: clamp01(r.comment_intent),
       comment_text:
         typeof r.comment_text === "string" && r.comment_text.trim() ? r.comment_text.trim() : null,
+      comment_text_ko:
+        typeof r.comment_text_ko === "string" && r.comment_text_ko.trim()
+          ? r.comment_text_ko.trim()
+          : null,
       rejection_reason:
         typeof r.rejection_reason === "string" && r.rejection_reason.trim()
           ? r.rejection_reason.trim()
           : null,
+      rejection_reason_ko:
+        typeof r.rejection_reason_ko === "string" && r.rejection_reason_ko.trim()
+          ? r.rejection_reason_ko.trim()
+          : null,
       reaction_quote: typeof r.reaction_quote === "string" ? r.reaction_quote : "",
+      reaction_quote_ko:
+        typeof r.reaction_quote_ko === "string" && r.reaction_quote_ko.trim()
+          ? r.reaction_quote_ko
+          : typeof r.reaction_quote === "string"
+            ? r.reaction_quote
+            : "",
     });
   }
   return {
@@ -339,8 +362,14 @@ export type AggregatedSimulation = {
   save_rate: number;
   comment_rate: number;
   reaction_distribution: Record<Reaction, number>;
-  top_positive_quotes: Array<{ quote: string; persona: string }>;
-  top_objection_quotes: Array<{ quote: string; persona: string; reason: string | null }>;
+  top_positive_quotes: Array<{ quote: string; quote_ko: string; persona: string }>;
+  top_objection_quotes: Array<{
+    quote: string;
+    quote_ko: string;
+    persona: string;
+    reason: string | null;
+    reason_ko: string | null;
+  }>;
   segment_breakdown: Record<string, { like_rate: number; n: number }>;
 };
 
@@ -415,6 +444,7 @@ export function aggregateReactions(
     .slice(0, 6)
     .map((r) => ({
       quote: r.reaction_quote,
+      quote_ko: r.reaction_quote_ko || r.reaction_quote,
       persona: `${r.persona_summary.ageRange ?? ""} ${r.persona_summary.country ?? ""} ${r.persona_summary.profession ?? ""}`.trim(),
     }));
 
@@ -424,8 +454,10 @@ export function aggregateReactions(
     .slice(0, 6)
     .map((r) => ({
       quote: r.reaction_quote,
+      quote_ko: r.reaction_quote_ko || r.reaction_quote,
       persona: `${r.persona_summary.ageRange ?? ""} ${r.persona_summary.country ?? ""} ${r.persona_summary.profession ?? ""}`.trim(),
       reason: r.rejection_reason,
+      reason_ko: r.rejection_reason_ko || r.rejection_reason,
     }));
 
   // Segment breakdown by age_range

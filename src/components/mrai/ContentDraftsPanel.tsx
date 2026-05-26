@@ -162,8 +162,14 @@ type SimulationRow = {
   save_rate: number;
   comment_rate: number;
   reaction_distribution: Record<string, number>;
-  top_positive_quotes: Array<{ quote: string; persona: string }>;
-  top_objection_quotes: Array<{ quote: string; persona: string; reason: string | null }>;
+  top_positive_quotes: Array<{ quote: string; quote_ko?: string | null; persona: string }>;
+  top_objection_quotes: Array<{
+    quote: string;
+    quote_ko?: string | null;
+    persona: string;
+    reason: string | null;
+    reason_ko?: string | null;
+  }>;
   segment_breakdown: Record<string, { like_rate: number; n: number }>;
   llm_cost_usd: number | null;
   created_at: string;
@@ -437,12 +443,15 @@ function SimulationResults({ sim, expanded }: { sim: SimulationRow; expanded: bo
               <div className="text-[10px] uppercase tracking-wider text-emerald-700 mb-1">
                 👍 좋아한 페르소나
               </div>
-              <ul className="space-y-1 text-[11px]">
+              <ul className="space-y-1.5 text-[11px]">
                 {sim.top_positive_quotes.slice(0, 4).map((q, i) => (
-                  <li key={i} className="rounded bg-emerald-50/50 border border-emerald-100 px-2 py-1">
-                    <span className="text-slate-800 italic">"{q.quote}"</span>
-                    <span className="text-[10px] text-slate-500 ml-2">— {q.persona}</span>
-                  </li>
+                  <BilingualQuoteLine
+                    key={i}
+                    native={q.quote}
+                    ko={q.quote_ko ?? null}
+                    persona={q.persona}
+                    tone="positive"
+                  />
                 ))}
               </ul>
             </div>
@@ -454,15 +463,17 @@ function SimulationResults({ sim, expanded }: { sim: SimulationRow; expanded: bo
               <div className="text-[10px] uppercase tracking-wider text-red-700 mb-1">
                 👎 거부한 페르소나
               </div>
-              <ul className="space-y-1 text-[11px]">
+              <ul className="space-y-1.5 text-[11px]">
                 {sim.top_objection_quotes.slice(0, 4).map((q, i) => (
-                  <li key={i} className="rounded bg-red-50/50 border border-red-100 px-2 py-1">
-                    <span className="text-slate-800 italic">"{q.quote}"</span>
-                    {q.reason && (
-                      <span className="text-[10px] text-red-700 ml-1.5">[{q.reason}]</span>
-                    )}
-                    <span className="text-[10px] text-slate-500 ml-2">— {q.persona}</span>
-                  </li>
+                  <BilingualQuoteLine
+                    key={i}
+                    native={q.quote}
+                    ko={q.quote_ko ?? null}
+                    persona={q.persona}
+                    reason={q.reason ?? null}
+                    reasonKo={q.reason_ko ?? null}
+                    tone="negative"
+                  />
                 ))}
               </ul>
             </div>
@@ -489,6 +500,51 @@ function SimulationResults({ sim, expanded }: { sim: SimulationRow; expanded: bo
         </>
       )}
     </div>
+  );
+}
+
+function BilingualQuoteLine({
+  native,
+  ko,
+  persona,
+  reason,
+  reasonKo,
+  tone,
+}: {
+  native: string;
+  ko: string | null;
+  persona: string;
+  reason?: string | null;
+  reasonKo?: string | null;
+  tone: "positive" | "negative";
+}) {
+  const bg =
+    tone === "positive"
+      ? "bg-emerald-50/50 border-emerald-100"
+      : "bg-red-50/50 border-red-100";
+  const reasonColor = tone === "positive" ? "text-emerald-700" : "text-red-700";
+
+  // If translation is identical to native (e.g. Korean persona) or missing, render single line.
+  const showKo = ko && ko.trim().length > 0 && ko.trim() !== native.trim();
+  const reasonShowKo =
+    reason && reasonKo && reasonKo.trim().length > 0 && reasonKo.trim() !== reason.trim();
+
+  return (
+    <li className={`rounded ${bg} border px-2 py-1.5`}>
+      <div className="text-slate-800 italic leading-snug">"{native}"</div>
+      {showKo && (
+        <div className="text-slate-500 text-[10.5px] leading-snug mt-0.5">
+          ↳ {ko}
+        </div>
+      )}
+      {reason && (
+        <div className={`${reasonColor} text-[10px] mt-0.5`}>
+          [{reason}
+          {reasonShowKo ? ` / ${reasonKo}` : ""}]
+        </div>
+      )}
+      <div className="text-[10px] text-slate-500 mt-0.5">— {persona}</div>
+    </li>
   );
 }
 
