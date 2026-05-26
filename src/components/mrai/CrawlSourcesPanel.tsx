@@ -344,7 +344,7 @@ function CreateModal({
                   ? "https://lemouton.com"
                   : sourceType === "news_rss"
                     ? "https://news.google.com/rss/search?q=르무통&hl=ko"
-                    : "https://www.allbirds.com/collections/new"
+                    : "https://www.allbirds.com/collections/mens-new-arrivals"
               }
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400"
             />
