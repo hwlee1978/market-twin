@@ -123,7 +123,9 @@ ${userHint ? `# 사용자 추가 지시\n${userHint}\n` : ""}---
   try {
     resp = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 800,
+      // 4K — long carousel prompts (7-frame Instagram) can run 500-800
+      // tokens EN + similar KO. 800 was truncating mid-JSON.
+      max_tokens: 4000,
       system: SYSTEM,
       messages: [{ role: "user", content: userPrompt }],
     });
@@ -134,15 +136,24 @@ ${userHint ? `# 사용자 추가 지시\n${userHint}\n` : ""}---
     );
   }
 
-  const text = resp.content
+  const rawText = resp.content
     .map((b) => (b.type === "text" ? b.text : ""))
     .filter(Boolean)
     .join("\n")
     .trim();
-  const m = text.match(/\{[\s\S]*\}/);
+  // Strip markdown code fences if present (```json ... ```)
+  const fenceMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const candidate = fenceMatch ? fenceMatch[1].trim() : rawText;
+  // Extract first balanced JSON object
+  const m = candidate.match(/\{[\s\S]*\}/);
+  const stopReason = resp.stop_reason;
   if (!m) {
     return NextResponse.json(
-      { error: "parse_failed", detail: text.slice(0, 200) },
+      {
+        error: "parse_failed",
+        detail:
+          `LLM 응답에 JSON 객체가 없습니다 (stop_reason=${stopReason}). 출력 토큰 ${resp.usage?.output_tokens ?? "?"} — 응답이 잘렸을 가능성. 다시 시도하세요.`,
+      },
       { status: 500 },
     );
   }
@@ -151,13 +162,19 @@ ${userHint ? `# 사용자 추가 지시\n${userHint}\n` : ""}---
     parsedOut = JSON.parse(m[0]);
   } catch (e) {
     return NextResponse.json(
-      { error: "parse_failed", detail: e instanceof Error ? e.message : "?" },
+      {
+        error: "parse_failed",
+        detail: `JSON 파싱 실패 (stop_reason=${stopReason}, 출력 토큰 ${resp.usage?.output_tokens ?? "?"}). ${e instanceof Error ? e.message : ""}`,
+      },
       { status: 500 },
     );
   }
   if (!parsedOut.image_prompt || !parsedOut.image_prompt_ko) {
     return NextResponse.json(
-      { error: "missing_fields", detail: parsedOut },
+      {
+        error: "missing_fields",
+        detail: `image_prompt=${parsedOut.image_prompt ? "OK" : "missing"}, image_prompt_ko=${parsedOut.image_prompt_ko ? "OK" : "missing"}. 다시 시도하세요.`,
+      },
       { status: 500 },
     );
   }

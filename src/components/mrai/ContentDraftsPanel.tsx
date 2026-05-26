@@ -721,9 +721,10 @@ function ImagePromptPreviewModal({
           </div>
 
           {err && (
-            <p className="text-xs text-red-600 bg-red-50 border border-red-200 px-2 py-1.5 rounded">
-              {err}
-            </p>
+            <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              <div className="font-semibold mb-0.5">❌ 새로고침 실패</div>
+              <div className="whitespace-pre-line break-words">{err}</div>
+            </div>
           )}
         </div>
 
