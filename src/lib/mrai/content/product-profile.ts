@@ -73,7 +73,7 @@ You will see 1-5 reference photos of the same product (or product line). Extract
 3. VISUAL_FEATURES — structured visual signature:
    - silhouette: 1 sentence describing the overall shape/form
    - materials: 1-4 material names ("felted wool", "rubber", "suede")
-   - colors: 1-3 dominant colors ("cream/off-white", "cream sole")
+   - colors: 1-4 dominant colors WITH HEX CODE — sample the actual pixel hex from each photo, do NOT use a generic palette name. Format MUST be "name (#XXXXXX)". Examples: "cream off-white (#F2EADA)", "warm beige (#D9B98C)", "deep navy (#1F2A44)". Multiple shades of the same family → list separately. Hex codes drive image-gen prompts so accuracy matters.
    - distinguishing: 1-3 features that differentiate this product ("velcro strap", "side embroidered label")
    - typical_angles: 1-3 angles that look good in marketing ("3/4 side", "top-down", "feet-walking")
    - NOT_FEATURES: 3-5 features the product DOES NOT have but which similar products in the same category MIGHT have (used as negative guidance for image generation). For footwear examples: ["no laces (slip-on with velcro)", "no perforated upper", "not a derby/oxford", "no leather"]. For apparel: ["no buttons", "not oversized", "no collar"]. Be specific so the image generator knows what to avoid.

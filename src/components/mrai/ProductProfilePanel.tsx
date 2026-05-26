@@ -158,7 +158,7 @@ export function ProductProfilePanel() {
                   <Row label="Materials" tags={profile.visual_features.materials} />
                 )}
                 {profile.visual_features?.colors && (
-                  <Row label="Colors" tags={profile.visual_features.colors} />
+                  <ColorRow colors={profile.visual_features.colors} />
                 )}
                 {profile.visual_features?.distinguishing && (
                   <Row label="Distinguishing" tags={profile.visual_features.distinguishing} />
@@ -204,6 +204,45 @@ export function ProductProfilePanel() {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function ColorRow({ colors }: { colors: string[] }) {
+  // Match optional "(#XXXXXX)" — accept 3 or 6 hex chars.
+  const HEX_RE = /\(?\s*(#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3}))\s*\)?/;
+  const parsed = colors.map((c) => {
+    const m = c.match(HEX_RE);
+    return {
+      hex: m ? m[1] : null,
+      // Strip the hex portion + surrounding parens/space from label
+      label: m ? c.replace(HEX_RE, "").trim() : c,
+      raw: c,
+    };
+  });
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">Colors</div>
+      <div className="flex flex-wrap gap-1.5">
+        {parsed.map((p, i) => (
+          <span
+            key={i}
+            className="inline-flex items-center gap-1.5 text-[11px] text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded"
+            title={p.raw}
+          >
+            {p.hex && (
+              <span
+                className="inline-block w-3 h-3 rounded-sm border border-slate-300 shrink-0"
+                style={{ backgroundColor: p.hex }}
+              />
+            )}
+            <span>{p.label || "(unnamed)"}</span>
+            {p.hex && (
+              <span className="text-slate-400 font-mono text-[10px]">{p.hex.toUpperCase()}</span>
+            )}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

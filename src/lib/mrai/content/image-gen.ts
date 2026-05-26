@@ -90,7 +90,14 @@ function buildFramePrompt(
       specLines.push(`Materials: ${vf.materials.join(", ")}`);
     }
     if (vf.colors && vf.colors.length) {
-      specLines.push(`Colors: ${vf.colors.join(", ")}`);
+      // When the extractor includes hex codes (e.g. "cream off-white
+      // (#F2EADA)"), gpt-image-1 responds to them — emphasize exactness.
+      const hasHex = vf.colors.some((c) => /#[0-9a-fA-F]{3,6}/.test(c));
+      specLines.push(
+        hasHex
+          ? `Colors (MUST match these EXACT hex codes — sample pixel-perfect from references, do NOT shift hue/saturation): ${vf.colors.join(", ")}`
+          : `Colors: ${vf.colors.join(", ")}`,
+      );
     }
     if (vf.distinguishing && vf.distinguishing.length) {
       specLines.push(`Distinguishing features: ${vf.distinguishing.join(", ")}`);
