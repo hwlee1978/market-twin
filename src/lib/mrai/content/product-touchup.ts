@@ -167,7 +167,11 @@ export async function touchupProductImage(input: {
    *  When false or vision fails, falls back to plain image-edit (the
    *  model may still drift but at least references the source). */
   useMask?: boolean;
-}): Promise<{ buffer: Buffer; used_mask: boolean } | null> {
+}): Promise<{
+  buffer: Buffer;
+  used_mask: boolean;
+  mask_source: "vision" | "fallback" | "none";
+} | null> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY not set");
   }
@@ -184,14 +188,31 @@ export async function touchupProductImage(input: {
     .png()
     .toBuffer()) as Buffer;
 
-  // Optionally build mask
+  // Build mask. Vision-detected bbox preferred, but if vision fails
+  // we use a centered fallback (60-70% of frame) — better than no mask,
+  // which would let the model invent a new product.
   let maskBuffer: Buffer | null = null;
-  let usedMask = false;
+  let maskSource: "vision" | "fallback" | "none" = "none";
   if (input.useMask !== false) {
     const bbox = await detectProductBox(sourceBuffer);
     if (bbox) {
       maskBuffer = await buildPreservationMask(outW, outH, bbox, 8);
-      usedMask = true;
+      maskSource = "vision";
+    } else {
+      // Centered fallback — assume product occupies central 65% of frame.
+      const fallbackW = Math.round(outW * 0.65);
+      const fallbackH = Math.round(outH * 0.65);
+      const fallbackBox = {
+        x: Math.round((outW - fallbackW) / 2),
+        y: Math.round((outH - fallbackH) / 2),
+        width: fallbackW,
+        height: fallbackH,
+      };
+      maskBuffer = await buildPreservationMask(outW, outH, fallbackBox, 2);
+      maskSource = "fallback";
+      console.log(
+        `[touchup] vision bbox missing — using centered fallback mask (65% of frame)`,
+      );
     }
   }
 
@@ -243,7 +264,7 @@ export async function touchupProductImage(input: {
     }
   }
 
-  return { buffer: finalBuffer, used_mask: usedMask };
+  return { buffer: finalBuffer, used_mask: maskSource !== "none", mask_source: maskSource };
 }
 
 /**

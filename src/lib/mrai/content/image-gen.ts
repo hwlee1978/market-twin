@@ -445,6 +445,18 @@ export async function generateImagesForDraft(input: {
       settings.use_library_photo_as_base &&
       productPhotos.length > 0 &&
       !isLifestyle;
+    if (!useTouchup) {
+      console.log(
+        `[image-gen] ⚠️ frame ${i} NOT using touchup. reasons: ` +
+          [
+            !settings.use_library_photo_as_base ? "setting OFF" : null,
+            productPhotos.length === 0 ? "no product photos" : null,
+            isLifestyle ? "lifestyle frame" : null,
+          ]
+            .filter(Boolean)
+            .join(", "),
+      );
+    }
 
     if (useTouchup) {
       const sourceUrl = pickSourceForFrame(
@@ -488,7 +500,7 @@ export async function generateImagesForDraft(input: {
             size,
           });
           console.log(
-            `[image-gen] touchup frame ${i} used_mask=${tr.used_mask} source=${sourceUrl.slice(-40)}`,
+            `[image-gen] ✅ TOUCHUP frame ${i} mask=${tr.mask_source} source=...${sourceUrl.slice(-40)}`,
           );
           continue;
         }
