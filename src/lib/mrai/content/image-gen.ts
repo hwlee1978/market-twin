@@ -69,15 +69,18 @@ function buildFramePrompt(
   const spec = getPlatformSpec(platform);
   const parts: string[] = [];
 
-  // ─── CRITICAL VISUAL RULES — top of the prompt so the model can't
-  // forget by the time it reads later instructions ───────────────────
+  // ─── ABSOLUTE VISUAL RULE — applies whether or not a logo exists.
+  // Logo is always added via post-production composite (sharp overlay),
+  // NEVER painted by the model. The model's job is to produce a
+  // completely UNBRANDED product. Any letter/text the model paints on
+  // the product will be wrong (garbled "Le Misdard" / "Lachiisoan" /
+  // "Bredisn" type hallucinations are the universal failure mode).
+  parts.push(
+    "VISUAL RULE — UNBRANDED PRODUCT: The product (e.g. shoe upper, side, tongue, heel, sole) MUST be COMPLETELY CLEAN with ZERO text or logo anywhere on its surface. Imagine a factory-fresh sample BEFORE the branding/printing step. NO printed text, NO brand marks, NO embroidered names, NO material trademarks (H1-TEX / Gore-Tex / Merino / 100% Wool), NO certification badges, NO invented letter shapes (e.g. 'Le Misdard', 'Lachiisoan', 'Bredisn' style hallucinations). The brand logo is added separately via post-production overlay — do NOT paint it. Hallucinated brand text on the product is the #1 failure mode and will ruin the campaign.",
+  );
   if (hasLogoReference) {
     parts.push(
-      "VISUAL RULE — PRODUCT TEXT/LOGO: The product surface (e.g. shoe upper, side, tongue, heel for footwear) MUST carry ONLY the exact brand logo from the attached reference image, in the same position references show. EXACT MATCH ONLY — same shape, same letterforms, same proportions. Do NOT invent or alter the brand name. Do NOT render any other text on the product (no material tech names like 'H1-TEX' / 'Gore-Tex' / 'Merino' / '100% Wool', no sub-brand names, no certifications, no taglines). If you cannot reproduce the exact logo letterforms, crop / angle the product so the logo isn't visible rather than write a wrong / garbled version.",
-    );
-  } else {
-    parts.push(
-      "VISUAL RULE — NO TEXT ON PRODUCT: There is NO logo reference attached. The product surface (e.g. shoe upper, side, tongue, heel) MUST be COMPLETELY CLEAN — no printed text, no brand marks, no logos, no material trademarks (H1-TEX / Gore-Tex / Merino / etc.), no certification badges, no invented letter shapes. ZERO text on the product. The brand mark will be added in post-production. Hallucinated brand text (e.g. fake Latin-script garbled like 'Lachiisoan') is the #1 failure mode — avoid at all cost.",
+      "Note: a brand logo will be composited as a small corner watermark AFTER generation. You do NOT need to include the logo anywhere in this image. Focus on a clean unbranded product.",
     );
   }
 
@@ -227,12 +230,24 @@ export async function generateImagesForDraft(input: {
   const settings: ImageGenSettings = { ...DEFAULT_SETTINGS, ...input.settings };
   const refs = (input.references ?? []).slice(0, 4); // cap to 4 to stay under gpt-image-1's input budget
 
+  const logoRef = refs.find((r) => r.asset_type === "logo");
+  // Logo is HANDLED ENTIRELY BY POST-PRODUCTION COMPOSITE (sharp overlay).
+  // We deliberately do NOT pass the logo to gpt-image-1 as a reference,
+  // because doing so trains the model to paint a (garbled) version of
+  // it onto the product surface ("Le Misdard" / "Lachiisoan" / etc.).
+  // The composite stamps the real PNG on top after generation.
+  const willComposite = !!logoRef && settings.logo_composite_enabled;
+  const hasLogo = willComposite; // for prompt-builder flag
+  const hasAmbassador = refs.some((r) => r.asset_type === "ambassador");
+  // Filter out logo refs from the gpt-image-1 input. Keep everything else.
+  const inputRefs = refs.filter((r) => r.asset_type !== "logo");
+
   // Pre-fetch reference images once; reuse across all frame calls.
   const refFiles: File[] = [];
-  if (refs.length > 0) {
-    for (let i = 0; i < refs.length; i++) {
+  if (inputRefs.length > 0) {
+    for (let i = 0; i < inputRefs.length; i++) {
       try {
-        refFiles.push(await fetchAsFile(refs[i].image_url, `ref-${i}.png`));
+        refFiles.push(await fetchAsFile(inputRefs[i].image_url, `ref-${i}.png`));
       } catch (e) {
         console.warn(`[image-gen] skipping reference ${i}:`, e instanceof Error ? e.message : e);
       }
@@ -241,9 +256,6 @@ export async function generateImagesForDraft(input: {
 
   const images: GeneratedImage[] = [];
   const usedReferenceIds = new Set<string>();
-  const logoRef = refs.find((r) => r.asset_type === "logo");
-  const hasLogo = !!logoRef && settings.logo_composite_enabled;
-  const hasAmbassador = refs.some((r) => r.asset_type === "ambassador");
   // Pre-fetch logo buffer once for post-production composite (avoids
   // hitting Storage CDN per-frame).
   let logoBufferForComposite: Buffer | null = null;
@@ -290,8 +302,9 @@ export async function generateImagesForDraft(input: {
         n: 1,
       });
       // Track which references were "used" (we sent all of them with
-      // each frame — count once per generation).
-      if (i === 0) refs.forEach((r) => usedReferenceIds.add(r.id));
+      // each frame — count once per generation. Logo also tracked via
+      // composite path below.
+      if (i === 0) inputRefs.forEach((r) => usedReferenceIds.add(r.id));
     } else {
       // No references uploaded → fall back to text-only generate (lower
       // brand fidelity but doesn't block the user).
