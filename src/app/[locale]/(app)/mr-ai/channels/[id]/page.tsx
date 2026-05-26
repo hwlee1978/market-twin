@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
-import { ChevronLeft, MessageCircle, Sparkles, Users } from "lucide-react";
+import { ChevronLeft, ExternalLink, MessageCircle, Sparkles, Users } from "lucide-react";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { VirtualSpaceFeed } from "@/components/mrai/VirtualSpaceFeed";
@@ -153,12 +153,19 @@ export default async function VirtualSpacePage({
 
   return (
     <div className="px-6 pt-6 pb-10 max-w-[1400px] mx-auto space-y-6">
-      <div>
+      <div className="flex items-center justify-between gap-3">
         <Link
           href={`/${locale}/mr-ai`}
           className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800"
         >
           <ChevronLeft className="w-3.5 h-3.5" /> Mr. AI로 돌아가기
+        </Link>
+        <Link
+          href={`/${locale}/mr-ai/channels/${channel.id}/preview`}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gradient-to-r from-pink-500 via-rose-500 to-amber-400 text-white text-xs font-semibold hover:opacity-90 shadow-sm"
+        >
+          ▶ 실제처럼 보기 (가상 {channel.platform === "instagram" ? "IG" : channel.platform === "x_twitter" ? "X" : channel.platform === "tiktok" ? "TikTok" : "피드"})
+          <ExternalLink className="w-3 h-3" />
         </Link>
       </div>
 
