@@ -9,6 +9,13 @@ import {
   Hash,
   Image as ImageIcon,
   Target,
+  PlayCircle,
+  Heart,
+  MousePointer2,
+  Repeat2,
+  Bookmark,
+  MessageSquare,
+  TrendingUp,
 } from "lucide-react";
 
 type Draft = {
@@ -145,6 +152,23 @@ export function ContentDraftsPanel({
   );
 }
 
+type SimulationRow = {
+  id: string;
+  persona_sample_size: number;
+  sample_market: string | null;
+  like_rate: number;
+  click_rate: number;
+  share_rate: number;
+  save_rate: number;
+  comment_rate: number;
+  reaction_distribution: Record<string, number>;
+  top_positive_quotes: Array<{ quote: string; persona: string }>;
+  top_objection_quotes: Array<{ quote: string; persona: string; reason: string | null }>;
+  segment_breakdown: Record<string, { like_rate: number; n: number }>;
+  llm_cost_usd: number | null;
+  created_at: string;
+};
+
 function DraftCard({
   draft,
   platform: _platform,
@@ -155,7 +179,47 @@ function DraftCard({
   onDelete: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [latestSim, setLatestSim] = useState<SimulationRow | null>(null);
+  const [simulating, setSimulating] = useState(false);
+  const [sampleSize, setSampleSize] = useState(30);
+  const [simError, setSimError] = useState<string | null>(null);
   const score = draft.seo_score ?? null;
+
+  // Load latest simulation when card mounts (lightweight — single row)
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const res = await fetch(`/api/mrai/content-drafts/${draft.id}/simulations`, {
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const { simulations } = (await res.json()) as { simulations: SimulationRow[] };
+      if (!cancelled && simulations.length > 0) setLatestSim(simulations[0]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [draft.id]);
+
+  const simulate = async () => {
+    setSimulating(true);
+    setSimError(null);
+    try {
+      const res = await fetch(`/api/mrai/content-drafts/${draft.id}/simulate`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sampleSize }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "시뮬레이션 실패");
+      setLatestSim(json.simulation as SimulationRow);
+    } catch (e) {
+      setSimError(e instanceof Error ? e.message : "시뮬레이션 실패");
+    } finally {
+      setSimulating(false);
+    }
+  };
+
   const scoreColor =
     score === null
       ? "text-slate-400"
@@ -275,8 +339,174 @@ function DraftCard({
             ))}
           </div>
         )}
+
+        {/* Simulation row: button + last result */}
+        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={simulate}
+            disabled={simulating}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-indigo-600 text-white text-[11px] font-medium hover:bg-indigo-700 disabled:opacity-60"
+          >
+            {simulating ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <PlayCircle className="w-3 h-3" />
+            )}
+            {simulating ? "시뮬레이션 중…" : latestSim ? "재실행" : "🎯 페르소나 반응 시뮬"}
+          </button>
+          {!latestSim && (
+            <select
+              value={sampleSize}
+              onChange={(e) => setSampleSize(Number(e.target.value))}
+              disabled={simulating}
+              className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 bg-white"
+            >
+              <option value={15}>15명 (빠름 · ~$0.05)</option>
+              <option value={30}>30명 (표준 · ~$0.10)</option>
+              <option value={50}>50명 (정밀 · ~$0.18)</option>
+              <option value={100}>100명 (대량 · ~$0.36)</option>
+            </select>
+          )}
+          {latestSim && (
+            <span className="text-[10px] text-slate-400 ml-auto">
+              {latestSim.persona_sample_size}명 · {new Date(latestSim.created_at).toLocaleString("ko-KR")}
+              {latestSim.llm_cost_usd ? ` · $${latestSim.llm_cost_usd.toFixed(3)}` : ""}
+            </span>
+          )}
+        </div>
+
+        {simError && <p className="text-xs text-red-600 mt-2">{simError}</p>}
+
+        {latestSim && <SimulationResults sim={latestSim} expanded={expanded} />}
       </div>
     </li>
+  );
+}
+
+function SimulationResults({ sim, expanded }: { sim: SimulationRow; expanded: boolean }) {
+  const reactionDist = sim.reaction_distribution ?? {};
+  return (
+    <div className="mt-3 space-y-2.5">
+      {/* Rates row */}
+      <div className="grid grid-cols-5 gap-2">
+        <RateChip icon={<Heart className="w-3 h-3" />} label="like" value={sim.like_rate} positive />
+        <RateChip icon={<MousePointer2 className="w-3 h-3" />} label="click" value={sim.click_rate} positive />
+        <RateChip icon={<Repeat2 className="w-3 h-3" />} label="share" value={sim.share_rate} positive />
+        <RateChip icon={<Bookmark className="w-3 h-3" />} label="save" value={sim.save_rate} positive />
+        <RateChip icon={<MessageSquare className="w-3 h-3" />} label="comment" value={sim.comment_rate} positive />
+      </div>
+
+      {/* Reaction distribution bar */}
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+          반응 분포
+        </div>
+        <div className="flex h-2 rounded overflow-hidden bg-slate-100">
+          <div className="bg-rose-500" style={{ width: `${reactionDist.love ?? 0}%` }} title={`love ${reactionDist.love ?? 0}%`} />
+          <div className="bg-emerald-500" style={{ width: `${reactionDist.like ?? 0}%` }} title={`like ${reactionDist.like ?? 0}%`} />
+          <div className="bg-slate-400" style={{ width: `${reactionDist.neutral ?? 0}%` }} title={`neutral ${reactionDist.neutral ?? 0}%`} />
+          <div className="bg-orange-400" style={{ width: `${reactionDist.dislike ?? 0}%` }} title={`dislike ${reactionDist.dislike ?? 0}%`} />
+          <div className="bg-slate-700" style={{ width: `${reactionDist.ignore ?? 0}%` }} title={`ignore ${reactionDist.ignore ?? 0}%`} />
+        </div>
+        <div className="flex justify-between text-[9px] text-slate-500 mt-0.5">
+          <span>💖 {reactionDist.love ?? 0}%</span>
+          <span>👍 {reactionDist.like ?? 0}%</span>
+          <span>😐 {reactionDist.neutral ?? 0}%</span>
+          <span>👎 {reactionDist.dislike ?? 0}%</span>
+          <span>🚫 {reactionDist.ignore ?? 0}%</span>
+        </div>
+      </div>
+
+      {expanded && (
+        <>
+          {/* Top positive quotes */}
+          {sim.top_positive_quotes && sim.top_positive_quotes.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-emerald-700 mb-1">
+                👍 좋아한 페르소나
+              </div>
+              <ul className="space-y-1 text-[11px]">
+                {sim.top_positive_quotes.slice(0, 4).map((q, i) => (
+                  <li key={i} className="rounded bg-emerald-50/50 border border-emerald-100 px-2 py-1">
+                    <span className="text-slate-800 italic">"{q.quote}"</span>
+                    <span className="text-[10px] text-slate-500 ml-2">— {q.persona}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Top objections */}
+          {sim.top_objection_quotes && sim.top_objection_quotes.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-red-700 mb-1">
+                👎 거부한 페르소나
+              </div>
+              <ul className="space-y-1 text-[11px]">
+                {sim.top_objection_quotes.slice(0, 4).map((q, i) => (
+                  <li key={i} className="rounded bg-red-50/50 border border-red-100 px-2 py-1">
+                    <span className="text-slate-800 italic">"{q.quote}"</span>
+                    {q.reason && (
+                      <span className="text-[10px] text-red-700 ml-1.5">[{q.reason}]</span>
+                    )}
+                    <span className="text-[10px] text-slate-500 ml-2">— {q.persona}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Segment breakdown */}
+          {sim.segment_breakdown && Object.keys(sim.segment_breakdown).length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                <TrendingUp className="w-3 h-3 inline" /> 세그먼트별 호감도
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
+                {Object.entries(sim.segment_breakdown).map(([k, v]) => (
+                  <div key={k} className="rounded bg-slate-50 px-2 py-1 text-[11px] flex justify-between">
+                    <span className="text-slate-600">{k}</span>
+                    <span className="font-mono text-slate-900">
+                      {v.like_rate.toFixed(0)}% <span className="text-slate-400">(n={v.n})</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function RateChip({
+  icon,
+  label,
+  value,
+  positive,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  positive?: boolean;
+}) {
+  const tone =
+    value >= 30
+      ? positive
+        ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+        : "text-red-700 bg-red-50 border-red-200"
+      : value >= 10
+        ? "text-amber-700 bg-amber-50 border-amber-200"
+        : "text-slate-500 bg-slate-50 border-slate-200";
+  return (
+    <div className={`rounded border ${tone} px-1.5 py-1 text-center`}>
+      <div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider">
+        {icon} {label}
+      </div>
+      <div className="font-bold text-sm">{value.toFixed(0)}%</div>
+    </div>
   );
 }
 
