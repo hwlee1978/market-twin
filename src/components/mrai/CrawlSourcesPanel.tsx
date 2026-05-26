@@ -290,6 +290,20 @@ export function CrawlSourcesPanel() {
   );
 }
 
+type Preset = {
+  id: string;
+  group: string;
+  icon: string;
+  label: string;
+  description: string;
+  source_type: Source["source_type"];
+  fetch_interval_hours: number;
+  url: string;
+  label_text: string;
+  brand_filter: string | null;
+  edit_hints: { query?: string; brand_filter?: string };
+};
+
 function CreateModal({
   onClose,
   onCreated,
@@ -297,6 +311,11 @@ function CreateModal({
   onClose: () => void;
   onCreated: (s: Source) => void;
 }) {
+  const [tab, setTab] = useState<"preset" | "manual">("preset");
+  const [presets, setPresets] = useState<Preset[] | null>(null);
+  const [presetsLoading, setPresetsLoading] = useState(true);
+  const [busyPreset, setBusyPreset] = useState<string | null>(null);
+
   const [sourceType, setSourceType] = useState<Source["source_type"]>("self_website");
   const [url, setUrl] = useState("");
   const [label, setLabel] = useState("");
@@ -304,6 +323,54 @@ function CreateModal({
   const [hours, setHours] = useState(24);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Load presets when modal opens
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/mrai/crawl-sources/presets", {
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          setPresets([]);
+          return;
+        }
+        const json = (await res.json()) as { presets: Preset[] };
+        setPresets(json.presets);
+      } finally {
+        setPresetsLoading(false);
+      }
+    })();
+  }, []);
+
+  const addPreset = async (p: Preset) => {
+    if (!p.url) {
+      setErr("자사 도메인이 SEO 등록 안 됨 — '직접 입력' 탭에서 URL 직접 입력하세요");
+      return;
+    }
+    setBusyPreset(p.id);
+    setErr(null);
+    try {
+      const res = await fetch("/api/mrai/crawl-sources", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          source_type: p.source_type,
+          url: p.url,
+          label: p.label_text,
+          brand_filter: p.brand_filter ?? undefined,
+          fetch_interval_hours: p.fetch_interval_hours,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.detail ?? json.error ?? "생성 실패");
+      onCreated(json.source as Source);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "생성 실패");
+    } finally {
+      setBusyPreset(null);
+    }
+  };
 
   const submit = async () => {
     if (!url.trim()) {
@@ -339,7 +406,7 @@ function CreateModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl w-full max-w-lg shadow-2xl"
+        className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -348,6 +415,54 @@ function CreateModal({
             <CloseX className="w-4 h-4" />
           </button>
         </div>
+
+        <div className="px-5 pt-3 border-b border-slate-100 flex gap-4">
+          <button
+            type="button"
+            onClick={() => setTab("preset")}
+            className={`pb-2 text-sm font-medium border-b-2 ${
+              tab === "preset"
+                ? "border-slate-900 text-slate-900"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            ⚡ 프리셋 (원클릭)
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("manual")}
+            className={`pb-2 text-sm font-medium border-b-2 ${
+              tab === "manual"
+                ? "border-slate-900 text-slate-900"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            ✏️ 직접 입력
+          </button>
+        </div>
+
+        {tab === "preset" && (
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            {presetsLoading ? (
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> 프리셋 로딩 중…
+              </div>
+            ) : !presets || presets.length === 0 ? (
+              <p className="text-xs text-slate-500 text-center py-6">
+                프리셋 로드 실패. "직접 입력" 탭으로 진행하세요.
+              </p>
+            ) : (
+              <PresetList
+                presets={presets}
+                onAdd={addPreset}
+                busyPreset={busyPreset}
+              />
+            )}
+            {err && <p className="text-xs text-red-600 mt-3">{err}</p>}
+          </div>
+        )}
+
+        {tab === "manual" && (
         <div className="px-5 py-4 space-y-3">
           <div>
             <label className="text-xs font-semibold text-slate-700 block mb-1">유형</label>
@@ -447,6 +562,9 @@ function CreateModal({
           </div>
           {err && <p className="text-xs text-red-600">{err}</p>}
         </div>
+        )}
+
+        {tab === "manual" && (
         <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
           <button
             type="button"
@@ -466,7 +584,70 @@ function CreateModal({
             {busy ? "생성 중…" : "추가"}
           </button>
         </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+function PresetList({
+  presets,
+  onAdd,
+  busyPreset,
+}: {
+  presets: Preset[];
+  onAdd: (p: Preset) => void;
+  busyPreset: string | null;
+}) {
+  const groups: Record<string, Preset[]> = {};
+  for (const p of presets) {
+    (groups[p.group] ??= []).push(p);
+  }
+  return (
+    <div className="space-y-5">
+      {Object.entries(groups).map(([group, items]) => (
+        <div key={group}>
+          <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">
+            {group}
+          </div>
+          <ul className="space-y-2">
+            {items.map((p) => (
+              <li
+                key={p.id}
+                className="rounded-lg border border-slate-200 hover:border-slate-300 px-3 py-2.5 flex items-start gap-3"
+              >
+                <span className="shrink-0 text-2xl">{p.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-slate-900">{p.label}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">{p.description}</div>
+                  {p.url && (
+                    <div className="text-[10px] text-slate-400 truncate mt-1 font-mono">
+                      {p.url.length > 100 ? p.url.slice(0, 100) + "…" : p.url}
+                    </div>
+                  )}
+                  {!p.url && (
+                    <div className="text-[10px] text-amber-700 mt-1">
+                      ⚠ 자사 도메인 미등록 — 브랜드 SEO 패널에서 사이트 추가 후 시도
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onAdd(p)}
+                  disabled={!p.url || busyPreset === p.id}
+                  className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 disabled:opacity-40"
+                >
+                  {busyPreset === p.id ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    "+ 추가"
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 }
