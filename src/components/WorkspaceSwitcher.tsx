@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition, useRef, useEffect } from "react";
-import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { ChevronsUpDown, Check, Plus, Building2, X } from "lucide-react";
 import { clsx } from "clsx";
@@ -13,7 +12,6 @@ type Props = {
 
 export function WorkspaceSwitcher({ workspaces }: Props) {
   const t = useTranslations("workspaceSwitcher");
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -45,7 +43,14 @@ export function WorkspaceSwitcher({ workspaces }: Props) {
       });
       if (res.ok) {
         setOpen(false);
-        router.refresh();
+        // Full reload instead of router.refresh() — the latter
+        // re-fetches server components but doesn't always flush
+        // client-state-backed panels (OnboardingPanel /
+        // BriefingPanel / MrAIChat all hold initialState from the
+        // OLD workspace and don't reset on refresh). Hard reload
+        // guarantees every panel re-initialises from the new
+        // workspace's data. ~300ms UX cost, worth the consistency.
+        window.location.reload();
       }
     });
   };
@@ -136,11 +141,11 @@ export function WorkspaceSwitcher({ workspaces }: Props) {
           onClose={() => setCreateOpen(false)}
           onCreated={(id) => {
             setCreateOpen(false);
-            startTransition(() => {
-              router.refresh();
-              // Refresh re-renders the layout, picking up the new active cookie.
-              void id;
-            });
+            // Hard reload — same reason as switchTo (router.refresh
+            // doesn't reset client-state-backed panels). The new
+            // workspace's empty state needs every panel to re-init.
+            void id;
+            window.location.reload();
           }}
         />
       )}
