@@ -73,14 +73,28 @@ function buildFramePrompt(
   hasLogoReference = false,
   hasAmbassadorReference = false,
   productProfile?: ProductProfile | null,
+  touchupMode = false,
 ): string {
   const spec = getPlatformSpec(platform);
   const parts: string[] = [];
 
+  // ─── TOUCHUP MODE — the product is in the input image; do not
+  // describe it (sending product details makes the model "improve"
+  // the masked product with extra features like two-tone panels,
+  // mesh, etc. — even though mask should preserve those pixels).
+  if (touchupMode) {
+    parts.push(
+      "INPUT IMAGE = the EXACT physical product being photographed in a new scene. Treat the product like a real object placed in front of you — do NOT add color blocks, panels, mesh, perforations, stitching, or any detail that isn't already physically present. Do NOT recolor, restyle, or 'improve' the product. ONLY the area outside the product (background, surface, lighting environment) should change to match the scene description below. The product itself must be IDENTICAL to the input.",
+    );
+  }
+
   // ─── PRODUCT SPEC (when profile exists, this is the authoritative
   // description for what the product is — feeds all categories, not
   // just footwear) ────────────────────────────────────────────────
-  if (productProfile) {
+  // Skipped in touchup mode (the product is the input image, not described
+  // — sending product description here causes the model to "fix" the
+  // image to match the text, which is the opposite of preservation).
+  if (productProfile && !touchupMode) {
     const vf = productProfile.visual_features ?? {};
     const specLines: string[] = [];
     if (productProfile.description) {
@@ -141,7 +155,29 @@ function buildFramePrompt(
     );
   }
 
-  if (totalFrames === 1) {
+  if (touchupMode) {
+    // Scene-only direction (product is in the input image)
+    if (totalFrames === 1) {
+      parts.push(
+        `Place the input product as the hero subject in a clean editorial scene appropriate for ${spec.label}. Scene context: ${basePrompt}`,
+      );
+    } else if (frameIndex === 0) {
+      parts.push(
+        `Cover frame for a ${spec.label} carousel. Place the input product centered on a clean uncluttered background. NO people. Scene context: ${basePrompt}`,
+      );
+    } else {
+      const sceneRoles = [
+        "Close-up scene around the input product — minimal background, hint of material/surface around the product. NO people.",
+        "Lifestyle scene — the input product placed in a real environment (street/cafe/home). NO people in this generated area.",
+        "Different background angle — same product, fresh background composition. NO people.",
+        "Hero pure-color background composition around the input product. NO people.",
+        "Place the input product alongside one complementary object (shoebox, plant). NO people.",
+      ];
+      parts.push(
+        `Carousel frame ${frameIndex + 1} of ${totalFrames}. ${sceneRoles[(frameIndex - 1) % sceneRoles.length]} Scene context: ${basePrompt}`,
+      );
+    }
+  } else if (totalFrames === 1) {
     parts.push(
       `Hero brand image for ${spec.label}. The product MUST be the dominant subject, occupying at least 40% of the frame, in sharp focus, matching the reference photos exactly. ${basePrompt}`,
     );
@@ -463,12 +499,25 @@ export async function generateImagesForDraft(input: {
         productPhotos.map((p) => ({ image_url: p.image_url })),
         i,
       )!;
-      // Scene-only prompt (the product itself is preserved in the source)
-      const scenePrompt = `${framePrompt}\n\nIMPORTANT: The provided image contains the EXACT product to preserve. Only modify the BACKGROUND/SCENE around the product as described above. Do not change the product's shape, color, material, or branding — those pixels must remain identical to the input.`;
+      // Build touchup-mode prompt — skips product description (the
+      // product IS the image; describing it makes the model "fix" the
+      // image to match text, producing two-tone panels / mesh / etc.).
+      const touchupPrompt = buildFramePrompt(
+        input.prompt,
+        input.platform,
+        i,
+        totalFrames,
+        input.brandHint,
+        false,
+        hasLogo,
+        false,
+        productProfile,
+        true, // touchupMode
+      );
       try {
         const tr = await touchupProductImage({
           sourceImageUrl: sourceUrl,
-          scenePrompt,
+          scenePrompt: touchupPrompt,
           outputSize: size,
           quality: settings.quality,
           logoBuffer: logoBufferForComposite,

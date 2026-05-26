@@ -196,7 +196,10 @@ export async function touchupProductImage(input: {
   if (input.useMask !== false) {
     const bbox = await detectProductBox(sourceBuffer);
     if (bbox) {
-      maskBuffer = await buildPreservationMask(outW, outH, bbox, 8);
+      // Tight padding (2%) — wider padding gave the model room to
+      // "improve" the product edge (added panels, colorblocks, mesh
+      // sections). Tight padding forces a sharper boundary.
+      maskBuffer = await buildPreservationMask(outW, outH, bbox, 2);
       maskSource = "vision";
     } else {
       // Centered fallback — assume product occupies central 65% of frame.
