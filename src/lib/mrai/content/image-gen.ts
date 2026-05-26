@@ -173,6 +173,28 @@ export type BrandReference = {
   label: string | null;
 };
 
+export type ImageGenSettings = {
+  logo_position: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center";
+  logo_size_pct: number;
+  logo_padding_pct: number;
+  logo_opacity: number;
+  logo_with_backdrop: boolean;
+  logo_composite_enabled: boolean;
+  prompt_strictness: "creative" | "balanced" | "strict";
+  quality: "low" | "medium" | "high";
+};
+
+const DEFAULT_SETTINGS: ImageGenSettings = {
+  logo_position: "bottom-right",
+  logo_size_pct: 11,
+  logo_padding_pct: 3.5,
+  logo_opacity: 1.0,
+  logo_with_backdrop: true,
+  logo_composite_enabled: true,
+  prompt_strictness: "strict",
+  quality: "medium",
+};
+
 async function fetchAsFile(url: string, name: string): Promise<File> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`reference fetch failed: ${res.status}`);
@@ -190,6 +212,10 @@ export async function generateImagesForDraft(input: {
   brandHint?: string;
   variantLabel?: string;
   references?: BrandReference[];   // workspace brand assets to use as visual reference
+  settings?: Partial<ImageGenSettings>;
+  /** When set, generate only the single frame at this index and return
+   * just that one. Used by the per-frame regenerate endpoint. */
+  singleFrameIndex?: number;
 }): Promise<ImageGenResult> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY not set");
@@ -197,7 +223,8 @@ export async function generateImagesForDraft(input: {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const t0 = Date.now();
   const size = aspectFor(input.platform);
-  const frames = Math.min(Math.max(input.frameCount, 1), 7);
+  const totalFrames = Math.min(Math.max(input.frameCount, 1), 7);
+  const settings: ImageGenSettings = { ...DEFAULT_SETTINGS, ...input.settings };
   const refs = (input.references ?? []).slice(0, 4); // cap to 4 to stay under gpt-image-1's input budget
 
   // Pre-fetch reference images once; reuse across all frame calls.
@@ -215,11 +242,12 @@ export async function generateImagesForDraft(input: {
   const images: GeneratedImage[] = [];
   const usedReferenceIds = new Set<string>();
   const logoRef = refs.find((r) => r.asset_type === "logo");
-  const hasLogo = !!logoRef;
+  const hasLogo = !!logoRef && settings.logo_composite_enabled;
+  const hasAmbassador = refs.some((r) => r.asset_type === "ambassador");
   // Pre-fetch logo buffer once for post-production composite (avoids
   // hitting Storage CDN per-frame).
   let logoBufferForComposite: Buffer | null = null;
-  if (logoRef) {
+  if (logoRef && settings.logo_composite_enabled) {
     try {
       const r = await fetch(logoRef.image_url);
       if (r.ok) logoBufferForComposite = Buffer.from(await r.arrayBuffer());
@@ -227,18 +255,25 @@ export async function generateImagesForDraft(input: {
       console.warn("[image-gen] logo prefetch failed:", e instanceof Error ? e.message : e);
     }
   }
+  // Determine frame range — full generation OR single-frame regenerate
+  const frameIndices: number[] =
+    typeof input.singleFrameIndex === "number"
+      ? [Math.max(0, Math.min(input.singleFrameIndex, totalFrames - 1))]
+      : Array.from({ length: totalFrames }, (_, i) => i);
+
   // Sequential generation — gpt-image-1 has aggressive rate limits and
   // we want frame N to remember frame N-1's prompt thread for visual
   // continuity. Latency: ~15-25s per frame with references.
-  for (let i = 0; i < frames; i++) {
+  for (const i of frameIndices) {
     const framePrompt = buildFramePrompt(
       input.prompt,
       input.platform,
       i,
-      frames,
+      totalFrames,
       input.brandHint,
       refs.length > 0,
       hasLogo,
+      hasAmbassador,
     );
 
     let res;
@@ -251,7 +286,7 @@ export async function generateImagesForDraft(input: {
         image: refFiles,
         prompt: framePrompt,
         size,
-        quality: "medium",
+        quality: settings.quality,
         n: 1,
       });
       // Track which references were "used" (we sent all of them with
@@ -264,7 +299,7 @@ export async function generateImagesForDraft(input: {
         model: "gpt-image-1",
         prompt: framePrompt,
         size,
-        quality: "medium",
+        quality: settings.quality,
         n: 1,
       });
     }
@@ -283,11 +318,11 @@ export async function generateImagesForDraft(input: {
           finalBuffer,
           { buffer: logoBufferForComposite },
           {
-            position: "bottom-right",
-            size_pct: 11,
-            opacity: 1.0,
-            padding_pct: 3.5,
-            with_backdrop: true,
+            position: settings.logo_position,
+            size_pct: settings.logo_size_pct,
+            opacity: settings.logo_opacity,
+            padding_pct: settings.logo_padding_pct,
+            with_backdrop: settings.logo_with_backdrop,
           },
         );
       } catch (e) {
@@ -334,7 +369,7 @@ export async function generateImagesForDraft(input: {
 
   return {
     images,
-    cost_usd: Number((frames * COST_PER_IMAGE_MEDIUM).toFixed(4)),
+    cost_usd: Number((images.length * COST_PER_IMAGE_MEDIUM).toFixed(4)),
     ms: Date.now() - t0,
   };
 }

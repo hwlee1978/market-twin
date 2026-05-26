@@ -6,6 +6,7 @@ import {
   defaultFrameCountForPlatform,
   generateImagesForDraft,
 } from "@/lib/mrai/content/image-gen";
+import { loadImageGenSettings } from "@/lib/mrai/content/image-gen-settings-loader";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 240;
@@ -122,6 +123,8 @@ export async function POST(
   ].slice(0, 4);
   if (references.length === 0) references = allRefs.slice(0, 4);
 
+  const userSettings = await loadImageGenSettings(wsCtx.workspaceId);
+
   let result;
   try {
     result = await generateImagesForDraft({
@@ -133,6 +136,7 @@ export async function POST(
       brandHint: brandHint || undefined,
       variantLabel: draft.variant_label,
       references: references.length > 0 ? references : undefined,
+      settings: userSettings ?? undefined,
     });
   } catch (e) {
     return NextResponse.json(

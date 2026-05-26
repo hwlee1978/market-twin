@@ -231,6 +231,7 @@ function DraftCard({
   });
   const [generatingImage, setGeneratingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [frameBusy, setFrameBusy] = useState<number | null>(null);
 
   const generateImages = async () => {
     setGeneratingImage(true);
@@ -348,34 +349,39 @@ function DraftCard({
         {imageState.image_url ? (
           <div className="mb-3">
             <div className="grid grid-cols-2 gap-1.5">
-              <div className="col-span-2">
-                <img
-                  src={imageState.image_url}
-                  alt="cover"
-                  className="w-full rounded-md border border-slate-200 object-cover aspect-square"
+              <FrameCell
+                key={imageState.image_url}
+                url={imageState.image_url}
+                frameIndex={0}
+                label="커버"
+                spanFull
+                draftId={draft.id}
+                busyFrameIndex={frameBusy}
+                onRemoved={(next) => setImageState(next)}
+                onRegenerated={(next) => setImageState(next)}
+                onBusy={setFrameBusy}
+              />
+              {imageState.image_urls.map((img) => (
+                <FrameCell
+                  key={img.url}
+                  url={img.url}
+                  frameIndex={img.frame_index}
+                  label={`프레임 ${img.frame_index + 1}`}
+                  draftId={draft.id}
+                  busyFrameIndex={frameBusy}
+                  onRemoved={(next) => setImageState(next)}
+                  onRegenerated={(next) => setImageState(next)}
+                  onBusy={setFrameBusy}
                 />
-                <div className="text-[10px] text-slate-400 mt-0.5">커버</div>
-              </div>
-              {imageState.image_urls.map((img, i) => (
-                <div key={img.url}>
-                  <img
-                    src={img.url}
-                    alt={`frame ${i + 2}`}
-                    className="w-full rounded-md border border-slate-200 object-cover aspect-square"
-                  />
-                  <div className="text-[10px] text-slate-400 mt-0.5">
-                    프레임 {i + 2}
-                  </div>
-                </div>
               ))}
             </div>
             <button
               type="button"
               onClick={generateImages}
-              disabled={generatingImage}
+              disabled={generatingImage || frameBusy !== null}
               className="mt-1.5 text-[11px] text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
             >
-              {generatingImage ? "재생성 중…" : "🔄 이미지 재생성"}
+              {generatingImage ? "전체 재생성 중…" : "🔄 전체 재생성"}
             </button>
           </div>
         ) : draft.image_prompt ? (
@@ -663,6 +669,127 @@ function SimulationResults({ sim, expanded }: { sim: SimulationRow; expanded: bo
           )}
         </>
       )}
+    </div>
+  );
+}
+
+type ImageState = {
+  image_url: string | null;
+  image_urls: Array<{ url: string; frame_index: number; size: string }>;
+};
+
+function FrameCell({
+  url,
+  frameIndex,
+  label,
+  spanFull,
+  draftId,
+  busyFrameIndex,
+  onRemoved,
+  onRegenerated,
+  onBusy,
+}: {
+  url: string;
+  frameIndex: number;
+  label: string;
+  spanFull?: boolean;
+  draftId: string;
+  busyFrameIndex: number | null;
+  onRemoved: (next: ImageState) => void;
+  onRegenerated: (next: ImageState) => void;
+  onBusy: (idx: number | null) => void;
+}) {
+  const isBusy = busyFrameIndex === frameIndex;
+  const anyBusy = busyFrameIndex !== null;
+
+  const remove = async () => {
+    if (!confirm(`${label}를 삭제할까요?`)) return;
+    onBusy(frameIndex);
+    try {
+      const res = await fetch(`/api/mrai/content-drafts/${draftId}/images/frame`, {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ frame_index: frameIndex }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        alert(`❌ ${json.detail ?? json.error ?? "삭제 실패"}`);
+        return;
+      }
+      onRemoved({
+        image_url: json.draft.image_url,
+        image_urls: json.draft.image_urls ?? [],
+      });
+    } finally {
+      onBusy(null);
+    }
+  };
+
+  const regenerate = async () => {
+    const override = prompt(
+      `이 프레임만 재생성. 추가 지시사항 (선택, 공란이면 원래 image_prompt만 사용):`,
+      "",
+    );
+    if (override === null) return;
+    onBusy(frameIndex);
+    try {
+      const res = await fetch(`/api/mrai/content-drafts/${draftId}/images/frame`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          frame_index: frameIndex,
+          prompt_override: override.trim() || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        alert(`❌ ${json.detail ?? json.error ?? "재생성 실패"}`);
+        return;
+      }
+      onRegenerated({
+        image_url: json.draft.image_url,
+        image_urls: json.draft.image_urls ?? [],
+      });
+    } finally {
+      onBusy(null);
+    }
+  };
+
+  return (
+    <div className={`relative group ${spanFull ? "col-span-2" : ""}`}>
+      <img
+        src={url}
+        alt={label}
+        className={`w-full rounded-md border border-slate-200 object-cover ${spanFull ? "aspect-[4/3]" : "aspect-square"} ${isBusy ? "opacity-50" : ""}`}
+      />
+      {isBusy && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/30 rounded-md">
+          <Loader2 className="w-6 h-6 animate-spin text-white" />
+        </div>
+      )}
+      {!isBusy && (
+        <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+          <button
+            type="button"
+            onClick={regenerate}
+            disabled={anyBusy}
+            className="bg-white/95 backdrop-blur text-slate-700 hover:text-indigo-700 rounded p-1 shadow-sm"
+            title="이 프레임만 재생성"
+          >
+            <Camera className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={remove}
+            disabled={anyBusy}
+            className="bg-white/95 backdrop-blur text-slate-700 hover:text-red-700 rounded p-1 shadow-sm"
+            title="삭제"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+      <div className="text-[10px] text-slate-400 mt-0.5">{label}</div>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { VirtualSpaceFeed } from "@/components/mrai/VirtualSpaceFeed";
 import { ContentDraftsPanel } from "@/components/mrai/ContentDraftsPanel";
+import { ChannelEditButton } from "@/components/mrai/ChannelEditButton";
 
 export const dynamic = "force-dynamic";
 
@@ -300,46 +301,62 @@ export default async function VirtualSpacePage({
         </div>
       </details>
 
-      {/* Posting style preview */}
-      {(channel.posting_style || channel.target_segments.length > 0) && (
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="px-5 py-4 border-b border-slate-100">
-            <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-              <MessageCircle className="w-4 h-4 text-amber-600" />
-              포스팅 전략
-            </h2>
-          </div>
-          <div className="px-5 py-4 space-y-3 text-sm">
-            {channel.target_segments.length > 0 && (
-              <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
-                  타겟 세그먼트
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {channel.target_segments.map((s, i) => (
-                    <span
-                      key={i}
-                      className="text-xs text-slate-700 bg-slate-100 px-2 py-1 rounded"
-                    >
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {channel.posting_style && (
-              <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
-                  포스팅 톤/스타일
-                </div>
-                <p className="text-slate-700 leading-relaxed">
-                  {channel.posting_style}
-                </p>
-              </div>
-            )}
-          </div>
+      {/* Posting style preview — editable */}
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+          <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+            <MessageCircle className="w-4 h-4 text-amber-600" />
+            포스팅 전략
+          </h2>
+          <ChannelEditButton
+            channel={{
+              id: channel.id,
+              display_name: channel.display_name,
+              market_country: channel.market_country,
+              target_segments: channel.target_segments,
+              posting_style: channel.posting_style,
+              bio_text: channel.bio_text,
+            }}
+          />
         </div>
-      )}
+        <div className="px-5 py-4 space-y-3 text-sm">
+          {channel.target_segments.length > 0 ? (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                타겟 세그먼트
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {channel.target_segments.map((s, i) => (
+                  <span
+                    key={i}
+                    className="text-xs text-slate-700 bg-slate-100 px-2 py-1 rounded"
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400">
+              타겟 세그먼트가 설정되지 않았습니다. 우상단 "편집"으로 추가하세요.
+            </p>
+          )}
+          {channel.posting_style ? (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                포스팅 톤/스타일
+              </div>
+              <p className="text-slate-700 leading-relaxed whitespace-pre-line">
+                {channel.posting_style}
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400">
+              포스팅 톤이 설정되지 않았습니다. 드래프터가 일반적인 톤으로 카피를 작성합니다.
+            </p>
+          )}
+        </div>
+      </div>
 
       {/* Drafts: AI-generated copy + per-variant SEO scoring */}
       <ContentDraftsPanel channelId={channel.id} platform={channel.platform} />
