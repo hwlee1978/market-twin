@@ -176,6 +176,7 @@ export function ContentDraftsPanel({
           onClose={() => setOpenModal(false)}
           onSubmit={generate}
           busy={generating}
+          serverError={error}
         />
       )}
     </div>
@@ -891,6 +892,7 @@ function GenerateModal({
   onClose,
   onSubmit,
   busy,
+  serverError,
 }: {
   channelId: string;
   onClose: () => void;
@@ -901,6 +903,7 @@ function GenerateModal({
     variantCount: number;
   }) => void;
   busy: boolean;
+  serverError: string | null;
 }) {
   const [topic, setTopic] = useState("");
   const [campaignLabel, setCampaignLabel] = useState("");
@@ -1110,6 +1113,15 @@ function GenerateModal({
               A=직접형 · B=스토리형 · C=역발상 · D=데이터형 · E=감각형
             </p>
           </div>
+
+          {/* Submit-side error — shows the most recent /drafts POST error
+              from the parent so it's not hidden behind the modal overlay. */}
+          {serverError && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              <div className="font-semibold mb-0.5">❌ 생성 실패</div>
+              <div className="whitespace-pre-line">{serverError}</div>
+            </div>
+          )}
         </div>
         <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
           <button

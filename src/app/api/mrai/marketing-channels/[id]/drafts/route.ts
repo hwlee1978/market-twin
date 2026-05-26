@@ -113,18 +113,29 @@ export async function POST(
       brandContext: brandContext || undefined,
     });
   } catch (e) {
+    const msg = e instanceof Error ? e.message : "drafter_failed";
+    console.error("[drafter] failed:", msg, {
+      channel_id: id,
+      topic: parsed.data.topic.slice(0, 100),
+      variant_count: parsed.data.variantCount,
+    });
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "drafter_failed" },
+      { error: "drafter_failed", detail: msg },
       { status: 500 },
     );
   }
   if (result.variants.length === 0) {
+    console.error("[drafter] zero variants returned", {
+      channel_id: id,
+      topic: parsed.data.topic.slice(0, 100),
+      input_tokens: result.inputTokens,
+      output_tokens: result.outputTokens,
+      ms: result.ms,
+    });
     return NextResponse.json(
       {
-        error:
-          "drafter_no_variants",
-        detail:
-          "LLM이 유효한 variant를 반환하지 못했습니다. 출력이 잘렸을 가능성 — variant 개수를 2개로 줄이거나 topic을 짧게 다시 시도하세요.",
+        error: "drafter_no_variants",
+        detail: `LLM이 유효한 variant를 0개 반환했습니다.\n출력 토큰: ${result.outputTokens} (≥15000이면 출력 truncation)\n→ variant 개수를 2개로 줄이거나 topic을 짧게 다시 시도하세요.`,
       },
       { status: 500 },
     );
