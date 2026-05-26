@@ -89,20 +89,26 @@ export async function POST(
 주어진 콘텐츠 드래프트 + 채널 컨텍스트 + 제품 정보를 바탕으로 image_prompt를 새로 작성하세요.
 
 규칙:
+- ⚠️ CRITICAL: image_prompt는 **반드시 body_text의 mood / 씬 / 후크 / 시간대 / 감정**을 시각적으로 반영해야 함.
+  · body_text가 "출근길 지하철" 언급 → image_prompt도 subway/morning commute 씬
+  · body_text가 "주말 카페" 언급 → image_prompt도 cafe/weekend 씬
+  · body_text가 데이터/숫자 후크 → 깔끔한 스튜디오 / chart-like 구도
+  · body_text가 감각/촉감 묘사 → 텍스처 클로즈업
+  · body_text와 image_prompt가 어긋난 씬이면 안 됨 (예: 카피는 "출근길"인데 이미지는 산속)
 - image_prompt = 영문 (gpt-image-1이 영어에서 최고 성능)
-- 길이 50-150자
+- 길이 80-200자 (씬 컨텍스트를 충분히 묘사)
 - 시각적 디테일 (스타일, 구도, 조명, 분위기, 배경)만 묘사
 - 제품의 색상/소재명을 강제 텍스트로 박지 말 것 (예: "H1-TEX", "Gore-Tex", "100% Wool")
 - 한국어 번역 (image_prompt_ko)도 함께 — 사용자가 한국어로 미리보기
-- 이전 프롬프트와 같은 angle 반복 금지 — 다른 분위기/구도/씬 제안
+- 이전 프롬프트와 같은 angle 반복 금지 — 다른 분위기/구도/씬 제안하되 body_text mood는 유지
 
 출력 JSON: { "image_prompt": "영문", "image_prompt_ko": "한국어" }`;
 
   const userHint = parsed.data.user_hint?.trim();
-  const userPrompt = `# 드래프트
-${draft.body_text.slice(0, 400)}
+  const userPrompt = `# 드래프트 본문 (image_prompt가 반드시 시각적으로 반영해야 할 내용)
+${draft.body_text.slice(0, 1200)}
 
-${draft.campaign_label ? `Campaign: ${draft.campaign_label}\n` : ""}# 채널
+${draft.cta_text ? `# CTA\n${draft.cta_text}\n` : ""}${draft.campaign_label ? `# Campaign\n${draft.campaign_label}\n` : ""}# 채널
 ${channelSummary}
 
 # 제품

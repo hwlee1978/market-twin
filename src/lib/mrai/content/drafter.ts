@@ -199,7 +199,15 @@ ${variantStrategies.join("\n")}
 - body_text (플랫폼 규격 준수)
 - hashtags (배열, 플랫폼 max 이하)
 - cta_text (없으면 빈 문자열)
-- image_prompt (이미지 생성용 영문 프롬프트 — 스타일 + 구도 + 톤. ⚠️ 소재 기술명(H1-TEX, Gore-Tex 등)이나 인증명(RWS, OEKO-TEX 등)을 이미지에 텍스트로 넣지 말 것. 시각적 디테일만 묘사 — 예: "merino wool knit close-up showing fiber direction" OK, "with 'H1-TEX' badge visible" 금지.)
+- image_prompt (이미지 생성용 영문 프롬프트 — 스타일 + 구도 + 톤.
+  ⚠️ CRITICAL: body_text의 mood/씬/후크를 **반드시 시각적으로 반영**할 것.
+  예: body_text가 "출근길 9분, 흔들리는 지하철에서도 발이 편한 메리노 울"이면
+  → image_prompt도 "subway commute morning scene, soft natural light, 신발 디테일" 식으로 같은 씬.
+  body_text가 데이터형이면 → 깔끔한 스튜디오 / 차트 곁 / 등으로 매치.
+  body_text가 감각형이면 → 클로즈업 텍스처.
+  body_text와 image_prompt의 톤·씬·시간대가 어긋나면 안 됨.
+  ⚠️ 소재 기술명(H1-TEX, Gore-Tex 등)이나 인증명(RWS, OEKO-TEX 등)을 이미지에 텍스트로 넣지 말 것.
+  시각적 디테일만 묘사 — 예: "merino wool knit close-up showing fiber direction" OK, "with 'H1-TEX' badge visible" 금지.)
 - image_prompt_ko (위 image_prompt의 한국어 번역 — 사용자가 이미지 생성 전에 미리보기 확인용. 자연스러운 한국어, 영문 그대로 두지 말 것.)
 - seo_title (≤60자 / YouTube/Naver/SmartStore면 필수, 다른 곳은 빈 문자열 가능)
 - seo_description (≤160자 / Naver/YouTube에서 SERP에 노출)
