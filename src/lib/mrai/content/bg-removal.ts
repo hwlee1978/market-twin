@@ -21,9 +21,11 @@ import { createServiceClient } from "@/lib/supabase/server";
  * replicate.com/account/api-tokens).
  */
 
-const MODEL_VERSION =
-  // 851-labs/background-remover — fast, reliable, $0.003-0.005/call
-  "a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc";
+// Use Replicate's model-name endpoint (auto-resolves to latest version).
+// More resilient than hardcoding version hashes — if the maintainer
+// pushes an update, we get it without code changes.
+const MODEL_OWNER = "851-labs";
+const MODEL_NAME = "background-remover";
 
 type ReplicatePrediction = {
   id: string;
@@ -36,19 +38,21 @@ async function callReplicate(
   imageUrl: string,
   token: string,
 ): Promise<Buffer> {
-  // Create prediction with Prefer: wait (synchronous up to 60s)
-  const createRes = await fetch("https://api.replicate.com/v1/predictions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      Prefer: "wait",
+  // Create prediction via model endpoint (auto-resolves latest version)
+  const createRes = await fetch(
+    `https://api.replicate.com/v1/models/${MODEL_OWNER}/${MODEL_NAME}/predictions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Prefer: "wait",
+      },
+      body: JSON.stringify({
+        input: { image: imageUrl, format: "png" },
+      }),
     },
-    body: JSON.stringify({
-      version: MODEL_VERSION,
-      input: { image: imageUrl, format: "png" },
-    }),
-  });
+  );
   if (!createRes.ok) {
     const errText = await createRes.text();
     throw new Error(`Replicate create failed (${createRes.status}): ${errText.slice(0, 200)}`);
