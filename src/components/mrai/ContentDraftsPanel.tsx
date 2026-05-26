@@ -16,6 +16,7 @@ import {
   Bookmark,
   MessageSquare,
   TrendingUp,
+  Camera,
 } from "lucide-react";
 
 type Draft = {
@@ -28,6 +29,7 @@ type Draft = {
   cta_text: string | null;
   image_prompt: string | null;
   image_url: string | null;
+  image_urls: Array<{ url: string; frame_index: number; size: string }> | null;
   source: string;
   seo_title: string | null;
   seo_description: string | null;
@@ -200,6 +202,37 @@ function DraftCard({
   const [sampleSize, setSampleSize] = useState(30);
   const [simError, setSimError] = useState<string | null>(null);
   const score = draft.seo_score ?? null;
+  const [imageState, setImageState] = useState<{
+    image_url: string | null;
+    image_urls: Array<{ url: string; frame_index: number; size: string }>;
+  }>({
+    image_url: draft.image_url,
+    image_urls: draft.image_urls ?? [],
+  });
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+
+  const generateImages = async () => {
+    setGeneratingImage(true);
+    setImageError(null);
+    try {
+      const res = await fetch(`/api/mrai/content-drafts/${draft.id}/images`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "이미지 생성 실패");
+      setImageState({
+        image_url: json.draft.image_url,
+        image_urls: json.draft.image_urls ?? [],
+      });
+    } catch (e) {
+      setImageError(e instanceof Error ? e.message : "이미지 생성 실패");
+    } finally {
+      setGeneratingImage(false);
+    }
+  };
 
   // Load latest simulation when card mounts (lightweight — single row)
   useEffect(() => {
@@ -290,6 +323,66 @@ function DraftCard({
             )}
           </div>
         )}
+
+        {/* Image gallery (cover + carousel) */}
+        {imageState.image_url ? (
+          <div className="mb-3">
+            <div className="grid grid-cols-2 gap-1.5">
+              <div className="col-span-2">
+                <img
+                  src={imageState.image_url}
+                  alt="cover"
+                  className="w-full rounded-md border border-slate-200 object-cover aspect-square"
+                />
+                <div className="text-[10px] text-slate-400 mt-0.5">커버</div>
+              </div>
+              {imageState.image_urls.map((img, i) => (
+                <div key={img.url}>
+                  <img
+                    src={img.url}
+                    alt={`frame ${i + 2}`}
+                    className="w-full rounded-md border border-slate-200 object-cover aspect-square"
+                  />
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    프레임 {i + 2}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={generateImages}
+              disabled={generatingImage}
+              className="mt-1.5 text-[11px] text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+            >
+              {generatingImage ? "재생성 중…" : "🔄 이미지 재생성"}
+            </button>
+          </div>
+        ) : draft.image_prompt ? (
+          <div className="mb-3 rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3 flex items-center justify-between gap-3">
+            <div className="text-xs text-slate-600 flex-1 min-w-0">
+              <div className="flex items-center gap-1 text-slate-500 mb-0.5">
+                <Camera className="w-3 h-3" />
+                <span className="text-[10px] uppercase tracking-wider">이미지 프롬프트</span>
+              </div>
+              <div className="line-clamp-2">{draft.image_prompt}</div>
+            </div>
+            <button
+              type="button"
+              onClick={generateImages}
+              disabled={generatingImage}
+              className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-gradient-to-r from-violet-600 to-pink-500 text-white text-[11px] font-medium hover:from-violet-700 hover:to-pink-600 disabled:opacity-60"
+            >
+              {generatingImage ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Camera className="w-3 h-3" />
+              )}
+              {generatingImage ? "생성 중… (40-80초)" : "🖼 이미지 생성"}
+            </button>
+          </div>
+        ) : null}
+        {imageError && <p className="text-xs text-red-600 mb-2">{imageError}</p>}
 
         <p
           className={`text-sm text-slate-800 whitespace-pre-line leading-relaxed ${
