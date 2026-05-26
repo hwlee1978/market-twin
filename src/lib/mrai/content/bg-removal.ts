@@ -66,38 +66,53 @@ async function callReplicate(
   imageUrl: string,
   token: string,
 ): Promise<Buffer> {
-  // 429 backoff schedule — Replicate throttles new accounts to 6 req/min
-  // with burst of 1 when credit < $5. Generous waits accommodate that.
-  const BACKOFF_MS = [12_000, 22_000, 42_000];
+  // 429 backoff — Replicate throttles new/low-credit accounts. With
+  // $5+ credit the throttle should lift, but the cache can lag by a
+  // few minutes after a top-up. Generous schedule to ride that out.
+  const BACKOFF_MS = [12_000, 25_000, 50_000];
   let lastErr = "";
   let createRes: Response | null = null;
   let createBody = "";
+  let usedModel = "";
 
+  // Try each model; for each one, retry on 429. On other errors
+  // (404, 402, 500), move to next model immediately.
   modelLoop: for (const m of MODEL_CANDIDATES) {
     for (let attempt = 0; attempt <= BACKOFF_MS.length; attempt++) {
       const r = await tryModel(m.owner, m.name, imageUrl, token);
       if (r.res.ok) {
         createRes = r.res;
         createBody = r.body;
+        usedModel = `${m.owner}/${m.name}`;
         console.log(
-          `[bg-removal] using ${m.owner}/${m.name}${attempt > 0 ? ` (after ${attempt} retries)` : ""}`,
+          `[bg-removal] using ${usedModel}${attempt > 0 ? ` (after ${attempt} retries)` : ""}`,
         );
         break modelLoop;
       }
-      if (r.res.status === 429 && attempt < BACKOFF_MS.length) {
-        const waitMs = BACKOFF_MS[attempt];
+      if (r.res.status === 429) {
+        if (attempt < BACKOFF_MS.length) {
+          const waitMs = BACKOFF_MS[attempt];
+          console.log(
+            `[bg-removal] ${m.owner}/${m.name} 429 (attempt ${attempt + 1}/${BACKOFF_MS.length + 1}), waiting ${waitMs / 1000}s...`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, waitMs));
+          continue; // retry same model
+        }
+        // Exhausted retries on this model — try NEXT model (fixed bug:
+        // was `break modelLoop` which gave up entirely).
+        lastErr = `${m.owner}/${m.name}: 429 after ${BACKOFF_MS.length + 1} attempts`;
         console.log(
-          `[bg-removal] ${m.owner}/${m.name} rate-limited (429), waiting ${waitMs / 1000}s before retry...`,
+          `[bg-removal] ${m.owner}/${m.name} 429 exhausted — trying next model`,
         );
-        await new Promise((resolve) => setTimeout(resolve, waitMs));
-        continue; // retry same model
+        continue modelLoop;
       }
       if (r.res.status === 404) {
         lastErr = `${m.owner}/${m.name}: HTTP 404 (not found)`;
         continue modelLoop; // try next model
       }
       lastErr = `${m.owner}/${m.name}: HTTP ${r.res.status} — ${r.body.slice(0, 200)}`;
-      break modelLoop;
+      console.log(`[bg-removal] ${m.owner}/${m.name} failed: ${r.res.status} — trying next model`);
+      continue modelLoop;
     }
   }
   if (!createRes || !createRes.ok) {
