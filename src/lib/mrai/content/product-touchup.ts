@@ -39,7 +39,12 @@ export type TouchupResult = {
 
 type BBox = { x: number; y: number; width: number; height: number };
 
-async function detectProductBox(imageBuffer: Buffer): Promise<BBox | null> {
+export type TouchupSourceType = "product" | "ambassador";
+
+async function detectProductBox(
+  imageBuffer: Buffer,
+  sourceType: TouchupSourceType = "product",
+): Promise<BBox | null> {
   if (!process.env.ANTHROPIC_API_KEY) return null;
   const downsized = await sharp(imageBuffer)
     .resize(1024, 1024, { fit: "inside", withoutEnlargement: true })
@@ -56,13 +61,16 @@ async function detectProductBox(imageBuffer: Buffer): Promise<BBox | null> {
 
   const base64 = downsized.toString("base64");
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const detectSystem =
+    sourceType === "ambassador"
+      ? "You output the bounding box covering the ENTIRE PERSON in the image, including their head, body, arms, legs, AND any product (shoes, clothing, accessories) they are wearing. The bbox must include head-to-toe — the person + everything they wear is the subject to preserve. Respond with JSON only: {\"x\": number, \"y\": number, \"width\": number, \"height\": number} in pixels. If multiple people visible, pick the dominant one. If no person, return all zeros."
+      : "You output the bounding box of the MAIN product in the image. Respond with JSON only: {\"x\": number, \"y\": number, \"width\": number, \"height\": number} in pixels. The box should tightly enclose the product (no big margins). If multiple products visible, pick the largest/most central one. If no clear product, return all zeros.";
   let resp;
   try {
     resp = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 300,
-      system:
-        "You output the bounding box of the MAIN product in the image. Respond with JSON only: {\"x\": number, \"y\": number, \"width\": number, \"height\": number} in pixels. The box should tightly enclose the product (no big margins). If multiple products visible, pick the largest/most central one. If no clear product, return all zeros.",
+      system: detectSystem,
       messages: [
         {
           role: "user",
@@ -147,6 +155,7 @@ async function buildPreservationMask(
 
 export async function touchupProductImage(input: {
   sourceImageUrl: string;
+  sourceType?: TouchupSourceType;
   scenePrompt: string;
   outputSize: "1024x1024" | "1024x1536" | "1536x1024";
   quality: "low" | "medium" | "high";
@@ -194,7 +203,7 @@ export async function touchupProductImage(input: {
   let maskBuffer: Buffer | null = null;
   let maskSource: "vision" | "fallback" | "none" = "none";
   if (input.useMask !== false) {
-    const bbox = await detectProductBox(sourceBuffer);
+    const bbox = await detectProductBox(sourceBuffer, input.sourceType ?? "product");
     if (bbox) {
       // ZERO padding — the bbox already includes the full subject
       // (vision returned tight bounds). Any extra padding gave the

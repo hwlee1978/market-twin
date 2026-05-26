@@ -172,13 +172,28 @@ function buildFramePrompt(
         `Cover frame for a ${spec.label} carousel. Place the input product centered on a clean uncluttered background. NO people. Scene context: ${basePrompt}`,
       );
     } else {
-      const sceneRoles = [
-        "Close-up scene around the input product — minimal background, hint of material/surface around the product. NO people.",
-        "Lifestyle scene — the input product placed in a real outdoor environment (street, cafe sidewalk, pavement) as if someone just stepped out of frame. Visible lower legs cropped at the calf maximum are OK. NO face, NO torso, NO head visible.",
-        "Different background angle — same product, fresh background composition. NO people.",
-        "Hero pure-color background composition around the input product. NO people.",
-        "Place the input product alongside one complementary object (shoebox, plant). NO people.",
-      ];
+      // Pick scene roles based on what's in the input:
+      // - Ambassador source → person is being preserved, so lifestyle
+      //   role can keep face/figure visible. Just regenerate the
+      //   environment around them (street/cafe/park/etc.).
+      // - Product source → no person in input, so prompts mandate "NO
+      //   people" so model doesn't invent one.
+      const sceneRoles =
+        hasAmbassadorReference
+          ? [
+              "Close-up scene context — softly blurred environment around the person/product. Keep the input subject unchanged.",
+              "Lifestyle scene — preserve the input person and product exactly as shown. Only the BACKGROUND environment (street, cafe, park, indoor space, etc.) regenerates to match the scene direction.",
+              "Different background environment — same input subject, fresh outdoor or indoor location.",
+              "Clean studio-like background around the input subject — neutral seamless backdrop.",
+              "Input subject in an environment with one complementary contextual element (window, plant, bench).",
+            ]
+          : [
+              "Close-up scene around the input product — minimal background, hint of material/surface around the product. NO people.",
+              "Lifestyle scene — the input product placed in a real outdoor environment (street, cafe sidewalk, pavement) as if someone just stepped out of frame. Visible lower legs cropped at the calf maximum are OK. NO face, NO torso, NO head visible.",
+              "Different background angle — same product, fresh background composition. NO people.",
+              "Hero pure-color background composition around the input product. NO people.",
+              "Place the input product alongside one complementary object (shoebox, plant). NO people.",
+            ];
       parts.push(
         `Carousel frame ${frameIndex + 1} of ${totalFrames}. ${sceneRoles[(frameIndex - 1) % sceneRoles.length]} Scene context: ${basePrompt}`,
       );
@@ -594,6 +609,7 @@ export async function generateImagesForDraft(input: {
       try {
         const tr = await touchupProductImage({
           sourceImageUrl: sourceUrl,
+          sourceType: touchupSourceType ?? "product",
           scenePrompt: touchupPrompt,
           outputSize: size,
           // Force high quality in touchup mode — better detail
