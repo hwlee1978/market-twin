@@ -17,6 +17,7 @@ import {
   MessageSquare,
   TrendingUp,
   Camera,
+  RefreshCw,
 } from "lucide-react";
 
 type Draft = {
@@ -41,6 +42,7 @@ type Draft = {
         cta_text?: string | null;
         seo_title?: string | null;
         seo_description?: string | null;
+        image_prompt?: string | null;
       };
     };
   } | null;
@@ -233,6 +235,13 @@ function DraftCard({
   const [generatingImage, setGeneratingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [frameBusy, setFrameBusy] = useState<number | null>(null);
+  const [promptModalOpen, setPromptModalOpen] = useState(false);
+  // Local override of image_prompt so the modal can refresh it inline
+  // without having to fully refetch the draft.
+  const [livePrompt, setLivePrompt] = useState({
+    en: draft.image_prompt ?? "",
+    ko: draft.seo_meta?.translations?.ko?.image_prompt ?? "",
+  });
 
   const generateImages = async () => {
     setGeneratingImage(true);
@@ -387,17 +396,24 @@ function DraftCard({
           </div>
         ) : draft.image_prompt ? (
           <div className="mb-3 rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-start justify-between gap-3">
               <div className="text-xs text-slate-600 flex-1 min-w-0">
                 <div className="flex items-center gap-1 text-slate-500 mb-0.5">
                   <Camera className="w-3 h-3" />
                   <span className="text-[10px] uppercase tracking-wider">이미지 프롬프트</span>
                 </div>
-                <div className="line-clamp-2">{draft.image_prompt}</div>
+                <div className="whitespace-pre-line leading-snug">
+                  {livePrompt.en || draft.image_prompt}
+                </div>
+                {livePrompt.ko && (
+                  <div className="mt-1.5 pl-2 border-l-2 border-slate-200 text-[11px] text-slate-500 whitespace-pre-line leading-snug">
+                    ↳ {livePrompt.ko}
+                  </div>
+                )}
               </div>
               <button
                 type="button"
-                onClick={generateImages}
+                onClick={() => setPromptModalOpen(true)}
                 disabled={generatingImage}
                 className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-gradient-to-r from-violet-600 to-pink-500 text-white text-[11px] font-medium hover:from-violet-700 hover:to-pink-600 disabled:opacity-60"
               >
@@ -476,13 +492,10 @@ function DraftCard({
               )}
             </span>
           )}
-          {draft.image_prompt && (
-            <span
-              className="inline-flex items-center gap-1 text-slate-600 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded max-w-md truncate"
-              title={draft.image_prompt}
-            >
-              <ImageIcon className="w-3 h-3" /> {draft.image_prompt.slice(0, 60)}
-              {draft.image_prompt.length > 60 ? "…" : ""}
+          {draft.image_prompt && expanded && (
+            <span className="inline-flex items-start gap-1 text-slate-600 bg-slate-50 border border-slate-200 px-1.5 py-1 rounded text-[11px] leading-snug w-full">
+              <ImageIcon className="w-3 h-3 shrink-0 mt-0.5" />
+              <span className="whitespace-pre-line">{draft.image_prompt}</span>
             </span>
           )}
           {draft.seo_keywords && draft.seo_keywords.length > 0 && (
@@ -557,7 +570,187 @@ function DraftCard({
 
         {latestSim && <SimulationResults sim={latestSim} expanded={expanded} />}
       </div>
+
+      {promptModalOpen && (
+        <ImagePromptPreviewModal
+          draftId={draft.id}
+          initialEn={livePrompt.en || draft.image_prompt || ""}
+          initialKo={
+            livePrompt.ko ||
+            draft.seo_meta?.translations?.ko?.image_prompt ||
+            ""
+          }
+          onClose={() => setPromptModalOpen(false)}
+          onUpdated={(p) => setLivePrompt(p)}
+          onGenerate={async () => {
+            setPromptModalOpen(false);
+            await generateImages();
+          }}
+          busy={generatingImage}
+        />
+      )}
     </li>
+  );
+}
+
+function ImagePromptPreviewModal({
+  draftId,
+  initialEn,
+  initialKo,
+  onClose,
+  onUpdated,
+  onGenerate,
+  busy,
+}: {
+  draftId: string;
+  initialEn: string;
+  initialKo: string;
+  onClose: () => void;
+  onUpdated: (p: { en: string; ko: string }) => void;
+  onGenerate: () => void | Promise<void>;
+  busy: boolean;
+}) {
+  const [en, setEn] = useState(initialEn);
+  const [ko, setKo] = useState(initialKo);
+  const [refreshing, setRefreshing] = useState(false);
+  const [userHint, setUserHint] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+
+  const refresh = async () => {
+    setRefreshing(true);
+    setErr(null);
+    try {
+      const res = await fetch(
+        `/api/mrai/content-drafts/${draftId}/image-prompt/refresh`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            user_hint: userHint.trim() || undefined,
+          }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.detail ?? json.error ?? "새로고침 실패");
+      setEn(json.image_prompt);
+      setKo(json.image_prompt_ko);
+      onUpdated({ en: json.image_prompt, ko: json.image_prompt_ko });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "새로고침 실패");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+            <Camera className="w-4 h-4 text-violet-600" />
+            이미지 프롬프트 미리보기
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={refreshing || busy}
+            className="text-slate-400 hover:text-slate-700 disabled:opacity-50"
+          >
+            <CloseX className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+              한국어 (미리보기)
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 whitespace-pre-line leading-relaxed">
+              {ko || "(번역 없음 — 새로고침으로 생성)"}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+              English (실제 AI에 전달)
+            </div>
+            <textarea
+              value={en}
+              onChange={(e) => {
+                setEn(e.target.value);
+                onUpdated({ en: e.target.value, ko });
+              }}
+              rows={5}
+              className="w-full text-xs border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-700 leading-relaxed resize-y font-mono"
+            />
+            <p className="text-[10px] text-slate-400 mt-1">
+              직접 수정 가능. 저장 별도 없음 — 아래 "생성" 누르면 이 텍스트로 이미지 생성.
+            </p>
+          </div>
+
+          <div className="rounded-md border border-violet-200 bg-violet-50/40 p-3">
+            <div className="text-[10px] uppercase tracking-wider text-violet-700 mb-1.5">
+              🔄 다른 프롬프트로 새로고침 (선택)
+            </div>
+            <input
+              value={userHint}
+              onChange={(e) => setUserHint(e.target.value)}
+              placeholder="추가 지시 (선택) — '더 어두운 톤' / '미니멀 스튜디오' / 'NYC 거리 씬'"
+              disabled={refreshing || busy}
+              className="w-full text-xs border border-violet-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 mb-2"
+            />
+            <button
+              type="button"
+              onClick={refresh}
+              disabled={refreshing || busy}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-violet-600 text-white text-[11px] font-medium hover:bg-violet-700 disabled:opacity-60"
+            >
+              {refreshing ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3 h-3" />
+              )}
+              {refreshing ? "프롬프트 생성 중…" : "🔄 다른 프롬프트 생성"}
+            </button>
+          </div>
+
+          {err && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 px-2 py-1.5 rounded">
+              {err}
+            </p>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={refreshing || busy}
+            className="text-sm text-slate-600 hover:text-slate-900 disabled:opacity-50"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onUpdated({ en, ko });
+              void onGenerate();
+            }}
+            disabled={refreshing || busy || en.trim().length < 5}
+            className="inline-flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-pink-500 text-white text-sm px-3 py-1.5 rounded-md hover:from-violet-700 hover:to-pink-600 disabled:opacity-60"
+          >
+            {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {busy ? "이미지 생성 중…" : "📷 이 프롬프트로 이미지 생성"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

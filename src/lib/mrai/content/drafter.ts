@@ -200,6 +200,7 @@ ${variantStrategies.join("\n")}
 - hashtags (배열, 플랫폼 max 이하)
 - cta_text (없으면 빈 문자열)
 - image_prompt (이미지 생성용 영문 프롬프트 — 스타일 + 구도 + 톤. ⚠️ 소재 기술명(H1-TEX, Gore-Tex 등)이나 인증명(RWS, OEKO-TEX 등)을 이미지에 텍스트로 넣지 말 것. 시각적 디테일만 묘사 — 예: "merino wool knit close-up showing fiber direction" OK, "with 'H1-TEX' badge visible" 금지.)
+- image_prompt_ko (위 image_prompt의 한국어 번역 — 사용자가 이미지 생성 전에 미리보기 확인용. 자연스러운 한국어, 영문 그대로 두지 말 것.)
 - seo_title (≤60자 / YouTube/Naver/SmartStore면 필수, 다른 곳은 빈 문자열 가능)
 - seo_description (≤160자 / Naver/YouTube에서 SERP에 노출)
 - seo_keywords (이 콘텐츠로 노릴 primary + secondary 키워드 3-7개)
@@ -245,6 +246,7 @@ ${variantStrategies.join("\n")}
               cta_text: { type: "string", maxLength: 200 },
               cta_text_ko: { type: ["string", "null"], maxLength: 200 },
               image_prompt: { type: "string", maxLength: 500 },
+              image_prompt_ko: { type: ["string", "null"], maxLength: 500 },
               seo_title: { type: "string", maxLength: 120 },
               seo_title_ko: { type: ["string", "null"], maxLength: 120 },
               seo_description: { type: "string", maxLength: 300 },
@@ -284,6 +286,14 @@ ${variantStrategies.join("\n")}
     const ctaKoRaw = typeof v.cta_text_ko === "string" ? v.cta_text_ko : null;
     const ctaKo = ctaKoRaw && ctaKoRaw.trim() && ctaKoRaw.trim() !== cta ? ctaKoRaw.trim() : null;
     const imagePrompt = typeof v.image_prompt === "string" ? v.image_prompt : null;
+    const imagePromptKoRaw =
+      (v as { image_prompt_ko?: unknown }).image_prompt_ko;
+    const imagePromptKo =
+      typeof imagePromptKoRaw === "string" &&
+      imagePromptKoRaw.trim() &&
+      imagePromptKoRaw.trim() !== imagePrompt
+        ? imagePromptKoRaw.slice(0, 500)
+        : null;
     const seoTitle = typeof v.seo_title === "string" ? v.seo_title : null;
     const seoTitleKoRaw = typeof v.seo_title_ko === "string" ? v.seo_title_ko : null;
     const seoTitleKo =
@@ -310,13 +320,14 @@ ${variantStrategies.join("\n")}
     // carries them without a schema migration (mrai_content_drafts has
     // only single-language columns).
     const seoMeta: Record<string, unknown> = { ...seoMetaRaw };
-    if (bodyKo || ctaKo || seoTitleKo || seoDescriptionKo) {
+    if (bodyKo || ctaKo || seoTitleKo || seoDescriptionKo || imagePromptKo) {
       seoMeta.translations = {
         ko: {
           body_text: bodyKo,
           cta_text: ctaKo,
           seo_title: seoTitleKo,
           seo_description: seoDescriptionKo,
+          image_prompt: imagePromptKo,
         },
       };
     }
