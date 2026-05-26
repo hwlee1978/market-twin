@@ -3,6 +3,7 @@ import { toFile } from "openai/uploads";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getPlatformSpec, type Platform } from "./platform-rules";
 import { compositeLogoOnImage } from "./composite-logo";
+import { detectLogoPlacement } from "./logo-placement";
 
 /**
  * Image generator — Sprint 4 of Phase 9.
@@ -86,7 +87,7 @@ function buildFramePrompt(
 
   if (hasReferences) {
     parts.push(
-      "Use the attached reference photos as the authoritative source for product appearance (silhouette, color, material). DO NOT invent a different product. The generated image must look like the SAME product as the references, just in a different scene / angle / framing.",
+      "PRODUCT FIDELITY (CRITICAL): The first 1-2 reference photos show the EXACT real product. The product in your output MUST match those references in: silhouette outline, upper material/texture (felted wool? leather? mesh?), lace placement and count, eyelet positions, sole shape and thickness, stitching pattern, color/colorway. DO NOT generalize to a different sneaker style. DO NOT switch to a different colorway. DO NOT change the silhouette. Treat the references as a strict blueprint — the only freedom you have is scene / angle / framing / lighting / model wearing it.",
     );
   }
   if (hasAmbassadorReference) {
@@ -183,6 +184,9 @@ export type ImageGenSettings = {
   logo_opacity: number;
   logo_with_backdrop: boolean;
   logo_composite_enabled: boolean;
+  /** product_surface = Vision-detect + place on product naturally.
+   *  corner_watermark = fixed bottom-right (cheap, reliable). */
+  logo_placement_mode: "product_surface" | "corner_watermark";
   prompt_strictness: "creative" | "balanced" | "strict";
   quality: "low" | "medium" | "high";
 };
@@ -194,6 +198,7 @@ const DEFAULT_SETTINGS: ImageGenSettings = {
   logo_opacity: 1.0,
   logo_with_backdrop: true,
   logo_composite_enabled: true,
+  logo_placement_mode: "product_surface",
   prompt_strictness: "strict",
   quality: "medium",
 };
@@ -228,7 +233,10 @@ export async function generateImagesForDraft(input: {
   const size = aspectFor(input.platform);
   const totalFrames = Math.min(Math.max(input.frameCount, 1), 7);
   const settings: ImageGenSettings = { ...DEFAULT_SETTINGS, ...input.settings };
-  const refs = (input.references ?? []).slice(0, 4); // cap to 4 to stay under gpt-image-1's input budget
+  // Cap at 5 here so caller can include logo (filtered out below for
+  // model input) without losing a non-logo slot. Effective gpt-image-1
+  // input is still ≤4 after logo filter.
+  const refs = (input.references ?? []).slice(0, 5);
 
   const logoRef = refs.find((r) => r.asset_type === "logo");
   // Logo is HANDLED ENTIRELY BY POST-PRODUCTION COMPOSITE (sharp overlay).
@@ -327,16 +335,47 @@ export async function generateImagesForDraft(input: {
     // real logo PNG on top).
     if (logoBufferForComposite) {
       try {
+        let explicit:
+          | { x: number; y: number; width: number; height?: number; rotation_deg?: number }
+          | undefined;
+        if (settings.logo_placement_mode === "product_surface") {
+          // Run vision detection on the AI-generated frame.
+          const placement = await detectLogoPlacement(finalBuffer);
+          if (placement.found && (placement.confidence ?? 0) >= 0.55) {
+            explicit = {
+              x: placement.x!,
+              y: placement.y!,
+              width: placement.width!,
+              height: placement.height,
+              rotation_deg: placement.rotation_deg,
+            };
+            console.log(
+              `[image-gen] vision placed logo on frame ${i}: ${placement.location} ` +
+                `(${placement.x},${placement.y}) ${placement.width}×${placement.height} ` +
+                `rot=${placement.rotation_deg}° conf=${placement.confidence}`,
+            );
+          } else {
+            console.warn(
+              `[image-gen] vision detect failed/low-conf on frame ${i} — falling back to corner watermark. notes=${placement.notes}`,
+            );
+          }
+        }
         finalBuffer = await compositeLogoOnImage(
           finalBuffer,
           { buffer: logoBufferForComposite },
-          {
-            position: settings.logo_position,
-            size_pct: settings.logo_size_pct,
-            opacity: settings.logo_opacity,
-            padding_pct: settings.logo_padding_pct,
-            with_backdrop: settings.logo_with_backdrop,
-          },
+          explicit
+            ? {
+                opacity: settings.logo_opacity,
+                with_backdrop: false,
+                explicit,
+              }
+            : {
+                position: settings.logo_position,
+                size_pct: settings.logo_size_pct,
+                opacity: settings.logo_opacity,
+                padding_pct: settings.logo_padding_pct,
+                with_backdrop: settings.logo_with_backdrop,
+              },
         );
       } catch (e) {
         // Composite failure should never break the whole generation —

@@ -10,6 +10,7 @@ type Settings = {
   logo_opacity: number;
   logo_with_backdrop: boolean;
   logo_composite_enabled: boolean;
+  logo_placement_mode: "product_surface" | "corner_watermark";
   prompt_strictness: "creative" | "balanced" | "strict";
   quality: "low" | "medium" | "high";
 };
@@ -116,7 +117,9 @@ export function ImageGenSettingsPanel() {
         {settings && (
           <div className="shrink-0 text-[10px] text-slate-500 text-right hidden sm:block">
             {settings.logo_composite_enabled
-              ? `로고 ${POSITIONS.find((p) => p.value === settings.logo_position)?.emoji} ${settings.logo_size_pct}%`
+              ? settings.logo_placement_mode === "product_surface"
+                ? "로고 🎯 제품 표면"
+                : `로고 ${POSITIONS.find((p) => p.value === settings.logo_position)?.emoji} ${settings.logo_size_pct}%`
               : "로고 합성 OFF"}
             <br />
             품질 {settings.quality} · {settings.prompt_strictness}
@@ -148,7 +151,43 @@ export function ImageGenSettingsPanel() {
               <div className="space-y-3">
                 <div>
                   <label className="text-[10px] uppercase tracking-wider text-slate-500 block mb-1">
-                    위치
+                    배치 모드
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => patch({ logo_placement_mode: "product_surface" })}
+                      className={`text-xs py-2 px-2 rounded border text-left ${
+                        settings.logo_placement_mode === "product_surface"
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="font-semibold">🎯 제품 표면 (권장)</div>
+                      <div className="text-[10px] opacity-75 leading-snug mt-0.5">
+                        Vision이 신발 텅/사이드 감지 → 정확 합성. +$0.005/장
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => patch({ logo_placement_mode: "corner_watermark" })}
+                      className={`text-xs py-2 px-2 rounded border text-left ${
+                        settings.logo_placement_mode === "corner_watermark"
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="font-semibold">📌 코너 워터마크</div>
+                      <div className="text-[10px] opacity-75 leading-snug mt-0.5">
+                        고정 위치 (아래 선택). 무료, 100% 확정 위치.
+                      </div>
+                    </button>
+                  </div>
+                </div>
+                {settings.logo_placement_mode === "corner_watermark" && (
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-slate-500 block mb-1">
+                    워터마크 위치
                   </label>
                   <div className="grid grid-cols-5 gap-1.5">
                     {POSITIONS.map((p) => (
@@ -167,6 +206,7 @@ export function ImageGenSettingsPanel() {
                     ))}
                   </div>
                 </div>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <RangeInput
                     label="크기 (% 폭)"

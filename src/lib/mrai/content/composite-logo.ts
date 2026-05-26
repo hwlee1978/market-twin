@@ -28,6 +28,14 @@ export type CompositeOptions = {
   opacity?: number;       // 0-1 (default 1.0 — fully visible)
   padding_pct?: number;  // 0-100, padding from edge as % of base image width (default 4)
   with_backdrop?: boolean; // soft white/dark rounded rectangle behind logo for readability
+  /** When set, ignore position/size_pct/padding_pct and place at explicit pixels. */
+  explicit?: {
+    x: number;             // top-left x in base-image pixels
+    y: number;
+    width: number;         // logo width in base-image pixels
+    height?: number;       // optional; preserves aspect if omitted
+    rotation_deg?: number; // optional rotation
+  };
 };
 
 export async function compositeLogoOnImage(
@@ -59,13 +67,26 @@ export async function compositeLogoOnImage(
   const baseH = baseMeta.height ?? 1024;
 
   // Resize logo + ensure RGBA. For partial opacity multiply alpha channel.
-  const targetLogoW = Math.max(60, Math.round((baseW * sizePct) / 100));
+  const targetLogoW = opts.explicit
+    ? Math.max(20, Math.round(opts.explicit.width))
+    : Math.max(60, Math.round((baseW * sizePct) / 100));
   let logoPipeline = sharp(logoBuf)
     .ensureAlpha()
-    .resize(targetLogoW, null, {
-      fit: "inside",
-      withoutEnlargement: false,
+    .resize(
+      targetLogoW,
+      opts.explicit?.height ? Math.round(opts.explicit.height) : null,
+      {
+        fit: opts.explicit?.height ? "fill" : "inside",
+        withoutEnlargement: false,
+      },
+    );
+  // Optional rotation for product-surface placement (slight angle when
+  // surface plane is rotated in 3D — vision detector reports this).
+  if (opts.explicit?.rotation_deg && Math.abs(opts.explicit.rotation_deg) > 0.5) {
+    logoPipeline = logoPipeline.rotate(opts.explicit.rotation_deg, {
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
     });
+  }
 
   // Multiply alpha by opacity when < 1.0
   if (opacity < 0.99) {
@@ -84,38 +105,47 @@ export async function compositeLogoOnImage(
   const logoW = logoMeta.width ?? targetLogoW;
   const logoH = logoMeta.height ?? targetLogoW;
 
-  // Position
-  const pad = Math.round((baseW * paddingPct) / 100);
+  // Position — explicit pixel coords take priority over named anchor
   let top: number;
   let left: number;
-  switch (position) {
-    case "top-left":
-      top = pad;
-      left = pad;
-      break;
-    case "top-right":
-      top = pad;
-      left = baseW - logoW - pad;
-      break;
-    case "bottom-left":
-      top = baseH - logoH - pad;
-      left = pad;
-      break;
-    case "center":
-      top = Math.round((baseH - logoH) / 2);
-      left = Math.round((baseW - logoW) / 2);
-      break;
-    case "bottom-right":
-    default:
-      top = baseH - logoH - pad;
-      left = baseW - logoW - pad;
-      break;
+  if (opts.explicit) {
+    // Clamp so logo stays within bounds even if vision over-shoots
+    left = Math.max(0, Math.min(baseW - logoW, Math.round(opts.explicit.x)));
+    top = Math.max(0, Math.min(baseH - logoH, Math.round(opts.explicit.y)));
+  } else {
+    const pad = Math.round((baseW * paddingPct) / 100);
+    switch (position) {
+      case "top-left":
+        top = pad;
+        left = pad;
+        break;
+      case "top-right":
+        top = pad;
+        left = baseW - logoW - pad;
+        break;
+      case "bottom-left":
+        top = baseH - logoH - pad;
+        left = pad;
+        break;
+      case "center":
+        top = Math.round((baseH - logoH) / 2);
+        left = Math.round((baseW - logoW) / 2);
+        break;
+      case "bottom-right":
+      default:
+        top = baseH - logoH - pad;
+        left = baseW - logoW - pad;
+        break;
+    }
   }
 
   // Optional backdrop — soft rounded rectangle behind logo for legibility
   // on busy backgrounds. Use a white-translucent pad scaled to the logo.
+  // Skip backdrop when placing on the product surface itself (would look
+  // like a sticker rather than a printed/embroidered logo).
   const overlays: sharp.OverlayOptions[] = [];
-  if (withBackdrop) {
+  const shouldUseBackdrop = withBackdrop && !opts.explicit;
+  if (shouldUseBackdrop) {
     const padX = Math.round(logoW * 0.15);
     const padY = Math.round(logoH * 0.25);
     const bgW = logoW + padX * 2;

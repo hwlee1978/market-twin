@@ -96,32 +96,36 @@ export async function POST(
     asset_type: string;
     label: string | null;
   }>;
-  // Priority for the 4-slot reference set, in marketing-effect order:
-  //   1. Ambassador (contracted celebrity/model) — face MUST appear in
-  //      output. User explicitly flagged this as the highest-leverage
-  //      asset: "광고 계약된 연예인이 expose되면 더 효과 있음".
-  //   2. Logo — brand mark must appear on the product.
-  //   3. Product — silhouette/colorway reference.
-  //   4. Lifestyle or packaging — for scene continuity.
+  // Priority for the 4-slot reference set (gpt-image-1 input budget).
+  // Logo is intentionally NOT in image-edit refs — sharp composite
+  // handles it post-production. The mix below balances product
+  // accuracy with marketing-effect:
   //
-  // Up to 2 ambassador refs allowed when available (one face shot +
-  // one full-body), then 1 logo, 1 product. Falls back through queue
-  // when buckets are empty.
+  //   1. PRODUCT (2 refs) — primary signal so the model preserves the
+  //      actual product silhouette / colorway / stitching. Mixing too
+  //      many other types diluted this (user reported generated shoes
+  //      didn't match real product).
+  //   2. AMBASSADOR (1 ref) — preserves contracted celebrity face when
+  //      a lifestyle frame is being rendered.
+  //   3. LIFESTYLE or PACKAGING (1 ref) — scene continuity.
+  //
+  // Two products ahead of one ambassador because the model treats the
+  // first reference as anchor and we want product fidelity to anchor.
   const pickFrom = (type: string, n: number) =>
     allRefs.filter((r) => r.asset_type === type).slice(0, n);
-  const ambassadors = pickFrom("ambassador", 2);
-  const logos = pickFrom("logo", 1);
-  const products = pickFrom("product", ambassadors.length >= 2 ? 1 : 2);
+  const products = pickFrom("product", 2);
+  const ambassadors = pickFrom("ambassador", 1);
   const lifestyle = pickFrom("lifestyle", 1);
   const packaging = pickFrom("packaging", 1);
+  const logos = pickFrom("logo", 1); // still passed; image-gen excludes from model input
   let references = [
-    ...ambassadors,
-    ...logos,
     ...products,
+    ...ambassadors,
     ...lifestyle,
     ...packaging,
-  ].slice(0, 4);
-  if (references.length === 0) references = allRefs.slice(0, 4);
+    ...logos,
+  ].slice(0, 5);
+  if (references.length === 0) references = allRefs.slice(0, 5);
 
   const userSettings = await loadImageGenSettings(wsCtx.workspaceId);
 
