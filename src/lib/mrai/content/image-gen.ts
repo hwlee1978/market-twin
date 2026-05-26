@@ -10,6 +10,7 @@ import {
   type ProductProfile,
 } from "./product-profile";
 import { pickSourceForFrame, touchupProductImage } from "./product-touchup";
+import { strictCompositeImage } from "./strict-composite";
 
 /**
  * Image generator — Sprint 4 of Phase 9.
@@ -585,10 +586,10 @@ export async function generateImagesForDraft(input: {
     if (useTouchup) {
       const sourcePool =
         touchupSourceType === "ambassador" ? ambassadorPhotos : productPhotos;
-      const sourceUrl = pickSourceForFrame(
-        sourcePool.map((p) => ({ image_url: p.image_url })),
-        i,
-      )!;
+      const sourceIdx = i % Math.max(1, sourcePool.length);
+      const sourceAsset = sourcePool[sourceIdx];
+      const sourceUrl = sourceAsset?.image_url;
+      if (!sourceUrl) continue;
       const sourceLabel =
         touchupSourceType === "ambassador" ? "AMBASSADOR" : "PRODUCT";
       // Build touchup-mode prompt — skips product description (the
@@ -606,6 +607,60 @@ export async function generateImagesForDraft(input: {
         productProfile,
         true, // touchupMode
       );
+
+      // ─── STRICT COMPOSITE — preferred path when REPLICATE_API_TOKEN
+      // is configured. bg-removal + sharp paste = 100% subject fidelity
+      // (the only reliable way to keep 윤아's face / exact product).
+      // gpt-image-1.edit + mask alone is too lenient and recomposes the
+      // subject. If bg-removal fails, falls through to mask-edit.
+      try {
+        const sc = await strictCompositeImage({
+          sourceImageUrl: sourceUrl,
+          sourceAssetId: sourceAsset.id,
+          workspaceId: input.workspaceId,
+          scenePrompt: touchupPrompt,
+          outputSize: size,
+          quality: settings.quality,
+          logoBuffer: logoBufferForComposite,
+          logoOpts: {
+            position: settings.logo_position,
+            size_pct: settings.logo_size_pct,
+            padding_pct: settings.logo_padding_pct,
+            opacity: settings.logo_opacity,
+            with_backdrop: settings.logo_with_backdrop,
+          },
+        });
+        if (sc && sc.used_strict) {
+          usedReferenceIds.add(sourceAsset.id);
+          const uploaded = await uploadToStorage(
+            sc.buffer,
+            input.workspaceId,
+            input.draftId,
+            i,
+          );
+          images.push({
+            url: uploaded.url,
+            path: uploaded.path,
+            frame_index: i,
+            size,
+          });
+          console.log(
+            `[image-gen] ✅ STRICT-COMPOSITE frame ${i} [${sourceLabel}] source=...${sourceUrl.slice(-40)}`,
+          );
+          continue;
+        }
+        if (!sc) {
+          console.log(
+            `[image-gen] strict-composite unavailable (REPLICATE_API_TOKEN missing or bg-removal failed) — falling back to mask-edit for frame ${i}`,
+          );
+        }
+      } catch (e) {
+        console.warn(
+          `[image-gen] strict-composite failed for frame ${i}, falling back to mask-edit:`,
+          e instanceof Error ? e.message : e,
+        );
+      }
+
       try {
         const tr = await touchupProductImage({
           sourceImageUrl: sourceUrl,
