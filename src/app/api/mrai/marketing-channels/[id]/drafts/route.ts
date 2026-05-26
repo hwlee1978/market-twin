@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { runContentDrafter } from "@/lib/mrai/content/drafter";
+import { defaultFrameCountForPlatform } from "@/lib/mrai/content/image-gen";
 import { loadWorkspaceMemories } from "@/lib/mrai/memory";
 
 export const dynamic = "force-dynamic";
@@ -109,6 +110,9 @@ export async function POST(
       campaignLabel: parsed.data.campaignLabel,
       goal: parsed.data.goal,
       variantCount: parsed.data.variantCount ?? 3,
+      // Tell the drafter the actual frame count image-gen will produce
+      // so image_prompt's described frame count matches reality.
+      frameCount: defaultFrameCountForPlatform(channel.platform),
       locale: parsed.data.locale ?? "ko",
       brandContext: brandContext || undefined,
     });

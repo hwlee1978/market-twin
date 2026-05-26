@@ -50,6 +50,10 @@ export type DrafterInput = {
   campaignLabel?: string | null;
   goal?: string | null;
   variantCount?: number;       // default 3 (A/B/C)
+  /** Number of carousel/detail frames the image generator will produce.
+   * Injected into the image_prompt so prompt-described count matches
+   * actual output (no more "7-frame" prompt but 4 generated images). */
+  frameCount?: number;
   locale?: Locale;             // default 'ko'
   brandContext?: string;       // arbitrary extra context from memories
 };
@@ -178,6 +182,11 @@ export async function runContentDrafter(input: DrafterInput): Promise<DrafterRes
           "E: 감각형 — 감각/질감 묘사로 시작",
         ].slice(0, variantCount);
 
+  const frameCount = input.frameCount;
+  const frameSpec = frameCount
+    ? `\n# Image carousel target\n이미지 생성기는 정확히 **${frameCount}장**을 만듭니다. image_prompt에 frame 수를 묘사할 때 반드시 "${frameCount}-frame"으로 작성 (5-7 같은 추정 범위 쓰지 말 것). 각 frame 역할도 ${frameCount}장 기준으로 묘사.\n`
+    : "";
+
   const prompt = `# Topic
 ${input.topic}
 
@@ -187,6 +196,7 @@ ${channelBlock}
 
 # Platform spec (MUST follow)
 ${specBlock}
+${frameSpec}
 
 ${input.brandContext ? `# Brand context\n${input.brandContext}\n` : ""}
 # Variants to produce (${variantCount}개)

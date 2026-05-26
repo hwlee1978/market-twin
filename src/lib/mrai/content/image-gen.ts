@@ -795,7 +795,11 @@ export async function generateImagesForDraft(input: {
 
 export function defaultFrameCountForPlatform(platform: string): number {
   const p = platform as Platform;
-  if (p === "instagram") return 4;       // cover + 3 details (user's choice)
+  // Instagram industry standard for carousel posts is 5-7 frames
+  // (cover + 4-6 details). User originally requested 4 but the drafter's
+  // platform spec hints at 5-7, so the prompt described "7-frame" while
+  // generation only made 4 — confusing. Bumped to 6 as a middle ground.
+  if (p === "instagram") return 6;
   if (p === "naver_blog") return 4;       // cover + 3 inline
   if (p === "naver_smartstore") return 5; // main + 4 detail
   if (p === "tiktok" || p === "youtube") return 1; // thumbnail only
