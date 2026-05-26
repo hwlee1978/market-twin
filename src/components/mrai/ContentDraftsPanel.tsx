@@ -243,14 +243,18 @@ function DraftCard({
     ko: draft.seo_meta?.translations?.ko?.image_prompt ?? "",
   });
 
-  const generateImages = async () => {
+  const generateImages = async (frameCountOverride?: number) => {
     setGeneratingImage(true);
     setImageError(null);
     try {
       const res = await fetch(`/api/mrai/content-drafts/${draft.id}/images`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify(
+          frameCountOverride
+            ? { frameCount: frameCountOverride }
+            : {},
+        ),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "이미지 생성 실패");
@@ -387,7 +391,7 @@ function DraftCard({
             </div>
             <button
               type="button"
-              onClick={generateImages}
+              onClick={() => void generateImages()}
               disabled={generatingImage || frameBusy !== null}
               className="mt-1.5 text-[11px] text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
             >
@@ -574,6 +578,7 @@ function DraftCard({
       {promptModalOpen && (
         <ImagePromptPreviewModal
           draftId={draft.id}
+          platform={_platform}
           initialEn={livePrompt.en || draft.image_prompt || ""}
           initialKo={
             livePrompt.ko ||
@@ -582,9 +587,9 @@ function DraftCard({
           }
           onClose={() => setPromptModalOpen(false)}
           onUpdated={(p) => setLivePrompt(p)}
-          onGenerate={async () => {
+          onGenerate={async (frameCount) => {
             setPromptModalOpen(false);
-            await generateImages();
+            await generateImages(frameCount);
           }}
           busy={generatingImage}
         />
@@ -593,8 +598,17 @@ function DraftCard({
   );
 }
 
+function defaultFrameCountForPlatformUI(platform: string): number {
+  if (platform === "instagram") return 6;
+  if (platform === "naver_blog") return 4;
+  if (platform === "naver_smartstore") return 5;
+  if (platform === "tiktok" || platform === "youtube") return 1;
+  return 1;
+}
+
 function ImagePromptPreviewModal({
   draftId,
+  platform,
   initialEn,
   initialKo,
   onClose,
@@ -603,11 +617,12 @@ function ImagePromptPreviewModal({
   busy,
 }: {
   draftId: string;
+  platform: string;
   initialEn: string;
   initialKo: string;
   onClose: () => void;
   onUpdated: (p: { en: string; ko: string }) => void;
-  onGenerate: () => void | Promise<void>;
+  onGenerate: (frameCount: number) => void | Promise<void>;
   busy: boolean;
 }) {
   const [en, setEn] = useState(initialEn);
@@ -615,6 +630,7 @@ function ImagePromptPreviewModal({
   const [refreshing, setRefreshing] = useState(false);
   const [userHint, setUserHint] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [frameCount, setFrameCount] = useState(defaultFrameCountForPlatformUI(platform));
 
   const refresh = async () => {
     setRefreshing(true);
@@ -726,6 +742,34 @@ function ImagePromptPreviewModal({
               <div className="whitespace-pre-line break-words">{err}</div>
             </div>
           )}
+
+          {/* Frame count selector */}
+          <div className="rounded-md border border-slate-200 p-3">
+            <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">
+              생성할 이미지 수
+            </div>
+            <div className="flex gap-1.5 flex-wrap">
+              {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setFrameCount(n)}
+                  className={`min-w-[36px] text-sm font-semibold py-1.5 px-2.5 rounded border ${
+                    frameCount === n
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1.5">
+              디폴트: {platform} = {defaultFrameCountForPlatformUI(platform)}장.
+              {" "}예상 비용: 약 ${(frameCount * 0.042).toFixed(2)} (gpt-image-1 medium)
+              {frameCount > 1 && " + 배경제거 $0.005/source"}
+            </p>
+          </div>
         </div>
 
         <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
@@ -741,13 +785,13 @@ function ImagePromptPreviewModal({
             type="button"
             onClick={() => {
               onUpdated({ en, ko });
-              void onGenerate();
+              void onGenerate(frameCount);
             }}
             disabled={refreshing || busy || en.trim().length < 5}
             className="inline-flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-pink-500 text-white text-sm px-3 py-1.5 rounded-md hover:from-violet-700 hover:to-pink-600 disabled:opacity-60"
           >
             {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            {busy ? "이미지 생성 중…" : "📷 이 프롬프트로 이미지 생성"}
+            {busy ? "이미지 생성 중…" : `📷 ${frameCount}장 이미지 생성`}
           </button>
         </div>
       </div>
