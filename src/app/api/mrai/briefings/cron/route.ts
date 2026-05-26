@@ -98,6 +98,14 @@ export async function GET(req: Request) {
             workspaceId: wsId,
             userId: ownerId,
             locale,
+            // Cron MUST await dispatch — Vercel reaps the function
+            // right after this response, killing fire-and-forget
+            // promises. Le Mouton 5/25 + 5/26 cron briefings were
+            // generated but never reached Slack/Email because the
+            // default fire-and-forget path got terminated. Adds
+            // ~1-3s per workspace; cron timeout is 800s so well
+            // within budget.
+            dispatch: "await",
           }),
       );
       results.push({ workspaceId: wsId, status: "ok", briefingId: b.id });

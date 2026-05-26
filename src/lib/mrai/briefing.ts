@@ -202,6 +202,21 @@ export async function generateBriefing(input: {
   workspaceId: string;
   userId: string;
   locale: Locale;
+  /**
+   * Channel dispatch mode. Default "fire-and-forget" returns the
+   * briefing immediately and schedules dispatch on the event loop —
+   * good UX for user-facing manual POSTs but unsafe in Vercel cron
+   * where the function gets reaped right after response, killing
+   * the background promise (this is what made 5/25 + 5/26 cron
+   * briefings never reach Slack/Email on Le Mouton).
+   *
+   * "await" blocks until dispatch completes — adds ~1-3s but
+   * guarantees delivery. Use from cron.
+   *
+   * "skip" returns the briefing without dispatching. Use when the
+   * caller wants to control dispatch separately (or for tests).
+   */
+  dispatch?: "fire-and-forget" | "await" | "skip";
 }): Promise<BriefingRow> {
   const supabase = createServiceClient();
 
@@ -249,14 +264,16 @@ export async function generateBriefing(input: {
     .single();
   if (error || !data) throw new Error(`save briefing: ${error?.message}`);
 
-  // Fire-and-forget auto-dispatch to channels with send_briefing=true.
-  // Per-channel failures are logged to mrai_dispatches and never block
-  // the briefing returning to the caller.
+  // Auto-dispatch to channels with send_briefing=true. Dispatch
+  // strategy controlled by input.dispatch (defaults to fire-and-forget
+  // for legacy callers + manual user-facing POST). Per-channel
+  // failures are logged to mrai_dispatches and never throw.
   const briefingId = data.id as string;
   const title = input.locale === "en"
     ? `Mr. AI Briefing · ${new Date().toLocaleDateString("en-US")}`
     : `Mr. AI 브리핑 · ${new Date().toLocaleDateString("ko-KR")}`;
-  void (async () => {
+  const dispatchMode = input.dispatch ?? "fire-and-forget";
+  if (dispatchMode === "await") {
     try {
       await dispatchToAllChannels({
         workspaceId: input.workspaceId,
@@ -265,9 +282,23 @@ export async function generateBriefing(input: {
         sourceId: briefingId,
       });
     } catch (e) {
-      console.error("[mrai] briefing dispatch failed", e);
+      console.error("[mrai] briefing dispatch failed (await)", e);
     }
-  })();
+  } else if (dispatchMode === "fire-and-forget") {
+    void (async () => {
+      try {
+        await dispatchToAllChannels({
+          workspaceId: input.workspaceId,
+          event: "briefing",
+          payload: { title, body: text },
+          sourceId: briefingId,
+        });
+      } catch (e) {
+        console.error("[mrai] briefing dispatch failed (fire-and-forget)", e);
+      }
+    })();
+  }
+  // dispatchMode === "skip" — caller handles dispatch separately
 
   return {
     id: briefingId,
