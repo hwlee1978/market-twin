@@ -389,18 +389,29 @@ function SimulationResults({ sim, expanded }: { sim: SimulationRow; expanded: bo
   return (
     <div className="mt-3 space-y-2.5">
       {/* Rates row */}
-      <div className="grid grid-cols-5 gap-2">
-        <RateChip icon={<Heart className="w-3 h-3" />} label="like" value={sim.like_rate} positive />
-        <RateChip icon={<MousePointer2 className="w-3 h-3" />} label="click" value={sim.click_rate} positive />
-        <RateChip icon={<Repeat2 className="w-3 h-3" />} label="share" value={sim.share_rate} positive />
-        <RateChip icon={<Bookmark className="w-3 h-3" />} label="save" value={sim.save_rate} positive />
-        <RateChip icon={<MessageSquare className="w-3 h-3" />} label="comment" value={sim.comment_rate} positive />
+      <div>
+        <div
+          className="text-[10px] uppercase tracking-wider text-slate-500 mb-1"
+          title="각 행동을 실제로 할 확률이 50% 이상인 페르소나 비율. 5개 행동이 독립적이라 합계 100% 안 됨."
+        >
+          📊 예상 행동률 <span className="text-slate-400 normal-case">(각 행동 독립)</span>
+        </div>
+        <div className="grid grid-cols-5 gap-2">
+          <RateChip icon={<Heart className="w-3 h-3" />} label="like" value={sim.like_rate} positive />
+          <RateChip icon={<MousePointer2 className="w-3 h-3" />} label="click" value={sim.click_rate} positive />
+          <RateChip icon={<Repeat2 className="w-3 h-3" />} label="share" value={sim.share_rate} positive />
+          <RateChip icon={<Bookmark className="w-3 h-3" />} label="save" value={sim.save_rate} positive />
+          <RateChip icon={<MessageSquare className="w-3 h-3" />} label="comment" value={sim.comment_rate} positive />
+        </div>
       </div>
 
       {/* Reaction distribution bar */}
       <div>
-        <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
-          반응 분포
+        <div
+          className="text-[10px] uppercase tracking-wider text-slate-500 mb-1"
+          title="페르소나가 느낀 주된 감정. 5개 중 1개만 선택하므로 합계 100%."
+        >
+          💭 주된 감정 반응 분포 <span className="text-slate-400 normal-case">(1인당 1개)</span>
         </div>
         <div className="flex h-2 rounded overflow-hidden bg-slate-100">
           <div className="bg-rose-500" style={{ width: `${reactionDist.love ?? 0}%` }} title={`love ${reactionDist.love ?? 0}%`} />
