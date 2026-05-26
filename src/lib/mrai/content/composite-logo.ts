@@ -151,8 +151,11 @@ export async function compositeLogoOnImage(
     const bgW = logoW + padX * 2;
     const bgH = logoH + padY * 2;
     const radius = Math.round(Math.min(bgW, bgH) * 0.18);
+    // Crisper backdrop — was 0.82 alpha which washed out the logo.
+    // 0.92 gives strong contrast against busy backgrounds while still
+    // feeling integrated (not a hard white box).
     const svg = `<svg width="${bgW}" height="${bgH}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="${bgW}" height="${bgH}" rx="${radius}" ry="${radius}" fill="white" fill-opacity="0.82" />
+      <rect width="${bgW}" height="${bgH}" rx="${radius}" ry="${radius}" fill="white" fill-opacity="0.92" />
     </svg>`;
     const bgBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
     overlays.push({

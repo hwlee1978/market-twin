@@ -78,14 +78,20 @@ function buildFramePrompt(
   const spec = getPlatformSpec(platform);
   const parts: string[] = [];
 
-  // ─── TOUCHUP MODE — the product is in the input image; do not
-  // describe it (sending product details makes the model "improve"
-  // the masked product with extra features like two-tone panels,
-  // mesh, etc. — even though mask should preserve those pixels).
+  // ─── TOUCHUP MODE — the subject (product OR ambassador) is in the
+  // input image; do not describe it (sending details makes the model
+  // "improve" the masked subject with extra features).
   if (touchupMode) {
-    parts.push(
-      "INPUT IMAGE = the EXACT physical product being photographed in a new scene. Treat the product like a real object placed in front of you — do NOT add color blocks, panels, mesh, perforations, stitching, or any detail that isn't already physically present. Do NOT recolor, restyle, or 'improve' the product. ONLY the area outside the product (background, surface, lighting environment) should change to match the scene description below. The product itself must be IDENTICAL to the input.",
-    );
+    if (hasAmbassadorReference) {
+      // Ambassador touchup — preserve celebrity face + outfit + product
+      parts.push(
+        "INPUT IMAGE = the EXACT person being photographed in a new scene. This is a contracted brand ambassador — their face, hairstyle, body proportions, skin tone, outfit (including the brand product they're wearing) must remain IDENTICAL. Treat them like a real person — do NOT alter their face, swap features, restyle hair, change outfit colors, or 'improve' the product they're wearing. ONLY the area outside the person (background, environment, lighting context) should change to match the scene description below.",
+      );
+    } else {
+      parts.push(
+        "INPUT IMAGE = the EXACT physical product being photographed in a new scene. Treat the product like a real object placed in front of you — do NOT add color blocks, panels, mesh, perforations, stitching, or any detail that isn't already physically present. Do NOT recolor, restyle, or 'improve' the product. ONLY the area outside the product (background, surface, lighting environment) should change to match the scene description below. The product itself must be IDENTICAL to the input.",
+      );
+    }
   }
 
   // ─── PRODUCT SPEC (when profile exists, this is the authoritative
@@ -168,7 +174,7 @@ function buildFramePrompt(
     } else {
       const sceneRoles = [
         "Close-up scene around the input product — minimal background, hint of material/surface around the product. NO people.",
-        "Lifestyle scene — the input product placed in a real environment (street/cafe/home). NO people in this generated area.",
+        "Lifestyle scene — the input product placed in a real outdoor environment (street, cafe sidewalk, pavement) as if someone just stepped out of frame. Visible lower legs cropped at the calf maximum are OK. NO face, NO torso, NO head visible.",
         "Different background angle — same product, fresh background composition. NO people.",
         "Hero pure-color background composition around the input product. NO people.",
         "Place the input product alongside one complementary object (shoebox, plant). NO people.",
@@ -191,7 +197,11 @@ function buildFramePrompt(
     // failure mode. Avoid roles that demand text rendering.
     const detailRoles = [
       "Detail close-up — fabric/material texture of the product, NO people, NO text, fills frame with the product surface only",
-      "Lifestyle shot — the product MUST be clearly visible and in sharp focus, occupying at least 25% of frame. If a person is shown (e.g. walking), their feet wearing the shoes MUST be in frame and prominent. If the head is shown, the face MUST be visible (not cropped, not blurred, not back-of-head). Choose: full-body shot OR feet-down crop, NOT a torso-only shot where neither face nor shoes appear",
+      // Lifestyle: feet-focused crop is the ONLY acceptable composition.
+      // Previous prompts allowed full-body / torso shots which produced
+      // useless marketing frames (face shown, shoes too small to identify
+      // the product). Now: shoes MUST be the visual focus.
+      "Lifestyle shot — FEET-FOCUSED CROP ONLY. Tight composition from mid-calf down: feet wearing the shoes (≥35% of frame, dominant subject) + lower legs + pavement/floor + glimpse of environment (sidewalk, cafe floor, street curb). NO face, NO torso, NO head in frame — frame must be cropped at the knee or thigh maximum. Goal: viewer instantly recognizes the product, environment is secondary context.",
       "Different angle of the same product (3/4 view, top-down, OR sole detail). NO people, NO text. The product silhouette must clearly match the reference photos",
       "Hero pure-color background — the product centered, dramatic lighting, NO people, NO text. The product silhouette must match references exactly",
       "Product paired with a complementary object (e.g. shoebox, plant, simple chair). The product must remain the dominant subject ≥35% of frame. NO people, NO text",
@@ -259,6 +269,47 @@ export type BrandReference = {
   asset_type: string;
   label: string | null;
 };
+
+/**
+ * Pick the best logo from candidates. Heuristic:
+ *   1. Prefer logos with alpha channel (transparent background) —
+ *      composites cleanly without a white box.
+ *   2. Tiebreaker: higher resolution wins (= sharper composite).
+ * Falls back to first candidate if all fetches fail.
+ */
+async function pickBestLogo(
+  candidates: BrandReference[],
+): Promise<BrandReference | undefined> {
+  if (candidates.length === 0) return undefined;
+  if (candidates.length === 1) return candidates[0];
+
+  const scored: Array<{ ref: BrandReference; score: number; pixels: number }> = [];
+  // Lazy import sharp where used
+  const sharp = (await import("sharp")).default;
+  for (const ref of candidates) {
+    try {
+      const r = await fetch(ref.image_url);
+      if (!r.ok) continue;
+      const buf = Buffer.from(await r.arrayBuffer());
+      const meta = await sharp(buf).metadata();
+      const hasAlpha = meta.hasAlpha === true;
+      const w = meta.width ?? 0;
+      const h = meta.height ?? 0;
+      const pixels = w * h;
+      // Score: transparency = +100, resolution adds 0-50
+      const score = (hasAlpha ? 100 : 0) + Math.min(50, pixels / 100_000);
+      scored.push({ ref, score, pixels });
+    } catch {
+      // Skip on fetch error
+    }
+  }
+  if (scored.length === 0) return candidates[0];
+  scored.sort((a, b) => b.score - a.score);
+  console.log(
+    `[image-gen] picked logo: score=${scored[0].score.toFixed(1)} pixels=${scored[0].pixels} (of ${scored.length} candidates)`,
+  );
+  return scored[0].ref;
+}
 
 /**
  * Frame roles → which reference types matter for that frame.
@@ -375,7 +426,11 @@ export async function generateImagesForDraft(input: {
   // picks the right subset based on role.
   const allRefs = input.references ?? [];
 
-  const logoRef = allRefs.find((r) => r.asset_type === "logo");
+  // When multiple logos exist, pick the BEST one — preferring those
+  // with transparent backgrounds (cleaner composite, no white box).
+  // Higher resolution wins as tiebreaker.
+  const logoCandidates = allRefs.filter((r) => r.asset_type === "logo");
+  const logoRef = await pickBestLogo(logoCandidates);
 
   // Load product profile (vision-extracted product card). When the
   // profile says the real product is unbranded (logo_visible_on_product
@@ -471,23 +526,41 @@ export async function generateImagesForDraft(input: {
       productProfile,
     );
 
-    // ─── TOUCHUP MODE — use library product photo as base, mask out
-    // product, regenerate background only. Only for non-lifestyle frames
-    // (lifestyle needs to invent a person which touchup can't do).
+    // ─── TOUCHUP MODE — use library photo as base, mask the subject,
+    // regenerate background only.
+    //
+    // For LIFESTYLE frames: prefer ambassador photo as base (user has
+    // paid celebrity contracts — maximize their visibility, preserve
+    // their face). Ambassador photo typically shows celebrity wearing
+    // the actual product, so both are preserved.
+    //
+    // For ALL OTHER frames: use product photo as base (clean studio
+    // composition, no person).
     const roleIdx = totalFrames > 1 && i > 0 ? (i - 1) % 5 : -1;
     const isLifestyle = roleIdx === 1;
     const productPhotos = nonLogoRefs.filter((r) => r.asset_type === "product");
+    const ambassadorPhotos = nonLogoRefs.filter((r) => r.asset_type === "ambassador");
+    const touchupSourceType: "product" | "ambassador" | null = isLifestyle
+      ? ambassadorPhotos.length > 0
+        ? "ambassador"
+        : productPhotos.length > 0
+          ? "product"
+          : null
+      : productPhotos.length > 0
+        ? "product"
+        : null;
     const useTouchup =
-      settings.use_library_photo_as_base &&
-      productPhotos.length > 0 &&
-      !isLifestyle;
+      settings.use_library_photo_as_base && touchupSourceType !== null;
     if (!useTouchup) {
       console.log(
         `[image-gen] ⚠️ frame ${i} NOT using touchup. reasons: ` +
           [
             !settings.use_library_photo_as_base ? "setting OFF" : null,
-            productPhotos.length === 0 ? "no product photos" : null,
-            isLifestyle ? "lifestyle frame" : null,
+            touchupSourceType === null
+              ? isLifestyle
+                ? "no ambassador or product photos for lifestyle"
+                : "no product photos"
+              : null,
           ]
             .filter(Boolean)
             .join(", "),
@@ -495,10 +568,14 @@ export async function generateImagesForDraft(input: {
     }
 
     if (useTouchup) {
+      const sourcePool =
+        touchupSourceType === "ambassador" ? ambassadorPhotos : productPhotos;
       const sourceUrl = pickSourceForFrame(
-        productPhotos.map((p) => ({ image_url: p.image_url })),
+        sourcePool.map((p) => ({ image_url: p.image_url })),
         i,
       )!;
+      const sourceLabel =
+        touchupSourceType === "ambassador" ? "AMBASSADOR" : "PRODUCT";
       // Build touchup-mode prompt — skips product description (the
       // product IS the image; describing it makes the model "fix" the
       // image to match text, producing two-tone panels / mesh / etc.).
@@ -510,7 +587,7 @@ export async function generateImagesForDraft(input: {
         input.brandHint,
         false,
         hasLogo,
-        false,
+        touchupSourceType === "ambassador",
         productProfile,
         true, // touchupMode
       );
@@ -519,7 +596,10 @@ export async function generateImagesForDraft(input: {
           sourceImageUrl: sourceUrl,
           scenePrompt: touchupPrompt,
           outputSize: size,
-          quality: settings.quality,
+          // Force high quality in touchup mode — better detail
+          // preservation per OpenAI docs. Slightly slower / costlier
+          // but worth it for the fidelity that touchup is meant to give.
+          quality: "high",
           logoBuffer: logoBufferForComposite,
           logoOpts: {
             position: settings.logo_position,
@@ -549,7 +629,7 @@ export async function generateImagesForDraft(input: {
             size,
           });
           console.log(
-            `[image-gen] ✅ TOUCHUP frame ${i} mask=${tr.mask_source} source=...${sourceUrl.slice(-40)}`,
+            `[image-gen] ✅ TOUCHUP frame ${i} [${sourceLabel}] mask=${tr.mask_source} source=...${sourceUrl.slice(-40)}`,
           );
           continue;
         }
