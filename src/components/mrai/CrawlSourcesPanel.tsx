@@ -11,6 +11,7 @@ import {
   Loader2,
   X as CloseX,
   Power,
+  Pencil,
 } from "lucide-react";
 
 type Source = {
@@ -81,6 +82,34 @@ export function CrawlSourcesPanel() {
     if (res.ok) {
       setSources((prev) => prev?.map((s) => (s.id === id ? { ...s, enabled } : s)) ?? null);
     }
+  };
+
+  const editUrl = async (s: Source) => {
+    const next = prompt("새 URL 입력:", s.url);
+    if (!next || next === s.url) return;
+    const res = await fetch(`/api/mrai/crawl-sources/${s.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: next.trim() }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      alert(`❌ ${json.detail ?? json.error ?? "수정 실패"}`);
+      return;
+    }
+    setSources((prev) =>
+      prev?.map((row) =>
+        row.id === s.id
+          ? {
+              ...row,
+              url: next.trim(),
+              last_fetched_at: null,
+              last_error: null,
+              fail_count: 0,
+            }
+          : row,
+      ) ?? null,
+    );
   };
 
   const fetchNow = async (id: string) => {
@@ -171,10 +200,23 @@ export function CrawlSourcesPanel() {
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-slate-500 truncate mt-0.5">
-                      <a href={s.url} target="_blank" rel="noreferrer" className="hover:underline">
+                    <div className="text-xs text-slate-500 truncate mt-0.5 flex items-center gap-1">
+                      <a
+                        href={s.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="hover:underline truncate"
+                      >
                         {s.url}
                       </a>
+                      <button
+                        type="button"
+                        onClick={() => editUrl(s)}
+                        className="text-slate-400 hover:text-slate-700 shrink-0"
+                        title="URL 수정"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
                     </div>
                     {s.brand_filter && (
                       <div className="text-[10px] text-slate-500 mt-0.5">
@@ -344,7 +386,7 @@ function CreateModal({
                   ? "https://lemouton.com"
                   : sourceType === "news_rss"
                     ? "https://news.google.com/rss/search?q=르무통&hl=ko"
-                    : "https://www.allbirds.com/collections/mens-new-arrivals"
+                    : "https://www.on.com/en-us/shop/men"
               }
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400"
             />
