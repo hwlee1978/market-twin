@@ -97,21 +97,23 @@ function buildFramePrompt(
   }
 
   if (totalFrames === 1) {
-    parts.push(`Editorial brand image for ${spec.label}. ${basePrompt}`);
+    parts.push(
+      `Hero brand image for ${spec.label}. The product MUST be the dominant subject, occupying at least 40% of the frame, in sharp focus, matching the reference photos exactly. ${basePrompt}`,
+    );
   } else if (frameIndex === 0) {
     parts.push(
-      `Cover image (frame 1 of ${totalFrames}) for a ${spec.label} carousel. Must work as a thumbnail/hook. ${basePrompt}`,
+      `Cover image (frame 1 of ${totalFrames}) for a ${spec.label} carousel. The product MUST be the dominant subject (≥45% of frame), centered and in sharp focus, on a clean uncluttered background. Match the reference photos exactly (silhouette, color, material). NO people in this frame. ${basePrompt}`,
     );
   } else {
-    // Note: removed the old "CTA card with subtle text" role — it was
-    // actively asking the model to render text, and gpt-image-1 produces
-    // garbled letters far more often than legible ones.
+    // Role-specific prompts — each one explicitly mandates what MUST be
+    // visible so we don't get the "lifestyle frame with no shoes visible"
+    // failure mode. Avoid roles that demand text rendering.
     const detailRoles = [
-      "Detail shot — product texture / material close-up (no text)",
-      "Lifestyle shot — product worn in real environment (no signage / price tags / labels visible)",
-      "Different angle of the same product (3/4, top-down, sole detail for shoes — no text)",
-      "Behind-the-scenes / atelier shot (no shop signage, no whiteboard text)",
-      "Pure-color background composition with the product as hero (no text, no badges)",
+      "Detail close-up — fabric/material texture of the product, NO people, NO text, fills frame with the product surface only",
+      "Lifestyle shot — the product MUST be clearly visible and in sharp focus, occupying at least 25% of frame. If a person is shown (e.g. walking), their feet wearing the shoes MUST be in frame and prominent. If the head is shown, the face MUST be visible (not cropped, not blurred, not back-of-head). Choose: full-body shot OR feet-down crop, NOT a torso-only shot where neither face nor shoes appear",
+      "Different angle of the same product (3/4 view, top-down, OR sole detail). NO people, NO text. The product silhouette must clearly match the reference photos",
+      "Hero pure-color background — the product centered, dramatic lighting, NO people, NO text. The product silhouette must match references exactly",
+      "Product paired with a complementary object (e.g. shoebox, plant, simple chair). The product must remain the dominant subject ≥35% of frame. NO people, NO text",
     ];
     const role = detailRoles[(frameIndex - 1) % detailRoles.length];
     parts.push(
@@ -177,6 +179,53 @@ export type BrandReference = {
   label: string | null;
 };
 
+/**
+ * Frame roles → which reference types matter for that frame.
+ *
+ * The model gets confused when it has to blend a person photo with a
+ * product photo. So we send role-appropriate references per frame:
+ *   - cover / detail / hero / product-paired → PRODUCT ONLY (no people)
+ *   - lifestyle → product + ambassador (and prompt demands both visible)
+ *
+ * For non-shoe categories this still works: replace "product" with
+ * "main item being marketed".
+ */
+function pickRefsForFrame(
+  allRefs: BrandReference[],
+  totalFrames: number,
+  frameIndex: number,
+): BrandReference[] {
+  const byType = (t: string) => allRefs.filter((r) => r.asset_type === t);
+  const products = byType("product");
+  const ambassadors = byType("ambassador");
+  const lifestyle = byType("lifestyle");
+  const packaging = byType("packaging");
+
+  // Single-frame generation → product-anchored hero
+  if (totalFrames === 1) {
+    return [...products.slice(0, 2), ...packaging.slice(0, 1)].slice(0, 3);
+  }
+
+  // Cover → strictly product
+  if (frameIndex === 0) {
+    return [...products.slice(0, 3), ...packaging.slice(0, 1)].slice(0, 3);
+  }
+
+  // detailRoles index = (frameIndex - 1) % 5
+  // 0=detail, 1=lifestyle, 2=different-angle, 3=hero, 4=paired
+  const roleIdx = (frameIndex - 1) % 5;
+  if (roleIdx === 1) {
+    // Lifestyle — product + ambassador both needed
+    return [
+      ...products.slice(0, 1),
+      ...ambassadors.slice(0, 1),
+      ...lifestyle.slice(0, 1),
+    ].slice(0, 3);
+  }
+  // All other detail roles — product only (no people, no scene clutter)
+  return [...products.slice(0, 2), ...packaging.slice(0, 1)].slice(0, 3);
+}
+
 export type ImageGenSettings = {
   logo_position: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center";
   logo_size_pct: number;
@@ -236,9 +285,11 @@ export async function generateImagesForDraft(input: {
   // Cap at 5 here so caller can include logo (filtered out below for
   // model input) without losing a non-logo slot. Effective gpt-image-1
   // input is still ≤4 after logo filter.
-  const refs = (input.references ?? []).slice(0, 5);
+  // Accept all refs (caller may pass more than 4); per-frame logic
+  // picks the right subset based on role.
+  const allRefs = input.references ?? [];
 
-  const logoRef = refs.find((r) => r.asset_type === "logo");
+  const logoRef = allRefs.find((r) => r.asset_type === "logo");
   // Logo is HANDLED ENTIRELY BY POST-PRODUCTION COMPOSITE (sharp overlay).
   // We deliberately do NOT pass the logo to gpt-image-1 as a reference,
   // because doing so trains the model to paint a (garbled) version of
@@ -246,19 +297,16 @@ export async function generateImagesForDraft(input: {
   // The composite stamps the real PNG on top after generation.
   const willComposite = !!logoRef && settings.logo_composite_enabled;
   const hasLogo = willComposite; // for prompt-builder flag
-  const hasAmbassador = refs.some((r) => r.asset_type === "ambassador");
-  // Filter out logo refs from the gpt-image-1 input. Keep everything else.
-  const inputRefs = refs.filter((r) => r.asset_type !== "logo");
 
-  // Pre-fetch reference images once; reuse across all frame calls.
-  const refFiles: File[] = [];
-  if (inputRefs.length > 0) {
-    for (let i = 0; i < inputRefs.length; i++) {
-      try {
-        refFiles.push(await fetchAsFile(inputRefs[i].image_url, `ref-${i}.png`));
-      } catch (e) {
-        console.warn(`[image-gen] skipping reference ${i}:`, e instanceof Error ? e.message : e);
-      }
+  // Pre-fetch ALL non-logo references once (used across frames per role).
+  const nonLogoRefs = allRefs.filter((r) => r.asset_type !== "logo");
+  const fileByRefId = new Map<string, File>();
+  for (let i = 0; i < nonLogoRefs.length; i++) {
+    try {
+      const f = await fetchAsFile(nonLogoRefs[i].image_url, `ref-${i}.png`);
+      fileByRefId.set(nonLogoRefs[i].id, f);
+    } catch (e) {
+      console.warn(`[image-gen] skipping reference:`, e instanceof Error ? e.message : e);
     }
   }
 
@@ -285,13 +333,20 @@ export async function generateImagesForDraft(input: {
   // we want frame N to remember frame N-1's prompt thread for visual
   // continuity. Latency: ~15-25s per frame with references.
   for (const i of frameIndices) {
+    // Pick role-appropriate references for this frame
+    const frameRefs = pickRefsForFrame(nonLogoRefs, totalFrames, i);
+    const refFiles: File[] = frameRefs
+      .map((r) => fileByRefId.get(r.id))
+      .filter((f): f is File => Boolean(f));
+    const hasAmbassador = frameRefs.some((r) => r.asset_type === "ambassador");
+
     const framePrompt = buildFramePrompt(
       input.prompt,
       input.platform,
       i,
       totalFrames,
       input.brandHint,
-      refs.length > 0,
+      frameRefs.length > 0,
       hasLogo,
       hasAmbassador,
     );
@@ -312,7 +367,7 @@ export async function generateImagesForDraft(input: {
       // Track which references were "used" (we sent all of them with
       // each frame — count once per generation. Logo also tracked via
       // composite path below.
-      if (i === 0) inputRefs.forEach((r) => usedReferenceIds.add(r.id));
+      frameRefs.forEach((r) => usedReferenceIds.add(r.id));
     } else {
       // No references uploaded → fall back to text-only generate (lower
       // brand fidelity but doesn't block the user).

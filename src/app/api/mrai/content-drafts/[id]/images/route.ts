@@ -111,21 +111,20 @@ export async function POST(
   //
   // Two products ahead of one ambassador because the model treats the
   // first reference as anchor and we want product fidelity to anchor.
+  // Pass a generous pool of references; image-gen.pickRefsForFrame picks
+  // role-appropriate subset per frame (cover = product only, lifestyle =
+  // product + ambassador, etc.). Mixing too many refs in a single call
+  // confuses the model — but having more options means each frame can
+  // anchor on the right type.
   const pickFrom = (type: string, n: number) =>
     allRefs.filter((r) => r.asset_type === type).slice(0, n);
-  const products = pickFrom("product", 2);
-  const ambassadors = pickFrom("ambassador", 1);
-  const lifestyle = pickFrom("lifestyle", 1);
+  const products = pickFrom("product", 4);
+  const ambassadors = pickFrom("ambassador", 2);
+  const lifestyle = pickFrom("lifestyle", 2);
   const packaging = pickFrom("packaging", 1);
-  const logos = pickFrom("logo", 1); // still passed; image-gen excludes from model input
-  let references = [
-    ...products,
-    ...ambassadors,
-    ...lifestyle,
-    ...packaging,
-    ...logos,
-  ].slice(0, 5);
-  if (references.length === 0) references = allRefs.slice(0, 5);
+  const logos = pickFrom("logo", 1); // composite-only; image-gen filters from model input
+  let references = [...products, ...ambassadors, ...lifestyle, ...packaging, ...logos];
+  if (references.length === 0) references = allRefs.slice(0, 6);
 
   const userSettings = await loadImageGenSettings(wsCtx.workspaceId);
 
