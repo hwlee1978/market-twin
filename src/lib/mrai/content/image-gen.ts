@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { toFile } from "openai/uploads";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getPlatformSpec, type Platform } from "./platform-rules";
+import { compositeLogoOnImage } from "./composite-logo";
 
 /**
  * Image generator — Sprint 4 of Phase 9.
@@ -144,13 +145,12 @@ If you cannot reproduce the exact reference logo, OMIT IT — show a clean unbra
 }
 
 async function uploadToStorage(
-  base64: string,
+  buffer: Buffer,
   workspaceId: string,
   draftId: string,
   frameIndex: number,
 ): Promise<{ url: string; path: string }> {
   const supabase = createServiceClient();
-  const buffer = Buffer.from(base64, "base64");
   const path = `${workspaceId}/${draftId}/frame-${frameIndex}-${Date.now()}.png`;
   const { error: upErr } = await supabase.storage
     .from("mrai-content")
@@ -214,7 +214,19 @@ export async function generateImagesForDraft(input: {
 
   const images: GeneratedImage[] = [];
   const usedReferenceIds = new Set<string>();
-  const hasLogo = refs.some((r) => r.asset_type === "logo");
+  const logoRef = refs.find((r) => r.asset_type === "logo");
+  const hasLogo = !!logoRef;
+  // Pre-fetch logo buffer once for post-production composite (avoids
+  // hitting Storage CDN per-frame).
+  let logoBufferForComposite: Buffer | null = null;
+  if (logoRef) {
+    try {
+      const r = await fetch(logoRef.image_url);
+      if (r.ok) logoBufferForComposite = Buffer.from(await r.arrayBuffer());
+    } catch (e) {
+      console.warn("[image-gen] logo prefetch failed:", e instanceof Error ? e.message : e);
+    }
+  }
   // Sequential generation — gpt-image-1 has aggressive rate limits and
   // we want frame N to remember frame N-1's prompt thread for visual
   // continuity. Latency: ~15-25s per frame with references.
@@ -260,7 +272,39 @@ export async function generateImagesForDraft(input: {
     if (!b64) {
       throw new Error(`gpt-image-1 returned no image for frame ${i}`);
     }
-    const uploaded = await uploadToStorage(b64, input.workspaceId, input.draftId, i);
+    let finalBuffer: Buffer = Buffer.from(b64, "base64") as Buffer;
+    // Post-production logo composite — guarantees a correct brand mark
+    // appears in every frame (gpt-image-1 can't reliably render text,
+    // so we let it generate a clean unbranded product and stamp the
+    // real logo PNG on top).
+    if (logoBufferForComposite) {
+      try {
+        finalBuffer = await compositeLogoOnImage(
+          finalBuffer,
+          { buffer: logoBufferForComposite },
+          {
+            position: "bottom-right",
+            size_pct: 11,
+            opacity: 1.0,
+            padding_pct: 3.5,
+            with_backdrop: true,
+          },
+        );
+      } catch (e) {
+        // Composite failure should never break the whole generation —
+        // fall back to the AI image as-is.
+        console.warn(
+          `[image-gen] logo composite failed on frame ${i}:`,
+          e instanceof Error ? e.message : e,
+        );
+      }
+    }
+    const uploaded = await uploadToStorage(
+      finalBuffer,
+      input.workspaceId,
+      input.draftId,
+      i,
+    );
     images.push({
       url: uploaded.url,
       path: uploaded.path,
