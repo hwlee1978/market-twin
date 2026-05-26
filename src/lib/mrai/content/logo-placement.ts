@@ -73,6 +73,11 @@ const RESPONSE_SCHEMA_REMINDER = `Respond with JSON ONLY — no prose before or 
 
 export async function detectLogoPlacement(
   imageBuffer: Buffer,
+  hints?: {
+    category?: string;
+    placement_hints?: string[];
+    description?: string;
+  },
 ): Promise<LogoPlacement> {
   if (!process.env.ANTHROPIC_API_KEY) {
     return { found: false, notes: "ANTHROPIC_API_KEY not set" };
@@ -95,6 +100,21 @@ export async function detectLogoPlacement(
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   let resp;
+  // When the workspace's product profile is available, the prompt
+  // becomes category-aware ("this is a cosmetics bottle, prefer front
+  // label" instead of footwear-defaults).
+  const hintLines: string[] = [];
+  if (hints?.category) hintLines.push(`Product category: ${hints.category}`);
+  if (hints?.description) hintLines.push(`Product: ${hints.description.slice(0, 200)}`);
+  if (hints?.placement_hints && hints.placement_hints.length > 0) {
+    hintLines.push(
+      `Natural logo positions for this product: ${hints.placement_hints.join(", ")}`,
+    );
+  }
+  const promptText = hintLines.length > 0
+    ? `${hintLines.join("\n")}\n\n${RESPONSE_SCHEMA_REMINDER}`
+    : RESPONSE_SCHEMA_REMINDER;
+
   try {
     resp = await client.messages.create({
       model: "claude-sonnet-4-6",
@@ -108,7 +128,7 @@ export async function detectLogoPlacement(
               type: "image",
               source: { type: "base64", media_type: "image/png", data: base64 },
             },
-            { type: "text", text: RESPONSE_SCHEMA_REMINDER },
+            { type: "text", text: promptText },
           ],
         },
       ],

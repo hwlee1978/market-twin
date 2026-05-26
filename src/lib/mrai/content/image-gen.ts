@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getPlatformSpec, type Platform } from "./platform-rules";
 import { compositeLogoOnImage } from "./composite-logo";
 import { detectLogoPlacement } from "./logo-placement";
+import { loadProductProfile, type ProductProfile } from "./product-profile";
 
 /**
  * Image generator — Sprint 4 of Phase 9.
@@ -66,9 +67,36 @@ function buildFramePrompt(
   hasReferences = false,
   hasLogoReference = false,
   hasAmbassadorReference = false,
+  productProfile?: ProductProfile | null,
 ): string {
   const spec = getPlatformSpec(platform);
   const parts: string[] = [];
+
+  // ─── PRODUCT SPEC (when profile exists, this is the authoritative
+  // description for what the product is — feeds all categories, not
+  // just footwear) ────────────────────────────────────────────────
+  if (productProfile) {
+    const vf = productProfile.visual_features ?? {};
+    const specLines: string[] = [];
+    if (productProfile.description) {
+      specLines.push(`Product: ${productProfile.description}`);
+    }
+    if (vf.silhouette) specLines.push(`Silhouette: ${vf.silhouette}`);
+    if (vf.materials && vf.materials.length) {
+      specLines.push(`Materials: ${vf.materials.join(", ")}`);
+    }
+    if (vf.colors && vf.colors.length) {
+      specLines.push(`Colors: ${vf.colors.join(", ")}`);
+    }
+    if (vf.distinguishing && vf.distinguishing.length) {
+      specLines.push(`Distinguishing features: ${vf.distinguishing.join(", ")}`);
+    }
+    if (specLines.length > 0) {
+      parts.push(
+        `PRODUCT SPEC (must match exactly — not a different style/color/silhouette):\n${specLines.join("\n")}`,
+      );
+    }
+  }
 
   // ─── ABSOLUTE VISUAL RULE — applies whether or not a logo exists.
   // Logo is always added via post-production composite (sharp overlay),
@@ -290,13 +318,29 @@ export async function generateImagesForDraft(input: {
   const allRefs = input.references ?? [];
 
   const logoRef = allRefs.find((r) => r.asset_type === "logo");
+
+  // Load product profile (vision-extracted product card). When the
+  // profile says the real product is unbranded (logo_visible_on_product
+  // === false), we skip the forced logo composite even if the user
+  // uploaded a logo asset — user explicit feedback: "라이브러리 제품
+  // 사진에서 로고가 안보인다면 꼭 로고를 억지로 넣어야 할 필요는 없음".
+  const productProfile = await loadProductProfile(input.workspaceId);
+  const productHasVisibleLogo =
+    productProfile?.visual_features?.logo_visible_on_product !== false;
+
   // Logo is HANDLED ENTIRELY BY POST-PRODUCTION COMPOSITE (sharp overlay).
   // We deliberately do NOT pass the logo to gpt-image-1 as a reference,
   // because doing so trains the model to paint a (garbled) version of
   // it onto the product surface ("Le Misdard" / "Lachiisoan" / etc.).
   // The composite stamps the real PNG on top after generation.
-  const willComposite = !!logoRef && settings.logo_composite_enabled;
+  const willComposite =
+    !!logoRef && settings.logo_composite_enabled && productHasVisibleLogo;
   const hasLogo = willComposite; // for prompt-builder flag
+  if (logoRef && settings.logo_composite_enabled && !productHasVisibleLogo) {
+    console.log(
+      "[image-gen] product profile says logo not visible on product — skipping composite",
+    );
+  }
 
   // Pre-fetch ALL non-logo references once (used across frames per role).
   const nonLogoRefs = allRefs.filter((r) => r.asset_type !== "logo");
@@ -349,6 +393,7 @@ export async function generateImagesForDraft(input: {
       frameRefs.length > 0,
       hasLogo,
       hasAmbassador,
+      productProfile,
     );
 
     let res;
@@ -394,8 +439,14 @@ export async function generateImagesForDraft(input: {
           | { x: number; y: number; width: number; height?: number; rotation_deg?: number }
           | undefined;
         if (settings.logo_placement_mode === "product_surface") {
-          // Run vision detection on the AI-generated frame.
-          const placement = await detectLogoPlacement(finalBuffer);
+          // Run vision detection on the AI-generated frame — pass
+          // workspace product-profile hints so the detector knows
+          // category-appropriate placement (not just shoe-default).
+          const placement = await detectLogoPlacement(finalBuffer, {
+            category: productProfile?.category,
+            placement_hints: productProfile?.logo_placement_hints,
+            description: productProfile?.description ?? undefined,
+          });
           if (placement.found && (placement.confidence ?? 0) >= 0.55) {
             explicit = {
               x: placement.x!,

@@ -14,6 +14,7 @@ import { MarketingChannelsPanel } from "@/components/mrai/MarketingChannelsPanel
 import { BrandAssetsPanel } from "@/components/mrai/BrandAssetsPanel";
 import { CrawlSourcesPanel } from "@/components/mrai/CrawlSourcesPanel";
 import { ImageGenSettingsPanel } from "@/components/mrai/ImageGenSettingsPanel";
+import { ProductProfilePanel } from "@/components/mrai/ProductProfilePanel";
 import { BrandSEOPanel } from "@/components/mrai/BrandSEOPanel";
 import { OnboardingPanel } from "@/components/mrai/OnboardingPanel";
 import { PresetsPanel } from "@/components/mrai/PresetsPanel";
@@ -67,6 +68,7 @@ export default async function MrAIPage({
       <ChannelsPanel locale={safeLocale} />
       <MarketingChannelsPanel />
       <BrandAssetsPanel />
+      <ProductProfilePanel />
       <ImageGenSettingsPanel />
       <CrawlSourcesPanel />
       <BrandSEOPanel />
