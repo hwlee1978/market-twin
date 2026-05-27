@@ -115,24 +115,27 @@ const FREE_TRIAL: PlanDefinition = {
   support: { ko: "커뮤니티", en: "Community" },
 };
 
-// Pricing built from a 200% margin (price = worst-case LLM cost × 3) using
-// real per-ensemble cost (admin/billing snapshot 2026-05-08, +30% buffer):
-//   Hypothesis $3 / Consensus $14 / Consensus+ $27 / Triangulated $31.
-// Consensus+ runs as weighted multi-LLM (9 Anthropic + 3 OpenAI + 3 Gemini)
-// — cuts cost ~35% vs single-LLM 15-sim while keeping voice quality
-// dominated by Sonnet. All worst-case math assumes the user maxes the
-// highest-tier slots first.
+// Pricing reflects 2026-05-28 cost re-baseline after sim spec change:
+//   Hypothesis 3 sims × 200 personas × multi-LLM   = $3-5
+//   Consensus  6 sims × 200 personas × multi-LLM   = $25  (was 5-sim/$14)
+//   Consensus+ 15 sims × 200 personas × single LLM = $45
+//   Triangulated 25 sims × 200 × multi-LLM         = $60
+//   Triangulated Pro 50 sims × 200 × multi-LLM     = $90
+// User-set tier prices ₩500k / ₩1.5M / ₩3.5M (and $399 / $999 / $2,299)
+// — implied margin sits between cost × 4 (Starter worst case 5×$25=$125
+// → $399) and cost × 5 (Growth worst case 3×$60+5×$45+12×$25=$705
+// → ~$3,525 at cost×5 budget; capped at $2,299 to keep tier ladder sane).
 const STARTER: PlanDefinition = {
   slug: "starter",
   name: "Starter",
   tagline: {
-    ko: "월 5건 시뮬 (Consensus까지), 1 사용자",
-    en: "5 sims/month (Consensus tier), 1 user",
+    ko: "월 5건 검증분석 (Consensus), 1 사용자",
+    en: "5 Consensus sims/month, 1 user",
   },
   selfServe: true,
   order: 1,
-  // Worst case: 5 × Consensus = $70. 200% margin = $210 / ₩290,000.
-  priceMonthly: { usd: 21000, krw: 29000000 },
+  // Worst case: 5 × Consensus = $125. Price = $399 / ₩500,000.
+  priceMonthly: { usd: 39900, krw: 50000000 },
   limits: {
     simsPerMonth: 5,
     decisionPlusSimsPerMonth: 0,
@@ -159,14 +162,14 @@ const VALIDATOR: PlanDefinition = {
   slug: "validator",
   name: "Validator",
   tagline: {
-    ko: "월 10건 시뮬 (Consensus+ 3건 포함), 1 사용자",
+    ko: "월 10건 (검증분석+ 3건 포함), 1 사용자",
     en: "10 sims/month (incl. 3 Consensus+), 1 user",
   },
   selfServe: true,
   order: 2,
-  // Worst case: 3 × Consensus+ + 7 × Consensus = $81 + $98 = $179.
-  // 200% margin = $537 / ₩690,000.
-  priceMonthly: { usd: 53000, krw: 69000000 },
+  // Worst case: 3 × Consensus+ + 7 × Consensus = $135 + $175 = $310.
+  // Price = $999 / ₩1,500,000.
+  priceMonthly: { usd: 99900, krw: 150000000 },
   limits: {
     simsPerMonth: 10,
     decisionPlusSimsPerMonth: 3,
@@ -193,14 +196,14 @@ const GROWTH: PlanDefinition = {
   slug: "growth",
   name: "Growth",
   tagline: {
-    ko: "월 20건 시뮬 (Triangulated 3건 + Consensus+ 5건 포함), 멀티 LLM, 3 사용자",
-    en: "20 sims/month (incl. 3 Triangulated + 5 Consensus+), multi-LLM, 3 users",
+    ko: "월 20건 (심층분석 3건 + 검증분석+ 5건 포함), 3 사용자",
+    en: "20 sims/month (incl. 3 Triangulated + 5 Consensus+), 3 users",
   },
   selfServe: true,
   order: 3,
   // Worst case: 3 × Triangulated + 5 × Consensus+ + 12 × Consensus
-  // = $93 + $135 + $168 = $396. 200% margin = $1,188 / ₩1,490,000.
-  priceMonthly: { usd: 114000, krw: 149000000 },
+  // = $180 + $225 + $300 = $705. Price = $2,299 / ₩3,500,000.
+  priceMonthly: { usd: 229900, krw: 350000000 },
   limits: {
     simsPerMonth: 20,
     decisionPlusSimsPerMonth: 5,

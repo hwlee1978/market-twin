@@ -160,9 +160,9 @@ export function tossPriceKrw(plan: PlanSlug, cycle: "monthly" | "annual"): numbe
   // there) — divide by 100 to get the integer KRW Toss expects.
   const monthly: Record<PlanSlug, number | null> = {
     free_trial: null,
-    starter: 290000,
-    validator: 690000,
-    growth: 1490000,
+    starter: 500000,
+    validator: 1500000,
+    growth: 3500000,
     enterprise: null,
   };
   const m = monthly[plan];
