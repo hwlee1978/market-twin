@@ -151,35 +151,49 @@ export async function POST(
     .join(" — ")
     .slice(0, 200);
 
-  // Load references
-  const { data: refRows } = await supabase
-    .from("mrai_brand_assets")
-    .select("id, image_url, asset_type, label")
-    .eq("workspace_id", draftWorkspaceId)
-    .order("use_count", { ascending: true })
-    .limit(20);
-  const allRefs = (refRows ?? []) as Array<{
+  // Load references — query ambassadors WITHOUT limit so the full
+  // rotation pool reaches image-gen (was cutting off when the workspace
+  // had >20 total assets). Other types get a separate small query.
+  const [ambassadorQ, otherQ] = await Promise.all([
+    supabase
+      .from("mrai_brand_assets")
+      .select("id, image_url, asset_type, label")
+      .eq("workspace_id", draftWorkspaceId)
+      .eq("asset_type", "ambassador")
+      .order("use_count", { ascending: true }),
+    supabase
+      .from("mrai_brand_assets")
+      .select("id, image_url, asset_type, label")
+      .eq("workspace_id", draftWorkspaceId)
+      .neq("asset_type", "ambassador")
+      .order("use_count", { ascending: true })
+      .limit(20),
+  ]);
+  type Ref = {
     id: string;
     image_url: string;
     asset_type: string;
     label: string | null;
-  }>;
-  // Pass the FULL ambassador pool downstream so image-gen's random
-  // source picker (single-frame regen) has every uploaded photo to
-  // choose from. Other types are still capped — only ambassador is
-  // the "rotate through library" pool. Without this the random pick
-  // was actually picking from a slice of size 2.
+  };
+  const ambassadors = (ambassadorQ.data ?? []) as Ref[];
+  const otherRefs = (otherQ.data ?? []) as Ref[];
   const pickFrom = (type: string, n: number) =>
-    allRefs.filter((r) => r.asset_type === type).slice(0, n);
-  const ambassadors = allRefs.filter((r) => r.asset_type === "ambassador");
+    otherRefs.filter((r) => r.asset_type === type).slice(0, n);
   const logos = pickFrom("logo", 1);
   const products = pickFrom("product", ambassadors.length >= 2 ? 1 : 2);
   const lifestyle = pickFrom("lifestyle", 1);
   const packaging = pickFrom("packaging", 1);
-  // Carry ALL ambassadors + capped other types. No final .slice(0, 4)
-  // — image-gen needs the full ambassador rotation pool.
-  let references = [...ambassadors, ...logos, ...products, ...lifestyle, ...packaging];
-  if (references.length === 0) references = allRefs.slice(0, 4);
+  let references: Ref[] = [
+    ...ambassadors,
+    ...logos,
+    ...products,
+    ...lifestyle,
+    ...packaging,
+  ];
+  if (references.length === 0) references = otherRefs.slice(0, 4);
+  console.log(
+    `[frame-route] ambassador pool size=${ambassadors.length} (full library)`,
+  );
 
   const settings = await loadImageGenSettings(draftWorkspaceId);
   const totalFrames = defaultFrameCountForPlatform(platform);
