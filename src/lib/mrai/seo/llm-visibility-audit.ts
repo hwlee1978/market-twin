@@ -136,15 +136,20 @@ export async function runLLMVisibilityAudit(input: {
       .join("\n")}`,
   );
 
-  // 2. Probe each LLM in parallel — market-aware so the LLM grounds
-  //    answers in the user's actual buying market (huge fix: without
-  //    this, Claude/GPT default to global brands and never mention
-  //    KR-local brands even when they exist).
+  // 2. Probe each LLM in parallel. Each query is tagged with its
+  //    detected language so the probe system prompt frames correctly
+  //    (Korean query → "for Korean consumer"; English query →
+  //    "international audience curious about regional brands").
   const market = input.marketCountry ?? "KR";
+  const queriesWithLocale: Array<{ query: string; locale: "ko" | "en" }> =
+    testQueries.map((q) => ({
+      query: q,
+      locale: detectQueryLocale(q),
+    }));
   const [claudeRes, gptRes, geminiRes] = await Promise.allSettled([
-    probeClaude(testQueries, input.brandName, market),
-    probeGPT(testQueries, input.brandName, market),
-    probeGemini(testQueries, input.brandName, market),
+    probeClaude(queriesWithLocale, input.brandName, market),
+    probeGPT(queriesWithLocale, input.brandName, market),
+    probeGemini(queriesWithLocale, input.brandName, market),
   ]);
   type ProbeOutcome = {
     queries: PerQueryProbe[];
@@ -315,21 +320,46 @@ function defaultQueries(category: string, locale: "ko" | "en"): string[] {
 // Per-LLM probing
 // ────────────────────────────────────────────────────────────────
 
-function probeSystem(market: string): string {
+/**
+ * Probe system prompt — DIFFERENT framing per query language because
+ * LLMs route to different recommendation distributions based on
+ * inferred user nationality.
+ *
+ * Korean query → "for Korean consumer" framing → LLM uses the
+ * Korean-mainstream pool (Fila, Skechers, 휠라, 네파, 코오롱). Small
+ * Korean brands like 르무통 are filtered out as "not big enough to
+ * recommend to a local".
+ *
+ * English query → "international curious shopper" framing → LLM
+ * surfaces noteworthy regional brands for an international audience
+ * ("Korean Brand Worth Mentioning: LeMouton"). This is the surface
+ * where r무통 actually appears.
+ *
+ * If we forced "for Korea consumer" on English queries too, we'd kill
+ * the very signal we're trying to measure.
+ */
+function probeSystem(market: string, queryLocale: "ko" | "en" = "en"): string {
   const marketName = marketLabelOf(market);
-  // Strong instruction to include LOCAL brands of the target market.
-  // Without "include local brands" the LLM defaults to whatever global
-  // brands its training distribution favours, which crushes the
-  // visibility signal for any non-Western brand.
+  if (queryLocale === "ko") {
+    return (
+      `당신은 ${marketName} 소비자를 돕는 쇼핑 어시스턴트입니다. ` +
+      `제품 추천 요청을 받으면 4-6개의 구체적인 실제 브랜드를 추천하세요. ` +
+      `${marketName} 현지 브랜드를 반드시 포함하세요 (글로벌 브랜드만 ` +
+      `나열하지 말 것). 작은 브랜드라도 카테고리에서 유의미하면 포함. ` +
+      `각 브랜드에 한 줄 설명. 모호한 답변 금지.`
+    );
+  }
+  // English — international audience framing, surfaces local brands as
+  // worth-mentioning regional options.
   return (
-    `You are an AI shopping assistant for consumers in ${marketName} ` +
-    `(market code: ${market}). When asked about products, recommend ` +
-    `4-6 SPECIFIC REAL BRANDS that consumers in ${marketName} can ` +
-    `actually buy today. REQUIRED: include local/native brands of ` +
-    `${marketName} alongside global brands — do not skip local brands ` +
-    `even if they're smaller. List with one-line descriptions. If you ` +
-    `cite sources (URLs), include them inline. Be concrete — no vague ` +
-    `"many options exist" answers.`
+    `You are an AI shopping assistant for an international audience ` +
+    `interested in products from various regions including ${marketName}. ` +
+    `When asked about products, recommend 4-6 SPECIFIC REAL BRANDS from ` +
+    `around the world that consumers can actually buy. REQUIRED: if the ` +
+    `category has notable brands from ${marketName} or other regions, ` +
+    `mention them explicitly with a "Worth mentioning from ${marketName}" ` +
+    `or similar callout — do not filter them out for being smaller than ` +
+    `global incumbents. List with one-line descriptions. Be concrete.`
   );
 }
 
@@ -441,6 +471,12 @@ async function canonicalizeAndCount(
   }
 }
 
+/** Detect whether a query text is Korean or English. Naive: Hangul
+ *  presence → Korean; else English. */
+function detectQueryLocale(q: string): "ko" | "en" {
+  return /[가-힯]/.test(q) ? "ko" : "en";
+}
+
 function marketLabelOf(code: string): string {
   const m: Record<string, string> = {
     KR: "Korea (South Korea)",
@@ -456,30 +492,31 @@ function marketLabelOf(code: string): string {
   return m[code] ?? code;
 }
 
+type QueryWithLocale = { query: string; locale: "ko" | "en" };
+
 async function probeClaude(
-  queries: string[],
+  queries: QueryWithLocale[],
   brandName: string,
   market: string,
 ): Promise<{ queries: PerQueryProbe[]; inputTokens: number; outputTokens: number }> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const sys = probeSystem(market);
   let inputTokens = 0;
   let outputTokens = 0;
   const results: PerQueryProbe[] = [];
-  for (const q of queries) {
+  for (const { query, locale } of queries) {
     try {
       const resp = await client.messages.create({
         model: "claude-sonnet-4-6",
         max_tokens: 800,
-        system: sys,
-        messages: [{ role: "user", content: q }],
+        system: probeSystem(market, locale),
+        messages: [{ role: "user", content: query }],
       });
       inputTokens += resp.usage.input_tokens;
       outputTokens += resp.usage.output_tokens;
       const text = resp.content
         .map((b) => (b.type === "text" ? b.text : ""))
         .join("");
-      results.push(await parseProbeResponse(q, text, brandName));
+      results.push(await parseProbeResponse(query, text, brandName));
     } catch (e) {
       console.warn("[llm-visibility/claude] query failed:", e);
     }
@@ -488,7 +525,7 @@ async function probeClaude(
 }
 
 async function probeGPT(
-  queries: string[],
+  queries: QueryWithLocale[],
   brandName: string,
   market: string,
 ): Promise<{ queries: PerQueryProbe[]; inputTokens: number; outputTokens: number }> {
@@ -496,24 +533,23 @@ async function probeGPT(
     return { queries: [], inputTokens: 0, outputTokens: 0 };
   }
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const sys = probeSystem(market);
   let inputTokens = 0;
   let outputTokens = 0;
   const results: PerQueryProbe[] = [];
-  for (const q of queries) {
+  for (const { query, locale } of queries) {
     try {
       const resp = await client.chat.completions.create({
         model: "gpt-4o",
         max_tokens: 800,
         messages: [
-          { role: "system", content: sys },
-          { role: "user", content: q },
+          { role: "system", content: probeSystem(market, locale) },
+          { role: "user", content: query },
         ],
       });
       inputTokens += resp.usage?.prompt_tokens ?? 0;
       outputTokens += resp.usage?.completion_tokens ?? 0;
       const text = resp.choices[0]?.message?.content ?? "";
-      results.push(await parseProbeResponse(q, text, brandName));
+      results.push(await parseProbeResponse(query, text, brandName));
     } catch (e) {
       console.warn("[llm-visibility/gpt] query failed:", e);
     }
@@ -522,7 +558,7 @@ async function probeGPT(
 }
 
 async function probeGemini(
-  queries: string[],
+  queries: QueryWithLocale[],
   brandName: string,
   market: string,
 ): Promise<{ queries: PerQueryProbe[]; inputTokens: number; outputTokens: number }> {
@@ -538,12 +574,12 @@ async function probeGemini(
     );
     return { queries: [], inputTokens: 0, outputTokens: 0 };
   }
-  const sys = probeSystem(market);
   let inputTokens = 0;
   let outputTokens = 0;
   const results: PerQueryProbe[] = [];
   for (let qi = 0; qi < queries.length; qi++) {
-    const q = queries[qi];
+    const { query: q, locale } = queries[qi];
+    const sys = probeSystem(market, locale);
     // Small pacing between calls — Gemini free tier rate-limits aggressively
     if (qi > 0) {
       await new Promise((r) => setTimeout(r, 800));
