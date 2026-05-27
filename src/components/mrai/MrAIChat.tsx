@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Brain, Loader2, Send, Trash2, MessageSquarePlus, Paperclip, FileText, X } from "lucide-react";
+import { Brain, Loader2, Send, Trash2, MessageSquarePlus, Paperclip, FileText, X, MessagesSquare } from "lucide-react";
 import { AgentTrace, type AgentTraceData } from "./AgentTrace";
 import { FeedbackButtons } from "./FeedbackButtons";
 import { SimulationProposalCard, type SimulationProposalPayload } from "./SimulationProposalCard";
@@ -311,12 +311,21 @@ export function MrAIChat({
     <div className="grid grid-cols-[200px_1fr_280px] gap-3 h-[calc(100vh-380px)] min-h-[480px]">
       {/* Threads sidebar */}
       <aside className="bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col">
-        <div className="p-3 border-b border-slate-200">
+        <div className="px-3 py-2.5 border-b border-slate-200 flex items-center gap-2">
+          <MessagesSquare className="w-4 h-4 text-amber-600" />
+          <span className="text-sm font-semibold text-slate-900">
+            {locale === "ko" ? "대화" : "Threads"}
+          </span>
+          <span className="ml-auto text-[11px] text-slate-400">
+            {conversations.length}
+          </span>
+        </div>
+        <div className="p-2 border-b border-slate-100">
           <button
             onClick={newConversation}
-            className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md"
+            className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md transition"
           >
-            <MessageSquarePlus className="w-4 h-4" />
+            <MessageSquarePlus className="w-3.5 h-3.5" />
             {tChat("newConversation")}
           </button>
         </div>
@@ -325,19 +334,24 @@ export function MrAIChat({
             <p className="px-4 py-6 text-xs text-slate-400">{tChat("noConversations")}</p>
           ) : (
             <ul className="py-1">
-              {conversations.map((c) => (
-                <li key={c.id}>
-                  <button
-                    onClick={() => loadConversation(c.id)}
-                    className={`w-full text-left px-3 py-2 text-sm truncate hover:bg-slate-50 ${
-                      activeConvoId === c.id ? "bg-amber-50 text-amber-900" : "text-slate-700"
-                    }`}
-                    title={c.title ?? tChat("untitled")}
-                  >
-                    {c.title ?? tChat("untitled")}
-                  </button>
-                </li>
-              ))}
+              {conversations.map((c) => {
+                const active = activeConvoId === c.id;
+                return (
+                  <li key={c.id}>
+                    <button
+                      onClick={() => loadConversation(c.id)}
+                      className={`w-full text-left pl-3 pr-2 py-2 text-sm truncate transition border-l-2 ${
+                        active
+                          ? "border-amber-500 bg-amber-50/70 text-amber-900 font-medium"
+                          : "border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      }`}
+                      title={c.title ?? tChat("untitled")}
+                    >
+                      {c.title ?? tChat("untitled")}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
@@ -345,6 +359,19 @@ export function MrAIChat({
 
       {/* Chat pane */}
       <section className="bg-white border border-slate-200 rounded-lg flex flex-col overflow-hidden">
+        {(() => {
+          const active = conversations.find((c) => c.id === activeConvoId);
+          const title = active?.title ?? (locale === "ko" ? "새 대화" : "New conversation");
+          return (
+            <div className="px-4 py-2.5 border-b border-slate-200 bg-gradient-to-r from-amber-50/60 to-white flex items-center gap-2">
+              <Brain className="w-4 h-4 text-amber-600" />
+              <span className="text-sm font-semibold text-slate-900 truncate">{title}</span>
+              <span className="ml-auto text-[11px] text-slate-400">
+                {turns.length} {locale === "ko" ? "턴" : "turns"}
+              </span>
+            </div>
+          );
+        })()}
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
           {turns.length === 0 ? (
             <EmptyChatHint
@@ -376,7 +403,7 @@ export function MrAIChat({
         </div>
         <form
           onSubmit={sendMessage}
-          className="border-t border-slate-200 p-3 flex items-end gap-2"
+          className="border-t border-slate-200 p-3 bg-slate-50/40"
         >
           <input
             ref={pdfInputRef}
@@ -388,41 +415,43 @@ export function MrAIChat({
             }}
             className="hidden"
           />
-          <button
-            type="button"
-            onClick={() => pdfInputRef.current?.click()}
-            disabled={loading || !!uploadingPdf}
-            title="PDF 업로드 → 메모리 자동 추출"
-            className="inline-flex items-center justify-center w-10 h-[42px] text-slate-500 hover:text-amber-600 hover:bg-amber-50 disabled:opacity-50 border border-slate-200 rounded-md transition-colors"
-          >
-            {uploadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
-          </button>
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
+          <div className="flex items-end gap-2 bg-white border border-slate-200 rounded-xl px-2 py-2 transition focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-100">
+            <button
+              type="button"
+              onClick={() => pdfInputRef.current?.click()}
+              disabled={loading || !!uploadingPdf}
+              title="PDF 업로드 → 메모리 자동 추출"
+              className="shrink-0 inline-flex items-center justify-center w-9 h-9 text-slate-400 hover:text-amber-600 hover:bg-amber-50 disabled:opacity-50 rounded-lg transition-colors"
+            >
+              {uploadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+            </button>
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  sendMessage();
+                }
+              }}
+              placeholder={
+                uploadingPdf
+                  ? `📎 ${uploadingPdf} 분석 중 (Claude PDF 추출, 20-40초)...`
+                  : tChat("inputPlaceholder")
               }
-            }}
-            placeholder={
-              uploadingPdf
-                ? `📎 ${uploadingPdf} 분석 중 (Claude PDF 추출, 20-40초)...`
-                : tChat("inputPlaceholder")
-            }
-            rows={2}
-            disabled={loading || !!uploadingPdf}
-            className="flex-1 resize-none text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:bg-slate-50"
-          />
-          <button
-            type="submit"
-            disabled={loading || !!uploadingPdf || !input.trim()}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 rounded-md"
-          >
-            <Send className="w-4 h-4" />
-            {tChat("send")}
-          </button>
+              rows={2}
+              disabled={loading || !!uploadingPdf}
+              className="flex-1 resize-none text-sm bg-transparent border-0 px-1 py-1.5 focus:outline-none disabled:bg-transparent placeholder:text-slate-400"
+            />
+            <button
+              type="submit"
+              disabled={loading || !!uploadingPdf || !input.trim()}
+              className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3.5 h-9 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400 rounded-lg transition"
+            >
+              <Send className="w-3.5 h-3.5" />
+              {tChat("send")}
+            </button>
+          </div>
         </form>
       </section>
 
