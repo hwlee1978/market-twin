@@ -1476,6 +1476,12 @@ type TopicSuggestion = {
   campaign_label: string | null;
   goal: string | null;
   tag: string;
+  recommended_format?:
+    | "default"
+    | "comparison"
+    | "qa"
+    | "explainer"
+    | "listicle";
 };
 
 const TAG_COLOR: Record<string, string> = {
@@ -1485,6 +1491,7 @@ const TAG_COLOR: Record<string, string> = {
   "브랜드 스토리": "text-violet-700 bg-violet-50 border-violet-200",
   "계절/시즌": "text-amber-700 bg-amber-50 border-amber-200",
   "고객 인사이트": "text-indigo-700 bg-indigo-50 border-indigo-200",
+  "LLM 가시성 갭": "text-fuchsia-700 bg-fuchsia-50 border-fuchsia-200",
   "이벤트": "text-pink-700 bg-pink-50 border-pink-200",
 };
 
@@ -1546,6 +1553,7 @@ function GenerateModal({
   const pickSuggestion = (s: TopicSuggestion) => {
     setTopic(s.topic);
     if (s.campaign_label) setCampaignLabel(s.campaign_label);
+    if (s.recommended_format) setContentFormat(s.recommended_format);
     if (s.goal) setGoal(s.goal);
   };
 
@@ -1633,7 +1641,7 @@ function GenerateModal({
                         <div className="text-[10px] text-slate-500 mt-0.5 leading-snug">
                           {s.rationale}
                         </div>
-                        {(s.campaign_label || s.goal) && (
+                        {(s.campaign_label || s.goal || s.recommended_format) && (
                           <div className="flex flex-wrap gap-1 mt-1 text-[10px]">
                             {s.campaign_label && (
                               <span className="text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
@@ -1645,6 +1653,19 @@ function GenerateModal({
                                 🎯 {s.goal}
                               </span>
                             )}
+                            {s.recommended_format &&
+                              s.recommended_format !== "default" && (
+                                <span className="text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded">
+                                  🤖{" "}
+                                  {s.recommended_format === "comparison"
+                                    ? "비교"
+                                    : s.recommended_format === "qa"
+                                      ? "Q&A"
+                                      : s.recommended_format === "explainer"
+                                        ? "정의/설명"
+                                        : "리스트"}
+                                </span>
+                              )}
                           </div>
                         )}
                       </div>
