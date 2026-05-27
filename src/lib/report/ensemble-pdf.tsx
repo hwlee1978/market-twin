@@ -853,7 +853,7 @@ const TIER_DISPLAY: Record<
 > = {
   hypothesis: { ko: "초기검증", en: "Hypothesis", eyebrowKo: "초기검증 분석", eyebrowEn: "Hypothesis analysis" },
   decision: { ko: "검증분석", en: "Consensus", eyebrowKo: "검증분석", eyebrowEn: "Consensus analysis" },
-  decision_plus: { ko: "검증분석+", en: "Consensus+", eyebrowKo: "검증분석+", eyebrowEn: "Consensus+ analysis" },
+  decision_plus: { ko: "검증분석 Plus", en: "Consensus Plus", eyebrowKo: "검증분석 Plus", eyebrowEn: "Consensus Plus analysis" },
   deep: { ko: "심층분석", en: "Triangulated", eyebrowKo: "심층분석", eyebrowEn: "Triangulated analysis" },
   deep_pro: { ko: "심층분석 Pro", en: "Triangulated Pro", eyebrowKo: "심층분석 Pro", eyebrowEn: "Triangulated Pro analysis" },
 };

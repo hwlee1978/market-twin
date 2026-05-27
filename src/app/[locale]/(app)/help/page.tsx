@@ -23,7 +23,7 @@ export default async function HelpPage({
     ? [
         {
           q: "시뮬레이션은 얼마나 걸리나요?",
-          a: "Tier에 따라 다릅니다. 초기검증(Hypothesis)은 약 7분, 검증분석(Consensus) 12분, 검증분석+(Consensus+) 12-17분, 심층분석(Triangulated) 17-22분. 시뮬 끝나면 이메일로 완료 알림이 옵니다.",
+          a: "Tier에 따라 다릅니다. 초기검증(Hypothesis)은 약 7분, 검증분석(Consensus) 12분, 검증분석 Plus(Consensus Plus) 12-17분, 심층분석(Triangulated) 17-22분. 시뮬 끝나면 이메일로 완료 알림이 옵니다.",
         },
         {
           q: "결과는 얼마나 정확한가요?",
@@ -39,7 +39,7 @@ export default async function HelpPage({
         },
         {
           q: "여러 LLM이 동시에 분석하는 이유는?",
-          a: "단일 모델 편향을 줄이기 위해서입니다. Consensus+ tier는 Anthropic + OpenAI + DeepSeek 5개씩 균등 분배, Triangulated tier는 25개 sims를 3 provider 라운드로빈합니다. 모델끼리 동일한 시장을 추천하면 단일 모델 한계를 넘는 합의 시그널입니다.",
+          a: "단일 모델 편향을 줄이기 위해서입니다. Consensus Plus tier는 Anthropic + OpenAI + DeepSeek 5개씩 균등 분배, Triangulated tier는 25개 sims를 3 provider 라운드로빈합니다. 모델끼리 동일한 시장을 추천하면 단일 모델 한계를 넘는 합의 시그널입니다.",
         },
         {
           q: "결제는 언제 발생하나요?",
@@ -57,7 +57,7 @@ export default async function HelpPage({
     : [
         {
           q: "How long does a simulation take?",
-          a: "Depends on tier. Hypothesis ~7 min, Consensus ~12 min, Consensus+ 12-17 min, Triangulated 17-22 min. You'll receive an email notification when it completes.",
+          a: "Depends on tier. Hypothesis ~7 min, Consensus ~12 min, Consensus Plus 12-17 min, Triangulated 17-22 min. You'll receive an email notification when it completes.",
         },
         {
           q: "How accurate are the results?",
@@ -73,7 +73,7 @@ export default async function HelpPage({
         },
         {
           q: "Why use multiple LLMs simultaneously?",
-          a: "To rule out single-model bias. Consensus+ tier evenly distributes 5 sims each across Anthropic + OpenAI + DeepSeek; Triangulated tier round-robins 25 sims across 3 providers. When models converge on the same market, you have consensus signal beyond any one model's limits.",
+          a: "To rule out single-model bias. Consensus Plus tier evenly distributes 5 sims each across Anthropic + OpenAI + DeepSeek; Triangulated tier round-robins 25 sims across 3 providers. When models converge on the same market, you have consensus signal beyond any one model's limits.",
         },
         {
           q: "When am I billed?",

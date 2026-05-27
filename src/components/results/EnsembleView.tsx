@@ -1993,7 +1993,7 @@ function OverviewTab({
                       const mean = stats ? `평균 ${stats.finalScore.mean.toFixed(1)}` : "";
                       return `${c} (${vote}${mean ? `, ${mean}` : ""})`;
                     })
-                    .join(" / ")} — Score 우위 ≠ Vote 우위 발생. 두 국가 모두 진입 검토 권장. 단일국 결론엔 추가 시뮬 (Consensus+ 또는 Deep) 필요.`
+                    .join(" / ")} — Score 우위 ≠ Vote 우위 발생. 두 국가 모두 진입 검토 권장. 단일국 결론엔 추가 시뮬 (Consensus Plus 또는 Deep) 필요.`
                 : `${tieCountries
                     .map((c) => {
                       const dist = bestCountryDistribution.find((d) => d.country === c);
@@ -2002,7 +2002,7 @@ function OverviewTab({
                       const mean = stats ? `mean ${stats.finalScore.mean.toFixed(1)}` : "";
                       return `${c} (${vote}${mean ? `, ${mean}` : ""})`;
                     })
-                    .join(" / ")} — score-winner ≠ vote-winner. Evaluate both; additional sims (Consensus+ or Deep) needed for a single-country conclusion.`}
+                    .join(" / ")} — score-winner ≠ vote-winner. Evaluate both; additional sims (Consensus Plus or Deep) needed for a single-country conclusion.`}
             </p>
           </div>
         </div>
@@ -9760,8 +9760,8 @@ function DataTab({
             value={tierBadgeLabel(tier, isKo)}
             tooltip={
               isKo
-                ? "분석의 깊이 등급. 초기검증(1 시뮬) → 검증분석(5) → 검증분석+(15) → 심층분석(25, 멀티 LLM) → 심층분석 Pro(50, 멀티 LLM)."
-                : "Analysis depth. Hypothesis(1) → Consensus(5) → Consensus+(15) → Triangulated(25, multi-LLM) → Triangulated Pro(50, multi-LLM)."
+                ? "분석의 깊이 등급. 초기검증(1 시뮬) → 검증분석(5) → 검증분석 Plus(15) → 심층분석(25, 멀티 LLM) → 심층분석 Pro(50, 멀티 LLM)."
+                : "Analysis depth. Hypothesis(1) → Consensus(5) → Consensus Plus(15) → Triangulated(25, multi-LLM) → Triangulated Pro(50, multi-LLM)."
             }
           />
           <MetaRow
@@ -9825,8 +9825,8 @@ function DataTab({
           // not a missing-data bug.
           <div className="card p-4 text-xs text-slate-500">
             {isKo
-              ? "이 분석은 단일 LLM 등급(초기검증·검증분석)이라 모델 간 합의도가 산출되지 않습니다. 검증분석+ 이상 등급에서 여러 모델을 라운드로빈하면 여기에 모델별 1순위 추천과 전체 합의 일치율이 표시됩니다."
-              : "Single-LLM tier (Hypothesis / Consensus) — no cross-model signal to render. Run Consensus+ or higher to see per-provider top picks and agreement rates here."}
+              ? "이 분석은 단일 LLM 등급(초기검증·검증분석)이라 모델 간 합의도가 산출되지 않습니다. 검증분석 Plus 이상 등급에서 여러 모델을 라운드로빈하면 여기에 모델별 1순위 추천과 전체 합의 일치율이 표시됩니다."
+              : "Single-LLM tier (Hypothesis / Consensus) — no cross-model signal to render. Run Consensus Plus or higher to see per-provider top picks and agreement rates here."}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -10193,7 +10193,7 @@ function tierBadgeLabel(tier: string, isKo: boolean): string {
   const map: Record<string, { ko: string; en: string }> = {
     hypothesis: { ko: "초기검증", en: "Hypothesis" },
     decision: { ko: "검증분석", en: "Consensus" },
-    decision_plus: { ko: "검증분석+", en: "Consensus+" },
+    decision_plus: { ko: "검증분석 Plus", en: "Consensus Plus" },
     deep: { ko: "심층분석", en: "Triangulated" },
     deep_pro: { ko: "심층분석 Pro", en: "Triangulated Pro" },
   };

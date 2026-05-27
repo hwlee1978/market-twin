@@ -165,7 +165,7 @@ export async function notifyEnsembleComplete(args: {
     const TIER_NAMES: Record<typeof args.tier, { ko: string; en: string }> = {
       hypothesis: { ko: "초기검증", en: "Hypothesis" },
       decision: { ko: "검증분석", en: "Consensus" },
-      decision_plus: { ko: "검증분석+", en: "Consensus+" },
+      decision_plus: { ko: "검증분석 Plus", en: "Consensus Plus" },
       deep: { ko: "심층분석", en: "Triangulated" },
       deep_pro: { ko: "심층분석 Pro", en: "Triangulated Pro" },
     };

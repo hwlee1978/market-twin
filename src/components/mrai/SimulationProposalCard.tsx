@@ -83,7 +83,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 const TIER_LABEL: Record<SimulationTier, { name: string; cost: string; time: string }> = {
   hypothesis: { name: "Hypothesis", cost: "$3-5", time: "8-12분" },
   decision: { name: "Decision", cost: "$25", time: "15-25분" },
-  decision_plus: { name: "Consensus+", cost: "$45", time: "30-45분" },
+  decision_plus: { name: "Consensus Plus", cost: "$45", time: "30-45분" },
   deep: { name: "Deep", cost: "$60", time: "45-70분" },
   deep_pro: { name: "Deep Pro", cost: "$90", time: "60-90분" },
 };

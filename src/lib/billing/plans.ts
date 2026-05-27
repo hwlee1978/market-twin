@@ -46,8 +46,8 @@ export interface PlanDefinition {
   limits: {
     /** Total simulations per billing month. */
     simsPerMonth: number;
-    /** Subset of simsPerMonth that can be Consensus+ tier. 0 = no Consensus+.
-     * Consensus+ runs 3 internal sims at 3,000 personas each — far costlier
+    /** Subset of simsPerMonth that can be Consensus Plus tier. 0 = no Consensus Plus.
+     * Consensus Plus runs 3 internal sims at 3,000 personas each — far costlier
      * per ensemble than Consensus, so it gets its own quota. */
     decisionPlusSimsPerMonth: number;
     /** Subset of simsPerMonth that can be Deep tier (multi-LLM). 0 = no Deep. */
@@ -119,7 +119,7 @@ const FREE_TRIAL: PlanDefinition = {
 // Tier config source of truth = packages/shared/src/simulation/orchestrator.ts:
 //   Hypothesis    3 sims × 200 × multi-LLM (anth+oai+ds) = $3-5
 //   Consensus     6 sims × 200 × multi-LLM (anth+oai+ds) = $25 (was 5-sim/$14)
-//   Consensus+   15 sims × 200 × multi-LLM (anth+oai+ds) = $45
+//   Consensus Plus   15 sims × 200 × multi-LLM (anth+oai+ds) = $45
 //   Triangulated 25 sims × 200 × multi-LLM (anth+oai+ds) = $60
 //   Tri. Pro     50 sims × 200 × multi-LLM (anth+oai+gem) = $90
 //
@@ -165,12 +165,12 @@ const VALIDATOR: PlanDefinition = {
   slug: "validator",
   name: "Validator",
   tagline: {
-    ko: "월 10건 (검증분석+ 3건 포함), 1 사용자",
-    en: "10 sims/month (incl. 3 Consensus+), 1 user",
+    ko: "월 10건 (검증분석 Plus 3건 포함), 1 사용자",
+    en: "10 sims/month (incl. 3 Consensus Plus), 1 user",
   },
   selfServe: true,
   order: 2,
-  // Worst case: 3 × Consensus+ + 7 × Consensus = $135 + $175 = $310.
+  // Worst case: 3 × Consensus Plus + 7 × Consensus = $135 + $175 = $310.
   // Price = $999 / ₩1,500,000.
   priceMonthly: { usd: 99900, krw: 150000000 },
   limits: {
@@ -199,12 +199,12 @@ const GROWTH: PlanDefinition = {
   slug: "growth",
   name: "Growth",
   tagline: {
-    ko: "월 20건 (심층분석 3건 + 검증분석+ 5건 포함), 3 사용자",
-    en: "20 sims/month (incl. 3 Triangulated + 5 Consensus+), 3 users",
+    ko: "월 20건 (심층분석 3건 + 검증분석 Plus 5건 포함), 3 사용자",
+    en: "20 sims/month (incl. 3 Triangulated + 5 Consensus Plus), 3 users",
   },
   selfServe: true,
   order: 3,
-  // Worst case: 3 × Triangulated + 5 × Consensus+ + 12 × Consensus
+  // Worst case: 3 × Triangulated + 5 × Consensus Plus + 12 × Consensus
   // = $180 + $225 + $300 = $705. Price = $2,299 / ₩3,500,000.
   priceMonthly: { usd: 229900, krw: 350000000 },
   limits: {
@@ -319,7 +319,7 @@ export function canStartSim(opts: {
   if (simTier === "deep" && !plan.features.multiLLM) {
     return { allowed: false, reason: "deep_requires_growth" };
   }
-  // decision_plus (Consensus+) is gated by its own per-month quota — plans
+  // decision_plus (Consensus Plus) is gated by its own per-month quota — plans
   // that don't include it set decisionPlusSimsPerMonth: 0 to block entry.
   if (
     simTier === "decision_plus" &&

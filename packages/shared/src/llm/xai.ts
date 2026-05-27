@@ -3,7 +3,7 @@
  * Same chat-completions surface as OpenAI, so we reuse the OpenAI SDK
  * and just swap baseURL + apiKey.
  *
- * Wired in 2026-05-08 to replace Gemini's slot in the Consensus+ tier
+ * Wired in 2026-05-08 to replace Gemini's slot in the Consensus Plus tier
  * round-robin after Gemini sims were shipping 60-96 personas (vs the
  * 200 target) — partial responses + 503s on the persona batch endpoint.
  * Grok-4 lands in the same price tier as Sonnet ($3 in / $15 out per 1M)

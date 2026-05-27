@@ -196,7 +196,7 @@ export function BillingDashboard({
             />
             {plan.limits.decisionPlusSimsPerMonth > 0 && (
               <UsageRow
-                label={isKo ? "검증분석+ tier" : "Consensus+ tier"}
+                label={isKo ? "검증분석 Plus tier" : "Consensus Plus tier"}
                 used={usage.decisionPlusSimsUsed}
                 limit={plan.limits.decisionPlusSimsPerMonth}
                 isKo={isKo}

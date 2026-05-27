@@ -64,7 +64,7 @@ function tierLabel(tier: EnsembleTier, isKo: boolean): string {
   const map: Record<EnsembleTier, { ko: string; en: string }> = {
     hypothesis: { ko: "초기검증", en: "Hypothesis" },
     decision: { ko: "검증분석", en: "Consensus" },
-    decision_plus: { ko: "검증분석+", en: "Consensus+" },
+    decision_plus: { ko: "검증분석 Plus", en: "Consensus Plus" },
     deep: { ko: "심층분석", en: "Triangulated" },
     deep_pro: { ko: "심층분석 Pro", en: "Triangulated Pro" },
   };

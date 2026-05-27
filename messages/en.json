@@ -455,7 +455,7 @@
           "time": "~12-15 min"
         },
         "decision_plus": {
-          "name": "Consensus+",
+          "name": "Consensus Plus",
           "spec": "3,000 personas · 15 sims · multi-LLM",
           "desc": "Stronger consensus",
           "time": "~12–17 min"

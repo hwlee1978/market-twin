@@ -82,7 +82,7 @@ export default async function ProjectDetailPage({
       ? {
           hypothesis: "초기검증",
           decision: "검증분석",
-          decision_plus: "검증분석+",
+          decision_plus: "검증분석 Plus",
           deep: "심층분석",
           deep_pro: "심층분석 Pro",
         }

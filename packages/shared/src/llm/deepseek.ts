@@ -2,7 +2,7 @@
  * DeepSeek provider — OpenAI-compatible REST API at https://api.deepseek.com/v1.
  * Same chat-completions surface as OpenAI, so we reuse the OpenAI SDK
  * and just swap baseURL + apiKey. Wired in as the third LLM in the
- * Consensus+ tier 5/5/5 round-robin after xAI Grok kept timing out
+ * Consensus Plus tier 5/5/5 round-robin after xAI Grok kept timing out
  * on persona batches (Grok-4 reasoning overran the timeout, Grok-3
  * was too slow under concurrent load, Grok-3-mini also timed out).
  *
