@@ -151,10 +151,13 @@ export async function POST(
     .join(" — ")
     .slice(0, 200);
 
-  // Load references — query ambassadors WITHOUT limit so the full
-  // rotation pool reaches image-gen (was cutting off when the workspace
-  // had >20 total assets). Other types get a separate small query.
-  const [ambassadorQ, otherQ] = await Promise.all([
+  // Load references — query ambassador AND product WITHOUT limit so
+  // BOTH rotation pools reach image-gen in full. The random source
+  // picker in image-gen needs every uploaded photo to choose from;
+  // capping product to 1-2 here meant the same shoe came back every
+  // regen even though the user had 31 product photos uploaded.
+  // Other types (logo / lifestyle / packaging) are still capped.
+  const [ambassadorQ, productQ, otherQ] = await Promise.all([
     supabase
       .from("mrai_brand_assets")
       .select("id, image_url, asset_type, label")
@@ -165,7 +168,13 @@ export async function POST(
       .from("mrai_brand_assets")
       .select("id, image_url, asset_type, label")
       .eq("workspace_id", draftWorkspaceId)
-      .neq("asset_type", "ambassador")
+      .eq("asset_type", "product")
+      .order("use_count", { ascending: true }),
+    supabase
+      .from("mrai_brand_assets")
+      .select("id, image_url, asset_type, label")
+      .eq("workspace_id", draftWorkspaceId)
+      .not("asset_type", "in", "(ambassador,product)")
       .order("use_count", { ascending: true })
       .limit(20),
   ]);
@@ -176,23 +185,23 @@ export async function POST(
     label: string | null;
   };
   const ambassadors = (ambassadorQ.data ?? []) as Ref[];
+  const products = (productQ.data ?? []) as Ref[];
   const otherRefs = (otherQ.data ?? []) as Ref[];
   const pickFrom = (type: string, n: number) =>
     otherRefs.filter((r) => r.asset_type === type).slice(0, n);
   const logos = pickFrom("logo", 1);
-  const products = pickFrom("product", ambassadors.length >= 2 ? 1 : 2);
   const lifestyle = pickFrom("lifestyle", 1);
   const packaging = pickFrom("packaging", 1);
   let references: Ref[] = [
     ...ambassadors,
-    ...logos,
     ...products,
+    ...logos,
     ...lifestyle,
     ...packaging,
   ];
   if (references.length === 0) references = otherRefs.slice(0, 4);
   console.log(
-    `[frame-route] ambassador pool size=${ambassadors.length} (full library)`,
+    `[frame-route] pools — ambassador=${ambassadors.length}, product=${products.length} (full library)`,
   );
 
   const settings = await loadImageGenSettings(draftWorkspaceId);

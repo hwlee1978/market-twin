@@ -86,51 +86,61 @@ export async function POST(
     .join(" — ")
     .slice(0, 200);
 
-  // Load workspace brand assets — mix product + logo + lifestyle so the
-  // image generator can show the real product wearing the real brand logo
-  // (not the material tech name like "H1-TEX"). Cap at 4 to stay within
-  // gpt-image-1's image-edit input budget.
-  const { data: refRows } = await supabase
-    .from("mrai_brand_assets")
-    .select("id, image_url, asset_type, label")
-    .eq("workspace_id", wsCtx.workspaceId)
-    .order("use_count", { ascending: true })
-    .limit(20);
-  const allRefs = (refRows ?? []) as Array<{
+  // Load workspace brand assets. Pass the FULL ambassador + product
+  // pools to image-gen so its per-frame random source picker has
+  // every uploaded photo to rotate through. Other types still capped.
+  const [ambassadorQ, productQ, otherQ] = await Promise.all([
+    supabase
+      .from("mrai_brand_assets")
+      .select("id, image_url, asset_type, label")
+      .eq("workspace_id", wsCtx.workspaceId)
+      .eq("asset_type", "ambassador")
+      .order("use_count", { ascending: true }),
+    supabase
+      .from("mrai_brand_assets")
+      .select("id, image_url, asset_type, label")
+      .eq("workspace_id", wsCtx.workspaceId)
+      .eq("asset_type", "product")
+      .order("use_count", { ascending: true }),
+    supabase
+      .from("mrai_brand_assets")
+      .select("id, image_url, asset_type, label")
+      .eq("workspace_id", wsCtx.workspaceId)
+      .not("asset_type", "in", "(ambassador,product)")
+      .order("use_count", { ascending: true })
+      .limit(20),
+  ]);
+  type Ref = {
     id: string;
     image_url: string;
     asset_type: string;
     label: string | null;
-  }>;
-  // Priority for the 4-slot reference set (gpt-image-1 input budget).
-  // Logo is intentionally NOT in image-edit refs — sharp composite
-  // handles it post-production. The mix below balances product
-  // accuracy with marketing-effect:
-  //
-  //   1. PRODUCT (2 refs) — primary signal so the model preserves the
-  //      actual product silhouette / colorway / stitching. Mixing too
-  //      many other types diluted this (user reported generated shoes
-  //      didn't match real product).
-  //   2. AMBASSADOR (1 ref) — preserves contracted celebrity face when
-  //      a lifestyle frame is being rendered.
-  //   3. LIFESTYLE or PACKAGING (1 ref) — scene continuity.
-  //
-  // Two products ahead of one ambassador because the model treats the
-  // first reference as anchor and we want product fidelity to anchor.
-  // Pass a generous pool of references; image-gen.pickRefsForFrame picks
-  // role-appropriate subset per frame (cover = product only, lifestyle =
-  // product + ambassador, etc.). Mixing too many refs in a single call
-  // confuses the model — but having more options means each frame can
-  // anchor on the right type.
+  };
+  const ambassadors = (ambassadorQ.data ?? []) as Ref[];
+  const products = (productQ.data ?? []) as Ref[];
+  const otherRefs = (otherQ.data ?? []) as Ref[];
   const pickFrom = (type: string, n: number) =>
-    allRefs.filter((r) => r.asset_type === type).slice(0, n);
-  const products = pickFrom("product", 4);
-  const ambassadors = pickFrom("ambassador", 2);
+    otherRefs.filter((r) => r.asset_type === type).slice(0, n);
   const lifestyle = pickFrom("lifestyle", 2);
   const packaging = pickFrom("packaging", 1);
-  const logos = pickFrom("logo", 1); // composite-only; image-gen filters from model input
-  let references = [...products, ...ambassadors, ...lifestyle, ...packaging, ...logos];
-  if (references.length === 0) references = allRefs.slice(0, 6);
+  const logos = pickFrom("logo", 1); // composite-only
+  let references: Ref[] = [
+    ...products,
+    ...ambassadors,
+    ...lifestyle,
+    ...packaging,
+    ...logos,
+  ];
+  if (references.length === 0) {
+    references = [
+      ...products.slice(0, 4),
+      ...ambassadors.slice(0, 2),
+      ...otherRefs.slice(0, 2),
+    ];
+  }
+  console.log(
+    `[images-route] pools — ambassador=${ambassadors.length}, product=${products.length} (full library)`,
+  );
 
   const userSettings = await loadImageGenSettings(wsCtx.workspaceId);
 
