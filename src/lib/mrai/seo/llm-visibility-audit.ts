@@ -129,14 +129,13 @@ export async function runLLMVisibilityAudit(input: {
   ];
 
   // 3. Aggregate competitors + sources across all probes
-  const competitorCounts = new Map<string, number>();
+  const rawCompetitors: string[] = [];
   const sourceCounts = new Map<string, number>();
   for (const r of perLLM) {
     for (const q of r.queries) {
       for (const c of q.competitors_mentioned) {
         const k = c.trim();
-        if (!k) continue;
-        competitorCounts.set(k, (competitorCounts.get(k) ?? 0) + 1);
+        if (k) rawCompetitors.push(k);
       }
       for (const d of q.cited_domains) {
         const k = d.trim().toLowerCase();
@@ -145,10 +144,12 @@ export async function runLLMVisibilityAudit(input: {
       }
     }
   }
-  const topCompetitors = Array.from(competitorCounts.entries())
-    .map(([name, mentions]) => ({ name, mentions }))
-    .sort((a, b) => b.mentions - a.mentions)
-    .slice(0, 10);
+  // Haiku-canonicalize competitor names so aliases merge:
+  //   Allbirds / 올버즈 / ALLBIRDS → all one entry with merged count
+  //   르무통 / Le Mouton → all one entry
+  // Without this, the same brand mentioned with different spellings
+  // across queries shows up as separate rows.
+  const topCompetitors = await canonicalizeAndCount(rawCompetitors);
   const topSources = Array.from(sourceCounts.entries())
     .map(([domain, mentions]) => ({ domain, mentions }))
     .sort((a, b) => b.mentions - a.mentions)
@@ -281,6 +282,114 @@ function probeSystem(market: string): string {
     `cite sources (URLs), include them inline. Be concrete — no vague ` +
     `"many options exist" answers.`
   );
+}
+
+/**
+ * Group raw competitor mentions into canonical brand entries.
+ *
+ * Without canonicalization, "Allbirds" appearing in some responses and
+ * "올버즈" in others would show as TWO rows. Haiku groups them under
+ * one canonical name and sums the mentions.
+ *
+ * Falls back to case-insensitive grouping when ANTHROPIC_API_KEY is
+ * unavailable.
+ */
+async function canonicalizeAndCount(
+  rawCompetitors: string[],
+): Promise<Array<{ name: string; mentions: number }>> {
+  if (rawCompetitors.length === 0) return [];
+
+  // Quick exact-match dedupe first to shrink the LLM input
+  const exactCounts = new Map<string, number>();
+  for (const c of rawCompetitors) {
+    exactCounts.set(c, (exactCounts.get(c) ?? 0) + 1);
+  }
+  const uniqueNames = Array.from(exactCounts.keys());
+  if (uniqueNames.length <= 1 || !process.env.ANTHROPIC_API_KEY) {
+    return Array.from(exactCounts.entries())
+      .map(([name, mentions]) => ({ name, mentions }))
+      .sort((a, b) => b.mentions - a.mentions)
+      .slice(0, 10);
+  }
+
+  try {
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const resp = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 800,
+      system:
+        "Group brand-name variants that refer to the SAME brand under one " +
+        "canonical name. Examples: 'Allbirds' + '올버즈' + 'ALLBIRDS' → " +
+        "canonical 'Allbirds'. 'Le Mouton' + 'LeMouton' + '르무통' → " +
+        "canonical '르무통' (or 'Le Mouton' if user prefers English).\n\n" +
+        "Output JSON: { groups: [{ canonical: 'Allbirds', aliases: " +
+        "['Allbirds', '올버즈'] }, ...] }\n\n" +
+        "Rules:\n" +
+        "- Every input name must appear in exactly one group's aliases " +
+        "(use the input name itself as canonical if it stands alone).\n" +
+        "- Canonical name should be the MOST RECOGNIZABLE form (typically " +
+        "English for global brands; native script for local-only brands).\n" +
+        "- Do NOT invent canonical names that don't appear in the inputs.",
+      messages: [
+        {
+          role: "user",
+          content: `Raw brand name mentions:\n${uniqueNames.map((n, i) => `${i + 1}. ${n}`).join("\n")}`,
+        },
+      ],
+    });
+    const text = resp.content
+      .map((b) => (b.type === "text" ? b.text : ""))
+      .join("")
+      .trim();
+    const m = text.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error("no JSON");
+    const parsed = JSON.parse(m[0]) as {
+      groups?: Array<{ canonical: string; aliases?: string[] }>;
+    };
+    const groups = parsed.groups ?? [];
+    const canonicalCounts = new Map<string, number>();
+    const seen = new Set<string>();
+    for (const g of groups) {
+      if (!g.canonical) continue;
+      const aliases = (g.aliases ?? []).filter(
+        (a) => typeof a === "string" && a.trim().length > 0,
+      );
+      let total = 0;
+      for (const a of aliases) {
+        const exact = exactCounts.get(a);
+        if (typeof exact === "number") {
+          total += exact;
+          seen.add(a);
+        }
+      }
+      if (total > 0) {
+        canonicalCounts.set(
+          g.canonical,
+          (canonicalCounts.get(g.canonical) ?? 0) + total,
+        );
+      }
+    }
+    // Any input name not seen in groups (Haiku missed it) — keep as its
+    // own canonical so we don't lose data.
+    for (const [name, count] of exactCounts) {
+      if (!seen.has(name)) {
+        canonicalCounts.set(name, (canonicalCounts.get(name) ?? 0) + count);
+      }
+    }
+    return Array.from(canonicalCounts.entries())
+      .map(([name, mentions]) => ({ name, mentions }))
+      .sort((a, b) => b.mentions - a.mentions)
+      .slice(0, 10);
+  } catch (e) {
+    console.warn(
+      "[llm-visibility] canonicalize failed, falling back to exact-match:",
+      e instanceof Error ? e.message : e,
+    );
+    return Array.from(exactCounts.entries())
+      .map(([name, mentions]) => ({ name, mentions }))
+      .sort((a, b) => b.mentions - a.mentions)
+      .slice(0, 10);
+  }
 }
 
 function marketLabelOf(code: string): string {
