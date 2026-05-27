@@ -31,6 +31,23 @@ const MODEL_CANDIDATES: Array<{ owner: string; name: string }> = [
   { owner: "pollinations", name: "modnet" },
 ];
 
+// Per-process global cooldown — ensures successive calls to Replicate
+// are spaced enough that the 6-req/min throttle (active for accounts
+// with < $5 credit OR recently top-up'd) doesn't kick in on burst.
+// Each bg-removal call paces itself to ≥12s since the last one.
+const MIN_INTERVAL_MS = 12_000;
+let lastCallAt = 0;
+
+async function paceReplicateCalls(): Promise<void> {
+  const sinceLast = Date.now() - lastCallAt;
+  if (sinceLast < MIN_INTERVAL_MS && lastCallAt > 0) {
+    const wait = MIN_INTERVAL_MS - sinceLast;
+    console.log(`[bg-removal] pacing — waiting ${(wait / 1000).toFixed(1)}s since last Replicate call (6-req/min throttle window)`);
+    await new Promise((r) => setTimeout(r, wait));
+  }
+  lastCallAt = Date.now();
+}
+
 type ReplicatePrediction = {
   id: string;
   status: "starting" | "processing" | "succeeded" | "failed" | "canceled";
@@ -79,6 +96,7 @@ async function callReplicate(
   // (404, 402, 500), move to next model immediately.
   modelLoop: for (const m of MODEL_CANDIDATES) {
     for (let attempt = 0; attempt <= BACKOFF_MS.length; attempt++) {
+      await paceReplicateCalls();
       const r = await tryModel(m.owner, m.name, imageUrl, token);
       if (r.res.ok) {
         createRes = r.res;
