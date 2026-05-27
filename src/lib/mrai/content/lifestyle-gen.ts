@@ -102,10 +102,36 @@ export async function generateLifestyleWithRefs(input: {
     "render that area as plain blank material (clean rubber, clean " +
     "fabric, clean leather). No garbled letters, no fake brand names. " +
     "Brand identity is added separately as a corner stamp.";
+  // Random composition variant — picked per call so consecutive bulk
+  // generations don't all converge on the same "editorial close-up
+  // with dewdrops" pattern.
+  const COMPOSITION_VARIANTS = [
+    "Composition: editorial wide environment shot. Subject occupies " +
+      "~25% of the frame, lots of contextual surroundings visible. " +
+      "Rule-of-thirds placement, leading lines from architecture or " +
+      "natural elements toward the subject. Warm golden-hour side light.",
+    "Composition: medium product photography. Subject occupies ~50% " +
+      "of the frame at eye-level. Clean balanced background. Soft " +
+      "diffused daylight from one side, gentle shadow on the opposite. " +
+      "Catalogue feel but with lived-in context.",
+    "Composition: low-angle hero shot. Camera near the ground looking " +
+      "up at the subject. Subject ~40% of frame. Strong vertical " +
+      "elements in the background (buildings, trees). Late-afternoon " +
+      "amber light.",
+    "Composition: lifestyle wide flat lay. Top-down view, subject in " +
+      "an environment of related objects (coffee, notebook, plant, " +
+      "magazine). Even soft overhead light. Calm minimalist palette.",
+    "Composition: candid moment / in-use scene. Subject mid-action, " +
+      "natural pose, ~35% of frame. Available light, slight motion " +
+      "blur or shallow depth-of-field. Magazine documentary feel.",
+    "Composition: tight detail crop. Macro close-up showing texture " +
+      "and craftsmanship. Subject fills ~70% of frame. Soft directional " +
+      "studio light revealing fiber/weave. Clean uncluttered backdrop.",
+  ];
   const COMPOSITION =
-    "Composition: editorial magazine style. Subject placed at a rule-of-" +
-    "thirds intersection with leading lines toward it, balanced negative " +
-    "space, clear focal hierarchy, soft cinematic depth.";
+    COMPOSITION_VARIANTS[
+      Math.floor(Math.random() * COMPOSITION_VARIANTS.length)
+    ];
   const NEGATION =
     "NO text overlays, NO writing on the product surface beyond what's " +
     "in the reference, NO watermarks, NO duplicate copies of the product " +
@@ -125,8 +151,9 @@ export async function generateLifestyleWithRefs(input: {
     NEGATION,
   ].join("\n");
 
+  const compositionKey = COMPOSITION.split(".")[0].replace(/^Composition: /, "");
   console.log(
-    `[lifestyle-gen] refs=${refFiles.length} scene="${input.scenePrompt.slice(0, 80)}…"`,
+    `[lifestyle-gen] refs=${refFiles.length} comp="${compositionKey}" scene="${input.scenePrompt.slice(0, 80)}…"`,
   );
 
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
