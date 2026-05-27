@@ -587,18 +587,48 @@ export async function generateImagesForDraft(input: {
       const sourcePool =
         touchupSourceType === "ambassador" ? ambassadorPhotos : productPhotos;
       // Source pick:
-      // - First-time full generation: rotate by frame index so frames
-      //   get a deterministic spread across the library.
-      // - Single-frame regen: RANDOM pick (excluding the current cover's
-      //   asset id when possible) so re-clicking "regenerate" produces
-      //   a different photo each time.
-      const isSingleRegen = typeof input.singleFrameIndex === "number";
-      const sourceIdx = isSingleRegen
-        ? Math.floor(Math.random() * Math.max(1, sourcePool.length))
-        : i % Math.max(1, sourcePool.length);
-      const sourceAsset = sourcePool[sourceIdx];
+      //   - Ambassador: random pick from the library (AS-IS path, no
+      //     scene gen). Variety only.
+      //   - Product: vision-classified + Haiku-matched to the scene
+      //     prompt. Picks 3/4 + in-context shots for editorial scenes,
+      //     avoids back/top-down unless the scene is explicitly a
+      //     flatlay. Falls back to random on classifier failure.
+      let sourceAsset:
+        | { id: string; image_url: string; label: string | null; asset_type?: string }
+        | undefined;
+      if (touchupSourceType === "product" && sourcePool.length > 1) {
+        try {
+          const { pickBestProductForPrompt } = await import(
+            "./product-classifier"
+          );
+          const picked = await pickBestProductForPrompt({
+            workspaceId: input.workspaceId,
+            scenePrompt: input.prompt,
+            products: sourcePool.map((p) => ({
+              id: p.id,
+              image_url: p.image_url,
+              label: p.label ?? null,
+            })),
+          });
+          if (picked) {
+            sourceAsset = sourcePool.find((p) => p.id === picked.id);
+          }
+        } catch (e) {
+          console.warn(
+            "[image-gen] product-classifier failed, falling back to random:",
+            e instanceof Error ? e.message : e,
+          );
+        }
+      }
+      if (!sourceAsset) {
+        const isSingleRegen = typeof input.singleFrameIndex === "number";
+        const sourceIdx = isSingleRegen
+          ? Math.floor(Math.random() * Math.max(1, sourcePool.length))
+          : i % Math.max(1, sourcePool.length);
+        sourceAsset = sourcePool[sourceIdx];
+      }
       const sourceUrl = sourceAsset?.image_url;
-      if (!sourceUrl) continue;
+      if (!sourceUrl || !sourceAsset) continue;
       const sourceLabel =
         touchupSourceType === "ambassador" ? "AMBASSADOR" : "PRODUCT";
       // Build touchup-mode prompt — skips product description (the
