@@ -80,6 +80,9 @@ export async function runLLMVisibilityAudit(input: {
   customQueries?: string[];
   /** Locale for the queries themselves (defaults to market language). */
   queryLocale?: "ko" | "en";
+  /** Total queries to test. For non-English markets, split half local
+   *  / half English. Default 6. */
+  sampleSize?: number;
 }): Promise<LLMVisibilityResult> {
   const t0 = Date.now();
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -96,6 +99,7 @@ export async function runLLMVisibilityAudit(input: {
   // Mentioning: LeMouton" section. The same query in Korean → no
   // mention. LLMs route to different recommendation distributions
   // based on query language, even when geo-context is the same.
+  const totalSamples = Math.max(3, Math.min(input.sampleSize ?? 6, 30));
   let testQueries: string[];
   if (input.customQueries?.length) {
     testQueries = input.customQueries;
@@ -103,23 +107,25 @@ export async function runLLMVisibilityAudit(input: {
     const isNonEnglishMarket =
       input.marketCountry && input.marketCountry !== "US" && input.marketCountry !== "GB";
     if (isNonEnglishMarket) {
-      // Mix: 3 local-language + 3 English. This catches both:
-      //   - "domestic-speaker recommendation" distribution (local lang)
-      //   - "international tells me about local brand" distribution (EN)
+      // Split totalSamples roughly half/half between local + English
+      const halfLocal = Math.ceil(totalSamples / 2);
+      const halfEn = totalSamples - halfLocal;
       const localLocale = input.queryLocale ?? "ko";
       const [localQs, enQs] = await Promise.all([
         generateTestQueries({
           brandCategory: input.brandCategory,
           marketCountry: input.marketCountry,
           locale: localLocale,
-          count: 3,
+          count: halfLocal,
         }),
-        generateTestQueries({
-          brandCategory: input.brandCategory,
-          marketCountry: input.marketCountry,
-          locale: "en",
-          count: 3,
-        }),
+        halfEn > 0
+          ? generateTestQueries({
+              brandCategory: input.brandCategory,
+              marketCountry: input.marketCountry,
+              locale: "en",
+              count: halfEn,
+            })
+          : Promise.resolve([] as string[]),
       ]);
       testQueries = [...localQs, ...enQs];
     } else {
@@ -127,6 +133,7 @@ export async function runLLMVisibilityAudit(input: {
         brandCategory: input.brandCategory,
         marketCountry: input.marketCountry,
         locale: input.queryLocale ?? "en",
+        count: totalSamples,
       });
     }
   }
@@ -257,7 +264,7 @@ async function generateTestQueries(input: {
 }): Promise<string[]> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const market = input.marketCountry ?? "global";
-  const n = Math.max(2, Math.min(input.count ?? 6, 8));
+  const n = Math.max(2, Math.min(input.count ?? 6, 20));
   const system =
     `Generate ${n} natural questions a consumer might ask an AI assistant ` +
     "when looking for products in a category — questions that should " +
@@ -279,7 +286,7 @@ async function generateTestQueries(input: {
   const user = `Category: ${input.brandCategory}\nMarket: ${market}\nLanguage: ${input.locale === "ko" ? "Korean" : "English"}`;
   const resp = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 800,
+    max_tokens: 2000,
     system,
     messages: [{ role: "user", content: user }],
   });

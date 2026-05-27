@@ -5,15 +5,20 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { runLLMVisibilityAudit } from "@/lib/mrai/seo/llm-visibility-audit";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 180;
+// n=20 audit can take 3-4 min (Gemini pacing + retries). Bump max to 5 min.
+export const maxDuration = 300;
 
 const InputSchema = z.object({
   brand_name: z.string().trim().min(1).max(200),
   brand_category: z.string().trim().min(1).max(300),
   market_country: z.string().trim().length(2).nullable().optional(),
   marketing_channel_id: z.string().uuid().nullable().optional(),
-  custom_queries: z.array(z.string().trim().min(3).max(300)).max(10).optional(),
+  custom_queries: z.array(z.string().trim().min(3).max(300)).max(30).optional(),
   query_locale: z.enum(["ko", "en"]).optional(),
+  /** Number of test queries to generate (per language for non-English
+   *  markets). Default 6 (3 KR + 3 EN bilingual). Larger = more
+   *  stable score but costlier. */
+  sample_size: z.number().int().min(3).max(30).optional(),
 });
 
 /**
@@ -63,6 +68,7 @@ export async function POST(req: Request) {
       marketCountry: parsed.data.market_country ?? null,
       customQueries: parsed.data.custom_queries,
       queryLocale: parsed.data.query_locale,
+      sampleSize: parsed.data.sample_size,
     });
   } catch (e) {
     return NextResponse.json(

@@ -62,6 +62,7 @@ export function LLMVisibilityPanel({
   const [category, setCategory] = useState(defaultCategory);
   const [customQueriesText, setCustomQueriesText] = useState("");
   const [showCustomQueries, setShowCustomQueries] = useState(false);
+  const [sampleSize, setSampleSize] = useState<6 | 10 | 20>(6);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,6 +108,7 @@ export function LLMVisibilityPanel({
           marketing_channel_id: channelId ?? null,
           custom_queries:
             customQueries.length > 0 ? customQueries : undefined,
+          sample_size: sampleSize,
         }),
       });
       const json = await res.json();
@@ -173,6 +175,40 @@ export function LLMVisibilityPanel({
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-1.5 bg-white text-slate-900"
             />
           </div>
+        </div>
+
+        <div>
+          <label className="text-[10px] uppercase tracking-wider text-slate-500 block mb-1.5">
+            샘플 크기 — 쿼리가 많을수록 결과가 안정적
+          </label>
+          <div className="flex gap-2">
+            {(
+              [
+                { n: 6, label: "6 (기본)", cost: "~$0.06 · 1분", hint: "빠름" },
+                { n: 10, label: "10", cost: "~$0.11 · 2분", hint: "중간" },
+                { n: 20, label: "20 (정밀)", cost: "~$0.20 · 3-4분", hint: "안정" },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.n}
+                type="button"
+                onClick={() => setSampleSize(opt.n)}
+                disabled={running}
+                className={`flex-1 text-left text-xs px-3 py-2 rounded-md border ${
+                  sampleSize === opt.n
+                    ? "border-violet-500 bg-violet-50 text-violet-800 font-semibold"
+                    : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <div>{opt.label}</div>
+                <div className="text-[10px] opacity-70 mt-0.5">{opt.cost}</div>
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] text-slate-400 mt-1">
+            n=6은 진짜 mention 30%일 때 ±19% 변동, n=20은 ±10%. 르무통처럼 점수 검증이
+            중요하면 20 권장.
+          </p>
         </div>
 
         <div>
