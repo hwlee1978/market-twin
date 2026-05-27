@@ -215,18 +215,18 @@ export async function runContentDrafter(input: DrafterInput): Promise<DrafterRes
   const variantStrategies =
     locale === "en"
       ? [
-          "A: candid diary — a small ordinary moment from today (commute, meeting, walk). No marketing voice. First-person.",
-          "B: maker's note — honest behind-the-scenes from designer/founder (a sample fail, a fabric choice, why a stitch matters). Quiet, factual.",
-          "C: observation/question — a sincere question or thing you noticed (not a knockoff jab, not a competitor swipe). Conversational.",
-          "D: tactile detail — describe how it feels in a specific situation. Sensory, no superlatives.",
-          "E: timestamped log — 'after 4 weeks of wearing…', 'on the 3rd month'. Specific time, lived-in.",
+          "A: small ordinary moment from today (commute, meeting, walk). Concrete sensory detail in the FIRST line.",
+          "B: timestamped log — 'after 4 weeks of wearing…', 'on the 3rd month'. Specific time, lived-in.",
+          "C: sincere observation/question — something you noticed. Conversational. No knockoff jab, no competitor swipe.",
+          "D: tactile detail in a specific situation. Sensory, no superlatives.",
+          "E: process beat — one quiet behind-the-scenes step (a fabric choice, a stitch decision, a sample test). Factual, no boasting.",
         ].slice(0, variantCount)
       : [
-          "A: 일상 메모 — 오늘 있었던 작은 순간 (출퇴근, 회의, 산책). 마케팅 톤 0, 1인칭.",
-          "B: 메이커 노트 — 디자이너/창업자의 솔직한 비하인드 (실패한 샘플, 원단 선택, 박음질 이유). 조용한 사실 위주.",
-          "C: 관찰/질문형 — 진지하게 던지는 질문 또는 알아챈 것 (모방품 비꼬기 금지, 경쟁사 깎기 금지). 대화 톤.",
-          "D: 촉감 디테일 — 특정 상황에서 어떻게 느껴지는지. 감각 묘사, 형용사 자랑 금지.",
-          "E: 시간 로그 — '4주 신고 나서…', '3개월차에…'. 구체적 시간, 살아본 느낌.",
+          "A: 오늘 있었던 작은 순간 (출퇴근, 회의, 산책). 첫 줄에 구체적인 감각 디테일.",
+          "B: 시간 로그 — '4주 신고 나서…', '3개월차에…'. 구체적 시간, 살아본 느낌.",
+          "C: 진지한 관찰/질문 — 알아챈 것. 대화 톤. 모방품 비꼬기 금지, 경쟁사 깎기 금지.",
+          "D: 특정 상황의 촉감 디테일. 감각 묘사, 형용사 자랑 금지.",
+          "E: 프로세스 한 컷 — 조용한 비하인드 한 단계 (원단 선택, 박음질 결정, 샘플 테스트). 사실 위주, 자랑 금지.",
         ].slice(0, variantCount);
 
   const frameCount = input.frameCount;
@@ -246,7 +246,23 @@ ${specBlock}
 ${frameSpec}
 
 ${input.brandContext ? `# Brand context\n${input.brandContext}\n` : ""}
-# Variants to produce (${variantCount}개)
+# 🔒 NARRATOR (모든 variant 공통 — 가장 중요)
+
+이 채널은 **하나의 화자**가 운영합니다. A/B/C 변형은 \`hook angle\`만 다르고
+**narrator(화자)는 절대 바뀌면 안 됩니다.**
+
+채널의 \`Posting style\` + \`Bio\` + \`Brand context\`를 보고 narrator를 **딱 한 명** 추론한 뒤
+모든 variant를 그 한 사람의 목소리로 작성:
+- 메이커/창업자 voice인가? → 모든 variant가 메이커 1인칭
+- 일상 사용자 voice인가? → 모든 variant가 사용자 1인칭
+- 브랜드 에디토리얼 팀 voice인가? → 모든 variant가 같은 에디토리얼 톤
+
+⚠️ 절대 금지:
+- A는 "개발자/디자이너 시선", B는 "이용자 시선"처럼 화자 혼재
+- 같은 채널에서 1편은 "우리가 만들었다", 다른 1편은 "내가 사봤다"처럼 위치 모순
+- 동일 채널에 voice가 두 명 이상 등장하는 carousel/시리즈
+
+# Variants to produce (${variantCount}개, narrator 동일·hook angle만 차이)
 ${variantStrategies.join("\n")}
 
 ---
