@@ -14,6 +14,9 @@ export const maxDuration = 240;
 const InputSchema = z.object({
   frameCount: z.number().int().min(1).max(7).optional(),
   brandHint: z.string().max(300).optional(),
+  /** Overrides draft.image_prompt for THIS generation AND persists
+   *  the new prompt back to the draft (so later regens use it too). */
+  image_prompt_override: z.string().trim().min(10).max(2000).optional(),
 });
 
 /**
@@ -63,7 +66,10 @@ export async function POST(
     return NextResponse.json({ error: "draft_not_found" }, { status: 404 });
   }
 
-  if (!draft.image_prompt || draft.image_prompt.trim().length < 10) {
+  // Resolve the prompt: user override (manual edit) wins, then DB value.
+  const effectivePrompt =
+    parsed.data.image_prompt_override?.trim() || draft.image_prompt?.trim() || "";
+  if (effectivePrompt.length < 10) {
     return NextResponse.json(
       { error: "no_image_prompt", detail: "이 드래프트에 이미지 프롬프트가 없습니다." },
       { status: 400 },
@@ -133,7 +139,7 @@ export async function POST(
     result = await generateImagesForDraft({
       workspaceId: wsCtx.workspaceId,
       draftId: id,
-      prompt: draft.image_prompt,
+      prompt: effectivePrompt,
       platform,
       frameCount,
       brandHint: brandHint || undefined,
@@ -157,12 +163,21 @@ export async function POST(
     frame_index: img.frame_index,
     size: img.size,
   }));
+  const updatePayload: {
+    image_url: string | null;
+    image_urls: typeof gallery;
+    image_prompt?: string;
+  } = {
+    image_url: cover?.url ?? null,
+    image_urls: gallery,
+  };
+  // If user edited the prompt, persist it so future regens use it too.
+  if (parsed.data.image_prompt_override?.trim()) {
+    updatePayload.image_prompt = parsed.data.image_prompt_override.trim();
+  }
   const { data: updated, error: uErr } = await svc
     .from("mrai_content_drafts")
-    .update({
-      image_url: cover?.url ?? null,
-      image_urls: gallery,
-    })
+    .update(updatePayload)
     .eq("id", id)
     .eq("workspace_id", wsCtx.workspaceId)
     .select("id, image_url, image_urls")

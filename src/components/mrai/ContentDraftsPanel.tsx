@@ -267,18 +267,22 @@ function DraftCard({
     ko: draft.seo_meta?.translations?.ko?.image_prompt ?? "",
   });
 
-  const generateImages = async (frameCountOverride?: number) => {
+  const generateImages = async (
+    frameCountOverride?: number,
+    imagePromptOverride?: string,
+  ) => {
     setGeneratingImage(true);
     setImageError(null);
     try {
+      const payload: { frameCount?: number; image_prompt_override?: string } = {};
+      if (frameCountOverride) payload.frameCount = frameCountOverride;
+      if (imagePromptOverride && imagePromptOverride.trim().length >= 10) {
+        payload.image_prompt_override = imagePromptOverride.trim();
+      }
       const res = await fetch(`/api/mrai/content-drafts/${draft.id}/images`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(
-          frameCountOverride
-            ? { frameCount: frameCountOverride }
-            : {},
-        ),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "이미지 생성 실패");
@@ -453,14 +457,24 @@ function DraftCard({
                     />
                   ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void generateImages()}
-                  disabled={generatingImage || frameBusy !== null}
-                  className="mt-1.5 text-[11px] text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
-                >
-                  {generatingImage ? "전체 재생성 중…" : "🔄 전체 재생성"}
-                </button>
+                <div className="mt-1.5 flex gap-3 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setPromptModalOpen(true)}
+                    disabled={generatingImage || frameBusy !== null}
+                    className="text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+                  >
+                    ✏️ 프롬프트 수정 / 재생성
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void generateImages()}
+                    disabled={generatingImage || frameBusy !== null}
+                    className="text-slate-500 hover:text-slate-800 disabled:opacity-50"
+                  >
+                    {generatingImage ? "재생성 중…" : "🔄 같은 프롬프트로 재생성"}
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -682,9 +696,9 @@ function DraftCard({
           }
           onClose={() => setPromptModalOpen(false)}
           onUpdated={(p) => setLivePrompt(p)}
-          onGenerate={async (frameCount) => {
+          onGenerate={async (frameCount, promptEn) => {
             setPromptModalOpen(false);
-            await generateImages(frameCount);
+            await generateImages(frameCount, promptEn);
           }}
           busy={generatingImage}
         />
@@ -717,7 +731,7 @@ function ImagePromptPreviewModal({
   initialKo: string;
   onClose: () => void;
   onUpdated: (p: { en: string; ko: string }) => void;
-  onGenerate: (frameCount: number) => void | Promise<void>;
+  onGenerate: (frameCount: number, promptEn: string) => void | Promise<void>;
   busy: boolean;
 }) {
   const [en, setEn] = useState(initialEn);
@@ -801,7 +815,7 @@ function ImagePromptPreviewModal({
               className="w-full text-xs border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-700 leading-relaxed resize-y font-mono"
             />
             <p className="text-[10px] text-slate-400 mt-1">
-              직접 수정 가능. 저장 별도 없음 — 아래 "생성" 누르면 이 텍스트로 이미지 생성.
+              직접 수정 가능 — "생성" 누르면 이 텍스트로 이미지가 생성되고 드래프트에도 저장됩니다.
             </p>
           </div>
 
@@ -880,7 +894,7 @@ function ImagePromptPreviewModal({
             type="button"
             onClick={() => {
               onUpdated({ en, ko });
-              void onGenerate(frameCount);
+              void onGenerate(frameCount, en);
             }}
             disabled={refreshing || busy || en.trim().length < 5}
             className="inline-flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-pink-500 text-white text-sm px-3 py-1.5 rounded-md hover:from-violet-700 hover:to-pink-600 disabled:opacity-60"
