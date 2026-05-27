@@ -1,24 +1,22 @@
 import { createServiceClient } from "@/lib/supabase/server";
 
 /**
- * Background removal via Replicate API.
+ * Background removal.
  *
  * Why: gpt-image-1.edit + mask is NOT strict pixel preservation. It
- * uses the mask as a "soft hint" and freely recomposes the subject,
- * producing wrong persons / different shoes than the source. The only
- * reliable path for 100% subject fidelity is:
+ * uses the mask as a "soft hint" and freely recomposes the subject.
+ * The only reliable path for 100% subject fidelity is:
  *
  *   1. Background-remove the source photo → transparent PNG of subject
  *   2. Generate an empty scene (no person/product) via gpt-image-1
  *   3. Composite the extracted subject onto the new scene via sharp
  *
- * This module handles step 1. We use Replicate's 851-labs/background-
- * remover (~$0.003-0.005/call) which gives clean alpha for both
- * people and products. Results are cached in Storage so re-generating
- * the same draft doesn't re-pay.
+ * Strategy:
+ *   - Primary: LOCAL @imgly/background-removal-node (ONNX, ~80MB
+ *     model auto-downloads on first call, no API keys, no rate limits)
+ *   - Fallback: Replicate API (when local lib fails — rare)
  *
- * Setup: add REPLICATE_API_TOKEN to .env.local (get from
- * replicate.com/account/api-tokens).
+ * Results cached in Storage so re-runs are free.
  */
 
 // Replicate background-removal model candidates, tried in order until
@@ -171,19 +169,32 @@ async function callReplicate(
 }
 
 /**
+ * Local background removal via @imgly/background-removal-node.
+ * First call auto-downloads the ONNX model (~80MB). After that, all
+ * calls are fast (~1-3s) and free. Returns transparent PNG Buffer.
+ */
+async function callImgly(imageUrl: string): Promise<Buffer> {
+  // Lazy import — keeps the heavy ONNX runtime out of cold-start paths
+  // that don't need bg-removal (e.g. memory loads).
+  const { removeBackground } = await import("@imgly/background-removal-node");
+  const blob = await removeBackground(imageUrl);
+  // @imgly returns a Blob — convert to Buffer
+  const arrayBuffer = await blob.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+/**
  * Background-remove an image and return the transparent PNG.
  * Results are cached in Storage keyed by (workspace_id, asset_id) so
  * re-generations of the same source are free.
+ *
+ * Order: local imgly first (no rate limits), Replicate fallback.
  */
 export async function removeBackgroundCached(input: {
   workspaceId: string;
   assetId: string;       // mrai_brand_assets.id (for cache key)
   imageUrl: string;       // source image URL
 }): Promise<Buffer | null> {
-  const token = process.env.REPLICATE_API_TOKEN;
-  if (!token) {
-    return null; // caller will fall back to non-composite path
-  }
   const svc = createServiceClient();
   const cachePath = `${input.workspaceId}/extracted/${input.assetId}.png`;
 
@@ -196,17 +207,35 @@ export async function removeBackgroundCached(input: {
     return Buffer.from(arr);
   }
 
-  // Not cached → call Replicate
-  let buf: Buffer;
+  // Try local imgly first (reliable, no throttle)
+  let buf: Buffer | null = null;
   try {
-    buf = await callReplicate(input.imageUrl, token);
+    console.log("[bg-removal] running locally via @imgly (first call downloads ~80MB ONNX model)");
+    buf = await callImgly(input.imageUrl);
+    console.log("[bg-removal] ✓ local imgly succeeded");
   } catch (e) {
     console.warn(
-      "[bg-removal] failed:",
+      "[bg-removal] local imgly failed, trying Replicate fallback:",
       e instanceof Error ? e.message : e,
     );
-    return null;
+    // Fallback to Replicate
+    const token = process.env.REPLICATE_API_TOKEN;
+    if (token) {
+      try {
+        buf = await callReplicate(input.imageUrl, token);
+      } catch (e2) {
+        console.warn(
+          "[bg-removal] Replicate fallback also failed:",
+          e2 instanceof Error ? e2.message : e2,
+        );
+        return null;
+      }
+    } else {
+      return null;
+    }
   }
+
+  if (!buf) return null;
 
   // Upload to cache (fire-and-forget — return immediately even if upload fails)
   void svc.storage
