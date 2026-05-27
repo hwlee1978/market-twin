@@ -621,10 +621,16 @@ export async function generateImagesForDraft(input: {
         }
       }
       if (!sourceAsset) {
-        const isSingleRegen = typeof input.singleFrameIndex === "number";
-        const sourceIdx = isSingleRegen
-          ? Math.floor(Math.random() * Math.max(1, sourcePool.length))
-          : i % Math.max(1, sourcePool.length);
+        // Always random pick — both for single-frame regen and for
+        // full-carousel bulk generation. The previous `i % poolSize`
+        // deterministic fallback meant frame 0 was ALWAYS pool[0],
+        // so on single-frame platforms (X/Twitter) every bulk-
+        // generated draft used the same ambassador photo. For
+        // multi-frame carousels random still gives variety while
+        // gradually covering the library across regens.
+        const sourceIdx = Math.floor(
+          Math.random() * Math.max(1, sourcePool.length),
+        );
         sourceAsset = sourcePool[sourceIdx];
       }
       const sourceUrl = sourceAsset?.image_url;
