@@ -1,21 +1,25 @@
+import Anthropic from "@anthropic-ai/sdk";
+import sharp from "sharp";
 import { createServiceClient } from "@/lib/supabase/server";
 
 /**
- * Subject extraction via Replicate background-removal models.
+ * Subject extraction via Replicate background-removal models, with an
+ * optional vision-based pre-crop to a single product.
  *
- * Why Replicate only (no vision-crop fallback): the previous vision-crop
- * + elliptical-feather mask left a rectangular bbox crop visible against
- * the new background — caused the user-visible "two heads stacked"
- * disaster. Proper alpha matting from rembg/u2net is the only reliable
- * way. If Replicate isn't reachable, caller must fall back to using the
- * source photo as-is (no background replacement), NOT to a hacky crop.
+ * Pipeline:
+ *   1. (NEW) Claude Sonnet vision detects the LARGEST single product
+ *      bbox in the source. If the source is a multi-product marketing
+ *      flatlay, we crop to just one before bg-removal — otherwise
+ *      Replicate cleanly mattes ALL of them into one cutout, producing
+ *      ghost duplicates when composited onto a new scene.
+ *   2. Upload the cropped source to Storage so Replicate can fetch it
+ *      via public URL.
+ *   3. Replicate bg-removal models try in sequence (rembg/u2net family).
+ *   4. Final transparent PNG cached at extracted/{asset_id}.png.
  *
- * Output: PNG buffer with transparent background. null on hard failure.
- * Cached in Storage by asset_id — repeat runs are free.
- *
- * Models tried in order (first success wins). Each is community-known
- * and stable; if one rate-limits we cycle to the next, then short
- * backoff and retry the first.
+ * Step 1 is best-effort: if vision fails or returns no clear bbox we
+ * fall through to the original source URL and let Replicate handle
+ * whatever's in there.
  */
 
 const MODEL_CANDIDATES: Array<{ owner: string; name: string }> = [
@@ -196,12 +200,198 @@ async function callReplicate(
   return null;
 }
 
+/**
+ * Detect the largest single-product bounding box in a marketing photo.
+ *
+ * Returns bbox in ORIGINAL source coordinates, or null on failure.
+ * Falls back gracefully so caller can use the raw source.
+ */
+type BBox = { x: number; y: number; width: number; height: number };
+
+async function detectLargestProductBbox(
+  sourceBuf: Buffer,
+  sourceType: "product" | "ambassador",
+): Promise<BBox | null> {
+  if (!process.env.ANTHROPIC_API_KEY) return null;
+  try {
+    const downsized = await sharp(sourceBuf)
+      .resize(1024, 1024, { fit: "inside", withoutEnlargement: true })
+      .png()
+      .toBuffer();
+    const dMeta = await sharp(downsized).metadata();
+    const fMeta = await sharp(sourceBuf).metadata();
+    const dw = dMeta.width ?? 1024;
+    const dh = dMeta.height ?? 1024;
+    const fw = fMeta.width ?? dw;
+    const fh = fMeta.height ?? dh;
+    const scaleX = fw / dw;
+    const scaleY = fh / dh;
+
+    const system =
+      sourceType === "ambassador"
+        ? "Return JSON only: {x, y, width, height} for the bounding box covering the SINGLE largest person (head-to-toe) including any product they wear or hold. Tight crop, no background margins. Coordinates in pixels of the supplied image."
+        : "A marketing photo may contain ONE OR MULTIPLE product copies (e.g. multiple shoes in a flatlay). Return JSON only: {x, y, width, height} for the bounding box covering the SINGLE LARGEST product instance — NOT the union of all products. If multiple identical products overlap, pick the one most clearly in foreground. Tight crop, no background. Coordinates in pixels of the supplied image.";
+
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const resp = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 200,
+      system,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: "image/png",
+                data: downsized.toString("base64"),
+              },
+            },
+            { type: "text", text: "JSON only." },
+          ],
+        },
+      ],
+    });
+    const text = resp.content
+      .map((b) => (b.type === "text" ? b.text : ""))
+      .filter(Boolean)
+      .join("")
+      .trim();
+    const m = text.match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    const parsed = JSON.parse(m[0]) as Partial<BBox>;
+    if (
+      typeof parsed.x !== "number" ||
+      typeof parsed.y !== "number" ||
+      typeof parsed.width !== "number" ||
+      typeof parsed.height !== "number" ||
+      parsed.width < 10 ||
+      parsed.height < 10
+    ) {
+      return null;
+    }
+    return {
+      x: Math.max(0, Math.round(parsed.x * scaleX)),
+      y: Math.max(0, Math.round(parsed.y * scaleY)),
+      width: Math.round(parsed.width * scaleX),
+      height: Math.round(parsed.height * scaleY),
+    };
+  } catch (e) {
+    console.warn(
+      "[bg-removal/pre-crop] vision bbox failed:",
+      e instanceof Error ? e.message : e,
+    );
+    return null;
+  }
+}
+
+/**
+ * Pre-crop the source to a single product, upload the cropped image,
+ * and return its public URL. Falls back to the original imageUrl if
+ * any step fails — vision may legitimately decline on edge cases.
+ */
+async function preCropSourceToSingleSubject(input: {
+  workspaceId: string;
+  assetId: string;
+  imageUrl: string;
+  sourceType: "product" | "ambassador";
+}): Promise<string> {
+  const svc = createServiceClient();
+  const cropCachePath = `${input.workspaceId}/cropped/${input.assetId}.png`;
+
+  // If we already have a cropped version cached, reuse its public URL.
+  const { data: existing } = await svc.storage
+    .from("mrai-content")
+    .download(cropCachePath);
+  if (existing) {
+    const { data: pub } = svc.storage
+      .from("mrai-content")
+      .getPublicUrl(cropCachePath);
+    console.log(`[bg-removal/pre-crop] reusing cached crop for ${input.assetId}`);
+    return pub.publicUrl;
+  }
+
+  // Fetch source bytes
+  let srcBuf: Buffer;
+  try {
+    const r = await fetch(input.imageUrl);
+    if (!r.ok) return input.imageUrl;
+    srcBuf = Buffer.from(await r.arrayBuffer());
+  } catch {
+    return input.imageUrl;
+  }
+
+  // Detect single-subject bbox
+  const bbox = await detectLargestProductBbox(srcBuf, input.sourceType);
+  if (!bbox) {
+    console.log(
+      `[bg-removal/pre-crop] vision returned no bbox for ${input.assetId} — using source as-is`,
+    );
+    return input.imageUrl;
+  }
+  const meta = await sharp(srcBuf).metadata();
+  const fw = meta.width ?? bbox.x + bbox.width;
+  const fh = meta.height ?? bbox.y + bbox.height;
+
+  // Add a small padding so bg-removal has room around the subject
+  const padPct = 0.08;
+  const padX = Math.round(bbox.width * padPct);
+  const padY = Math.round(bbox.height * padPct);
+  const cropX = Math.max(0, bbox.x - padX);
+  const cropY = Math.max(0, bbox.y - padY);
+  const cropW = Math.min(fw - cropX, bbox.width + padX * 2);
+  const cropH = Math.min(fh - cropY, bbox.height + padY * 2);
+
+  // If the bbox is already 95%+ of the frame, cropping buys nothing —
+  // skip the upload roundtrip.
+  if (cropW * cropH > fw * fh * 0.95) {
+    console.log(
+      `[bg-removal/pre-crop] bbox fills frame for ${input.assetId} — no crop needed`,
+    );
+    return input.imageUrl;
+  }
+
+  let croppedBuf: Buffer;
+  try {
+    croppedBuf = await sharp(srcBuf)
+      .extract({ left: cropX, top: cropY, width: cropW, height: cropH })
+      .png()
+      .toBuffer();
+  } catch (e) {
+    console.warn(
+      "[bg-removal/pre-crop] sharp crop failed:",
+      e instanceof Error ? e.message : e,
+    );
+    return input.imageUrl;
+  }
+
+  // Upload + return public URL for Replicate to fetch
+  const { error: upErr } = await svc.storage
+    .from("mrai-content")
+    .upload(cropCachePath, croppedBuf, {
+      contentType: "image/png",
+      cacheControl: "31536000",
+      upsert: true,
+    });
+  if (upErr) {
+    console.warn(`[bg-removal/pre-crop] upload failed: ${upErr.message}`);
+    return input.imageUrl;
+  }
+  const { data: pub } = svc.storage
+    .from("mrai-content")
+    .getPublicUrl(cropCachePath);
+  console.log(
+    `[bg-removal/pre-crop] cropped ${input.assetId} ${fw}x${fh} → ${cropW}x${cropH}`,
+  );
+  return pub.publicUrl;
+}
+
 export async function removeBackgroundCached(input: {
   workspaceId: string;
   assetId: string;
   imageUrl: string;
-  /** Currently unused — Replicate's model selection is the same for
-   *  ambassador vs product. Kept for signature compatibility. */
   sourceType?: "product" | "ambassador";
 }): Promise<Buffer | null> {
   const svc = createServiceClient();
@@ -223,9 +413,21 @@ export async function removeBackgroundCached(input: {
     return null;
   }
 
+  // NEW: vision pre-crop to a single subject. If source is already a
+  // single-product photo, vision detects ~full-frame bbox and we use
+  // the original URL. Multi-product marketing flatlays get cropped
+  // to the largest single instance, avoiding ghost duplicates in the
+  // alpha cutout.
+  const replicateInputUrl = await preCropSourceToSingleSubject({
+    workspaceId: input.workspaceId,
+    assetId: input.assetId,
+    imageUrl: input.imageUrl,
+    sourceType: input.sourceType ?? "product",
+  });
+
   let buf: Buffer | null = null;
   try {
-    buf = await callReplicate(input.imageUrl, token);
+    buf = await callReplicate(replicateInputUrl, token);
   } catch (e) {
     console.warn(
       "[bg-removal] callReplicate threw:",
