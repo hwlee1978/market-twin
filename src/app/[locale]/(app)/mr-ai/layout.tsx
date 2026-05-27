@@ -1,19 +1,33 @@
 import { notFound } from "next/navigation";
 import { MRAI_ENABLED } from "@/lib/mrai/enabled";
+import { MrAITabs } from "@/components/mrai/MrAITabs";
 
 /**
- * Mr.AI feature-gate layout.
+ * Mr.AI feature-gate + tab shell.
  *
- * NEXT_PUBLIC_MRAI_ENABLED controls whether the Mr.AI feature surface
- * is available. On the MarketTwin (markettwin.ai) production
- * deployment this is false → notFound() on every /mr-ai/* page. On
- * the Mr.AI beta deployment it's true and children render normally.
+ * Gate: NEXT_PUBLIC_MRAI_ENABLED controls availability. False = notFound().
  *
- * One central gate beats sprinkling guards in every page.
+ * Shell: renders the top tab bar above every /mr-ai/* page. Each sub-
+ * route owns its own panels (dashboard / content / channels / brand /
+ * analytics / settings). Migration from the previous monolithic
+ * /mr-ai/page.tsx happens commit-by-commit.
  */
-export default function MrAILayout({ children }: { children: React.ReactNode }) {
+export default async function MrAILayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ locale: string }>;
+}) {
   if (!MRAI_ENABLED) {
     notFound();
   }
-  return <>{children}</>;
+  const { locale } = await params;
+  const safeLocale: "ko" | "en" = locale === "en" ? "en" : "ko";
+  return (
+    <>
+      <MrAITabs locale={safeLocale} />
+      {children}
+    </>
+  );
 }
