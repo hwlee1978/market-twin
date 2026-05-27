@@ -126,7 +126,70 @@ export function ContentDraftsPanel({
     const res = await fetch(`/api/mrai/content-drafts/${id}`, { method: "DELETE" });
     if (res.ok) {
       setDrafts((prev) => prev?.filter((d) => d.id !== id) ?? null);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
+  };
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
+  const toggleSelect = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const bulkGenerateImages = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkBusy(true);
+    setBulkError(null);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ done: 0, total: ids.length });
+    let done = 0;
+    let firstError: string | null = null;
+    // Concurrency 3 — friendly to gpt-image-1 rate limits while staying fast.
+    const CONCURRENCY = 3;
+    const queue = [...ids];
+    const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length) }, () =>
+      (async () => {
+        while (queue.length > 0) {
+          const id = queue.shift();
+          if (!id) break;
+          try {
+            const res = await fetch(`/api/mrai/content-drafts/${id}/images`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({}),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              if (!firstError) firstError = (json.error ?? `${id}: 실패`) as string;
+            }
+          } catch (e) {
+            if (!firstError)
+              firstError = e instanceof Error ? e.message : `${id}: 실패`;
+          } finally {
+            done++;
+            setBulkProgress({ done, total: ids.length });
+          }
+        }
+      })(),
+    );
+    await Promise.all(workers);
+    setBulkBusy(false);
+    setBulkProgress(null);
+    if (firstError) setBulkError(firstError);
+    // Reload drafts so each card picks up its new image_url
+    await load();
+    setSelectedIds(new Set());
   };
 
   return (
@@ -151,6 +214,41 @@ export function ContentDraftsPanel({
       </div>
       <div className="px-5 py-4">
         {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
+        {selectedIds.size > 0 && (
+          <div className="mb-3 flex items-center gap-3 rounded-md bg-indigo-50 border border-indigo-200 px-3 py-2">
+            <span className="text-xs text-indigo-900 font-medium">
+              {selectedIds.size}개 선택됨
+            </span>
+            <button
+              type="button"
+              onClick={() => void bulkGenerateImages()}
+              disabled={bulkBusy}
+              className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {bulkBusy ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  {bulkProgress
+                    ? `${bulkProgress.done}/${bulkProgress.total} 생성 중…`
+                    : "생성 중…"}
+                </>
+              ) : (
+                <>📷 선택한 {selectedIds.size}개 이미지 생성</>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              disabled={bulkBusy}
+              className="text-xs text-slate-600 hover:text-slate-900 disabled:opacity-50"
+            >
+              선택 해제
+            </button>
+            {bulkError && (
+              <span className="text-[11px] text-red-600 ml-auto">{bulkError}</span>
+            )}
+          </div>
+        )}
         {drafts === null ? (
           <div className="flex items-center gap-2 text-xs text-slate-400">
             <Loader2 className="w-3.5 h-3.5 animate-spin" /> 불러오는 중…
@@ -167,6 +265,8 @@ export function ContentDraftsPanel({
                 draft={d}
                 platform={platform}
                 brandAssetCount={brandAssetCount}
+                selected={selectedIds.has(d.id)}
+                onToggleSelect={() => toggleSelect(d.id)}
                 onDelete={() => remove(d.id)}
               />
             ))}
@@ -214,11 +314,15 @@ function DraftCard({
   draft,
   platform: _platform,
   brandAssetCount,
+  selected,
+  onToggleSelect,
   onDelete,
 }: {
   draft: Draft;
   platform: string;
   brandAssetCount: number | null;
+  selected: boolean;
+  onToggleSelect: () => void;
   onDelete: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -346,6 +450,13 @@ function DraftCard({
       <div className="px-4 py-3">
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex items-center gap-2 flex-wrap">
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggleSelect}
+              title="bulk 이미지 생성용 선택"
+              className="w-3.5 h-3.5 accent-indigo-600 cursor-pointer"
+            />
             <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-violet-100 text-violet-800 text-xs font-bold">
               {draft.variant_label}
             </span>
