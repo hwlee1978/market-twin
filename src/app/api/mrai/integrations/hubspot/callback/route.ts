@@ -12,8 +12,8 @@ export const dynamic = "force-dynamic";
  *   1. Verify the HMAC-signed state matches the user's workspace.
  *   2. Exchange the code for tokens.
  *   3. Store the tokens against the workspace.
- *   4. Bounce back to /mr-ai with a query flag so the UI can flash
- *      a success/error toast.
+ *   4. Bounce back to /mr-ai/settings (where IntegrationsPanel lives)
+ *      with a query flag so the UI can flash a success/error toast.
  */
 export async function GET(req: Request) {
   const ctx = await getOrCreatePrimaryWorkspace();
@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   const error = url.searchParams.get("error");
 
   const redirectTo = (status: "ok" | "error", detail?: string) => {
-    const dest = new URL("/ko/mr-ai", req.url);
+    const dest = new URL("/ko/mr-ai/settings", req.url);
     dest.searchParams.set("hubspot", status);
     if (detail) dest.searchParams.set("detail", detail.slice(0, 200));
     return NextResponse.redirect(dest);
