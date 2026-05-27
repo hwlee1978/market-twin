@@ -36,7 +36,7 @@ export async function GET(
     .select(
       `id, content_draft_id, published_at, total_views, total_likes, total_clicks, total_shares,
        total_comments, total_saves, total_impressions, metrics_history, status,
-       draft:mrai_content_drafts!content_draft_id(body_text, hashtags, cta_text, image_url)`,
+       draft:mrai_content_drafts!content_draft_id(body_text, hashtags, cta_text, image_url, seo_meta)`,
     )
     .eq("marketing_channel_id", id)
     .eq("workspace_id", wsCtx.workspaceId)

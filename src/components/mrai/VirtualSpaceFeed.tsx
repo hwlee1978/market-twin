@@ -17,6 +17,11 @@ type Publication = {
     hashtags: string[] | null;
     cta_text: string | null;
     image_url: string | null;
+    seo_meta: {
+      translations?: {
+        ko?: { body_text?: string | null; cta_text?: string | null };
+      };
+    } | null;
   } | null;
 };
 
@@ -92,6 +97,14 @@ export function VirtualSpaceFeed({
                   <p className="text-sm text-slate-800 mt-1 whitespace-pre-line line-clamp-4">
                     {p.draft.body_text}
                   </p>
+                )}
+                {p.draft?.seo_meta?.translations?.ko?.body_text && (
+                  <div className="mt-1.5 pl-2.5 border-l-2 border-slate-200 text-xs text-slate-500 whitespace-pre-line line-clamp-4">
+                    <div className="text-[9px] uppercase tracking-wider text-slate-400 mb-0.5">
+                      ↳ 한국어 번역
+                    </div>
+                    {p.draft.seo_meta.translations.ko.body_text}
+                  </div>
                 )}
                 {p.draft?.hashtags && p.draft.hashtags.length > 0 && (
                   <div className="mt-1.5 text-xs text-sky-700">
