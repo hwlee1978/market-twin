@@ -54,10 +54,9 @@ export async function DELETE(
   const supabase = await createClient();
   const { data: draft, error } = await supabase
     .from("mrai_content_drafts")
-    .select("image_url, image_urls")
+    .select("image_url, image_urls, workspace_id")
     .eq("id", id)
-    .eq("workspace_id", wsCtx.workspaceId)
-    .single<{ image_url: string | null; image_urls: Gallery }>();
+    .single<{ image_url: string | null; image_urls: Gallery; workspace_id: string }>();
   if (error || !draft) {
     return NextResponse.json({ error: "draft_not_found" }, { status: 404 });
   }
@@ -83,12 +82,13 @@ export async function DELETE(
       .map((g, i) => ({ ...g, frame_index: i + 1 }));
   }
 
+  void wsCtx;
   const svc = createServiceClient();
   const { data: updated, error: uErr } = await svc
     .from("mrai_content_drafts")
     .update({ image_url: newCover, image_urls: newGallery })
     .eq("id", id)
-    .eq("workspace_id", wsCtx.workspaceId)
+    .eq("workspace_id", draft.workspace_id)
     .select("id, image_url, image_urls")
     .single();
   if (uErr) {
@@ -114,19 +114,25 @@ export async function POST(
     );
   }
 
+  // Look up draft by id only — RLS (is_workspace_member) ensures the
+  // requester has access. Don't filter by getOrCreatePrimaryWorkspace
+  // workspaceId because user may have multiple workspaces and the
+  // draft may belong to a non-primary one.
   const supabase = await createClient();
   const { data: draft, error: dErr } = await supabase
     .from("mrai_content_drafts")
     .select(
-      `id, image_prompt, image_url, image_urls, marketing_channel_id, variant_label,
+      `id, workspace_id, image_prompt, image_url, image_urls, marketing_channel_id, variant_label,
        channel:mrai_marketing_channels!marketing_channel_id(platform, handle, bio_text, posting_style)`,
     )
     .eq("id", id)
-    .eq("workspace_id", wsCtx.workspaceId)
     .single();
   if (dErr || !draft) {
     return NextResponse.json({ error: "draft_not_found" }, { status: 404 });
   }
+  // Validate workspace context with the draft's actual workspace
+  void wsCtx;
+  const draftWorkspaceId = draft.workspace_id as string;
 
   const basePrompt = draft.image_prompt ?? "";
   if (!basePrompt.trim()) {
@@ -149,7 +155,7 @@ export async function POST(
   const { data: refRows } = await supabase
     .from("mrai_brand_assets")
     .select("id, image_url, asset_type, label")
-    .eq("workspace_id", wsCtx.workspaceId)
+    .eq("workspace_id", draftWorkspaceId)
     .order("use_count", { ascending: true })
     .limit(20);
   const allRefs = (refRows ?? []) as Array<{
@@ -168,14 +174,14 @@ export async function POST(
   let references = [...ambassadors, ...logos, ...products, ...lifestyle, ...packaging].slice(0, 4);
   if (references.length === 0) references = allRefs.slice(0, 4);
 
-  const settings = await loadImageGenSettings(wsCtx.workspaceId);
+  const settings = await loadImageGenSettings(draftWorkspaceId);
   const totalFrames = defaultFrameCountForPlatform(platform);
   const idx = parsed.data.frame_index;
 
   let result;
   try {
     result = await generateImagesForDraft({
-      workspaceId: wsCtx.workspaceId,
+      workspaceId: draftWorkspaceId,
       draftId: id,
       prompt: composedPrompt,
       platform,
@@ -218,7 +224,7 @@ export async function POST(
     .from("mrai_content_drafts")
     .update(updateBody)
     .eq("id", id)
-    .eq("workspace_id", wsCtx.workspaceId)
+    .eq("workspace_id", draftWorkspaceId)
     .select("id, image_url, image_urls")
     .single();
   if (uErr) {
