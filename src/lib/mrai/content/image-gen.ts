@@ -637,12 +637,21 @@ export async function generateImagesForDraft(input: {
       let strictHandled = false;
       if (touchupSourceType !== "ambassador") {
         try {
+          // Pass the user's RAW prompt to strict-composite, NOT the
+          // touchupPrompt wrapper. buildFramePrompt() adds product-
+          // preservation language ("INPUT IMAGE = the EXACT physical
+          // product...") which is meant for the EDIT call but bleeds
+          // into the SCENE generation here, causing gpt-image-1 to
+          // draw extra hallucinated product copies on the floor.
+          // The subject pixels are composited separately via
+          // bg-removal — the scene only needs to describe the empty
+          // environment the user typed.
           const sc = await strictCompositeImage({
             sourceImageUrl: sourceUrl,
             sourceAssetId: sourceAsset.id,
             sourceType: touchupSourceType ?? "product",
             workspaceId: input.workspaceId,
-            scenePrompt: touchupPrompt,
+            scenePrompt: input.prompt,
             outputSize: size,
             quality: settings.quality,
             logoBuffer: logoBufferForComposite,
