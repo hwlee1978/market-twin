@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { computeTickDelta, daysSince, type TickDelta } from "@/lib/mrai/content/engagement-engine";
+import { MRAI_ENABLED } from "@/lib/mrai/enabled";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -26,6 +27,12 @@ export async function GET(req: Request) {
     if (auth !== `Bearer ${secret}`) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
+  }
+
+  // Skip if this deployment doesn't own Mr.AI (avoids the double-fire
+  // between market-twin prod and market-twin-mrai beta).
+  if (!MRAI_ENABLED) {
+    return NextResponse.json({ skipped: "mrai_not_enabled_on_this_deployment" });
   }
 
   const svc = createServiceClient();

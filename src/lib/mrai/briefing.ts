@@ -100,11 +100,12 @@ async function loadRecentConversationDigests(workspaceId: string): Promise<Conve
 
 function buildBriefingPrompt(input: {
   locale: Locale;
+  workspaceName: string;
   memories: MemoryRow[];
   conversations: ConversationDigest[];
   signals: SignalRow[];
 }): { system: string; prompt: string } {
-  const { locale, memories, conversations, signals } = input;
+  const { locale, workspaceName, memories, conversations, signals } = input;
 
   const memoryBlock = memories.length
     ? memories
@@ -135,6 +136,12 @@ function buildBriefingPrompt(input: {
     return {
       system: `당신은 Mr. AI — CEO를 위한 AI 비서입니다. 매일 아침 짧은 브리핑을 생성합니다.
 
+## 워크스페이스 정체성 (매우 중요)
+이 워크스페이스의 **자사 브랜드는 "${workspaceName}"** 입니다.
+- "${workspaceName}" 관련 메모리·뉴스·이벤트·캠페인은 **자사 정보**입니다. 절대 "경쟁사"로 분류하지 마세요.
+- 자사 행보(예: 자사 광고, 자사 매장 오픈, 자사 신상품, 자사 IP)는 "오늘 챙길 것" 또는 "주의 신호"에서 본인 액션 관점으로 다루세요.
+- 경쟁사는 메모리에서 자사 브랜드 외 다른 브랜드명으로 명시된 항목만 (예: Allbirds, Veja, On 등).
+
 브리핑 구조 (반드시 이 3 섹션, 정확한 마크다운 헤더 사용):
 
 ## 어제 요약
@@ -149,7 +156,8 @@ Mr. AI가 보기에 사용자가 놓쳤거나 다시 생각해볼 만한 점 2-3
 규칙:
 - 한국어. CEO에게 보고하는 톤 — 짧고 사실 위주.
 - 모르면 "정보 부족"이라고 명시. 추측·일반론 금지.
-- 메모리·대화에 없는 내용 만들지 말 것.`,
+- 메모리·대화에 없는 내용 만들지 말 것.
+- "${workspaceName}"을 경쟁사·외부 브랜드로 절대 잘못 분류하지 말 것.`,
       prompt: `## Workspace memories (persistent facts)
 ${memoryBlock}
 
@@ -168,6 +176,12 @@ ${signalBlock}
   return {
     system: `You are Mr. AI — an AI assistant for a CEO. You generate a short morning briefing.
 
+## Workspace identity (very important)
+This workspace's **own brand is "${workspaceName}"**.
+- Any memory / news / event / campaign mentioning "${workspaceName}" is **first-party information about our own brand**. Never classify it as a "competitor".
+- First-party moves (our own ads, our own store openings, our own product launches, our own IP) belong in "Today's focus" or "Signals & questions" framed as our own action.
+- Competitors are only those memories naming a brand OTHER than "${workspaceName}" (e.g. Allbirds, Veja, On).
+
 Briefing structure (exactly these 3 sections, use exact markdown headers):
 
 ## Yesterday recap
@@ -182,7 +196,8 @@ Briefing structure (exactly these 3 sections, use exact markdown headers):
 Rules:
 - English. CEO-reporting tone — short, factual.
 - If you don't know, say "insufficient information". No guessing or boilerplate.
-- Don't invent facts not in the memories or conversations.`,
+- Don't invent facts not in the memories or conversations.
+- Never misclassify "${workspaceName}" as a competitor or external brand.`,
     prompt: `## Workspace memories (persistent facts)
 ${memoryBlock}
 
@@ -220,15 +235,28 @@ export async function generateBriefing(input: {
 }): Promise<BriefingRow> {
   const supabase = createServiceClient();
 
-  const [memories, conversations, signals, feedback] = await Promise.all([
+  const [memories, conversations, signals, feedback, wsRow] = await Promise.all([
     loadWorkspaceMemories(input.workspaceId),
     loadRecentConversationDigests(input.workspaceId),
     loadActiveSignals(input.workspaceId),
     aggregateRecentFeedback(input.workspaceId),
+    supabase
+      .from("workspaces")
+      .select("name")
+      .eq("id", input.workspaceId)
+      .maybeSingle(),
   ]);
+
+  // Brand identity in the system prompt is the only thing stopping the
+  // briefing LLM from labeling first-party news (e.g. our own RSS hits
+  // filtered by brand name) as "competitor" news. Without it the model
+  // has no way to tell which mentions are us vs them.
+  const wsName = (wsRow.data as { name?: string } | null)?.name;
+  const workspaceName = wsName?.trim() || (input.locale === "ko" ? "(이름 미지정)" : "(unnamed)");
 
   const { system, prompt: basePrompt } = buildBriefingPrompt({
     locale: input.locale,
+    workspaceName,
     memories,
     conversations,
     signals,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { MRAI_ENABLED } from "@/lib/mrai/enabled";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -26,6 +27,12 @@ export async function GET(req: Request) {
     if (auth !== `Bearer ${secret}`) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
+  }
+
+  // Skip on non-Mr.AI deployments (prevents double-fire between the
+  // market-twin prod and market-twin-mrai beta Vercel projects).
+  if (!MRAI_ENABLED) {
+    return NextResponse.json({ skipped: "mrai_not_enabled_on_this_deployment" });
   }
 
   const svc = createServiceClient();
