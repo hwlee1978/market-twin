@@ -458,19 +458,19 @@
           "name": "Consensus Plus",
           "spec": "3,000 personas · 15 sims · multi-LLM",
           "desc": "Stronger consensus",
-          "time": "~12–17 min"
+          "time": "~15–22 min"
         },
         "deep": {
           "name": "Triangulated",
           "spec": "5,000 personas · 25 sims · multi-LLM",
           "desc": "Cross-model · board-grade",
-          "time": "~17–22 min"
+          "time": "~22–30 min"
         },
         "deep_pro": {
           "name": "Triangulated Pro",
           "spec": "10,000 personas · 50 sims · multi-LLM",
           "desc": "Max confidence · executive review",
-          "time": "~20–25 min"
+          "time": "40+ min"
         }
       },
       "notifyEmail": {
@@ -760,7 +760,7 @@
     "consensus": "consensus",
     "noSimulations": "No simulations yet.",
     "firstSimTitle": "Ready to run your first simulation",
-    "firstSimSubtitle": "Get an overseas-market analysis from your product inputs. Pick a tier below — runtime ranges from ~7 min (Hypothesis) to ~22 min (Triangulated).",
+    "firstSimSubtitle": "Get an overseas-market analysis from your product inputs. Pick a tier below — runtime ranges from ~7 min (Hypothesis) to ~30 min (Triangulated).",
     "viewResults": "View results",
     "viewProgress": "View progress",
     "runNew": "Run new simulation",
