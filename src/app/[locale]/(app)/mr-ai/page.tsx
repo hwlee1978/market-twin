@@ -4,33 +4,23 @@ import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { loadWorkspaceMemories } from "@/lib/mrai/memory";
 import { listConversations } from "@/lib/mrai/chat";
 import { loadLatestBriefing } from "@/lib/mrai/briefing";
-import { getOnboardingState } from "@/lib/mrai/onboarding";
 import { MrAIChat } from "@/components/mrai/MrAIChat";
 import { BriefingPanel } from "@/components/mrai/BriefingPanel";
-import { IntegrationsPanel } from "@/components/mrai/IntegrationsPanel";
-import { ImageGenSettingsPanel } from "@/components/mrai/ImageGenSettingsPanel";
-import { OnboardingPanel } from "@/components/mrai/OnboardingPanel";
-import { PresetsPanel } from "@/components/mrai/PresetsPanel";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Mr. AI — W1-3 Foundation: persistent memory + daily briefing.
+ * Mr. AI — 대시보드 탭.
  *
- * Server component loads initial memories + thread list + latest briefing
- * so the client doesn't see a flash of empty state on first paint.
- * Locale is forwarded to children so chat + briefing operate in the
- * user's UI language.
+ * 첫 화면은 가벼운 진입점: 오늘의 브리핑 + 메인 채팅.
+ * 세부 기능은 콘텐츠 / 채널 / 브랜드 / 분석 / 설정 탭으로 분리됨.
  */
 export default async function MrAIPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ hubspot?: string; detail?: string }>;
 }) {
   const { locale } = await params;
-  const sp = await searchParams;
   setRequestLocale(locale);
   const t = await getTranslations("mrai");
 
@@ -39,27 +29,15 @@ export default async function MrAIPage({
 
   const safeLocale: "ko" | "en" = locale === "en" ? "en" : "ko";
 
-  const [memories, conversations, latestBriefing, onboarding] = await Promise.all([
+  const [memories, conversations, latestBriefing] = await Promise.all([
     loadWorkspaceMemories(ctx.workspaceId),
     listConversations(ctx.workspaceId),
     loadLatestBriefing(ctx.workspaceId),
-    getOnboardingState(ctx.workspaceId),
   ]);
-
-  const integrationFlash =
-    sp.hubspot === "ok"
-      ? { kind: "ok" as const }
-      : sp.hubspot === "error"
-      ? { kind: "error" as const, detail: sp.detail }
-      : null;
 
   return (
     <div className="px-6 pt-6 pb-10 max-w-[1400px] mx-auto space-y-6">
       <PageHeader title={t("pageTitle")} subtitle={t("pageSubtitle")} />
-      <OnboardingPanel initialState={onboarding} />
-      <IntegrationsPanel initialFlash={integrationFlash} locale={safeLocale} />
-      <ImageGenSettingsPanel />
-      <PresetsPanel />
       <BriefingPanel initialBriefing={latestBriefing} locale={safeLocale} />
       <MrAIChat
         initialMemories={memories}
