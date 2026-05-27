@@ -608,11 +608,68 @@ export async function generateImagesForDraft(input: {
         true, // touchupMode
       );
 
-      // ─── STRICT COMPOSITE — preferred path when REPLICATE_API_TOKEN
-      // is configured. bg-removal + sharp paste = 100% subject fidelity
-      // (the only reliable way to keep 윤아's face / exact product).
-      // gpt-image-1.edit + mask alone is too lenient and recomposes the
-      // subject. If bg-removal fails, falls through to mask-edit.
+      // ─── AMBASSADOR FRAMES — use the source photo DIRECTLY.
+      //
+      // Honest pragmatic decision after multiple failed approaches
+      // (gpt-image-1.edit recomposes subject; bg-removal services have
+      // throttle / Windows / cost issues; vision-crop + ellipse mask
+      // left rectangular artifacts). The ambassador photos uploaded
+      // are ALREADY professional marketing-grade shots — using them
+      // as-is preserves the celebrity perfectly. Variety comes from
+      // rotating through different ambassador library photos per frame.
+      if (touchupSourceType === "ambassador") {
+        try {
+          const [outW, outH] = size.split("x").map(Number);
+          const srcRes = await fetch(sourceUrl);
+          if (!srcRes.ok) throw new Error(`source fetch ${srcRes.status}`);
+          let finalBuf: Buffer = Buffer.from(await srcRes.arrayBuffer()) as Buffer;
+          finalBuf = (await (await import("sharp")).default(finalBuf)
+            .resize(outW, outH, { fit: "cover", position: "center" })
+            .png()
+            .toBuffer()) as Buffer;
+          if (logoBufferForComposite) {
+            const { compositeLogoOnImage } = await import("./composite-logo");
+            finalBuf = (await compositeLogoOnImage(
+              finalBuf,
+              { buffer: logoBufferForComposite },
+              {
+                position: settings.logo_position,
+                size_pct: settings.logo_size_pct,
+                padding_pct: settings.logo_padding_pct,
+                opacity: settings.logo_opacity,
+                with_backdrop: settings.logo_with_backdrop,
+              },
+            )) as Buffer;
+          }
+          usedReferenceIds.add(sourceAsset.id);
+          const uploaded = await uploadToStorage(
+            finalBuf,
+            input.workspaceId,
+            input.draftId,
+            i,
+          );
+          images.push({
+            url: uploaded.url,
+            path: uploaded.path,
+            frame_index: i,
+            size,
+          });
+          console.log(
+            `[image-gen] ✅ AMBASSADOR-AS-IS frame ${i} source=...${sourceUrl.slice(-40)}`,
+          );
+          continue;
+        } catch (e) {
+          console.warn(
+            `[image-gen] ambassador-as-is failed for frame ${i}, falling back:`,
+            e instanceof Error ? e.message : e,
+          );
+        }
+      }
+
+      // ─── PRODUCT FRAMES — strict-composite still attempted (vision
+      // bbox + feather + AI-generated scene). Product photos generally
+      // have clean studio backgrounds so the feathered ellipse blends
+      // less awkwardly than ambassador shots in busy scenes.
       try {
         const sc = await strictCompositeImage({
           sourceImageUrl: sourceUrl,
@@ -649,11 +706,6 @@ export async function generateImagesForDraft(input: {
             `[image-gen] ✅ STRICT-COMPOSITE frame ${i} [${sourceLabel}] source=...${sourceUrl.slice(-40)}`,
           );
           continue;
-        }
-        if (!sc) {
-          console.log(
-            `[image-gen] strict-composite unavailable (REPLICATE_API_TOKEN missing or bg-removal failed) — falling back to mask-edit for frame ${i}`,
-          );
         }
       } catch (e) {
         console.warn(
