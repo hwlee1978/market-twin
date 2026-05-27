@@ -9,7 +9,6 @@ import { MrAIChat } from "@/components/mrai/MrAIChat";
 import { BriefingPanel } from "@/components/mrai/BriefingPanel";
 import { IntegrationsPanel } from "@/components/mrai/IntegrationsPanel";
 import { ChannelsPanel } from "@/components/mrai/ChannelsPanel";
-import { ContentPanel } from "@/components/mrai/ContentPanel";
 import { MarketingChannelsPanel } from "@/components/mrai/MarketingChannelsPanel";
 import { BrandAssetsPanel } from "@/components/mrai/BrandAssetsPanel";
 import { LLMVisibilityPanel } from "@/components/mrai/LLMVisibilityPanel";
@@ -94,14 +93,6 @@ export default async function MrAIPage({
       <OnboardingPanel initialState={onboarding} />
       <IntegrationsPanel initialFlash={integrationFlash} locale={safeLocale} />
       <ChannelsPanel locale={safeLocale} />
-      <div className="flex justify-end">
-        <a
-          href={`/${safeLocale}/mr-ai/calendar`}
-          className="inline-flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-        >
-          📅 콘텐츠 캘린더 보기 →
-        </a>
-      </div>
       <MarketingChannelsPanel />
       <BrandAssetsPanel />
       <ProductProfilePanel />
@@ -115,7 +106,6 @@ export default async function MrAIPage({
       />
       <LLMVisibilityHistoryPanel />
       <PresetsPanel />
-      <ContentPanel locale={safeLocale} />
       <BriefingPanel initialBriefing={latestBriefing} locale={safeLocale} />
       <MrAIChat
         initialMemories={memories}

@@ -1,10 +1,14 @@
 import { setRequestLocale } from "next-intl/server";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ContentPanel } from "@/components/mrai/ContentPanel";
 
 export const dynamic = "force-dynamic";
 
 /**
- * 콘텐츠 탭 — 드래프트 목록 + 캘린더 + 가상 피드.
- * 다음 commit에서 ContentDraftsPanel + 캘린더 링크 + VirtualSpaceFeed 이전 예정.
+ * 콘텐츠 탭 — 콘텐츠 브리프 + 캘린더 링크.
+ *
+ * (각 채널의 콘텐츠 드래프트 / 가상 피드는 채널 상세 페이지에 있음.
+ *  여기는 브리프 / 전략 / 캘린더 진입점.)
  */
 export default async function MrAIContentTab({
   params,
@@ -13,12 +17,25 @@ export default async function MrAIContentTab({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
+  const safeLocale: "ko" | "en" = locale === "en" ? "en" : "ko";
+
   return (
-    <div className="px-6 py-6 max-w-[1400px] mx-auto">
-      <h1 className="text-xl font-bold text-slate-900 mb-2">콘텐츠</h1>
-      <p className="text-sm text-slate-500">
-        드래프트 생성 · 캘린더 · 가상 피드. 다음 commit에서 이전 예정.
-      </p>
+    <div className="px-6 py-6 max-w-[1400px] mx-auto space-y-6">
+      <PageHeader
+        title="콘텐츠"
+        subtitle="콘텐츠 브리프 · 전략 · 캘린더. 채널별 드래프트는 채널 상세 페이지에서."
+      />
+
+      <div className="flex justify-end">
+        <a
+          href={`/${safeLocale}/mr-ai/calendar`}
+          className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 font-medium px-3 py-1.5 rounded-md border border-indigo-200 bg-indigo-50"
+        >
+          📅 콘텐츠 캘린더 →
+        </a>
+      </div>
+
+      <ContentPanel locale={safeLocale} />
     </div>
   );
 }
