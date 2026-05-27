@@ -419,19 +419,22 @@ async function parseProbeResponse(
   text: string,
   brandName: string,
 ): Promise<PerQueryProbe> {
-  // Brand mention — case-insensitive substring match works for both
-  // English brand names AND Hangul brand names (toLowerCase is a no-op
-  // for Hangul but doesn't break the match either).
-  const lowerText = text.toLowerCase();
-  const lowerBrand = brandName.toLowerCase();
-  const brandIdx = lowerText.indexOf(lowerBrand);
-  const brandMentioned = brandIdx >= 0;
-  const brandPosition =
-    brandIdx >= 0 && text.length > 0 ? brandIdx / text.length : null;
+  // Single Haiku call does BOTH:
+  //   (1) brand-mention detection w/ alias awareness (르무통 vs
+  //       Le Mouton vs LeMouton vs lemouton — bare indexOf misses
+  //       when LLM responds in the other script)
+  //   (2) competitor extraction (cleaner than TitleCase regex)
+  const analysis = await analyzeResponseViaLLM(text, brandName);
 
-  // Haiku-based competitor extraction (much cleaner than the previous
-  // TitleCase regex which pulled out "Here", "Known", "Offers" etc.)
-  const competitorMentions = await extractCompetitorsViaLLM(text, brandName);
+  // Position: when brand IS mentioned, find the actual form Haiku
+  // returned and compute its position in the response text.
+  let brandPosition: number | null = null;
+  if (analysis.brand_mentioned && analysis.brand_form_used) {
+    const idx = text
+      .toLowerCase()
+      .indexOf(analysis.brand_form_used.toLowerCase());
+    if (idx >= 0 && text.length > 0) brandPosition = idx / text.length;
+  }
 
   // URLs / domains
   const urlRe = /https?:\/\/([^\s)>"']+)/gi;
@@ -445,46 +448,64 @@ async function parseProbeResponse(
   return {
     query,
     response_text: text.slice(0, 2000),
-    brand_mentioned: brandMentioned,
+    brand_mentioned: analysis.brand_mentioned,
     brand_position: brandPosition,
-    competitors_mentioned: competitorMentions,
+    competitors_mentioned: analysis.competitors,
     cited_domains: Array.from(domains),
   };
 }
 
 /**
- * Ask Claude Haiku to extract ONLY actual brand/company names from a
- * shopping recommendation response. Much more accurate than the
- * TitleCase regex which over-matched ("Here", "Known", "Offers").
+ * Single-shot Haiku analysis: alias-aware brand detection + competitor
+ * extraction. Replaces both the substring indexOf brand check and the
+ * separate competitor extraction. Key advantage: Haiku knows that
+ * "르무통" / "Le Mouton" / "LeMouton" / "lemouton" all refer to the
+ * same brand without us having to enumerate aliases.
  *
- * Falls back to a tight regex when ANTHROPIC_API_KEY is missing.
+ * Falls back to tight regex + substring on hard failure.
  */
-async function extractCompetitorsViaLLM(
+async function analyzeResponseViaLLM(
   text: string,
   ownBrand: string,
-): Promise<string[]> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return extractBrandCandidates(text, ownBrand);
+): Promise<{
+  brand_mentioned: boolean;
+  brand_form_used: string | null;
+  competitors: string[];
+}> {
+  if (!process.env.ANTHROPIC_API_KEY || text.trim().length < 10) {
+    return {
+      brand_mentioned: text.toLowerCase().includes(ownBrand.toLowerCase()),
+      brand_form_used: text.toLowerCase().includes(ownBrand.toLowerCase())
+        ? ownBrand
+        : null,
+      competitors: extractBrandCandidates(text, ownBrand),
+    };
   }
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const resp = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 200,
+      max_tokens: 300,
       system:
-        "Extract a JSON array of REAL BRAND / COMPANY names mentioned in a " +
-        "shopping recommendation. Rules:\n" +
-        "- Only actual brand or company names (Allbirds, Nike, Le Mouton, " +
-        "etc.). NEVER generic words ('Here', 'Known', 'Offers'), product " +
-        "lines unless they're truly standalone brands, marketing copy.\n" +
-        "- Skip the user's own brand if it appears.\n" +
-        "- Korean brands in Hangul are valid (르무통, 코오롱 등).\n" +
-        "- Output JSON only: { brands: [\"...\", ...] }.\n" +
-        "- 0-10 entries.",
+        "Analyze a shopping-recommendation response and output JSON ONLY.\n\n" +
+        "Schema: { brand_mentioned, brand_form_used, competitors }\n\n" +
+        "Rules:\n" +
+        "- brand_mentioned (boolean): true if the OWN BRAND is mentioned " +
+        "in the text, in ANY form (Hangul, English, romanization, with " +
+        "or without spaces, capitalization). E.g. '르무통' / 'Le Mouton' " +
+        "/ 'LeMouton' / 'lemouton' all count as one brand.\n" +
+        "- brand_form_used (string or null): the EXACT string from the " +
+        "text where the brand first appears (so position can be computed " +
+        "downstream). null if not mentioned.\n" +
+        "- competitors (string[]): up to 10 REAL brand / company names " +
+        "mentioned in the text. Exclude the own brand. Skip generic " +
+        "English words ('Here', 'Known', 'Offers', 'Brand'), marketing " +
+        "copy, product lines that aren't standalone brands. Both Hangul " +
+        "and English brand names valid (PONY, 르무통, Allbirds, etc.).",
       messages: [
         {
           role: "user",
-          content: `Own brand (skip if mentioned): ${ownBrand}\n\nText:\n${text.slice(0, 3000)}`,
+          content: `OWN BRAND: ${ownBrand}\n\nRESPONSE TEXT:\n${text.slice(0, 3000)}`,
         },
       ],
     });
@@ -493,18 +514,42 @@ async function extractCompetitorsViaLLM(
       .join("")
       .trim();
     const m = out.match(/\{[\s\S]*\}/);
-    if (!m) return [];
-    const parsed = JSON.parse(m[0]) as { brands?: string[] };
-    return (parsed.brands ?? [])
-      .filter((s) => typeof s === "string" && s.trim().length > 1)
-      .map((s) => s.trim())
-      .filter((s) => s.toLowerCase() !== ownBrand.toLowerCase());
+    if (!m) {
+      return {
+        brand_mentioned: false,
+        brand_form_used: null,
+        competitors: [],
+      };
+    }
+    const parsed = JSON.parse(m[0]) as {
+      brand_mentioned?: boolean;
+      brand_form_used?: string | null;
+      competitors?: string[];
+    };
+    return {
+      brand_mentioned: Boolean(parsed.brand_mentioned),
+      brand_form_used:
+        typeof parsed.brand_form_used === "string" ? parsed.brand_form_used : null,
+      competitors: Array.isArray(parsed.competitors)
+        ? parsed.competitors
+            .filter((s) => typeof s === "string" && s.trim().length > 1)
+            .map((s) => s.trim())
+            .filter((s) => s.toLowerCase() !== ownBrand.toLowerCase())
+            .slice(0, 15)
+        : [],
+    };
   } catch (e) {
     console.warn(
-      "[llm-visibility] competitor extraction LLM failed, fallback regex:",
+      "[llm-visibility] analyze LLM failed, fallback:",
       e instanceof Error ? e.message : e,
     );
-    return extractBrandCandidates(text, ownBrand);
+    const lower = text.toLowerCase();
+    const brandLower = ownBrand.toLowerCase();
+    return {
+      brand_mentioned: lower.includes(brandLower),
+      brand_form_used: lower.includes(brandLower) ? ownBrand : null,
+      competitors: extractBrandCandidates(text, ownBrand),
+    };
   }
 }
 
