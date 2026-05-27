@@ -1,3 +1,4 @@
+import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
@@ -7,6 +8,102 @@ import {
   runPersonaReactor,
   type PersonaForReaction,
 } from "@/lib/mrai/content/reactor";
+
+/**
+ * Generate a diverse persona pool for a market via Claude Haiku and
+ * insert into the personas table. Returns the inserted rows so the
+ * caller can immediately use them in this same request.
+ *
+ * Called when simulate finds an empty pool — prevents the chicken-and-
+ * egg where the user couldn't run their first content simulation
+ * because no personas existed yet for the market.
+ */
+async function seedPersonasForMarket(
+  workspaceId: string,
+  marketCountry: string,
+  count: number,
+): Promise<PersonaForReaction[]> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error("ANTHROPIC_API_KEY not set");
+  }
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const resp = await client.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 4000,
+    system:
+      "Generate a diverse synthetic persona pool for a marketing audience " +
+      "simulation. Output JSON ONLY (no preamble, no markdown). Schema:\n" +
+      '{ "personas": [\n' +
+      '  { "age_range": "25-29" | "30-34" | "35-39" | "40-49" | "50-59" | "20-24" | "18-24",\n' +
+      '    "gender": "female" | "male" | "non-binary",\n' +
+      '    "income_band": "low" | "median" | "above-median" | "high",\n' +
+      '    "profession": "<specific role in target country language>",\n' +
+      '    "base_profession": "<broad category in English: designer | engineer | marketer | student | freelancer | retail | service | healthcare | finance | educator | creative | manager>",\n' +
+      '    "interests": ["...", "...", "..."],\n' +
+      '    "purchase_style": "research-heavy" | "impulse" | "value-driven" | "brand-loyal" | "trend-follower",\n' +
+      '    "price_sensitivity": "low" | "moderate" | "high"\n' +
+      "  }, ...\n" +
+      "] }\n" +
+      "Coverage rules:\n" +
+      "- Spread across age bands (no more than 5 per band).\n" +
+      "- Mix genders ~50/50, with ~5% non-binary.\n" +
+      "- Realistic profession distribution for the country.\n" +
+      "- Interests 3-5 per persona in the country's native language.",
+    messages: [
+      {
+        role: "user",
+        content: `Generate ${count} diverse personas representing the marketing audience in country code ${marketCountry}. Make them feel like real distinct people, not stereotypes.`,
+      },
+    ],
+  });
+  const text = resp.content
+    .map((b) => (b.type === "text" ? b.text : ""))
+    .filter(Boolean)
+    .join("")
+    .trim();
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error("LLM returned no JSON");
+  type GenPersona = {
+    age_range: string;
+    gender: string;
+    income_band: string;
+    profession: string;
+    base_profession: string;
+    interests: string[];
+    purchase_style: string;
+    price_sensitivity: string;
+  };
+  const parsed = JSON.parse(m[0]) as { personas?: GenPersona[] };
+  const gen = (parsed.personas ?? []).slice(0, count);
+  if (gen.length === 0) throw new Error("LLM returned empty personas array");
+
+  // Insert via service role
+  const svc = createServiceClient();
+  const rows = gen.map((p) => ({
+    workspace_id: workspaceId,
+    age_range: p.age_range,
+    gender: p.gender,
+    country: marketCountry,
+    income_band: p.income_band,
+    profession: p.profession,
+    base_profession: p.base_profession,
+    interests: p.interests,
+    purchase_style: p.purchase_style,
+    price_sensitivity: p.price_sensitivity,
+    locale: "ko",
+  }));
+  const { data: inserted, error: insErr } = await svc
+    .from("personas")
+    .insert(rows)
+    .select(
+      "id, age_range, gender, country, income_band, profession, base_profession, interests, purchase_style, price_sensitivity",
+    );
+  if (insErr) throw new Error(`personas insert: ${insErr.message}`);
+  console.log(
+    `[simulate/seed] ✓ inserted ${inserted?.length ?? 0} personas for ${marketCountry}`,
+  );
+  return (inserted ?? []) as PersonaForReaction[];
+}
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -80,12 +177,36 @@ export async function POST(
   if (pErr) {
     return NextResponse.json({ error: pErr.message }, { status: 500 });
   }
-  const pool = (poolRows ?? []) as PersonaForReaction[];
+  let pool = (poolRows ?? []) as PersonaForReaction[];
+
+  // Auto-seed personas if the market pool is empty. Mr.AI's content
+  // simulation needs at least some personas to evaluate against, and
+  // there was previously a chicken-and-egg dead end where the user
+  // could only get personas by running a full Market-Twin ensemble.
+  if (pool.length === 0 && market) {
+    console.log(
+      `[simulate] empty pool for ${market}, auto-seeding ~30 personas`,
+    );
+    try {
+      const seeded = await seedPersonasForMarket(
+        wsCtx.workspaceId,
+        market,
+        30,
+      );
+      pool = seeded;
+    } catch (e) {
+      console.warn(
+        "[simulate] auto-seed failed:",
+        e instanceof Error ? e.message : e,
+      );
+    }
+  }
+
   if (pool.length === 0) {
     return NextResponse.json(
       {
         error: "no_personas_in_market",
-        detail: `시장 ${market ?? "(전체)"}의 페르소나 풀이 비어있습니다. 시뮬레이션을 먼저 1회 실행하거나 다른 시장을 선택하세요.`,
+        detail: `시장 ${market ?? "(전체)"}의 페르소나 풀이 비어있고 자동 시드도 실패했습니다. ANTHROPIC_API_KEY 확인하세요.`,
       },
       { status: 400 },
     );
