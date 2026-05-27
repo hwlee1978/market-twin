@@ -48,7 +48,31 @@ export async function GET(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json({ drafts: data ?? [] });
+  const drafts = data ?? [];
+
+  // Annotate each draft with its latest publication's published_at (or null).
+  // Used by the UI to show "다시 퍼블리시" persistently after reload, not just
+  // for the in-memory session that did the publish.
+  let pubMap = new Map<string, string>();
+  if (drafts.length > 0) {
+    const { data: pubs } = await supabase
+      .from("mrai_content_publications")
+      .select("content_draft_id, published_at")
+      .eq("workspace_id", wsCtx.workspaceId)
+      .in("content_draft_id", drafts.map((d) => d.id))
+      .order("published_at", { ascending: false });
+    if (pubs) {
+      for (const p of pubs) {
+        const k = p.content_draft_id as string;
+        if (!pubMap.has(k)) pubMap.set(k, p.published_at as string);
+      }
+    }
+  }
+  const annotated = drafts.map((d) => ({
+    ...d,
+    last_published_at: pubMap.get(d.id) ?? null,
+  }));
+  return NextResponse.json({ drafts: annotated });
 }
 
 export async function POST(

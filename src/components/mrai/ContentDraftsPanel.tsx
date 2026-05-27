@@ -52,6 +52,9 @@ type Draft = {
   seo_notes: Record<string, { weight: number; score: number; note: string }> | null;
   seo_scored_at: string | null;
   created_at: string;
+  /** Most-recent publication timestamp for this draft (or null if
+   *  never published). Server-annotated in the drafts GET response. */
+  last_published_at?: string | null;
 };
 
 export function ContentDraftsPanel({
@@ -345,7 +348,12 @@ function DraftCard({
   // Image gallery is collapsed by default — user toggles to see frames.
   const [imagesExpanded, setImagesExpanded] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [publishedAt, setPublishedAt] = useState<string | null>(null);
+  // Initialize from the server-annotated last_published_at so the button
+  // shows "다시 퍼블리시" persistently after page reload (not just for the
+  // session that did the publish).
+  const [publishedAt, setPublishedAt] = useState<string | null>(
+    draft.last_published_at ?? null,
+  );
   const [publishError, setPublishError] = useState<string | null>(null);
 
   const publishDraft = async () => {
