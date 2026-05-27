@@ -300,14 +300,27 @@ export async function strictCompositeImage(input: {
   );
 
   const REALISM_BAKE =
-    "Render as a PHOTOREALISTIC photograph — natural depth of field, " +
-    "authentic camera lighting, realistic textures and shadows. " +
-    "No illustration, no anime, no 3D-render look, no painted style.";
-  // NOTE: do NOT hint "subject will be inserted later" — gpt-image-1
-  // interprets that as a request to pre-draw a placeholder, which
-  // produces phantom mini-shoes / props in the composite center.
-  // Instead, frame the requirement as "this image is FINAL as a
-  // background plate, no foreground objects".
+    "Render as a PHOTOREALISTIC editorial photograph — natural depth " +
+    "of field, authentic camera lighting, realistic textures and " +
+    "shadows. No illustration, no anime, no 3D-render look, no " +
+    "painted style.";
+  // Composition guidance — improves the aesthetic baseline regardless
+  // of user-prompt quality. Variation: each candidate gets a slightly
+  // different angle/framing/mood so the vision pick has real options.
+  const COMPOSITION_VARIANTS = [
+    "Composition: editorial wide angle, balanced negative space, " +
+      "subject placed at lower-right rule-of-thirds intersection " +
+      "with leading lines pulling the eye toward it. Soft directional " +
+      "natural light from the left, warm golden cast.",
+    "Composition: cinematic medium shot, shallow depth of field, " +
+      "subject area centered with strong bokeh background. Cool " +
+      "muted color palette, overcast diffused light, modern editorial " +
+      "magazine feel.",
+    "Composition: low-angle hero shot, subject area positioned " +
+      "slightly above center, dramatic perspective with strong " +
+      "vertical elements in the background. Late-afternoon side " +
+      "lighting, atmospheric haze adding depth.",
+  ];
   const NEGATION =
     "CRITICAL: this image is the FINAL background plate. It will NOT " +
     "be edited further. It must contain ONLY the environment described " +
@@ -319,27 +332,11 @@ export async function strictCompositeImage(input: {
     "words, watermarks, logos, or brand marks. If the environment " +
     "description above mentions a product or brand, IGNORE that " +
     "mention — render only the surrounding environment without the " +
-    "product. Center foreground area must be cleanly empty.";
-
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const genRes = (await openai.images.generate({
-    model: "gpt-image-1",
-    prompt: `${basePrompt}\n\n${REALISM_BAKE}\n\n${NEGATION}`,
-    size: input.outputSize,
-    quality: input.quality,
-    n: 1,
-  })) as { data?: Array<{ b64_json?: string }> };
-  const bgB64 = genRes.data?.[0]?.b64_json;
-  if (!bgB64) throw new Error("gpt-image-1 returned no scene");
-  let bgBuffer: Buffer = Buffer.from(bgB64, "base64") as Buffer;
+    "product.";
 
   const [outW, outH] = input.outputSize.split("x").map(Number);
-  bgBuffer = (await sharp(bgBuffer)
-    .resize(outW, outH, { fit: "cover", position: "center" })
-    .png()
-    .toBuffer()) as Buffer;
 
-  // Step 3: compute subject size + position from aspect ratio
+  // Compute subject layout once (same composite math for every candidate).
   const subjMeta = await sharp(subjectPng).metadata();
   const subjW = subjMeta.width ?? outW;
   const subjH = subjMeta.height ?? outH;
@@ -348,52 +345,185 @@ export async function strictCompositeImage(input: {
     typeof input.subjectScale === "number"
       ? Math.max(0.5, Math.min(0.95, input.subjectScale))
       : layout.scaleH;
-
   const targetH = Math.round(outH * effectiveScale);
   const ratio = targetH / subjH;
   const targetW = Math.round(subjW * ratio);
   const finalW = Math.min(targetW, Math.round(outW * 0.95));
   const finalH = Math.round((finalW / subjW) * subjH);
-
   const resizedSubject = (await sharp(subjectPng)
     .resize(finalW, finalH, { fit: "inside" })
     .png()
     .toBuffer()) as Buffer;
-
   const left = Math.round((outW - finalW) / 2);
   const top = Math.round(outH - finalH - outH * layout.bottomPaddingPct);
-
   console.log(
     `[strict-composite] subject ratio=${(subjH / subjW).toFixed(2)} → scale=${effectiveScale} bottomPad=${layout.bottomPaddingPct}`,
   );
 
-  // Step 4: composite
-  let finalBuffer = (await sharp(bgBuffer)
-    .composite([{ input: resizedSubject, top, left }])
-    .png()
-    .toBuffer()) as Buffer;
+  // ─── Multi-shot best-pick ─────────────────────────────────────
+  // Generate N=3 scenes in parallel with composition variants, composite
+  // subject onto each, then vision-rank the final composites and return
+  // the best. Cost ~3x scene gen ($0.13 for medium) + 1 vision (~$0.005),
+  // latency ~1.5x because parallel. Quality bump is large.
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const candidatePrompts = COMPOSITION_VARIANTS.map(
+    (variant) =>
+      `${basePrompt}\n\n${variant}\n\n${REALISM_BAKE}\n\n${NEGATION}`,
+  );
 
-  // Step 5: logo overlay
-  if (input.logoBuffer) {
-    try {
-      finalBuffer = (await compositeLogoOnImage(
-        finalBuffer,
-        { buffer: input.logoBuffer },
-        input.logoOpts ?? {
-          position: "bottom-right",
-          size_pct: 16,
-          padding_pct: 3.5,
-          with_backdrop: true,
-          opacity: 1,
-        },
-      )) as Buffer;
-    } catch (e) {
-      console.warn(
-        "[strict-composite] logo composite failed:",
-        e instanceof Error ? e.message : e,
-      );
-    }
+  const scenes = await Promise.allSettled(
+    candidatePrompts.map((p) =>
+      openai.images
+        .generate({
+          model: "gpt-image-1",
+          prompt: p,
+          size: input.outputSize,
+          quality: input.quality,
+          n: 1,
+        })
+        .then((res) => {
+          const r = res as unknown as { data?: Array<{ b64_json?: string }> };
+          const b64 = r.data?.[0]?.b64_json;
+          if (!b64) throw new Error("gpt-image-1 returned no scene");
+          return Buffer.from(b64, "base64") as Buffer;
+        }),
+    ),
+  );
+  const goodScenes = scenes
+    .map((s, i) => ({ s, i }))
+    .filter(
+      (
+        x,
+      ): x is {
+        s: PromiseFulfilledResult<Buffer>;
+        i: number;
+      } => x.s.status === "fulfilled",
+    );
+  if (goodScenes.length === 0) {
+    throw new Error("All scene candidates failed");
   }
+  console.log(
+    `[strict-composite] generated ${goodScenes.length}/${COMPOSITION_VARIANTS.length} scene candidates`,
+  );
 
-  return { buffer: finalBuffer, used_strict: true };
+  // Composite each scene (subject + logo) into a candidate final image
+  const composites = await Promise.all(
+    goodScenes.map(async ({ s, i }) => {
+      const bgBuffer = (await sharp(s.value)
+        .resize(outW, outH, { fit: "cover", position: "center" })
+        .png()
+        .toBuffer()) as Buffer;
+      let composite = (await sharp(bgBuffer)
+        .composite([{ input: resizedSubject, top, left }])
+        .png()
+        .toBuffer()) as Buffer;
+      if (input.logoBuffer) {
+        try {
+          composite = (await compositeLogoOnImage(
+            composite,
+            { buffer: input.logoBuffer },
+            input.logoOpts ?? {
+              position: "bottom-right",
+              size_pct: 16,
+              padding_pct: 3.5,
+              with_backdrop: true,
+              opacity: 1,
+            },
+          )) as Buffer;
+        } catch (e) {
+          console.warn(
+            "[strict-composite] logo composite failed:",
+            e instanceof Error ? e.message : e,
+          );
+        }
+      }
+      return { buffer: composite, variantIndex: i };
+    }),
+  );
+
+  // Vision picks best
+  const bestIdx = await pickBestCompositeViaVision(composites);
+  const winner = composites[bestIdx] ?? composites[0];
+  console.log(
+    `[strict-composite] ✓ best-pick variant ${winner.variantIndex} of ${composites.length}`,
+  );
+
+  return { buffer: winner.buffer, used_strict: true };
+}
+
+/**
+ * Send all candidate composites to Claude vision in one call and ask
+ * which has the best COMPOSITION + REALISM + BRAND-fit for a marketing
+ * image. Returns the winning index. Falls back to 0 on failure.
+ */
+async function pickBestCompositeViaVision(
+  composites: Array<{ buffer: Buffer; variantIndex: number }>,
+): Promise<number> {
+  if (composites.length <= 1) return 0;
+  if (!process.env.ANTHROPIC_API_KEY) return 0;
+  try {
+    // Downsize each for vision (cheaper, still enough to judge composition)
+    const downsized = await Promise.all(
+      composites.map(async (c) =>
+        (await sharp(c.buffer)
+          .resize(512, 512, { fit: "inside" })
+          .jpeg({ quality: 80 })
+          .toBuffer()) as Buffer,
+      ),
+    );
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const resp = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 80,
+      system:
+        "You judge marketing-image quality. Score each candidate on " +
+        "COMPOSITION (rule of thirds, balance, focal clarity, negative " +
+        "space), REALISM (photorealistic, natural lighting, plausible " +
+        "shadows on the subject), and EDITORIAL POLISH (premium " +
+        "magazine-grade aesthetic, no AI artifacts). Return ONLY the " +
+        "integer index of the BEST candidate (0-based). No explanation.",
+      messages: [
+        {
+          role: "user",
+          content: [
+            ...downsized.map(
+              (buf, i) =>
+                ({
+                  type: "image",
+                  source: {
+                    type: "base64",
+                    media_type: "image/jpeg",
+                    data: buf.toString("base64"),
+                  },
+                  cache_control: undefined,
+                }) as const,
+            ),
+            {
+              type: "text",
+              text: `Which candidate is best? Indices 0-${composites.length - 1}. Reply with just the integer.`,
+            },
+          ],
+        },
+      ],
+    });
+    const text = resp.content
+      .map((b) => (b.type === "text" ? b.text : ""))
+      .filter(Boolean)
+      .join("")
+      .trim();
+    const m = text.match(/\d+/);
+    if (!m) return 0;
+    const idx = parseInt(m[0], 10);
+    if (isNaN(idx) || idx < 0 || idx >= composites.length) return 0;
+    console.log(
+      `[strict-composite] vision picked index ${idx} from ${composites.length} candidates`,
+    );
+    return idx;
+  } catch (e) {
+    console.warn(
+      "[strict-composite] vision pick failed, returning index 0:",
+      e instanceof Error ? e.message : e,
+    );
+    return 0;
+  }
 }
