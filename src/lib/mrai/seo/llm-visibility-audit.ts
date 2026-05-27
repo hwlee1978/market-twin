@@ -488,8 +488,16 @@ async function probeGemini(
   brandName: string,
   market: string,
 ): Promise<{ queries: PerQueryProbe[]; inputTokens: number; outputTokens: number }> {
-  const apiKey = process.env.GOOGLE_API_KEY ?? process.env.GEMINI_API_KEY;
+  // The Market Twin codebase uses GOOGLE_GENERATIVE_AI_API_KEY as the
+  // canonical Gemini env name; also accept the shorter aliases.
+  const apiKey =
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY ??
+    process.env.GOOGLE_API_KEY ??
+    process.env.GEMINI_API_KEY;
   if (!apiKey) {
+    console.warn(
+      "[llm-visibility/gemini] no GOOGLE_GENERATIVE_AI_API_KEY / GOOGLE_API_KEY / GEMINI_API_KEY set — skipping Gemini probe",
+    );
     return { queries: [], inputTokens: 0, outputTokens: 0 };
   }
   const sys = probeSystem(market);
