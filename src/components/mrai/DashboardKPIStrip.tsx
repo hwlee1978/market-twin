@@ -126,9 +126,17 @@ export function DashboardKPIStrip({
       <KPICard
         href={`${base}/content`}
         icon={FileText}
-        label={locale === "ko" ? "이번 주 브리프" : "Briefs this week"}
+        label={locale === "ko" ? "콘텐츠 브리프" : "Content briefs"}
         value={`${kpis.recentBriefs}`}
-        sub={locale === "ko" ? "최근 7일" : "last 7 days"}
+        sub={
+          kpis.recentBriefs === 0
+            ? locale === "ko"
+              ? "최근 7일 · 작성하기"
+              : "last 7d · create one"
+            : locale === "ko"
+            ? "최근 7일"
+            : "last 7 days"
+        }
         tone="amber"
       />
       <KPICard
