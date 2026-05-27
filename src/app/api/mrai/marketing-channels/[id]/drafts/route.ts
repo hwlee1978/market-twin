@@ -50,27 +50,63 @@ export async function GET(
   }
   const drafts = data ?? [];
 
-  // Annotate each draft with its latest publication's published_at (or null).
-  // Used by the UI to show "다시 퍼블리시" persistently after reload, not just
-  // for the in-memory session that did the publish.
+  // Annotate each draft with publication + simulation-winner state.
   let pubMap = new Map<string, string>();
+  let simLikeRate = new Map<string, number>();
   if (drafts.length > 0) {
-    const { data: pubs } = await supabase
-      .from("mrai_content_publications")
-      .select("content_draft_id, published_at")
-      .eq("workspace_id", wsCtx.workspaceId)
-      .in("content_draft_id", drafts.map((d) => d.id))
-      .order("published_at", { ascending: false });
-    if (pubs) {
-      for (const p of pubs) {
-        const k = p.content_draft_id as string;
-        if (!pubMap.has(k)) pubMap.set(k, p.published_at as string);
+    const draftIds = drafts.map((d) => d.id);
+    const [pubsQ, simsQ] = await Promise.all([
+      supabase
+        .from("mrai_content_publications")
+        .select("content_draft_id, published_at")
+        .eq("workspace_id", wsCtx.workspaceId)
+        .in("content_draft_id", draftIds)
+        .order("published_at", { ascending: false }),
+      supabase
+        .from("mrai_content_simulations")
+        .select("content_draft_id, like_rate, created_at")
+        .eq("workspace_id", wsCtx.workspaceId)
+        .in("content_draft_id", draftIds)
+        .order("created_at", { ascending: false }),
+    ]);
+    for (const p of pubsQ.data ?? []) {
+      const k = p.content_draft_id as string;
+      if (!pubMap.has(k)) pubMap.set(k, p.published_at as string);
+    }
+    for (const s of simsQ.data ?? []) {
+      const k = s.content_draft_id as string;
+      if (!simLikeRate.has(k) && typeof s.like_rate === "number") {
+        simLikeRate.set(k, s.like_rate);
       }
     }
   }
+
+  // Compute winner per campaign — the variant with the highest latest
+  // simulated like_rate. Only marks a winner when 2+ variants compete
+  // AND the leader actually has a meaningful like_rate (>= 5%).
+  const byCampaign = new Map<
+    string,
+    Array<{ id: string; like_rate: number }>
+  >();
+  for (const d of drafts) {
+    const lr = simLikeRate.get(d.id);
+    if (typeof lr !== "number") continue;
+    const key = d.campaign_label ?? "_no_campaign_";
+    if (!byCampaign.has(key)) byCampaign.set(key, []);
+    byCampaign.get(key)!.push({ id: d.id, like_rate: lr });
+  }
+  const winnerIds = new Set<string>();
+  for (const arr of byCampaign.values()) {
+    if (arr.length < 2) continue; // need a head-to-head
+    arr.sort((a, b) => b.like_rate - a.like_rate);
+    if (arr[0].like_rate >= 0.05) winnerIds.add(arr[0].id);
+  }
+
   const annotated = drafts.map((d) => ({
     ...d,
     last_published_at: pubMap.get(d.id) ?? null,
+    latest_like_rate: simLikeRate.get(d.id) ?? null,
+    is_campaign_winner: winnerIds.has(d.id),
   }));
   return NextResponse.json({ drafts: annotated });
 }

@@ -55,6 +55,11 @@ type Draft = {
   /** Most-recent publication timestamp for this draft (or null if
    *  never published). Server-annotated in the drafts GET response. */
   last_published_at?: string | null;
+  /** Latest simulated like_rate (0..1) or null if not simulated yet. */
+  latest_like_rate?: number | null;
+  /** True when this variant has the highest like_rate within its
+   *  campaign group (≥5% threshold, ≥2 variants competing). */
+  is_campaign_winner?: boolean;
 };
 
 export function ContentDraftsPanel({
@@ -471,6 +476,18 @@ function DraftCard({
             {draft.campaign_label && (
               <span className="text-xs font-medium text-slate-700">
                 {draft.campaign_label}
+              </span>
+            )}
+            {draft.is_campaign_winner && (
+              <span
+                className="text-[10px] font-semibold border border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-800 px-1.5 py-0.5 rounded inline-flex items-center gap-1"
+                title={
+                  typeof draft.latest_like_rate === "number"
+                    ? `시뮬 like_rate ${(draft.latest_like_rate * 100).toFixed(1)}%로 캠페인 내 1위`
+                    : "캠페인 내 1위 시뮬 변형"
+                }
+              >
+                🏆 추천
               </span>
             )}
             {score !== null && (
