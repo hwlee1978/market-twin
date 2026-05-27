@@ -60,6 +60,8 @@ export function LLMVisibilityPanel({
   const [expandedLLM, setExpandedLLM] = useState<string | null>(null);
   const [brandName, setBrandName] = useState(defaultBrand);
   const [category, setCategory] = useState(defaultCategory);
+  const [customQueriesText, setCustomQueriesText] = useState("");
+  const [showCustomQueries, setShowCustomQueries] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,6 +92,11 @@ export function LLMVisibilityPanel({
     setRunning(true);
     setError(null);
     try {
+      const customQueries = customQueriesText
+        .split("\n")
+        .map((s) => s.trim())
+        .filter((s) => s.length >= 3 && s.length <= 300)
+        .slice(0, 10);
       const res = await fetch("/api/mrai/llm-seo/visibility-audit", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -98,6 +105,8 @@ export function LLMVisibilityPanel({
           brand_category: category.trim(),
           market_country: defaultMarket,
           marketing_channel_id: channelId ?? null,
+          custom_queries:
+            customQueries.length > 0 ? customQueries : undefined,
         }),
       });
       const json = await res.json();
@@ -164,6 +173,32 @@ export function LLMVisibilityPanel({
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-1.5 bg-white text-slate-900"
             />
           </div>
+        </div>
+
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowCustomQueries((v) => !v)}
+            className="text-[11px] text-indigo-600 hover:text-indigo-800"
+          >
+            {showCustomQueries ? "▾" : "▸"} 직접 쿼리 지정 (선택 — 자동 생성 대신 사용자 입력 사용)
+          </button>
+          {showCustomQueries && (
+            <div className="mt-2">
+              <textarea
+                value={customQueriesText}
+                onChange={(e) => setCustomQueriesText(e.target.value)}
+                disabled={running}
+                placeholder={`한 줄에 하나씩. 예:\nWhich merino wool sneaker brands are recommended for daily commuting?\nbest comfortable Korean sneakers for office workers\n메리노 울 컴포트 스니커즈 추천`}
+                rows={5}
+                className="w-full text-xs border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 font-mono"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                내가 manual로 LLM에 테스트해서 효과 본 쿼리를 그대로 넣을 수 있습니다.
+                최대 10개. 빈 값이면 자동 생성 사용 (KR 시장은 한국어 3개 + 영어 3개).
+              </p>
+            </div>
+          )}
         </div>
 
         {error && (
