@@ -617,74 +617,80 @@ export async function generateImagesForDraft(input: {
         true, // touchupMode
       );
 
-      // ─── PRIMARY PATH: STRICT COMPOSITE
+      // ─── AMBASSADOR FRAMES: source photo AS-IS (no AI scene gen).
       //
-      // Replicate bg-removal extracts the subject (윤아 + product) as a
-      // transparent PNG. gpt-image-1.generate paints an EMPTY scene
-      // matching the content theme (touchupPrompt). sharp composites
-      // the cutout onto the scene. Result: subject pixels 100% preserved,
-      // background actually replaced — which is the whole point of
-      // celebrity-ambassador content variety.
+      // Strict-composite (bg-removal + AI scene gen) is OFF for
+      // ambassador frames. Reason: ambassador library photos often
+      // contain props (e.g. 윤아 with a bicycle) that bg-removal
+      // extracts along with the subject. Composited onto an AI scene
+      // that has its own furniture, the prop intersects nonsensically
+      // with the scene (bike clipping through tables, shoes on the
+      // floor doubled with shoes in her hands, etc.). Pixel-perfect
+      // celebrity preservation is more important than scene variety.
       //
-      // Applies to BOTH ambassador and product frames now (user
-      // explicitly wants scene-changing on ambassador frames). If
-      // bg-removal hard-fails, the per-source-type fallbacks below kick
-      // in (ambassador → source-as-is, product → mask-edit).
+      // Variety still comes from rotating through the full library
+      // (random pick per regen, full ambassador pool — not capped).
+      //
+      // For PRODUCT frames the strict-composite path below is still
+      // attempted because product photos are typically clean studio
+      // shots without props.
       let strictHandled = false;
-      try {
-        const sc = await strictCompositeImage({
-          sourceImageUrl: sourceUrl,
-          sourceAssetId: sourceAsset.id,
-          sourceType: touchupSourceType ?? "product",
-          workspaceId: input.workspaceId,
-          scenePrompt: touchupPrompt,
-          outputSize: size,
-          quality: settings.quality,
-          logoBuffer: logoBufferForComposite,
-          logoOpts: {
-            position: settings.logo_position,
-            size_pct: settings.logo_size_pct,
-            padding_pct: settings.logo_padding_pct,
-            opacity: settings.logo_opacity,
-            with_backdrop: settings.logo_with_backdrop,
-          },
-        });
-        if (sc && sc.used_strict) {
-          usedReferenceIds.add(sourceAsset.id);
-          const uploaded = await uploadToStorage(
-            sc.buffer,
-            input.workspaceId,
-            input.draftId,
-            i,
-          );
-          images.push({
-            url: uploaded.url,
-            path: uploaded.path,
-            frame_index: i,
-            size,
+      if (touchupSourceType !== "ambassador") {
+        try {
+          const sc = await strictCompositeImage({
+            sourceImageUrl: sourceUrl,
+            sourceAssetId: sourceAsset.id,
+            sourceType: touchupSourceType ?? "product",
+            workspaceId: input.workspaceId,
+            scenePrompt: touchupPrompt,
+            outputSize: size,
+            quality: settings.quality,
+            logoBuffer: logoBufferForComposite,
+            logoOpts: {
+              position: settings.logo_position,
+              size_pct: settings.logo_size_pct,
+              padding_pct: settings.logo_padding_pct,
+              opacity: settings.logo_opacity,
+              with_backdrop: settings.logo_with_backdrop,
+            },
           });
-          console.log(
-            `[image-gen] ✅ STRICT-COMPOSITE frame ${i} [${sourceLabel}] source=...${sourceUrl.slice(-40)}`,
-          );
-          strictHandled = true;
-        } else {
-          console.log(
-            `[image-gen] strict-composite returned null for frame ${i} (bg-removal failed) — falling back`,
+          if (sc && sc.used_strict) {
+            usedReferenceIds.add(sourceAsset.id);
+            const uploaded = await uploadToStorage(
+              sc.buffer,
+              input.workspaceId,
+              input.draftId,
+              i,
+            );
+            images.push({
+              url: uploaded.url,
+              path: uploaded.path,
+              frame_index: i,
+              size,
+            });
+            console.log(
+              `[image-gen] ✅ STRICT-COMPOSITE frame ${i} [${sourceLabel}] source=...${sourceUrl.slice(-40)}`,
+            );
+            strictHandled = true;
+          } else {
+            console.log(
+              `[image-gen] strict-composite returned null for frame ${i} (bg-removal failed) — falling back`,
+            );
+          }
+        } catch (e) {
+          console.warn(
+            `[image-gen] strict-composite threw for frame ${i}, falling back:`,
+            e instanceof Error ? e.message : e,
           );
         }
-      } catch (e) {
-        console.warn(
-          `[image-gen] strict-composite threw for frame ${i}, falling back:`,
-          e instanceof Error ? e.message : e,
-        );
       }
       if (strictHandled) continue;
 
-      // ─── AMBASSADOR FALLBACK: use the source photo as-is.
+      // ─── AMBASSADOR PATH: use the source photo as-is.
       //
-      // Only reached when strict-composite (Replicate bg-removal) hard-
-      // failed. Honest behavior: keep the celebrity visible with their
-      // original background rather than producing a recomposed face.
+      // Primary path for ambassador frames (no AI scene replacement —
+      // see comment above). Also a fallback for product frames if
+      // strict-composite hard-fails.
       if (touchupSourceType === "ambassador") {
         try {
           const [outW, outH] = size.split("x").map(Number);
