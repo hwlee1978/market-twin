@@ -71,7 +71,7 @@ function appUrl(): string {
   return (
     process.env.NEXT_PUBLIC_SITE_URL ??
     process.env.VERCEL_URL?.replace(/^https?:\/\//, "https://") ??
-    "https://market-twin.vercel.app"
+    "https://app.markettwin.ai"
   );
 }
 
