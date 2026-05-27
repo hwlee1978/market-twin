@@ -670,31 +670,20 @@ export async function generateImagesForDraft(input: {
       //     not composited.
       let strictHandled = false;
 
-      // Decide which product path for this frame based on (1) source's
-      // classifier composition tag and (2) frame role.
-      let useLifestyleGen = false;
-      if (touchupSourceType === "product") {
-        // Lookup the chosen source's composition tag from classifier cache.
-        // If unknown, fall back to role-based heuristic.
-        let sourceComposition: string | undefined;
-        try {
-          const { classifyProductAsset } = await import("./product-classifier");
-          const meta = await classifyProductAsset(
-            input.workspaceId,
-            sourceAsset.id,
-            sourceAsset.image_url,
-          );
-          sourceComposition = meta?.composition;
-        } catch {}
-        const sourceHasContext =
-          sourceComposition === "with-model" ||
-          sourceComposition === "with-context" ||
-          sourceComposition === "in-use";
-        const isCarouselNonCover = totalFrames > 1 && i > 0;
-        useLifestyleGen = sourceHasContext || isCarouselNonCover;
-        console.log(
-          `[image-gen] frame ${i} path=${useLifestyleGen ? "LIFESTYLE-GEN" : "STRICT-COMPOSITE"} composition=${sourceComposition ?? "?"} carouselNonCover=${isCarouselNonCover}`,
-        );
+      // Product frames default to LIFESTYLE-GEN — gpt-image-1.edit
+      // renders ONE coherent photo using the library product photo
+      // as a reference, instead of pasting a bg-removed cutout onto
+      // an AI scene. The composite path produced a visible rectangular
+      // stamp ("the shoes look like they were photoshopped onto the
+      // magazine"). Single-pass generation produces natural shadows
+      // and a scene-product unity that no composite can match.
+      //
+      // STRICT-COMPOSITE remains available as an opt-in for pure
+      // product-catalog shots (white-cyc display) but is no longer the
+      // default for ANY product frame.
+      const useLifestyleGen = touchupSourceType === "product";
+      if (useLifestyleGen) {
+        console.log(`[image-gen] frame ${i} path=LIFESTYLE-GEN`);
       }
 
       if (touchupSourceType === "product" && useLifestyleGen) {
