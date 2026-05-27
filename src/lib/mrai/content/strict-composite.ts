@@ -213,23 +213,48 @@ export async function strictCompositeImage(input: {
   });
   if (!subjectPng) return null;
 
-  // Step 2: pick scene template (curated catalog), call gpt-image-1
-  const tpl = await pickSceneTemplate(input.scenePrompt);
-  console.log(`[strict-composite] scene template: ${tpl.key}`);
+  // Step 2: build the scene prompt for gpt-image-1.
+  //
+  // If the user supplied a substantive scenePrompt (>40 chars), use it
+  // DIRECTLY so manual edits actually drive the output. This is the
+  // user-control path. We still bolt on photorealism hints + the same
+  // negation list to keep the model from drawing duplicate products
+  // or stray text.
+  //
+  // When scenePrompt is empty/trivial we fall back to the curated
+  // catalog (Haiku picks the closest of 12 pre-vetted templates).
+  const trimmedScene = (input.scenePrompt ?? "").trim();
+  let basePrompt: string;
+  let modeLabel: string;
+  if (trimmedScene.length >= 40) {
+    basePrompt = trimmedScene;
+    modeLabel = "user-prompt";
+  } else {
+    const tpl = await pickSceneTemplate(trimmedScene);
+    basePrompt = tpl.prompt;
+    modeLabel = `template:${tpl.key}`;
+  }
+  console.log(
+    `[strict-composite] scene mode=${modeLabel} prompt="${basePrompt.slice(0, 100)}…"`,
+  );
+
+  const REALISM_BAKE =
+    "Render as a PHOTOREALISTIC photograph — natural depth of field, " +
+    "authentic camera lighting, realistic textures and shadows. " +
+    "No illustration, no anime, no 3D-render look, no painted style.";
+  const NEGATION =
+    "This is an EMPTY ENVIRONMENT scene — background only. " +
+    "ABSOLUTELY NO people, NO faces, NO hands, NO body parts. " +
+    "ABSOLUTELY NO shoes, NO sneakers, NO clothing items, NO bags, " +
+    "NO merchandise, NO product props, NO objects on the floor. " +
+    "NO text, NO writing, NO words, NO watermarks, NO logos. " +
+    "Leave centered vertical space (roughly 60% of frame height) " +
+    "where a subject will be inserted later.";
 
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const genRes = (await openai.images.generate({
     model: "gpt-image-1",
-    prompt:
-      tpl.prompt +
-      "\n\nThis is an EMPTY ENVIRONMENT scene — background only. " +
-      "ABSOLUTELY NO people, NO faces, NO hands, NO body parts. " +
-      "ABSOLUTELY NO shoes, NO sneakers, NO clothing items, NO bags, " +
-      "NO merchandise, NO product props, NO objects on the floor. " +
-      "Only architecture, natural elements, atmosphere. " +
-      "NO text, NO writing, NO words, NO watermarks, NO logos. " +
-      "Leave centered vertical space (roughly 60% of frame height) " +
-      "where a subject will be inserted later.",
+    prompt: `${basePrompt}\n\n${REALISM_BAKE}\n\n${NEGATION}`,
     size: input.outputSize,
     quality: input.quality,
     n: 1,
