@@ -192,67 +192,88 @@ export async function pickBestProductForPrompt(input: {
     return sb - sa;
   });
 
-  // For the LLM pick, narrow to top 8 by score (token budget).
+  // Narrow to top 8 (Haiku token budget) — these are the candidates the
+  // LLM picks between.
   const candidates = ranked.slice(0, 8);
 
+  // Eligible shortlist after Haiku pick — we then RANDOM-pick among the
+  // top scene-fit candidates so consecutive regens don't always return
+  // the same product (user complaint: 7 regens, 5 were the same green
+  // sneaker). Variety > strict best-pick when colors/styles available.
+  let shortlist: typeof candidates = [];
+
   if (!process.env.ANTHROPIC_API_KEY) {
-    return candidates[0];
+    shortlist = candidates.slice(0, 5);
+  } else {
+    // Build a compact catalog string for Haiku
+    const catalog = candidates
+      .map((p, i) => {
+        const m = metaMap.get(p.id);
+        if (!m) return `${i}. (unclassified) ${p.label ?? ""}`.slice(0, 120);
+        return `${i}. angle=${m.angle} mood=${m.mood} comp=${m.composition} score=${m.marketing_score} | ${m.description}`;
+      })
+      .join("\n");
+
+    try {
+      const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const resp = await client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 60,
+        system:
+          "Pick the TOP 3-5 product photos whose ANGLE + MOOD + " +
+          "COMPOSITION fit a marketing scene description. Return ONLY " +
+          "the integer indices separated by commas, e.g. '2,4,1'. No " +
+          "explanation.\n\n" +
+          "Heuristics:\n" +
+          "- Urban / cinematic / editorial → three-quarter angle, " +
+          "  in-use composition, or editorial-dramatic mood.\n" +
+          "- Calm studio / minimal → studio-minimal, single-product, " +
+          "  front/three-quarter angle.\n" +
+          "- Outdoor / lifestyle → in-use or with-context.\n" +
+          "- AVOID back / top-down unless scene is a flatlay.\n\n" +
+          "Candidates:\n" +
+          catalog,
+        messages: [
+          { role: "user", content: `Scene: ${input.scenePrompt.slice(0, 600)}` },
+        ],
+      });
+      const text = resp.content
+        .map((b) => (b.type === "text" ? b.text : ""))
+        .filter(Boolean)
+        .join("")
+        .trim();
+      const idxs = Array.from(text.matchAll(/\d+/g))
+        .map((m) => parseInt(m[0], 10))
+        .filter((n) => !isNaN(n) && n >= 0 && n < candidates.length);
+      if (idxs.length > 0) {
+        // Dedupe while preserving order
+        const seen = new Set<number>();
+        const ordered: number[] = [];
+        for (const i of idxs) {
+          if (!seen.has(i)) {
+            seen.add(i);
+            ordered.push(i);
+          }
+        }
+        shortlist = ordered.slice(0, 5).map((i) => candidates[i]);
+      }
+    } catch (e) {
+      console.warn(
+        "[product-classifier] Haiku shortlist failed:",
+        e instanceof Error ? e.message : e,
+      );
+    }
+    if (shortlist.length === 0) {
+      shortlist = candidates.slice(0, 5);
+    }
   }
 
-  // Build a compact catalog string for Haiku
-  const catalog = candidates
-    .map((p, i) => {
-      const m = metaMap.get(p.id);
-      if (!m) return `${i}. (unclassified) ${p.label ?? ""}`.slice(0, 120);
-      return `${i}. angle=${m.angle} mood=${m.mood} comp=${m.composition} score=${m.marketing_score} | ${m.description}`;
-    })
-    .join("\n");
-
-  try {
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const resp = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 30,
-      system:
-        "Pick the product photo whose ANGLE + MOOD + COMPOSITION best " +
-        "matches a marketing scene description. Return ONLY the integer " +
-        "index (0-" +
-        (candidates.length - 1) +
-        "). No explanation.\n\n" +
-        "Heuristics:\n" +
-        "- Urban / cinematic / editorial scenes → three-quarter angle, " +
-        "  in-use composition, or editorial-dramatic mood preferred.\n" +
-        "- Calm studio / minimal scenes → studio-minimal or single-product " +
-        "  with front/three-quarter angle.\n" +
-        "- Outdoor / lifestyle scenes → in-use or with-context composition.\n" +
-        "- AVOID back / top-down angles unless the scene is explicitly " +
-        "  a top-down flatlay.\n\n" +
-        "Candidates:\n" +
-        catalog,
-      messages: [
-        { role: "user", content: `Scene: ${input.scenePrompt.slice(0, 600)}` },
-      ],
-    });
-    const text = resp.content
-      .map((b) => (b.type === "text" ? b.text : ""))
-      .filter(Boolean)
-      .join("")
-      .trim();
-    const m = text.match(/\d+/);
-    if (!m) return candidates[0];
-    const idx = parseInt(m[0], 10);
-    if (isNaN(idx) || idx < 0 || idx >= candidates.length) return candidates[0];
-    const winner = candidates[idx];
-    const meta = metaMap.get(winner.id);
-    console.log(
-      `[product-classifier] picked ${winner.id.slice(0, 8)} (angle=${meta?.angle}, mood=${meta?.mood}, score=${meta?.marketing_score}) for scene: "${input.scenePrompt.slice(0, 80)}…"`,
-    );
-    return winner;
-  } catch (e) {
-    console.warn(
-      "[product-classifier] Haiku pick failed:",
-      e instanceof Error ? e.message : e,
-    );
-    return candidates[0];
-  }
+  // Random pick within the shortlist for color/style variety across
+  // consecutive regens.
+  const winner = shortlist[Math.floor(Math.random() * shortlist.length)];
+  const meta = metaMap.get(winner.id);
+  console.log(
+    `[product-classifier] picked ${winner.id.slice(0, 8)} from shortlist of ${shortlist.length} (angle=${meta?.angle}, mood=${meta?.mood}, score=${meta?.marketing_score}) for scene: "${input.scenePrompt.slice(0, 80)}…"`,
+  );
+  return winner;
 }

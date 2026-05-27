@@ -689,12 +689,16 @@ export async function generateImagesForDraft(input: {
       if (touchupSourceType === "product" && useLifestyleGen) {
         try {
           const { generateLifestyleWithRefs } = await import("./lifestyle-gen");
-          // Use the picked source + up to 2 other product photos as
-          // additional references (different angles help the model
-          // recreate the product accurately).
-          const otherRefs = sourcePool
-            .filter((p) => p.id !== sourceAsset.id)
-            .slice(0, 2);
+          // Picked source + 2 random other product photos as additional
+          // refs. Shuffling prevents the model from always seeing the
+          // same supplementary set (which biased output toward whichever
+          // color dominates the first slots of sourcePool).
+          const others = sourcePool.filter((p) => p.id !== sourceAsset.id);
+          for (let j = others.length - 1; j > 0; j--) {
+            const k = Math.floor(Math.random() * (j + 1));
+            [others[j], others[k]] = [others[k], others[j]];
+          }
+          const otherRefs = others.slice(0, 2);
           const refs = [sourceAsset, ...otherRefs].map((p) => ({
             id: p.id,
             image_url: p.image_url,
