@@ -88,13 +88,48 @@ export async function runLLMVisibilityAudit(input: {
 
   // 1. Generate (or use) test queries — 5-7 natural questions a user
   //    might ask an AI when shopping in this category + market.
-  const testQueries = input.customQueries?.length
-    ? input.customQueries
-    : await generateTestQueries({
+  //
+  // CRITICAL: when market is non-English (KR/JP/CN/TW etc.), generate
+  // queries in BOTH the local language AND English. Empirical finding
+  // on Le Mouton 2026-05-27: English "best merino wool comfort sneaker
+  // brands?" → ChatGPT included a dedicated "Korean Brand Worth
+  // Mentioning: LeMouton" section. The same query in Korean → no
+  // mention. LLMs route to different recommendation distributions
+  // based on query language, even when geo-context is the same.
+  let testQueries: string[];
+  if (input.customQueries?.length) {
+    testQueries = input.customQueries;
+  } else {
+    const isNonEnglishMarket =
+      input.marketCountry && input.marketCountry !== "US" && input.marketCountry !== "GB";
+    if (isNonEnglishMarket) {
+      // Mix: 3 local-language + 3 English. This catches both:
+      //   - "domestic-speaker recommendation" distribution (local lang)
+      //   - "international tells me about local brand" distribution (EN)
+      const localLocale = input.queryLocale ?? "ko";
+      const [localQs, enQs] = await Promise.all([
+        generateTestQueries({
+          brandCategory: input.brandCategory,
+          marketCountry: input.marketCountry,
+          locale: localLocale,
+          count: 3,
+        }),
+        generateTestQueries({
+          brandCategory: input.brandCategory,
+          marketCountry: input.marketCountry,
+          locale: "en",
+          count: 3,
+        }),
+      ]);
+      testQueries = [...localQs, ...enQs];
+    } else {
+      testQueries = await generateTestQueries({
         brandCategory: input.brandCategory,
         marketCountry: input.marketCountry,
-        locale: input.queryLocale ?? (input.marketCountry === "KR" ? "ko" : "en"),
+        locale: input.queryLocale ?? "en",
       });
+    }
+  }
   console.log(
     `[llm-visibility] using ${testQueries.length} test queries:\n${testQueries
       .map((q, i) => `  ${i + 1}. ${q}`)
@@ -213,24 +248,27 @@ async function generateTestQueries(input: {
   brandCategory: string;
   marketCountry: string | null;
   locale: "ko" | "en";
+  count?: number;
 }): Promise<string[]> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const market = input.marketCountry ?? "global";
+  const n = Math.max(2, Math.min(input.count ?? 6, 8));
   const system =
-    "Generate 6 natural questions a consumer might ask an AI assistant " +
+    `Generate ${n} natural questions a consumer might ask an AI assistant ` +
     "when looking for products in a category — questions that should " +
     "EXPLICITLY ELICIT BRAND RECOMMENDATIONS.\n\n" +
     "Rules:\n" +
-    "- Output JSON ONLY: { \"queries\": [\"...\", \"...\", ...] }\n" +
-    "- ALL 6 questions must be the kind that asks for brand names. " +
+    `- Output JSON ONLY: { "queries": ["...", "...", ...] } with exactly ${n} items\n` +
+    "- ALL questions must be the kind that asks for brand names. " +
     "Examples that work: '가장 추천하는 X 브랜드는?' / 'best X brands' / " +
     "'어떤 X를 사야 좋을까?' / 'Recommend X brands available in Korea'.\n" +
     "- AVOID educational questions ('Why is X good?', 'How does X work?') " +
     "— those produce explanations, not brand lists.\n" +
-    "- Mix angles: 2 broad ('best X'), 2 use-case ('X for commute', " +
-    "'X for travel'), 1 price-tier ('affordable X', 'premium X'), " +
-    "1 buying ('어디서 X 사야 좋아?').\n" +
-    "- Use the user's language (Korean if KR market, else English).\n" +
+    "- Mix angles: broad ('best X'), use-case ('X for commute', " +
+    "'X for travel'), price-tier ('affordable X', 'premium X'), " +
+    "buying ('어디서 X 사야 좋아?').\n" +
+    `- Write the queries strictly in ${input.locale === "ko" ? "Korean" : "English"}. ` +
+    `Even if the market is non-English, output in ${input.locale === "ko" ? "Korean" : "English"} per this directive.\n` +
     "- Don't mention any specific brand in the queries — we're testing " +
     "which brand the LLMs recommend on their own.";
   const user = `Category: ${input.brandCategory}\nMarket: ${market}\nLanguage: ${input.locale === "ko" ? "Korean" : "English"}`;
