@@ -542,37 +542,88 @@ async function probeGemini(
   let inputTokens = 0;
   let outputTokens = 0;
   const results: PerQueryProbe[] = [];
-  for (const q of queries) {
-    try {
-      const resp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: sys }] },
-            contents: [{ role: "user", parts: [{ text: q }] }],
-          }),
-        },
-      );
-      if (!resp.ok) {
-        console.warn("[llm-visibility/gemini] HTTP", resp.status);
-        continue;
+  for (let qi = 0; qi < queries.length; qi++) {
+    const q = queries[qi];
+    // Small pacing between calls — Gemini free tier rate-limits aggressively
+    if (qi > 0) {
+      await new Promise((r) => setTimeout(r, 800));
+    }
+    let succeeded = false;
+    for (let attempt = 0; attempt < 3 && !succeeded; attempt++) {
+      try {
+        const resp = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: sys }] },
+              contents: [{ role: "user", parts: [{ text: q }] }],
+              generationConfig: { temperature: 0.7, maxOutputTokens: 1200 },
+            }),
+          },
+        );
+        if (resp.status === 429 || resp.status === 503) {
+          // Rate-limit / overload — back off and retry
+          const wait = 2000 * (attempt + 1);
+          const bodyTxt = await resp.text();
+          console.warn(
+            `[llm-visibility/gemini] q${qi} attempt ${attempt + 1} HTTP ${resp.status}, retry in ${wait}ms. body: ${bodyTxt.slice(0, 200)}`,
+          );
+          await new Promise((r) => setTimeout(r, wait));
+          continue;
+        }
+        if (!resp.ok) {
+          const bodyTxt = await resp.text();
+          console.warn(
+            `[llm-visibility/gemini] q${qi} HTTP ${resp.status} (giving up): ${bodyTxt.slice(0, 300)}`,
+          );
+          break;
+        }
+        const j = (await resp.json()) as {
+          candidates?: Array<{
+            content?: { parts?: Array<{ text?: string }> };
+            finishReason?: string;
+          }>;
+          usageMetadata?: {
+            promptTokenCount?: number;
+            candidatesTokenCount?: number;
+          };
+          promptFeedback?: { blockReason?: string };
+        };
+        if (j.promptFeedback?.blockReason) {
+          console.warn(
+            `[llm-visibility/gemini] q${qi} blocked: ${j.promptFeedback.blockReason} — "${q.slice(0, 80)}"`,
+          );
+          break;
+        }
+        inputTokens += j.usageMetadata?.promptTokenCount ?? 0;
+        outputTokens += j.usageMetadata?.candidatesTokenCount ?? 0;
+        const text =
+          j.candidates?.[0]?.content?.parts
+            ?.map((p) => p.text ?? "")
+            .join("") ?? "";
+        if (!text) {
+          const finish = j.candidates?.[0]?.finishReason ?? "?";
+          console.warn(
+            `[llm-visibility/gemini] q${qi} empty text (finish=${finish}) — "${q.slice(0, 80)}"`,
+          );
+          break;
+        }
+        results.push(await parseProbeResponse(q, text, brandName));
+        succeeded = true;
+      } catch (e) {
+        console.warn(
+          `[llm-visibility/gemini] q${qi} attempt ${attempt + 1} threw:`,
+          e instanceof Error ? e.message : e,
+        );
+        await new Promise((r) => setTimeout(r, 1500));
       }
-      const j = (await resp.json()) as {
-        candidates?: Array<{
-          content?: { parts?: Array<{ text?: string }> };
-        }>;
-        usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
-      };
-      inputTokens += j.usageMetadata?.promptTokenCount ?? 0;
-      outputTokens += j.usageMetadata?.candidatesTokenCount ?? 0;
-      const text = j.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-      results.push(await parseProbeResponse(q, text, brandName));
-    } catch (e) {
-      console.warn("[llm-visibility/gemini] query failed:", e);
     }
   }
+  console.log(
+    `[llm-visibility/gemini] completed ${results.length}/${queries.length} queries`,
+  );
   return { queries: results, inputTokens, outputTokens };
 }
 
