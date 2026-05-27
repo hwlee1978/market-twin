@@ -66,6 +66,14 @@ export default async function MrAIPage({
       <OnboardingPanel initialState={onboarding} />
       <IntegrationsPanel initialFlash={integrationFlash} locale={safeLocale} />
       <ChannelsPanel locale={safeLocale} />
+      <div className="flex justify-end">
+        <a
+          href={`/${safeLocale}/mr-ai/calendar`}
+          className="inline-flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+        >
+          📅 콘텐츠 캘린더 보기 →
+        </a>
+      </div>
       <MarketingChannelsPanel />
       <BrandAssetsPanel />
       <ProductProfilePanel />

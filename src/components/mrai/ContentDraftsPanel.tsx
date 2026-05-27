@@ -51,6 +51,7 @@ type Draft = {
   seo_score: number | null;
   seo_notes: Record<string, { weight: number; score: number; note: string }> | null;
   seo_scored_at: string | null;
+  scheduled_at?: string | null;
   created_at: string;
   /** Most-recent publication timestamp for this draft (or null if
    *  never published). Server-annotated in the drafts GET response. */
@@ -360,6 +361,32 @@ function DraftCard({
     draft.last_published_at ?? null,
   );
   const [publishError, setPublishError] = useState<string | null>(null);
+
+  // Scheduling
+  const [scheduledAt, setScheduledAt] = useState<string | null>(
+    draft.scheduled_at ?? null,
+  );
+  const [schedulingBusy, setSchedulingBusy] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+
+  const setSchedule = async (iso: string | null) => {
+    setSchedulingBusy(true);
+    setScheduleError(null);
+    try {
+      const res = await fetch(`/api/mrai/content-drafts/${draft.id}/schedule`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ scheduled_at: iso }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "스케줄 저장 실패");
+      setScheduledAt(json.draft?.scheduled_at ?? iso);
+    } catch (e) {
+      setScheduleError(e instanceof Error ? e.message : "스케줄 저장 실패");
+    } finally {
+      setSchedulingBusy(false);
+    }
+  };
 
   const publishDraft = async () => {
     setPublishing(true);
@@ -812,6 +839,47 @@ function DraftCard({
           )}
           {publishError && (
             <span className="text-[10px] text-red-600">{publishError}</span>
+          )}
+        </div>
+
+        {/* Scheduling row */}
+        <div className="mt-1.5 flex items-center gap-2 flex-wrap text-[11px]">
+          <span className="text-slate-500">⏰ 스케줄:</span>
+          <input
+            type="datetime-local"
+            value={
+              scheduledAt ? scheduledAt.slice(0, 16) /* YYYY-MM-DDTHH:MM */ : ""
+            }
+            onChange={(e) => {
+              const v = e.target.value;
+              if (!v) return; // Clear handled by 해제 button below
+              const iso = new Date(v).toISOString();
+              void setSchedule(iso);
+            }}
+            disabled={schedulingBusy}
+            className="text-[11px] border border-slate-200 rounded px-2 py-0.5 bg-white text-slate-700 disabled:opacity-60"
+          />
+          {scheduledAt && (
+            <>
+              <span className="text-slate-700">
+                → {new Date(scheduledAt).toLocaleString("ko-KR")}
+              </span>
+              <button
+                type="button"
+                onClick={() => void setSchedule(null)}
+                disabled={schedulingBusy}
+                className="text-slate-400 hover:text-red-600 disabled:opacity-50"
+                title="스케줄 해제"
+              >
+                해제
+              </button>
+            </>
+          )}
+          {schedulingBusy && (
+            <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
+          )}
+          {scheduleError && (
+            <span className="text-red-600">{scheduleError}</span>
           )}
         </div>
 

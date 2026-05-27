@@ -39,7 +39,7 @@ export async function GET(
   const { data, error } = await supabase
     .from("mrai_content_drafts")
     .select(
-      "id, campaign_label, variant_label, parent_draft_id, body_text, hashtags, cta_text, image_prompt, image_url, image_urls, source, seo_title, seo_description, seo_keywords, seo_meta, seo_score, seo_notes, seo_scored_at, created_at",
+      "id, campaign_label, variant_label, parent_draft_id, body_text, hashtags, cta_text, image_prompt, image_url, image_urls, source, seo_title, seo_description, seo_keywords, seo_meta, seo_score, seo_notes, seo_scored_at, scheduled_at, created_at",
     )
     .eq("workspace_id", wsCtx.workspaceId)
     .eq("marketing_channel_id", id)
