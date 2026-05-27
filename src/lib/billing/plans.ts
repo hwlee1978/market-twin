@@ -115,16 +115,19 @@ const FREE_TRIAL: PlanDefinition = {
   support: { ko: "커뮤니티", en: "Community" },
 };
 
-// Pricing reflects 2026-05-28 cost re-baseline after sim spec change:
-//   Hypothesis 3 sims × 200 personas × multi-LLM   = $3-5
-//   Consensus  6 sims × 200 personas × multi-LLM   = $25  (was 5-sim/$14)
-//   Consensus+ 15 sims × 200 personas × single LLM = $45
-//   Triangulated 25 sims × 200 × multi-LLM         = $60
-//   Triangulated Pro 50 sims × 200 × multi-LLM     = $90
+// Pricing reflects 2026-05-28 cost re-baseline after sim spec change.
+// Tier config source of truth = packages/shared/src/simulation/orchestrator.ts:
+//   Hypothesis    3 sims × 200 × multi-LLM (anth+oai+ds) = $3-5
+//   Consensus     6 sims × 200 × multi-LLM (anth+oai+ds) = $25 (was 5-sim/$14)
+//   Consensus+   15 sims × 200 × multi-LLM (anth+oai+ds) = $45
+//   Triangulated 25 sims × 200 × multi-LLM (anth+oai+ds) = $60
+//   Tri. Pro     50 sims × 200 × multi-LLM (anth+oai+gem) = $90
+//
 // User-set tier prices ₩500k / ₩1.5M / ₩3.5M (and $399 / $999 / $2,299)
 // — implied margin sits between cost × 4 (Starter worst case 5×$25=$125
 // → $399) and cost × 5 (Growth worst case 3×$60+5×$45+12×$25=$705
 // → ~$3,525 at cost×5 budget; capped at $2,299 to keep tier ladder sane).
+// Triangulated Pro is Enterprise-exclusive — not surfaced on public pricing.
 const STARTER: PlanDefinition = {
   slug: "starter",
   name: "Starter",
