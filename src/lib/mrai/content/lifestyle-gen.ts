@@ -89,9 +89,19 @@ export async function generateLifestyleWithRefs(input: {
     "anime, no 3D-render look.";
   const REFERENCE_INSTRUCTION =
     "The input image(s) show the EXACT product to feature. Reproduce its " +
-    "silhouette, colorway, stitching, sole pattern, and any visible " +
-    "brand tags — faithful to the references but naturally placed in " +
-    "the scene below. Do NOT alter the product's design.";
+    "silhouette, colorway, stitching, sole shape, and overall design " +
+    "faithfully — but naturally placed in the scene below. Do NOT alter " +
+    "the product's design.";
+  const TEXT_FREE_PRODUCT =
+    "IMPORTANT — the product must be COMPLETELY UNBRANDED in this render. " +
+    "Do NOT draw any text, letters, words, logos, brand marks, tags, " +
+    "stitched labels, embossed names, printed names, or any writing on " +
+    "the product surface anywhere — not on the sole, not on the heel, " +
+    "not on the tongue, not on the pull tab, not on the side panel. " +
+    "If the reference shows text on the product, OMIT that text and " +
+    "render that area as plain blank material (clean rubber, clean " +
+    "fabric, clean leather). No garbled letters, no fake brand names. " +
+    "Brand identity is added separately as a corner stamp.";
   const COMPOSITION =
     "Composition: editorial magazine style. Subject placed at a rule-of-" +
     "thirds intersection with leading lines toward it, balanced negative " +
@@ -105,6 +115,8 @@ export async function generateLifestyleWithRefs(input: {
     "Lifestyle scene: " + input.scenePrompt.trim(),
     "",
     REFERENCE_INSTRUCTION,
+    "",
+    TEXT_FREE_PRODUCT,
     "",
     COMPOSITION,
     "",
