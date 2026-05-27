@@ -632,8 +632,16 @@ export async function generateImagesForDraft(input: {
           const srcRes = await fetch(sourceUrl);
           if (!srcRes.ok) throw new Error(`source fetch ${srcRes.status}`);
           let finalBuf: Buffer = Buffer.from(await srcRes.arrayBuffer()) as Buffer;
+          // fit: "contain" preserves the ENTIRE source photo — no
+          // top/bottom crop on portrait shots forced into square frames.
+          // Empty space is filled with white (matches brand-neutral
+          // background most product/lifestyle shots already have).
           finalBuf = (await (await import("sharp")).default(finalBuf)
-            .resize(outW, outH, { fit: "cover", position: "center" })
+            .resize(outW, outH, {
+              fit: "contain",
+              position: "center",
+              background: { r: 255, g: 255, b: 255, alpha: 1 },
+            })
             .png()
             .toBuffer()) as Buffer;
           if (logoBufferForComposite) {
