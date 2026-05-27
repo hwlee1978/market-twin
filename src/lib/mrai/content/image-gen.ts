@@ -586,7 +586,16 @@ export async function generateImagesForDraft(input: {
     if (useTouchup) {
       const sourcePool =
         touchupSourceType === "ambassador" ? ambassadorPhotos : productPhotos;
-      const sourceIdx = i % Math.max(1, sourcePool.length);
+      // Source pick:
+      // - First-time full generation: rotate by frame index so frames
+      //   get a deterministic spread across the library.
+      // - Single-frame regen: RANDOM pick (excluding the current cover's
+      //   asset id when possible) so re-clicking "regenerate" produces
+      //   a different photo each time.
+      const isSingleRegen = typeof input.singleFrameIndex === "number";
+      const sourceIdx = isSingleRegen
+        ? Math.floor(Math.random() * Math.max(1, sourcePool.length))
+        : i % Math.max(1, sourcePool.length);
       const sourceAsset = sourcePool[sourceIdx];
       const sourceUrl = sourceAsset?.image_url;
       if (!sourceUrl) continue;
