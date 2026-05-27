@@ -7,6 +7,9 @@ import { createClient } from "@/lib/supabase/server";
 import { InstagramPreview } from "@/components/mrai/preview/InstagramPreview";
 import { TwitterPreview } from "@/components/mrai/preview/TwitterPreview";
 import { TikTokPreview } from "@/components/mrai/preview/TikTokPreview";
+import { NaverBlogPreview } from "@/components/mrai/preview/NaverBlogPreview";
+import { YouTubePreview } from "@/components/mrai/preview/YouTubePreview";
+import { NaverSmartstorePreview } from "@/components/mrai/preview/NaverSmartstorePreview";
 import { GenericPreview } from "@/components/mrai/preview/GenericPreview";
 
 export const dynamic = "force-dynamic";
@@ -104,7 +107,13 @@ export default async function ChannelPreviewPage({
         ? TwitterPreview
         : platform === "tiktok"
           ? TikTokPreview
-          : GenericPreview;
+          : platform === "naver_blog"
+            ? NaverBlogPreview
+            : platform === "youtube"
+              ? YouTubePreview
+              : platform === "naver_smartstore"
+                ? NaverSmartstorePreview
+                : GenericPreview;
 
   return (
     <div className="min-h-screen bg-slate-100">
