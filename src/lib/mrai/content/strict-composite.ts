@@ -103,6 +103,58 @@ const SCENE_TEMPLATES: Array<{ key: string; prompt: string }> = [
 
 const DEFAULT_SCENE_INDEX = 1; // minimalist Seoul cafe
 
+/**
+ * Sanitize a user-written scene prompt with Claude Haiku.
+ *
+ * Goal: keep the user's lighting / mood / arrangement / specific objects
+ * that ARE NOT products (magazines, plants, concrete floor, light
+ * quality, color palette) and STRIP every mention of footwear, shoes,
+ * sneakers, clothing, bags, the subject pair, "한 켤레", brand names.
+ *
+ * Returns null on hard failure → caller falls back to template catalog.
+ */
+async function stripProductsFromScene(rawPrompt: string): Promise<string | null> {
+  if (!process.env.ANTHROPIC_API_KEY) return null;
+  try {
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const resp = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 400,
+      system:
+        "You rewrite marketing image prompts to describe ONLY the empty " +
+        "environment that surrounds a product. The product itself will be " +
+        "added later as a separate layer, so any mention of it in the scene " +
+        "description causes hallucinated duplicates.\n\n" +
+        "Rules:\n" +
+        "1. KEEP: lighting, color palette, mood, surface (concrete, wood…), " +
+        "spatial layout, secondary objects (magazines, plants, books, " +
+        "windows, walls, sky), camera angle (top-down, eye-level…), focal " +
+        "depth, aspect ratio hints.\n" +
+        "2. REMOVE: shoes, sneakers, footwear, kicks, runners, trainers, " +
+        "boots, sandals, knit-wool/merino references that imply the shoe, " +
+        "clothing, apparel, bags, accessories, models, brand names, " +
+        "'한 켤레', 'a pair', 'one pair', '제품', 'product'.\n" +
+        "3. Output a single short paragraph in English describing only the " +
+        "remaining environment. No headings, no preamble, no quotes.\n" +
+        "4. If nothing remains after stripping, output exactly: SCENE_EMPTY",
+      messages: [{ role: "user", content: rawPrompt }],
+    });
+    const text = resp.content
+      .map((b) => (b.type === "text" ? b.text : ""))
+      .filter(Boolean)
+      .join("")
+      .trim();
+    if (!text || text === "SCENE_EMPTY" || text.length < 15) return null;
+    return text;
+  } catch (e) {
+    console.warn(
+      "[strict-composite] strip products LLM failed:",
+      e instanceof Error ? e.message : e,
+    );
+    return null;
+  }
+}
+
 async function pickSceneTemplate(rawPrompt: string): Promise<{
   key: string;
   prompt: string;
@@ -215,41 +267,59 @@ export async function strictCompositeImage(input: {
 
   // Step 2: build the scene prompt for gpt-image-1.
   //
-  // If the user supplied a substantive scenePrompt (>40 chars), use it
-  // DIRECTLY so manual edits actually drive the output. This is the
-  // user-control path. We still bolt on photorealism hints + the same
-  // negation list to keep the model from drawing duplicate products
-  // or stray text.
+  // Even with strong negation, gpt-image-1 still draws shoes/products
+  // when the user's prompt itself mentions them ("minimalist knit wool
+  // sneakers on concrete floor"). So we sanitize the user prompt with
+  // Claude Haiku first — strip product/brand/clothing nouns, keep
+  // environment / mood / lighting / arrangement. Result is a clean
+  // scene description that the subject (bg-removed product) can be
+  // composited onto without ghost duplicates.
   //
-  // When scenePrompt is empty/trivial we fall back to the curated
-  // catalog (Haiku picks the closest of 12 pre-vetted templates).
+  // Fallback: when the prompt is empty or sanitization fails, use the
+  // curated 12-entry catalog (Haiku picks closest mood).
   const trimmedScene = (input.scenePrompt ?? "").trim();
   let basePrompt: string;
   let modeLabel: string;
   if (trimmedScene.length >= 40) {
-    basePrompt = trimmedScene;
-    modeLabel = "user-prompt";
+    const stripped = await stripProductsFromScene(trimmedScene);
+    if (stripped) {
+      basePrompt = stripped;
+      modeLabel = "user-prompt-stripped";
+    } else {
+      const tpl = await pickSceneTemplate(trimmedScene);
+      basePrompt = tpl.prompt;
+      modeLabel = `template-fallback:${tpl.key}`;
+    }
   } else {
     const tpl = await pickSceneTemplate(trimmedScene);
     basePrompt = tpl.prompt;
     modeLabel = `template:${tpl.key}`;
   }
   console.log(
-    `[strict-composite] scene mode=${modeLabel} prompt="${basePrompt.slice(0, 100)}…"`,
+    `[strict-composite] scene mode=${modeLabel} prompt="${basePrompt.slice(0, 140)}…"`,
   );
 
   const REALISM_BAKE =
     "Render as a PHOTOREALISTIC photograph — natural depth of field, " +
     "authentic camera lighting, realistic textures and shadows. " +
     "No illustration, no anime, no 3D-render look, no painted style.";
+  // NOTE: do NOT hint "subject will be inserted later" — gpt-image-1
+  // interprets that as a request to pre-draw a placeholder, which
+  // produces phantom mini-shoes / props in the composite center.
+  // Instead, frame the requirement as "this image is FINAL as a
+  // background plate, no foreground objects".
   const NEGATION =
-    "This is an EMPTY ENVIRONMENT scene — background only. " +
-    "ABSOLUTELY NO people, NO faces, NO hands, NO body parts. " +
-    "ABSOLUTELY NO shoes, NO sneakers, NO clothing items, NO bags, " +
-    "NO merchandise, NO product props, NO objects on the floor. " +
-    "NO text, NO writing, NO words, NO watermarks, NO logos. " +
-    "Leave centered vertical space (roughly 60% of frame height) " +
-    "where a subject will be inserted later.";
+    "CRITICAL: this image is the FINAL background plate. It will NOT " +
+    "be edited further. It must contain ONLY the environment described " +
+    "above and nothing else. ABSOLUTELY NO people, faces, hands, or " +
+    "body parts. ABSOLUTELY NO shoes, sneakers, footwear, clothing, " +
+    "bags, accessories, or any product items anywhere in the frame. " +
+    "NO toy versions, NO miniature versions, NO mannequins, NO " +
+    "ghosted or faded silhouettes of products. NO text, writing, " +
+    "words, watermarks, logos, or brand marks. If the environment " +
+    "description above mentions a product or brand, IGNORE that " +
+    "mention — render only the surrounding environment without the " +
+    "product. Center foreground area must be cleanly empty.";
 
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const genRes = (await openai.images.generate({
