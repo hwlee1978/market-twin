@@ -29,49 +29,122 @@ export type StrictCompositeResult = {
 };
 
 /**
- * Use Claude Haiku to extract ONLY environment from the content prompt.
- * Strips brand names, product mentions, merchandise descriptions —
- * anything that would tempt gpt-image-1 to draw products in the
- * background. Returns a pure scene-only description.
+ * Curated scene template catalog. gpt-image-1 cannot hallucinate
+ * products when fed a known-clean environment description.
  *
- * Falls back to a generic neutral scene on LLM failure (still better
- * than letting product keywords through).
+ * Picking strategy: ask Claude Haiku to return ONLY a template index
+ * matching the content's mood. Free-form scene generation (previous
+ * approach) leaked product/material vocabulary — e.g. a Le Mouton
+ * prompt produced a tight close-up of yarn/knit because the model
+ * latched onto "wool texture" hints.
  */
-async function sanitizeScenePrompt(rawPrompt: string): Promise<string> {
-  const FALLBACK =
-    "soft natural indoor environment with clean architectural lines, warm afternoon light, empty floor and walls";
-  if (!process.env.ANTHROPIC_API_KEY) return FALLBACK;
+const SCENE_TEMPLATES: Array<{ key: string; prompt: string }> = [
+  {
+    key: "korean-spring-park",
+    prompt:
+      "Sunlit Korean park path with cherry-blossom trees and soft pink petals on the ground, late-morning warm light, gentle bokeh in the background, peaceful springtime atmosphere",
+  },
+  {
+    key: "minimalist-seoul-cafe",
+    prompt:
+      "Minimalist Seoul cafe interior with floor-to-ceiling windows, light wood floors, simple wooden table, hanging green plants, soft natural daylight, calm cozy vibe",
+  },
+  {
+    key: "modern-apartment-living",
+    prompt:
+      "Modern Korean apartment living room with large window, wooden flooring, white linen curtains diffusing daylight, indoor plants in clay pots, calm everyday ambience",
+  },
+  {
+    key: "weekend-morning-kitchen",
+    prompt:
+      "Bright weekend-morning kitchen interior with white tile walls, sunlight pouring through a sheer-curtained window, simple shelves, warm cozy mood",
+  },
+  {
+    key: "autumn-residential-street",
+    prompt:
+      "Quiet residential Seoul street in autumn, golden ginkgo leaves on the pavement, low brick walls, warm late-afternoon light",
+  },
+  {
+    key: "rooftop-evening-skyline",
+    prompt:
+      "Seoul rooftop terrace at golden hour, distant city skyline softly out of focus, simple concrete floor, warm amber light, calm peaceful evening",
+  },
+  {
+    key: "bookstore-interior",
+    prompt:
+      "Independent bookstore interior with warm wooden shelves, soft pendant lighting, neutral cream walls, atmospheric quiet daytime mood",
+  },
+  {
+    key: "ocean-promenade",
+    prompt:
+      "Sunny coastal promenade with whitewashed low wall, distant calm blue ocean and clear sky, soft breeze, light bokeh, summer afternoon",
+  },
+  {
+    key: "studio-cyc-soft",
+    prompt:
+      "Bright photography studio with seamless cream cyclorama background, even soft daylight from a single large window, clean minimalist editorial look",
+  },
+  {
+    key: "indoor-courtyard-garden",
+    prompt:
+      "Calm indoor courtyard garden with potted greenery, stone tile floor, white plaster walls, dappled natural light from above, serene atmosphere",
+  },
+  {
+    key: "library-reading-room",
+    prompt:
+      "Quiet reading room with tall windows, neutral linen sofa, side table with a glass of water, soft afternoon light, calm focused mood",
+  },
+  {
+    key: "winter-balcony",
+    prompt:
+      "Warm interior view through a balcony window, soft sunlight, neutral linen curtains, modern minimalist Korean home, peaceful winter morning",
+  },
+];
+
+const DEFAULT_SCENE_INDEX = 1; // minimalist Seoul cafe
+
+async function pickSceneTemplate(rawPrompt: string): Promise<{
+  key: string;
+  prompt: string;
+}> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return SCENE_TEMPLATES[DEFAULT_SCENE_INDEX];
+  }
+  const catalog = SCENE_TEMPLATES.map(
+    (t, i) => `${i}. ${t.key}: ${t.prompt.slice(0, 80)}…`,
+  ).join("\n");
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const resp = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 300,
+      max_tokens: 30,
       system:
-        "You extract pure ENVIRONMENT descriptions from marketing image prompts. " +
-        "Rules:\n" +
-        "1. Output ONLY the scene/setting (where it takes place, lighting, mood, architecture, nature).\n" +
-        "2. STRIP every mention of products, merchandise, brand names, shoes, sneakers, clothing, bags, items, " +
-        "people, models, faces, hands holding things, body parts.\n" +
-        "3. Output a single English sentence or two, no headings, no preamble.\n" +
-        "4. If the original mentions a specific real place context (cafe, park, subway, beach), keep that.\n" +
-        "5. If you cannot extract a scene, output: '" +
-        FALLBACK +
-        "'",
-      messages: [{ role: "user", content: rawPrompt }],
+        "Pick the scene template index (0-" +
+        (SCENE_TEMPLATES.length - 1) +
+        ") that best matches the mood/setting hinted at by a marketing-image prompt. " +
+        "Output ONLY the integer index, nothing else.\n\n" +
+        "Templates:\n" +
+        catalog,
+      messages: [{ role: "user", content: rawPrompt.slice(0, 600) }],
     });
     const text = resp.content
       .map((b) => (b.type === "text" ? b.text : ""))
       .filter(Boolean)
       .join("")
       .trim();
-    if (!text || text.length < 10) return FALLBACK;
-    return text;
+    const m = text.match(/\d+/);
+    if (!m) return SCENE_TEMPLATES[DEFAULT_SCENE_INDEX];
+    const idx = parseInt(m[0], 10);
+    if (isNaN(idx) || idx < 0 || idx >= SCENE_TEMPLATES.length) {
+      return SCENE_TEMPLATES[DEFAULT_SCENE_INDEX];
+    }
+    return SCENE_TEMPLATES[idx];
   } catch (e) {
     console.warn(
-      "[strict-composite] sanitize scene LLM failed, using fallback:",
+      "[strict-composite] scene template LLM pick failed, using default:",
       e instanceof Error ? e.message : e,
     );
-    return FALLBACK;
+    return SCENE_TEMPLATES[DEFAULT_SCENE_INDEX];
   }
 }
 
@@ -140,23 +213,21 @@ export async function strictCompositeImage(input: {
   });
   if (!subjectPng) return null;
 
-  // Step 2: sanitize scene prompt (strip products) and call gpt-image-1
-  const cleanScene = await sanitizeScenePrompt(input.scenePrompt);
-  console.log(
-    `[strict-composite] sanitized scene: "${cleanScene.slice(0, 120)}…"`,
-  );
+  // Step 2: pick scene template (curated catalog), call gpt-image-1
+  const tpl = await pickSceneTemplate(input.scenePrompt);
+  console.log(`[strict-composite] scene template: ${tpl.key}`);
 
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const genRes = (await openai.images.generate({
     model: "gpt-image-1",
     prompt:
-      cleanScene +
+      tpl.prompt +
       "\n\nThis is an EMPTY ENVIRONMENT scene — background only. " +
       "ABSOLUTELY NO people, NO faces, NO hands, NO body parts. " +
-      "ABSOLUTELY NO products, NO shoes, NO sneakers, NO clothing items, " +
-      "NO bags, NO merchandise, NO objects on the floor or surfaces. " +
-      "If unsure, leave that area empty. Only architecture, natural " +
-      "elements, atmosphere. NO text. NO watermarks. NO logos. " +
+      "ABSOLUTELY NO shoes, NO sneakers, NO clothing items, NO bags, " +
+      "NO merchandise, NO product props, NO objects on the floor. " +
+      "Only architecture, natural elements, atmosphere. " +
+      "NO text, NO writing, NO words, NO watermarks, NO logos. " +
       "Leave centered vertical space (roughly 60% of frame height) " +
       "where a subject will be inserted later.",
     size: input.outputSize,

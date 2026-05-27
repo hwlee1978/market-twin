@@ -164,14 +164,21 @@ export async function POST(
     asset_type: string;
     label: string | null;
   }>;
+  // Pass the FULL ambassador pool downstream so image-gen's random
+  // source picker (single-frame regen) has every uploaded photo to
+  // choose from. Other types are still capped — only ambassador is
+  // the "rotate through library" pool. Without this the random pick
+  // was actually picking from a slice of size 2.
   const pickFrom = (type: string, n: number) =>
     allRefs.filter((r) => r.asset_type === type).slice(0, n);
-  const ambassadors = pickFrom("ambassador", 2);
+  const ambassadors = allRefs.filter((r) => r.asset_type === "ambassador");
   const logos = pickFrom("logo", 1);
   const products = pickFrom("product", ambassadors.length >= 2 ? 1 : 2);
   const lifestyle = pickFrom("lifestyle", 1);
   const packaging = pickFrom("packaging", 1);
-  let references = [...ambassadors, ...logos, ...products, ...lifestyle, ...packaging].slice(0, 4);
+  // Carry ALL ambassadors + capped other types. No final .slice(0, 4)
+  // — image-gen needs the full ambassador rotation pool.
+  let references = [...ambassadors, ...logos, ...products, ...lifestyle, ...packaging];
   if (references.length === 0) references = allRefs.slice(0, 4);
 
   const settings = await loadImageGenSettings(draftWorkspaceId);
