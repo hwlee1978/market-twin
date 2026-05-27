@@ -47,6 +47,10 @@ type Draft = {
         image_prompt?: string | null;
       };
     };
+    llm_seo?: {
+      total: number;
+      breakdown: Record<string, { weight: number; score: number; note: string }>;
+    };
   } | null;
   seo_score: number | null;
   seo_notes: Record<string, { weight: number; score: number; note: string }> | null;
@@ -520,8 +524,23 @@ function DraftCard({
             {score !== null && (
               <span
                 className={`text-[10px] font-semibold border px-1.5 py-0.5 rounded ${scoreColor}`}
+                title="전통 SEO 휴리스틱 점수"
               >
                 SEO {score}
+              </span>
+            )}
+            {draft.seo_meta?.llm_seo?.total !== undefined && (
+              <span
+                className={`text-[10px] font-semibold border px-1.5 py-0.5 rounded ${
+                  draft.seo_meta.llm_seo.total >= 70
+                    ? "text-violet-700 bg-violet-50 border-violet-200"
+                    : draft.seo_meta.llm_seo.total >= 40
+                      ? "text-indigo-700 bg-indigo-50 border-indigo-200"
+                      : "text-slate-600 bg-slate-50 border-slate-200"
+                }`}
+                title="LLM 답변엔진(Claude/GPT/Gemini)이 인용할 가능성 — 팩트·비교·Q&A·단정성·인용가능 신호 기반"
+              >
+                🤖 {draft.seo_meta.llm_seo.total}
               </span>
             )}
             {draft.source === "ai-drafted" && (
@@ -755,7 +774,7 @@ function DraftCard({
         {expanded && draft.seo_notes && (
           <div className="mt-3 rounded-md bg-slate-50 border border-slate-100 p-2.5 text-[11px] space-y-1">
             <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
-              SEO 분석
+              SEO 분석 (전통 검색엔진)
             </div>
             {Object.entries(draft.seo_notes).map(([k, v]) => (
               <div key={k} className="flex items-baseline gap-2">
@@ -765,6 +784,30 @@ function DraftCard({
                     v.score >= 0.8
                       ? "text-emerald-700"
                       : v.score >= 0.5
+                        ? "text-amber-700"
+                        : "text-red-700"
+                  }`}
+                >
+                  {(v.score * 100).toFixed(0)}
+                </span>
+                <span className="text-slate-600 truncate">{v.note}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {expanded && draft.seo_meta?.llm_seo?.breakdown && (
+          <div className="mt-2 rounded-md bg-violet-50 border border-violet-200 p-2.5 text-[11px] space-y-1">
+            <div className="text-[10px] uppercase tracking-wider text-violet-700 mb-1 flex items-center gap-1">
+              🤖 LLM-SEO 분석 (답변엔진 인용 가능성)
+            </div>
+            {Object.entries(draft.seo_meta.llm_seo.breakdown).map(([k, v]) => (
+              <div key={k} className="flex items-baseline gap-2">
+                <span className="text-slate-500 w-32 shrink-0">{k}</span>
+                <span
+                  className={`shrink-0 font-mono w-12 text-right ${
+                    v.score >= 0.7
+                      ? "text-emerald-700"
+                      : v.score >= 0.4
                         ? "text-amber-700"
                         : "text-red-700"
                   }`}

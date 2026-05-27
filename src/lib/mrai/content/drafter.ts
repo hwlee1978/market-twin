@@ -1,6 +1,7 @@
 import { getLLMProvider } from "@/lib/llm";
 import { getPlatformSpec } from "./platform-rules";
 import { scoreSEO } from "./seo-score";
+import { scoreLLMSEO } from "@/lib/mrai/seo/llm-seo-score";
 import type { Locale } from "./strategist";
 
 /**
@@ -435,6 +436,22 @@ ${variantStrategies.join("\n")}
       hashtags,
       ctaText: cta,
     });
+    const llmSeo = scoreLLMSEO({
+      platform: input.channel.platform,
+      seoTitle,
+      seoDescription,
+      body,
+    });
+
+    // Stash LLM-SEO into seo_meta so we don't need a new column. The
+    // UI reads from seo_meta.llm_seo for the dedicated badge / breakdown.
+    const seoMetaWithLLM = {
+      ...seoMeta,
+      llm_seo: {
+        total: llmSeo.total,
+        breakdown: llmSeo.breakdown,
+      },
+    };
 
     return {
       variant_label: label,
@@ -449,7 +466,7 @@ ${variantStrategies.join("\n")}
       seo_description: seoDescription,
       seo_description_ko: seoDescriptionKo,
       seo_keywords: seoKeywords,
-      seo_meta: seoMeta,
+      seo_meta: seoMetaWithLLM,
       seo_score: score.total,
       seo_notes: score.breakdown as unknown as Record<string, unknown>,
     };
