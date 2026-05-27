@@ -8,13 +8,9 @@ import { getOnboardingState } from "@/lib/mrai/onboarding";
 import { MrAIChat } from "@/components/mrai/MrAIChat";
 import { BriefingPanel } from "@/components/mrai/BriefingPanel";
 import { IntegrationsPanel } from "@/components/mrai/IntegrationsPanel";
-import { BrandAssetsPanel } from "@/components/mrai/BrandAssetsPanel";
 import { LLMVisibilityPanel } from "@/components/mrai/LLMVisibilityPanel";
 import { LLMVisibilityHistoryPanel } from "@/components/mrai/LLMVisibilityHistoryPanel";
-import { CrawlSourcesPanel } from "@/components/mrai/CrawlSourcesPanel";
 import { ImageGenSettingsPanel } from "@/components/mrai/ImageGenSettingsPanel";
-import { ProductProfilePanel } from "@/components/mrai/ProductProfilePanel";
-import { BrandSEOPanel } from "@/components/mrai/BrandSEOPanel";
 import { OnboardingPanel } from "@/components/mrai/OnboardingPanel";
 import { PresetsPanel } from "@/components/mrai/PresetsPanel";
 
@@ -90,11 +86,7 @@ export default async function MrAIPage({
       <PageHeader title={t("pageTitle")} subtitle={t("pageSubtitle")} />
       <OnboardingPanel initialState={onboarding} />
       <IntegrationsPanel initialFlash={integrationFlash} locale={safeLocale} />
-      <BrandAssetsPanel />
-      <ProductProfilePanel />
       <ImageGenSettingsPanel />
-      <CrawlSourcesPanel />
-      <BrandSEOPanel />
       <LLMVisibilityPanel
         defaultBrand={workspaceName}
         defaultCategory={categoryHint}
