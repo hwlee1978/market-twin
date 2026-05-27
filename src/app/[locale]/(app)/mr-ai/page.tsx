@@ -13,6 +13,7 @@ import { ContentPanel } from "@/components/mrai/ContentPanel";
 import { MarketingChannelsPanel } from "@/components/mrai/MarketingChannelsPanel";
 import { BrandAssetsPanel } from "@/components/mrai/BrandAssetsPanel";
 import { LLMVisibilityPanel } from "@/components/mrai/LLMVisibilityPanel";
+import { LLMVisibilityHistoryPanel } from "@/components/mrai/LLMVisibilityHistoryPanel";
 import { CrawlSourcesPanel } from "@/components/mrai/CrawlSourcesPanel";
 import { ImageGenSettingsPanel } from "@/components/mrai/ImageGenSettingsPanel";
 import { ProductProfilePanel } from "@/components/mrai/ProductProfilePanel";
@@ -112,6 +113,7 @@ export default async function MrAIPage({
         defaultCategory={categoryHint}
         defaultMarket={defaultMarket}
       />
+      <LLMVisibilityHistoryPanel />
       <PresetsPanel />
       <ContentPanel locale={safeLocale} />
       <BriefingPanel initialBriefing={latestBriefing} locale={safeLocale} />
