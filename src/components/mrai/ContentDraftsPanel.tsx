@@ -240,6 +240,26 @@ function DraftCard({
   const [promptModalOpen, setPromptModalOpen] = useState(false);
   // Image gallery is collapsed by default — user toggles to see frames.
   const [imagesExpanded, setImagesExpanded] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishedAt, setPublishedAt] = useState<string | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
+
+  const publishDraft = async () => {
+    setPublishing(true);
+    setPublishError(null);
+    try {
+      const res = await fetch(`/api/mrai/content-drafts/${draft.id}/publish`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "퍼블리시 실패");
+      setPublishedAt(json.publication?.published_at ?? new Date().toISOString());
+    } catch (e) {
+      setPublishError(e instanceof Error ? e.message : "퍼블리시 실패");
+    } finally {
+      setPublishing(false);
+    }
+  };
   // Local override of image_prompt so the modal can refresh it inline
   // without having to fully refetch the draft.
   const [livePrompt, setLivePrompt] = useState({
@@ -591,6 +611,35 @@ function DraftCard({
               {latestSim.persona_sample_size}명 · {new Date(latestSim.created_at).toLocaleString("ko-KR")}
               {latestSim.llm_cost_usd ? ` · $${latestSim.llm_cost_usd.toFixed(3)}` : ""}
             </span>
+          )}
+        </div>
+
+        {/* Publish to virtual feed */}
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={publishDraft}
+            disabled={publishing}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-600 text-white text-[11px] font-medium hover:bg-rose-700 disabled:opacity-60"
+          >
+            {publishing ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Sparkles className="w-3 h-3" />
+            )}
+            {publishing
+              ? "퍼블리시 중…"
+              : publishedAt
+                ? "🔁 다시 퍼블리시"
+                : "📢 가상 피드에 퍼블리시"}
+          </button>
+          {publishedAt && (
+            <span className="text-[10px] text-emerald-700">
+              ✓ {new Date(publishedAt).toLocaleString("ko-KR")} 발행됨
+            </span>
+          )}
+          {publishError && (
+            <span className="text-[10px] text-red-600">{publishError}</span>
           )}
         </div>
 

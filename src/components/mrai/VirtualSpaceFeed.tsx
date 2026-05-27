@@ -74,7 +74,9 @@ export function VirtualSpaceFeed({
           </div>
         ) : pubs.length === 0 ? (
           <div className="text-center text-xs text-slate-400 py-8">
-            아직 업로드된 콘텐츠가 없습니다. Sprint 2에서 자동 드래프터가 활성화되면 이 영역에 카드가 쌓입니다.
+            아직 업로드된 콘텐츠가 없습니다. 콘텐츠 드래프트 카드 하단의{" "}
+            <span className="text-rose-700 font-medium">📢 가상 피드에 퍼블리시</span>{" "}
+            버튼을 누르면 이 영역에 카드가 쌓이며 페르소나 반응이 누적됩니다.
           </div>
         ) : (
           <ul className="space-y-3">
