@@ -1,4 +1,5 @@
-import { setRequestLocale } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { PenSquare } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ContentPanel } from "@/components/mrai/ContentPanel";
 
@@ -18,23 +19,24 @@ export default async function MrAIContentTab({
   const { locale } = await params;
   setRequestLocale(locale);
   const safeLocale: "ko" | "en" = locale === "en" ? "en" : "ko";
+  const t = await getTranslations("mrai.tabs");
 
   return (
     <div className="px-6 py-6 max-w-[1400px] mx-auto space-y-6">
       <PageHeader
-        title="콘텐츠"
-        subtitle="콘텐츠 브리프 · 전략 · 캘린더. 채널별 드래프트는 채널 상세 페이지에서."
+        title={t("contentTitle")}
+        subtitle={t("contentSubtitle")}
+        icon={PenSquare}
+        iconTone="amber"
+        actions={
+          <a
+            href={`/${safeLocale}/mr-ai/calendar`}
+            className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 font-medium px-3 py-1.5 rounded-md border border-indigo-200 bg-indigo-50"
+          >
+            {safeLocale === "ko" ? "콘텐츠 캘린더 →" : "Content calendar →"}
+          </a>
+        }
       />
-
-      <div className="flex justify-end">
-        <a
-          href={`/${safeLocale}/mr-ai/calendar`}
-          className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 font-medium px-3 py-1.5 rounded-md border border-indigo-200 bg-indigo-50"
-        >
-          📅 콘텐츠 캘린더 →
-        </a>
-      </div>
-
       <ContentPanel locale={safeLocale} />
     </div>
   );

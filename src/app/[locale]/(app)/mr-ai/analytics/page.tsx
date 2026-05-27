@@ -1,4 +1,5 @@
-import { setRequestLocale } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { TrendingUp } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { loadWorkspaceMemories } from "@/lib/mrai/memory";
@@ -18,6 +19,7 @@ export default async function MrAIAnalyticsTab({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
+  const t = await getTranslations("mrai.tabs");
 
   const ctx = await getOrCreatePrimaryWorkspace();
   if (!ctx) return null;
@@ -51,8 +53,10 @@ export default async function MrAIAnalyticsTab({
   return (
     <div className="px-6 py-6 max-w-[1400px] mx-auto space-y-6">
       <PageHeader
-        title="분석"
-        subtitle="LLM 답변엔진 가시성 감사 · KPI 추세. 답변엔진 시대의 새 SEO 지표."
+        title={t("analyticsTitle")}
+        subtitle={t("analyticsSubtitle")}
+        icon={TrendingUp}
+        iconTone="violet"
       />
       <LLMVisibilityPanel
         defaultBrand={workspaceName}

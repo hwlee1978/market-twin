@@ -1,4 +1,5 @@
-import { setRequestLocale } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { Settings as SettingsIcon } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { getOnboardingState } from "@/lib/mrai/onboarding";
@@ -24,6 +25,7 @@ export default async function MrAISettingsTab({
   const sp = await searchParams;
   setRequestLocale(locale);
   const safeLocale: "ko" | "en" = locale === "en" ? "en" : "ko";
+  const t = await getTranslations("mrai.tabs");
 
   const ctx = await getOrCreatePrimaryWorkspace();
   if (!ctx) return null;
@@ -40,8 +42,10 @@ export default async function MrAISettingsTab({
   return (
     <div className="px-6 py-6 max-w-[1400px] mx-auto space-y-6">
       <PageHeader
-        title="설정"
-        subtitle="온보딩 · 외부 통합 · 이미지 생성 옵션 · 프리셋."
+        title={t("settingsTitle")}
+        subtitle={t("settingsSubtitle")}
+        icon={SettingsIcon}
+        iconTone="slate"
       />
       <OnboardingPanel initialState={onboarding} />
       <IntegrationsPanel initialFlash={integrationFlash} locale={safeLocale} />

@@ -1139,6 +1139,20 @@
   "mrai": {
     "pageTitle": "Mr. AI",
     "pageSubtitle": "기억하는 CEO 비서 · W1-3 Foundation. 말한 사실은 자동 저장돼 다음 대화에서 다시 활용됩니다.",
+    "tabs": {
+      "dashboardTitle": "대시보드",
+      "dashboardSubtitle": "오늘의 브리핑 · 핵심 KPI · 메인 채팅. 다른 기능은 상단 탭으로.",
+      "contentTitle": "콘텐츠",
+      "contentSubtitle": "콘텐츠 브리프 · 전략 · 캘린더. 채널별 드래프트는 채널 상세 페이지에서.",
+      "channelsTitle": "채널",
+      "channelsSubtitle": "마케팅 채널 관리 (X · Instagram · TikTok · 네이버 블로그 등).",
+      "brandTitle": "브랜드",
+      "brandSubtitle": "브랜드 자산 라이브러리 · SEO 키워드 · 자동 크롤 소스.",
+      "analyticsTitle": "분석",
+      "analyticsSubtitle": "LLM 답변엔진 가시성 감사 · KPI 추세. 답변엔진 시대의 새 SEO 지표.",
+      "settingsTitle": "설정",
+      "settingsSubtitle": "온보딩 · 외부 통합 · 이미지 생성 옵션 · 프리셋."
+    },
     "chat": {
       "newConversation": "새 대화",
       "noConversations": "아직 대화 없음",

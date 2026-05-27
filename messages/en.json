@@ -1139,6 +1139,20 @@
   "mrai": {
     "pageTitle": "Mr. AI",
     "pageSubtitle": "Remembering CEO assistant · W1-3 Foundation. Facts you mention are auto-saved and reused in future conversations.",
+    "tabs": {
+      "dashboardTitle": "Dashboard",
+      "dashboardSubtitle": "Daily briefing · key KPIs · main chat. Other features live in the tabs above.",
+      "contentTitle": "Content",
+      "contentSubtitle": "Content briefs · strategy · calendar. Per-channel drafts live on each channel's detail page.",
+      "channelsTitle": "Channels",
+      "channelsSubtitle": "Marketing channel management (X · Instagram · TikTok · Naver Blog · ...).",
+      "brandTitle": "Brand",
+      "brandSubtitle": "Brand asset library · SEO keywords · auto-crawl sources.",
+      "analyticsTitle": "Analytics",
+      "analyticsSubtitle": "LLM answer-engine visibility audit · KPI trend. The new SEO signal for the answer-engine era.",
+      "settingsTitle": "Settings",
+      "settingsSubtitle": "Onboarding · external integrations · image generation · presets."
+    },
     "chat": {
       "newConversation": "New conversation",
       "noConversations": "No conversations yet",

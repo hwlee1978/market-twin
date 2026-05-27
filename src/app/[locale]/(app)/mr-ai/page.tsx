@@ -1,4 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
+
+import { LayoutDashboard } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { loadWorkspaceMemories } from "@/lib/mrai/memory";
@@ -25,7 +27,7 @@ export default async function MrAIPage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const t = await getTranslations("mrai");
+  const tTabs = await getTranslations("mrai.tabs");
 
   const ctx = await getOrCreatePrimaryWorkspace();
   if (!ctx) return null;
@@ -41,7 +43,12 @@ export default async function MrAIPage({
 
   return (
     <div className="px-6 pt-6 pb-10 max-w-[1400px] mx-auto space-y-6">
-      <PageHeader title={t("pageTitle")} subtitle={t("pageSubtitle")} />
+      <PageHeader
+        title={tTabs("dashboardTitle")}
+        subtitle={tTabs("dashboardSubtitle")}
+        icon={LayoutDashboard}
+        iconTone="violet"
+      />
       <DashboardKPIStrip kpis={kpis} locale={safeLocale} />
       <BriefingPanel initialBriefing={latestBriefing} locale={safeLocale} />
       <MrAIChat

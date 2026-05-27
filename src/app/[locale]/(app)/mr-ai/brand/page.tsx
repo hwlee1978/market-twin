@@ -1,4 +1,5 @@
-import { setRequestLocale } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { Palette } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { BrandAssetsPanel } from "@/components/mrai/BrandAssetsPanel";
 import { BrandSEOPanel } from "@/components/mrai/BrandSEOPanel";
@@ -20,12 +21,15 @@ export default async function MrAIBrandTab({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
+  const t = await getTranslations("mrai.tabs");
 
   return (
     <div className="px-6 py-6 max-w-[1400px] mx-auto space-y-6">
       <PageHeader
-        title="브랜드"
-        subtitle="브랜드 자산 라이브러리 · 제품 프로필 · SEO 키워드 · 자동 크롤 소스."
+        title={t("brandTitle")}
+        subtitle={t("brandSubtitle")}
+        icon={Palette}
+        iconTone="rose"
       />
       <BrandAssetsPanel />
       <BrandSEOPanel />
