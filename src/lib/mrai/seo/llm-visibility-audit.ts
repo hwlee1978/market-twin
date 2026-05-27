@@ -96,11 +96,15 @@ export async function runLLMVisibilityAudit(input: {
         locale: input.queryLocale ?? (input.marketCountry === "KR" ? "ko" : "en"),
       });
 
-  // 2. Probe each LLM in parallel
+  // 2. Probe each LLM in parallel — market-aware so the LLM grounds
+  //    answers in the user's actual buying market (huge fix: without
+  //    this, Claude/GPT default to global brands and never mention
+  //    KR-local brands even when they exist).
+  const market = input.marketCountry ?? "KR";
   const [claudeRes, gptRes, geminiRes] = await Promise.allSettled([
-    probeClaude(testQueries, input.brandName),
-    probeGPT(testQueries, input.brandName),
-    probeGemini(testQueries, input.brandName),
+    probeClaude(testQueries, input.brandName, market),
+    probeGPT(testQueries, input.brandName, market),
+    probeGemini(testQueries, input.brandName, market),
   ]);
   type ProbeOutcome = {
     queries: PerQueryProbe[];
@@ -261,17 +265,46 @@ function defaultQueries(category: string, locale: "ko" | "en"): string[] {
 // Per-LLM probing
 // ────────────────────────────────────────────────────────────────
 
-const PROBE_SYSTEM =
-  "You are an AI shopping assistant. Recommend specific real brands in " +
-  "the user's market. List 4-6 brand names with one-line descriptions. " +
-  "If you cite sources (URLs), include them inline. Be concrete — no " +
-  "vague 'many options exist' answers.";
+function probeSystem(market: string): string {
+  const marketName = marketLabelOf(market);
+  // Strong instruction to include LOCAL brands of the target market.
+  // Without "include local brands" the LLM defaults to whatever global
+  // brands its training distribution favours, which crushes the
+  // visibility signal for any non-Western brand.
+  return (
+    `You are an AI shopping assistant for consumers in ${marketName} ` +
+    `(market code: ${market}). When asked about products, recommend ` +
+    `4-6 SPECIFIC REAL BRANDS that consumers in ${marketName} can ` +
+    `actually buy today. REQUIRED: include local/native brands of ` +
+    `${marketName} alongside global brands — do not skip local brands ` +
+    `even if they're smaller. List with one-line descriptions. If you ` +
+    `cite sources (URLs), include them inline. Be concrete — no vague ` +
+    `"many options exist" answers.`
+  );
+}
+
+function marketLabelOf(code: string): string {
+  const m: Record<string, string> = {
+    KR: "Korea (South Korea)",
+    US: "United States",
+    JP: "Japan",
+    TW: "Taiwan",
+    CN: "China",
+    ID: "Indonesia",
+    VN: "Vietnam",
+    SG: "Singapore",
+    HK: "Hong Kong",
+  };
+  return m[code] ?? code;
+}
 
 async function probeClaude(
   queries: string[],
   brandName: string,
+  market: string,
 ): Promise<{ queries: PerQueryProbe[]; inputTokens: number; outputTokens: number }> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const sys = probeSystem(market);
   let inputTokens = 0;
   let outputTokens = 0;
   const results: PerQueryProbe[] = [];
@@ -280,7 +313,7 @@ async function probeClaude(
       const resp = await client.messages.create({
         model: "claude-sonnet-4-6",
         max_tokens: 800,
-        system: PROBE_SYSTEM,
+        system: sys,
         messages: [{ role: "user", content: q }],
       });
       inputTokens += resp.usage.input_tokens;
@@ -288,7 +321,7 @@ async function probeClaude(
       const text = resp.content
         .map((b) => (b.type === "text" ? b.text : ""))
         .join("");
-      results.push(parseProbeResponse(q, text, brandName));
+      results.push(await parseProbeResponse(q, text, brandName));
     } catch (e) {
       console.warn("[llm-visibility/claude] query failed:", e);
     }
@@ -299,11 +332,13 @@ async function probeClaude(
 async function probeGPT(
   queries: string[],
   brandName: string,
+  market: string,
 ): Promise<{ queries: PerQueryProbe[]; inputTokens: number; outputTokens: number }> {
   if (!process.env.OPENAI_API_KEY) {
     return { queries: [], inputTokens: 0, outputTokens: 0 };
   }
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const sys = probeSystem(market);
   let inputTokens = 0;
   let outputTokens = 0;
   const results: PerQueryProbe[] = [];
@@ -313,14 +348,14 @@ async function probeGPT(
         model: "gpt-4o",
         max_tokens: 800,
         messages: [
-          { role: "system", content: PROBE_SYSTEM },
+          { role: "system", content: sys },
           { role: "user", content: q },
         ],
       });
       inputTokens += resp.usage?.prompt_tokens ?? 0;
       outputTokens += resp.usage?.completion_tokens ?? 0;
       const text = resp.choices[0]?.message?.content ?? "";
-      results.push(parseProbeResponse(q, text, brandName));
+      results.push(await parseProbeResponse(q, text, brandName));
     } catch (e) {
       console.warn("[llm-visibility/gpt] query failed:", e);
     }
@@ -331,11 +366,13 @@ async function probeGPT(
 async function probeGemini(
   queries: string[],
   brandName: string,
+  market: string,
 ): Promise<{ queries: PerQueryProbe[]; inputTokens: number; outputTokens: number }> {
   const apiKey = process.env.GOOGLE_API_KEY ?? process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return { queries: [], inputTokens: 0, outputTokens: 0 };
   }
+  const sys = probeSystem(market);
   let inputTokens = 0;
   let outputTokens = 0;
   const results: PerQueryProbe[] = [];
@@ -347,7 +384,7 @@ async function probeGemini(
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: PROBE_SYSTEM }] },
+            systemInstruction: { parts: [{ text: sys }] },
             contents: [{ role: "user", parts: [{ text: q }] }],
           }),
         },
@@ -365,7 +402,7 @@ async function probeGemini(
       inputTokens += j.usageMetadata?.promptTokenCount ?? 0;
       outputTokens += j.usageMetadata?.candidatesTokenCount ?? 0;
       const text = j.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-      results.push(parseProbeResponse(q, text, brandName));
+      results.push(await parseProbeResponse(q, text, brandName));
     } catch (e) {
       console.warn("[llm-visibility/gemini] query failed:", e);
     }
@@ -377,11 +414,14 @@ async function probeGemini(
 // Response parsing
 // ────────────────────────────────────────────────────────────────
 
-function parseProbeResponse(
+async function parseProbeResponse(
   query: string,
   text: string,
   brandName: string,
-): PerQueryProbe {
+): Promise<PerQueryProbe> {
+  // Brand mention — case-insensitive substring match works for both
+  // English brand names AND Hangul brand names (toLowerCase is a no-op
+  // for Hangul but doesn't break the match either).
   const lowerText = text.toLowerCase();
   const lowerBrand = brandName.toLowerCase();
   const brandIdx = lowerText.indexOf(lowerBrand);
@@ -389,10 +429,9 @@ function parseProbeResponse(
   const brandPosition =
     brandIdx >= 0 && text.length > 0 ? brandIdx / text.length : null;
 
-  // Heuristic competitor extraction — pull capitalized multi-word terms
-  // and TitleCase tokens that look like brand names. Filter generic
-  // English words.
-  const competitorMentions = extractBrandCandidates(text, brandName);
+  // Haiku-based competitor extraction (much cleaner than the previous
+  // TitleCase regex which pulled out "Here", "Known", "Offers" etc.)
+  const competitorMentions = await extractCompetitorsViaLLM(text, brandName);
 
   // URLs / domains
   const urlRe = /https?:\/\/([^\s)>"']+)/gi;
@@ -411,6 +450,62 @@ function parseProbeResponse(
     competitors_mentioned: competitorMentions,
     cited_domains: Array.from(domains),
   };
+}
+
+/**
+ * Ask Claude Haiku to extract ONLY actual brand/company names from a
+ * shopping recommendation response. Much more accurate than the
+ * TitleCase regex which over-matched ("Here", "Known", "Offers").
+ *
+ * Falls back to a tight regex when ANTHROPIC_API_KEY is missing.
+ */
+async function extractCompetitorsViaLLM(
+  text: string,
+  ownBrand: string,
+): Promise<string[]> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return extractBrandCandidates(text, ownBrand);
+  }
+  try {
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const resp = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 200,
+      system:
+        "Extract a JSON array of REAL BRAND / COMPANY names mentioned in a " +
+        "shopping recommendation. Rules:\n" +
+        "- Only actual brand or company names (Allbirds, Nike, Le Mouton, " +
+        "etc.). NEVER generic words ('Here', 'Known', 'Offers'), product " +
+        "lines unless they're truly standalone brands, marketing copy.\n" +
+        "- Skip the user's own brand if it appears.\n" +
+        "- Korean brands in Hangul are valid (르무통, 코오롱 등).\n" +
+        "- Output JSON only: { brands: [\"...\", ...] }.\n" +
+        "- 0-10 entries.",
+      messages: [
+        {
+          role: "user",
+          content: `Own brand (skip if mentioned): ${ownBrand}\n\nText:\n${text.slice(0, 3000)}`,
+        },
+      ],
+    });
+    const out = resp.content
+      .map((b) => (b.type === "text" ? b.text : ""))
+      .join("")
+      .trim();
+    const m = out.match(/\{[\s\S]*\}/);
+    if (!m) return [];
+    const parsed = JSON.parse(m[0]) as { brands?: string[] };
+    return (parsed.brands ?? [])
+      .filter((s) => typeof s === "string" && s.trim().length > 1)
+      .map((s) => s.trim())
+      .filter((s) => s.toLowerCase() !== ownBrand.toLowerCase());
+  } catch (e) {
+    console.warn(
+      "[llm-visibility] competitor extraction LLM failed, fallback regex:",
+      e instanceof Error ? e.message : e,
+    );
+    return extractBrandCandidates(text, ownBrand);
+  }
 }
 
 function extractBrandCandidates(text: string, ownBrand: string): string[] {
