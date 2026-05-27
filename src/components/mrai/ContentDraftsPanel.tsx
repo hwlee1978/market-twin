@@ -389,17 +389,39 @@ function DraftCard({
             <button
               type="button"
               onClick={() => setImagesExpanded((v) => !v)}
-              className="flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-900 mb-1.5"
+              className="flex items-center gap-2 text-[11px] text-slate-600 hover:text-slate-900 mb-1.5 w-full"
             >
               {imagesExpanded ? (
-                <ChevronDown className="w-3 h-3" />
+                <ChevronDown className="w-3 h-3 shrink-0" />
               ) : (
-                <ChevronRight className="w-3 h-3" />
+                <ChevronRight className="w-3 h-3 shrink-0" />
               )}
-              <Camera className="w-3 h-3" />
-              <span>
+              {!imagesExpanded && (
+                <div className="flex gap-1 shrink-0">
+                  <img
+                    src={imageState.image_url}
+                    alt="cover thumb"
+                    className="w-8 h-8 object-cover rounded border border-slate-200"
+                  />
+                  {imageState.image_urls.slice(0, 3).map((img) => (
+                    <img
+                      key={img.url}
+                      src={img.url}
+                      alt={`frame ${img.frame_index + 1} thumb`}
+                      className="w-8 h-8 object-cover rounded border border-slate-200"
+                    />
+                  ))}
+                  {imageState.image_urls.length > 3 && (
+                    <div className="w-8 h-8 rounded border border-slate-200 bg-slate-50 flex items-center justify-center text-[9px] text-slate-500">
+                      +{imageState.image_urls.length - 3}
+                    </div>
+                  )}
+                </div>
+              )}
+              {imagesExpanded && <Camera className="w-3 h-3 shrink-0" />}
+              <span className="text-left">
                 사진 {1 + imageState.image_urls.length}장
-                {!imagesExpanded && " (클릭해서 펼치기)"}
+                {!imagesExpanded && " · 클릭해서 펼치기"}
               </span>
             </button>
             {imagesExpanded && (
