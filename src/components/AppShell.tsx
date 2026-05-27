@@ -20,12 +20,15 @@ import { LogoMark } from "./ui/Logo";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { createClient } from "@/lib/supabase/client";
 import type { WorkspaceSummary } from "@/lib/workspace";
+import { MRAI_ENABLED } from "@/lib/mrai/enabled";
 
-const NAV = [
+// Static base nav. The Mr.AI link is conditionally spliced in below
+// based on NEXT_PUBLIC_MRAI_ENABLED so the markettwin.ai (MarketTwin
+// only) deployment doesn't show it.
+const NAV_BASE = [
   { href: "/dashboard", icon: LayoutDashboard, key: "dashboard" as const },
   { href: "/projects", icon: FolderOpen, key: "projects" as const },
   { href: "/reports", icon: FileText, key: "reports" as const },
-  { href: "/mr-ai", icon: Sparkles, key: "mrAi" as const },
   { href: "/billing", icon: CreditCard, key: "billing" as const },
   { href: "/team", icon: Users, key: "team" as const },
   { href: "/settings", icon: SettingsIcon, key: "settings" as const },
@@ -36,6 +39,22 @@ const NAV = [
   // hit a "접근 권한 없음" gate notice.
   { href: "/admin/llm-usage", icon: ShieldCheck, key: "llmUsageAdmin" as const },
 ];
+const MRAI_NAV_ITEM = {
+  href: "/mr-ai",
+  icon: Sparkles,
+  key: "mrAi" as const,
+};
+const NAV = MRAI_ENABLED
+  ? // Insert Mr.AI after Reports (position 3) so the order is unchanged
+    // when the flag is on.
+    [
+      NAV_BASE[0],
+      NAV_BASE[1],
+      NAV_BASE[2],
+      MRAI_NAV_ITEM,
+      ...NAV_BASE.slice(3),
+    ]
+  : NAV_BASE;
 
 export function AppShell({
   children,
