@@ -118,6 +118,30 @@ export async function POST(
     // Memories optional — drafter falls back to channel-only context.
   }
 
+  // Voice continuity: load the most recent drafts on this channel so the
+  // new variants read like the same speaker. Without this, every fresh
+  // generation re-rolled narrator from scratch, producing one feed with
+  // multiple unrelated voices.
+  let priorPosts: Array<{ body_text: string; created_at: string }> = [];
+  try {
+    const { data: priorRows } = await supabase
+      .from("mrai_content_drafts")
+      .select("body_text, created_at")
+      .eq("workspace_id", wsCtx.workspaceId)
+      .eq("marketing_channel_id", id)
+      .not("body_text", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(5);
+    priorPosts = (priorRows ?? [])
+      .filter((r) => typeof r.body_text === "string" && r.body_text.trim().length > 20)
+      .map((r) => ({
+        body_text: r.body_text as string,
+        created_at: r.created_at as string,
+      }));
+  } catch {
+    // Voice-continuity is best-effort; drafter still works without it.
+  }
+
   let result;
   try {
     result = await runContentDrafter({
@@ -134,6 +158,7 @@ export async function POST(
       campaignLabel: parsed.data.campaignLabel,
       goal: parsed.data.goal,
       variantCount: parsed.data.variantCount ?? 3,
+      priorPosts: priorPosts.length > 0 ? priorPosts : undefined,
       // Tell the drafter the actual frame count image-gen will produce
       // so image_prompt's described frame count matches reality.
       frameCount: defaultFrameCountForPlatform(channel.platform),

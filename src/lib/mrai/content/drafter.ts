@@ -56,6 +56,10 @@ export type DrafterInput = {
   frameCount?: number;
   locale?: Locale;             // default 'ko'
   brandContext?: string;       // arbitrary extra context from memories
+  /** Recent posts already on this channel. Drafter uses them to lock in
+   *  narrator voice continuity — new variants must read like the same
+   *  speaker who wrote the prior posts. */
+  priorPosts?: Array<{ body_text: string; created_at: string }>;
 };
 
 export type DrafterResult = {
@@ -245,8 +249,17 @@ ${channelBlock}
 ${specBlock}
 ${frameSpec}
 
-${input.brandContext ? `# Brand context\n${input.brandContext}\n` : ""}
-# 🔒 NARRATOR (모든 variant 공통 — 가장 중요)
+${input.brandContext ? `# Brand context\n${input.brandContext}\n` : ""}${
+    input.priorPosts && input.priorPosts.length > 0
+      ? `# 이 채널의 최근 글 (voice continuity reference)\n\n${input.priorPosts
+          .slice(0, 5)
+          .map(
+            (p, i) =>
+              `[${i + 1}] (${new Date(p.created_at).toISOString().slice(0, 10)})\n${p.body_text.trim().slice(0, 500)}`,
+          )
+          .join("\n\n---\n\n")}\n\n⚠️ 위 글들과 **같은 화자의 같은 말투**로 작성. 1인칭/3인칭, 격식, 어미 (~다 / ~요 / ~음), 이모지 사용 빈도, 호흡 길이가 일치해야 함. voice가 바뀌면 페르소나가 "갑자기 다른 사람이 운영하기 시작한" 느낌이 나서 신뢰 무너짐.\n\n`
+      : ""
+  }# 🔒 NARRATOR (모든 variant 공통 — 가장 중요)
 
 이 채널은 **하나의 화자**가 운영합니다. A/B/C 변형은 \`hook angle\`만 다르고
 **narrator(화자)는 절대 바뀌면 안 됩니다.**
