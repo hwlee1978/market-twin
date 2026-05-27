@@ -31,25 +31,59 @@ type ReplicatePrediction = {
   error: string | null;
 };
 
+async function getLatestVersion(
+  owner: string,
+  name: string,
+  token: string,
+): Promise<string | null> {
+  const r = await fetch(`https://api.replicate.com/v1/models/${owner}/${name}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!r.ok) return null;
+  try {
+    const j = (await r.json()) as { latest_version?: { id?: string } };
+    return j.latest_version?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function createPrediction(
   owner: string,
   name: string,
   imageUrl: string,
   token: string,
-): Promise<{ status: number; body: string }> {
-  const res = await fetch(
-    `https://api.replicate.com/v1/models/${owner}/${name}/predictions`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Prefer: "wait",
-      },
-      body: JSON.stringify({ input: { image: imageUrl } }),
+): Promise<{ status: number; body: string; retryAfterMs: number }> {
+  // Use the version-explicit endpoint (/v1/predictions with body.version)
+  // — the `/v1/models/{owner}/{name}/predictions` endpoint only works
+  // for official models, returns 404 for community ones.
+  const version = await getLatestVersion(owner, name, token);
+  if (!version) {
+    return { status: 404, body: "model_not_found", retryAfterMs: 0 };
+  }
+  const res = await fetch("https://api.replicate.com/v1/predictions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Prefer: "wait",
     },
-  );
-  return { status: res.status, body: await res.text() };
+    body: JSON.stringify({ version, input: { image: imageUrl } }),
+  });
+  const body = await res.text();
+  let retryAfterMs = 0;
+  // Replicate sends retry_after (seconds) in the JSON body on 429
+  try {
+    const j = JSON.parse(body) as { retry_after?: number };
+    if (typeof j.retry_after === "number") retryAfterMs = j.retry_after * 1000;
+  } catch {}
+  // Or via Retry-After header
+  const hdr = res.headers.get("retry-after");
+  if (!retryAfterMs && hdr) {
+    const n = parseFloat(hdr);
+    if (!isNaN(n)) retryAfterMs = n * 1000;
+  }
+  return { status: res.status, body, retryAfterMs };
 }
 
 async function pollPrediction(
@@ -73,35 +107,55 @@ async function callReplicate(
   imageUrl: string,
   token: string,
 ): Promise<Buffer | null> {
-  // Two passes through the candidate list. First pass: try each model
-  // once. If all 429, second pass: short backoff then retry.
-  const SECOND_PASS_BACKOFF_MS = 5_000;
+  // Strategy: pick one model and retry it honoring Replicate's
+  // retry_after on 429. Don't cycle models because the throttle is
+  // account-level (per-second budget), so trying another model
+  // immediately just wastes another 429 in the budget.
+  //
+  // Throttled accounts (<$5 credit) get 6 req/min burst 1 — so we wait
+  // the precise retry_after the API tells us, then attempt again.
+  const MAX_429_RETRIES = 3;
+  const MAX_HARD_ERRORS = 2; // tolerate transient failures
+  let hardErrors = 0;
 
-  for (let pass = 0; pass < 2; pass++) {
-    if (pass === 1) {
-      console.log(
-        `[bg-removal/replicate] pass 1 all throttled, retrying in ${SECOND_PASS_BACKOFF_MS}ms`,
-      );
-      await new Promise((r) => setTimeout(r, SECOND_PASS_BACKOFF_MS));
-    }
-    let sawThrottle = false;
-    for (const m of MODEL_CANDIDATES) {
+  modelLoop: for (const m of MODEL_CANDIDATES) {
+    let throttleRetries = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
       const t0 = Date.now();
       const create = await createPrediction(m.owner, m.name, imageUrl, token);
       if (create.status === 429) {
-        sawThrottle = true;
+        if (throttleRetries >= MAX_429_RETRIES) {
+          console.warn(
+            `[bg-removal/replicate] ${m.owner}/${m.name} 429 after ${MAX_429_RETRIES} retries — giving up on this model`,
+          );
+          continue modelLoop;
+        }
+        const wait = Math.max(create.retryAfterMs, 1000) + 500;
         console.log(
-          `[bg-removal/replicate] ${m.owner}/${m.name} 429 (throttled)`,
+          `[bg-removal/replicate] ${m.owner}/${m.name} 429 (throttled by account-level limit, <$5 credit). Retry-After ${(wait / 1000).toFixed(1)}s [attempt ${throttleRetries + 1}/${MAX_429_RETRIES}]`,
         );
+        await new Promise((r) => setTimeout(r, wait));
+        throttleRetries++;
         continue;
       }
       if (create.status < 200 || create.status >= 300) {
+        hardErrors++;
         console.warn(
           `[bg-removal/replicate] ${m.owner}/${m.name} HTTP ${create.status}: ${create.body.slice(0, 200)}`,
         );
-        continue;
+        if (hardErrors >= MAX_HARD_ERRORS) return null;
+        continue modelLoop;
       }
-      let pred = JSON.parse(create.body) as ReplicatePrediction;
+      let pred: ReplicatePrediction;
+      try {
+        pred = JSON.parse(create.body) as ReplicatePrediction;
+      } catch {
+        console.warn(
+          `[bg-removal/replicate] ${m.owner}/${m.name} bad response: ${create.body.slice(0, 200)}`,
+        );
+        continue modelLoop;
+      }
       // Prefer:wait often returns terminal status immediately
       if (pred.status === "starting" || pred.status === "processing") {
         try {
@@ -111,39 +165,32 @@ async function callReplicate(
             `[bg-removal/replicate] ${m.owner}/${m.name} poll failed:`,
             e instanceof Error ? e.message : e,
           );
-          continue;
+          continue modelLoop;
         }
       }
       if (pred.status !== "succeeded") {
         console.warn(
           `[bg-removal/replicate] ${m.owner}/${m.name} ${pred.status}: ${pred.error ?? "?"}`,
         );
-        continue;
+        continue modelLoop;
       }
       const outUrl = Array.isArray(pred.output) ? pred.output[0] : pred.output;
       if (!outUrl) {
         console.warn(`[bg-removal/replicate] ${m.owner}/${m.name} no output`);
-        continue;
+        continue modelLoop;
       }
       const outRes = await fetch(outUrl);
       if (!outRes.ok) {
         console.warn(
           `[bg-removal/replicate] ${m.owner}/${m.name} output fetch ${outRes.status}`,
         );
-        continue;
+        continue modelLoop;
       }
       const buf = Buffer.from(await outRes.arrayBuffer());
       console.log(
         `[bg-removal/replicate] ✓ ${m.owner}/${m.name} succeeded in ${Date.now() - t0}ms`,
       );
       return buf;
-    }
-    // If no model was throttled, no point retrying — they all hard-failed
-    if (!sawThrottle) {
-      console.warn(
-        "[bg-removal/replicate] all models hard-failed (non-429) — giving up",
-      );
-      return null;
     }
   }
   return null;
