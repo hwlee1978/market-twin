@@ -18,6 +18,8 @@ import {
   TrendingUp,
   Camera,
   RefreshCw,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 
 type Draft = {
@@ -236,6 +238,8 @@ function DraftCard({
   const [imageError, setImageError] = useState<string | null>(null);
   const [frameBusy, setFrameBusy] = useState<number | null>(null);
   const [promptModalOpen, setPromptModalOpen] = useState(false);
+  // Image gallery is collapsed by default — user toggles to see frames.
+  const [imagesExpanded, setImagesExpanded] = useState(false);
   // Local override of image_prompt so the modal can refresh it inline
   // without having to fully refetch the draft.
   const [livePrompt, setLivePrompt] = useState({
@@ -359,44 +363,64 @@ function DraftCard({
           </div>
         )}
 
-        {/* Image gallery (cover + carousel) */}
+        {/* Image gallery (cover + carousel) — collapsed by default */}
         {imageState.image_url ? (
           <div className="mb-3">
-            <div className="grid grid-cols-2 gap-1.5">
-              <FrameCell
-                key={imageState.image_url}
-                url={imageState.image_url}
-                frameIndex={0}
-                label="커버"
-                spanFull
-                draftId={draft.id}
-                busyFrameIndex={frameBusy}
-                onRemoved={(next) => setImageState(next)}
-                onRegenerated={(next) => setImageState(next)}
-                onBusy={setFrameBusy}
-              />
-              {imageState.image_urls.map((img) => (
-                <FrameCell
-                  key={img.url}
-                  url={img.url}
-                  frameIndex={img.frame_index}
-                  label={`프레임 ${img.frame_index + 1}`}
-                  draftId={draft.id}
-                  busyFrameIndex={frameBusy}
-                  onRemoved={(next) => setImageState(next)}
-                  onRegenerated={(next) => setImageState(next)}
-                  onBusy={setFrameBusy}
-                />
-              ))}
-            </div>
             <button
               type="button"
-              onClick={() => void generateImages()}
-              disabled={generatingImage || frameBusy !== null}
-              className="mt-1.5 text-[11px] text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+              onClick={() => setImagesExpanded((v) => !v)}
+              className="flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-900 mb-1.5"
             >
-              {generatingImage ? "전체 재생성 중…" : "🔄 전체 재생성"}
+              {imagesExpanded ? (
+                <ChevronDown className="w-3 h-3" />
+              ) : (
+                <ChevronRight className="w-3 h-3" />
+              )}
+              <Camera className="w-3 h-3" />
+              <span>
+                사진 {1 + imageState.image_urls.length}장
+                {!imagesExpanded && " (클릭해서 펼치기)"}
+              </span>
             </button>
+            {imagesExpanded && (
+              <>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <FrameCell
+                    key={imageState.image_url}
+                    url={imageState.image_url}
+                    frameIndex={0}
+                    label="커버"
+                    spanFull
+                    draftId={draft.id}
+                    busyFrameIndex={frameBusy}
+                    onRemoved={(next) => setImageState(next)}
+                    onRegenerated={(next) => setImageState(next)}
+                    onBusy={setFrameBusy}
+                  />
+                  {imageState.image_urls.map((img) => (
+                    <FrameCell
+                      key={img.url}
+                      url={img.url}
+                      frameIndex={img.frame_index}
+                      label={`프레임 ${img.frame_index + 1}`}
+                      draftId={draft.id}
+                      busyFrameIndex={frameBusy}
+                      onRemoved={(next) => setImageState(next)}
+                      onRegenerated={(next) => setImageState(next)}
+                      onBusy={setFrameBusy}
+                    />
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void generateImages()}
+                  disabled={generatingImage || frameBusy !== null}
+                  className="mt-1.5 text-[11px] text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+                >
+                  {generatingImage ? "전체 재생성 중…" : "🔄 전체 재생성"}
+                </button>
+              </>
+            )}
           </div>
         ) : draft.image_prompt ? (
           <div className="mb-3 rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3">
