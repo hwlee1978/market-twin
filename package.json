@@ -43,7 +43,6 @@
     "@anthropic-ai/sdk": "^0.91.1",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^5.2.2",
-    "@imgly/background-removal-node": "^1.4.5",
     "@react-pdf/renderer": "^4.5.1",
     "@sentry/nextjs": "^10.51.0",
     "@supabase/ssr": "^0.10.2",

@@ -31,6 +31,7 @@ export type StrictCompositeResult = {
 export async function strictCompositeImage(input: {
   sourceImageUrl: string;
   sourceAssetId: string;
+  sourceType?: "product" | "ambassador";
   workspaceId: string;
   scenePrompt: string;
   outputSize: "1024x1024" | "1024x1536" | "1536x1024";
@@ -62,6 +63,7 @@ export async function strictCompositeImage(input: {
     workspaceId: input.workspaceId,
     assetId: input.sourceAssetId,
     imageUrl: input.sourceImageUrl,
+    sourceType: input.sourceType,
   });
   if (!subjectPng) {
     // Replicate not configured OR failed → caller falls back to non-strict

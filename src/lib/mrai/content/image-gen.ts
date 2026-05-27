@@ -617,6 +617,7 @@ export async function generateImagesForDraft(input: {
         const sc = await strictCompositeImage({
           sourceImageUrl: sourceUrl,
           sourceAssetId: sourceAsset.id,
+          sourceType: touchupSourceType ?? "product",
           workspaceId: input.workspaceId,
           scenePrompt: touchupPrompt,
           outputSize: size,
