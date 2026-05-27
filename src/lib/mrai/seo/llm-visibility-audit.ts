@@ -95,6 +95,11 @@ export async function runLLMVisibilityAudit(input: {
         marketCountry: input.marketCountry,
         locale: input.queryLocale ?? (input.marketCountry === "KR" ? "ko" : "en"),
       });
+  console.log(
+    `[llm-visibility] using ${testQueries.length} test queries:\n${testQueries
+      .map((q, i) => `  ${i + 1}. ${q}`)
+      .join("\n")}`,
+  );
 
   // 2. Probe each LLM in parallel — market-aware so the LLM grounds
   //    answers in the user's actual buying market (huge fix: without
@@ -214,11 +219,17 @@ async function generateTestQueries(input: {
   const system =
     "Generate 6 natural questions a consumer might ask an AI assistant " +
     "when looking for products in a category — questions that should " +
-    "surface brand recommendations.\n\n" +
+    "EXPLICITLY ELICIT BRAND RECOMMENDATIONS.\n\n" +
     "Rules:\n" +
     "- Output JSON ONLY: { \"queries\": [\"...\", \"...\", ...] }\n" +
-    "- Mix: 2 broad (\"best X\"), 2 specific (\"X for Y use-case\"), " +
-    "2 comparative (\"X vs Y\" or \"what's the difference between X and Y\").\n" +
+    "- ALL 6 questions must be the kind that asks for brand names. " +
+    "Examples that work: '가장 추천하는 X 브랜드는?' / 'best X brands' / " +
+    "'어떤 X를 사야 좋을까?' / 'Recommend X brands available in Korea'.\n" +
+    "- AVOID educational questions ('Why is X good?', 'How does X work?') " +
+    "— those produce explanations, not brand lists.\n" +
+    "- Mix angles: 2 broad ('best X'), 2 use-case ('X for commute', " +
+    "'X for travel'), 1 price-tier ('affordable X', 'premium X'), " +
+    "1 buying ('어디서 X 사야 좋아?').\n" +
     "- Use the user's language (Korean if KR market, else English).\n" +
     "- Don't mention any specific brand in the queries — we're testing " +
     "which brand the LLMs recommend on their own.";
@@ -535,13 +546,28 @@ async function parseProbeResponse(
   //   (2) competitor extraction (cleaner than TitleCase regex)
   const analysis = await analyzeResponseViaLLM(text, brandName);
 
-  // Position: when brand IS mentioned, find the actual form Haiku
-  // returned and compute its position in the response text.
+  // Belt-and-suspenders: even if Haiku returns brand_mentioned=false,
+  // do a raw substring scan against common alias forms derived from
+  // the brand name itself. If we find ANY of them in the text, treat
+  // as mentioned — Haiku occasionally false-negatives when the response
+  // is long or mentions the brand in passing.
+  let brandMentioned = analysis.brand_mentioned;
+  let brandFormUsed = analysis.brand_form_used;
+  if (!brandMentioned) {
+    const found = substringFindBrand(text, brandName);
+    if (found) {
+      brandMentioned = true;
+      brandFormUsed = found;
+      console.log(
+        `[llm-visibility/parse] Haiku missed brand "${brandName}" but substring found "${found}" — overriding to mentioned`,
+      );
+    }
+  }
+  // Position: when brand IS mentioned, find the actual form and compute
+  // its position in the response text.
   let brandPosition: number | null = null;
-  if (analysis.brand_mentioned && analysis.brand_form_used) {
-    const idx = text
-      .toLowerCase()
-      .indexOf(analysis.brand_form_used.toLowerCase());
+  if (brandMentioned && brandFormUsed) {
+    const idx = text.toLowerCase().indexOf(brandFormUsed.toLowerCase());
     if (idx >= 0 && text.length > 0) brandPosition = idx / text.length;
   }
 
@@ -557,11 +583,57 @@ async function parseProbeResponse(
   return {
     query,
     response_text: text.slice(0, 2000),
-    brand_mentioned: analysis.brand_mentioned,
+    brand_mentioned: brandMentioned,
     brand_position: brandPosition,
     competitors_mentioned: analysis.competitors,
     cited_domains: Array.from(domains),
   };
+}
+
+/**
+ * Direct substring scan for the brand in common alias forms.
+ * For "르무통" we try:
+ *   르무통 / Le Mouton / LeMouton / lemouton / Le-Mouton
+ *
+ * Returns the first matching form, or null. Hangul brand names also
+ * try the romanized form via simple lookup (extend table as needed).
+ */
+function substringFindBrand(text: string, brandName: string): string | null {
+  const lowerText = text.toLowerCase();
+  const variants = new Set<string>();
+  variants.add(brandName);
+  variants.add(brandName.toLowerCase());
+  variants.add(brandName.replace(/\s+/g, ""));
+  variants.add(brandName.replace(/\s+/g, "").toLowerCase());
+
+  // Known Hangul→roman / roman→Hangul aliases. Extend this map per
+  // workspace's brand list. For now we hard-code Le Mouton because
+  // that's the dogfood case; future improvement: read aliases from
+  // workspace brand profile.
+  const aliasMap: Record<string, string[]> = {
+    "르무통": ["Le Mouton", "LeMouton", "Le-Mouton", "le mouton"],
+    "Le Mouton": ["르무통", "LeMouton", "le mouton"],
+    "LeMouton": ["르무통", "Le Mouton"],
+  };
+  for (const k of Object.keys(aliasMap)) {
+    if (brandName === k || brandName.toLowerCase() === k.toLowerCase()) {
+      for (const a of aliasMap[k]) variants.add(a);
+    }
+  }
+  // Generic: if brand has whitespace, try without; vice versa
+  for (const v of Array.from(variants)) {
+    if (v.includes(" ")) variants.add(v.replace(/\s+/g, ""));
+  }
+  for (const v of variants) {
+    if (!v || v.length < 2) continue;
+    const idx = lowerText.indexOf(v.toLowerCase());
+    if (idx >= 0) {
+      // Return the original-case form from the text, not the variant
+      // we looked up, so display position-aware.
+      return text.slice(idx, idx + v.length);
+    }
+  }
+  return null;
 }
 
 /**
