@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Plus, Trash2, Loader2, Megaphone, X as CloseX, Sparkles, ExternalLink } from "lucide-react";
+import { EmptyState } from "./EmptyState";
+import { Skeleton } from "./Skeleton";
 
 type MarketingChannel = {
   id: string;
@@ -141,13 +143,26 @@ export function MarketingChannelsPanel() {
           <p className="text-xs text-red-600 mb-3">{error}</p>
         )}
         {channels === null ? (
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" /> 불러오는 중…
+          <div className="space-y-2">
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
           </div>
         ) : channels.length === 0 ? (
-          <p className="text-xs text-slate-400">
-            아직 등록된 마케팅 채널이 없습니다. 시뮬레이션을 시작하려면 최소 1개 추가하세요.
-          </p>
+          <EmptyState
+            icon={Megaphone}
+            title="등록된 마케팅 채널이 없어요"
+            description="X · Instagram · TikTok · 네이버 블로그 등 채널을 1개 이상 등록하면 콘텐츠/시뮬레이션이 활성화됩니다."
+            tone="emerald"
+            action={
+              <button
+                onClick={() => setCreating(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md"
+              >
+                <Plus className="w-3 h-3" />
+                채널 추가
+              </button>
+            }
+          />
         ) : (
           <ul className="divide-y divide-slate-100">
             {channels.map((c) => (

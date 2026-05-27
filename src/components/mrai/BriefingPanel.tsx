@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronDown, ChevronUp, FileText, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { FeedbackButtons } from "./FeedbackButtons";
+import { EmptyState } from "./EmptyState";
 
 type Briefing = {
   id: string;
@@ -117,7 +118,35 @@ export function BriefingPanel({
               </div>
             </>
           ) : (
-            <p className="text-sm text-slate-500 leading-relaxed">{t("empty")}</p>
+            <EmptyState
+              icon={Sparkles}
+              title={t("empty")}
+              description={
+                locale === "ko"
+                  ? "오늘의 핵심 이슈 · 기회 · 다음 액션을 3개 카드로 정리해 드립니다."
+                  : "We'll summarize today's key issues, opportunities and next actions in three cards."
+              }
+              tone="amber"
+              action={
+                <button
+                  onClick={generate}
+                  disabled={loading}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 rounded-md"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      {t("generating")}
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="w-3 h-3" />
+                      {t("generate")}
+                    </>
+                  )}
+                </button>
+              }
+            />
           )}
         </div>
       )}
