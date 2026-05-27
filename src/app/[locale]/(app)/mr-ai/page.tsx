@@ -12,6 +12,7 @@ import { ChannelsPanel } from "@/components/mrai/ChannelsPanel";
 import { ContentPanel } from "@/components/mrai/ContentPanel";
 import { MarketingChannelsPanel } from "@/components/mrai/MarketingChannelsPanel";
 import { BrandAssetsPanel } from "@/components/mrai/BrandAssetsPanel";
+import { LLMVisibilityPanel } from "@/components/mrai/LLMVisibilityPanel";
 import { CrawlSourcesPanel } from "@/components/mrai/CrawlSourcesPanel";
 import { ImageGenSettingsPanel } from "@/components/mrai/ImageGenSettingsPanel";
 import { ProductProfilePanel } from "@/components/mrai/ProductProfilePanel";
@@ -53,6 +54,32 @@ export default async function MrAIPage({
     getOnboardingState(ctx.workspaceId),
   ]);
 
+  // Look up workspace name + first channel's market_country to seed
+  // the LLM-SEO visibility panel with sensible defaults.
+  const { createClient } = await import("@/lib/supabase/server");
+  const supabase = await createClient();
+  const [wsRow, chRow] = await Promise.all([
+    supabase
+      .from("workspaces")
+      .select("name")
+      .eq("id", ctx.workspaceId)
+      .maybeSingle<{ name: string }>(),
+    supabase
+      .from("mrai_marketing_channels")
+      .select("market_country")
+      .eq("workspace_id", ctx.workspaceId)
+      .not("market_country", "is", null)
+      .limit(1)
+      .maybeSingle<{ market_country: string }>(),
+  ]);
+  const workspaceName = wsRow.data?.name ?? "";
+  const defaultMarket = chRow.data?.market_country ?? null;
+  // Pull a category hint from the first memory mentioning a product/category
+  const categoryHint =
+    memories.find((m) =>
+      /category|카테고리|sneaker|스니커즈|울|wool|merino|메리노/i.test(m.body),
+    )?.body.slice(0, 100) ?? "";
+
   const integrationFlash =
     sp.hubspot === "ok"
       ? { kind: "ok" as const }
@@ -80,6 +107,11 @@ export default async function MrAIPage({
       <ImageGenSettingsPanel />
       <CrawlSourcesPanel />
       <BrandSEOPanel />
+      <LLMVisibilityPanel
+        defaultBrand={workspaceName}
+        defaultCategory={categoryHint}
+        defaultMarket={defaultMarket}
+      />
       <PresetsPanel />
       <ContentPanel locale={safeLocale} />
       <BriefingPanel initialBriefing={latestBriefing} locale={safeLocale} />
