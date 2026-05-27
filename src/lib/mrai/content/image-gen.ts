@@ -647,25 +647,110 @@ export async function generateImagesForDraft(input: {
         true, // touchupMode
       );
 
-      // ─── AMBASSADOR FRAMES: source photo AS-IS (no AI scene gen).
+      // ─── AMBASSADOR FRAMES: source photo AS-IS. No AI scene gen.
+      // (See deeper rationale in earlier comment removed for brevity.)
       //
-      // Strict-composite (bg-removal + AI scene gen) is OFF for
-      // ambassador frames. Reason: ambassador library photos often
-      // contain props (e.g. 윤아 with a bicycle) that bg-removal
-      // extracts along with the subject. Composited onto an AI scene
-      // that has its own furniture, the prop intersects nonsensically
-      // with the scene (bike clipping through tables, shoes on the
-      // floor doubled with shoes in her hands, etc.). Pixel-perfect
-      // celebrity preservation is more important than scene variety.
+      // ─── PRODUCT FRAMES: TWO paths, chosen by source-photo composition.
       //
-      // Variety still comes from rotating through the full library
-      // (random pick per regen, full ambassador pool — not capped).
+      // (a) STRICT-COMPOSITE — only when the chosen source is a clean
+      //     product-only studio shot (composition tag = single-product
+      //     or pair-of-products). bg-removal cleanly separates the
+      //     product, sharp pastes it onto an AI-generated scene with
+      //     no visible seam.
       //
-      // For PRODUCT frames the strict-composite path below is still
-      // attempted because product photos are typically clean studio
-      // shots without props.
+      // (b) LIFESTYLE-GEN — when the chosen source is product-with-
+      //     model / product-in-use / product-with-context, OR the
+      //     frame is not the cover (carousel lifestyle slot). Going
+      //     through bg-removal here cuts a hand/leg along with the
+      //     product and leaves a rectangular seam in the final image.
+      //     Instead: feed the library product photos as REFERENCES to
+      //     gpt-image-1.edit, which generates a fresh photorealistic
+      //     image with the product faithfully rendered in a natural
+      //     scene matching the prompt. Library photo is reference only,
+      //     not composited.
       let strictHandled = false;
-      if (touchupSourceType !== "ambassador") {
+
+      // Decide which product path for this frame based on (1) source's
+      // classifier composition tag and (2) frame role.
+      let useLifestyleGen = false;
+      if (touchupSourceType === "product") {
+        // Lookup the chosen source's composition tag from classifier cache.
+        // If unknown, fall back to role-based heuristic.
+        let sourceComposition: string | undefined;
+        try {
+          const { classifyProductAsset } = await import("./product-classifier");
+          const meta = await classifyProductAsset(
+            input.workspaceId,
+            sourceAsset.id,
+            sourceAsset.image_url,
+          );
+          sourceComposition = meta?.composition;
+        } catch {}
+        const sourceHasContext =
+          sourceComposition === "with-model" ||
+          sourceComposition === "with-context" ||
+          sourceComposition === "in-use";
+        const isCarouselNonCover = totalFrames > 1 && i > 0;
+        useLifestyleGen = sourceHasContext || isCarouselNonCover;
+        console.log(
+          `[image-gen] frame ${i} path=${useLifestyleGen ? "LIFESTYLE-GEN" : "STRICT-COMPOSITE"} composition=${sourceComposition ?? "?"} carouselNonCover=${isCarouselNonCover}`,
+        );
+      }
+
+      if (touchupSourceType === "product" && useLifestyleGen) {
+        try {
+          const { generateLifestyleWithRefs } = await import("./lifestyle-gen");
+          // Use the picked source + up to 2 other product photos as
+          // additional references (different angles help the model
+          // recreate the product accurately).
+          const otherRefs = sourcePool
+            .filter((p) => p.id !== sourceAsset.id)
+            .slice(0, 2);
+          const refs = [sourceAsset, ...otherRefs].map((p) => ({
+            id: p.id,
+            image_url: p.image_url,
+          }));
+          const lg = await generateLifestyleWithRefs({
+            productRefs: refs,
+            scenePrompt: input.prompt,
+            outputSize: size,
+            quality: settings.quality,
+            logoBuffer: logoBufferForComposite,
+            logoOpts: {
+              position: settings.logo_position,
+              size_pct: settings.logo_size_pct,
+              padding_pct: settings.logo_padding_pct,
+              opacity: settings.logo_opacity,
+              with_backdrop: settings.logo_with_backdrop,
+            },
+          });
+          usedReferenceIds.add(sourceAsset.id);
+          for (const r of otherRefs) usedReferenceIds.add(r.id);
+          const uploaded = await uploadToStorage(
+            lg.buffer,
+            input.workspaceId,
+            input.draftId,
+            i,
+          );
+          images.push({
+            url: uploaded.url,
+            path: uploaded.path,
+            frame_index: i,
+            size,
+          });
+          console.log(
+            `[image-gen] ✅ LIFESTYLE-GEN frame ${i} refs=${refs.length}`,
+          );
+          strictHandled = true;
+        } catch (e) {
+          console.warn(
+            `[image-gen] lifestyle-gen failed for frame ${i}, falling through:`,
+            e instanceof Error ? e.message : e,
+          );
+        }
+      }
+
+      if (!strictHandled && touchupSourceType !== "ambassador") {
         try {
           // Pass the user's RAW prompt to strict-composite, NOT the
           // touchupPrompt wrapper. buildFramePrompt() adds product-
