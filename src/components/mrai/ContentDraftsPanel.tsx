@@ -107,6 +107,7 @@ export function ContentDraftsPanel({
     campaignLabel?: string;
     goal?: string;
     variantCount: number;
+    contentFormat?: "default" | "comparison" | "qa" | "explainer" | "listicle";
   }) => {
     setGenerating(true);
     setError(null);
@@ -1501,6 +1502,7 @@ function GenerateModal({
     campaignLabel?: string;
     goal?: string;
     variantCount: number;
+    contentFormat?: "default" | "comparison" | "qa" | "explainer" | "listicle";
   }) => void;
   busy: boolean;
   serverError: string | null;
@@ -1509,6 +1511,9 @@ function GenerateModal({
   const [campaignLabel, setCampaignLabel] = useState("");
   const [goal, setGoal] = useState("");
   const [variantCount, setVariantCount] = useState(3);
+  const [contentFormat, setContentFormat] = useState<
+    "default" | "comparison" | "qa" | "explainer" | "listicle"
+  >("default");
 
   // Topic suggestions
   const [suggestions, setSuggestions] = useState<TopicSuggestion[] | null>(null);
@@ -1714,6 +1719,41 @@ function GenerateModal({
             </p>
           </div>
 
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">
+              🤖 콘텐츠 포맷 (LLM-SEO)
+            </label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
+              {(
+                [
+                  { v: "default", label: "기본 (자연스러운 톤)", hint: "1인칭/일상" },
+                  { v: "comparison", label: "비교 (X vs Y)", hint: "🤖 인용 ↑↑" },
+                  { v: "qa", label: "Q&A", hint: "🤖 인용 ↑↑" },
+                  { v: "explainer", label: "정의/설명", hint: "🤖 인용 ↑" },
+                  { v: "listicle", label: "리스트 (N가지)", hint: "🤖 인용 ↑" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.v}
+                  type="button"
+                  onClick={() => setContentFormat(opt.v)}
+                  className={`text-left text-xs px-2.5 py-1.5 rounded-md border ${
+                    contentFormat === opt.v
+                      ? "border-violet-500 bg-violet-50 text-violet-800 font-semibold"
+                      : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="leading-tight">{opt.label}</div>
+                  <div className="text-[10px] opacity-70 mt-0.5">{opt.hint}</div>
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">
+              비교/Q&A/정의/리스트는 답변엔진(ChatGPT/Claude/Gemini)이 즐겨 인용하는 포맷.
+              블로그·롱폼 채널에 강추.
+            </p>
+          </div>
+
           {/* Submit-side error — shows the most recent /drafts POST error
               from the parent so it's not hidden behind the modal overlay. */}
           {serverError && (
@@ -1741,6 +1781,8 @@ function GenerateModal({
                 campaignLabel: campaignLabel.trim() || undefined,
                 goal: goal.trim() || undefined,
                 variantCount,
+                contentFormat:
+                  contentFormat === "default" ? undefined : contentFormat,
               })
             }
             className="inline-flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm px-3 py-1.5 rounded-md hover:from-violet-700 hover:to-indigo-700 disabled:opacity-60"

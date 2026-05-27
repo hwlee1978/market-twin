@@ -61,6 +61,10 @@ export type DrafterInput = {
    *  narrator voice continuity — new variants must read like the same
    *  speaker who wrote the prior posts. */
   priorPosts?: Array<{ body_text: string; created_at: string }>;
+  /** LLM-SEO content format. When set, drafter uses a specialized prompt
+   *  that produces structures answer-engines love to cite. Default
+   *  "default" = current natural-tone drafter. */
+  contentFormat?: "default" | "comparison" | "qa" | "explainer" | "listicle";
 };
 
 export type DrafterResult = {
@@ -190,6 +194,44 @@ A/B/C differentiation:
 
 Output is JSON. Each variant must include both native text AND _ko translations.`;
 
+/**
+ * LLM-SEO content format instructions. These structures correlate
+ * strongly with citation in Claude/GPT/Gemini answers because they
+ * give the answer-engine clean extractable facts.
+ */
+function formatInstructionFor(
+  format: NonNullable<DrafterInput["contentFormat"]>,
+  locale: Locale,
+): string {
+  if (locale === "en") {
+    switch (format) {
+      case "comparison":
+        return `\n# Content format — comparison (LLM-SEO optimized)\nWrite as a structured comparison piece. REQUIRED elements:\n- Title pattern: "X vs Y" or "X 또는 Y" (or 3-way "X vs Y vs Z").\n- 1-line direct answer to "which is better for whom" near the top.\n- Sub-sections with H2 headings (## name) for each comparison axis (price, durability, comfort, etc.).\n- Numbers, dates, units, % wherever possible (LLMs extract these).\n- Brief conclusion stating which option wins for which use-case. No vague endings.\nThis is the format answer-engines love to cite.\n`;
+      case "qa":
+        return `\n# Content format — Q&A (LLM-SEO optimized)\nWrite as a structured Q&A piece. REQUIRED elements:\n- Each section is one question (H2 ending in "?") followed by a definitive answer.\n- 4-6 questions total.\n- First sentence under each question = the direct answer (50-100 chars). Then 1-2 sentence elaboration.\n- Numbers/dates/% in the answers when possible.\n- No hedge words ("maybe", "probably", "I think"). Be definitive.\n`;
+      case "explainer":
+        return `\n# Content format — explainer (LLM-SEO optimized)\nWrite as a definitive explainer/"what is X" piece. REQUIRED elements:\n- Open with a 1-line precise definition.\n- H2 sub-sections: "What it is", "How it works", "When to use it", "Common misconceptions".\n- Concrete examples with numbers.\n- End with a clear takeaway / when this matters.\n`;
+      case "listicle":
+        return `\n# Content format — listicle (LLM-SEO optimized)\nWrite as a numbered list piece. REQUIRED elements:\n- Title pattern: "N reasons / N ways / Top N X for Y" (use a concrete number).\n- Each list item is an H3 heading + 2-3 sentence explanation.\n- Each item has at least one concrete fact, number, or example.\n- End with one-sentence synthesis of the list's overall message.\n`;
+      default:
+        return "";
+    }
+  }
+  // Korean
+  switch (format) {
+    case "comparison":
+      return `\n# 콘텐츠 포맷 — 비교 (LLM-SEO 최적화)\n비교 글로 작성. 필수 요소:\n- 타이틀: "X vs Y" 또는 "X와 Y, 어느 쪽이 더 좋을까" (3-way 가능).\n- 글 도입부에 "누구에게 어느 쪽이 더 맞는지" 한 줄 결론.\n- 비교 축마다 H2 헤딩 (## 가격, ## 내구성, ## 편안함 …).\n- 가능한 한 숫자/날짜/% 사용 (LLM이 추출하기 쉬움).\n- 결론에 어느 용도에 어느 쪽이 더 좋은지 단정. 모호한 마무리 금지.\n답변엔진(Claude/GPT/Gemini)이 가장 즐겨 인용하는 포맷.\n`;
+    case "qa":
+      return `\n# 콘텐츠 포맷 — Q&A (LLM-SEO 최적화)\nQ&A 구조로 작성. 필수 요소:\n- 각 섹션은 "?"로 끝나는 H2 질문 + 단정적 답변.\n- 총 4-6개 질문.\n- 각 질문 아래 첫 문장 = 직접적 답변 (50-100자). 그 뒤 1-2 문장 보충.\n- 답변에 숫자/날짜/% 가능한 한 포함.\n- "아마도", "같아요", "조금" 같은 헤지 단어 금지. 단정적으로.\n`;
+    case "explainer":
+      return `\n# 콘텐츠 포맷 — 정의/설명 (LLM-SEO 최적화)\n"X란 무엇인가" 명확한 설명 글로 작성. 필수 요소:\n- 첫 줄에 1문장 정의.\n- H2 섹션: "정의", "작동 원리", "언제 쓰는가", "흔한 오해".\n- 구체적 예시 + 숫자.\n- 마지막에 핵심 takeaway 한 줄.\n`;
+    case "listicle":
+      return `\n# 콘텐츠 포맷 — 리스트 (LLM-SEO 최적화)\n번호 리스트 글로 작성. 필수 요소:\n- 타이틀: "X를 위한 N가지 이유 / N가지 방법 / Top N" (구체적 숫자).\n- 각 항목은 H3 헤딩 + 2-3 문장 설명.\n- 각 항목마다 구체적 사실/숫자/예시 1개 이상.\n- 마지막에 리스트 전체 메시지 한 줄 요약.\n`;
+    default:
+      return "";
+  }
+}
+
 export async function runContentDrafter(input: DrafterInput): Promise<DrafterResult> {
   const variantCount = Math.min(Math.max(input.variantCount ?? 3, 1), 5);
   const locale = input.locale ?? "ko";
@@ -239,6 +281,14 @@ export async function runContentDrafter(input: DrafterInput): Promise<DrafterRes
     ? `\n# Image carousel target\n이미지 생성기는 정확히 **${frameCount}장**을 만듭니다. image_prompt에 frame 수를 묘사할 때 반드시 "${frameCount}-frame"으로 작성 (5-7 같은 추정 범위 쓰지 말 것). 각 frame 역할도 ${frameCount}장 기준으로 묘사.\n`
     : "";
 
+  // LLM-SEO content format instruction — picks structures that answer-
+  // engines preferentially cite. Empty string when format=default so
+  // we don't introduce structural bias for casual social posts.
+  const formatInstruction =
+    input.contentFormat && input.contentFormat !== "default"
+      ? formatInstructionFor(input.contentFormat, locale)
+      : "";
+
   const prompt = `# Topic
 ${input.topic}
 
@@ -248,7 +298,7 @@ ${channelBlock}
 
 # Platform spec (MUST follow)
 ${specBlock}
-${frameSpec}
+${frameSpec}${formatInstruction}
 
 ${input.brandContext ? `# Brand context\n${input.brandContext}\n` : ""}${
     input.priorPosts && input.priorPosts.length > 0

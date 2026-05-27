@@ -25,6 +25,9 @@ const GenerateSchema = z.object({
   goal: z.string().trim().max(500).optional(),
   variantCount: z.number().int().min(1).max(5).optional(),
   locale: z.enum(["ko", "en"]).optional(),
+  contentFormat: z
+    .enum(["default", "comparison", "qa", "explainer", "listicle"])
+    .optional(),
 });
 
 export async function GET(
@@ -195,6 +198,7 @@ export async function POST(
       goal: parsed.data.goal,
       variantCount: parsed.data.variantCount ?? 3,
       priorPosts: priorPosts.length > 0 ? priorPosts : undefined,
+      contentFormat: parsed.data.contentFormat ?? undefined,
       // Tell the drafter the actual frame count image-gen will produce
       // so image_prompt's described frame count matches reality.
       frameCount: defaultFrameCountForPlatform(channel.platform),
