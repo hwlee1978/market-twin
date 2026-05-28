@@ -28,6 +28,15 @@ export const dynamic = "force-dynamic";
  * Returns: { projectId, simulationId } so the client can redirect
  * straight to the in-progress results page.
  */
+/**
+ * Demo creations allowed per workspace per UTC day. Each demo runs a
+ * real 50-persona simulation costing $1-2 of LLM, so an uncapped
+ * authenticated endpoint is a six-figure-bill exposure if any user
+ * scripts it. 5/day is generous for genuine "compare runs" curiosity
+ * while bounding worst-case spend to ~$10/user/day.
+ */
+const DEMO_DAILY_CAP = 5;
+
 export async function POST() {
   const ctx = await getOrCreatePrimaryWorkspace();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -38,8 +47,31 @@ export async function POST() {
     );
   }
 
-  const sample = getSampleProjectRecord();
   const supabase = await createClient();
+
+  // Per-workspace daily rate limit on demo creation. Demo projects all
+  // share SAMPLE_PROJECT_NAME, so counting by name + workspace + today
+  // is a stable proxy without a separate counters table.
+  const dayStartIso = new Date(new Date().setUTCHours(0, 0, 0, 0)).toISOString();
+  const { count: todayCount, error: countErr } = await supabase
+    .from("projects")
+    .select("id", { count: "exact", head: true })
+    .eq("workspace_id", ctx.workspaceId)
+    .eq("name", SAMPLE_PROJECT_NAME)
+    .gte("created_at", dayStartIso);
+  if (countErr) {
+    console.error("[demo] daily count failed", countErr.message);
+  } else if ((todayCount ?? 0) >= DEMO_DAILY_CAP) {
+    return NextResponse.json(
+      {
+        error: "demo_daily_cap_reached",
+        detail: `Demo limit ${DEMO_DAILY_CAP} reached for today — create a real project via the wizard instead.`,
+      },
+      { status: 429 },
+    );
+  }
+
+  const sample = getSampleProjectRecord();
   const { data: project, error: projectErr } = await supabase
     .from("projects")
     .insert({
