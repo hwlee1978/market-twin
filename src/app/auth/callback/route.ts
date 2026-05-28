@@ -3,6 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 
 // OAuth + email confirmation callback. Lives outside the [locale] segment so the
 // redirect URL we hand to Supabase is locale-stable.
+//
+// MUST be dynamic because we read query params + request headers + cookies
+// (via Supabase createClient). Without force-dynamic, Next.js tries to
+// statically prerender at build time, fails silently, and serves a 404 in
+// production — exactly the symptom user saw post-OAuth.
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
