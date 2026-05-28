@@ -68,7 +68,7 @@ You will see 1-5 reference photos of the same product (or product line). Extract
 1. CATEGORY — pick ONE from the controlled list:
    footwear · apparel · cosmetics · skincare · fragrance · accessories · jewelry · electronics · home_goods · food_beverage · health_supplements · saas_digital · ip_media · other
 
-2. DESCRIPTION — 50-200 char plain-text product spec ("white slip-on sneaker with cream felted wool upper, velcro strap, cream rubber sole, small Le Mouton label on side").
+2. DESCRIPTION — 50-200 char plain-text product spec (e.g. "white slip-on sneaker with cream felted wool upper, velcro strap, cream rubber sole, small embroidered brand label on side").
 
 3. VISUAL_FEATURES — structured visual signature:
    - silhouette: 1 sentence describing the overall shape/form

@@ -1065,10 +1065,7 @@ function ImagePromptPreviewModal({
               직접 수정 가능 — "생성" 누르면 이 텍스트로 이미지가 생성되고 드래프트에도 저장됩니다.
             </p>
             <div className="mt-1.5 rounded-md bg-amber-50 border border-amber-200 px-2.5 py-1.5 text-[10px] text-amber-800 leading-snug">
-              💡 <strong>배경(scene)만 묘사하세요.</strong> 제품 사진은 분리해서 합성되므로 "shoes",
-              "sneakers", "Le Mouton" 같은 제품 단어를 prompt에 넣으면 모델이 배경에 신발을 또 그려
-              중복됩니다. 예: <em>"sunlit cafe interior with magazines on a wooden table, warm
-              afternoon light"</em>
+              💡 <strong>배경(scene)만 묘사하세요.</strong> 제품 사진은 분리해서 합성되므로 제품명·카테고리 단어 (예: "shoes", "sneakers", "bottle", 자사 브랜드명) 를 prompt에 넣으면 모델이 배경에 제품을 또 그려 중복됩니다. 예: <em>"sunlit cafe interior with magazines on a wooden table, warm afternoon light"</em>
             </div>
           </div>
 

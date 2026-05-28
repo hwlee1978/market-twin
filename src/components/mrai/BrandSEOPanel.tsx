@@ -397,7 +397,7 @@ function PropertyModal({
             <input
               value={propertyUrl}
               onChange={(e) => setPropertyUrl(e.target.value)}
-              placeholder="https://lemouton.com"
+              placeholder="https://yourbrand.com"
               className="w-full border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400"
               disabled={mode === "edit"}
             />
@@ -420,7 +420,7 @@ function PropertyModal({
             <input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="르무통 본사"
+              placeholder="자사 본사 / 메인 사이트"
               className="w-full border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400"
             />
           </Field>
@@ -438,7 +438,7 @@ function PropertyModal({
               </>,
               <>구글 계정으로 로그인 후 좌측 상단 <strong>속성 추가</strong> 클릭.</>,
               <>
-                <strong>도메인</strong>(전체 도메인 한 번에 권장) 또는 <strong>URL 접두어</strong> 선택 → 사이트 주소 입력 (예: <code className="font-mono bg-white px-1">lemouton.com</code>).
+                <strong>도메인</strong>(전체 도메인 한 번에 권장) 또는 <strong>URL 접두어</strong> 선택 → 사이트 주소 입력 (예: <code className="font-mono bg-white px-1">yourbrand.com</code>).
               </>,
               <>
                 안내되는 방법(도메인 DNS TXT 레코드 또는 HTML 파일 업로드)으로 <strong>소유권 확인</strong>. 도메인 방식은 가비아·Porkbun·Cafe24 등 도메인 관리 콘솔에서 TXT 추가.
@@ -449,7 +449,7 @@ function PropertyModal({
             ]}
             formatHint={
               <>
-                도메인 방식 = <code className="font-mono bg-white px-1">sc-domain:lemouton.com</code> / URL 접두어 방식 = <code className="font-mono bg-white px-1">https://lemouton.com/</code>
+                도메인 방식 = <code className="font-mono bg-white px-1">sc-domain:yourbrand.com</code> / URL 접두어 방식 = <code className="font-mono bg-white px-1">https://yourbrand.com/</code>
               </>
             }
           />
@@ -457,7 +457,7 @@ function PropertyModal({
             <input
               value={gscProperty}
               onChange={(e) => setGscProperty(e.target.value)}
-              placeholder="sc-domain:lemouton.com 또는 https://lemouton.com/"
+              placeholder="sc-domain:yourbrand.com 또는 https://yourbrand.com/"
               className="w-full border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 font-mono text-xs"
             />
           </Field>
@@ -522,7 +522,7 @@ function PropertyModal({
             steps={[
               <>네이버 계정으로 로그인 후 상단 <strong>웹마스터 도구</strong> 진입.</>,
               <>
-                <strong>사이트 관리 → 사이트 등록</strong> 클릭 → 사이트 URL 입력 (예: <code className="font-mono bg-white px-1">https://lemouton.com</code>).
+                <strong>사이트 관리 → 사이트 등록</strong> 클릭 → 사이트 URL 입력 (예: <code className="font-mono bg-white px-1">https://yourbrand.com</code>).
               </>,
               <>
                 안내된 <strong>HTML 메타태그</strong>를 사이트 <code className="font-mono bg-white px-1">&lt;head&gt;</code> 에 추가하거나 <strong>HTML 파일</strong>을 루트에 업로드 → <strong>소유 확인</strong>.
@@ -533,7 +533,7 @@ function PropertyModal({
             ]}
             formatHint={
               <>
-                반드시 <code className="font-mono bg-white px-1">https://</code> 접두어 포함 (예: <code className="font-mono bg-white px-1">https://lemouton.com</code>).
+                반드시 <code className="font-mono bg-white px-1">https://</code> 접두어 포함 (예: <code className="font-mono bg-white px-1">https://yourbrand.com</code>).
               </>
             }
           />
@@ -541,7 +541,7 @@ function PropertyModal({
             <input
               value={naverSiteUrl}
               onChange={(e) => setNaverSiteUrl(e.target.value)}
-              placeholder="https://lemouton.com"
+              placeholder="https://yourbrand.com"
               className="w-full border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 font-mono text-xs"
             />
           </Field>
@@ -569,7 +569,7 @@ function PropertyModal({
             ]}
             formatHint={
               <>
-                전체 URL 입력 (예: <code className="font-mono bg-white px-1">https://lemouton.com/sitemap.xml</code>). 브라우저에서 직접 열어 XML 이 보이는지 먼저 확인 권장.
+                전체 URL 입력 (예: <code className="font-mono bg-white px-1">https://yourbrand.com/sitemap.xml</code>). 브라우저에서 직접 열어 XML 이 보이는지 먼저 확인 권장.
               </>
             }
           />
@@ -577,7 +577,7 @@ function PropertyModal({
             <input
               value={sitemapUrl}
               onChange={(e) => setSitemapUrl(e.target.value)}
-              placeholder="https://lemouton.com/sitemap.xml"
+              placeholder="https://yourbrand.com/sitemap.xml"
               className="w-full border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 font-mono text-xs"
             />
           </Field>
@@ -585,7 +585,7 @@ function PropertyModal({
             <input
               value={rssUrl}
               onChange={(e) => setRssUrl(e.target.value)}
-              placeholder="https://lemouton.com/feed.xml"
+              placeholder="https://yourbrand.com/feed.xml"
               className="w-full border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 font-mono text-xs"
             />
           </Field>
@@ -596,16 +596,16 @@ function PropertyModal({
           <SectionHelp
             title="처음이라면 — 메타데이터 작성 가이드"
             consoleLabel="검색 결과 미리보기"
-            consoleUrl="https://www.google.com/search?q=site:lemouton.com"
+            consoleUrl="https://www.google.com/search?q=site:yourbrand.com"
             steps={[
               <>
-                <strong>기본 메타 제목</strong>: 검색 결과에 굵게 표시되는 한 줄. <strong>50-60자</strong> 권장. 형식 = <em>브랜드 — 핵심 가치 + 카테고리</em>. 예: <code className="font-mono bg-white px-1">르무통 — K-comfort 캐시미어 아우터</code>.
+                <strong>기본 메타 제목</strong>: 검색 결과에 굵게 표시되는 한 줄. <strong>50-60자</strong> 권장. 형식 = <em>브랜드 — 핵심 가치 + 카테고리</em>. 예: <code className="font-mono bg-white px-1">자사 브랜드 — 핵심 가치 + 제품 카테고리</code>.
               </>,
               <>
-                <strong>기본 메타 설명</strong>: 제목 아래 회색 두 줄. <strong>140-160자</strong> 권장. 누가·뭐가·왜 좋은지 핵심을 한 문장으로. 예: <em>"30-40대 도시 직장인 여성을 위한 캐시미어 100% 롱코트, 신었다 잊는 편안함을 약속합니다."</em>
+                <strong>기본 메타 설명</strong>: 제목 아래 회색 두 줄. <strong>140-160자</strong> 권장. 누가·뭐가·왜 좋은지 핵심을 한 문장으로. 예: <em>"타겟 고객층을 위한 제품 정의 + 가장 강력한 차별점 한 문장."</em>
               </>,
               <>
-                <strong>기본 키워드</strong>: 콤마(,) 로 구분한 5-10개 핵심 검색어. 사용자가 실제로 검색할 표현을 그대로. 예: <code className="font-mono bg-white px-1">캐시미어 코트, 르무통, K-fashion, 프리미엄 아우터, 메리노 울</code>.
+                <strong>기본 키워드</strong>: 콤마(,) 로 구분한 5-10개 핵심 검색어. 사용자가 실제로 검색할 표현을 그대로. 예: <code className="font-mono bg-white px-1">제품 카테고리, 자사 브랜드명, 핵심 차별 키워드, 타겟 세그먼트</code>.
               </>,
               <>
                 작성 후 위 링크로 구글에 <code className="font-mono bg-white px-1">site:내도메인.com</code> 으로 검색해보면 실제 표시 형태를 확인할 수 있습니다 (인덱싱 후 며칠 소요).
@@ -621,7 +621,7 @@ function PropertyModal({
             <input
               value={defaultMetaTitle}
               onChange={(e) => setDefaultMetaTitle(e.target.value)}
-              placeholder="르무통 — K-comfort 캐시미어 아우터"
+              placeholder="자사 브랜드 — 핵심 가치 + 카테고리"
               className="w-full border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400"
             />
           </Field>
@@ -630,7 +630,7 @@ function PropertyModal({
               value={defaultMetaDescription}
               onChange={(e) => setDefaultMetaDescription(e.target.value)}
               rows={2}
-              placeholder="신었다 잊는 편안함의 캐시미어 100% 롱코트, 30-40대 도시 직장인 여성을 위한 ..."
+              placeholder="(예시) 타겟 고객층을 위한 제품 정의 + 가장 강력한 차별점 한 문장."
               className="w-full border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 resize-none"
             />
           </Field>
@@ -638,7 +638,7 @@ function PropertyModal({
             <input
               value={defaultKeywords}
               onChange={(e) => setDefaultKeywords(e.target.value)}
-              placeholder="캐시미어 코트, 르무통, K-fashion, 프리미엄 아우터"
+              placeholder="제품 카테고리, 자사 브랜드명, 핵심 차별 키워드"
               className="w-full border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400"
             />
           </Field>

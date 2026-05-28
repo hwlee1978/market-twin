@@ -206,8 +206,7 @@ export function LLMVisibilityPanel({
             ))}
           </div>
           <p className="text-[10px] text-slate-400 mt-1">
-            n=6은 진짜 mention 30%일 때 ±19% 변동, n=20은 ±10%. 르무통처럼 점수 검증이
-            중요하면 20 권장.
+            n=6은 진짜 mention 30%일 때 ±19% 변동, n=20은 ±10%. 점수의 정밀한 검증·추적이 필요하면 20 권장.
           </p>
         </div>
 

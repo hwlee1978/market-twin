@@ -269,7 +269,7 @@ function CreateMarketingChannelModal({
 
   const submit = async () => {
     if (!handle.trim()) {
-      setErr("핸들(예: lemouton_official)을 입력하세요");
+      setErr("핸들(예: yourbrand_official)을 입력하세요");
       return;
     }
     setBusy(true);
@@ -342,7 +342,7 @@ function CreateMarketingChannelModal({
             <input
               value={handle}
               onChange={(e) => setHandle(e.target.value)}
-              placeholder="lemouton_official"
+              placeholder="yourbrand_official"
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400"
             />
           </div>
@@ -353,7 +353,7 @@ function CreateMarketingChannelModal({
             <input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="르무통 공식"
+              placeholder="자사 공식"
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400"
             />
           </div>
@@ -392,7 +392,7 @@ function CreateMarketingChannelModal({
               value={bioText}
               onChange={(e) => setBioText(e.target.value)}
               rows={2}
-              placeholder="르무통 · K-comfort 캐시미어 · @markettwin.ai"
+              placeholder="자사 브랜드 · 핵심 가치 · 연락처"
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 resize-none"
             />
           </div>

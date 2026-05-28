@@ -130,7 +130,7 @@ function EditModal({
               <input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="르무통 공식"
+                placeholder="자사 공식"
                 className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400"
               />
             </div>

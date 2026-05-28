@@ -403,7 +403,7 @@ function AutoSeedModal({
             label="회사명"
             value={companyName}
             onChange={setCompanyName}
-            placeholder="예: 르무통, Anua, Crown Confectionery"
+            placeholder="예: 자사 또는 클라이언트 브랜드명"
             required
             disabled={submitting}
             autoFocus
@@ -412,7 +412,7 @@ function AutoSeedModal({
             label="회사 웹사이트 (선택)"
             value={websiteUrl}
             onChange={setWebsiteUrl}
-            placeholder="https://lemouton.co.kr"
+            placeholder="https://yourbrand.com"
             disabled={submitting}
           />
           <label className="block">

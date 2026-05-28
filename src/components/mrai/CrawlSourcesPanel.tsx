@@ -195,7 +195,7 @@ export function CrawlSourcesPanel() {
           <p className="text-xs text-slate-400 text-center py-4">
             아직 등록된 크롤 소스가 없습니다.
             <br />
-            <strong>추천 첫 시작</strong>: 자사 웹사이트(예: <code>https://lemouton.com</code>) + 네이버 뉴스 RSS (브랜드명 검색) + Allbirds/Veja 신상 페이지
+            <strong>추천 첫 시작</strong>: 자사 웹사이트 + 자사 브랜드 뉴스 RSS + 카테고리별 주요 경쟁사 페이지. 우측 <strong>자산 추가</strong> → 프리셋 탭에서 일괄 선택 가능합니다.
           </p>
         ) : (
           <ul className="divide-y divide-slate-100">
@@ -678,10 +678,10 @@ function CreateModal({
               onChange={(e) => setUrl(e.target.value)}
               placeholder={
                 sourceType === "self_website"
-                  ? "https://lemouton.com"
+                  ? "https://yourbrand.com"
                   : sourceType === "news_rss"
-                    ? "https://news.google.com/rss/search?q=르무통&hl=ko"
-                    : "https://www.on.com/en-us/shop/men"
+                    ? "https://news.google.com/rss/search?q=brand&hl=ko"
+                    : "https://competitor.com/new-arrivals"
               }
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400"
             />
@@ -700,10 +700,10 @@ function CreateModal({
               onChange={(e) => setLabel(e.target.value)}
               placeholder={
                 sourceType === "self_website"
-                  ? "르무통 공식 사이트"
+                  ? "자사 공식 사이트"
                   : sourceType === "news_rss"
-                    ? "Google News: 르무통"
-                    : "Allbirds 신상 컬렉션"
+                    ? "Google News: 자사 브랜드"
+                    : "경쟁사 신상 컬렉션"
               }
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400"
             />
@@ -716,7 +716,7 @@ function CreateModal({
               <input
                 value={brandFilter}
                 onChange={(e) => setBrandFilter(e.target.value)}
-                placeholder="르무통"
+                placeholder="자사 브랜드명"
                 className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400"
               />
               <p className="text-[10px] text-slate-500 mt-1">

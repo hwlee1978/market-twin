@@ -75,7 +75,7 @@ export async function extractMemoryFromPdf(
 업로드된 PDF (시뮬레이션 리포트·시장조사·컨설팅 자료·사업계획서 등)에서 워크스페이스 메모리에 추가할 가치 있는 인사이트를 추출하세요.
 
 == 추출 기준 ==
-- **fact**: 검증 가능한 정량/정성 사실 (예: "메이트 미국 권장가 $140", "올버즈 vs 르무통 가격 격차 50%")
+- **fact**: 검증 가능한 정량/정성 사실 (예: "제품 미국 권장가 $140", "경쟁사 vs 자사 가격 격차 50%")
 - **context**: 시장·환경·페르소나 컨텍스트 (예: "미국 컴포트 슈즈 시장 100% Multi-LLM 합의 STRONG")
 - **decision**: 의사결정 항목 (예: "Nordstrom/Zappos 입점 협상 2026 Q3 착수")
 - **preference**: 임원/조직의 선호 (예: "이사회는 PR 시딩 전략 우선 — Wirecutter·Reddit AMA")
