@@ -64,6 +64,27 @@ function aspectFor(platform: string): "1024x1024" | "1024x1536" | "1536x1024" {
   return "1024x1024";
 }
 
+// Categories that have a physical product to photograph. Workspaces in
+// categories outside this set (saas_digital / ip_media / other-without-
+// product) should NOT get the shoe-style "product MUST be 40% of frame"
+// scaffolding — that scaffolding was authored for footwear and bleeds
+// shoe vocabulary (upper, tongue, sole, FEET-FOCUSED, shoebox) into the
+// gpt-image-1 prompt, which then renders sneakers even when the body
+// of the prompt describes a meeting room.
+const PHYSICAL_PRODUCT_CATEGORIES = new Set<string>([
+  "footwear",
+  "apparel",
+  "cosmetics",
+  "skincare",
+  "fragrance",
+  "accessories",
+  "jewelry",
+  "electronics",
+  "home_goods",
+  "food_beverage",
+  "health_supplements",
+]);
+
 function buildFramePrompt(
   basePrompt: string,
   platform: string,
@@ -78,6 +99,47 @@ function buildFramePrompt(
 ): string {
   const spec = getPlatformSpec(platform);
   const parts: string[] = [];
+
+  // Decide whether this image even HAS a product subject. Two ways to
+  // qualify as "has a product":
+  //   (a) the workspace's product profile sits in a physical-product
+  //       category, OR
+  //   (b) the caller passed concrete reference photos (hasReferences) —
+  //       even an "other" workspace might be running a product shoot.
+  // If neither holds, we short-circuit to a scene-only prompt below
+  // and never touch the shoe-shaped scaffolding.
+  const categoryIsPhysical =
+    !!productProfile?.category &&
+    PHYSICAL_PRODUCT_CATEGORIES.has(productProfile.category);
+  const isSceneOnly = !categoryIsPhysical && !hasReferences && !touchupMode;
+
+  // ─── SCENE-ONLY MODE ────────────────────────────────────────────
+  // No physical product, no references — generate the scene exactly as
+  // described in basePrompt without any product fidelity / dominance /
+  // shoe-shaped scaffolding. Used by SaaS / digital / IP workspaces
+  // whose "content" is an editorial brand image, not a product shot.
+  if (isSceneOnly) {
+    parts.push(
+      `Editorial brand image for ${spec.label}. Generate the scene exactly as described — there is no specific physical product to feature. NO faces in close-up unless the scene naturally calls for distant or angled figures (back-of-head, silhouettes, hands-only are fine). NO invented logos or trademark text on any signage / screen / wall / packaging visible in the scene; abstract shapes or out-of-focus text suggestions are acceptable. Scene: ${basePrompt}`,
+    );
+    if (brandHint) {
+      parts.push(`Brand voice: ${brandHint}.`);
+    }
+    parts.push(
+      "Photographic, editorial style. Natural lighting. Clean composition with intentional negative space.",
+    );
+    // Same no-text rule as the product path — gpt-image-1 garbles any
+    // Latin / CJK letters it tries to render, and a non-product scene
+    // is just as likely to have signage / screens / books inviting that
+    // failure mode.
+    parts.push(
+      `ABSOLUTE NO-TEXT RULE: Do not render any visible legible text — no random Latin / Korean / Chinese / Japanese letters on signage, screens, books, displays, name tags, whiteboards, presentation slides, packaging, etc. Numbers shown on a screen are OK ONLY when they're explicitly named in the scene description above (e.g. a stat like '16.3%') — otherwise omit numeric displays. Invented brand names, awards, certifications: forbidden. If text would naturally appear, render it as blurred / out-of-focus / cropped out instead.`,
+    );
+    parts.push(
+      "No watermarks. No fake reviews or testimonials. No collages or multi-panel layouts. No invented certification badges.",
+    );
+    return parts.join(" ");
+  }
 
   // ─── TOUCHUP MODE — the subject (product OR ambassador) is in the
   // input image; do not describe it (sending details makes the model
