@@ -911,12 +911,21 @@ ${entries}
           // in JS — Supabase JS doesn't expose custom ORDER BY expressions
           // like md5(id || $1) that we'd need server-side. Cells are small
           // (typically 10-30 personas) so over-fetching is cheap.
+          //
+          // NOTE: as of the v0.1 shared-pool decision (2026-05-28), this
+          // query no longer filters by workspace_id — every workspace
+          // samples from one global persona pool. workspace_id is still
+          // written on insert as origin-tracking metadata, but it does NOT
+          // gate visibility. Rationale: persona records carry only generic
+          // demographic / behavioural fields (no per-product responses, no
+          // PII), so cross-tenant sampling is safe and dramatically reduces
+          // cold-start cost for new workspaces. Revisit when entering a
+          // B2B-consulting mode that requires per-client isolation.
           const { data } = await supabase
             .from("personas")
             .select(
               "id, age_range, gender, country, income_band, profession, base_profession, interests, purchase_style, price_sensitivity",
             )
-            .eq("workspace_id", workspaceId)
             .eq("country", country)
             .eq("base_profession", baseProfession)
             .limit(200);

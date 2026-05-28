@@ -360,7 +360,7 @@ function ProfileEditModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={5}
-              placeholder="제품·서비스의 핵심 가치, 타겟 고객, 차별점 등을 간략히 (예: '30-40대 도시 직장인 여성을 위한 캐시미어 100% 롱코트 — 메리노 울 5겹 직조로 영하 10도에서도 가볍게')"
+              placeholder="제품·서비스의 핵심 가치, 타겟 고객, 차별점 등을 간략히 (예: '타겟 세그먼트 + 제품 정의 + 가장 강력한 기술·소재·기능 한 줄')"
               className="w-full border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 text-sm placeholder:text-slate-400 resize-none"
             />
             <div className="text-[10px] text-slate-400 mt-1">

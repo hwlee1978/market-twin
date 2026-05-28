@@ -171,7 +171,7 @@ export function LLMVisibilityPanel({
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               disabled={running}
-              placeholder="예: 메리노 울 컴포트 스니커즈"
+              placeholder="예: 자사 제품 카테고리·핵심 차별 키워드"
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-1.5 bg-white text-slate-900"
             />
           </div>
@@ -224,7 +224,7 @@ export function LLMVisibilityPanel({
                 value={customQueriesText}
                 onChange={(e) => setCustomQueriesText(e.target.value)}
                 disabled={running}
-                placeholder={`한 줄에 하나씩. 예:\nWhich merino wool sneaker brands are recommended for daily commuting?\nbest comfortable Korean sneakers for office workers\n메리노 울 컴포트 스니커즈 추천`}
+                placeholder={`한 줄에 하나씩. 예:\nWhich (카테고리) brands are recommended for (페르소나/사용 맥락)?\nbest (제품 속성) brands in (시장)\n자사 카테고리 추천 검색어 (한국어)`}
                 rows={5}
                 className="w-full text-xs border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 font-mono"
               />

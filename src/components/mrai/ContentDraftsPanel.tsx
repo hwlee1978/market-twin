@@ -117,10 +117,27 @@ export function ContentDraftsPanel({
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = await res.json();
+      // Read as text first so a non-JSON response (Vercel function
+      // timeout, gateway 504, infra 500 returning an HTML/text error
+      // page) doesn't crash with "Unexpected token 'A'… is not valid
+      // JSON". If it parses, treat as JSON; otherwise surface the
+      // first chunk of text so the user gets a meaningful hint.
+      const raw = await res.text();
+      let json: { drafts?: unknown[]; detail?: string; error?: string } = {};
+      try {
+        json = raw ? JSON.parse(raw) : {};
+      } catch {
+        if (!res.ok) {
+          const snippet = raw.slice(0, 200).trim() || `HTTP ${res.status}`;
+          throw new Error(
+            `서버 오류 (${res.status}): ${snippet}\n→ Vercel function timeout 가능성. variant 개수를 줄이거나 topic을 짧게 다시 시도하세요.`,
+          );
+        }
+        throw new Error(`서버 응답을 해석할 수 없습니다 (status ${res.status}).`);
+      }
       if (!res.ok) {
         const msg = json.detail ?? json.error ?? "생성 실패";
-        throw new Error(msg);
+        throw new Error(typeof msg === "string" ? msg : "생성 실패");
       }
       if (!Array.isArray(json.drafts) || json.drafts.length === 0) {
         throw new Error("LLM이 0개 variant를 반환했습니다. 다시 시도하세요.");
@@ -1683,7 +1700,7 @@ function GenerateModal({
             <input
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              placeholder="예: 메이트 페블 그레이, 일주일 신은 후기 — 워싱이 다른 이유"
+              placeholder="예: 제품 색상·모델 일주일 사용 후기 — 핵심 차별점"
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400"
             />
           </div>
@@ -1694,7 +1711,7 @@ function GenerateModal({
             <input
               value={campaignLabel}
               onChange={(e) => setCampaignLabel(e.target.value)}
-              placeholder="FW26 메이트 신상"
+              placeholder="시즌·라인 라벨 (예: FW26 신상)"
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400"
             />
           </div>
@@ -1706,7 +1723,7 @@ function GenerateModal({
               value={goal}
               onChange={(e) => setGoal(e.target.value)}
               rows={2}
-              placeholder="신상 인지도 + 사전예약 유도 / Allbirds 대비 차별점 강조 등"
+              placeholder="신상 인지도 + 사전예약 유도 / 경쟁사 대비 차별점 강조 등"
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 resize-none"
             />
           </div>

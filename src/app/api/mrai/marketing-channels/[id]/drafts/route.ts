@@ -7,7 +7,14 @@ import { defaultFrameCountForPlatform } from "@/lib/mrai/content/image-gen";
 import { loadWorkspaceMemories } from "@/lib/mrai/memory";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// Drafter loads workspace memories + prior posts + brand context, then
+// runs a single multi-variant LLM call. With 4-5 variants on slower
+// providers (Sonnet/GPT-4) the wall-clock routinely brushes 60s and we
+// were seeing Vercel timeouts surface to the client as "Unexpected token
+// 'A'… is not valid JSON" because the gateway returned a plain-text
+// error page in lieu of the JSON shape. 120s gives the LLM call enough
+// headroom even with retries.
+export const maxDuration = 120;
 
 /**
  * GET  /api/mrai/marketing-channels/[id]/drafts

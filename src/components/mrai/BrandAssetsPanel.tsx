@@ -300,7 +300,7 @@ function UploadModal({
             <input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="예: 메이트 화이트 사이드뷰"
+              placeholder="예: 제품명 색상 각도 (사이드뷰·탑뷰 등)"
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400"
             />
           </div>
@@ -312,7 +312,7 @@ function UploadModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              placeholder="추가 컨텍스트 (FW26 룩북에서 발췌 등)"
+              placeholder="추가 컨텍스트 (시즌 룩북 발췌·캠페인 소스 등)"
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 resize-none"
             />
           </div>
