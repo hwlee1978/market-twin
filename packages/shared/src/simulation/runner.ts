@@ -716,25 +716,15 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
         `${regulatory.excludedCountries.length} excluded${regulatory.result.regulatedCategory ? ` (category: ${regulatory.result.regulatedCategory})` : ""} — ` +
         `${((Date.now() - tReg) / 1000).toFixed(1)}s`,
     );
-    // Defensive: drop the origin from candidate markets even if it slipped in
-    // (older rows pre-dating the originating_country split, or admin retries
-    // of legacy projects). The origin is a separate piece of context — keep it
-    // out of the export-target ranking so the simulator can never recommend
-    // domestic launch as the "best market" inside an overseas-validation run.
-    const originCode = (opts.projectInput.originatingCountry ?? "KR").toUpperCase();
-    const candidatesAfterOrigin = regulatory.allowedCountries.filter(
-      (c) => c.toUpperCase() !== originCode,
-    );
-    const droppedOrigin = candidatesAfterOrigin.length !== regulatory.allowedCountries.length;
-    if (droppedOrigin) {
-      console.log(
-        `[sim ${opts.simulationId}] dropped origin ${originCode} from candidates (kept as context)`,
-      );
-    }
-    // From here on, treat the filtered list as the candidate set for the simulation.
+    // (2026-05-28) Origin === candidate is now allowed. Earlier this branch
+    // defensively stripped the origin from candidates so the export-only
+    // positioning couldn't recommend domestic launch as "best market" —
+    // but the product now supports domestic launch validation alongside
+    // export. Keep the origin if the user explicitly added it; only the
+    // regulatory filter applies.
     const projectInput = {
       ...opts.projectInput,
-      candidateCountries: candidatesAfterOrigin,
+      candidateCountries: regulatory.allowedCountries,
     };
 
     // If everything got excluded the simulation can't proceed meaningfully.

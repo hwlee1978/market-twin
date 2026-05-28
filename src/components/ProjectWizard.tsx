@@ -42,10 +42,9 @@ function priceCeilingFor(currency: string): number {
 }
 type StepKey = (typeof STEPS)[number];
 
-// KR is the assumed origin for the K-product export use case — it should not
-// appear in the candidate target markets, otherwise the simulator ranks the
-// home market against export markets and recommends domestic launch as the
-// best move (which contradicts the entire positioning).
+// Default candidate presets for the empty-state. Export-focused (no KR/US
+// in the default set) but the wizard now lets the user add their origin
+// country as a candidate too — useful for domestic + export comparison.
 const RECOMMENDED_PRESET = ["US", "JP", "ID"];
 
 export function ProjectWizard({ locale }: { locale: string }) {
@@ -272,19 +271,12 @@ export function ProjectWizard({ locale }: { locale: string }) {
           errors.push(tw("validation.countries"));
           return errors;
         }
-        // The originating country is the home market and never a target —
-        // including it in candidates would generate a wasted sim slot
-        // and a meaningless "expand into your own home" recommendation.
-        if (
-          form.originatingCountry &&
-          form.countries.includes(form.originatingCountry)
-        ) {
-          errors.push(
-            isKo
-              ? `출시 국가(${form.originatingCountry})는 후보 진출국에서 제외하세요. 출시국은 분석 대상이 아닙니다.`
-              : `Origin country (${form.originatingCountry}) cannot be a candidate market — origin is the home base, not a target.`,
-          );
-        }
+        // (2026-05-28) Origin == candidate is now allowed. Some users want
+        // to validate domestic + export side-by-side (e.g. a Korean brand
+        // running KR alongside US/JP to compare home-market success score
+        // against export options before allocating launch budget). The
+        // simulator handles same-origin / same-target cleanly; only the
+        // narrative copy changes from "expand into X" to "validate X".
         // Soft cap — each candidate adds ~1-2 minutes to total sim time
         // and the country-scoring stage produces noisier rankings past
         // ~12 candidates.

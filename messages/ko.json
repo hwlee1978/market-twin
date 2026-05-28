@@ -420,7 +420,7 @@
         "other": "기타"
       },
       "countriesPreset": "한국 → 미국·일본·인도네시아 (기본)",
-      "countriesOriginHint": "🇰🇷 출시 모국(위에서 선택)은 진출 후보 시장에서 자동 제외됩니다 — 해외 진출 검증이 목적이므로, 후보에 모국을 추가해도 시뮬레이션은 무시합니다. 모국 자체를 비교하고 싶다면 위에서 출시 모국을 다른 국가로 바꾸세요.",
+      "countriesOriginHint": "💡 출시 모국도 후보에 추가할 수 있습니다 — 국내(KR↔KR) + 해외 후보를 함께 시뮬레이션하면 도메스틱 성공 점수와 해외 진출 옵션을 한 화면에서 비교할 수 있습니다.",
       "countriesSearchPlaceholder": "국가 검색 (KR, 일본, ...)",
       "countriesCount": "{n}개 국가 선택됨",
       "competitorUrlsFormat": "1줄에 URL 1개씩 입력하세요.",

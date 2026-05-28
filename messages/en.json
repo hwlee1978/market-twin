@@ -420,7 +420,7 @@
         "other": "Other"
       },
       "countriesPreset": "Pick any 3-5 target markets",
-      "countriesOriginHint": "The origin market (selected above) is automatically excluded from candidate targets — this tool validates cross-border expansion, so adding the origin to candidates has no effect. If you want to evaluate the origin market itself, switch the origin dropdown to a different country.",
+      "countriesOriginHint": "💡 You can include the origin market as a candidate too — running domestic (e.g. KR↔KR) alongside export candidates lets you compare home-market success score against export options on one screen.",
       "countriesSearchPlaceholder": "Search countries (US, Japan, ...)",
       "countriesCount": "{n} countries selected",
       "competitorUrlsFormat": "One URL per line.",

@@ -721,13 +721,13 @@ export function countryPrompt(
     .map((country) => `[${country}]\n${buildChannelCostsBlock(country, input.category)}`)
     .join("\n\n");
 
-  return `Rank these candidate OVERSEAS-EXPANSION TARGET MARKETS for launching the product below. The company is based in ${input.originatingCountry} (the origin / home market) and is validating overseas expansion — score each candidate as an EXPORT TARGET, not as a domestic market. The persona stats below are the bounded grounding signal — read them carefully (intent histograms, top objections, top trust signals, profession mix per country) before incorporating market structure (competition, CAC realism, regulatory friction, cultural fit, distance from origin).
+  return `Rank these candidate LAUNCH TARGET MARKETS for the product below. The company is based in ${input.originatingCountry} (the origin / home market) and wants to validate which target market gives the best launch outcome. A candidate market may be the home market itself (domestic launch validation), an export market, or both side-by-side — treat each candidate on its own merits using the persona + market signals below. When the candidate equals the origin, score it as a DOMESTIC LAUNCH (the company already has cultural/regulatory fluency, but competition + saturation tend to be higher than in unfamiliar markets). When the candidate differs from the origin, score it as an EXPORT TARGET (cultural fit / regulatory friction / distance from origin matter more). The persona stats below are the bounded grounding signal — read them carefully (intent histograms, top objections, top trust signals, profession mix per country) before incorporating market structure.
 
 When scoring competition (both the top-level competitionScore and components.competition), do not equate "same product category has strong incumbents" with "low competition score." Real consumer markets carve segments by taste / price tier / origin story / usage occasion / ingredient claim — coexistence is the norm, not the exception. See the components.competition rubric below for the full rule.
 
-CRITICAL: Only include countries from the candidate list. Do NOT add countries that are not in the list. Do NOT include the origin (${input.originatingCountry}) in the ranking — it is the home market, not a target.
+CRITICAL: Only include countries from the candidate list. Do NOT add countries that are not in the list. If the origin is in the candidate list, include it in the ranking like any other candidate — its score reflects domestic-launch viability.
 
-Origin (home market, NOT a target): ${input.originatingCountry}
+Origin (home market): ${input.originatingCountry}
 Product: ${input.productName} (${input.category})
 Description: ${input.description}
 Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
@@ -1260,11 +1260,14 @@ export function synthesisPrompt(
     return lines.join("\n");
   })();
 
-  return `Produce the final executive verdict for this OVERSEAS-EXPANSION launch simulation. The company is based in ${input.originatingCountry} (origin / home market) and is validating expansion into the candidate overseas markets below. Treat the analysis strictly as an export-validation report — DO NOT recommend launching in ${input.originatingCountry} as if it were a target market, and do not include domestic-channel action items (e.g. ${input.originatingCountry === "KR" ? "스마트스토어·네이버 쇼핑·KR-internal channels" : "home-market-only retail or distribution"}). The bestCountry field MUST be one of the candidate overseas targets, never the origin.
+  return `Produce the final executive verdict for this launch simulation. The company is based in ${input.originatingCountry} (origin / home market) and is validating which candidate market gives the best launch outcome. Candidates may include the home market (domestic launch validation), export markets, or both side-by-side. For each candidate:
+- If candidate === ${input.originatingCountry}, frame action items around DOMESTIC launch — use home-market channels (e.g. ${input.originatingCountry === "KR" ? "스마트스토어·네이버 쇼핑·국내 D2C·오프라인 매장" : "domestic retail, marketplaces, and DTC channels"}) and leverage existing cultural / regulatory fluency.
+- If candidate !== ${input.originatingCountry}, frame as EXPORT validation — entry strategy, distributor selection, localization, regulatory friction.
+The bestCountry field MUST be one of the candidate markets in the simulation (it may be the origin if the user added it as a candidate).
 
 ${dateContext}
 
-Origin (home market, NOT a target): ${input.originatingCountry}
+Origin (home market): ${input.originatingCountry}
 Product: ${input.productName} (${input.category}) — ${input.description}
 Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
 Objective: ${input.objective}

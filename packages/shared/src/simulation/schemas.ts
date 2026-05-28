@@ -21,12 +21,12 @@ export const ProjectInputSchema = z.object({
   currency: z.string().default("USD"),
   objective: z.enum(["awareness", "conversion", "retention", "expansion"]),
   /**
-   * The product's origin / home market — informs the simulator that the
-   * candidate countries are EXPORT TARGETS, not equal-weight launch options.
-   * Synthesis uses this to keep action plans overseas-focused; if the origin
-   * also appears in candidateCountries (user opted into a domestic-vs-overseas
-   * comparison), country scoring still ranks it but the simulation knows
-   * which entry is the home market.
+   * The product's origin / home market. Used by the simulator to frame each
+   * candidate: when candidate !== origin the candidate is scored as an
+   * EXPORT TARGET (cultural fit, regulatory friction, distance), when
+   * candidate === origin it is scored as a DOMESTIC LAUNCH (home-market
+   * channels, existing brand presence). User can include origin in
+   * candidateCountries to validate domestic and export side-by-side.
    */
   originatingCountry: z.string().default("KR"),
   candidateCountries: z.array(z.string()).min(1),
