@@ -57,6 +57,13 @@ export function SignupForm() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    capture("signup_started", {
+      via: "password",
+      intended_plan: planSlug,
+      billing_cycle: cycle,
+      marketing_consent: agreeMarketing,
+      cross_border_consent: agreeCrossBorder,
+    });
     setLoading(true);
     setError(null);
     setInfo(null);

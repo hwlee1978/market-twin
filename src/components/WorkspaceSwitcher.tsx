@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { ChevronsUpDown, Check, Plus, Building2, X, Loader2 } from "lucide-react";
 import { clsx } from "clsx";
 import type { WorkspaceSummary } from "@/lib/workspace";
+import { capture } from "@/lib/analytics/posthog";
 
 type Props = {
   workspaces: WorkspaceSummary[];
@@ -45,6 +46,11 @@ export function WorkspaceSwitcher({ workspaces }: Props) {
         body: JSON.stringify({ workspaceId: id }),
       });
       if (res.ok) {
+        capture("workspace_switched", {
+          from_workspace: active?.id,
+          to_workspace: id,
+          from_path: window.location.pathname,
+        });
         // ID-scoped routes (/projects/[id]/*, /reports/[id]/*) become
         // invalid after the workspace switch because the new workspace
         // has no such project / report. Staying on the same URL would
@@ -293,6 +299,12 @@ function CreateWorkspaceModal({
         setError(typeof json.error === "string" ? json.error : t("createFailed"));
         return;
       }
+      capture("workspace_created", {
+        workspace_id: json.workspaceId,
+        has_company: !!companyName.trim(),
+        has_industry: !!industry.trim(),
+        has_country: !!country.trim(),
+      });
       onCreated(json.workspaceId);
     } catch (err) {
       setError(t("createFailed"));

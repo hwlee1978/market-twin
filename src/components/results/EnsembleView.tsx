@@ -4,6 +4,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download, ChevronDown, ChevronRight, HelpCircle, Lightbulb, MessageCircle, Send, X, RefreshCw, Gift, ArrowLeft } from "lucide-react";
 import { useRouter, Link } from "@/i18n/navigation";
+import { capture } from "@/lib/analytics/posthog";
 import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { categoryLabel } from "@/lib/simulation/taxonomy";
@@ -291,6 +292,11 @@ export function EnsembleView({
   // arrives; without this guard the user gets the same toast twice.
   const notifFiredRef = useRef(false);
 
+  // PostHog completion fire-once guard — see the per-sim completion
+  // tracking in ResultsView; same pattern here so the poll loop doesn't
+  // re-emit the event on every re-render after the row settles.
+  const completionFiredRef = useRef(false);
+
   // Status polling. Once status flips to completed/failed, fetch the
   // aggregate result once and stop polling.
   useEffect(() => {
@@ -303,6 +309,22 @@ export function EnsembleView({
         if (!active) return;
         setStatus(data);
         if (data.status === "completed" || data.status === "failed") {
+          if (!completionFiredRef.current) {
+            completionFiredRef.current = true;
+            const evt =
+              data.status === "completed"
+                ? "ensemble_completed"
+                : "ensemble_failed";
+            capture(evt, {
+              ensemble_id: ensembleId,
+              project_id: projectId,
+              tier: data.tier,
+              total_sims: data.counts.total,
+              completed_sims: data.counts.completed,
+              failed_sims: data.counts.failed,
+              error: data.status === "failed" ? data.error_message ?? null : undefined,
+            });
+          }
           const rRes = await fetch(`/api/ensembles/${ensembleId}/result`);
           if (rRes.ok) {
             const rData = (await rRes.json()) as EnsembleResult;
@@ -922,6 +944,13 @@ function EnsembleDashboard({
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+      capture("pdf_downloaded", {
+        ensemble_id: result.id,
+        project_id: projectId,
+        tier: result.tier,
+        variant,
+        locale,
+      });
     } catch (err) {
       console.error("[ensemble pdf]", err);
       // Show the underlying server message when one came back from

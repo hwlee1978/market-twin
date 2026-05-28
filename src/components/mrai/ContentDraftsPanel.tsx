@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { capture } from "@/lib/analytics/posthog";
 import {
   Sparkles,
   Loader2,
@@ -145,6 +146,15 @@ export function ContentDraftsPanel({
       }
       // Prepend the new variants
       setDrafts((prev) => [...(json.drafts as Draft[]), ...(prev ?? [])]);
+      capture("mrai_content_drafted", {
+        channel_id: channelId,
+        platform,
+        variant_count: (json.drafts as Draft[]).length,
+        content_format: payload.contentFormat ?? "default",
+        topic_chars: payload.topic.length,
+        has_campaign_label: !!payload.campaignLabel,
+        has_goal: !!payload.goal,
+      });
       setOpenModal(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "생성 실패");
@@ -441,6 +451,12 @@ function DraftCard({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "퍼블리시 실패");
       setPublishedAt(json.publication?.published_at ?? new Date().toISOString());
+      capture("mrai_content_published", {
+        draft_id: draft.id,
+        variant_label: draft.variant_label,
+        is_republish: isRepublish,
+        has_image: !!draft.image_url || (draft.image_urls?.length ?? 0) > 0,
+      });
     } catch (e) {
       setPublishError(e instanceof Error ? e.message : "퍼블리시 실패");
     } finally {
@@ -535,6 +551,12 @@ function DraftCard({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "시뮬레이션 실패");
       setLatestSim(json.simulation as SimulationRow);
+      capture("mrai_content_simulated", {
+        draft_id: draft.id,
+        variant_label: draft.variant_label,
+        sample_size: sampleSize,
+        like_rate: (json.simulation as SimulationRow)?.like_rate ?? null,
+      });
     } catch (e) {
       setSimError(e instanceof Error ? e.message : "시뮬레이션 실패");
     } finally {
