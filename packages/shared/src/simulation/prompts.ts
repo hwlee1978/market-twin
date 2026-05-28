@@ -1314,6 +1314,37 @@ Bad: { "factor": "Regulatory risk", "severity": "medium", "description": "Must c
 Good: { "factor": "Amazon US absence — Stylevana/YesStyle dependency", "severity": "high", "description": "42 of 67 US personas cite Amazon US as primary purchase channel. Selling only via Stylevana risks losing ~55% of first-90-day revenue." }`
 }
 
+═══ PRICE WRITING GUIDANCE (HARD RULE — NEVER INVENT PRICES) ═══
+${
+  locale === "ko"
+    ? `리스크·액션·executiveSummary·내러티브 어디에서든 가격 (달러, 원, 엔, 유로 등 모든 통화) 을 언급할 때는 **반드시** 아래 두 출처 중 하나에서 정확한 숫자를 가져와야 합니다:
+1) 입력의 \`Base price\` (${(input.basePriceCents / 100).toFixed(2)} ${input.currency}) — 원가/현재 가격.
+2) \`Pricing analysis (JSON)\`의 \`countryScores[i].priceAnalysis.recommendedPriceCents\` (이미 위에 JSON으로 제공됨) — 국가별 권장 가격.
+
+절대 금지:
+- 환산 추정 ("약 49,900달러" 같은 만들어낸 숫자) — 위 두 출처에 없으면 절대 쓰지 말 것.
+- 부정확한 환율로 KRW ↔ USD 변환 — 변환이 필요하면 사용자에게 맡기고, 본문에는 원본 통화·원본 값 그대로 쓸 것.
+- "약", "대략", "추정" 으로 얼버무리며 새 숫자 만들기 — 출처 없는 숫자는 쓰지 않거나 "Pricing analysis 참조" 로 표현.
+
+가격을 쓰는 권장 형식:
+- "권장 진입가 $X.XX (Pricing analysis 기준)"
+- "현재 가격 ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}"
+- 환율·환산 필요 시 원본만 쓰고 환산은 생략.`
+    : `When mentioning any price (USD, KRW, JPY, EUR, etc.) in risks, actions, executiveSummary, or narrative, you MUST source the exact number from one of these two inputs:
+1) Input \`Base price\` (${(input.basePriceCents / 100).toFixed(2)} ${input.currency}) — current/cost price.
+2) \`Pricing analysis (JSON)\` field \`countryScores[i].priceAnalysis.recommendedPriceCents\` (already supplied above) — per-country recommended price.
+
+ABSOLUTELY FORBIDDEN:
+- Inventing converted numbers ("approximately $49,900" when no such number is in the input).
+- Currency conversion with guessed exchange rates — keep the original currency / value and let the user handle conversion.
+- Hedging with "approximately" or "estimated" to manufacture a new number — if it is not in the two sources above, do not write a number.
+
+Preferred phrasing:
+- "Recommended entry price $X.XX (per pricing analysis)"
+- "Current price ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}"
+- Omit currency conversion when the source uses only one currency.`
+}
+
 Return a JSON object:
 {
   "overview": {

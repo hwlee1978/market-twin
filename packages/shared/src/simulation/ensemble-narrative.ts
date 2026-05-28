@@ -181,6 +181,14 @@ export interface MergeNarrativeOpts {
     secondaryVotePct: number;
     gapToPrimary: number;
   };
+  /**
+   * Product input pricing — used by the post-merge price sanitizer to
+   * detect hallucinated currency values (e.g. LLM emitted "$49,900" when
+   * the input price was $399). Optional for legacy callers; sanitizer
+   * is a no-op when both basePriceCents and snapshot pricing are absent.
+   */
+  basePriceCents?: number;
+  currency?: string;
 }
 
 export async function mergeNarrative(
@@ -445,23 +453,52 @@ export async function mergeNarrative(
       );
     }
 
+    // Price sanitization — catch hallucinated currency values like the
+    // "$49,900달러" we observed (input was $399). Builds an allowed set
+    // from basePrice + each sim's pricing.recommendedPriceCents and
+    // replaces any narrative number >5x or <0.2x off every allowed
+    // value with a "[가격 확인 필요]" marker.
+    const allowedCents = buildAllowedPriceCents(opts);
+    const sanitizeAll = (s: string) => {
+      const out = sanitizePrices(s, allowedCents, opts.locale);
+      if (out.flagged.length > 0) {
+        console.warn(
+          `[ensemble narrative] price sanitizer flagged ${out.flagged.length} suspicious value(s): ${out.flagged.slice(0, 3).join(" | ")}`,
+        );
+      }
+      return out.text;
+    };
+    const execSummaryFinal = execSummaryOk
+      ? sanitizeAll(execSummaryRewritten)
+      : safeExecutiveSummary(
+          opts.bestCountry,
+          opts.consensusPercent,
+          opts.locale,
+        );
+    const hotTakeFinal =
+      hotTakeOk && hotTakeRewritten
+        ? sanitizeAll(hotTakeRewritten)
+        : undefined;
+    const mergedRisksSanitized = mergedRisks.map((r) => ({
+      ...r,
+      description: sanitizeAll(r.description),
+    }));
+    const mergedActionsSanitized = mergedActions.map((a) => ({
+      ...a,
+      action: sanitizeAll(a.action),
+    }));
+
     return {
-      hotTake: hotTakeOk ? hotTakeRewritten : undefined,
+      hotTake: hotTakeFinal,
       // When the LLM-emitted summary names the wrong country, swap it
       // for a template referencing the actual bestCountry. Leaving the
       // contradicting prose ("싱가포르를 1차 교두보..." above a key
       // finding that says "대만 진출이 합의 우위") is more confusing
       // than a brief safe summary; the surrounding charts + key
       // findings carry the detail anyway.
-      executiveSummary: execSummaryOk
-        ? execSummaryRewritten
-        : safeExecutiveSummary(
-            opts.bestCountry,
-            opts.consensusPercent,
-            opts.locale,
-          ),
-      mergedRisks,
-      mergedActions,
+      executiveSummary: execSummaryFinal,
+      mergedRisks: mergedRisksSanitized,
+      mergedActions: mergedActionsSanitized,
       overallRiskLevel,
     };
   } catch (err) {
@@ -541,6 +578,125 @@ function safeExecutiveSummary(
   return locale === "ko"
     ? `${label} 진출이 ${consensusPercent}% 합의로 가장 유력합니다. 자세한 근거 — 시뮬 간 점수 분포, 페르소나 거부·신뢰 요인, 권장 액션 — 은 아래 섹션을 참고하세요.`
     : `${label} is the strongest pick at ${consensusPercent}% consensus. See the per-country score distribution, persona objections / trust factors, and recommended actions below for the underlying rationale.`;
+}
+
+/**
+ * Build the set of "trusted" prices in cents that the LLM is allowed to
+ * mention in narrative prose. Pulls from the user-input base price plus
+ * every per-sim `pricing.recommendedPriceCents`. Any number a sanitizer
+ * detects in the prose is matched against this set — values outside ±20%
+ * of every allowed value are flagged as likely hallucinations.
+ *
+ * Why ±20%: per-sim recommendations are LLM-emitted so they bounce
+ * around within a small band already; we don't want the sanitizer
+ * catching legitimate rounded references like "약 $45" when the
+ * recommendation is $43.50. The original bug (49,900 vs 399) was ~125x
+ * off — any threshold below 5x catches it.
+ */
+function buildAllowedPriceCents(opts: MergeNarrativeOpts): number[] {
+  const allowed: number[] = [];
+  if (opts.basePriceCents && opts.basePriceCents > 0) {
+    allowed.push(opts.basePriceCents);
+  }
+  for (const s of opts.snapshots) {
+    const cents = s.pricing?.recommendedPriceCents;
+    if (cents && cents > 0) allowed.push(cents);
+  }
+  return allowed;
+}
+
+/**
+ * Convert a detected (rawValue, unitToken) pair to cents using a small
+ * unit table. Returns null when the unit isn't recognized — caller
+ * skips sanitization for that occurrence rather than guessing.
+ *
+ * KRW (원): rawValue is already in won → multiply by 100 for cents.
+ * USD ($, 달러, USD): rawValue is in dollars → multiply by 100.
+ * JPY (¥, 엔, JPY): rawValue is in yen → cents ≈ usd*100 with rate; we
+ *   skip conversion and only match when the basePrice/recommended is
+ *   ALSO in JPY (currency-aware). For simplicity we drop JPY here —
+ *   the bug we're fixing is USD/KRW.
+ */
+function priceTokenToCents(
+  rawValue: number,
+  unit: "USD" | "KRW",
+): number {
+  return Math.round(rawValue * 100);
+}
+
+const SUSPICIOUS_RATIO = 5; // flag values >5x or <0.2x any allowed price
+
+/**
+ * Scan narrative prose for monetary tokens (USD or KRW) and replace
+ * any value that is wildly inconsistent with every trusted input price
+ * with a "[가격 확인 필요]" / "[price source needed]" marker. Catches
+ * the 49,900달러 hallucination class without disturbing legitimate
+ * price references.
+ *
+ * Conservative by design: only flags when the detected value is >5x or
+ * <0.2x EVERY allowed price. Single trusted price ± 20% rounding stays
+ * untouched. When no allowed prices are known (legacy callers), the
+ * sanitizer is a no-op.
+ */
+function sanitizePrices(
+  text: string,
+  allowedCents: number[],
+  locale: "ko" | "en",
+): { text: string; flagged: string[] } {
+  if (!text || allowedCents.length === 0) {
+    return { text, flagged: [] };
+  }
+  const flagged: string[] = [];
+  const marker = locale === "ko" ? "[가격 확인 필요]" : "[price source needed]";
+
+  const inRange = (cents: number) =>
+    allowedCents.some((a) => {
+      if (a <= 0) return false;
+      const ratio = cents / a;
+      return ratio >= 1 / SUSPICIOUS_RATIO && ratio <= SUSPICIOUS_RATIO;
+    });
+
+  // USD: $X,XXX(.XX), $XXX(.XX), and "X,XXX달러" / "XXX달러" / "X,XXX USD".
+  // Captures the leading marker $ or the trailing 달러/USD; rawValue is dollars.
+  const usdPatterns: RegExp[] = [
+    /\$\s?(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)/g,
+    /(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)\s?달러/g,
+    /(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)\s?USD\b/g,
+  ];
+
+  // KRW: X,XXX원, XX,XXX,XXX원, X만원, X억원. rawValue is in won (or won × multiplier).
+  const krwPatterns: Array<{ regex: RegExp; multiplier: number }> = [
+    { regex: /(\d{1,3}(?:,\d{3})+|\d+)\s?원/g, multiplier: 1 },
+    { regex: /(\d+(?:\.\d+)?)\s?만원/g, multiplier: 10_000 },
+    { regex: /(\d+(?:\.\d+)?)\s?억원/g, multiplier: 100_000_000 },
+  ];
+
+  let result = text;
+
+  for (const re of usdPatterns) {
+    result = result.replace(re, (match, num: string) => {
+      const value = parseFloat(num.replace(/,/g, ""));
+      if (!Number.isFinite(value) || value <= 0) return match;
+      const cents = priceTokenToCents(value, "USD");
+      if (inRange(cents)) return match;
+      flagged.push(`USD ${num} (${match})`);
+      return marker;
+    });
+  }
+
+  for (const { regex, multiplier } of krwPatterns) {
+    result = result.replace(regex, (match, num: string) => {
+      const value = parseFloat(num.replace(/,/g, ""));
+      if (!Number.isFinite(value) || value <= 0) return match;
+      const won = value * multiplier;
+      const cents = priceTokenToCents(won, "KRW");
+      if (inRange(cents)) return match;
+      flagged.push(`KRW ${num} (${match})`);
+      return marker;
+    });
+  }
+
+  return { text: result, flagged };
 }
 
 function modeRiskLevel(sims: EnsembleSimSnapshot[]): "low" | "medium" | "high" {

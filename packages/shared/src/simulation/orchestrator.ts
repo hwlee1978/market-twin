@@ -828,6 +828,8 @@ export async function aggregateAndPersist(opts: {
       crossCountryDistribution: aggregate.crossCountryDistribution,
       candidateCountries: projectInput?.candidateCountries,
       top2: top2Info,
+      basePriceCents: projectInput?.basePriceCents,
+      currency: projectInput?.currency,
     });
     if (narrative) aggregate.narrative = narrative;
   }

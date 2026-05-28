@@ -57,7 +57,7 @@ export async function POST(
   // Project context — productName + locale heuristic
   const { data: project } = await supabase
     .from("projects")
-    .select("product_name, candidate_countries")
+    .select("product_name, candidate_countries, base_price_cents, currency")
     .eq("id", ensemble.project_id)
     .single();
   if (!project?.product_name) {
@@ -195,6 +195,8 @@ export async function POST(
           crossCountryDistribution: aggregate.crossCountryDistribution,
           candidateCountries: project.candidate_countries ?? undefined,
           top2: top2Info,
+          basePriceCents: project.base_price_cents ?? undefined,
+          currency: project.currency ?? undefined,
         }),
     );
   } catch (e) {
