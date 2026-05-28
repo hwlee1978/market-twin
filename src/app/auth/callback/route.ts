@@ -11,7 +11,15 @@ import { notifyWelcome } from "@/lib/email/notify";
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  const rawNext = searchParams.get("next") ?? "/dashboard";
+
+  // Locale prefix is REQUIRED on every in-app URL — without it the
+  // next-intl middleware can't resolve the route and the user sees a
+  // 404 right after Google OAuth completes. Detect from Accept-Language
+  // (default ko) and prepend if the next path isn't already locale-prefixed.
+  const accept = request.headers.get("accept-language") ?? "";
+  const locale: "ko" | "en" = accept.startsWith("en") ? "en" : "ko";
+  const next = /^\/(ko|en)(\/|$)/.test(rawNext) ? rawNext : `/${locale}${rawNext}`;
 
   if (code) {
     const supabase = await createClient();
@@ -19,13 +27,6 @@ export async function GET(request: Request) {
     if (!error && data.user && data.user.email) {
       const meta = (data.user.user_metadata ?? {}) as { welcome_sent_at?: string };
       if (!meta.welcome_sent_at) {
-        // Derive locale from the Accept-Language header — defaults to ko
-        // since our user base is KR-first. (Supabase doesn't track the
-        // user's preferred locale natively; the language of the email
-        // they get is best-effort.)
-        const accept = request.headers.get("accept-language") ?? "";
-        const locale: "ko" | "en" = accept.startsWith("en") ? "en" : "ko";
-
         // Fire welcome email + stamp metadata atomically. Stamp BEFORE
         // send so a retry that lands here again doesn't double-send if
         // the email succeeds but the stamp fails. (Either we send once
