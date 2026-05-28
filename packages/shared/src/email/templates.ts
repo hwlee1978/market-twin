@@ -43,6 +43,24 @@ const COPY = {
       `<strong>${p}</strong> 시뮬레이션이 완료되지 못했습니다. 아래 메시지를 확인하시고 재시도해주세요.`,
     failedCtaLabel: "프로젝트로 가서 재시도",
     footer: "이 메일은 워크스페이스 활동 알림입니다.",
+    welcomeSubject: "Market Twin에 오신 것을 환영합니다",
+    welcomeHello: "환영합니다",
+    welcomeIntro:
+      "AI Market Twin 가입을 환영합니다. 지금부터 7일 동안 또는 시뮬 1건을 사용하실 때까지 모든 기능을 무료로 사용해보실 수 있습니다.",
+    welcomeNextSteps: "다음 단계",
+    welcomeStep1Title: "첫 프로젝트 생성",
+    welcomeStep1Body:
+      "제품 이름, 카테고리, 가격, 타겟층을 입력하면 5분 안에 첫 시뮬레이션을 시작할 수 있습니다. 비기술자도 가능합니다.",
+    welcomeStep2Title: "초기검증 (Hypothesis)으로 시작",
+    welcomeStep2Body:
+      "무료 체험 시뮬은 \"초기검증\" tier — 600명 AI 페르소나가 3개 시뮬을 멀티 LLM로 돌려 Top-2 후보 시장을 7-10분 안에 알려드립니다.",
+    welcomeStep3Title: "결과로 의사결정",
+    welcomeStep3Body:
+      "PDF 리포트, CSV 내보내기, 공개 공유 링크까지 — 임원진 보고에 그대로 쓸 수 있는 형태로 제공됩니다.",
+    welcomeCtaPrimary: "지금 시작하기",
+    welcomeCtaSecondary: "방법론 보기",
+    welcomeQuestions:
+      "궁금한 점이 있으시면 언제든 <a href=\"mailto:contact@markettwin.ai\" style=\"color:#0A1F4D;text-decoration:underline\">contact@markettwin.ai</a> 로 문의해주세요.",
   },
   en: {
     appName: "AI Market Twin",
@@ -58,6 +76,24 @@ const COPY = {
     failedHello: "Simulation failed",
     failedIntro: (p: string) =>
       `Your <strong>${p}</strong> simulation didn't finish. The error is shown below — head back to the project to retry.`,
+    welcomeSubject: "Welcome to Market Twin",
+    welcomeHello: "Welcome aboard",
+    welcomeIntro:
+      "Thanks for signing up. You have free access for the next 7 days or 1 full simulation — whichever comes first. No credit card required.",
+    welcomeNextSteps: "Next steps",
+    welcomeStep1Title: "Create your first project",
+    welcomeStep1Body:
+      "Enter your product name, category, price, and target audience. You can launch your first simulation in under 5 minutes — no technical setup needed.",
+    welcomeStep2Title: "Start with Hypothesis tier",
+    welcomeStep2Body:
+      "Your free simulation runs at the Hypothesis tier: 600 AI personas across 3 multi-LLM sims, returning the Top-2 candidate markets in 7-10 minutes.",
+    welcomeStep3Title: "Use the results to decide",
+    welcomeStep3Body:
+      "PDF report, CSV export, and a public share link — formatted for executive review out of the box.",
+    welcomeCtaPrimary: "Get started",
+    welcomeCtaSecondary: "Read the methodology",
+    welcomeQuestions:
+      "Questions? Reach us anytime at <a href=\"mailto:contact@markettwin.ai\" style=\"color:#0A1F4D;text-decoration:underline\">contact@markettwin.ai</a>.",
     failedCtaLabel: "Retry from project",
     footer: "This email is a workspace activity notification.",
   },
@@ -118,6 +154,87 @@ export function renderFailedEmail(input: FailedInput) {
       ${escape(c.failedCtaLabel)} →
     </a>
   `, c.appName, c.footer);
+  return { subject, html, text };
+}
+
+interface WelcomeInput {
+  locale: Locale;
+  appUrl: string;       // e.g. https://app.markettwin.ai
+  marketingUrl: string; // e.g. https://www.markettwin.ai
+}
+
+/**
+ * One-time welcome email sent right after a user confirms their email
+ * (or after first successful session if email confirmation is off).
+ * Sets the free-trial expectation, walks through the first 3 steps,
+ * and gives both an in-app and methodology CTA so the user picks the
+ * path that matches their reading style.
+ */
+export function renderWelcomeEmail(input: WelcomeInput) {
+  const c = COPY[input.locale];
+  const subject = c.welcomeSubject;
+  const dashboardUrl = `${input.appUrl}/${input.locale}/dashboard`;
+  const methodologyUrl =
+    input.locale === "ko"
+      ? `${input.marketingUrl}/methodology.html`
+      : `${input.marketingUrl}/methodology-en.html`;
+
+  const step = (n: number, title: string, body: string) => `
+    <tr>
+      <td style="padding:14px 16px;border-bottom:1px solid #f1f5f9;vertical-align:top;width:36px;">
+        <span style="display:inline-block;width:24px;height:24px;line-height:24px;border-radius:12px;background:#0A1F4D;color:#fff;font-size:12px;font-weight:700;text-align:center;">${n}</span>
+      </td>
+      <td style="padding:14px 16px 14px 0;border-bottom:1px solid #f1f5f9;">
+        <div style="font-size:14px;font-weight:600;color:#0f172a;margin-bottom:4px;">${escape(title)}</div>
+        <div style="font-size:13px;color:#475569;line-height:1.65;">${escape(body)}</div>
+      </td>
+    </tr>
+  `;
+
+  const text = [
+    c.welcomeHello,
+    "",
+    c.welcomeIntro,
+    "",
+    c.welcomeNextSteps,
+    `1. ${c.welcomeStep1Title} — ${c.welcomeStep1Body}`,
+    `2. ${c.welcomeStep2Title} — ${c.welcomeStep2Body}`,
+    `3. ${c.welcomeStep3Title} — ${c.welcomeStep3Body}`,
+    "",
+    `${c.welcomeCtaPrimary}: ${dashboardUrl}`,
+    `${c.welcomeCtaSecondary}: ${methodologyUrl}`,
+  ].join("\n");
+
+  const html = layout(
+    `
+    <h1 style="margin:0 0 8px 0;font-size:22px;color:#0f172a;letter-spacing:-0.01em;">${escape(c.welcomeHello)}</h1>
+    <p style="margin:0 0 22px 0;font-size:14px;line-height:1.7;color:#475569;">
+      ${escape(c.welcomeIntro)}
+    </p>
+
+    <div style="font-size:11px;font-weight:700;color:#0A1F4D;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">
+      ${escape(c.welcomeNextSteps)}
+    </div>
+    <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+      ${step(1, c.welcomeStep1Title, c.welcomeStep1Body)}
+      ${step(2, c.welcomeStep2Title, c.welcomeStep2Body)}
+      ${step(3, c.welcomeStep3Title, c.welcomeStep3Body)}
+    </table>
+
+    <a href="${dashboardUrl}" style="display:inline-block;background:#0A1F4D;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;margin-right:8px;">
+      ${escape(c.welcomeCtaPrimary)} →
+    </a>
+    <a href="${methodologyUrl}" style="display:inline-block;color:#0A1F4D;text-decoration:none;padding:12px 16px;border-radius:8px;font-size:14px;font-weight:500;border:1px solid #e2e8f0;">
+      ${escape(c.welcomeCtaSecondary)}
+    </a>
+
+    <p style="margin:28px 0 0 0;font-size:13px;line-height:1.65;color:#64748b;">
+      ${c.welcomeQuestions}
+    </p>
+    `,
+    c.appName,
+    c.footer,
+  );
   return { subject, html, text };
 }
 

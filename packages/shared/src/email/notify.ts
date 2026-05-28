@@ -5,6 +5,7 @@ import {
   type Locale,
   renderCompleteEmail,
   renderFailedEmail,
+  renderWelcomeEmail,
 } from "./templates";
 
 /**
@@ -297,6 +298,36 @@ export async function notifyEnsembleComplete(args: {
     }
   } catch (err) {
     console.warn("[notify] ensemble email failed", err);
+  }
+}
+
+/**
+ * Welcome email — fired exactly once, right after a user confirms email
+ * (or first session if email confirmation is off). Caller is responsible
+ * for ensuring once-only delivery (Supabase user metadata flag).
+ * Best-effort: a failed send must not block the signup callback.
+ */
+export async function notifyWelcome(args: {
+  email: string;
+  locale: Locale;
+}): Promise<void> {
+  const resend = getResend();
+  if (!resend) return;
+  try {
+    const { subject, html, text } = renderWelcomeEmail({
+      locale: args.locale,
+      appUrl: appUrl(),
+      marketingUrl: "https://www.markettwin.ai",
+    });
+    await resend.emails.send({
+      from: getFromAddress(),
+      to: [args.email],
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.warn("[notify] welcome email failed", err);
   }
 }
 
