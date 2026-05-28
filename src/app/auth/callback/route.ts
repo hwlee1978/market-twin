@@ -51,5 +51,12 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(`${origin}${next}`);
+  // no-store: Vercel CDN previously cached a 404 from a broken deploy of
+  // this route, which kept being served back even after the code was
+  // fixed. Setting Cache-Control: no-store on every response (including
+  // the 307 redirect) makes sure the edge never holds onto an outcome
+  // again. Auth callbacks must always be fresh per-request anyway.
+  const res = NextResponse.redirect(`${origin}${next}`);
+  res.headers.set("cache-control", "no-store");
+  return res;
 }
