@@ -435,7 +435,6 @@ function CreateModal({
   return (
     <div
       className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4"
-      onClick={onClose}
     >
       <div
         className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl"

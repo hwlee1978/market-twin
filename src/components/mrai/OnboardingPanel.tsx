@@ -375,7 +375,6 @@ function AutoSeedModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4"
-      onClick={submitting ? undefined : onClose}
     >
       <div
         className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 relative"

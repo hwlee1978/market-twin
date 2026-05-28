@@ -305,7 +305,6 @@ function CreateMarketingChannelModal({
   return (
     <div
       className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4"
-      onClick={onClose}
     >
       <div
         className="bg-white rounded-xl w-full max-w-lg shadow-2xl"
