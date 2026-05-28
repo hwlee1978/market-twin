@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Loader2, Search, ExternalLink, X as CloseX, Check } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Loader2,
+  Search,
+  ExternalLink,
+  X as CloseX,
+  Check,
+  HelpCircle,
+  ChevronDown,
+} from "lucide-react";
 
 type SeoProperty = {
   id: string;
@@ -364,6 +374,27 @@ function PropertyModal({
           </button>
         </div>
         <div className="px-5 py-4 space-y-3 text-sm">
+          {mode === "create" && (
+            <div className="rounded-md bg-slate-50 border border-slate-200 px-3 py-2.5 text-[11px] text-slate-600 leading-relaxed">
+              <div className="font-semibold text-slate-800 mb-1">
+                💡 어디까지 채워야 하나요?
+              </div>
+              <ul className="list-disc pl-4 space-y-0.5">
+                <li>
+                  <strong>필수</strong>: 사이트 URL 1개. 나머지는 모두 선택.
+                </li>
+                <li>
+                  <strong>추천</strong>: 기본 메타 제목 · 설명 · 키워드 — Mr.AI 가 SEO 추천을 만들 때 컨텍스트로 사용.
+                </li>
+                <li>
+                  <strong>나중에</strong>: GSC · GA4 · 네이버 · Sitemap — 사이트에 아직 연결 안 했으면 비워두고 나중에 추가해도 됩니다.
+                </li>
+              </ul>
+              <div className="mt-1.5 text-slate-500">
+                각 섹션의 <span className="text-brand font-medium">"처음이라면…"</span> 링크를 펼치면 어디서 찾는지 단계별로 안내합니다.
+              </div>
+            </div>
+          )}
           <Field label="사이트 URL *">
             <input
               value={propertyUrl}
@@ -399,6 +430,28 @@ function PropertyModal({
           <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider pt-2">
             Google Search Console
           </h4>
+          <SectionHelp
+            title="처음이라면 — GSC 속성 ID 찾는 법"
+            consoleLabel="Google Search Console 열기"
+            consoleUrl="https://search.google.com/search-console"
+            steps={[
+              <>구글 계정으로 로그인 후 좌측 상단 <strong>속성 추가</strong> 클릭.</>,
+              <>
+                <strong>도메인</strong>(전체 도메인 한 번에 권장) 또는 <strong>URL 접두어</strong> 선택 → 사이트 주소 입력 (예: <code className="font-mono bg-white px-1">lemouton.com</code>).
+              </>,
+              <>
+                안내되는 방법(도메인 DNS TXT 레코드 또는 HTML 파일 업로드)으로 <strong>소유권 확인</strong>. 도메인 방식은 가비아·Porkbun·Cafe24 등 도메인 관리 콘솔에서 TXT 추가.
+              </>,
+              <>
+                확인 완료되면 GSC 좌측 상단 <strong>속성 선택 풀다운</strong>에 표기된 값을 그대로 복사.
+              </>,
+            ]}
+            formatHint={
+              <>
+                도메인 방식 = <code className="font-mono bg-white px-1">sc-domain:lemouton.com</code> / URL 접두어 방식 = <code className="font-mono bg-white px-1">https://lemouton.com/</code>
+              </>
+            }
+          />
           <Field label="GSC 등록 Property">
             <input
               value={gscProperty}
@@ -411,6 +464,30 @@ function PropertyModal({
           <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider pt-2">
             Google Analytics 4
           </h4>
+          <SectionHelp
+            title="처음이라면 — GA4 ID 두 개 찾는 법"
+            consoleLabel="Google Analytics 열기"
+            consoleUrl="https://analytics.google.com"
+            steps={[
+              <>
+                구글 계정으로 로그인 후 좌측 하단 <strong>⚙ 관리</strong> (톱니바퀴).
+              </>,
+              <>
+                <strong>속성 ID</strong>: 가운데 <em>속성</em> 컬럼에서 <strong>속성 세부정보</strong> → 우측 상단의 9-10자리 숫자 (예: <code className="font-mono bg-white px-1">123456789</code>).
+              </>,
+              <>
+                <strong>Measurement ID (G-XXX)</strong>: <em>속성</em> 컬럼 → <strong>데이터 스트림</strong> → 웹 스트림 한 줄 클릭 → 우측에 <code className="font-mono bg-white px-1">G-XXXXXXXXXX</code> 형태로 표시.
+              </>,
+              <>
+                GA4 계정이 아직 없으면 좌측 하단 <strong>관리 → 속성 만들기</strong> 로 새 속성 생성 → 웹 스트림 등록 시 자동 발급.
+              </>,
+            ]}
+            formatHint={
+              <>
+                Measurement ID 는 <code className="font-mono bg-white px-1">G-</code> 접두어 그대로 / Property ID 는 숫자 앞에 <code className="font-mono bg-white px-1">properties/</code> 를 붙여서 입력 (예: <code className="font-mono bg-white px-1">properties/123456789</code>).
+              </>
+            }
+          />
           <Field label="Measurement ID (G-XXX)">
             <input
               value={ga4MeasurementId}
@@ -431,6 +508,28 @@ function PropertyModal({
           <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider pt-2">
             네이버 서치어드바이저
           </h4>
+          <SectionHelp
+            title="처음이라면 — 네이버 사이트 등록 방법"
+            consoleLabel="네이버 서치어드바이저 열기"
+            consoleUrl="https://searchadvisor.naver.com"
+            steps={[
+              <>네이버 계정으로 로그인 후 상단 <strong>웹마스터 도구</strong> 진입.</>,
+              <>
+                <strong>사이트 관리 → 사이트 등록</strong> 클릭 → 사이트 URL 입력 (예: <code className="font-mono bg-white px-1">https://lemouton.com</code>).
+              </>,
+              <>
+                안내된 <strong>HTML 메타태그</strong>를 사이트 <code className="font-mono bg-white px-1">&lt;head&gt;</code> 에 추가하거나 <strong>HTML 파일</strong>을 루트에 업로드 → <strong>소유 확인</strong>.
+              </>,
+              <>
+                등록 완료된 사이트 URL을 그대로 복사. 가능한 빨리 사이트맵·RSS 도 함께 제출 (아래 섹션에서 URL 입력).
+              </>,
+            ]}
+            formatHint={
+              <>
+                반드시 <code className="font-mono bg-white px-1">https://</code> 접두어 포함 (예: <code className="font-mono bg-white px-1">https://lemouton.com</code>).
+              </>
+            }
+          />
           <Field label="네이버 등록 사이트 URL">
             <input
               value={naverSiteUrl}
@@ -443,6 +542,30 @@ function PropertyModal({
           <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider pt-2">
             Sitemap / RSS
           </h4>
+          <SectionHelp
+            title="처음이라면 — Sitemap / RSS URL 찾는 법"
+            consoleLabel="일반적인 위치 가이드"
+            consoleUrl="https://www.sitemaps.org/protocol.html"
+            steps={[
+              <>
+                <strong>Sitemap</strong>: 대부분 자동 생성됩니다. 브라우저에서 직접 확인 — 흔한 위치: <code className="font-mono bg-white px-1">/sitemap.xml</code>, <code className="font-mono bg-white px-1">/sitemap_index.xml</code>, <code className="font-mono bg-white px-1">/sitemaps.xml</code>.
+              </>,
+              <>
+                플랫폼별: <strong>Cafe24</strong> 는 관리자페이지 → SEO 설정 / <strong>WordPress</strong> 는 <code className="font-mono bg-white px-1">/sitemap_index.xml</code> (Yoast/Rank Math) / <strong>Next.js</strong> 는 <code className="font-mono bg-white px-1">app/sitemap.ts</code> 로 자동 생성.
+              </>,
+              <>
+                없으면 무료 생성기 (예: xml-sitemaps.com) 로 만들어서 사이트 루트에 업로드.
+              </>,
+              <>
+                <strong>RSS</strong>: 블로그·뉴스 콘텐츠가 있는 사이트만 해당. 흔한 위치: <code className="font-mono bg-white px-1">/feed</code>, <code className="font-mono bg-white px-1">/feed.xml</code>, <code className="font-mono bg-white px-1">/rss.xml</code>. 없으면 비워두세요.
+              </>,
+            ]}
+            formatHint={
+              <>
+                전체 URL 입력 (예: <code className="font-mono bg-white px-1">https://lemouton.com/sitemap.xml</code>). 브라우저에서 직접 열어 XML 이 보이는지 먼저 확인 권장.
+              </>
+            }
+          />
           <Field label="Sitemap URL">
             <input
               value={sitemapUrl}
@@ -463,6 +586,30 @@ function PropertyModal({
           <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider pt-2">
             기본 메타데이터
           </h4>
+          <SectionHelp
+            title="처음이라면 — 메타데이터 작성 가이드"
+            consoleLabel="검색 결과 미리보기"
+            consoleUrl="https://www.google.com/search?q=site:lemouton.com"
+            steps={[
+              <>
+                <strong>기본 메타 제목</strong>: 검색 결과에 굵게 표시되는 한 줄. <strong>50-60자</strong> 권장. 형식 = <em>브랜드 — 핵심 가치 + 카테고리</em>. 예: <code className="font-mono bg-white px-1">르무통 — K-comfort 캐시미어 아우터</code>.
+              </>,
+              <>
+                <strong>기본 메타 설명</strong>: 제목 아래 회색 두 줄. <strong>140-160자</strong> 권장. 누가·뭐가·왜 좋은지 핵심을 한 문장으로. 예: <em>"30-40대 도시 직장인 여성을 위한 캐시미어 100% 롱코트, 신었다 잊는 편안함을 약속합니다."</em>
+              </>,
+              <>
+                <strong>기본 키워드</strong>: 콤마(,) 로 구분한 5-10개 핵심 검색어. 사용자가 실제로 검색할 표현을 그대로. 예: <code className="font-mono bg-white px-1">캐시미어 코트, 르무통, K-fashion, 프리미엄 아우터, 메리노 울</code>.
+              </>,
+              <>
+                작성 후 위 링크로 구글에 <code className="font-mono bg-white px-1">site:내도메인.com</code> 으로 검색해보면 실제 표시 형태를 확인할 수 있습니다 (인덱싱 후 며칠 소요).
+              </>,
+            ]}
+            formatHint={
+              <>
+                제목·설명 모두 한국어 그대로 입력. 키워드는 콤마 구분 — 각 키워드 앞뒤 공백은 자동 정리됩니다.
+              </>
+            }
+          />
           <Field label="기본 메타 제목">
             <input
               value={defaultMetaTitle}
@@ -520,6 +667,70 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div>
       <label className="text-xs font-semibold text-slate-700 block mb-1">{label}</label>
       {children}
+    </div>
+  );
+}
+
+/**
+ * Collapsible step-by-step guide attached to a section header. Default
+ * collapsed so power users skip past it; non-technical users click to
+ * expand and see a numbered walkthrough + the relevant external console
+ * link. Help text uses indented numbered steps and a footer "✓ 입력 형식"
+ * line so the user knows exactly what to paste back into the form.
+ */
+function SectionHelp({
+  title,
+  consoleLabel,
+  consoleUrl,
+  steps,
+  formatHint,
+}: {
+  title: string;
+  consoleLabel: string;
+  consoleUrl: string;
+  steps: React.ReactNode[];
+  formatHint?: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="-mt-1 mb-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1 text-[11px] text-brand hover:text-brand-700 font-medium"
+      >
+        <HelpCircle className="w-3 h-3" />
+        {title}
+        <ChevronDown
+          className={`w-3 h-3 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="mt-2 rounded-md border border-brand/20 bg-brand/[0.04] px-3 py-2.5 text-[11px] text-slate-700 leading-relaxed">
+          <div className="mb-2">
+            <a
+              href={consoleUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-brand font-semibold hover:underline"
+            >
+              {consoleLabel}
+              <ExternalLink className="w-3 h-3" />
+            </a>
+            <span className="text-slate-500"> 에서 다음 순서로 진행하세요.</span>
+          </div>
+          <ol className="list-decimal pl-4 space-y-1">
+            {steps.map((s, i) => (
+              <li key={i}>{s}</li>
+            ))}
+          </ol>
+          {formatHint && (
+            <div className="mt-2 pt-2 border-t border-brand/15 text-slate-700">
+              <span className="font-semibold text-brand">✓ 입력 형식:</span> {formatHint}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
