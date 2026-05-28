@@ -17,15 +17,19 @@ const nextConfig: NextConfig = {
 // hooks into the build to upload source maps (if SENTRY_AUTH_TOKEN is
 // set) and rewrite client bundles so stack traces resolve to original
 // TS files. No-ops cleanly when SENTRY_DSN is absent.
+//
+// errorHandler: source-map upload failure (wrong project slug, 401,
+// network, etc.) MUST NOT fail the production build — runtime error
+// reporting still works without uploaded maps, you just get minified
+// stack traces. Build failure on a non-critical observability step
+// blocks shipping the actual app, which is the wrong tradeoff.
 export default withSentryConfig(withNextIntl(nextConfig), {
   org: "market-twin",
   project: "market-twin",
   silent: !process.env.CI,
-  // Source maps only upload when an auth token is present. Without it
-  // Sentry still captures errors, just with minified stack traces — fine
-  // for staging and any pre-token environment.
   authToken: process.env.SENTRY_AUTH_TOKEN,
-  // Tunnel ad-blocker-vulnerable ingest calls through our own /monitoring
-  // route — uBlock and similar block *.ingest.sentry.io otherwise.
   tunnelRoute: "/monitoring",
+  errorHandler: (err) => {
+    console.warn("[sentry] source map upload failed; build continues:", err.message);
+  },
 });
