@@ -37,7 +37,28 @@ type Preset = {
     query?: string;          // current query string (for news_rss presets)
     brand_filter?: string;
   };
+  // Workspace category gate. `null` = universal (always show). Otherwise
+  // only emit when the workspace's product profile category is listed.
+  // Without this, fashion-specific competitor presets (Allbirds, Cole
+  // Haan, etc.) bled into every workspace including B2B SaaS ones.
+  categories?: ProductCategory[] | null;
 };
+
+type ProductCategory =
+  | "footwear"
+  | "apparel"
+  | "cosmetics"
+  | "skincare"
+  | "fragrance"
+  | "accessories"
+  | "jewelry"
+  | "electronics"
+  | "home_goods"
+  | "food_beverage"
+  | "health_supplements"
+  | "saas_digital"
+  | "ip_media"
+  | "other";
 
 function gnews(q: string, lang: "ko" | "en"): string {
   const encoded = encodeURIComponent(q);
@@ -89,6 +110,17 @@ export async function GET() {
     .limit(1);
   const selfDomain =
     Array.isArray(seoProps) && seoProps.length > 0 ? seoProps[0].property_url : null;
+
+  // Workspace category (drives category-specific preset gating). Falls back
+  // to "other" when the workspace hasn't built a product profile yet —
+  // that effectively hides every category-tagged preset, which is the
+  // privacy-safe default ("show nothing irrelevant").
+  const { data: profile } = await supabase
+    .from("mrai_workspace_product_profile")
+    .select("category")
+    .eq("workspace_id", wsCtx.workspaceId)
+    .maybeSingle<{ category: ProductCategory }>();
+  const wsCategory: ProductCategory = profile?.category ?? "other";
 
   const presets: Preset[] = [];
 
@@ -186,6 +218,10 @@ export async function GET() {
       label_text: c.label_text,
       brand_filter: null,
       edit_hints: {},
+      // Footwear-specific (Allbirds / Cole Haan / On Running are
+      // all sneaker brands). Apparel workspaces could plausibly want
+      // these too, so we include both.
+      categories: ["footwear", "apparel"],
     });
   }
 
@@ -203,6 +239,7 @@ export async function GET() {
     label_text: "Allbirds/Veja/On 뉴스",
     brand_filter: null,
     edit_hints: { query: 'Allbirds OR Veja OR "On Running"' },
+    categories: ["footwear", "apparel"],
   });
 
   // ─── Category trends ───────────────────────────────────────────
@@ -219,6 +256,7 @@ export async function GET() {
     label_text: "K-fashion 스니커즈 트렌드",
     brand_filter: null,
     edit_hints: { query: '"K-fashion" sneaker' },
+    categories: ["footwear", "apparel"],
   });
   presets.push({
     id: "news_merino_wool",
@@ -233,6 +271,7 @@ export async function GET() {
     label_text: "메리노 울 스니커즈 뉴스",
     brand_filter: null,
     edit_hints: { query: '"merino wool" sneaker' },
+    categories: ["footwear"],
   });
   presets.push({
     id: "news_sustainable_fashion",
@@ -246,10 +285,17 @@ export async function GET() {
     label_text: "지속가능 패션 트렌드",
     brand_filter: null,
     edit_hints: { query: '"sustainable fashion"' },
+    categories: ["footwear", "apparel", "accessories"],
   });
 
+  // Apply category gate. Presets without an explicit `categories` field
+  // are universal (self_website, brand monitoring, etc.) and always pass.
+  const filtered = presets.filter(
+    (p) => !p.categories || p.categories.includes(wsCategory),
+  );
+
   return NextResponse.json({
-    workspace: { name: brandKr, brand_en: brandEn },
-    presets,
+    workspace: { name: brandKr, brand_en: brandEn, category: wsCategory },
+    presets: filtered,
   });
 }
