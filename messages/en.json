@@ -43,8 +43,8 @@
     },
     "privacy": {
       "title": "Privacy Policy",
-      "lastUpdated": "April 30, 2026",
-      "intro": "Market Twin (the 'Company' or 'Service') takes user privacy seriously and complies with applicable regulations including Korea's Personal Information Protection Act and GDPR. This policy explains what information we collect, how we use it, and how we protect it.",
+      "lastUpdated": "May 28, 2026",
+      "intro": "Mr.AI Inc. (the 'Company') operates Market Twin (the 'Service') and processes user personal information in accordance with Korea's Personal Information Protection Act ('PIPA'). EU residents additionally retain rights under the GDPR. This policy describes how the Company collects, uses, shares, retains, and deletes personal information.",
       "collect": {
         "title": "Information We Collect",
         "body": "We collect the following information to provide the service:",
@@ -62,12 +62,74 @@
         "item4": "Service stability / security monitoring and abuse prevention"
       },
       "share": {
-        "title": "Third-Party Processors",
-        "body": "We share data with the following trusted processors to operate the service. We do not sell or share user data for marketing or advertising purposes.",
-        "supabase": "Database hosting and authentication (US / EU regions)",
-        "vercel": "Web application hosting (global CDN)",
-        "llm": "AI simulation processing (simulation inputs are sent to AI models; data is not used for training)",
-        "resend": "Transactional email delivery"
+        "title": "Data Processors",
+        "body": "We engage the following processors to operate the service. We do not sell or share user data for marketing or advertising purposes.",
+        "supabase": "Database hosting and authentication (Seoul region — aws ap-northeast-2, data stored domestically in Korea)",
+        "vercel": "Web application hosting (global edge CDN — see cross-border transfer section)",
+        "llm": "AI simulation inference (simulation inputs are sent to LLM APIs — see cross-border transfer section)",
+        "resend": "Transactional email delivery (see cross-border transfer section)"
+      },
+      "aiProcessing": {
+        "title": "AI Data Processing Notice",
+        "body": "The core feature of this service is simulation powered by Large Language Models (LLMs). Below is how the Company handles AI processing:",
+        "inputsTitle": "Inputs sent to AI",
+        "input1": "Simulation wizard inputs: product name, description, price, candidate countries, competitor URLs",
+        "input2": "Mr.AI chat messages and workspace memory (user-authored context)",
+        "input3": "Optional attachments (PDF, images) — only when explicitly uploaded by the user",
+        "purposeTitle": "Purpose and inference-vs-training distinction",
+        "purpose1": "Inputs received are used solely for Inference. They are NOT used for model Training.",
+        "purpose2": "Each LLM provider's enterprise API mode defaults to training opt-out, and the Company uses API accounts with training opt-out explicitly disabled (Anthropic Claude API, OpenAI API enterprise data policy, Google Vertex AI / AI Studio).",
+        "providersTitle": "LLM providers used",
+        "provider1": "Anthropic — Claude (Opus / Sonnet / Haiku)",
+        "provider2": "OpenAI — GPT-4 / GPT-4o / o-series",
+        "provider3": "Google — Gemini (1.5 / 2.x)",
+        "provider4": "DeepSeek — DeepSeek-V3 / R1",
+        "provider5": "Replicate — image generation models (only triggered explicitly by the user)",
+        "optoutTitle": "Right to refuse / limitations",
+        "optoutBody": "AI inference is an essential feature of this service; refusing AI processing means you cannot use the service. If you do not consent to AI processing, please do not sign up; if you withdraw consent after signup, your account will be deleted by the Company.",
+        "decisionTitle": "Automated decision-making (PIPA Art. 37-2)",
+        "decisionBody": "Simulation outputs (success score, recommended market, price, persona intent, etc.) are statistical estimates produced by LLM inference and are generated automatically without human review. Users may object to the result or request re-generation (re-run). If a result substantially influences a business decision, the user may request human review by contacting the Company."
+      },
+      "crossBorder": {
+        "title": "Cross-Border Transfer of Personal Information (PIPA Art. 28)",
+        "body": "The Company transfers user personal information and simulation inputs overseas as listed below. This is collected as a separate consent item; refusal means the service cannot be used.",
+        "tableHeaderRecipient": "Recipient",
+        "tableHeaderCountry": "Country",
+        "tableHeaderItems": "Items transferred",
+        "tableHeaderPurpose": "Purpose",
+        "tableHeaderRetention": "Retention",
+        "row1Recipient": "Anthropic, PBC (privacy@anthropic.com)",
+        "row1Country": "United States",
+        "row1Items": "Simulation inputs, chat messages",
+        "row1Purpose": "Claude API inference",
+        "row1Retention": "Per Anthropic Data Usage Policy (0 days when ZDR option is enabled)",
+        "row2Recipient": "OpenAI, L.L.C. (privacy@openai.com)",
+        "row2Country": "United States",
+        "row2Items": "Simulation inputs, chat messages",
+        "row2Purpose": "GPT API inference",
+        "row2Retention": "Per OpenAI Enterprise data policy (30-day abuse monitoring then deletion)",
+        "row3Recipient": "Google LLC (Vertex AI / AI Studio)",
+        "row3Country": "US / EU / Asia (varies by model)",
+        "row3Items": "Simulation inputs, chat messages",
+        "row3Purpose": "Gemini API inference",
+        "row3Retention": "Per Google Cloud Data Processing Addendum",
+        "row4Recipient": "DeepSeek (api@deepseek.com)",
+        "row4Country": "Singapore — DeepSeek International Pte. Ltd.",
+        "row4Items": "Simulation inputs",
+        "row4Purpose": "DeepSeek API inference",
+        "row4Retention": "Per DeepSeek API Privacy Policy",
+        "row5Recipient": "Vercel Inc.",
+        "row5Country": "United States",
+        "row5Items": "HTTP request metadata, session cookies",
+        "row5Purpose": "Web hosting and edge caching",
+        "row5Retention": "30 days (access logs)",
+        "row6Recipient": "Resend, Inc.",
+        "row6Country": "United States",
+        "row6Items": "Email address, message content",
+        "row6Purpose": "Transactional / notification email delivery",
+        "row6Retention": "Auto-deleted after 30 days",
+        "method": "Method: API calls over TLS 1.2+ HTTPS encrypted channels. Transfers occur at the moment you run a simulation or compose a Mr.AI chat.",
+        "refusalNote": "Right to refuse: Users may refuse cross-border transfer consent, but because the service depends on US-based LLM providers, refusal precludes account signup and simulation use."
       },
       "retention": {
         "title": "Retention",
@@ -87,11 +149,22 @@
       },
       "changes": {
         "title": "Changes to This Policy",
-        "body": "We may update this policy from time to time. Material changes will be communicated via email or in-service notice."
+        "body": "We may update this policy from time to time. For material changes we will notify users via email and in-service notice at least 7 days before the change takes effect; changes that are adverse to users or require new consent will require fresh consent."
+      },
+      "dpo": {
+        "title": "Data Protection Officer (PIPA Art. 31)",
+        "body": "The Company designates the following Data Protection Officer to oversee personal information processing and to handle inquiries, complaints, and remediation requests:",
+        "name": "Name: Hyunwoo Lee",
+        "role": "Title: CEO and Data Protection Officer",
+        "email": "Email: privacy@markettwin.ai",
+        "phoneNote": "Phone inquiries: please request a call back via the email above.",
+        "department": "Entity: Mr.AI Inc. (Business registration no. 693-87-03907)",
+        "remedyTitle": "Remedies for rights infringement",
+        "remedyBody": "Reports and consultations regarding privacy violations may be directed to: Personal Information Dispute Mediation Committee (+82-1833-6972, www.kopico.go.kr), Personal Information Infringement Report Center (+82-118, privacy.kisa.or.kr), Supreme Prosecutors' Office Cyber Investigation (+82-2-3480-3573), National Police Agency Cyber Bureau (+82-182)."
       },
       "contact": {
         "title": "Contact",
-        "body": "For privacy questions, please contact hello@markettwin.app."
+        "body": "For general privacy questions please contact contact@markettwin.ai. For rights exercise and infringement reports please contact privacy@markettwin.ai."
       }
     },
     "terms": {
@@ -234,6 +307,7 @@
       "required": "Required",
       "optional": "Optional",
       "agreeRich": "I agree to the <terms>Terms of Service</terms> and <privacy>Privacy Policy</privacy>",
+      "crossBorderRich": "I consent to cross-border transfer of my simulation inputs and chat content to overseas LLM providers (Anthropic / OpenAI / Google / DeepSeek in the US and Singapore) for AI inference (<privacy>see the cross-border transfer table</privacy>)",
       "marketing": "Send me Market Twin product updates and newsletters (unsubscribe anytime)"
     },
     "comingSoon": {

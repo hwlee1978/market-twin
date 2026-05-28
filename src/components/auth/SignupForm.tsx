@@ -33,6 +33,7 @@ export function SignupForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreeCrossBorder, setAgreeCrossBorder] = useState(false);
   const [agreeMarketing, setAgreeMarketing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +70,11 @@ export function SignupForm() {
       // prior consent (material policy shifts, new data uses, etc.).
       tos_version: "2026-05-28",
       tos_accepted_at: new Date().toISOString(),
+      // PIPA Art. 28 — separate explicit consent for cross-border transfer
+      // to overseas LLM providers / hosting / mail. Stored alongside ToS
+      // consent so auditors can verify both were captured at signup.
+      cross_border_transfer: agreeCrossBorder,
+      cross_border_accepted_at: new Date().toISOString(),
       marketing_email: agreeMarketing,
     };
     // Persist the chosen plan in the user's auth metadata so the
@@ -240,6 +246,29 @@ export function SignupForm() {
                 <input
                   type="checkbox"
                   className="mt-0.5 w-4 h-4 rounded border-slate-300 text-brand focus:ring-brand shrink-0"
+                  checked={agreeCrossBorder}
+                  onChange={(e) => setAgreeCrossBorder(e.target.checked)}
+                  required
+                />
+                <span className="leading-relaxed">
+                  <span className="text-risk font-semibold">[{t("auth.consent.required")}]</span>{" "}
+                  {t.rich("auth.consent.crossBorderRich", {
+                    privacy: (chunks) => (
+                      <Link
+                        href="/privacy"
+                        target="_blank"
+                        className="text-brand hover:underline font-medium"
+                      >
+                        {chunks}
+                      </Link>
+                    ),
+                  })}
+                </span>
+              </label>
+              <label className="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 w-4 h-4 rounded border-slate-300 text-brand focus:ring-brand shrink-0"
                   checked={agreeMarketing}
                   onChange={(e) => setAgreeMarketing(e.target.checked)}
                 />
@@ -254,7 +283,7 @@ export function SignupForm() {
             {info && <div className="text-sm text-success">{info}</div>}
             <button
               type="submit"
-              disabled={loading || !agreeTerms}
+              disabled={loading || !agreeTerms || !agreeCrossBorder}
               className="btn-primary w-full"
             >
               {loading ? t("auth.signingUp") : t("auth.signupCta")}
