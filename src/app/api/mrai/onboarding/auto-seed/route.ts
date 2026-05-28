@@ -11,9 +11,26 @@ export const dynamic = "force-dynamic";
 // without Vercel killing the function. Typical wall-clock is 25-45s.
 export const maxDuration = 120;
 
+/**
+ * Accept bare domains ("markettwin.ai") alongside fully-qualified URLs
+ * ("https://markettwin.ai/about") — users typically type a domain without
+ * the scheme, and rejecting that input with a generic "Auto-Seed에
+ * 실패했습니다" was the most common cause of false-fail reports. Prepends
+ * https:// when the input lacks one before zod's URL validator runs.
+ */
+const normalizeUrl = (v: unknown): unknown => {
+  if (typeof v !== "string") return v;
+  const trimmed = v.trim();
+  if (!trimmed) return undefined;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+};
+
 const Body = z.object({
   companyName: z.string().trim().min(2).max(120),
-  websiteUrl: z.string().trim().url().max(400).optional(),
+  websiteUrl: z
+    .preprocess(normalizeUrl, z.string().url().max(400).optional())
+    .optional(),
   extraContext: z.string().trim().max(6000).optional(),
 });
 
@@ -36,7 +53,17 @@ export async function POST(req: Request) {
   const raw = await req.json().catch(() => ({}));
   const parsed = Body.safeParse(raw);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    // Surface a human-readable first issue so the UI doesn't fall back
+    // to "Auto-Seed에 실패했습니다." for what is really a validation error.
+    const issues = parsed.error.issues;
+    const detail =
+      issues
+        .map((i) => `${i.path.join(".") || "input"}: ${i.message}`)
+        .join("; ") || "invalid input";
+    return NextResponse.json(
+      { error: "invalid_input", detail, fields: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
   const supabase = await createClient();
