@@ -288,6 +288,133 @@ export async function GET() {
     categories: ["footwear", "apparel", "accessories"],
   });
 
+  // ─── SaaS / AI consumer-research competitors ───────────────────
+  // Direct fetch from each vendor's blog/insights page. Most of these
+  // are behind Cloudflare for the homepage, so we point at the blog
+  // route which is typically less aggressively gated.
+  const saasCompetitors: Array<{
+    id: string;
+    label: string;
+    url: string;
+    label_text: string;
+  }> = [
+    {
+      id: "comp_syntheticusers",
+      label: "Synthetic Users — 블로그",
+      url: "https://www.syntheticusers.com/blog",
+      label_text: "Synthetic Users 블로그",
+    },
+    {
+      id: "comp_yabble",
+      label: "Yabble — 인사이트",
+      url: "https://www.yabble.com/blog",
+      label_text: "Yabble 블로그",
+    },
+    {
+      id: "comp_quantilope",
+      label: "Quantilope — 인사이트",
+      url: "https://www.quantilope.com/insights",
+      label_text: "Quantilope insights",
+    },
+    {
+      id: "comp_remesh",
+      label: "Remesh — 블로그",
+      url: "https://blog.remesh.ai/",
+      label_text: "Remesh 블로그",
+    },
+  ];
+  for (const c of saasCompetitors) {
+    presets.push({
+      id: c.id,
+      group: "경쟁사 페이지",
+      icon: "⚔️",
+      label: c.label,
+      description: `${c.label_text} 변동을 매일 fetch — 신기능·케이스 스터디·가격 추적.`,
+      source_type: "competitor",
+      fetch_interval_hours: 24,
+      url: c.url,
+      label_text: c.label_text,
+      brand_filter: null,
+      edit_hints: {},
+      categories: ["saas_digital"],
+    });
+  }
+
+  // Combined news RSS — covers all the SaaS competitors at once
+  // (Cloudflare-blocked sites are handled by routing through Google News).
+  presets.push({
+    id: "news_aiconsumer_research_combined",
+    group: "경쟁사 뉴스",
+    icon: "📰",
+    label: "AI 컨슈머 리서치 묶음 뉴스",
+    description:
+      "Synthetic Users / Yabble / Quantilope / Remesh / Attest 5개 SaaS 뉴스를 한 번에. 직접 fetch가 막힌 사이트도 우회.",
+    source_type: "news_rss",
+    fetch_interval_hours: 12,
+    url: gnews(
+      '"Synthetic Users" OR Yabble OR Quantilope OR Remesh OR "Askattest"',
+      "en",
+    ),
+    label_text: "AI 컨슈머 리서치 SaaS 뉴스",
+    brand_filter: null,
+    edit_hints: {
+      query:
+        '"Synthetic Users" OR Yabble OR Quantilope OR Remesh OR "Askattest"',
+    },
+    categories: ["saas_digital"],
+  });
+
+  // Category trends — useful for any SaaS workspace tracking the
+  // AI-research / synthetic-personas space.
+  presets.push({
+    id: "news_ai_market_research",
+    group: "카테고리 트렌드",
+    icon: "🧠",
+    label: "AI 시장조사 글로벌 트렌드",
+    description: '"AI market research" 키워드 영문 뉴스 — 카테고리 흐름 모니터링.',
+    source_type: "news_rss",
+    fetch_interval_hours: 24,
+    url: gnews('"AI market research"', "en"),
+    label_text: "AI market research 트렌드",
+    brand_filter: null,
+    edit_hints: { query: '"AI market research"' },
+    categories: ["saas_digital"],
+  });
+  presets.push({
+    id: "news_synthetic_personas_category",
+    group: "카테고리 트렌드",
+    icon: "🤖",
+    label: "Synthetic personas / AI 페르소나",
+    description: "synthetic users / AI personas 키워드 영문 뉴스 — 직접 카테고리 동향.",
+    source_type: "news_rss",
+    fetch_interval_hours: 24,
+    url: gnews(
+      '"synthetic users" OR "AI personas" OR "synthetic personas"',
+      "en",
+    ),
+    label_text: "Synthetic personas 트렌드",
+    brand_filter: null,
+    edit_hints: {
+      query: '"synthetic users" OR "AI personas" OR "synthetic personas"',
+    },
+    categories: ["saas_digital"],
+  });
+  presets.push({
+    id: "news_kr_export_trend",
+    group: "카테고리 트렌드",
+    icon: "🇰🇷",
+    label: "한국 수출·해외 진출 동향 (KR)",
+    description:
+      "KOTRA·KITA·한국 수출 키워드 KR 뉴스 — 진출 관련 정책·시장 동향.",
+    source_type: "news_rss",
+    fetch_interval_hours: 24,
+    url: gnews('"한국 수출" OR KOTRA OR KITA OR "해외 진출"', "ko"),
+    label_text: "한국 수출·해외 진출 동향",
+    brand_filter: null,
+    edit_hints: { query: '"한국 수출" OR KOTRA OR KITA OR "해외 진출"' },
+    categories: ["saas_digital"],
+  });
+
   // Apply category gate. Presets without an explicit `categories` field
   // are universal (self_website, brand monitoring, etc.) and always pass.
   const filtered = presets.filter(
