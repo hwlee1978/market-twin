@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronsUpDown, Check, Plus, Building2, X } from "lucide-react";
+import { ChevronsUpDown, Check, Plus, Building2, X, Loader2 } from "lucide-react";
 import { clsx } from "clsx";
 import type { WorkspaceSummary } from "@/lib/workspace";
 
@@ -15,6 +15,7 @@ export function WorkspaceSwitcher({ workspaces }: Props) {
   const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -35,6 +36,8 @@ export function WorkspaceSwitcher({ workspaces }: Props) {
       setOpen(false);
       return;
     }
+    setSwitchingTo(id);
+    setOpen(false);
     startTransition(async () => {
       const res = await fetch("/api/workspaces/switch", {
         method: "POST",
@@ -42,7 +45,6 @@ export function WorkspaceSwitcher({ workspaces }: Props) {
         body: JSON.stringify({ workspaceId: id }),
       });
       if (res.ok) {
-        setOpen(false);
         // ID-scoped routes (/projects/[id]/*, /reports/[id]/*) become
         // invalid after the workspace switch because the new workspace
         // has no such project / report. Staying on the same URL would
@@ -60,6 +62,11 @@ export function WorkspaceSwitcher({ workspaces }: Props) {
           // enough (client-state-backed panels don't reset).
           window.location.reload();
         }
+        // Overlay stays visible until the browser navigates away —
+        // do not clear switchingTo on success.
+      } else {
+        // Failure (e.g. forbidden) — drop overlay so the user can retry.
+        setSwitchingTo(null);
       }
     });
   };
@@ -101,34 +108,41 @@ export function WorkspaceSwitcher({ workspaces }: Props) {
               </div>
             </div>
             <ul className="max-h-72 overflow-y-auto py-1">
-              {workspaces.map((w) => (
-                <li key={w.id}>
-                  <button
-                    type="button"
-                    onClick={() => switchTo(w.id)}
-                    disabled={pending}
-                    className={clsx(
-                      "w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-slate-50 transition-colors",
-                      w.isActive && "bg-brand-50/40",
-                    )}
-                  >
-                    <span className="mt-0.5 w-4 h-4 inline-flex items-center justify-center shrink-0">
-                      {w.isActive && <Check size={14} className="text-brand" />}
-                    </span>
-                    <span className="flex-1 min-w-0">
-                      <span className="block text-xs font-semibold truncate">
-                        {w.name}
+              {workspaces.map((w) => {
+                const isSwitching = switchingTo === w.id;
+                return (
+                  <li key={w.id}>
+                    <button
+                      type="button"
+                      onClick={() => switchTo(w.id)}
+                      disabled={pending}
+                      className={clsx(
+                        "w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-slate-50 transition-colors disabled:opacity-60",
+                        w.isActive && "bg-brand-50/40",
+                      )}
+                    >
+                      <span className="mt-0.5 w-4 h-4 inline-flex items-center justify-center shrink-0">
+                        {isSwitching ? (
+                          <Loader2 size={14} className="text-brand animate-spin" />
+                        ) : w.isActive ? (
+                          <Check size={14} className="text-brand" />
+                        ) : null}
                       </span>
-                      <span className="block text-[10px] text-slate-500 truncate">
-                        {w.companyName ?? w.role}
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-xs font-semibold truncate">
+                          {w.name}
+                        </span>
+                        <span className="block text-[10px] text-slate-500 truncate">
+                          {w.companyName ?? w.role}
+                        </span>
                       </span>
-                    </span>
-                    <span className="text-[10px] uppercase text-slate-400 shrink-0 mt-0.5">
-                      {w.role}
-                    </span>
-                  </button>
-                </li>
-              ))}
+                      <span className="text-[10px] uppercase text-slate-400 shrink-0 mt-0.5">
+                        {w.role}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
             <button
               type="button"
@@ -154,11 +168,51 @@ export function WorkspaceSwitcher({ workspaces }: Props) {
             // doesn't reset client-state-backed panels). The new
             // workspace's empty state needs every panel to re-init.
             void id;
+            setSwitchingTo(id);
             window.location.reload();
           }}
         />
       )}
+
+      {switchingTo && (
+        <SwitchingOverlay
+          targetName={
+            workspaces.find((w) => w.id === switchingTo)?.name ?? ""
+          }
+        />
+      )}
     </>
+  );
+}
+
+/**
+ * Full-screen overlay shown during a workspace switch. The switch chain
+ * (POST /api/workspaces/switch → window.location.assign/reload) takes a
+ * few seconds — without a visible state change, users assume the click
+ * didn't register and click again. The overlay also blocks interactions
+ * with the page that's about to be replaced, preventing stale clicks.
+ */
+function SwitchingOverlay({ targetName }: { targetName: string }) {
+  const t = useTranslations("workspaceSwitcher");
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/55 backdrop-blur-sm"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="bg-white rounded-xl shadow-2xl px-8 py-7 flex flex-col items-center gap-3 max-w-sm mx-4">
+        <Loader2 size={32} className="text-brand animate-spin" />
+        <div className="text-sm font-semibold text-slate-900 text-center">
+          {t("switching")}
+        </div>
+        {targetName && (
+          <div className="text-xs text-brand font-medium">{targetName}</div>
+        )}
+        <div className="text-[11px] text-slate-500 text-center leading-relaxed">
+          {t("switchingSubtitle")}
+        </div>
+      </div>
+    </div>
   );
 }
 

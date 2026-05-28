@@ -861,7 +861,9 @@
     "cancel": "취소",
     "create": "생성",
     "creating": "생성 중...",
-    "createFailed": "워크스페이스 생성에 실패했습니다."
+    "createFailed": "워크스페이스 생성에 실패했습니다.",
+    "switching": "워크스페이스 전환 중...",
+    "switchingSubtitle": "메모리·시뮬·채널 데이터를 새 워크스페이스로 다시 불러오는 중입니다."
   },
   "settings": {
     "title": "설정",

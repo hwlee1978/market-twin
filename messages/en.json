@@ -861,7 +861,9 @@
     "cancel": "Cancel",
     "create": "Create",
     "creating": "Creating...",
-    "createFailed": "Failed to create workspace."
+    "createFailed": "Failed to create workspace.",
+    "switching": "Switching workspace...",
+    "switchingSubtitle": "Reloading memory, simulations, and channels for the new workspace."
   },
   "settings": {
     "title": "Settings",
