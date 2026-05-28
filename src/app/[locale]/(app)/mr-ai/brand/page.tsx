@@ -4,15 +4,18 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { BrandAssetsPanel } from "@/components/mrai/BrandAssetsPanel";
 import { BrandSEOPanel } from "@/components/mrai/BrandSEOPanel";
 import { CrawlSourcesPanel } from "@/components/mrai/CrawlSourcesPanel";
+import { ProductProfilePanel } from "@/components/mrai/ProductProfilePanel";
 
 export const dynamic = "force-dynamic";
 
 /**
- * 브랜드 탭 — 브랜드 자산 / SEO / 자동 크롤.
+ * 브랜드 탭 — 브랜드 자산 / 제품 프로필 / SEO / 자동 크롤.
  * 브랜드 정체성을 정의하고 자동 수집되는 정보를 관리하는 곳.
  *
- * ProductProfilePanel(Vision-extracted spec)은 일단 숨김 — 컴포넌트는
- * 유지하되 콘텐츠 생성 quality에 spec 오인이 잦아지면 재활성.
+ * ProductProfilePanel: 한때 콘텐츠 생성 quality 이슈로 숨겼지만, 카테고리
+ * 직접 설정(PATCH /product-profile)이 추가되면서 크롤 소스 프리셋·SEO 추천
+ * 게이트 역할이 되어 다시 노출. SaaS·디지털 워크스페이스는 사진이 없어
+ * Vision 경로 대신 manual 카테고리 선택을 사용한다.
  */
 export default async function MrAIBrandTab({
   params,
@@ -32,6 +35,7 @@ export default async function MrAIBrandTab({
         iconTone="rose"
       />
       <BrandAssetsPanel />
+      <ProductProfilePanel />
       <BrandSEOPanel />
       <CrawlSourcesPanel />
     </div>
