@@ -368,6 +368,12 @@ ${variantStrategies.join("\n")}
     // truncation that leaves zero valid variants.
     maxTokens: 16000,
     cacheSystem: true,
+    // Hint for the JSON recovery layer — when the LLM emits an oddly-
+    // wrapped or partially-truncated response, this lets the parser
+    // reconstruct `{ variants: [...] }` from any complete variant
+    // objects it can salvage from the body, instead of dropping the
+    // whole response on a single trailing-comma defect.
+    expectedArrayKey: "variants",
     jsonSchema: {
       type: "object",
       required: ["variants"],
@@ -412,6 +418,22 @@ ${variantStrategies.join("\n")}
 
   const raw = (res.json as { variants?: Array<Partial<DraftVariant>> }) ?? {};
   const rawVariants = Array.isArray(raw.variants) ? raw.variants : [];
+
+  // Diagnostic surface — when zero variants survive, log enough to
+  // identify whether the LLM (a) returned no JSON at all, (b) returned
+  // a wrong shape (top-level keys != ["variants"]), or (c) returned a
+  // variants field that wasn't an array. Without this the route can
+  // only tell the user "0 variants returned" with no actionable hint.
+  if (rawVariants.length === 0) {
+    const topKeys = Object.keys((res.json ?? {}) as Record<string, unknown>);
+    const textHead = (res.text ?? "").slice(0, 300).replace(/\s+/g, " ");
+    console.warn(
+      `[drafter] zero raw variants. ` +
+        `res.json topKeys=[${topKeys.join(",")}] ` +
+        `variants type=${typeof (res.json as Record<string, unknown> | undefined)?.variants} ` +
+        `text head: "${textHead}…"`,
+    );
+  }
 
   const variants: DraftVariant[] = rawVariants.slice(0, variantCount).map((v, i) => {
     const label = typeof v.variant_label === "string" ? v.variant_label : String.fromCharCode(65 + i);

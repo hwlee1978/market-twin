@@ -232,10 +232,14 @@ export async function POST(
       output_tokens: result.outputTokens,
       ms: result.ms,
     });
+    const truncated = result.outputTokens >= 15000;
+    const hint = truncated
+      ? "응답이 16K 토큰 한도 근처에서 잘렸을 수 있습니다. variant 개수를 2개로 줄이거나 topic·goal 길이를 절반으로 줄여서 재시도하세요."
+      : "응답은 정상 길이지만 LLM 이 JSON 구조를 빗나갔습니다. 동일 입력으로 한 번 더 시도 (LLM 일시적 noise), 또는 다른 contentFormat 으로 변경하세요. Vercel 로그에서 [drafter] zero raw variants 항목 확인 가능.";
     return NextResponse.json(
       {
         error: "drafter_no_variants",
-        detail: `LLM이 유효한 variant를 0개 반환했습니다.\n출력 토큰: ${result.outputTokens} (≥15000이면 출력 truncation)\n→ variant 개수를 2개로 줄이거나 topic을 짧게 다시 시도하세요.`,
+        detail: `LLM이 유효한 variant를 0개 반환했습니다.\n출력 토큰: ${result.outputTokens} (16000 한도)\n→ ${hint}`,
       },
       { status: 500 },
     );
