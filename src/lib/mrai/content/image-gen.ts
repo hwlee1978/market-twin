@@ -85,6 +85,322 @@ const PHYSICAL_PRODUCT_CATEGORIES = new Set<string>([
   "health_supplements",
 ]);
 
+/**
+ * Per-category visual scaffolding for buildFramePrompt. Each spec
+ * supplies the category-shaped vocabulary the prompt builder slots in
+ * for UNBRANDED-PRODUCT, FIDELITY, role lists, aesthetic, and material
+ * trademark bans. Without this, the builder used to hard-code shoe
+ * anatomy (upper / tongue / sole) and shoe scene roles (FEET-FOCUSED,
+ * shoebox) for every workspace, which leaked sneaker geometry into
+ * cosmetics / electronics / food / etc. outputs.
+ *
+ * The "footwear" spec stays identical to the original behavior — the
+ * regression test is "does a Le Mouton frame still look like the old
+ * Le Mouton frame?" If yes, the refactor is safe for that tenant.
+ */
+type CategoryImageSpec = {
+  /** e.g. "shoe upper, side, tongue, heel, sole" — used in UNBRANDED rule */
+  productParts: string;
+  /** e.g. "sneaker style" — used in "do NOT generalize to a different ___" */
+  styleClass: string;
+  /** e.g. "felted wool? leather? mesh?" — material guess phrasing for fidelity rule */
+  materialQuestions: string;
+  /** e.g. "lace placement, eyelet positions, sole shape, stitching" — silhouette specifics */
+  silhouetteSpecifics: string;
+  /** e.g. "H1-TEX, Gore-Tex, Merino, 100% Wool, etc." — trademarks to ban from text */
+  materialTrademarks: string;
+  /** e.g. "editorial fashion magazine aesthetic" — magazine style hint */
+  aesthetic: string;
+  /** 5 detail roles for non-touchup carousel frames 1..N */
+  detailRoles: string[];
+  /** 5 touchup scene roles when the product is the input image (no ambassador) */
+  touchupSceneRoles: string[];
+};
+
+const CATEGORY_IMAGE_SPECS: Record<string, CategoryImageSpec> = {
+  footwear: {
+    productParts: "shoe upper, side, tongue, heel, sole",
+    styleClass: "sneaker style",
+    materialQuestions: "felted wool? leather? mesh?",
+    silhouetteSpecifics:
+      "lace placement and count, eyelet positions, sole shape and thickness, stitching pattern",
+    materialTrademarks: "H1-TEX, Gore-Tex, Merino, 100% Wool, etc.",
+    aesthetic: "editorial fashion magazine aesthetic",
+    detailRoles: [
+      "Detail close-up — fabric/material texture of the product, NO people, NO text, fills frame with the product surface only",
+      "Lifestyle shot — FEET-FOCUSED CROP ONLY. Tight composition from mid-calf down: feet wearing the shoes (≥35% of frame, dominant subject) + lower legs + pavement/floor + glimpse of environment (sidewalk, cafe floor, street curb). NO face, NO torso, NO head in frame — frame must be cropped at the knee or thigh maximum. Goal: viewer instantly recognizes the product, environment is secondary context.",
+      "Different angle of the same product (3/4 view, top-down, OR sole detail). NO people, NO text. The product silhouette must clearly match the reference photos",
+      "Hero pure-color background — the product centered, dramatic lighting, NO people, NO text. The product silhouette must match references exactly",
+      "Product paired with a complementary object (e.g. shoebox, plant, simple chair). The product must remain the dominant subject ≥35% of frame. NO people, NO text",
+    ],
+    touchupSceneRoles: [
+      "Close-up scene around the input product — minimal background, hint of material/surface around the product. NO people.",
+      "Lifestyle scene — the input product placed in a real outdoor environment (street, cafe sidewalk, pavement) as if someone just stepped out of frame. Visible lower legs cropped at the calf maximum are OK. NO face, NO torso, NO head visible.",
+      "Different background angle — same product, fresh background composition. NO people.",
+      "Hero pure-color background composition around the input product. NO people.",
+      "Place the input product alongside one complementary object (shoebox, plant). NO people.",
+    ],
+  },
+  apparel: {
+    productParts: "fabric surface, seam, hem, collar, sleeve / leg opening",
+    styleClass: "garment cut",
+    materialQuestions: "cotton jersey? wool knit? linen? technical synthetic?",
+    silhouetteSpecifics:
+      "neckline shape, sleeve / leg length, fit silhouette, stitching, hem finish",
+    materialTrademarks: "Gore-Tex, Lyocell, Tencel, recycled-poly, 100% Wool, etc.",
+    aesthetic: "editorial fashion aesthetic",
+    detailRoles: [
+      "Detail close-up — fabric weave / knit texture filling the frame, NO people, NO text",
+      "Lifestyle shot — TORSO OR LEG CROP ONLY. Tight composition showing the garment worn (≥40% of frame) on a body, cropped at the chin and at the knee/wrist. NO face visible. Goal: viewer recognizes the garment cut and drape.",
+      "Different angle of the garment (back view, 3/4 angle, OR detail of a key construction feature). NO people, NO text",
+      "Hero pure-color background — the garment on an invisible mannequin or laid flat with subtle volume, dramatic lighting. NO people, NO text",
+      "Garment paired with a complementary object (e.g. hanger on a rack, folded stack on a wooden surface, beside footwear). Garment ≥40% of frame. NO people, NO text",
+    ],
+    touchupSceneRoles: [
+      "Close-up scene around the input garment — minimal background. NO people.",
+      "Lifestyle scene — the garment worn, cropped at chin and at knee/wrist so NO face is visible. Outdoor street or indoor environment.",
+      "Different background angle — same garment, fresh composition. NO people.",
+      "Hero pure-color background composition. NO people.",
+      "Garment paired with one complementary object (hanger, folded stack, related apparel). NO people.",
+    ],
+  },
+  cosmetics: {
+    productParts: "bottle / tube body, cap, base, label area, pump or applicator",
+    styleClass: "container silhouette",
+    materialQuestions: "glass? frosted plastic? metallic finish? matte cardboard?",
+    silhouetteSpecifics:
+      "bottle proportions, cap shape, neck collar, base footprint, label window dimensions",
+    materialTrademarks: "ingredient names, % active claims, vegan / cruelty-free badges, certification logos",
+    aesthetic: "beauty editorial aesthetic",
+    detailRoles: [
+      "Macro close-up — bottle surface texture, glass refraction, condensation droplets if relevant. NO people, NO text",
+      "Lifestyle shot — HAND-AND-PRODUCT CROP. A hand holding or applying the product (≥35% of frame), cropped at the wrist and elbow. NO face. Soft natural daylight.",
+      "Different angle of the bottle (3/4 view, top-down on a marble or stone surface, OR cap-off showing the applicator). NO people, NO text",
+      "Hero pure-color background — the bottle centered, soft directional studio lighting. NO people, NO text",
+      "Product paired with a complementary object (e.g. botanical sprig, smooth stone, marble slab, cotton pad). Bottle ≥35% of frame. NO people, NO text",
+    ],
+    touchupSceneRoles: [
+      "Close-up scene around the input bottle — soft surface texture. NO people.",
+      "Lifestyle scene — bottle on a vanity counter or bathroom shelf with morning daylight. NO people.",
+      "Different background angle — same bottle, fresh surface (marble / wood / linen). NO people.",
+      "Hero pure-color background composition. NO people.",
+      "Bottle paired with one botanical or natural element (sprig, stone, cotton). NO people.",
+    ],
+  },
+  skincare: {
+    productParts: "bottle / jar body, cap, base, label area, dropper or pump",
+    styleClass: "container silhouette",
+    materialQuestions: "amber glass? frosted glass? matte plastic? metallic pump?",
+    silhouetteSpecifics:
+      "bottle proportions, cap shape, dropper / pump form, base footprint, label area",
+    materialTrademarks: "% active claims, dermatologist-tested badges, ingredient names like hyaluronic acid / niacinamide written as visible text",
+    aesthetic: "clean skincare editorial aesthetic",
+    detailRoles: [
+      "Macro close-up — bottle surface or texture of the formula on a smooth surface. NO people, NO text",
+      "Lifestyle shot — HAND-AND-PRODUCT CROP. A hand holding or dispensing the product (≥35% of frame), cropped at the wrist. NO face. Soft natural light.",
+      "Different angle of the bottle (3/4 view, top-down, dropper-out showing the formula). NO people, NO text",
+      "Hero pure-color background — bottle centered on a single-tone surface, soft daylight or gentle studio. NO people, NO text",
+      "Product paired with a complementary natural element (eucalyptus / leaf / pebble / linen folded edge). Bottle ≥35% of frame. NO people, NO text",
+    ],
+    touchupSceneRoles: [
+      "Close-up scene around the input bottle — minimal surface texture. NO people.",
+      "Lifestyle scene — bottle on a bathroom shelf or vanity with morning daylight. NO people.",
+      "Different background angle — same bottle, fresh surface. NO people.",
+      "Hero pure-color background composition. NO people.",
+      "Bottle paired with one natural element (leaf / pebble / linen). NO people.",
+    ],
+  },
+  fragrance: {
+    productParts: "flacon body, cap, base, label area, atomizer",
+    styleClass: "flacon silhouette",
+    materialQuestions: "clear glass? colored glass? metallic cap? frosted accent?",
+    silhouetteSpecifics:
+      "flacon proportions, cap shape, neck, atomizer detail, label area",
+    materialTrademarks: "concentration claims (eau de parfum / EDP percentages), perfumer-house lineage as visible text, certification badges",
+    aesthetic: "luxury editorial fragrance aesthetic",
+    detailRoles: [
+      "Macro close-up — flacon glass refraction, light bounce on the bottle's edges. NO people, NO text",
+      "Lifestyle shot — HAND-AND-FLACON CROP. A hand holding or spritzing the flacon (≥35% of frame), wrist-cropped. NO face.",
+      "Different angle of the flacon (3/4, top-down, cap-off detail of atomizer). NO people, NO text",
+      "Hero pure-color background — flacon centered, dramatic directional lighting that highlights glass. NO people, NO text",
+      "Flacon paired with a complementary object (silk fabric, marble surface, single botanical). Flacon ≥35% of frame. NO people, NO text",
+    ],
+    touchupSceneRoles: [
+      "Close-up scene around the input flacon — soft texture. NO people.",
+      "Lifestyle scene — flacon on a dressing-table surface with soft warm light. NO people.",
+      "Different background angle — same flacon, fresh surface. NO people.",
+      "Hero pure-color background composition. NO people.",
+      "Flacon paired with one luxury element (silk drape / marble / single botanical). NO people.",
+    ],
+  },
+  accessories: {
+    productParts: "the object's surface, edges, and joining elements",
+    styleClass: "accessory silhouette",
+    materialQuestions: "leather? canvas? nylon? metal? combination?",
+    silhouetteSpecifics:
+      "overall shape, stitching, hardware (zipper / buckle / clasp), strap or handle form, base footprint",
+    materialTrademarks: "material grade claims, brand-house letter monograms, certification badges",
+    aesthetic: "editorial lifestyle aesthetic",
+    detailRoles: [
+      "Detail close-up — material texture, stitching, hardware up close. NO people, NO text",
+      "Lifestyle shot — IN-HAND or WORN CROP. The accessory used naturally (held, slung, worn) with the human cropped above shoulder and at wrist/waist. NO face.",
+      "Different angle (3/4 view, top-down, OR detail of a signature element). NO people, NO text",
+      "Hero pure-color background — accessory centered, even studio lighting. NO people, NO text",
+      "Accessory paired with a complementary item (related accessory, garment fragment, surface texture). Accessory ≥40% of frame. NO people, NO text",
+    ],
+    touchupSceneRoles: [
+      "Close-up scene around the input accessory — minimal background. NO people.",
+      "Lifestyle scene — accessory used naturally (held, slung, on a surface). Crop to avoid faces.",
+      "Different background angle — same accessory, fresh composition. NO people.",
+      "Hero pure-color background composition. NO people.",
+      "Accessory paired with one complementary item. NO people.",
+    ],
+  },
+  jewelry: {
+    productParts: "the piece's surface, setting, clasp, chain, or band",
+    styleClass: "piece design",
+    materialQuestions: "yellow gold? white gold? silver? platinum? rose gold?",
+    silhouetteSpecifics:
+      "overall form, stone setting style, chain link pattern, clasp type, finish",
+    materialTrademarks: "carat claims, purity stamps (18K / 925), certification names (GIA / IGI), brand-house monograms",
+    aesthetic: "luxury editorial jewelry aesthetic",
+    detailRoles: [
+      "Macro close-up — stone setting / metal texture / clasp detail filling the frame. NO people, NO text",
+      "Lifestyle shot — WORN CROP. The piece worn on a neck / wrist / hand / ear (≥35% of frame), cropped to show only the relevant body part. NO face.",
+      "Different angle of the piece (3/4, flat, stone-only macro). NO people, NO text",
+      "Hero pure-color background — piece centered on a single-tone surface, jewelry lighting. NO people, NO text",
+      "Piece paired with a luxury element (silk fabric, marble surface, open jewelry box edge). Piece ≥35% of frame. NO people, NO text",
+    ],
+    touchupSceneRoles: [
+      "Close-up scene around the piece — soft luxury surface. NO people.",
+      "Lifestyle scene — piece worn on a neck / wrist / hand / ear with strict body crop. NO face.",
+      "Different background angle — same piece, fresh composition. NO people.",
+      "Hero pure-color background composition. NO people.",
+      "Piece paired with one luxury element (silk / marble / jewelry box edge). NO people.",
+    ],
+  },
+  electronics: {
+    productParts: "device casing, screen, ports, buttons, edges, base",
+    styleClass: "device design",
+    materialQuestions: "anodized aluminum? glass? matte plastic? brushed metal?",
+    silhouetteSpecifics:
+      "overall form, screen size and bezel, port layout, button positions, base / stand shape",
+    materialTrademarks: "chip names (A17 Pro / Snapdragon), spec claims (5G / OLED / 120Hz), certification badges",
+    aesthetic: "clean tech-product editorial aesthetic",
+    detailRoles: [
+      "Detail close-up — surface finish, port / button detail, or material edge. NO people, NO text on the device beyond a generic UI",
+      "Lifestyle shot — IN-USE CROP. Hands using the device on a clean surface (≥40% of frame), wrist-cropped. NO face. Hand-and-device focus only.",
+      "Different angle of the device (3/4, back, OR port edge). NO people, NO text",
+      "Hero pure-color background — device centered, directional studio lighting that defines edges. NO people, NO text",
+      "Device paired with a complementary desk item (notebook, coffee cup, simple plant). Device ≥40% of frame. NO people, NO text",
+    ],
+    touchupSceneRoles: [
+      "Close-up scene around the input device — minimal desk surface. NO people.",
+      "Lifestyle scene — device on a desk or beside a workspace tool (notebook / coffee cup). NO people OR strictly hand-only crops.",
+      "Different background angle — same device, fresh surface. NO people.",
+      "Hero pure-color background composition. NO people.",
+      "Device paired with one desk-context item. NO people.",
+    ],
+  },
+  home_goods: {
+    productParts: "the object's surface, base, handle / spout / opening",
+    styleClass: "object form",
+    materialQuestions: "ceramic? glass? wood? stainless steel? textile?",
+    silhouetteSpecifics:
+      "overall proportions, edges, handle / spout, base footprint, surface finish",
+    materialTrademarks: "material grade claims, certification badges, brand monograms",
+    aesthetic: "lifestyle home editorial aesthetic",
+    detailRoles: [
+      "Detail close-up — material texture, edge, or surface finish filling the frame. NO people, NO text",
+      "Lifestyle shot — IN-ROOM CROP. The object placed in a home setting (counter / shelf / table) with a natural environmental hint. NO people OR strictly hand-only crops.",
+      "Different angle of the object (3/4, top-down, OR detail of a key feature). NO people, NO text",
+      "Hero pure-color background — object centered on a single-tone surface, soft directional lighting. NO people, NO text",
+      "Object paired with a complementary item (related household object, plant, linen). Object ≥40% of frame. NO people, NO text",
+    ],
+    touchupSceneRoles: [
+      "Close-up scene around the input object — minimal background. NO people.",
+      "Lifestyle scene — object in a home context (kitchen counter, living-room shelf, dining table). NO people.",
+      "Different background angle — same object, fresh surface. NO people.",
+      "Hero pure-color background composition. NO people.",
+      "Object paired with one complementary household item. NO people.",
+    ],
+  },
+  food_beverage: {
+    productParts: "package, lid, seal, label area, opening",
+    styleClass: "package design",
+    materialQuestions: "cardboard? foil pouch? glass bottle? PET bottle? can?",
+    silhouetteSpecifics:
+      "package proportions, lid / cap shape, label panel dimensions, base / seal",
+    materialTrademarks: "health claims, organic / non-GMO certifications, calorie or nutrition counts as visible numbers",
+    aesthetic: "food editorial aesthetic",
+    detailRoles: [
+      "Detail close-up — package material texture or contents close-up if visible. NO people, NO text",
+      "Lifestyle shot — TABLE-AND-PRODUCT CROP. Product served / used on a plate or surface (≥40% of frame). Hands-only acceptable, no face.",
+      "Different angle of the package (3/4, top-down, OR poured-out detail showing contents). NO people, NO text",
+      "Hero pure-color background — package centered on a single-tone surface, soft warm light. NO people, NO text",
+      "Product paired with related ingredient / utensil / plated context (≥40% of frame). NO people, NO text",
+    ],
+    touchupSceneRoles: [
+      "Close-up scene around the input package — minimal surface. NO people.",
+      "Lifestyle scene — package on a kitchen counter or dining table with soft warm light. NO people.",
+      "Different background angle — same package, fresh surface. NO people.",
+      "Hero pure-color background composition. NO people.",
+      "Package paired with one ingredient or utensil. NO people.",
+    ],
+  },
+  health_supplements: {
+    productParts: "bottle, cap, label area, base",
+    styleClass: "bottle silhouette",
+    materialQuestions: "amber glass? white plastic? matte metal? cardboard?",
+    silhouetteSpecifics:
+      "bottle proportions, cap shape, label panel, base footprint",
+    materialTrademarks: "health claims, % daily value, supplement-facts panels, certification badges",
+    aesthetic: "clean wellness editorial aesthetic",
+    detailRoles: [
+      "Detail close-up — bottle surface or capsules/powder texture if relevant. NO people, NO text",
+      "Lifestyle shot — HAND-AND-PRODUCT CROP. Hand holding the bottle (≥35% of frame), wrist-cropped. NO face.",
+      "Different angle of the bottle (3/4, top-down, cap-off showing the contents). NO people, NO text",
+      "Hero pure-color background — bottle centered on a single-tone surface, soft daylight. NO people, NO text",
+      "Bottle paired with a complementary wellness element (glass of water, small dish of capsules, natural surface). Bottle ≥35% of frame. NO people, NO text",
+    ],
+    touchupSceneRoles: [
+      "Close-up scene around the input bottle — minimal surface. NO people.",
+      "Lifestyle scene — bottle on a kitchen counter or bedside table beside a glass of water. NO people.",
+      "Different background angle — same bottle, fresh surface. NO people.",
+      "Hero pure-color background composition. NO people.",
+      "Bottle paired with one wellness element (glass of water / dish of capsules). NO people.",
+    ],
+  },
+};
+
+const DEFAULT_PHYSICAL_SPEC: CategoryImageSpec = {
+  productParts: "the product surface, edges, base, and any visible details",
+  styleClass: "product style",
+  materialQuestions: "the actual material from the reference photos",
+  silhouetteSpecifics: "overall form, key features, proportions, surface finish",
+  materialTrademarks: "any visible material trademarks or certification badges",
+  aesthetic: "editorial product aesthetic",
+  detailRoles: [
+    "Detail close-up — material texture / surface of the product. NO people, NO text",
+    "Lifestyle shot — IN-USE OR IN-CONTEXT CROP. Product used naturally in its intended environment (≥40% of frame). NO face — hand-only or environment-only crops.",
+    "Different angle of the product (3/4 view, top-down, OR detail of a key feature). NO people, NO text",
+    "Hero pure-color background — product centered, dramatic lighting. NO people, NO text",
+    "Product paired with a complementary object related to its category. Product ≥40% of frame. NO people, NO text",
+  ],
+  touchupSceneRoles: [
+    "Close-up scene around the input product — minimal background. NO people.",
+    "Lifestyle scene — product in its natural use context. Hand-only or environment-only crops.",
+    "Different background angle — same product, fresh composition. NO people.",
+    "Hero pure-color background composition. NO people.",
+    "Product paired with one complementary object. NO people.",
+  ],
+};
+
+function getCategorySpec(category?: string): CategoryImageSpec {
+  if (!category) return DEFAULT_PHYSICAL_SPEC;
+  return CATEGORY_IMAGE_SPECS[category] ?? DEFAULT_PHYSICAL_SPEC;
+}
+
 function buildFramePrompt(
   basePrompt: string,
   platform: string,
@@ -112,6 +428,11 @@ function buildFramePrompt(
     !!productProfile?.category &&
     PHYSICAL_PRODUCT_CATEGORIES.has(productProfile.category);
   const isSceneOnly = !categoryIsPhysical && !hasReferences && !touchupMode;
+  // Category-shaped scaffolding vocabulary. Falls back to a generic
+  // "product" spec when the category is unknown or when references are
+  // present without a profile (e.g. a workspace running a product
+  // shoot before they've built the profile).
+  const catSpec = getCategorySpec(productProfile?.category);
 
   // ─── SCENE-ONLY MODE ────────────────────────────────────────────
   // No physical product, no references — generate the scene exactly as
@@ -205,7 +526,7 @@ function buildFramePrompt(
   // the product will be wrong (garbled "Le Misdard" / "Lachiisoan" /
   // "Bredisn" type hallucinations are the universal failure mode).
   parts.push(
-    "VISUAL RULE — UNBRANDED PRODUCT: The product (e.g. shoe upper, side, tongue, heel, sole) MUST be COMPLETELY CLEAN with ZERO text or logo anywhere on its surface. Imagine a factory-fresh sample BEFORE the branding/printing step. NO printed text, NO brand marks, NO embroidered names, NO material trademarks (H1-TEX / Gore-Tex / Merino / 100% Wool), NO certification badges, NO invented letter shapes (e.g. 'Le Misdard', 'Lachiisoan', 'Bredisn' style hallucinations). The brand logo is added separately via post-production overlay — do NOT paint it. Hallucinated brand text on the product is the #1 failure mode and will ruin the campaign.",
+    `VISUAL RULE — UNBRANDED PRODUCT: The product (${catSpec.productParts}) MUST be COMPLETELY CLEAN with ZERO text or logo anywhere on its surface. Imagine a factory-fresh sample BEFORE the branding/printing step. NO printed text, NO brand marks, NO embroidered names, NO material trademarks (${catSpec.materialTrademarks}), NO certification badges, NO invented letter shapes (e.g. 'Le Misdard', 'Lachiisoan', 'Bredisn' style hallucinations). The brand logo is added separately via post-production overlay — do NOT paint it. Hallucinated brand text on the product is the #1 failure mode and will ruin the campaign.`,
   );
   if (hasLogoReference) {
     parts.push(
@@ -215,7 +536,7 @@ function buildFramePrompt(
 
   if (hasReferences) {
     parts.push(
-      "PRODUCT FIDELITY (CRITICAL): The first 1-2 reference photos show the EXACT real product. The product in your output MUST match those references in: silhouette outline, upper material/texture (felted wool? leather? mesh?), lace placement and count, eyelet positions, sole shape and thickness, stitching pattern, color/colorway. DO NOT generalize to a different sneaker style. DO NOT switch to a different colorway. DO NOT change the silhouette. Treat the references as a strict blueprint — the only freedom you have is scene / angle / framing / lighting / model wearing it.",
+      `PRODUCT FIDELITY (CRITICAL): The first 1-2 reference photos show the EXACT real product. The product in your output MUST match those references in: silhouette outline, material/texture (${catSpec.materialQuestions}), ${catSpec.silhouetteSpecifics}, color/colorway. DO NOT generalize to a different ${catSpec.styleClass}. DO NOT switch to a different colorway. DO NOT change the silhouette. Treat the references as a strict blueprint — the only freedom you have is scene / angle / framing / lighting / model wearing it.`,
     );
   }
   if (hasAmbassadorReference) {
@@ -241,22 +562,19 @@ function buildFramePrompt(
       //   environment around them (street/cafe/park/etc.).
       // - Product source → no person in input, so prompts mandate "NO
       //   people" so model doesn't invent one.
-      const sceneRoles =
-        hasAmbassadorReference
-          ? [
-              "Close-up scene context — softly blurred environment around the person/product. Keep the input subject unchanged.",
-              "Lifestyle scene — preserve the input person and product exactly as shown. Only the BACKGROUND environment (street, cafe, park, indoor space, etc.) regenerates to match the scene direction.",
-              "Different background environment — same input subject, fresh outdoor or indoor location.",
-              "Clean studio-like background around the input subject — neutral seamless backdrop.",
-              "Input subject in an environment with one complementary contextual element (window, plant, bench).",
-            ]
-          : [
-              "Close-up scene around the input product — minimal background, hint of material/surface around the product. NO people.",
-              "Lifestyle scene — the input product placed in a real outdoor environment (street, cafe sidewalk, pavement) as if someone just stepped out of frame. Visible lower legs cropped at the calf maximum are OK. NO face, NO torso, NO head visible.",
-              "Different background angle — same product, fresh background composition. NO people.",
-              "Hero pure-color background composition around the input product. NO people.",
-              "Place the input product alongside one complementary object (shoebox, plant). NO people.",
-            ];
+      // Ambassador touchup roles are category-agnostic — the human is
+      // the subject. Product touchup roles come from the category spec
+      // so a cosmetics bottle gets a bathroom-shelf scene, not a
+      // sidewalk crop.
+      const sceneRoles = hasAmbassadorReference
+        ? [
+            "Close-up scene context — softly blurred environment around the person/product. Keep the input subject unchanged.",
+            "Lifestyle scene — preserve the input person and product exactly as shown. Only the BACKGROUND environment (street, cafe, park, indoor space, etc.) regenerates to match the scene direction.",
+            "Different background environment — same input subject, fresh outdoor or indoor location.",
+            "Clean studio-like background around the input subject — neutral seamless backdrop.",
+            "Input subject in an environment with one complementary contextual element (window, plant, bench).",
+          ]
+        : catSpec.touchupSceneRoles;
       parts.push(
         `Carousel frame ${frameIndex + 1} of ${totalFrames}. ${sceneRoles[(frameIndex - 1) % sceneRoles.length]} Scene context: ${basePrompt}`,
       );
@@ -271,20 +589,12 @@ function buildFramePrompt(
     );
   } else {
     // Role-specific prompts — each one explicitly mandates what MUST be
-    // visible so we don't get the "lifestyle frame with no shoes visible"
-    // failure mode. Avoid roles that demand text rendering.
-    const detailRoles = [
-      "Detail close-up — fabric/material texture of the product, NO people, NO text, fills frame with the product surface only",
-      // Lifestyle: feet-focused crop is the ONLY acceptable composition.
-      // Previous prompts allowed full-body / torso shots which produced
-      // useless marketing frames (face shown, shoes too small to identify
-      // the product). Now: shoes MUST be the visual focus.
-      "Lifestyle shot — FEET-FOCUSED CROP ONLY. Tight composition from mid-calf down: feet wearing the shoes (≥35% of frame, dominant subject) + lower legs + pavement/floor + glimpse of environment (sidewalk, cafe floor, street curb). NO face, NO torso, NO head in frame — frame must be cropped at the knee or thigh maximum. Goal: viewer instantly recognizes the product, environment is secondary context.",
-      "Different angle of the same product (3/4 view, top-down, OR sole detail). NO people, NO text. The product silhouette must clearly match the reference photos",
-      "Hero pure-color background — the product centered, dramatic lighting, NO people, NO text. The product silhouette must match references exactly",
-      "Product paired with a complementary object (e.g. shoebox, plant, simple chair). The product must remain the dominant subject ≥35% of frame. NO people, NO text",
-    ];
-    const role = detailRoles[(frameIndex - 1) % detailRoles.length];
+    // visible so we don't get the "lifestyle frame with no product
+    // visible" failure mode. Roles come from the category spec so a
+    // cosmetics carousel gets bottle / hand / marble compositions, not
+    // shoes / feet / sidewalk.
+    const role =
+      catSpec.detailRoles[(frameIndex - 1) % catSpec.detailRoles.length];
     parts.push(
       `Carousel frame ${frameIndex + 1} of ${totalFrames} for ${spec.label}. ${role}. Visual continuity with cover. ${basePrompt}`,
     );
@@ -293,9 +603,7 @@ function buildFramePrompt(
   if (brandHint) {
     parts.push(`Brand voice: ${brandHint}.`);
   }
-  parts.push(
-    "Photographic, editorial fashion magazine aesthetic. Natural lighting.",
-  );
+  parts.push(`Photographic, ${catSpec.aesthetic}. Natural lighting.`);
 
   // ─── HARD NO-TEXT RULE — gpt-image-1 is unreliable at text rendering
   // (especially Korean / CJK / numbers). Garbled fake letters like
@@ -306,8 +614,8 @@ function buildFramePrompt(
   // letterforms.
   parts.push(
     `ABSOLUTE NO-TEXT RULE: Do not render ANY of the following as visible text in the image —
-- Material trademarks: H1-TEX, Gore-Tex, Merino, 100% Wool, etc.
-- Random Latin / Korean / Chinese / Japanese letter shapes anywhere (shoes, walls, signage, scales, displays, price tags, packaging, whiteboards, books, screens, name tags).
+- Material trademarks: ${catSpec.materialTrademarks}
+- Random Latin / Korean / Chinese / Japanese letter shapes anywhere (the product surface, walls, signage, scales, displays, price tags, packaging, whiteboards, books, screens, name tags).
 - Numbers on devices (no scales showing "6027", no displays showing arbitrary digits, no price tags with prices).
 - Invented sub-brand names, certifications, awards, ratings, taglines.
 - Any letterforms on the product surface other than the brand's exact logo from the reference image.
