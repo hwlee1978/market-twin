@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
+import * as Sentry from "@sentry/nextjs";
 import { Link } from "@/i18n/navigation";
 import { AlertTriangle } from "lucide-react";
 
@@ -21,7 +22,10 @@ export default function AppErrorBoundary({
   const t = useTranslations("errors.app");
 
   useEffect(() => {
-    // Log to console for now. Future: pipe to Sentry / equivalent.
+    // Pipe to Sentry so production issues surface in the dashboard
+    // even though the user already saw a friendly screen. digest lets
+    // us correlate the user's reported error code with the server log.
+    Sentry.captureException(error, { tags: { boundary: "app" } });
     console.error("[app-error-boundary]", error);
   }, [error]);
 

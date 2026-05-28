@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
+import * as Sentry from "@sentry/nextjs";
 import { Link } from "@/i18n/navigation";
 import { AlertTriangle } from "lucide-react";
 
@@ -20,6 +21,7 @@ export default function LocaleErrorBoundary({
   const t = useTranslations("errors.app");
 
   useEffect(() => {
+    Sentry.captureException(error, { tags: { boundary: "locale" } });
     console.error("[locale-error-boundary]", error);
   }, [error]);
 
