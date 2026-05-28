@@ -33,7 +33,13 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Skip all internal paths (_next), static, api, and public files
-    "/((?!api|_next|_vercel|.*\\..*).*)",
+    // Skip all internal paths (_next), static, api, auth callbacks,
+    // monitoring tunnel, and any path with a file extension (favicon,
+    // og-image, robots.txt, ...). Critical: /auth/* MUST be excluded so
+    // the OAuth + email confirm callback at /auth/oauth-callback can
+    // run its route handler instead of being locale-rewritten into
+    // a non-existent /[locale]/auth/oauth-callback path (the cause of
+    // the persistent post-Google-OAuth 404).
+    "/((?!api|auth|monitoring|_next|_vercel|.*\\..*).*)",
   ],
 };
