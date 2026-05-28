@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { generateBriefing, type Locale } from "@/lib/mrai/briefing";
 import { withLLMContext } from "@/lib/llm-context";
 import { MRAI_ENABLED } from "@/lib/mrai/enabled";
+import { assertCronAuth } from "@/lib/auth/cron-gate";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 800;
@@ -28,13 +29,8 @@ export const maxDuration = 800;
  * per-workspace status for cron-monitor dashboards.
  */
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-  }
+  const gate = assertCronAuth(req);
+  if (gate) return gate;
 
   // Both market-twin (MRAI=false, prod MarketTwin) and market-twin-mrai
   // (MRAI=true, Mr.AI beta) deploy the same vercel.json — meaning the

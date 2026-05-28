@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { computeTickDelta, daysSince, type TickDelta } from "@/lib/mrai/content/engagement-engine";
 import { MRAI_ENABLED } from "@/lib/mrai/enabled";
+import { assertCronAuth } from "@/lib/auth/cron-gate";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -21,13 +22,8 @@ export const maxDuration = 300;
  * near-zero by then). Scheduled at 02:00 KST (= 17:00 UTC) via vercel.json.
  */
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-  }
+  const gate = assertCronAuth(req);
+  if (gate) return gate;
 
   // Skip if this deployment doesn't own Mr.AI (avoids the double-fire
   // between market-twin prod and market-twin-mrai beta).

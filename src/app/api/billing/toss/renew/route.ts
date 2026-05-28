@@ -7,6 +7,7 @@ import {
   notifyPaymentFailed,
   notifyPaymentSucceeded,
 } from "@/lib/email/billing-notify";
+import { assertCronAuth } from "@/lib/auth/cron-gate";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -38,13 +39,8 @@ export const maxDuration = 300;
  *   → daily 01:00 UTC (10:00 KST)
  */
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-  }
+  const gate = assertCronAuth(req);
+  if (gate) return gate;
 
   const admin = createServiceClient();
   const now = new Date().toISOString();

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { MRAI_ENABLED } from "@/lib/mrai/enabled";
+import { assertCronAuth } from "@/lib/auth/cron-gate";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -21,13 +22,8 @@ export const maxDuration = 120;
  * Triggered by Vercel cron every 10 minutes (vercel.json).
  */
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-  }
+  const gate = assertCronAuth(req);
+  if (gate) return gate;
 
   // Skip on non-Mr.AI deployments (prevents double-fire between the
   // market-twin prod and market-twin-mrai beta Vercel projects).

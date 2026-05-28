@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { assertCronAuth } from "@/lib/auth/cron-gate";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -23,13 +24,8 @@ export const maxDuration = 60;
  * alive sim could get killed by a misclock.
  */
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-  }
+  const gate = assertCronAuth(req);
+  if (gate) return gate;
 
   const admin = createServiceClient();
   // 20-minute threshold = Vercel maxDuration (800s) + 7-min slack
