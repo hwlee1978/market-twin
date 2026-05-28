@@ -6,6 +6,7 @@ import {
   Loader2,
   X as CloseX,
   Trash2,
+  Pencil,
   Hash,
   Image as ImageIcon,
   Target,
@@ -299,6 +300,11 @@ export function ContentDraftsPanel({
                 selected={selectedIds.has(d.id)}
                 onToggleSelect={() => toggleSelect(d.id)}
                 onDelete={() => remove(d.id)}
+                onUpdated={(patched) =>
+                  setDrafts((prev) =>
+                    (prev ?? []).map((row) => (row.id === patched.id ? patched : row)),
+                  )
+                }
               />
             ))}
           </ul>
@@ -348,6 +354,7 @@ function DraftCard({
   selected,
   onToggleSelect,
   onDelete,
+  onUpdated,
 }: {
   draft: Draft;
   platform: string;
@@ -355,8 +362,10 @@ function DraftCard({
   selected: boolean;
   onToggleSelect: () => void;
   onDelete: () => void;
+  onUpdated: (patched: Draft) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [latestSim, setLatestSim] = useState<SimulationRow | null>(null);
   const [simulating, setSimulating] = useState(false);
   const [sampleSize, setSampleSize] = useState(30);
@@ -569,12 +578,32 @@ function DraftCard({
           </div>
           <button
             type="button"
+            onClick={() => setEditOpen(true)}
+            className="shrink-0 text-slate-300 hover:text-indigo-600 p-1"
+            title="편집"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
             onClick={onDelete}
             className="shrink-0 text-slate-300 hover:text-red-600 p-1"
+            title="삭제"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
+
+        {editOpen && (
+          <EditDraftModal
+            draft={draft}
+            onClose={() => setEditOpen(false)}
+            onSaved={(patched) => {
+              setEditOpen(false);
+              onUpdated(patched);
+            }}
+          />
+        )}
 
         {draft.seo_title && (
           <div className="mb-1">
@@ -1507,6 +1536,248 @@ const TAG_COLOR: Record<string, string> = {
   "LLM 가시성 갭": "text-fuchsia-700 bg-fuchsia-50 border-fuchsia-200",
   "이벤트": "text-pink-700 bg-pink-50 border-pink-200",
 };
+
+function EditDraftModal({
+  draft,
+  onClose,
+  onSaved,
+}: {
+  draft: Draft;
+  onClose: () => void;
+  onSaved: (patched: Draft) => void;
+}) {
+  const [bodyText, setBodyText] = useState(draft.body_text ?? "");
+  const [ctaText, setCtaText] = useState(draft.cta_text ?? "");
+  const [hashtags, setHashtags] = useState(
+    Array.isArray(draft.hashtags) ? draft.hashtags.join(" ") : "",
+  );
+  const [imagePrompt, setImagePrompt] = useState(draft.image_prompt ?? "");
+  const [seoTitle, setSeoTitle] = useState(draft.seo_title ?? "");
+  const [seoDescription, setSeoDescription] = useState(
+    draft.seo_description ?? "",
+  );
+  const [seoKeywords, setSeoKeywords] = useState(
+    Array.isArray(draft.seo_keywords) ? draft.seo_keywords.join(", ") : "",
+  );
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const save = async () => {
+    if (!bodyText.trim()) {
+      setErr("본문(body)은 비울 수 없습니다.");
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      const payload = {
+        body_text: bodyText.trim(),
+        cta_text: ctaText.trim(),
+        hashtags: hashtags
+          .split(/[\s,]+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((s) => s.replace(/^#+/, "")),
+        image_prompt: imagePrompt.trim(),
+        seo_title: seoTitle.trim(),
+        seo_description: seoDescription.trim(),
+        seo_keywords: seoKeywords
+          .split(/[,\n]/)
+          .map((s) => s.trim())
+          .filter(Boolean),
+      };
+      const res = await fetch(`/api/mrai/content-drafts/${draft.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const raw = await res.text();
+      let json: { draft?: Draft; detail?: string; error?: string } = {};
+      try {
+        json = raw ? JSON.parse(raw) : {};
+      } catch {
+        throw new Error(
+          `서버 응답 해석 실패 (status ${res.status}): ${raw.slice(0, 200)}`,
+        );
+      }
+      if (!res.ok || !json.draft) {
+        throw new Error(json.detail ?? json.error ?? "저장 실패");
+      }
+      onSaved(json.draft);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "저장 실패");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const hasKoTranslation = !!draft.seo_meta?.translations?.ko?.body_text;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
+      <div
+        className="bg-white rounded-xl w-full max-w-2xl shadow-2xl max-h-[92vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+            <Pencil className="w-4 h-4 text-indigo-600" />
+            드래프트 편집
+            <span className="text-[10px] font-normal text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+              {draft.variant_label}
+            </span>
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="text-slate-400 hover:text-slate-700 disabled:opacity-50"
+          >
+            <CloseX className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 text-sm">
+          {hasKoTranslation && (
+            <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-800 leading-relaxed">
+              ⚠ 이 드래프트에는 한국어 번역이 저장되어 있습니다. 본문을 편집하면 번역은 자동으로 다시 만들어지지 <strong>않습니다</strong> — 번역도 함께 손보려면 편집 후 카드에서 별도 재생성해주세요.
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">
+              본문 (body_text) *
+            </label>
+            <textarea
+              value={bodyText}
+              onChange={(e) => setBodyText(e.target.value)}
+              rows={10}
+              className="w-full border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 text-sm placeholder:text-slate-400 resize-y font-mono leading-relaxed"
+              placeholder="채널에 게시될 메인 카피"
+            />
+            <div className="text-[10px] text-slate-400 mt-1">
+              {bodyText.length} / 5000자
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">
+              CTA (선택)
+            </label>
+            <input
+              value={ctaText}
+              onChange={(e) => setCtaText(e.target.value)}
+              className="w-full border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 text-sm placeholder:text-slate-400"
+              placeholder="예: 자세히 보기 →"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">
+              해시태그 (공백·콤마 구분, # 자동 추가)
+            </label>
+            <input
+              value={hashtags}
+              onChange={(e) => setHashtags(e.target.value)}
+              className="w-full border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 text-sm placeholder:text-slate-400 font-mono text-xs"
+              placeholder="#태그1 #태그2 #태그3"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">
+              이미지 프롬프트
+            </label>
+            <textarea
+              value={imagePrompt}
+              onChange={(e) => setImagePrompt(e.target.value)}
+              rows={5}
+              className="w-full border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 text-sm placeholder:text-slate-400 resize-y leading-relaxed"
+              placeholder="이미지 생성 시 사용될 영문 프롬프트 (장면·분위기·구도)"
+            />
+            <div className="text-[10px] text-slate-400 mt-1">
+              {imagePrompt.length} / 2000자 · 수정 후 카드의 "이미지 생성" 누르면 새 프롬프트로 다시 생성됩니다.
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-slate-100">
+            <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">
+              SEO 메타데이터
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  SEO 제목
+                </label>
+                <input
+                  value={seoTitle}
+                  onChange={(e) => setSeoTitle(e.target.value)}
+                  className="w-full border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 text-sm placeholder:text-slate-400"
+                  placeholder="50-60자 권장"
+                />
+                <div className="text-[10px] text-slate-400 mt-1">
+                  {seoTitle.length} / 120자
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  SEO 설명
+                </label>
+                <textarea
+                  value={seoDescription}
+                  onChange={(e) => setSeoDescription(e.target.value)}
+                  rows={2}
+                  className="w-full border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 text-sm placeholder:text-slate-400 resize-none"
+                  placeholder="140-160자 권장"
+                />
+                <div className="text-[10px] text-slate-400 mt-1">
+                  {seoDescription.length} / 300자
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  SEO 키워드 (콤마 구분)
+                </label>
+                <input
+                  value={seoKeywords}
+                  onChange={(e) => setSeoKeywords(e.target.value)}
+                  className="w-full border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 text-sm placeholder:text-slate-400"
+                  placeholder="키워드1, 키워드2, 키워드3"
+                />
+              </div>
+            </div>
+          </div>
+
+          {err && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 px-2 py-1.5 rounded">
+              {err}
+            </p>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="text-sm text-slate-600 hover:text-slate-900 disabled:opacity-50"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={busy || !bodyText.trim()}
+            className="inline-flex items-center gap-1.5 bg-slate-900 text-white text-sm px-3 py-1.5 rounded-md hover:bg-slate-800 disabled:opacity-60"
+          >
+            {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {busy ? "저장 중…" : "저장"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function GenerateModal({
   channelId,
