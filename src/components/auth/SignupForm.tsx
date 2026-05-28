@@ -85,7 +85,7 @@ export function SignupForm() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?plan=${planSlug}&cycle=${cycle}`,
+        emailRedirectTo: `${window.location.origin}/auth/oauth-callback?plan=${planSlug}&cycle=${cycle}`,
         data: { consent, intended_plan: intendedPlan },
       },
     });
