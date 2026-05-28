@@ -67,3 +67,37 @@ export async function POST(
 
   return NextResponse.json({ publication: pub });
 }
+
+/**
+ * DELETE /api/mrai/content-drafts/[id]/publish
+ *
+ * Unpublish — remove every publication row for this draft so the
+ * draft falls back to "never published" state. Used by the cancel-
+ * publish button on the draft card when the user fired the publish
+ * by accident (or wants to redo a campaign).
+ *
+ * Cascade: dropping the publication row also removes the cron's
+ * follower-growth target and any persona-reaction simulations
+ * linked to the publication, so the UI's "발행됨" badge clears
+ * and the channel's gross totals fall back to the pre-publish
+ * snapshot.
+ */
+export async function DELETE(
+  _req: Request,
+  ctx: { params: Promise<{ id: string }> },
+) {
+  const { id } = await ctx.params;
+  const wsCtx = await getOrCreatePrimaryWorkspace();
+  if (!wsCtx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const svc = createServiceClient();
+  const { error, count } = await svc
+    .from("mrai_content_publications")
+    .delete({ count: "exact" })
+    .eq("content_draft_id", id)
+    .eq("workspace_id", wsCtx.workspaceId);
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true, removed: count ?? 0 });
+}

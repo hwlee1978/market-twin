@@ -420,6 +420,18 @@ function DraftCard({
   };
 
   const publishDraft = async () => {
+    // Guard against accidental clicks — the button sits right under the
+    // body text where the user is reading, so a stray click could
+    // publish a draft they're still editing. Confirm with a snippet of
+    // the body so the user knows which variant they're about to ship.
+    const isRepublish = !!publishedAt;
+    const bodySnippet =
+      (draft.body_text ?? "").trim().slice(0, 80).replace(/\s+/g, " ") +
+      ((draft.body_text ?? "").length > 80 ? "…" : "");
+    const ok = window.confirm(
+      `${isRepublish ? "다시 발행" : "가상 피드에 발행"}하시겠어요?\n\n[${draft.variant_label}] "${bodySnippet}"\n\n발행하면 채널의 가상 피드에 게시되고, 페르소나 시뮬레이션으로 좋아요·댓글이 누적됩니다.`,
+    );
+    if (!ok) return;
     setPublishing(true);
     setPublishError(null);
     try {
@@ -431,6 +443,29 @@ function DraftCard({
       setPublishedAt(json.publication?.published_at ?? new Date().toISOString());
     } catch (e) {
       setPublishError(e instanceof Error ? e.message : "퍼블리시 실패");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const unpublishDraft = async () => {
+    if (!publishedAt) return;
+    const ok = window.confirm(
+      "이 발행을 취소하시겠어요?\n가상 피드에서 제거되고 누적된 좋아요·댓글·시뮬 반응 기록이 함께 삭제됩니다.",
+    );
+    if (!ok) return;
+    setPublishing(true);
+    setPublishError(null);
+    try {
+      const res = await fetch(
+        `/api/mrai/content-drafts/${draft.id}/publish`,
+        { method: "DELETE" },
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "발행 취소 실패");
+      setPublishedAt(null);
+    } catch (e) {
+      setPublishError(e instanceof Error ? e.message : "발행 취소 실패");
     } finally {
       setPublishing(false);
     }
@@ -573,6 +608,14 @@ function DraftCard({
             {draft.source === "ai-drafted" && (
               <span className="text-[10px] text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded">
                 AI
+              </span>
+            )}
+            {publishedAt && (
+              <span
+                className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded"
+                title={`${new Date(publishedAt).toLocaleString("ko-KR")} 발행됨`}
+              >
+                ✓ 발행됨
               </span>
             )}
           </div>
@@ -919,13 +962,24 @@ function DraftCard({
             {publishing
               ? "퍼블리시 중…"
               : publishedAt
-                ? "🔁 다시 퍼블리시"
-                : "📢 가상 피드에 퍼블리시"}
+                ? "🔁 다시 발행"
+                : "📢 가상 피드에 발행"}
           </button>
           {publishedAt && (
-            <span className="text-[10px] text-emerald-700">
-              ✓ {new Date(publishedAt).toLocaleString("ko-KR")} 발행됨
-            </span>
+            <>
+              <span className="text-[10px] text-emerald-700">
+                ✓ {new Date(publishedAt).toLocaleString("ko-KR")} 발행됨
+              </span>
+              <button
+                type="button"
+                onClick={unpublishDraft}
+                disabled={publishing}
+                className="text-[10px] text-slate-500 hover:text-red-600 underline disabled:opacity-50"
+                title="발행 취소 — 가상 피드에서 제거하고 누적 기록 삭제"
+              >
+                발행 취소
+              </button>
+            </>
           )}
           {publishError && (
             <span className="text-[10px] text-red-600">{publishError}</span>
