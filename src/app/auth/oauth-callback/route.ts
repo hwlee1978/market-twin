@@ -31,17 +31,20 @@ export async function GET(request: Request) {
       if (!error && data.user && data.user.email) {
         const meta = (data.user.user_metadata ?? {}) as { welcome_sent_at?: string };
         if (!meta.welcome_sent_at) {
-          // Stamp welcome flag — email send is deferred to a separate path
-          // (or future cron) to keep this hot path minimal. Stamping ensures
-          // we don't keep retrying.
+          // Stamp BEFORE send so a retry that lands here again doesn't
+          // double-send if email succeeds but stamp fails. Either we send
+          // once or we skip — never twice.
           await supabase.auth.updateUser({
             data: { ...meta, welcome_sent_at: new Date().toISOString() },
           });
-          // Welcome email send is intentionally deferred until we resolve
-          // the auth/callback 404 issue. Once route handler is confirmed
-          // running, re-add via dynamic import:
-          //   const { notifyWelcome } = await import("@/lib/email/notify");
-          //   void notifyWelcome({ email: data.user.email, locale });
+          // Dynamic import keeps Resend SDK out of the cold-start critical
+          // path. Earlier static import was a suspected (incorrect) cause
+          // of the route 404 — kept dynamic for safety + faster TTFB on
+          // OAuth callback even if it adds a few ms to the email send.
+          const userEmail = data.user.email;
+          void import("@/lib/email/notify")
+            .then(({ notifyWelcome }) => notifyWelcome({ email: userEmail, locale }))
+            .catch((e) => console.warn("[auth/callback] welcome email failed", e));
         }
       }
     } catch (err) {
