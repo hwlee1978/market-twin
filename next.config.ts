@@ -13,23 +13,25 @@ const nextConfig: NextConfig = {
   },
 };
 
-// Compose: Sentry wraps the next-intl-wrapped config. Sentry's wrapper
-// hooks into the build to upload source maps (if SENTRY_AUTH_TOKEN is
-// set) and rewrite client bundles so stack traces resolve to original
-// TS files. No-ops cleanly when SENTRY_DSN is absent.
+// Compose: Sentry wraps the next-intl-wrapped config. Runtime error
+// reporting hooks via instrumentation.ts / sentry.*.config.ts and works
+// independently of build-time source-map upload.
 //
-// errorHandler: source-map upload failure (wrong project slug, 401,
-// network, etc.) MUST NOT fail the production build — runtime error
-// reporting still works without uploaded maps, you just get minified
-// stack traces. Build failure on a non-critical observability step
-// blocks shipping the actual app, which is the wrong tradeoff.
+// Source-map upload is currently DISABLED because the Sentry CLI
+// rejected the "market-twin/market-twin" org/project pair with HTTP 400
+// ("One or more projects are invalid") and that exit code propagates
+// past withSentryConfig's errorHandler, taking the whole npm run build
+// down with it. Once the actual project slug is confirmed in Sentry
+// dashboard, restore authToken + sourcemaps.disable=false to re-enable.
+// Until then, stack traces in Sentry will be minified — that's the
+// acceptable tradeoff vs blocked deploys.
 export default withSentryConfig(withNextIntl(nextConfig), {
   org: "market-twin",
   project: "market-twin",
   silent: !process.env.CI,
-  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // authToken intentionally omitted — see comment above.
   tunnelRoute: "/monitoring",
-  errorHandler: (err) => {
-    console.warn("[sentry] source map upload failed; build continues:", err.message);
+  sourcemaps: {
+    disable: true,
   },
 });
