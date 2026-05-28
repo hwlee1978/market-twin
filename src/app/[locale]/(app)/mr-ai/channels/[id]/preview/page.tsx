@@ -62,13 +62,14 @@ export default async function ChannelPreviewPage({
     .single<Channel>();
   if (!channel) notFound();
 
-  // Audience count — for "follower" display
+  // Audience count — global persona pool (shared across workspaces as
+  // of v0.1, see runner.ts shared-pool note), filtered to the channel's
+  // target country.
   let audienceTotal = 0;
   if (channel.market_country) {
     const { count } = await supabase
       .from("personas")
       .select("id", { count: "exact", head: true })
-      .eq("workspace_id", ctx.workspaceId)
       .eq("country", channel.market_country);
     audienceTotal = count ?? 0;
   }

@@ -88,12 +88,13 @@ export async function POST(
     return NextResponse.json({ error: "channel_not_found" }, { status: 404 });
   }
 
+  // Persona pool is global (shared across workspaces v0.1) — read the
+  // total country pool and use it as the ceiling for follower growth.
   let personaPoolCap = 200;
   if (channel.market_country) {
     const { count } = await svc
       .from("personas")
       .select("id", { count: "exact", head: true })
-      .eq("workspace_id", wsCtx.workspaceId)
       .eq("country", channel.market_country);
     personaPoolCap = Math.max(count ?? 0, 50);
   }

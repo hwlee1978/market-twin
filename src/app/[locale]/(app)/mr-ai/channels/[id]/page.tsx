@@ -136,13 +136,17 @@ export default async function VirtualSpacePage({
 
   if (!channel) notFound();
 
+  // Persona pool is global as of v0.1 (see runner.ts shared-pool note) —
+  // the count + audience preview here read across every workspace's
+  // origin-tagged personas. Without the workspace filter Markettwin
+  // (and other new tenants) see the real cross-tenant pool instead of
+  // a stale "0명" zero state.
   let personasQuery = supabase
     .from("personas")
     .select(
       "id, age_range, gender, country, income_band, profession, base_profession, interests, purchase_style, price_sensitivity",
       { count: "exact" },
     )
-    .eq("workspace_id", ctx.workspaceId)
     .order("use_count", { ascending: true })
     .limit(48);
   if (channel.market_country) {

@@ -84,12 +84,12 @@ export async function GET(req: Request) {
         continue;
       }
 
+      // Persona pool is global as of v0.1 — count by country only.
       let personaPoolCap = 200;
       if (channel.market_country) {
         const { count } = await svc
           .from("personas")
           .select("id", { count: "exact", head: true })
-          .eq("workspace_id", pub.workspace_id)
           .eq("country", channel.market_country);
         personaPoolCap = Math.max(count ?? 0, 50);
       }

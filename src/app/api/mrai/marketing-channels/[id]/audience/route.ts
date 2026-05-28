@@ -42,15 +42,16 @@ export async function GET(
     return NextResponse.json({ error: "channel_not_found" }, { status: 404 });
   }
 
-  // Persona pool match: same workspace + same country.
-  // When channel has no country yet, return any persona in the workspace.
+  // Persona pool match: country only. The pool is shared across
+  // workspaces as of v0.1 (see runner.ts shared-pool note) so we read
+  // the global pool and just filter by the channel's target market.
+  // When the channel has no country set, return any persona globally.
   let query = supabase
     .from("personas")
     .select(
       "id, age_range, gender, country, income_band, profession, base_profession, interests, purchase_style, price_sensitivity, use_count, last_used_at",
       { count: "exact" },
     )
-    .eq("workspace_id", wsCtx.workspaceId)
     .order("use_count", { ascending: true })
     .order("last_used_at", { ascending: true })
     .limit(limit);

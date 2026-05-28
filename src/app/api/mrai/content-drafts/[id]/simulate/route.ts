@@ -164,14 +164,16 @@ export async function POST(
   const channelData = Array.isArray(draft.channel) ? draft.channel[0] : draft.channel;
   const market = parsed.data.marketOverride ?? channelData?.market_country ?? null;
 
-  // Sample personas — random within workspace + matching market
+  // Sample personas from the global pool (shared across workspaces as
+  // of v0.1, see runner.ts shared-pool note), filtered to the target
+  // market. We over-sample then shuffle in JS so the simulation isn't
+  // biased to the lowest-use_count slice every time.
   let query = supabase
     .from("personas")
     .select(
       "id, age_range, gender, country, income_band, profession, base_profession, interests, purchase_style, price_sensitivity",
     )
-    .eq("workspace_id", wsCtx.workspaceId)
-    .limit(sampleSize * 3); // over-sample then shuffle
+    .limit(sampleSize * 3);
   if (market) query = query.eq("country", market);
   const { data: poolRows, error: pErr } = await query;
   if (pErr) {
