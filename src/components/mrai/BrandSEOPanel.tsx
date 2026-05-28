@@ -430,9 +430,12 @@ function PropertyModal({
           </h4>
           <SectionHelp
             title="처음이라면 — GSC 속성 ID 찾는 법"
-            consoleLabel="Google Search Console 열기"
+            consoleLabel="Google Search Console 열기 (search.google.com/search-console)"
             consoleUrl="https://search.google.com/search-console"
             steps={[
+              <>
+                <strong className="text-amber-700">⚠ 주의:</strong> 이건 <strong>Search Console</strong> (검색 노출 관리 도구) 입니다. 아래의 <strong>Google Analytics</strong> 와는 다른 서비스예요 — 9-10자리 숫자 ID는 GA4 에만 있고 GSC 에는 없습니다.
+              </>,
               <>구글 계정으로 로그인 후 좌측 상단 <strong>속성 추가</strong> 클릭.</>,
               <>
                 <strong>도메인</strong>(전체 도메인 한 번에 권장) 또는 <strong>URL 접두어</strong> 선택 → 사이트 주소 입력 (예: <code className="font-mono bg-white px-1">lemouton.com</code>).
@@ -441,7 +444,7 @@ function PropertyModal({
                 안내되는 방법(도메인 DNS TXT 레코드 또는 HTML 파일 업로드)으로 <strong>소유권 확인</strong>. 도메인 방식은 가비아·Porkbun·Cafe24 등 도메인 관리 콘솔에서 TXT 추가.
               </>,
               <>
-                확인 완료되면 GSC 좌측 상단 <strong>속성 선택 풀다운</strong>에 표기된 값을 그대로 복사.
+                확인 완료되면 GSC 좌측 상단 <strong>속성 선택 풀다운</strong>에 표기된 값을 그대로 복사 (도메인 또는 전체 URL).
               </>,
             ]}
             formatHint={
@@ -464,25 +467,31 @@ function PropertyModal({
           </h4>
           <SectionHelp
             title="처음이라면 — GA4 ID 두 개 찾는 법"
-            consoleLabel="Google Analytics 열기"
+            consoleLabel="Google Analytics 열기 (analytics.google.com)"
             consoleUrl="https://analytics.google.com"
             steps={[
               <>
-                구글 계정으로 로그인 후 좌측 하단 <strong>⚙ 관리</strong> (톱니바퀴).
+                <strong className="text-amber-700">⚠ 주의:</strong> URL이 <code className="font-mono bg-white px-1">analytics.google.com</code> 인지 확인하세요. <code className="font-mono bg-white px-1">search.google.com</code> (Search Console) 과는 별개 서비스이고, GA4 ID는 Analytics 쪽에만 있습니다.
               </>,
               <>
-                <strong>속성 ID</strong>: 가운데 <em>속성</em> 컬럼에서 <strong>속성 세부정보</strong> → 우측 상단의 9-10자리 숫자 (예: <code className="font-mono bg-white px-1">123456789</code>).
+                구글 계정으로 로그인 → 화면 <strong>좌측 사이드바 맨 아래</strong>의 <strong>⚙ 관리(Admin)</strong> (톱니바퀴 아이콘) 클릭. 보이지 않으면 좌측 사이드바를 펼쳐주세요.
               </>,
               <>
-                <strong>Measurement ID (G-XXX)</strong>: <em>속성</em> 컬럼 → <strong>데이터 스트림</strong> → 웹 스트림 한 줄 클릭 → 우측에 <code className="font-mono bg-white px-1">G-XXXXXXXXXX</code> 형태로 표시.
+                관리(Admin) 화면이 열리면 가운데에 <strong>속성(Property)</strong> 컬럼이 있습니다. <strong>속성 설정(Property Settings)</strong> 또는 <strong>속성 세부정보(Property details)</strong> 클릭 — Google 이 UI를 최근 자주 바꿔서 둘 중 하나로 표시됩니다.
               </>,
               <>
-                GA4 계정이 아직 없으면 좌측 하단 <strong>관리 → 속성 만들기</strong> 로 새 속성 생성 → 웹 스트림 등록 시 자동 발급.
+                열린 화면 <strong>우측 상단</strong>에 9-10자리 <strong>속성 ID(Property ID)</strong> 표시 (예: <code className="font-mono bg-white px-1">123456789</code>). 그 숫자만 복사하세요.
+              </>,
+              <>
+                <strong>Measurement ID (G-XXX)</strong> 는 다른 위치 — 관리 화면 <em>속성</em> 컬럼에서 <strong>데이터 스트림(Data Streams)</strong> 클릭 → 웹 스트림 한 줄 클릭 → 우측 상단에 <code className="font-mono bg-white px-1">G-XXXXXXXXXX</code> 형태로 표시.
+              </>,
+              <>
+                GA4 계정이 아직 없으면 관리(Admin) → <strong>속성 만들기</strong> 로 새 속성 생성 → 웹 스트림 등록 시 두 ID가 모두 자동 발급됩니다.
               </>,
             ]}
             formatHint={
               <>
-                Measurement ID 는 <code className="font-mono bg-white px-1">G-</code> 접두어 그대로 / Property ID 는 숫자 앞에 <code className="font-mono bg-white px-1">properties/</code> 를 붙여서 입력 (예: <code className="font-mono bg-white px-1">properties/123456789</code>).
+                Measurement ID 는 <code className="font-mono bg-white px-1">G-</code> 접두어 포함 그대로 / Property ID 는 숫자 앞에 <code className="font-mono bg-white px-1">properties/</code> 를 붙여서 입력 (예: <code className="font-mono bg-white px-1">properties/123456789</code>).
               </>
             }
           />
