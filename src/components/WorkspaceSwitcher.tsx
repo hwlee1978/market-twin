@@ -43,14 +43,23 @@ export function WorkspaceSwitcher({ workspaces }: Props) {
       });
       if (res.ok) {
         setOpen(false);
-        // Full reload instead of router.refresh() — the latter
-        // re-fetches server components but doesn't always flush
-        // client-state-backed panels (OnboardingPanel /
-        // BriefingPanel / MrAIChat all hold initialState from the
-        // OLD workspace and don't reset on refresh). Hard reload
-        // guarantees every panel re-initialises from the new
-        // workspace's data. ~300ms UX cost, worth the consistency.
-        window.location.reload();
+        // ID-scoped routes (/projects/[id]/*, /reports/[id]/*) become
+        // invalid after the workspace switch because the new workspace
+        // has no such project / report. Staying on the same URL would
+        // either notFound() server-side or render an empty page — both
+        // look like "nothing happened" to the user. Detect those routes
+        // and bounce to the section's list page; for workspace-neutral
+        // routes (/dashboard, /billing, /team, /settings, …) we keep
+        // the current URL and just hard reload so panels re-init from
+        // the new workspace's data.
+        const next = resolvePostSwitchPath(window.location.pathname);
+        if (next) {
+          window.location.assign(next);
+        } else {
+          // Hard reload — see note above on why router.refresh() is not
+          // enough (client-state-backed panels don't reset).
+          window.location.reload();
+        }
       }
     });
   };
@@ -151,6 +160,46 @@ export function WorkspaceSwitcher({ workspaces }: Props) {
       )}
     </>
   );
+}
+
+/**
+ * Decide where to land after a workspace switch. ID-scoped routes
+ * (project/report detail pages) become invalid in the new workspace
+ * because the resource lives under the OLD workspace_id — server
+ * components either notFound() or render an empty filtered list.
+ *
+ * Returns the path to navigate to, or null if the current path is safe
+ * to reload in place (workspace-neutral list/index pages).
+ *
+ * Path shapes covered:
+ *   /ko/projects/<uuid>/*         → /projects
+ *   /en/projects/<uuid>/results   → /projects
+ *   /reports/<uuid>               → /reports
+ *   /mr-ai/<sub-tab>              → /mr-ai (sub-tabs reset to dashboard)
+ *
+ * Locale prefix is preserved so users stay on the right /ko or /en tree.
+ */
+function resolvePostSwitchPath(pathname: string): string | null {
+  // Optional locale prefix (/ko or /en). Strip it for matching, then
+  // reapply when emitting the redirect target.
+  const localeMatch = pathname.match(/^\/(ko|en)(\/|$)/);
+  const localePrefix = localeMatch ? `/${localeMatch[1]}` : "";
+  const rest = localeMatch ? pathname.slice(localePrefix.length) || "/" : pathname;
+
+  // Project detail / sub-routes — anything past /projects/<id> is workspace-bound.
+  if (/^\/projects\/[^/]+(\/|$)/.test(rest) && !/^\/projects\/new(\/|$)/.test(rest)) {
+    return `${localePrefix}/projects`;
+  }
+  // Report detail
+  if (/^\/reports\/[^/]+(\/|$)/.test(rest)) {
+    return `${localePrefix}/reports`;
+  }
+  // Mr.AI sub-tabs hold workspace-scoped state in their initial server
+  // fetch — bounce to the tab root so each panel re-initialises.
+  if (/^\/mr-ai\/[^/]+(\/|$)/.test(rest)) {
+    return `${localePrefix}/mr-ai`;
+  }
+  return null;
 }
 
 function CreateWorkspaceModal({
