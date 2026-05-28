@@ -1260,10 +1260,17 @@ export function synthesisPrompt(
     return lines.join("\n");
   })();
 
-  return `Produce the final executive verdict for this launch simulation. The company is based in ${input.originatingCountry} (origin / home market) and is validating which candidate market gives the best launch outcome. Candidates may include the home market (domestic launch validation), export markets, or both side-by-side. For each candidate:
-- If candidate === ${input.originatingCountry}, frame action items around DOMESTIC launch — use home-market channels (e.g. ${input.originatingCountry === "KR" ? "스마트스토어·네이버 쇼핑·국내 D2C·오프라인 매장" : "domestic retail, marketplaces, and DTC channels"}) and leverage existing cultural / regulatory fluency.
-- If candidate !== ${input.originatingCountry}, frame as EXPORT validation — entry strategy, distributor selection, localization, regulatory friction.
-The bestCountry field MUST be one of the candidate markets in the simulation (it may be the origin if the user added it as a candidate).
+  return `Produce the final executive verdict for this launch simulation. The company is based in ${input.originatingCountry} (origin / home market) and is validating which candidate market gives the best launch outcome. Candidates may include the home market (domestic comparison) and export markets.
+
+Scoring rules:
+- Score EVERY candidate independently — domestic and export both get full country scores.
+- If candidate === ${input.originatingCountry}, frame the score as DOMESTIC LAUNCH VIABILITY (home-market channels like ${input.originatingCountry === "KR" ? "스마트스토어·네이버 쇼핑·국내 D2C·오프라인 매장" : "domestic retail, marketplaces, and DTC channels"}, existing cultural / regulatory fluency).
+- If candidate !== ${input.originatingCountry}, frame as EXPORT validation (entry strategy, distributor selection, localization, regulatory friction).
+
+Recommendation rule (CRITICAL):
+- The bestCountry field MUST be the highest-scoring candidate AMONG EXPORT MARKETS (candidates where candidate !== ${input.originatingCountry}). The domestic score appears in the country list for comparison ONLY and is NEVER the recommended target.
+- If the candidate list contains ONLY the origin (no export candidates), set bestCountry to the origin and add a one-line note in narrative.executiveSummary that no export comparison was possible.
+- In the executiveSummary, surface the domestic score as a "비교 기준 (Domestic baseline)" — e.g. "${input.originatingCountry}는 비교용으로 X점, 추천 진출국은 Y (Z점)".
 
 ${dateContext}
 

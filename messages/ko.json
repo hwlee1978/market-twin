@@ -420,7 +420,7 @@
         "other": "기타"
       },
       "countriesPreset": "한국 → 미국·일본·인도네시아 (기본)",
-      "countriesOriginHint": "💡 출시 모국도 후보에 추가할 수 있습니다 — 국내(KR↔KR) + 해외 후보를 함께 시뮬레이션하면 도메스틱 성공 점수와 해외 진출 옵션을 한 화면에서 비교할 수 있습니다.",
+      "countriesOriginHint": "💡 출시 모국도 후보에 추가하면 도메스틱 점수가 함께 산출됩니다 (해외 옵션과 비교용). 다만 \"추천 진출국 (Top-2)\"은 해외 후보 중에서만 선정됩니다 — 도메스틱은 비교 기준입니다.",
       "countriesSearchPlaceholder": "국가 검색 (KR, 일본, ...)",
       "countriesCount": "{n}개 국가 선택됨",
       "competitorUrlsFormat": "1줄에 URL 1개씩 입력하세요.",
