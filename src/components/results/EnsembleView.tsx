@@ -2,8 +2,8 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download, ChevronRight, HelpCircle, Lightbulb, MessageCircle, Send, X, RefreshCw, Gift } from "lucide-react";
-import { useRouter } from "@/i18n/navigation";
+import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download, ChevronDown, ChevronRight, HelpCircle, Lightbulb, MessageCircle, Send, X, RefreshCw, Gift, ArrowLeft } from "lucide-react";
+import { useRouter, Link } from "@/i18n/navigation";
 import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { categoryLabel } from "@/lib/simulation/taxonomy";
@@ -380,17 +380,11 @@ export function EnsembleView({
 
   if (status.status === "failed") {
     return (
-      <div className="max-w-2xl mx-auto py-12">
-        <div className="card text-center p-12">
-          <AlertCircle className="mx-auto text-risk" size={32} />
-          <h2 className="text-xl font-semibold mt-4 mb-2">
-            {locale === "ko" ? "앙상블 분석 실패" : "Ensemble failed"}
-          </h2>
-          <p className="text-sm text-slate-500">
-            {status.error_message ?? "일부 시뮬레이션 또는 집계 단계에서 오류가 발생했습니다."}
-          </p>
-        </div>
-      </div>
+      <EnsembleFailedState
+        status={status}
+        projectId={projectId}
+        locale={locale}
+      />
     );
   }
 
@@ -424,6 +418,170 @@ export function EnsembleView({
   }
 
   return <EnsembleDashboard projectId={projectId} result={result} locale={locale} />;
+}
+
+/**
+ * Ensemble failed-state card. Mirrors the per-sim FailedState UX —
+ * partial-completion counts so the user knows which step blew up,
+ * collapsible technical error detail, retry-with-same-tier action that
+ * re-uses the project's config (we hit /run-ensemble with just the
+ * tier; the route re-derives everything else from the project row),
+ * and a back-to-project escape hatch. Without this the ensemble path
+ * was a dead end with no recovery surface — the dominant failure mode
+ * for new tenants.
+ */
+function EnsembleFailedState({
+  status,
+  projectId,
+  locale,
+}: {
+  status: EnsembleStatus;
+  projectId: string;
+  locale: string;
+}) {
+  const router = useRouter();
+  const [showDetail, setShowDetail] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+  const isKo = locale === "ko";
+
+  const onRetry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/run-ensemble`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ tier: status.tier, locale }),
+      });
+      const raw = await res.text();
+      let json: { ensembleId?: string; error?: string; detail?: string } = {};
+      try {
+        json = raw ? JSON.parse(raw) : {};
+      } catch {
+        throw new Error(
+          isKo
+            ? `서버 오류 (${res.status}): ${raw.slice(0, 160)}`
+            : `Server error (${res.status}): ${raw.slice(0, 160)}`,
+        );
+      }
+      if (!res.ok || !json.ensembleId) {
+        throw new Error(
+          (typeof json.detail === "string" && json.detail) ||
+            (typeof json.error === "string" && json.error) ||
+            (isKo ? "재실행에 실패했습니다." : "Re-run failed."),
+        );
+      }
+      router.push(
+        `/projects/${projectId}/results?ensemble=${json.ensembleId}`,
+      );
+    } catch (err) {
+      console.error("[ensemble retry]", err);
+      setRetryError(
+        err instanceof Error
+          ? err.message
+          : isKo
+            ? "재실행에 실패했습니다."
+            : "Re-run failed.",
+      );
+      setRetrying(false);
+    }
+  };
+
+  const totalLabel = `${status.counts.completed} / ${status.counts.total}`;
+  const hasPartial = status.counts.completed > 0;
+  return (
+    <div className="max-w-2xl mx-auto py-12">
+      <div className="card text-center p-12">
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-risk-soft mb-4">
+          <AlertCircle size={24} className="text-risk" />
+        </div>
+        <h2 className="text-xl font-semibold mb-2 text-slate-900">
+          {isKo ? "앙상블 분석 실패" : "Ensemble analysis failed"}
+        </h2>
+        <p className="text-sm text-slate-500 break-keep mb-6">
+          {isKo
+            ? "일부 시뮬레이션 또는 집계 단계에서 오류가 발생했습니다. 동일 설정으로 재실행하거나, 프로젝트 페이지에서 다른 티어로 시도하실 수 있습니다."
+            : "Some simulations or the aggregation step failed. You can re-run with the same configuration, or try a different tier from the project page."}
+        </p>
+
+        <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700 mb-6">
+          <span className="text-slate-500">
+            {isKo ? "완료된 시뮬:" : "Completed sims:"}
+          </span>
+          <span className="font-medium">{totalLabel}</span>
+          {status.counts.failed > 0 && (
+            <span className="text-risk">
+              · {status.counts.failed} {isKo ? "실패" : "failed"}
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap justify-center gap-2 mb-2">
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={retrying}
+            className="btn-primary disabled:opacity-60"
+          >
+            {retrying ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <RefreshCw size={16} />
+            )}
+            {retrying
+              ? isKo
+                ? "재실행 중…"
+                : "Re-running…"
+              : isKo
+                ? "다시 분석 (같은 티어)"
+                : "Re-run (same tier)"}
+          </button>
+          <Link
+            href={`/projects/${projectId}`}
+            className="btn-ghost"
+          >
+            <ArrowLeft size={16} />
+            {isKo ? "프로젝트로 돌아가기" : "Back to project"}
+          </Link>
+        </div>
+        {retryError && (
+          <p className="text-xs text-risk mb-6">{retryError}</p>
+        )}
+        {!retryError && <div className="mb-6" />}
+
+        {hasPartial && (
+          <p className="text-[11px] text-slate-500 mb-2">
+            {isKo
+              ? `완료된 ${status.counts.completed}개 시뮬은 보존됩니다 — 재실행은 새 ensemble로 생성됩니다.`
+              : `The ${status.counts.completed} completed sim(s) are preserved — the re-run creates a fresh ensemble.`}
+          </p>
+        )}
+
+        {status.error_message && (
+          <div className="text-left max-w-md mx-auto">
+            <button
+              type="button"
+              onClick={() => setShowDetail((v) => !v)}
+              className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
+            >
+              <ChevronDown
+                size={12}
+                className={`transition-transform ${showDetail ? "rotate-180" : ""}`}
+              />
+              {isKo ? "오류 상세 보기" : "Show technical detail"}
+            </button>
+            {showDetail && (
+              <pre className="mt-2 p-3 rounded-md bg-slate-50 border border-slate-200 text-[11px] text-slate-600 whitespace-pre-wrap break-words font-mono">
+                {status.error_message}
+              </pre>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /* ────────────────────────────────── progress ─── */
