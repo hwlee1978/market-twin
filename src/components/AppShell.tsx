@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import {
@@ -13,6 +14,8 @@ import {
   HelpCircle,
   LogOut,
   ShieldCheck,
+  Menu,
+  X,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { LocaleSwitcher } from "./LocaleSwitcher";
@@ -70,6 +73,15 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
 
+  // Mobile drawer state. Sidebar is always visible on lg+ (desktop);
+  // on smaller screens it slides in from the left when opened. We
+  // auto-close on route change so navigating doesn't leave the drawer
+  // hanging open over the new page.
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
+
   const logout = async () => {
     await createClient().auth.signOut();
     router.replace("/login");
@@ -78,12 +90,32 @@ export function AppShell({
 
   return (
     <div className="min-h-screen flex bg-slate-50">
-      <aside className="w-64 shrink-0 bg-brand text-white flex flex-col">
+      {/* Mobile backdrop — only renders + visible when drawer open.
+          Clicking it closes the drawer. lg:hidden so desktop never
+          sees it. */}
+      {drawerOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/40 z-30 lg:hidden"
+          onClick={() => setDrawerOpen(false)}
+          aria-hidden
+        />
+      )}
+
+      <aside
+        className={clsx(
+          "w-64 shrink-0 bg-brand text-white flex flex-col",
+          // Mobile: fixed overlay drawer that slides in from the left.
+          "fixed inset-y-0 left-0 z-40 transform transition-transform duration-200 ease-out",
+          drawerOpen ? "translate-x-0" : "-translate-x-full",
+          // Desktop: in-flow, always visible.
+          "lg:relative lg:translate-x-0 lg:transition-none",
+        )}
+      >
         <div className="px-6 pt-6 pb-5 flex items-center gap-3">
           <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-white/10 text-white">
             <LogoMark size={22} />
           </span>
-          <div className="leading-tight">
+          <div className="leading-tight flex-1 min-w-0">
             <div className="text-[15px] font-semibold tracking-tight">
               Market Twin
             </div>
@@ -91,6 +123,16 @@ export function AppShell({
               {tCommon("appTagline")}
             </div>
           </div>
+          {/* Close button — mobile only. Lets users dismiss the drawer
+              without clicking the backdrop. */}
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(false)}
+            className="lg:hidden inline-flex items-center justify-center w-8 h-8 rounded-md text-brand-100 hover:bg-brand-600/60"
+            aria-label="Close menu"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {workspaces.length > 0 && <WorkspaceSwitcher workspaces={workspaces} />}
@@ -100,7 +142,7 @@ export function AppShell({
             {tNav("dashboard")}
           </div>
         </div>
-        <nav className="flex-1 px-3 space-y-0.5">
+        <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
           {NAV.map((item) => {
             const active = pathname.startsWith(item.href);
             return (
@@ -153,11 +195,28 @@ export function AppShell({
       </aside>
 
       <main className="flex-1 min-w-0 flex flex-col">
-        <div className="flex-1 max-w-7xl w-full mx-auto px-8 py-10 space-y-8">
+        {/* Mobile top bar — hamburger + logo. Hidden on lg+ since the
+            sidebar is permanently visible there. */}
+        <div className="lg:hidden sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-slate-200 px-4 h-14 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            className="inline-flex items-center justify-center w-9 h-9 rounded-md text-slate-700 hover:bg-slate-100"
+            aria-label="Open menu"
+          >
+            <Menu size={20} />
+          </button>
+          <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
+            <LogoMark size={20} className="text-brand" />
+            <span className="text-sm font-semibold text-slate-900 truncate">Market Twin</span>
+          </Link>
+        </div>
+
+        <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10 space-y-6 lg:space-y-8">
           {children}
         </div>
         <footer className="border-t border-slate-200/70 bg-white/60">
-          <div className="max-w-7xl mx-auto px-8 py-5 flex flex-col gap-3 text-xs text-slate-500">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col gap-3 text-xs text-slate-500">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
                 © {new Date().getFullYear()} 주식회사 미스터에이아이
