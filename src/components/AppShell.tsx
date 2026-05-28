@@ -157,17 +157,27 @@ export function AppShell({
           {children}
         </div>
         <footer className="border-t border-slate-200/70 bg-white/60">
-          <div className="max-w-7xl mx-auto px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
-            <div>
-              © {new Date().getFullYear()} Market Twin
+          <div className="max-w-7xl mx-auto px-8 py-5 flex flex-col gap-3 text-xs text-slate-500">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                © {new Date().getFullYear()} 주식회사 미스터에이아이
+              </div>
+              <div className="flex items-center gap-4 flex-wrap">
+                <Link href="/privacy" className="hover:text-brand">
+                  {tCommon("nav.privacy")}
+                </Link>
+                <Link href="/terms" className="hover:text-brand">
+                  {tCommon("nav.terms")}
+                </Link>
+                <a href="https://www.markettwin.ai/refund.html" target="_blank" rel="noopener" className="hover:text-brand">
+                  환불정책
+                </a>
+              </div>
             </div>
-            <div className="flex items-center gap-4">
-              <Link href="/privacy" className="hover:text-brand">
-                {tCommon("nav.privacy")}
-              </Link>
-              <Link href="/terms" className="hover:text-brand">
-                {tCommon("nav.terms")}
-              </Link>
+            <div className="text-[11px] text-slate-400 leading-relaxed">
+              주식회사 미스터에이아이 (Mr.AI Inc.) · 대표이사 이현우 · 사업자등록번호 693-87-03907
+              · 경기도 용인시 수지구 죽전로27번길 14-30, 604-803호
+              · <a href="mailto:contact@markettwin.ai" className="hover:text-brand">contact@markettwin.ai</a>
             </div>
           </div>
         </footer>

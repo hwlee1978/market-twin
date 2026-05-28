@@ -42,20 +42,30 @@ export async function LegalLayout({
       </main>
 
       <footer className="border-t border-slate-200/70 bg-white">
-        <div className="max-w-3xl mx-auto px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
-          <div className="flex items-center gap-5 text-slate-600">
-            <Link href="/" className="hover:text-brand">
-              {t("nav.home")}
-            </Link>
-            <Link href="/privacy" className="hover:text-brand">
-              {t("nav.privacy")}
-            </Link>
-            <Link href="/terms" className="hover:text-brand">
-              {t("nav.terms")}
-            </Link>
+        <div className="max-w-3xl mx-auto px-6 lg:px-8 py-8 flex flex-col gap-4 text-sm">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-5 text-slate-600 flex-wrap">
+              <Link href="/" className="hover:text-brand">
+                {t("nav.home")}
+              </Link>
+              <Link href="/privacy" className="hover:text-brand">
+                {t("nav.privacy")}
+              </Link>
+              <Link href="/terms" className="hover:text-brand">
+                {t("nav.terms")}
+              </Link>
+              <a href="https://www.markettwin.ai/refund.html" target="_blank" rel="noopener" className="hover:text-brand">
+                환불정책
+              </a>
+            </div>
+            <div className="text-xs text-slate-400">
+              © {new Date().getFullYear()} 주식회사 미스터에이아이
+            </div>
           </div>
-          <div className="text-xs text-slate-400">
-            © {new Date().getFullYear()} Market Twin
+          <div className="text-[11px] text-slate-400 leading-relaxed border-t border-slate-100 pt-3">
+            주식회사 미스터에이아이 (Mr.AI Inc.) · 대표이사 이현우 · 사업자등록번호 693-87-03907
+            · 경기도 용인시 수지구 죽전로27번길 14-30, 604-803호
+            · <a href="mailto:contact@markettwin.ai" className="hover:text-brand">contact@markettwin.ai</a>
           </div>
         </div>
       </footer>

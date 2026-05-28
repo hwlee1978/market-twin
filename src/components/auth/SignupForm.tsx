@@ -45,6 +45,7 @@ export function SignupForm() {
   const planSlug: PlanSlug = (
     rawPlan === "free_trial" ||
     rawPlan === "starter" ||
+    rawPlan === "validator" ||
     rawPlan === "growth" ||
     rawPlan === "enterprise"
       ? rawPlan
@@ -64,7 +65,9 @@ export function SignupForm() {
     // (Term version is hard-coded for now; bump when the legal docs
     // change to invalidate prior consents.)
     const consent = {
-      tos_version: "2026-04-30",
+      // Bump when Privacy/Terms/Refund docs change in a way that invalidates
+      // prior consent (material policy shifts, new data uses, etc.).
+      tos_version: "2026-05-28",
       tos_accepted_at: new Date().toISOString(),
       marketing_email: agreeMarketing,
     };
