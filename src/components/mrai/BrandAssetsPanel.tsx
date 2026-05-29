@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Trash2, UploadCloud, Image as ImageIcon, X as CloseX } from "lucide-react";
+import { EmptyState } from "./EmptyState";
 
 type Asset = {
   id: string;
@@ -109,11 +110,20 @@ export function BrandAssetsPanel() {
             <Loader2 className="w-3.5 h-3.5 animate-spin" /> 불러오는 중…
           </div>
         ) : !filtered || filtered.length === 0 ? (
-          <p className="text-xs text-slate-400 text-center py-6">
-            {filter === "all"
-              ? "아직 업로드된 자산이 없습니다. 실제 제품 사진 5-10장을 업로드하면 이미지 생성 품질이 즉시 올라갑니다."
-              : `이 카테고리에 자산이 없습니다.`}
-          </p>
+          <EmptyState
+            icon={UploadCloud}
+            tone="violet"
+            title={
+              filter === "all"
+                ? "브랜드 자산을 업로드하세요"
+                : "이 카테고리에 자산이 없어요"
+            }
+            description={
+              filter === "all"
+                ? "제품 사진 5-10장만 올려도 이미지 생성 품질이 즉시 올라갑니다. 룩북·로고·앰배서더 사진도 함께 올리면 톤이 일관됩니다."
+                : "다른 카테고리에는 자산이 있을 수 있어요. 또는 새 자산을 업로드해 이 카테고리를 채우세요."
+            }
+          />
         ) : (
           <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3">
             {filtered.map((a) => (

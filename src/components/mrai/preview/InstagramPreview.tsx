@@ -15,7 +15,9 @@ import {
   Upload,
   TrendingUp,
   Eye,
+  Image as ImageIcon,
 } from "lucide-react";
+import { EmptyState } from "../EmptyState";
 
 export type PreviewChannel = {
   id: string;
@@ -269,8 +271,13 @@ export function InstagramPreview({
             <Loader2 className="w-5 h-5 animate-spin mx-auto" />
           </div>
         ) : drafts.filter((d) => d.image_url).length === 0 ? (
-          <div className="col-span-3 py-20 text-center text-slate-400 text-sm">
-            아직 이미지가 있는 드래프트가 없습니다. 가상 공간으로 돌아가 콘텐츠 + 이미지 생성하세요.
+          <div className="col-span-3">
+            <EmptyState
+              icon={ImageIcon}
+              tone="rose"
+              title="아직 이미지 게시물이 없어요"
+              description="가상 공간 탭으로 돌아가 콘텐츠 드래프트를 만들고 이미지를 생성하면 이 그리드에 IG 게시물처럼 깔립니다."
+            />
           </div>
         ) : (
           drafts

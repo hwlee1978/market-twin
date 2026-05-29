@@ -14,7 +14,9 @@ import {
   Pencil,
   ChevronDown,
   ChevronRight,
+  Radio,
 } from "lucide-react";
+import { EmptyState } from "./EmptyState";
 
 type Source = {
   id: string;
@@ -192,11 +194,12 @@ export function CrawlSourcesPanel() {
             <Loader2 className="w-3.5 h-3.5 animate-spin" /> 불러오는 중…
           </div>
         ) : sources.length === 0 ? (
-          <p className="text-xs text-slate-400 text-center py-4">
-            아직 등록된 크롤 소스가 없습니다.
-            <br />
-            <strong>추천 첫 시작</strong>: 자사 웹사이트 + 자사 브랜드 뉴스 RSS + 카테고리별 주요 경쟁사 페이지. 우측 <strong>자산 추가</strong> → 프리셋 탭에서 일괄 선택 가능합니다.
-          </p>
+          <EmptyState
+            icon={Radio}
+            tone="amber"
+            title="자동 크롤 소스를 등록하세요"
+            description="자사 웹사이트 + 브랜드 뉴스 RSS + 경쟁사 페이지를 매일 02:30 KST 자동 수집. 우측 자산 추가 → 프리셋 탭에서 카테고리에 맞는 8-10개를 일괄 선택할 수 있어요."
+          />
         ) : (
           <ul className="divide-y divide-slate-100">
             {sources.map((s) => {

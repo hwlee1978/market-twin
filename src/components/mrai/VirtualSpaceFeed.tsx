@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Heart, MessageSquare, Repeat2, Eye, Loader2 } from "lucide-react";
+import { Heart, MessageSquare, Repeat2, Eye, Loader2, Megaphone } from "lucide-react";
+import { EmptyState } from "./EmptyState";
 
 type Publication = {
   id: string;
@@ -78,11 +79,12 @@ export function VirtualSpaceFeed({
             <Loader2 className="w-3.5 h-3.5 animate-spin" /> 로딩…
           </div>
         ) : pubs.length === 0 ? (
-          <div className="text-center text-xs text-slate-400 py-8">
-            아직 업로드된 콘텐츠가 없습니다. 콘텐츠 드래프트 카드 하단의{" "}
-            <span className="text-rose-700 font-medium">📢 가상 피드에 퍼블리시</span>{" "}
-            버튼을 누르면 이 영역에 카드가 쌓이며 페르소나 반응이 누적됩니다.
-          </div>
+          <EmptyState
+            icon={Megaphone}
+            tone="rose"
+            title="아직 업로드된 콘텐츠가 없어요"
+            description="콘텐츠 드래프트 카드 하단의 '가상 피드에 퍼블리시' 버튼을 누르면 이 영역에 카드가 쌓이며 페르소나 반응이 누적됩니다."
+          />
         ) : (
           <ul className="space-y-3">
             {pubs.map((p) => (

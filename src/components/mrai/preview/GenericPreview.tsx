@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Heart, MessageSquare, Loader2 } from "lucide-react";
+import { Heart, MessageSquare, Loader2, FileText } from "lucide-react";
 import type { PreviewChannel } from "./InstagramPreview";
+import { EmptyState } from "../EmptyState";
 
 type Draft = {
   id: string;
@@ -108,9 +109,12 @@ export function GenericPreview({
             <Loader2 className="w-3.5 h-3.5 animate-spin" /> 불러오는 중…
           </div>
         ) : drafts.length === 0 ? (
-          <div className="text-center text-xs text-slate-400 py-10">
-            아직 드래프트가 없습니다.
-          </div>
+          <EmptyState
+            icon={FileText}
+            tone="sky"
+            title="이 채널에 드래프트가 없어요"
+            description="가상 공간에서 콘텐츠를 생성하면 이 채널의 플랫폼에 맞춰 시간순으로 정리됩니다."
+          />
         ) : (
           <ul className="space-y-5">
             {drafts.map((d) => (

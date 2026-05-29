@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, Plus, Trash2, Save, Sliders, X, Star } from "lucide-react";
 import { clsx } from "clsx";
+import { EmptyState } from "./EmptyState";
 
 type Preset = {
   id: string;
@@ -107,9 +108,13 @@ export function PresetsPanel() {
             로딩 중...
           </div>
         ) : presets.length === 0 && !creating ? (
-          <p className="text-sm text-slate-500">
-            아직 preset이 없습니다. "새 preset" 으로 시작하세요 (예: "임원 톤 LinkedIn", "친근한 Instagram").
-          </p>
+          <EmptyState
+            icon={Sliders}
+            tone="violet"
+            compact
+            title="콘텐츠 Preset이 비어 있어요"
+            description="톤·길이·해시태그 전략을 미리 정해두면 자동 생성기가 그대로 따릅니다. 예: '임원 톤 LinkedIn', '친근한 Instagram'."
+          />
         ) : (
           presets.map((p) => (
             <div

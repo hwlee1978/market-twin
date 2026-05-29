@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Eye, ThumbsUp, Play, BellRing } from "lucide-react";
+import { Loader2, Eye, ThumbsUp, Play, BellRing, Video } from "lucide-react";
 import type { PreviewChannel } from "./InstagramPreview";
+import { EmptyState } from "../EmptyState";
 
 type Draft = {
   id: string;
@@ -134,9 +135,12 @@ export function YouTubePreview({
             <Loader2 className="w-3.5 h-3.5 animate-spin" /> 불러오는 중…
           </div>
         ) : drafts.length === 0 ? (
-          <div className="text-center text-xs text-slate-400 py-10">
-            아직 업로드된 동영상이 없습니다.
-          </div>
+          <EmptyState
+            icon={Video}
+            tone="rose"
+            title="아직 동영상 드래프트가 없어요"
+            description="가상 공간에서 콘텐츠 드래프트를 만들면 이 채널 그리드에 YouTube 영상처럼 썸네일·제목·조회수와 함께 나옵니다."
+          />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {drafts.map((d) => {

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Search, RefreshCw, Bot, AlertCircle } from "lucide-react";
+import { Loader2, Search, RefreshCw, Bot, AlertCircle, BarChart3 } from "lucide-react";
+import { EmptyState } from "./EmptyState";
 
 type PerLLM = {
   llm: "claude" | "gpt" | "gemini";
@@ -248,10 +249,12 @@ export function LLMVisibilityPanel({
             <Loader2 className="w-3.5 h-3.5 animate-spin" /> 불러오는 중…
           </div>
         ) : !audit ? (
-          <div className="text-center text-xs text-slate-400 py-6">
-            아직 감사 기록이 없습니다. "감사 실행" 버튼을 누르면 LLM 3개가
-            카테고리 관련 질문에 어떻게 답하는지 측정합니다.
-          </div>
+          <EmptyState
+            icon={BarChart3}
+            tone="violet"
+            title="LLM 가시성 감사를 실행하세요"
+            description="Claude · ChatGPT · Gemini 3개 답변엔진이 내 카테고리에서 자사를 추천하는지 측정. 첫 감사는 약 90초, ~$0.06."
+          />
         ) : (
           <>
             {/* Overall visibility */}

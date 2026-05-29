@@ -11,7 +11,9 @@ import {
   Check,
   HelpCircle,
   ChevronDown,
+  Globe2,
 } from "lucide-react";
+import { EmptyState } from "./EmptyState";
 
 type SeoProperty = {
   id: string;
@@ -104,9 +106,12 @@ export function BrandSEOPanel() {
             <Loader2 className="w-3.5 h-3.5 animate-spin" /> 불러오는 중…
           </div>
         ) : props.length === 0 ? (
-          <p className="text-xs text-slate-400">
-            아직 등록된 SEO 자산이 없습니다. 본사 사이트 URL 1개부터 추가하세요.
-          </p>
+          <EmptyState
+            icon={Globe2}
+            tone="sky"
+            title="SEO 자산을 등록하세요"
+            description="자사 본사 URL 1개부터 시작. GSC · GA4 · 네이버 서치어드바이저 연동까지 한 자리에서 관리합니다."
+          />
         ) : (
           <ul className="divide-y divide-slate-100 -mt-2">
             {props.map((p) => (
