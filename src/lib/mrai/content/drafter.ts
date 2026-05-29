@@ -130,6 +130,22 @@ A/B/C 차별화 전략:
 - hashtags는 번역 불필요 (브랜드 태그처럼 보편 태그가 많아 native로 OK).
 - image_prompt는 항상 영문 (이미지 생성 도구가 영어).
 
+⚠️ 한국 인명·셀러브리티 표기 (CRITICAL — TW/CN/JP/US 시장에서 한글 노출 금지):
+- topic이나 brand context에 한국 인명(임윤아·정해인·NewJeans 등)이 등장할 때,
+  **시장 모국어 본문에 한글 그대로 노출하지 말 것**. 현지 audience는 한글을 못 읽음.
+- 변환 규칙:
+  · market_country=TW/CN/HK (중화권) → **"중문명 (Roman)"** 병기.
+    예: 임윤아 → 潤娥 (Yoona), 정해인 → 丁海寅 (Jung Hae-in), NewJeans → NewJeans 그대로.
+    한자 확실하지 않으면 로마자만: Yoona / Jung Hae-in.
+  · market_country=JP → **"가타카나 (Roman)"** 병기.
+    예: 임윤아 → ユナ (Yoona), 정해인 → チョン・ヘイン (Jung Hae-in).
+  · market_country=US/EU/SEA(non-Chinese) → **로마자만**: Yoona, Jung Hae-in, NewJeans.
+  · market_country=KR → 한글 그대로 유지.
+- 잘못된 예 ❌: "昨天在咖啡廳, 임윤아 穿著那雙..." (한글이 중국어 문장에 박힘)
+- 잘된 예 ✓: "昨天在咖啡廳, 潤娥 (Yoona) 穿著那雙..."
+- _ko 번역 필드에는 한글 원형(임윤아) 그대로 사용.
+- hashtags는 시장에 맞춘 표기 우선 (#潤娥 또는 #Yoona for TW), 한국 팬덤 타겟이면 #임윤아 OK.
+
 출력은 JSON. 각 variant마다 platform-specific 필드 + _ko 번역을 모두 채울 것.
 
 🔒 출력 wrapper key (절대 어기지 말 것):
