@@ -61,37 +61,38 @@ export type ProductProfile = {
   build_cost_usd: number | null;
 };
 
-const SYSTEM = `You analyze a brand's product photos and produce a structured product card so downstream content tools (copywriting, image generation, logo placement) know exactly what the product is.
+const SYSTEM = `당신은 브랜드의 제품 사진을 분석해 다운스트림 콘텐츠 도구(카피라이팅·이미지 생성·로고 배치)가 정확히 어떤 제품인지 알 수 있도록 구조화된 제품 카드를 만듭니다.
 
-You will see 1-5 reference photos of the same product (or product line). Extract:
+같은 제품(또는 제품 라인)의 사진 1-5장이 주어집니다. 추출 항목:
 
-1. CATEGORY — pick ONE from the controlled list:
+1. CATEGORY — 아래 통제 목록에서 하나 선택 (값은 영문 enum 그대로):
    footwear · apparel · cosmetics · skincare · fragrance · accessories · jewelry · electronics · home_goods · food_beverage · health_supplements · saas_digital · ip_media · other
 
-2. DESCRIPTION — 50-200 char plain-text product spec (e.g. "white slip-on sneaker with cream felted wool upper, velcro strap, cream rubber sole, small embroidered brand label on side").
+2. DESCRIPTION — 50-200자 한국어 제품 스펙 (예: "메리노 울 어퍼와 메시 패널이 결합된 로우탑 레이스업 스니커즈. 두꺼운 청키 러버 컵솔, 측면에 작은 사각형 우븐 라벨, 라이트 그레이·블랙·네이비 컬러웨이").
 
-3. VISUAL_FEATURES — structured visual signature:
-   - silhouette: 1 sentence describing the overall shape/form
-   - materials: 1-4 material names ("felted wool", "rubber", "suede")
-   - colors: 1-4 dominant colors WITH HEX CODE — sample the actual pixel hex from each photo, do NOT use a generic palette name. Format MUST be "name (#XXXXXX)". Examples: "cream off-white (#F2EADA)", "warm beige (#D9B98C)", "deep navy (#1F2A44)". Multiple shades of the same family → list separately. Hex codes drive image-gen prompts so accuracy matters.
-   - distinguishing: 1-3 features that differentiate this product ("velcro strap", "side embroidered label")
-   - typical_angles: 1-3 angles that look good in marketing ("3/4 side", "top-down", "feet-walking")
-   - NOT_FEATURES: 3-5 features the product DOES NOT have but which similar products in the same category MIGHT have (used as negative guidance for image generation). For footwear examples: ["no laces (slip-on with velcro)", "no perforated upper", "not a derby/oxford", "no leather"]. For apparel: ["no buttons", "not oversized", "no collar"]. Be specific so the image generator knows what to avoid.
+3. VISUAL_FEATURES — 구조화된 시각 시그니처 (모든 STRING 값은 한국어로):
+   - silhouette: 전체 형태/실루엣을 1문장 한국어 (예: "약간 청키한 라운디드 컵솔이 있는 로우컷 코트 스타일 스니커즈")
+   - materials: 1-4개 소재 이름 한국어 (예: "스웨이드", "메시", "러버", "메리노 울")
+   - colors: 1-4개 대표 색상을 반드시 HEX 코드와 함께. 사진의 실제 픽셀에서 hex를 추출하고, 일반 팔레트명을 쓰지 마세요. 포맷 필수 — "한국어이름 (#XXXXXX)". 예: "라이트 그레이 (#C8C3BA)", "오프화이트 크림 (#EDE9E8)", "딥 네이비 (#1C2340)". 같은 계열 다른 톤은 따로 나열. hex는 image-gen 정확도의 핵심.
+   - distinguishing: 1-3개 차별점 한국어 (예: "측면 패널의 작은 사각형 우븐 라벨", "두꺼운 컨트라스트 컵솔")
+   - typical_angles: 1-3개 마케팅에 좋은 앵글 한국어 (예: "3/4 사이드", "탑다운 오버헤드", "측면 프로파일")
+   - not_features: 3-5개 같은 카테고리에서 흔하지만 이 제품엔 없는 특징 한국어 — 이미지 생성의 negative guidance. 신발 예: ["레이스 없음 (슬립온/벨크로)", "통기성 퍼포레이션 없음", "더비·옥스포드 아님", "가죽 어퍼 아님"]. 의류 예: ["단추 없음", "오버사이즈 아님", "칼라 없음"]. 구체적으로.
 
-4. LOGO_VISIBLE_ON_PRODUCT — boolean. true ONLY if a brand logo is clearly visible on the product surface in at least one reference photo. If logo is absent / hidden / unclear in all photos, return false. This drives whether downstream image generation forces a logo onto generated images (we don't want fake branding when the real product is unbranded).
+4. LOGO_VISIBLE_ON_PRODUCT — boolean. true는 reference 사진 중 적어도 한 장에서 제품 표면에 브랜드 로고가 명확히 보일 때만. 모든 사진에서 로고가 없거나 가려져 있거나 불분명하면 false. 이 값이 다운스트림 이미지 생성에서 로고를 강제 합성할지 결정 (실제 제품이 무지일 때 가짜 로고가 들어가지 않도록).
 
-5. LOGO_PLACEMENT_HINTS — 2-4 phrases describing where on the product the brand logo naturally sits IF visible in references, category-appropriate:
-   - footwear: ["shoe tongue", "side panel", "heel patch"]
-   - apparel: ["left chest", "sleeve cuff", "hem tag"]
-   - cosmetics/skincare: ["front label", "cap", "bottom"]
-   - electronics: ["body panel", "back plate", "screen bezel"]
-   - food: ["front label", "cap", "side panel"]
-   - etc.
-   If LOGO_VISIBLE_ON_PRODUCT is false, return empty array.
+5. LOGO_PLACEMENT_HINTS — 2-4개 한국어 구문. 카테고리에 어울리는 로고 자연 위치 (reference에서 보일 때만):
+   - 신발: ["슈탕", "측면 패널", "힐 패치"]
+   - 의류: ["좌측 가슴", "소매 커프", "헴 태그"]
+   - 화장품/스킨케어: ["전면 라벨", "캡", "바닥"]
+   - 전자기기: ["바디 패널", "백 플레이트", "스크린 베젤"]
+   - 식음료: ["전면 라벨", "캡", "측면 패널"]
+   LOGO_VISIBLE_ON_PRODUCT가 false면 빈 배열.
 
-Be specific and concise — these strings are passed to other LLMs verbatim.
+JSON의 KEY는 반드시 영문 그대로(category·description·visual_features·silhouette·materials·colors·distinguishing·not_features·typical_angles·logo_visible_on_product·logo_placement_hints). VALUE만 한국어. category 값은 영문 enum 그대로.
 
-Output JSON ONLY, no prose:
+이 문자열은 다른 LLM·UI에 그대로 전달되니 구체적이고 간결하게.
+
+JSON만 출력, prose 금지:
 {
   "category": "...",
   "description": "...",

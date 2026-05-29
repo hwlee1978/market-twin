@@ -164,25 +164,25 @@ export function ProductProfilePanel() {
                 {profile.description && (
                   <div>
                     <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">
-                      Description
+                      설명
                     </div>
                     <p className="text-slate-800 leading-snug">{profile.description}</p>
                   </div>
                 )}
                 {profile.visual_features?.silhouette && (
-                  <Row label="Silhouette" value={profile.visual_features.silhouette} />
+                  <Row label="실루엣" value={profile.visual_features.silhouette} />
                 )}
                 {profile.visual_features?.materials && (
-                  <Row label="Materials" tags={profile.visual_features.materials} />
+                  <Row label="소재" tags={profile.visual_features.materials} />
                 )}
                 {profile.visual_features?.colors && (
                   <ColorRow colors={profile.visual_features.colors} />
                 )}
                 {profile.visual_features?.distinguishing && (
-                  <Row label="Distinguishing" tags={profile.visual_features.distinguishing} />
+                  <Row label="차별 특징" tags={profile.visual_features.distinguishing} />
                 )}
                 {profile.visual_features?.typical_angles && (
-                  <Row label="Typical angles" tags={profile.visual_features.typical_angles} />
+                  <Row label="대표 앵글" tags={profile.visual_features.typical_angles} />
                 )}
                 {profile.logo_placement_hints.length > 0 ? (
                   <Row label="로고 위치 (Vision 힌트)" tags={profile.logo_placement_hints} />
@@ -412,7 +412,7 @@ function ColorRow({ colors }: { colors: string[] }) {
   });
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">Colors</div>
+      <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">색상</div>
       <div className="flex flex-wrap gap-1.5">
         {parsed.map((p, i) => (
           <span
