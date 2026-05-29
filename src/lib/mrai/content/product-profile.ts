@@ -63,6 +63,22 @@ export type ProductProfile = {
 
 const SYSTEM = `당신은 브랜드의 제품 사진을 분석해 다운스트림 콘텐츠 도구(카피라이팅·이미지 생성·로고 배치)가 정확히 어떤 제품인지 알 수 있도록 구조화된 제품 카드를 만듭니다.
 
+🚨🚨🚨 절대 규칙 — 위반 시 응답 무효 🚨🚨🚨
+- 모든 STRING 값은 **반드시 100% 한국어**.
+- 영어 단어 단독 사용 금지: "suede" ❌ → "스웨이드" ✓
+- 영어 단어 단독 사용 금지: "rubber" ❌ → "러버" ✓
+- 영어 단어 단독 사용 금지: "low-top lace-up sneaker" ❌ → "로우탑 레이스업 스니커즈" ✓
+- 영어 단어 단독 사용 금지: "off-white cream" ❌ → "오프화이트 크림" ✓
+- 영어 단어 단독 사용 금지: "3/4 side front" ❌ → "3/4 전면" ✓
+- 영어 단어 단독 사용 금지: "top-down flat lay" ❌ → "상단 플랫레이" ✓
+- 영어 단어 단독 사용 금지: "side panel woven label" ❌ → "측면 우븐 라벨" ✓
+- 외래어는 한국어 표기(외래어 표기법)로 변환: sneaker→스니커즈, suede→스웨이드, mesh→메시, merino→메리노, label→라벨
+- 단, 다음만 영문 유지 허용:
+  · category 값 (DB enum): footwear / apparel / cosmetics ...
+  · JSON KEY 자체: "category", "description", "silhouette", "materials" ...
+  · HEX 코드: #C8C3BA
+  · 측정 단위: cm, mm, % 등
+
 같은 제품(또는 제품 라인)의 사진 1-5장이 주어집니다. 추출 항목:
 
 1. CATEGORY — 아래 통제 목록에서 하나 선택 (값은 영문 enum 그대로):
@@ -179,7 +195,27 @@ export async function buildProductProfile(
             ...imageBlocks,
             {
               type: "text",
-              text: `${imageBlocks.length}장의 product 사진입니다. 위 schema대로 JSON 출력만.`,
+              text: `${imageBlocks.length}장의 제품 사진입니다. 위 schema대로 JSON 출력만.
+
+🚨 STRING 값은 반드시 한국어. 영어 단독 단어 금지.
+
+올바른 출력 예시 (참고만, 실제 제품에 맞게 변경):
+{
+  "category": "footwear",
+  "description": "메리노 울 어퍼와 메시 패널이 결합된 로우탑 레이스업 스니커즈. 두꺼운 청키 러버 컵솔, 측면 패널에 작은 사각형 우븐 라벨",
+  "visual_features": {
+    "silhouette": "로우탑 코트 스타일 스니커즈, 약간 청키한 라운디드 컵솔",
+    "materials": ["스웨이드", "메시", "러버", "우븐 패브릭 라벨"],
+    "colors": ["라이트 그레이 (#C8C2B8)", "오프화이트 크림 (#EDE9E1)", "딥 블랙 (#1A1A1A)", "딥 네이비 (#1C2340)"],
+    "distinguishing": ["측면 패널의 사각형 우븐 라벨", "스웨이드와 메시 혼합 어퍼", "두꺼운 크림 컵솔"],
+    "not_features": ["인조가죽 어퍼 아님", "통기성 퍼포레이션 없음", "버클 스트랩 없음"],
+    "typical_angles": ["3/4 측면 전면", "상단 플랫레이", "측면 프로파일"],
+    "logo_visible_on_product": true
+  },
+  "logo_placement_hints": ["측면 패널 우븐 라벨", "슈탕 안쪽 라벨", "힐 카운터"]
+}
+
+⚠️ 만약 위 예시처럼 한국어로 작성하지 않고 영어 단어를 단독으로 사용하면(예: "suede", "rubber", "low-top sneaker"), 응답이 시스템에 의해 거부됩니다.`,
             },
           ],
         },
