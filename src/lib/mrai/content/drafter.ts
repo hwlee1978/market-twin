@@ -265,21 +265,27 @@ export async function runContentDrafter(input: DrafterInput): Promise<DrafterRes
     `Example hook: "${spec.exampleHook}"`,
   ].join("\n");
 
+  // Variant strategies are HOOK ANGLES, not content topics. The topic
+  // above is the actual subject — these strategies just describe HOW to
+  // open / frame that topic in different tones. The LLM must NOT replace
+  // the topic with a generic version of the strategy template (e.g.
+  // user-provided topic "임윤아 TVC 연계 착화 스토리" became "3개월 착화 일기"
+  // because variant B's "3개월차에…" example was treated as the subject).
   const variantStrategies =
     locale === "en"
       ? [
-          "A: small ordinary moment from today (commute, meeting, walk). Concrete sensory detail in the FIRST line.",
-          "B: timestamped log — 'after 4 weeks of wearing…', 'on the 3rd month'. Specific time, lived-in.",
-          "C: sincere observation/question — something you noticed. Conversational. No knockoff jab, no competitor swipe.",
-          "D: tactile detail in a specific situation. Sensory, no superlatives.",
-          "E: process beat — one quiet behind-the-scenes step (a fabric choice, a stitch decision, a sample test). Factual, no boasting.",
+          "A: open with a small ordinary moment that ties to the topic (commute, meeting, walk). Concrete sensory detail in the FIRST line — but the moment must serve the topic, not replace it.",
+          "B: timestamped angle on the topic — 'after 4 weeks of wearing…', 'on the 3rd month'. The time-log is a framing device for the topic, not a substitute.",
+          "C: sincere observation/question that comes from the topic. Conversational. No knockoff jab, no competitor swipe.",
+          "D: tactile detail from a specific scene in the topic. Sensory, no superlatives.",
+          "E: process beat tied to the topic — one quiet behind-the-scenes step (a fabric choice, a stitch decision, a sample test). Factual, no boasting.",
         ].slice(0, variantCount)
       : [
-          "A: 오늘 있었던 작은 순간 (출퇴근, 회의, 산책). 첫 줄에 구체적인 감각 디테일.",
-          "B: 시간 로그 — '4주 신고 나서…', '3개월차에…'. 구체적 시간, 살아본 느낌.",
-          "C: 진지한 관찰/질문 — 알아챈 것. 대화 톤. 모방품 비꼬기 금지, 경쟁사 깎기 금지.",
-          "D: 특정 상황의 촉감 디테일. 감각 묘사, 형용사 자랑 금지.",
-          "E: 프로세스 한 컷 — 조용한 비하인드 한 단계 (원단 선택, 박음질 결정, 샘플 테스트). 사실 위주, 자랑 금지.",
+          "A: topic을 자연스럽게 떠올리게 하는 작은 일상 순간 (출퇴근/회의/산책)으로 오프닝. 첫 줄에 구체적 감각 디테일. 그러나 그 순간은 topic을 떠받치는 도구일 뿐, topic 자체를 일상 일기로 바꾸지 말 것.",
+          "B: topic에 시간 로그 angle 적용 — '4주 신고 나서…', '3개월차에…' 같은 시점 기준으로 topic을 풀어냄. 시간 로그는 topic을 보여주는 액자일 뿐, topic 자체를 generic 착화 일기로 치환 금지.",
+          "C: topic에서 발견한 진지한 관찰/질문 — 알아챈 것. 대화 톤. 모방품 비꼬기 금지, 경쟁사 깎기 금지.",
+          "D: topic 안의 특정 장면에서 촉감 디테일. 감각 묘사, 형용사 자랑 금지.",
+          "E: topic과 직접 연결되는 프로세스 한 컷 — 조용한 비하인드 한 단계 (원단 선택, 박음질 결정, 샘플 테스트). 사실 위주, 자랑 금지.",
         ].slice(0, variantCount);
 
   const frameCount = input.frameCount;
@@ -295,8 +301,14 @@ export async function runContentDrafter(input: DrafterInput): Promise<DrafterRes
       ? formatInstructionFor(input.contentFormat, locale)
       : "";
 
-  const prompt = `# Topic
+  const prompt = `# Topic (절대 변경·치환 금지 — 모든 variant는 이 topic 자체를 다뤄야 함)
 ${input.topic}
+
+⚠️ 위 topic은 글의 **실제 주제**입니다. variant 전략(아래 "Variants to produce")에
+적힌 예시(예: "3개월차에…", "출퇴근 순간")는 topic을 풀어내는 angle/액자일 뿐
+content 주제를 generic 패턴으로 치환하는 지시가 아닙니다.
+예) topic = "임윤아 TVC 연계 착화 스토리"라면 variant B는 임윤아 TVC를 시간 로그
+angle로 풀어야 하고, "3개월 착화 일기"로 통째로 바뀌면 안 됩니다.
 
 ${input.campaignLabel ? `# Campaign\n${input.campaignLabel}\n` : ""}${input.goal ? `# Goal\n${input.goal}\n` : ""}
 # Channel
