@@ -130,7 +130,13 @@ A/B/C 차별화 전략:
 - hashtags는 번역 불필요 (브랜드 태그처럼 보편 태그가 많아 native로 OK).
 - image_prompt는 항상 영문 (이미지 생성 도구가 영어).
 
-출력은 JSON. 각 variant마다 platform-specific 필드 + _ko 번역을 모두 채울 것.`;
+출력은 JSON. 각 variant마다 platform-specific 필드 + _ko 번역을 모두 채울 것.
+
+🔒 출력 wrapper key (절대 어기지 말 것):
+- 최상위 JSON shape은 정확히 \`{ "variants": [...] }\`
+- "drafts" / "posts" / "items" / "results" 같은 다른 wrapper key 절대 금지
+- 최상위 array 직출력 ([...]) 절대 금지 — 반드시 객체로 감쌀 것
+- 첫 글자는 \`{\` , 마지막 글자는 \`}\` — 그 사이만 JSON, prose 금지`;
 
 const SYSTEM_EN = `You are Mr. AI's ContentDrafter (= the copywriter Agent).
 
@@ -416,8 +422,50 @@ ${variantStrategies.join("\n")}
   });
   const ms = Date.now() - t0;
 
-  const raw = (res.json as { variants?: Array<Partial<DraftVariant>> }) ?? {};
-  const rawVariants = Array.isArray(raw.variants) ? raw.variants : [];
+  // Permissive variant extraction — Anthropic occasionally wraps the
+  // array under an alt key ("drafts" / "posts" / "items") or emits a
+  // top-level array directly. Strict `raw.variants` access then yields
+  // 0 variants despite a perfectly-formed response. Accept any of:
+  //   • { variants: [...] }   (canonical)
+  //   • [...]                 (top-level array)
+  //   • { drafts: [...] }     (common drift)
+  //   • { posts: [...] }      (Instagram/Twitter drift)
+  //   • { items: [...] }      (generic)
+  // As a last resort, scan top-level values for the first array of
+  // objects with a body_text field — handles arbitrary wrapper keys.
+  const rawJson = (res.json ?? {}) as unknown;
+  const ALT_KEYS = ["variants", "drafts", "posts", "items", "results"] as const;
+  let rawVariants: Array<Partial<DraftVariant>> = [];
+  let usedKey: string | null = null;
+  if (Array.isArray(rawJson)) {
+    rawVariants = rawJson as Array<Partial<DraftVariant>>;
+    usedKey = "(top-level array)";
+  } else if (rawJson && typeof rawJson === "object") {
+    const obj = rawJson as Record<string, unknown>;
+    for (const k of ALT_KEYS) {
+      if (Array.isArray(obj[k])) {
+        rawVariants = obj[k] as Array<Partial<DraftVariant>>;
+        usedKey = k;
+        break;
+      }
+    }
+    if (rawVariants.length === 0) {
+      for (const [k, v] of Object.entries(obj)) {
+        if (
+          Array.isArray(v) &&
+          v.length > 0 &&
+          v.every(
+            (item) =>
+              item && typeof item === "object" && "body_text" in (item as object),
+          )
+        ) {
+          rawVariants = v as Array<Partial<DraftVariant>>;
+          usedKey = `(fallback: ${k})`;
+          break;
+        }
+      }
+    }
+  }
 
   // Diagnostic surface — when zero variants survive, log enough to
   // identify whether the LLM (a) returned no JSON at all, (b) returned
@@ -430,8 +478,11 @@ ${variantStrategies.join("\n")}
     console.warn(
       `[drafter] zero raw variants. ` +
         `res.json topKeys=[${topKeys.join(",")}] ` +
-        `variants type=${typeof (res.json as Record<string, unknown> | undefined)?.variants} ` +
         `text head: "${textHead}…"`,
+    );
+  } else if (usedKey && usedKey !== "variants") {
+    console.log(
+      `[drafter] recovered ${rawVariants.length} variants from non-canonical shape: ${usedKey}`,
     );
   }
 
