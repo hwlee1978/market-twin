@@ -49,6 +49,7 @@
     "@supabase/supabase-js": "^2.105.1",
     "@tosspayments/payment-sdk": "^1.9.2",
     "clsx": "^2.1.1",
+    "googleapis": "^173.0.0",
     "lucide-react": "^1.11.0",
     "next": "^16.2.4",
     "next-intl": "^4.9.2",

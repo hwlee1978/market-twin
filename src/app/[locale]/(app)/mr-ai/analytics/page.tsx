@@ -1,11 +1,12 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { TrendingUp, Search, Clock } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { loadWorkspaceMemories } from "@/lib/mrai/memory";
 import { LLMVisibilityPanel } from "@/components/mrai/LLMVisibilityPanel";
 import { LLMVisibilityHistoryPanel } from "@/components/mrai/LLMVisibilityHistoryPanel";
 import { BrandSEOPanel } from "@/components/mrai/BrandSEOPanel";
+import { SEOPerformancePanel } from "@/components/mrai/SEOPerformancePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -77,34 +78,14 @@ export default async function MrAIAnalyticsTab({
         </div>
       </div>
 
-      {/* ── 2. 전통 SEO — 자산 baseline + GSC/GA4 데이터(v0.2 예정) ── */}
+      {/* ── 2. 전통 SEO — 구글 실데이터 (GSC + GA4) + 네이버는 v0.2 ── */}
       <div>
         <h3 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
           <span className="inline-block w-1 h-4 bg-emerald-500 rounded" />
           2. 전통 SEO (구글·네이버)
         </h3>
         <div className="space-y-4">
-          {/* SEO 성과 데이터 수집은 v0.2 — 일단 baseline 안내 */}
-          <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-emerald-50/50 to-sky-50/50 px-5 py-4">
-            <div className="flex items-start gap-3">
-              <div className="shrink-0 w-9 h-9 rounded-lg bg-white border border-emerald-200 flex items-center justify-center">
-                <Search className="w-4 h-4 text-emerald-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                  GSC · GA4 · 네이버 서치어드바이저 성과 추세
-                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded">
-                    <Clock className="w-3 h-3" /> v0.2 예정
-                  </span>
-                </h4>
-                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                  클릭·노출·평균 순위·CTR을 사이트별 / 키워드별로 자동 수집해 추세 그래프로
-                  보여줍니다. 지금은 우선 아래에서 자사 사이트를 등록하고 GSC·GA4·네이버
-                  인증을 완료하면 v0.2 출시 즉시 과거 데이터부터 수집됩니다.
-                </p>
-              </div>
-            </div>
-          </div>
+          <SEOPerformancePanel />
           <BrandSEOPanel />
         </div>
       </div>
