@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, Heart, MessageSquare, Search, BookOpen } from "lucide-react";
 import type { PreviewChannel } from "./InstagramPreview";
+import { EmptyState } from "../EmptyState";
 
 type Draft = {
   id: string;
@@ -129,9 +130,12 @@ export function NaverBlogPreview({
             <Loader2 className="w-3.5 h-3.5 animate-spin" /> 불러오는 중…
           </div>
         ) : drafts.length === 0 ? (
-          <div className="text-center text-xs text-slate-400 py-10">
-            아직 작성된 포스트가 없습니다.
-          </div>
+          <EmptyState
+            icon={BookOpen}
+            tone="emerald"
+            title="아직 작성된 포스트가 없어요"
+            description="가상 공간에서 콘텐츠 드래프트를 만들면 네이버 블로그 글 카드처럼 카테고리·SEO 제목과 함께 나옵니다."
+          />
         ) : (
           <ul className="divide-y divide-slate-200">
             {drafts.map((d, idx) => {

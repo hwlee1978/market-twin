@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Search, ShoppingCart, Star, Heart } from "lucide-react";
+import { Loader2, Search, ShoppingCart, Star, Heart, Package } from "lucide-react";
 import type { PreviewChannel } from "./InstagramPreview";
+import { EmptyState } from "../EmptyState";
 
 type Draft = {
   id: string;
@@ -151,9 +152,12 @@ export function NaverSmartstorePreview({
             <Loader2 className="w-3.5 h-3.5 animate-spin" /> 불러오는 중…
           </div>
         ) : drafts.length === 0 ? (
-          <div className="text-center text-xs text-slate-400 py-10">
-            등록된 상품이 없습니다.
-          </div>
+          <EmptyState
+            icon={Package}
+            tone="emerald"
+            title="등록된 상품이 없어요"
+            description="가상 공간에서 상품 콘텐츠를 만들면 스마트스토어 그리드 형태로 썸네일·가격·별점과 함께 진열됩니다."
+          />
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {drafts.map((d) => {

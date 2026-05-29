@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Heart, MessageCircle, Repeat2, Share, Loader2 } from "lucide-react";
+import { Heart, MessageCircle, Repeat2, Share, Loader2, MessageSquare } from "lucide-react";
 import type { PreviewChannel } from "./InstagramPreview";
+import { EmptyState } from "../EmptyState";
 
 type Draft = {
   id: string;
@@ -125,9 +126,12 @@ export function TwitterPreview({
             <Loader2 className="w-5 h-5 animate-spin mx-auto" />
           </div>
         ) : drafts.length === 0 ? (
-          <div className="py-20 text-center text-slate-400 text-sm">
-            아직 트윗이 없습니다.
-          </div>
+          <EmptyState
+            icon={MessageSquare}
+            tone="sky"
+            title="아직 트윗이 없어요"
+            description="가상 공간에서 콘텐츠 드래프트를 만들면 X 타임라인처럼 여기 쌓이고 페르소나 반응이 시뮬됩니다."
+          />
         ) : (
           drafts.map((d) => {
             // Pre-publish = 0; published posts will show real totals once

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, Minus, LineChart } from "lucide-react";
+import { EmptyState } from "./EmptyState";
 
 type PerLLM = {
   llm: "claude" | "gpt" | "gemini";
@@ -105,10 +106,13 @@ export function LLMVisibilityHistoryPanel() {
         <h2 className="text-base font-semibold text-slate-900 mb-1">
           LLM 가시성 추세
         </h2>
-        <p className="text-xs text-slate-500">
-          감사 기록이 없습니다. "LLM Search 가시성" 패널에서 감사를 1회 이상
-          실행하면 이곳에 시계열이 쌓입니다.
-        </p>
+        <EmptyState
+          icon={LineChart}
+          tone="violet"
+          compact
+          title="아직 추세 데이터가 없어요"
+          description="위 'LLM Search 가시성' 패널에서 감사를 1회 이상 실행하면 시계열이 여기 쌓입니다."
+        />
       </div>
     );
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Heart, MessageCircle, Share, Music, Loader2 } from "lucide-react";
+import { Heart, MessageCircle, Share, Music, Loader2, Video } from "lucide-react";
 import type { PreviewChannel } from "./InstagramPreview";
 
 type Draft = {
@@ -76,8 +76,16 @@ export function TikTokPreview({
           <Loader2 className="w-5 h-5 animate-spin mx-auto" />
         </div>
       ) : drafts.length === 0 ? (
-        <div className="py-20 text-center text-slate-400 text-sm">
-          이미지가 있는 드래프트가 없습니다.
+        <div className="flex flex-col items-center justify-center text-center py-24 px-6">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/10 text-white/70">
+            <Video className="w-6 h-6" strokeWidth={1.8} />
+          </div>
+          <h3 className="mt-3 text-sm font-semibold text-white">
+            아직 영상 드래프트가 없어요
+          </h3>
+          <p className="mt-1 text-xs text-white/60 max-w-xs leading-relaxed">
+            가상 공간에서 이미지가 포함된 콘텐츠를 만들면 TikTok 풀스크린 피드처럼 한 장씩 스와이프됩니다.
+          </p>
         </div>
       ) : (
         (() => {

@@ -22,7 +22,9 @@ import {
   RefreshCw,
   ChevronRight,
   ChevronDown,
+  FileText,
 } from "lucide-react";
+import { EmptyState } from "./EmptyState";
 
 type Draft = {
   id: string;
@@ -296,9 +298,12 @@ export function ContentDraftsPanel({
             <Loader2 className="w-3.5 h-3.5 animate-spin" /> 불러오는 중…
           </div>
         ) : drafts.length === 0 ? (
-          <div className="text-center text-xs text-slate-400 py-8">
-            아직 드래프트가 없습니다. 위 "AI 콘텐츠 생성" 버튼으로 첫 캠페인을 시작하세요.
-          </div>
+          <EmptyState
+            icon={FileText}
+            tone="violet"
+            title="아직 콘텐츠 드래프트가 없어요"
+            description="위 'AI 콘텐츠 생성' 버튼으로 첫 캠페인을 시작하세요. A/B/C 변형이 한 번에 만들어집니다."
+          />
         ) : (
           <ul className="space-y-3">
             {drafts.map((d) => (
