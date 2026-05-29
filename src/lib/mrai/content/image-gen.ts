@@ -401,6 +401,61 @@ function getCategorySpec(category?: string): CategoryImageSpec {
   return CATEGORY_IMAGE_SPECS[category] ?? DEFAULT_PHYSICAL_SPEC;
 }
 
+/**
+ * Extract a single frame's description from a multi-frame carousel prompt.
+ *
+ * The drafter LLM writes prompts like:
+ *   "6-frame Instagram carousel, ... Frame 1 (hook): close-up shoe.
+ *    Frame 2: woman walking. Frame 3: macro split. ..."
+ *   or Korean: "6장 인스타그램 캐러셀 ... 프레임 1(후크): ... 프레임 2: ..."
+ *
+ * Previously buildFramePrompt sent the ENTIRE multi-frame description to
+ * each per-frame gpt-image-1 call. The model then either picked frames
+ * randomly or rendered a generic blend. User report: 6-frame structured
+ * editorial prompt → 4 unrelated generic product shots.
+ *
+ * This helper returns:
+ *   - { intro, frame } when a per-frame block was found — caller uses
+ *     `intro + frame` instead of full basePrompt.
+ *   - null when no frame structure detected — caller falls back to
+ *     basePrompt as-is (preserves single-shot prompt behavior).
+ */
+function extractFrameDescription(
+  basePrompt: string,
+  frameIndex: number,
+): { intro: string; frame: string } | null {
+  // Match "Frame N:" / "Frame N (anything):" / "프레임 N:" / "프레임 N(anything):"
+  // The number must be standalone (no neighbouring digit/letter) so we
+  // don't catch incidental "frame 1080p" type matches.
+  const frameRegex =
+    /(?:^|\s|·|—|,)\s*(?:Frame|프레임)\s*(\d+)\s*(?:\([^)]*\))?\s*[:：]/giu;
+  const matches: Array<{ n: number; start: number; end: number }> = [];
+  let m: RegExpExecArray | null;
+  while ((m = frameRegex.exec(basePrompt)) !== null) {
+    matches.push({
+      n: parseInt(m[1], 10),
+      start: m.index + m[0].length,
+      end: m.index, // start of this match marker (used as end of previous block)
+    });
+  }
+  if (matches.length < 2) return null; // Not a multi-frame structured prompt
+
+  const target = matches.find((x) => x.n === frameIndex + 1);
+  if (!target) return null;
+
+  const idx = matches.indexOf(target);
+  const blockStart = target.start;
+  const blockEnd = idx + 1 < matches.length ? matches[idx + 1].end : basePrompt.length;
+  const frame = basePrompt.slice(blockStart, blockEnd).trim().replace(/[.;,—–-]+$/, "");
+
+  // Intro = everything before the first "Frame 1:" marker — the overall
+  // aesthetic/mood/palette. Send to every frame so visual continuity holds.
+  const intro = basePrompt.slice(0, matches[0].end).trim().replace(/[.;,—–-]+$/, "");
+
+  if (frame.length < 10) return null; // Sanity check on extraction
+  return { intro, frame };
+}
+
 function buildFramePrompt(
   basePrompt: string,
   platform: string,
@@ -413,6 +468,15 @@ function buildFramePrompt(
   productProfile?: ProductProfile | null,
   touchupMode = false,
 ): string {
+  // Per-frame description extraction — if drafter wrote a multi-frame
+  // structured prompt ("Frame 1: ... Frame 2: ..."), use only this frame's
+  // block instead of the full description. Falls through to the original
+  // basePrompt when no frame structure is detected.
+  const extracted = extractFrameDescription(basePrompt, frameIndex);
+  const effectivePrompt = extracted
+    ? `${extracted.intro} || THIS FRAME ONLY: ${extracted.frame}`
+    : basePrompt;
+  basePrompt = effectivePrompt;
   const spec = getPlatformSpec(platform);
   const parts: string[] = [];
 
