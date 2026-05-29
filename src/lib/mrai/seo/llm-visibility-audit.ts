@@ -743,27 +743,31 @@ function substringFindBrand(text: string, brandName: string): string | null {
   const variants = new Set<string>();
   variants.add(brandName);
   variants.add(brandName.toLowerCase());
-  variants.add(brandName.replace(/\s+/g, ""));
-  variants.add(brandName.replace(/\s+/g, "").toLowerCase());
+  // Algorithmic spacing/hyphen variants — works for ANY workspace's
+  // brand name without per-tenant config:
+  //   "Le Mouton" → "LeMouton" / "lemouton"
+  //   "Le-Mouton" → "LeMouton" / "lemouton"
+  //   "정관장" → unchanged (no separator)
+  const stripWs = brandName.replace(/\s+/g, "");
+  const stripPunct = brandName.replace(/[\s\-_.]+/g, "");
+  variants.add(stripWs);
+  variants.add(stripWs.toLowerCase());
+  variants.add(stripPunct);
+  variants.add(stripPunct.toLowerCase());
+  // For brands with internal punctuation, also try replacing with spaces
+  if (/[\-_.]/.test(brandName)) {
+    const withSpace = brandName.replace(/[\-_.]+/g, " ");
+    variants.add(withSpace);
+    variants.add(withSpace.toLowerCase());
+  }
+  // NOTE: Hangul ↔ romanization aliases (예: 르무통 ↔ Le Mouton, 정관장 ↔
+  // KGC) are intentionally NOT hard-coded. The primary path is the
+  // LLM-based analyzer (analyzeResponseViaLLM) which understands these
+  // pairings without an enumerated map. This substring fallback is for
+  // when the LLM analyzer hard-fails — in that rare case a missed
+  // Hangul↔roman alias is acceptable noise. Workspace-specific aliases
+  // should be sourced from product profile / brand memory if needed.
 
-  // Known Hangul→roman / roman→Hangul aliases. Extend this map per
-  // workspace's brand list. For now we hard-code Le Mouton because
-  // that's the dogfood case; future improvement: read aliases from
-  // workspace brand profile.
-  const aliasMap: Record<string, string[]> = {
-    "르무통": ["Le Mouton", "LeMouton", "Le-Mouton", "le mouton"],
-    "Le Mouton": ["르무통", "LeMouton", "le mouton"],
-    "LeMouton": ["르무통", "Le Mouton"],
-  };
-  for (const k of Object.keys(aliasMap)) {
-    if (brandName === k || brandName.toLowerCase() === k.toLowerCase()) {
-      for (const a of aliasMap[k]) variants.add(a);
-    }
-  }
-  // Generic: if brand has whitespace, try without; vice versa
-  for (const v of Array.from(variants)) {
-    if (v.includes(" ")) variants.add(v.replace(/\s+/g, ""));
-  }
   for (const v of variants) {
     if (!v || v.length < 2) continue;
     const idx = lowerText.indexOf(v.toLowerCase());

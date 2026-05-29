@@ -113,9 +113,9 @@ A/B/C 차별화 전략:
 
 ⚠️ 소재 vs 브랜드 (CRITICAL):
 - 브랜드명 = 워크스페이스 이름. 소비자 카피에서는 이것만 브랜드로 사용.
-- 소재 기술명 (예: "Gore-Tex", "CloudTec", 자사 보유 소재명) = 자사가 보유한 소재/기술 이름이지 브랜드가 아님. Bio나 컨텍스트에 등장해도 카피 헤드라인이나 CTA에서 브랜드처럼 쓰지 말 것.
-- 잘못된 예: "(소재명) 整天舒適" / "(소재명) 새로 만났다" (← 소재명을 브랜드처럼 위치)
-- 맞는 예: "(자사 브랜드)의 한 켤레, 종일 부드럽다" / "(소재명) 기술로 만든 어퍼" (← 소재 기술 설명일 때만)
+- 소재 기술명 = 자사가 보유한 소재/기술 이름이지 브랜드가 아님 (Brand context에 등재된 소재/기술명 그대로 사용. 모를 때 임의로 외부 기술명 가져오지 말 것). Bio나 컨텍스트에 등장해도 카피 헤드라인이나 CTA에서 브랜드처럼 쓰지 말 것.
+- 잘못된 예: "[자사 소재명] 整天舒適" / "[자사 소재명] 새로 만났다" (← 소재명을 브랜드처럼 위치)
+- 맞는 예: "(자사 브랜드)의 한 켤레, 종일 부드럽다" / "[자사 소재명] 기술로 만든 어퍼" (← 소재 기술 설명일 때만)
 - image_prompt에는 절대 소재명을 텍스트로 새겨달라는 지시 금지.
 
 ⚠️ Bilingual 출력 (CRITICAL):
@@ -170,7 +170,7 @@ real person who likes (or runs) the brand posting from their own feed.
 ❌ Forbidden patterns (the "company insider" smell):
 - Name-dropping external authority as flex: "Vogue called ___",
   "Forbes featured ___". Reads as PR brag.
-- 3rd-person self-aggrandizement: "(Brand) is Korean merino.",
+- 3rd-person self-aggrandizement: "(Brand) is the Korean (category).",
   "We make ___." Reads as press release.
 - Marketing abstractions / superlatives: "premium", "best-in-class",
   "innovative", "redefining", "countless", "unrivaled".
