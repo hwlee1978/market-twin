@@ -107,9 +107,16 @@ function buildBriefingPrompt(input: {
 }): { system: string; prompt: string } {
   const { locale, workspaceName, memories, conversations, signals } = input;
 
+  // Inject today/yesterday ISO dates so the LLM can correctly bucket
+  // multi-day inputs. Without this, "어제 요약" silently includes anything
+  // from the last few weeks of memories.
+  const now = new Date();
+  const todayIso = now.toISOString().slice(0, 10);
+  const yesterdayIso = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
+
   const memoryBlock = memories.length
     ? memories
-        .map((m) => `- [${m.kind}] ${m.title} :: ${m.body}`)
+        .map((m) => `- (${m.created_at.slice(0, 10)}) [${m.kind}] ${m.title} :: ${m.body}`)
         .join("\n")
     : locale === "ko"
     ? "(저장된 메모리 없음)"
@@ -127,7 +134,7 @@ function buildBriefingPrompt(input: {
     : "(no recent conversations)";
 
   const signalBlock = signals.length
-    ? signals.map((s) => `- [${s.source}] ${s.summary}`).join("\n")
+    ? signals.map((s) => `- (${s.fetched_at.slice(0, 10)}) [${s.source}] ${s.summary}`).join("\n")
     : locale === "ko"
     ? "(연결된 외부 도구에서 받은 최신 신호 없음)"
     : "(no recent signals from connected tools)";
@@ -135,6 +142,14 @@ function buildBriefingPrompt(input: {
   if (locale === "ko") {
     return {
       system: `당신은 Mr. AI — CEO를 위한 AI 비서입니다. 매일 아침 짧은 브리핑을 생성합니다.
+
+## 날짜 컨텍스트 (절대 규칙)
+- 오늘: ${todayIso}
+- 어제: ${yesterdayIso}
+- 모든 메모리·신호 bullet은 \`(YYYY-MM-DD)\` 형식으로 일자가 명시되어 있습니다. 이 날짜를 무시하지 말 것.
+- "어제 요약" 섹션은 **반드시 ${yesterdayIso} 일자 항목만** 포함. 그 이전 날짜 항목은 "어제 요약"에 절대 넣지 말 것.
+- ${yesterdayIso} 일자 항목이 없으면 "어제 요약" 섹션에 "어제는 기록된 활동이 없습니다."라고 명시. 억지로 옛날 항목 끌어오지 말 것.
+- ${yesterdayIso} 외 항목 중 오늘 행동에 영향 주는 것은 "오늘 챙길 것"에 \`(N일 전)\` 표시와 함께 포함 가능.
 
 ## 워크스페이스 정체성 (매우 중요)
 이 워크스페이스의 **자사 브랜드는 "${workspaceName}"** 입니다.
@@ -145,10 +160,10 @@ function buildBriefingPrompt(input: {
 브리핑 구조 (반드시 이 3 섹션, 정확한 마크다운 헤더 사용):
 
 ## 어제 요약
-최근 대화에서 나온 핵심 결정·질문·맥락을 3-5 bullet로. 평이한 요약이 아니라 "그래서 뭐였더라?"에 답하는 톤.
+${yesterdayIso} 일자 메모리·대화·신호에서 일어난 핵심 결정·질문·맥락을 bullet 3-5개. **그 외 날짜 항목 절대 포함 금지.** 어제 항목이 없으면 "어제는 기록된 활동이 없습니다."로만 마무리.
 
 ## 오늘 챙길 것
-저장된 memories (특히 'context' kind) + 최근 결정을 근거로 오늘 실제 해야 할 일 3-5 bullet. 막연한 권유 금지 — "보고서 확인", "X에게 답변" 같은 구체 action.
+저장된 memories (특히 'context' kind) + 최근 결정을 근거로 오늘(${todayIso}) 실제 해야 할 일 3-5 bullet. 막연한 권유 금지 — "보고서 확인", "X에게 답변" 같은 구체 action. 옛날 항목 인용 시 \`(N일 전)\` 표시.
 
 ## 주의 신호 · 질문
 Mr. AI가 보기에 사용자가 놓쳤거나 다시 생각해볼 만한 점 2-3개. 질문 형식 OK.
@@ -158,23 +173,37 @@ Mr. AI가 보기에 사용자가 놓쳤거나 다시 생각해볼 만한 점 2-3
 - 모르면 "정보 부족"이라고 명시. 추측·일반론 금지.
 - 메모리·대화에 없는 내용 만들지 말 것.
 - "${workspaceName}"을 경쟁사·외부 브랜드로 절대 잘못 분류하지 말 것.`,
-      prompt: `## Workspace memories (persistent facts)
+      prompt: `오늘 날짜: ${todayIso} / 어제 날짜: ${yesterdayIso}
+
+## Workspace memories (persistent facts — 각 항목 앞에 (YYYY-MM-DD) 일자 표기)
 ${memoryBlock}
 
 ## Recent conversations (newest first)
 ${convBlock}
 
-## External signals (synced from connected tools)
+## External signals (synced from connected tools — 각 항목 앞에 (YYYY-MM-DD) 수신일 표기)
 ${signalBlock}
 
 ---
 
-위 정보만 사용해 오늘의 브리핑을 작성하세요. 정확히 3개의 ## 헤더 (어제 요약 / 오늘 챙길 것 / 주의 신호 · 질문) 형식. External signals 섹션의 내용은 '오늘 챙길 것' 또는 '주의 신호 · 질문'에 자연스럽게 포함하세요.`,
+위 정보만 사용해 오늘(${todayIso}) 브리핑을 작성하세요. 정확히 3개의 ## 헤더 (어제 요약 / 오늘 챙길 것 / 주의 신호 · 질문) 형식.
+
+⚠️ "어제 요약"에는 **반드시 ${yesterdayIso} 일자 항목만** 포함. 다른 날짜 항목을 "어제"로 분류하면 잘못된 브리핑. 어제 일자 항목이 없으면 "어제는 기록된 활동이 없습니다."로만 마무리.
+
+External signals 섹션의 내용은 일자에 맞춰 '어제 요약' 또는 '오늘 챙길 것' / '주의 신호 · 질문'에 자연스럽게 포함하세요.`,
     };
   }
 
   return {
     system: `You are Mr. AI — an AI assistant for a CEO. You generate a short morning briefing.
+
+## Date context (absolute rule)
+- Today: ${todayIso}
+- Yesterday: ${yesterdayIso}
+- Every memory / signal bullet is prefixed with its \`(YYYY-MM-DD)\` date. Do not ignore these dates.
+- The "Yesterday recap" section MUST include **only items dated ${yesterdayIso}**. Items from earlier dates do NOT belong in "Yesterday recap".
+- If no items are dated ${yesterdayIso}, write "No recorded activity yesterday." in that section. Do not stretch older items to fill it.
+- Items from other dates that affect today's action go in "Today's focus" with explicit \`(N days ago)\` label.
 
 ## Workspace identity (very important)
 This workspace's **own brand is "${workspaceName}"**.
@@ -185,10 +214,10 @@ This workspace's **own brand is "${workspaceName}"**.
 Briefing structure (exactly these 3 sections, use exact markdown headers):
 
 ## Yesterday recap
-3-5 bullets summarizing the key decisions / questions / context from recent conversations. Not a plain summary — answer "so what was the gist?"
+3-5 bullets from items dated ${yesterdayIso} ONLY. **Do not include items from other dates.** If yesterday has no items, write "No recorded activity yesterday." and stop.
 
 ## Today's focus
-3-5 bullets of concrete things to do today, grounded in saved memories (especially 'context' kind) + recent decisions. No vague advice — concrete actions like "review report X", "reply to Y".
+3-5 bullets of concrete things to do today (${todayIso}), grounded in saved memories (especially 'context' kind) + recent decisions. No vague advice — concrete actions like "review report X", "reply to Y". Label older citations with \`(N days ago)\`.
 
 ## Signals & questions
 2-3 things the user might have missed or should reconsider. Questions are OK.
@@ -198,18 +227,24 @@ Rules:
 - If you don't know, say "insufficient information". No guessing or boilerplate.
 - Don't invent facts not in the memories or conversations.
 - Never misclassify "${workspaceName}" as a competitor or external brand.`,
-    prompt: `## Workspace memories (persistent facts)
+    prompt: `Today: ${todayIso} / Yesterday: ${yesterdayIso}
+
+## Workspace memories (persistent facts — each line prefixed with (YYYY-MM-DD) date)
 ${memoryBlock}
 
 ## Recent conversations (newest first)
 ${convBlock}
 
-## External signals (synced from connected tools)
+## External signals (synced from connected tools — each line prefixed with (YYYY-MM-DD) fetch date)
 ${signalBlock}
 
 ---
 
-Using only the information above, write today's briefing. Exactly three ## headers (Yesterday recap / Today's focus / Signals & questions). Fold the External signals content naturally into "Today's focus" or "Signals & questions".`,
+Using only the information above, write today's (${todayIso}) briefing. Exactly three ## headers (Yesterday recap / Today's focus / Signals & questions).
+
+⚠️ "Yesterday recap" MUST include only items dated ${yesterdayIso}. Including items from other dates is a wrong briefing. If yesterday has no items, write "No recorded activity yesterday." and stop that section.
+
+Fold External signals content naturally into the date-appropriate section.`,
   };
 }
 
