@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import sharp from "sharp";
 import { createServiceClient } from "@/lib/supabase/server";
+import { loadWorkspaceMemories } from "../memory";
 
 /**
  * Vision-built product profile. Takes the workspace's product photos
@@ -161,6 +162,41 @@ export async function buildProductProfile(
     return { profile: null, error: "no product assets uploaded" };
   }
 
+  // Workspace memory + name = brand context. Without this Vision relies
+  // purely on visual interpretation and can mistake the actual material
+  // (e.g. merino wool knit looks like fine suede to a model that's never
+  // been told it's wool). Memory-priming the call lets the LLM correctly
+  // attribute visible texture to the workspace's known material story.
+  const [memories, wsRow] = await Promise.all([
+    loadWorkspaceMemories(workspaceId),
+    svc.from("workspaces").select("name").eq("id", workspaceId).maybeSingle(),
+  ]);
+  const wsName = (wsRow.data as { name?: string } | null)?.name?.trim() ?? "(이름 미지정)";
+  const memorySnippets = memories
+    .filter((m) => m.kind === "fact" || m.kind === "context")
+    .slice(0, 30)
+    .map((m) => `- [${m.kind}] ${m.title}: ${(m.body ?? "").slice(0, 240)}`)
+    .join("\n");
+  const brandContextBlock = memorySnippets.length > 0
+    ? `# 🏷️ 브랜드 컨텍스트 (Vision 추론 prime — 무시 금지)
+워크스페이스: ${wsName}
+
+워크스페이스 메모리에 등재된 사실·맥락 (이 브랜드의 자기 정의):
+${memorySnippets}
+
+⚠️ 위 메모리에 소재(예: "메리노 울", "캐시미어", "오가닉 코튼", "가죽")·
+핵심 기술·차별 키워드가 명시되어 있으면 사진의 시각적 텍스처를 그에
+맞게 해석하세요. 예: 사진의 짜임 결이 fine suede처럼 보여도 메모리에
+"메리노 울 운동화"가 명시되어 있으면 materials에 "메리노 울"을 우선
+넣고, suede/스웨이드로 잘못 분류하지 말 것.
+사진과 메모리가 명백히 충돌하면(예: 메모리 = 가죽, 사진 = 명백한 니트
+직물) 사진을 따르되 description에 차이를 명시.
+`
+    : `# 🏷️ 브랜드 컨텍스트
+워크스페이스: ${wsName}
+(메모리 등재된 브랜드 사실 없음 — 시각 정보만으로 추출)
+`;
+
   // Fetch + downsize references
   const imageBlocks: Array<{
     type: "image";
@@ -195,27 +231,31 @@ export async function buildProductProfile(
             ...imageBlocks,
             {
               type: "text",
-              text: `${imageBlocks.length}장의 제품 사진입니다. 위 schema대로 JSON 출력만.
+              text: `${brandContextBlock}
+
+---
+
+위 brand context를 prime으로 사용해, ${imageBlocks.length}장의 제품 사진을 분석하고 schema대로 JSON 출력만.
 
 🚨 STRING 값은 반드시 한국어. 영어 단독 단어 금지.
 
-올바른 출력 예시 (참고만, 실제 제품에 맞게 변경):
+⚠️ FORMAT 예시 (이 예시의 *내용*은 가상 핸드백 — 실제 제품과 무관. **소재·색상·라벨은 절대 복사하지 말 것**. 오직 JSON 형식만 참고):
 {
-  "category": "footwear",
-  "description": "메리노 울 어퍼와 메시 패널이 결합된 로우탑 레이스업 스니커즈. 두꺼운 청키 러버 컵솔, 측면 패널에 작은 사각형 우븐 라벨",
+  "category": "accessories",
+  "description": "(실제 제품 설명 — 50~200자 한국어, 형식만 참고)",
   "visual_features": {
-    "silhouette": "로우탑 코트 스타일 스니커즈, 약간 청키한 라운디드 컵솔",
-    "materials": ["스웨이드", "메시", "러버", "우븐 패브릭 라벨"],
-    "colors": ["라이트 그레이 (#C8C2B8)", "오프화이트 크림 (#EDE9E1)", "딥 블랙 (#1A1A1A)", "딥 네이비 (#1C2340)"],
-    "distinguishing": ["측면 패널의 사각형 우븐 라벨", "스웨이드와 메시 혼합 어퍼", "두꺼운 크림 컵솔"],
-    "not_features": ["인조가죽 어퍼 아님", "통기성 퍼포레이션 없음", "버클 스트랩 없음"],
-    "typical_angles": ["3/4 측면 전면", "상단 플랫레이", "측면 프로파일"],
+    "silhouette": "(1문장 한국어 실루엣)",
+    "materials": ["(소재 1)", "(소재 2)"],
+    "colors": ["(한국어이름1 (#XXXXXX))", "(한국어이름2 (#XXXXXX))"],
+    "distinguishing": ["(차별점 1)", "(차별점 2)"],
+    "not_features": ["(이 카테고리에서 흔하지만 이 제품엔 없는 것 3-5)"],
+    "typical_angles": ["(앵글 1)", "(앵글 2)"],
     "logo_visible_on_product": true
   },
-  "logo_placement_hints": ["측면 패널 우븐 라벨", "슈탕 안쪽 라벨", "힐 카운터"]
+  "logo_placement_hints": ["(로고 위치 1)", "(로고 위치 2)"]
 }
 
-⚠️ 만약 위 예시처럼 한국어로 작성하지 않고 영어 단어를 단독으로 사용하면(예: "suede", "rubber", "low-top sneaker"), 응답이 시스템에 의해 거부됩니다.`,
+⚠️ 위 예시의 (괄호) 부분은 **반드시 실제 사진과 brand context 기반으로 채울 것**. 예시 값을 그대로 복사하면 안 됩니다. 영문 단독 단어 사용 시 응답 거부.`,
             },
           ],
         },
