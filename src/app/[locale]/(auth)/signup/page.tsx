@@ -17,7 +17,16 @@ import { SignupForm } from "@/components/auth/SignupForm";
  * it in NEXT_PUBLIC also lets us check it client-side later if needed
  * (e.g. for hiding the marketing CTA).
  */
-export default function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ gated?: string }>;
+}) {
   const enabled = process.env.NEXT_PUBLIC_SIGNUP_ENABLED === "true";
-  return enabled ? <SignupForm /> : <SignupComingSoon />;
+  const sp = await searchParams;
+  return enabled ? (
+    <SignupForm />
+  ) : (
+    <SignupComingSoon gatedReason={sp.gated} />
+  );
 }

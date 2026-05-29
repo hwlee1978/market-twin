@@ -17,9 +17,20 @@ const FEATURES = [
  * NEXT_PUBLIC_SIGNUP_ENABLED is anything other than "true". The brand
  * panel mirrors SignupForm exactly so the visual experience is the
  * same, only the form area is replaced by an early-access mailto.
+ *
+ * gatedReason="oauth" branch fires when the auth/oauth-callback route
+ * bounced a Google sign-in because signups are closed. Without this
+ * branch the user saw the generic "준비중" screen and assumed they'd
+ * landed on the wrong page — not that their Google login attempt was
+ * specifically rejected.
  */
-export function SignupComingSoon() {
+export function SignupComingSoon({
+  gatedReason,
+}: {
+  gatedReason?: string;
+}) {
   const t = useTranslations();
+  const isOauthGated = gatedReason === "oauth";
 
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
@@ -60,20 +71,38 @@ export function SignupComingSoon() {
 
       <div className="flex items-center justify-center p-8">
         <div className="w-full max-w-sm text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-brand-50 text-brand mb-6">
+          <div
+            className={`inline-flex items-center justify-center w-14 h-14 rounded-full mb-6 ${
+              isOauthGated
+                ? "bg-warn-soft text-warn"
+                : "bg-brand-50 text-brand"
+            }`}
+          >
             <Hourglass size={22} />
           </div>
 
-          <span className="inline-flex items-center justify-center rounded-full bg-warn-soft text-warn text-xs font-semibold px-3 py-1 mb-4 tracking-wider">
-            {t("auth.comingSoon.badge")}
+          <span
+            className={`inline-flex items-center justify-center rounded-full text-xs font-semibold px-3 py-1 mb-4 tracking-wider ${
+              isOauthGated
+                ? "bg-risk-soft text-risk"
+                : "bg-warn-soft text-warn"
+            }`}
+          >
+            {isOauthGated
+              ? t("auth.comingSoon.gatedBadge")
+              : t("auth.comingSoon.badge")}
           </span>
 
           <h2 className="text-2xl font-semibold tracking-tight text-slate-900 break-keep">
-            {t("auth.comingSoon.title")}
+            {isOauthGated
+              ? t("auth.comingSoon.gatedTitle")
+              : t("auth.comingSoon.title")}
           </h2>
 
           <p className="mt-4 text-sm text-slate-600 leading-relaxed break-keep">
-            {t("auth.comingSoon.description")}
+            {isOauthGated
+              ? t("auth.comingSoon.gatedDescription")
+              : t("auth.comingSoon.description")}
           </p>
 
           <div className="mt-8 space-y-3">
