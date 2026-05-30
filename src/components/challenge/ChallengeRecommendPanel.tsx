@@ -12,7 +12,33 @@ import {
   Hash,
   Clock,
   DollarSign,
+  FileText,
+  Globe2,
 } from "lucide-react";
+
+type MarketReport = {
+  executive_summary: string;
+  matched_programs: Array<{
+    program_name: string;
+    type: "domestic" | "export";
+    fit_score: number;
+    leverage: string;
+  }>;
+  market_signals: string[];
+  recommended_actions: string[];
+  risks: string[];
+  generation_ms: number;
+  cost_usd: number;
+};
+
+type MultilingualSpec = {
+  by_locale: Record<
+    "ko" | "en" | "ja" | "zh-tw" | "zh-cn",
+    { headline: string; tagline: string; body: string; bullets: string[]; cta: string }
+  >;
+  generation_ms: number;
+  cost_usd: number;
+};
 
 type Recommendation = {
   program_id: string;
@@ -51,6 +77,9 @@ export function ChallengeRecommendPanel() {
   const [result, setResult] = useState<RecommendResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [content, setContent] = useState<{ report?: MarketReport; spec?: MultilingualSpec } | null>(null);
+  const [contentLoading, setContentLoading] = useState(false);
+  const [activeLocale, setActiveLocale] = useState<"ko" | "en" | "ja" | "zh-tw" | "zh-cn">("ko");
 
   const run = async () => {
     setLoading(true);
@@ -88,10 +117,52 @@ export function ChallengeRecommendPanel() {
       }
       const json = (await res.json()) as RecommendResponse;
       setResult(json);
+      setContent(null); // reset content when new recommendations come in
     } catch (e) {
       setError(e instanceof Error ? e.message : "추천 실패");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateContent = async () => {
+    if (!result || result.recommendations.length === 0) return;
+    setContentLoading(true);
+    setError(null);
+    try {
+      const body = {
+        company: {
+          name: companyName || undefined,
+          industry: industry || undefined,
+          region: region || undefined,
+          revenue_band: revenueBand || undefined,
+          employee_band: employeeBand || undefined,
+        },
+        product: productName
+          ? {
+              name: productName,
+              category: productCategory || undefined,
+              description: productDescription || undefined,
+            }
+          : undefined,
+        goal: goal || undefined,
+        recommendations: result.recommendations,
+      };
+      const res = await fetch("/api/challenge/content", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || j.detail || "content failed");
+      }
+      const json = (await res.json()) as { report?: MarketReport; spec?: MultilingualSpec };
+      setContent(json);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "콘텐츠 생성 실패");
+    } finally {
+      setContentLoading(false);
     }
   };
 
@@ -295,8 +366,172 @@ export function ChallengeRecommendPanel() {
               </li>
             ))}
           </ul>
+
+          {/* Phase C — content generation CTA */}
+          <div className="px-5 py-4 border-t border-slate-100 bg-slate-50/50">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">
+                  콘텐츠 자동 생성
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  위 추천 결과 + 기업·제품 정보로 시장분석 리포트 + 5개국어 상품 기술서 생성 (~30-60초, ~$0.10)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void generateContent()}
+                disabled={contentLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 disabled:opacity-60"
+              >
+                {contentLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <FileText className="w-3.5 h-3.5" />
+                )}
+                {contentLoading ? "생성 중…" : "콘텐츠 생성"}
+              </button>
+            </div>
+          </div>
         </section>
       )}
+
+      {/* Market Report */}
+      {content?.report && (
+        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <header className="px-5 py-4 border-b border-slate-100">
+            <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-emerald-600" />
+              시장분석 리포트
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              경영진 brief — 추천 사업 leverage + 시장 신호 + 실행 액션 + 리스크
+            </p>
+          </header>
+          <div className="px-5 py-4 space-y-4">
+            <div>
+              <h3 className="text-[11px] uppercase tracking-wider text-slate-500 mb-1">
+                Executive Summary
+              </h3>
+              <p className="text-sm text-slate-900 leading-relaxed">
+                {content.report.executive_summary}
+              </p>
+            </div>
+
+            {content.report.matched_programs.length > 0 && (
+              <div>
+                <h3 className="text-[11px] uppercase tracking-wider text-slate-500 mb-1">
+                  매칭 사업 leverage ({content.report.matched_programs.length})
+                </h3>
+                <ul className="space-y-1.5">
+                  {content.report.matched_programs.map((p, i) => (
+                    <li key={i} className="text-sm text-slate-800">
+                      <strong>{p.program_name}</strong>{" "}
+                      <span className="text-[10px] text-slate-500">({p.fit_score}/100)</span>
+                      <div className="text-xs text-slate-600 mt-0.5">{p.leverage}</div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {content.report.market_signals.length > 0 && (
+              <Section title="시장 신호" items={content.report.market_signals} />
+            )}
+            {content.report.recommended_actions.length > 0 && (
+              <Section title="추천 액션" items={content.report.recommended_actions} tone="emerald" />
+            )}
+            {content.report.risks.length > 0 && (
+              <Section title="리스크" items={content.report.risks} tone="amber" />
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Multilingual Spec */}
+      {content?.spec && (
+        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <header className="px-5 py-4 border-b border-slate-100">
+            <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+              <Globe2 className="w-4 h-4 text-sky-600" />
+              다국어 상품 기술서 (5개국어)
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              해외 진출 채널별 마케팅 카피 — KR / EN / JP / TW / CN
+            </p>
+          </header>
+          <div className="px-5 py-3 border-b border-slate-100 flex gap-1.5 overflow-x-auto">
+            {(["ko", "en", "ja", "zh-tw", "zh-cn"] as const).map((loc) => (
+              <button
+                key={loc}
+                type="button"
+                onClick={() => setActiveLocale(loc)}
+                className={`shrink-0 text-xs px-3 py-1.5 rounded-md border ${
+                  activeLocale === loc
+                    ? "bg-sky-600 border-sky-600 text-white font-medium"
+                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                {loc === "ko" ? "한국어" : loc === "en" ? "English" : loc === "ja" ? "日本語" : loc === "zh-tw" ? "繁體中文" : "简体中文"}
+              </button>
+            ))}
+          </div>
+          <div className="px-5 py-4 space-y-3">
+            {(() => {
+              const s = content.spec!.by_locale[activeLocale];
+              if (!s || !s.headline) return <p className="text-xs text-slate-500">데이터 없음</p>;
+              return (
+                <>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">Headline</div>
+                    <p className="text-lg font-bold text-slate-900">{s.headline}</p>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">Tagline</div>
+                    <p className="text-sm text-slate-800">{s.tagline}</p>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">Body</div>
+                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{s.body}</p>
+                  </div>
+                  {s.bullets && s.bullets.length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Key bullets</div>
+                      <ul className="space-y-1">
+                        {s.bullets.map((b, i) => (
+                          <li key={i} className="text-sm text-slate-800">· {b}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">CTA</div>
+                    <p className="text-sm font-medium text-emerald-700">{s.cta}</p>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function Section({ title, items, tone }: { title: string; items: string[]; tone?: "emerald" | "amber" }) {
+  const dot =
+    tone === "emerald" ? "bg-emerald-500" : tone === "amber" ? "bg-amber-500" : "bg-slate-400";
+  return (
+    <div>
+      <h3 className="text-[11px] uppercase tracking-wider text-slate-500 mb-1">{title}</h3>
+      <ul className="space-y-1">
+        {items.map((it, i) => (
+          <li key={i} className="text-sm text-slate-800 flex items-start gap-2">
+            <span className={`shrink-0 mt-1.5 w-1.5 h-1.5 rounded-full ${dot}`} />
+            <span>{it}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
