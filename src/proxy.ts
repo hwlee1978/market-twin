@@ -5,7 +5,16 @@ import { updateSession } from "@/lib/supabase/middleware";
 
 const intlMiddleware = createIntlMiddleware(routing);
 
-const PUBLIC_PATHS = ["/login", "/signup", "/auth/oauth-callback", "/privacy", "/terms"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/signup",
+  "/auth/oauth-callback",
+  "/privacy",
+  "/terms",
+  // 챌린지 응모/심사용 독립 페이지 — 인증 없이 평가 가능. 비인증 호출은
+  // CHALLENGE_DEMO_WORKSPACE_ID env로 fallback (lib/challenge/context.ts).
+  "/sme-strategy",
+];
 
 function isPublic(pathname: string) {
   // strip locale prefix for matching
