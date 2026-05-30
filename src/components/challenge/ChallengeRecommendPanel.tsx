@@ -128,7 +128,8 @@ export function ChallengeRecommendPanel() {
   };
 
   const generateContent = async () => {
-    if (!result || result.recommendations.length === 0) return;
+    // result 없이도 동작 — 추천 결과가 비어있어도 (챌린지 데이터 미적재
+    // 등) 기업·제품 정보만으로 시장분석 리포트 + 다국어 기술서 생성.
     setContentLoading(true);
     setError(null);
     try {
@@ -148,7 +149,7 @@ export function ChallengeRecommendPanel() {
             }
           : undefined,
         goal: goal || undefined,
-        recommendations: result.recommendations,
+        recommendations: result?.recommendations ?? [],
       };
       const res = await fetch("/api/challenge/content", {
         method: "POST",
@@ -284,8 +285,18 @@ export function ChallengeRecommendPanel() {
         </div>
       </section>
 
-      {/* CTA */}
-      <div className="flex justify-end">
+      {/* CTA — 두 가지 진입점 */}
+      <div className="flex justify-end gap-2 flex-wrap">
+        <button
+          type="button"
+          onClick={() => void generateContent()}
+          disabled={contentLoading}
+          title="추천 없이 콘텐츠 (리포트 + 다국어 기술서 + 상세페이지) 만 생성"
+          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-60"
+        >
+          {contentLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+          {contentLoading ? "생성 중… (~60초)" : "콘텐츠만 생성"}
+        </button>
         <button
           type="button"
           onClick={() => void run()}
@@ -293,7 +304,7 @@ export function ChallengeRecommendPanel() {
           className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-md bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-medium hover:opacity-90 disabled:opacity-60"
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          {loading ? "분석 중… (15-30초)" : "적합 판로 추천"}
+          {loading ? "분석 중… (15-30초)" : "판로 추천 + 콘텐츠"}
         </button>
       </div>
 
