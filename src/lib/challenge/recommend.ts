@@ -445,8 +445,13 @@ export async function findReproducibleRun(
     .limit(1)
     .maybeSingle();
   if (!data) return null;
+  const recs = data.recommendations as unknown;
+  // 빈 결과 cache는 무시 — 이전 (임베딩 생성 전) 호출이 저장한 빈
+  // recommendations[]가 영구히 캐시 hit 되는 것 방지. 데이터가 적재된
+  // 후 같은 input으로 다시 호출하면 새로 LLM rerank 실행.
+  if (!Array.isArray(recs) || recs.length === 0) return null;
   return {
-    recommendations: data.recommendations as Recommendation[],
+    recommendations: recs as Recommendation[],
     generated_at: data.generated_at as string,
   };
 }
