@@ -1,19 +1,18 @@
 import { createServiceClient } from "@/lib/supabase/server";
 
 /**
- * 홍보영상 생성 — Replicate image-to-video (Stable Video Diffusion).
+ * 홍보영상 생성 — Replicate image-to-video.
  *
- * 입력: 기존 product/lifestyle 이미지 URL.
- * 출력: 3-4초 MP4 클립 (subtle camera motion + product showcase).
- * 비용: ~$0.20 per video (SVD-XT, 25 frames at 1024x576).
- * 시간: ~30-90초 (polling).
+ * 모델: kwaivgi/kling-v1.6-pro (2025 출시, i2v 최상 품질).
+ * 입력: 기존 product/lifestyle 이미지 + motion prompt (영상 의도 한국어).
+ * 출력: 5초 또는 10초 MP4 (제품 detail 잘 보존, 자연스러운 카메라 워크).
+ * 비용: ~$0.50 per 5초 video, ~$1.00 per 10초.
+ * 시간: ~60-180초 (polling, Kling이 SVD보다 느리지만 품질 보상).
  *
- * 모델 선택 근거: text-to-video는 한국 제품 specificity 부족.
- *               image-to-video는 기존 product photo를 입력으로 받으므로
- *               브랜드 정체성 보존 (영상이 다른 신발을 만들어내지 않음).
+ * 이전 모델 (stability-ai/stable-video-diffusion) 결과 품질 낮음 →
+ * Kling으로 교체 (2026-05-31). 응모서 visual asset 품질이 평가에 영향.
  *
- * 저장: Replicate 출력 URL은 24h 후 만료 → Supabase Storage `challenge`
- *      버킷으로 업로드해 영구 보존.
+ * 저장: Replicate 출력 URL은 24h 후 만료 → Supabase Storage 영구 보존.
  */
 
 interface ReplicatePrediction {
@@ -24,10 +23,12 @@ interface ReplicatePrediction {
 }
 
 const POLL_INTERVAL_MS = 3000;
-const POLL_TIMEOUT_MS = 180_000;
-// SVD-XT — 25 frames, 1024x576, motion_bucket_id 127 = moderate motion.
-const SVD_MODEL_VERSION =
-  "stability-ai/stable-video-diffusion:3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438";
+const POLL_TIMEOUT_MS = 300_000;  // 5분 — Kling이 SVD보다 느리므로 여유
+
+// Kling v1.6 Pro on Replicate — model endpoint format (no version pin
+// needed, Replicate routes to latest stable).
+const KLING_MODEL_OWNER = "kwaivgi";
+const KLING_MODEL_NAME = "kling-v1.6-pro";
 
 async function pollPrediction(predictionId: string, token: string): Promise<string> {
   const start = Date.now();
@@ -51,6 +52,18 @@ async function pollPrediction(predictionId: string, token: string): Promise<stri
 }
 
 /**
+ * Kling 기본 motion prompt — 제품 마케팅 영상의 보편적 카메라 워크
+ * (살짝 줌인 + 부드러운 패닝). 사용자가 product/scene 정보 주면
+ * specifics 첨가, 없으면 generic하게.
+ */
+function buildMotionPrompt(productHint?: string): string {
+  const base =
+    "Subtle camera push-in with gentle product reveal. Soft natural lighting, professional product showcase, cinematic quality. No abrupt movements, no text overlays, no people morphing.";
+  if (!productHint) return base;
+  return `${productHint}. ${base}`;
+}
+
+/**
  * Generate a promotional video clip from a still image.
  *
  * Throws on Replicate failure — caller decides whether to fall back to
@@ -58,41 +71,49 @@ async function pollPrediction(predictionId: string, token: string): Promise<stri
  */
 export async function generatePromotionalVideo(input: {
   imageUrl: string;
-  motionStrength?: number;     // 1-255, default 127 (moderate)
-  fps?: number;                 // 6-25, default 7 (slower = smoother for product)
+  motionPrompt?: string;        // 제품 motion 설명 (한국어 또는 영문)
+  duration?: 5 | 10;             // 초 단위 (Kling 지원 옵션)
+  aspectRatio?: "16:9" | "9:16" | "1:1";
 }): Promise<{ replicateUrl: string; durationSec: number; ms: number }> {
   const token = process.env.REPLICATE_API_TOKEN;
   if (!token) throw new Error("REPLICATE_API_TOKEN not set");
 
+  const duration = input.duration ?? 5;
+  const aspectRatio = input.aspectRatio ?? "16:9";
+  const prompt = buildMotionPrompt(input.motionPrompt);
+
   const t0 = Date.now();
-  const createRes = await fetch("https://api.replicate.com/v1/predictions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      version: SVD_MODEL_VERSION.split(":")[1],
-      input: {
-        input_image: input.imageUrl,
-        sizing_strategy: "maintain_aspect_ratio",
-        frames_per_second: input.fps ?? 7,
-        motion_bucket_id: input.motionStrength ?? 127,
-        cond_aug: 0.02,
+  // Use model endpoint format — Replicate auto-routes to latest version.
+  const createRes = await fetch(
+    `https://api.replicate.com/v1/models/${KLING_MODEL_OWNER}/${KLING_MODEL_NAME}/predictions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+        Prefer: "wait=0",
       },
-    }),
-  });
+      body: JSON.stringify({
+        input: {
+          prompt,
+          start_image: input.imageUrl,
+          duration,
+          aspect_ratio: aspectRatio,
+          cfg_scale: 0.5,
+          negative_prompt:
+            "text overlays, watermarks, logos morphing, people morphing, blurry, low quality, distorted, jittery",
+        },
+      }),
+    },
+  );
   if (!createRes.ok) {
     const detail = await createRes.text().catch(() => "");
-    throw new Error(`replicate create ${createRes.status}: ${detail.slice(0, 200)}`);
+    throw new Error(`replicate create ${createRes.status}: ${detail.slice(0, 300)}`);
   }
   const created = (await createRes.json()) as { id: string };
   const replicateUrl = await pollPrediction(created.id, token);
   const ms = Date.now() - t0;
-  // SVD-XT default = 25 frames / 7fps = ~3.57s
-  const fps = input.fps ?? 7;
-  const durationSec = Number((25 / fps).toFixed(2));
-  return { replicateUrl, durationSec, ms };
+  return { replicateUrl, durationSec: duration, ms };
 }
 
 /**

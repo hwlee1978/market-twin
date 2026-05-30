@@ -77,7 +77,13 @@ export function DetailPagePreview({
       const res = await fetch("/api/challenge/video", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ image_url: imageUrl }),
+        body: JSON.stringify({
+          image_url: imageUrl,
+          motion_prompt: productName
+            ? `${productName} product showcase, premium quality reveal`
+            : undefined,
+          duration: 5,
+        }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -223,7 +229,7 @@ export function DetailPagePreview({
             ) : (
               <Video className="w-3.5 h-3.5" />
             )}
-            {videoLoading ? "생성 중… (~60s, ~$0.20)" : "홍보영상 생성"}
+            {videoLoading ? "생성 중… (~90s, ~$0.50)" : "홍보영상 생성 (Kling Pro)"}
           </button>
         )}
       </div>
