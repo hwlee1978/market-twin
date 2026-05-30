@@ -284,7 +284,8 @@
     "settings": "Settings",
     "help": "Help",
     "llmUsageAdmin": "LLM Usage",
-    "siteSettingsAdmin": "Site Settings"
+    "siteSettingsAdmin": "Site Settings",
+    "challengeDataAdmin": "Challenge Data"
   },
   "auth": {
     "loginTitle": "Welcome back",

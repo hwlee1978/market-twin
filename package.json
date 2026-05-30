@@ -14,6 +14,7 @@
     "sync:reference": "tsx --env-file=.env.local scripts/sync-reference-data.ts",
     "fetch:reference": "tsx --env-file=.env.local scripts/fetch-reference/index.ts",
     "apply:migration": "tsx --env-file=.env.local scripts/apply-migration.ts",
+    "ingest:challenge": "tsx --env-file=.env.local scripts/ingest-challenge-data.ts",
     "seed:pool": "tsx --env-file=.env.local scripts/seed-pool.ts",
     "seed:pool:bulk": "tsx --env-file=.env.local scripts/seed-pool-bulk.ts",
     "compare:voice": "tsx --env-file=.env.local scripts/compare-voice.ts",
@@ -72,11 +73,13 @@
     "@types/pg": "^8.20.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "csv-parse": "^6.2.1",
     "eslint": "^9.17.0",
     "eslint-config-next": "^16.2.4",
     "pg": "^8.20.0",
     "tailwindcss": "^4.2.4",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "xlsx": "^0.18.5"
   }
 }
