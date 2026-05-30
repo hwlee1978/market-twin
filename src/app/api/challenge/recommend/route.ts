@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
+import { getChallengeWorkspaceId } from "@/lib/challenge/context";
 import {
   recommend,
   persistRecommendation,
@@ -58,8 +58,13 @@ const RequestSchema = z.object({
  *   - 'prod' (default) — 사용자 실제 사용
  */
 export async function POST(req: Request) {
-  const ctx = await getOrCreatePrimaryWorkspace();
-  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const workspaceId = await getChallengeWorkspaceId();
+  if (!workspaceId) {
+    return NextResponse.json(
+      { error: "unauthorized", detail: "Sign in or set CHALLENGE_DEMO_WORKSPACE_ID for public demo access" },
+      { status: 401 },
+    );
+  }
 
   const body = await req.json().catch(() => null);
   const parsed = RequestSchema.safeParse(body);
@@ -97,7 +102,7 @@ export async function POST(req: Request) {
 
   // Persist for audit + reproducibility cache.
   try {
-    await persistRecommendation(ctx.workspaceId, input, result, {
+    await persistRecommendation(workspaceId, input, result, {
       datasetSplit: parsed.data.dataset_split,
     });
   } catch (e) {

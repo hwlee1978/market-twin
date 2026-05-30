@@ -16,8 +16,6 @@ import {
   ShieldCheck,
   Menu,
   X,
-  Target,
-  Swords,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { LocaleSwitcher } from "./LocaleSwitcher";
@@ -38,8 +36,9 @@ const NAV_BASE = [
   { href: "/team", icon: Users, key: "team" as const },
   { href: "/settings", icon: SettingsIcon, key: "settings" as const },
   { href: "/help", icon: HelpCircle, key: "help" as const },
-  { href: "/challenge", icon: Target, key: "challenge" as const },
-  { href: "/challenge/arena", icon: Swords, key: "challengeArena" as const },
+  // /challenge 및 /challenge/arena 는 이제 (challenge) route group의
+  // 독립 페이지 /sme-strategy 로 리다이렉트. Mr.AI 사이드바에서 제외 —
+  // 챌린지 응모/심사용 페이지는 자체 layout으로만 노출.
   // LLM usage admin — link visible to all users (intentional, helps
   // operators discover where to look) but the page enforces a
   // SUPERADMIN_EMAILS env match before rendering data. Non-admins

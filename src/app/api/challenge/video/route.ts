@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
+import { getChallengeWorkspaceId } from "@/lib/challenge/context";
 import {
   generatePromotionalVideo,
   persistVideoToStorage,
@@ -25,8 +25,13 @@ const RequestSchema = z.object({
  * 비용: ~$0.50 per 5초, ~$1.00 per 10초. 시간: 60-180초.
  */
 export async function POST(req: Request) {
-  const ctx = await getOrCreatePrimaryWorkspace();
-  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const workspaceId = await getChallengeWorkspaceId();
+  if (!workspaceId) {
+    return NextResponse.json(
+      { error: "unauthorized", detail: "Sign in or set CHALLENGE_DEMO_WORKSPACE_ID" },
+      { status: 401 },
+    );
+  }
 
   const body = await req.json().catch(() => null);
   const parsed = RequestSchema.safeParse(body);
@@ -46,7 +51,7 @@ export async function POST(req: Request) {
       aspectRatio: parsed.data.aspect_ratio,
     });
     const persisted = await persistVideoToStorage(
-      ctx.workspaceId,
+      workspaceId,
       replicateResult.replicateUrl,
     );
     return NextResponse.json({
