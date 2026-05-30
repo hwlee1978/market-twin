@@ -349,6 +349,27 @@ ${candidates
     maxTokens: 2500,
     cacheSystem: true,
     expectedArrayKey: "ranked",
+    // jsonSchema 전달 → provider가 wantsJson 경로로 진입해서 ```json fence
+    // 제거 + recoverJsonFromText 호출. 없으면 llmRes.json이 undefined.
+    jsonSchema: {
+      type: "object",
+      properties: {
+        ranked: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              candidate_index: { type: "integer" },
+              score: { type: "number" },
+              reason: { type: "string" },
+              warnings: { type: "array", items: { type: "string" } },
+            },
+            required: ["candidate_index", "score", "reason"],
+          },
+        },
+      },
+      required: ["ranked"],
+    },
   });
 
   const raw = (llmRes.json as { ranked?: Array<{
