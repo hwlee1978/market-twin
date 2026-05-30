@@ -64,15 +64,22 @@ export function ChallengeDataPanel() {
           ingestion 사용법
         </h3>
         <pre className="text-[11px] bg-white border border-slate-200 rounded p-3 overflow-x-auto text-slate-800">
-{`# dry-run 으로 컬럼 매핑 확인
+{`# (A) 챌린지 측 제공 데이터 (CSV/Excel) ingestion
 npm run ingest:challenge -- programs path/to/판판대로_지원사업.csv --dry-run
-
-# 실 적재
 npm run ingest:challenge -- programs path/to/판판대로_지원사업.csv
 npm run ingest:challenge -- companies path/to/판판대로_선정기업.csv
 npm run ingest:challenge -- products path/to/판판대로_제품.csv
 npm run ingest:challenge -- voucher-programs path/to/수출바우처_프로그램.xlsx
-npm run ingest:challenge -- voucher-exports path/to/수출바우처_성과.xlsx`}
+npm run ingest:challenge -- voucher-exports path/to/수출바우처_성과.xlsx
+
+# (B) 공개 데이터 (기업마당 API, 1,385+ 사업) — 챌린지 데이터 도착 전 데모용
+# 0) BIZINFO_API_KEY 발급 (https://www.bizinfo.go.kr/apiDetail.do?id=bizinfoApi)
+# 1) .env.local 에 BIZINFO_API_KEY=... 설정
+npm run fetch:bizinfo -- --dry-run    # API 호출만 확인
+npm run fetch:bizinfo                  # 전체 카테고리 적재 (10-15분)
+
+# (C) 임베딩 생성 (위 ingestion 후 1회 — ~$0.86)
+npm run embed:challenge -- all`}
         </pre>
         <p className="text-[11px] text-slate-500 mt-2">
           사업자등록번호는 SHA-256 해시로 비식별화 후 저장. 원본은 DB에 적재되지 않음.

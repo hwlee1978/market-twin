@@ -16,6 +16,7 @@
     "apply:migration": "tsx --env-file=.env.local scripts/apply-migration.ts",
     "ingest:challenge": "tsx --env-file=.env.local scripts/ingest-challenge-data.ts",
     "embed:challenge": "tsx --env-file=.env.local scripts/embed-challenge-data.ts",
+    "fetch:bizinfo": "tsx --env-file=.env.local scripts/fetch-bizinfo-programs.ts",
     "seed:pool": "tsx --env-file=.env.local scripts/seed-pool.ts",
     "seed:pool:bulk": "tsx --env-file=.env.local scripts/seed-pool-bulk.ts",
     "compare:voice": "tsx --env-file=.env.local scripts/compare-voice.ts",
