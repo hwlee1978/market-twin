@@ -283,7 +283,8 @@
     "team": "Team",
     "settings": "Settings",
     "help": "Help",
-    "llmUsageAdmin": "LLM Usage"
+    "llmUsageAdmin": "LLM Usage",
+    "siteSettingsAdmin": "Site Settings"
   },
   "auth": {
     "loginTitle": "Welcome back",

@@ -41,6 +41,7 @@ const NAV_BASE = [
   // SUPERADMIN_EMAILS env match before rendering data. Non-admins
   // hit a "접근 권한 없음" gate notice.
   { href: "/admin/llm-usage", icon: ShieldCheck, key: "llmUsageAdmin" as const },
+  { href: "/admin/site-settings", icon: ShieldCheck, key: "siteSettingsAdmin" as const },
 ];
 const MRAI_NAV_ITEM = {
   href: "/mr-ai",
