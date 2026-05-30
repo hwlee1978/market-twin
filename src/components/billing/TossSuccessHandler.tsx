@@ -30,7 +30,7 @@ export function TossSuccessHandler({ locale }: { locale: string }) {
     const plan = search.get("plan");
     const cycle = (search.get("cycle") ?? "monthly") as "monthly" | "annual";
 
-    if (!authKey || (plan !== "starter" && plan !== "growth")) {
+    if (!authKey || (plan !== "starter" && plan !== "validator" && plan !== "growth")) {
       setError(
         isKo
           ? "결제 정보가 올바르지 않습니다. 플랜 페이지로 돌아가 다시 시도해주세요."

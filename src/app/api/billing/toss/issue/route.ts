@@ -17,7 +17,10 @@ export const maxDuration = 30;
 
 const RequestSchema = z.object({
   authKey: z.string().min(10),
-  plan: z.enum(["starter", "growth"]),
+  // validator tier (₩690k/mo) added to checkout enum 2026-05-30 to
+  // match plans.ts. Was previously rejected here even though the plan
+  // existed.
+  plan: z.enum(["starter", "validator", "growth"]),
   cycle: z.enum(["monthly", "annual"]).default("monthly"),
 });
 

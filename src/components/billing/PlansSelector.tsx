@@ -10,6 +10,7 @@ import {
   annualPrice,
   type PlanDefinition,
 } from "@/lib/billing/plans";
+import { BillingComplianceNotice } from "./BillingComplianceNotice";
 
 type Currency = "usd" | "krw";
 type Cycle = "monthly" | "annual";
@@ -67,6 +68,7 @@ export function PlansSelector({
           ? "* Free Trial은 7일 또는 시뮬 1건 (먼저 도래한 시점) 후 자동 종료. 신용카드 등록 불필요."
           : "* Free Trial ends after 7 days or 1 sim, whichever comes first. No credit card required."}
       </div>
+      <BillingComplianceNotice locale={isKo ? "ko" : "en"} />
     </div>
   );
 }

@@ -8,7 +8,9 @@ import { stripe, stripePriceId, appOrigin } from "@/lib/billing/stripe";
 export const dynamic = "force-dynamic";
 
 const RequestSchema = z.object({
-  plan: z.enum(["starter", "growth"]),
+  // 4-tier paid ladder (per plans.ts). validator added 2026-05-30 — was
+  // previously gated out at checkout despite being a real tier.
+  plan: z.enum(["starter", "validator", "growth"]),
   cycle: z.enum(["monthly", "annual"]).default("monthly"),
   // The user's locale, so we land them back on the right share-page
   // language after success. Defaults to ko.
