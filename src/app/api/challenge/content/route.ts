@@ -91,6 +91,18 @@ export async function POST(req: Request) {
       : Promise.resolve(null),
   ]);
 
+  // Diagnostic — log shape so Vercel reveals when LLM returned empty fields
+  // (silent fail without proper JSON shape).
+  const reportSummary =
+    reportRes.status === "fulfilled" && reportRes.value
+      ? `executive=${(reportRes.value as { executive_summary?: string }).executive_summary?.length ?? 0}ch programs=${(reportRes.value as { matched_programs?: unknown[] }).matched_programs?.length ?? 0} signals=${(reportRes.value as { market_signals?: unknown[] }).market_signals?.length ?? 0}`
+      : `${reportRes.status === "rejected" ? `rejected: ${String(reportRes.reason).slice(0, 200)}` : "skipped"}`;
+  const specSummary =
+    specRes.status === "fulfilled" && specRes.value
+      ? `locales=${Object.keys((specRes.value as { by_locale?: object }).by_locale ?? {}).length}`
+      : `${specRes.status === "rejected" ? `rejected: ${String(specRes.reason).slice(0, 200)}` : "skipped"}`;
+  console.log(`[challenge/content] report → ${reportSummary} | spec → ${specSummary}`);
+
   return NextResponse.json({
     report:
       reportRes.status === "fulfilled" ? reportRes.value : { error: String(reportRes.reason) },
