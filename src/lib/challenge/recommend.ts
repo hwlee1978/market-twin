@@ -359,6 +359,13 @@ ${candidates
   }> }) ?? {};
   const ranked = Array.isArray(raw.ranked) ? raw.ranked : [];
 
+  // 진단 로그 — 매칭 흐름의 빈 결과 원인 추적
+  console.log(
+    `[recommend] stage1=${candidates.length} → llm ranked=${ranked.length} ` +
+      `raw keys=[${Object.keys(raw).join(",")}] ` +
+      `text head: "${(llmRes.text ?? "").slice(0, 200).replace(/\s+/g, " ")}"`,
+  );
+
   const recommendations: Recommendation[] = [];
   for (let i = 0; i < Math.min(ranked.length, topK); i++) {
     const r = ranked[i];
