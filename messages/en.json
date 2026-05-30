@@ -284,6 +284,7 @@
     "settings": "Settings",
     "help": "Help",
     "challenge": "Channel Recommend",
+    "challengeArena": "Content Arena",
     "llmUsageAdmin": "LLM Usage",
     "siteSettingsAdmin": "Site Settings",
     "challengeDataAdmin": "Challenge Data"

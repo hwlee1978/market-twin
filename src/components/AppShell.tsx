@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   Target,
+  Swords,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { LocaleSwitcher } from "./LocaleSwitcher";
@@ -38,6 +39,7 @@ const NAV_BASE = [
   { href: "/settings", icon: SettingsIcon, key: "settings" as const },
   { href: "/help", icon: HelpCircle, key: "help" as const },
   { href: "/challenge", icon: Target, key: "challenge" as const },
+  { href: "/challenge/arena", icon: Swords, key: "challengeArena" as const },
   // LLM usage admin — link visible to all users (intentional, helps
   // operators discover where to look) but the page enforces a
   // SUPERADMIN_EMAILS env match before rendering data. Non-admins

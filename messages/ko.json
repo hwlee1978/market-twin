@@ -284,6 +284,7 @@
     "settings": "설정",
     "help": "도움말",
     "challenge": "판로 추천",
+    "challengeArena": "콘텐츠 Arena",
     "llmUsageAdmin": "LLM 사용량",
     "siteSettingsAdmin": "사이트 설정",
     "challengeDataAdmin": "챌린지 데이터"
