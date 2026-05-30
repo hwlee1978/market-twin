@@ -76,7 +76,9 @@ export function BillingComplianceNotice({ locale }: { locale: "ko" | "en" }) {
           {isKo ? "개인정보처리방침" : "Privacy policy"}
         </Link>
         <span className="ml-auto">
-          {isKo ? "사업자등록번호 693-87-03907 · 통신판매업: 준비 중" : "Mr.AI Inc."}
+          {isKo
+            ? "사업자등록번호 693-87-03907 · 통신판매업신고 제2026-용인수지-2253호"
+            : "Mr.AI Inc. · KR Mail-Order Business Reg. 2026-Yongin-Suji-2253"}
         </span>
       </div>
     </section>
