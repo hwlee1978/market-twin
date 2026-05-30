@@ -160,8 +160,23 @@ export function ChallengeRecommendPanel() {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || j.detail || "content failed");
       }
-      const json = (await res.json()) as { report?: MarketReport; spec?: MultilingualSpec };
-      setContent(json);
+      const json = (await res.json()) as {
+        report?: MarketReport | { error: string };
+        spec?: MultilingualSpec | { error: string };
+      };
+      // 둘 다 error 객체면 silent fail 차단
+      const reportErr = json.report && "error" in json.report ? json.report.error : null;
+      const specErr = json.spec && "error" in json.spec ? json.spec.error : null;
+      if (reportErr && specErr) {
+        throw new Error(`report: ${reportErr} / spec: ${specErr}`);
+      }
+      // 한쪽만 성공해도 표시 — 에러난 쪽은 null로
+      setContent({
+        report: reportErr ? undefined : (json.report as MarketReport | undefined),
+        spec: specErr ? undefined : (json.spec as MultilingualSpec | undefined),
+      });
+      if (reportErr) setError(`리포트 생성 실패: ${reportErr}`);
+      if (specErr) setError(`다국어 기술서 생성 실패: ${specErr}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "콘텐츠 생성 실패");
     } finally {
