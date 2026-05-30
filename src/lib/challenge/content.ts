@@ -97,9 +97,26 @@ ${recBlock}
     temperature: 0.2,
     maxTokens: 3000,
     cacheSystem: true,
+    jsonSchema: {
+      type: "object",
+      required: ["executive_summary"],
+      properties: {
+        executive_summary: { type: "string" },
+        matched_programs: { type: "array" },
+        market_signals: { type: "array", items: { type: "string" } },
+        recommended_actions: { type: "array", items: { type: "string" } },
+        risks: { type: "array", items: { type: "string" } },
+      },
+    },
   });
 
   const raw = (res.json as Partial<MarketReport>) ?? {};
+  // Diagnostic — surface raw shape to Vercel logs
+  console.log(
+    `[generateMarketReport] raw keys=[${Object.keys(raw).join(",")}] ` +
+      `exec=${typeof raw.executive_summary === "string" ? raw.executive_summary.length : "missing"}ch ` +
+      `text_head: "${(res.text ?? "").slice(0, 150).replace(/\s+/g, " ")}"`,
+  );
   const inputTokens = res.usage?.inputTokens ?? 0;
   const outputTokens = res.usage?.outputTokens ?? 0;
   const costUsd = (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15;
@@ -157,15 +174,47 @@ ${input.targetMarkets ? `# 타겟 시장\n${input.targetMarkets.join(", ")}\n` :
 
 위 정보로 5개 locale 상품 기술서를 JSON으로.`;
 
+  const localeSchema = {
+    type: "object",
+    required: ["headline", "body"],
+    properties: {
+      headline: { type: "string" },
+      tagline: { type: "string" },
+      body: { type: "string" },
+      bullets: { type: "array", items: { type: "string" } },
+      cta: { type: "string" },
+    },
+  };
   const res = await provider.generate({
     system: SPEC_SYSTEM,
     prompt,
     temperature: 0.3,
     maxTokens: 4000,
     cacheSystem: true,
+    jsonSchema: {
+      type: "object",
+      required: ["by_locale"],
+      properties: {
+        by_locale: {
+          type: "object",
+          properties: {
+            ko: localeSchema,
+            en: localeSchema,
+            ja: localeSchema,
+            "zh-tw": localeSchema,
+            "zh-cn": localeSchema,
+          },
+        },
+      },
+    },
   });
 
   const raw = (res.json as { by_locale?: MultilingualSpec["by_locale"] }) ?? {};
+  console.log(
+    `[generateMultilingualSpec] raw keys=[${Object.keys(raw).join(",")}] ` +
+      `locales=${Object.keys(raw.by_locale ?? {}).join(",")} ` +
+      `text_head: "${(res.text ?? "").slice(0, 150).replace(/\s+/g, " ")}"`,
+  );
   const inputTokens = res.usage?.inputTokens ?? 0;
   const outputTokens = res.usage?.outputTokens ?? 0;
   const costUsd = (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15;
