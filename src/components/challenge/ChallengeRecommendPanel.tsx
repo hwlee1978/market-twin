@@ -15,6 +15,7 @@ import {
   FileText,
   Globe2,
 } from "lucide-react";
+import { DetailPagePreview } from "./DetailPagePreview";
 
 type MarketReport = {
   executive_summary: string;
@@ -71,6 +72,7 @@ export function ChallengeRecommendPanel() {
   const [productName, setProductName] = useState("");
   const [productCategory, setProductCategory] = useState("");
   const [productDescription, setProductDescription] = useState("");
+  const [productImageUrl, setProductImageUrl] = useState("");
   const [intent, setIntent] = useState<"both" | "domestic" | "export">("both");
   const [goal, setGoal] = useState("");
 
@@ -225,6 +227,17 @@ export function ChallengeRecommendPanel() {
               onChange={(e) => setProductDescription(e.target.value)}
               rows={2}
               placeholder="핵심 차별점·소재·타겟 시장 등"
+              className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-slate-500 block mb-1">
+              제품 이미지 URL (선택) — 상세페이지 hero + 홍보영상 생성에 사용
+            </label>
+            <input
+              value={productImageUrl}
+              onChange={(e) => setProductImageUrl(e.target.value)}
+              placeholder="https://... (공개 URL 권장)"
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900"
             />
           </div>
@@ -446,6 +459,15 @@ export function ChallengeRecommendPanel() {
             )}
           </div>
         </section>
+      )}
+
+      {/* Detail page preview — Task 2 ④ */}
+      {content?.spec && (
+        <DetailPagePreview
+          spec={content.spec.by_locale}
+          imageUrl={productImageUrl || null}
+          productName={productName}
+        />
       )}
 
       {/* Multilingual Spec */}
