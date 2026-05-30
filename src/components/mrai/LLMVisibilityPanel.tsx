@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Search, RefreshCw, Bot, AlertCircle, BarChart3 } from "lucide-react";
+import { Loader2, Search, RefreshCw, Bot, BarChart3 } from "lucide-react";
 import { EmptyState } from "./EmptyState";
+import { ErrorState } from "./ErrorState";
 
 type PerLLM = {
   llm: "claude" | "gpt" | "gemini";
@@ -237,12 +238,7 @@ export function LLMVisibilityPanel({
           )}
         </div>
 
-        {error && (
-          <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 flex items-start gap-2">
-            <AlertCircle className="w-3.5 h-3.5 mt-0.5" />
-            <div>{error}</div>
-          </div>
-        )}
+        {error && <ErrorState title="감사 실패" description={error} variant="inline" />}
 
         {loading ? (
           <div className="flex items-center gap-2 text-xs text-slate-400 py-6 justify-center">

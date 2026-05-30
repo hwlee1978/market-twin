@@ -10,6 +10,7 @@ import {
   Pencil,
   X as CloseX,
 } from "lucide-react";
+import { ErrorState, errMsg } from "./ErrorState";
 
 type Profile = {
   workspace_id: string;
@@ -81,7 +82,7 @@ export function ProductProfilePanel() {
       setProfile(json.profile);
       setExpanded(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "추출 실패");
+      setError(errMsg(e, "추출 실패"));
     } finally {
       setBuilding(false);
     }
@@ -124,11 +125,7 @@ export function ProductProfilePanel() {
 
       {expanded && (
         <div className="px-5 py-4 border-t border-slate-100 space-y-3">
-          {error && (
-            <p className="text-xs text-red-600 bg-red-50 border border-red-200 px-2 py-1.5 rounded">
-              {error}
-            </p>
-          )}
+          {error && <ErrorState title="프로필 오류" description={error} variant="inline" />}
 
           {profile === undefined && (
             <div className="flex items-center gap-2 text-xs text-slate-400">
@@ -307,7 +304,7 @@ function ProfileEditModal({
       }
       onSaved(json.profile as Profile);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "네트워크 오류");
+      setErr(errMsg(e, "네트워크 오류"));
     } finally {
       setBusy(false);
     }

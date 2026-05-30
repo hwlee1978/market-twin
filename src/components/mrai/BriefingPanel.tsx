@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { ChevronDown, ChevronUp, FileText, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { FeedbackButtons } from "./FeedbackButtons";
 import { EmptyState } from "./EmptyState";
+import { ErrorState, errMsg } from "./ErrorState";
 
 type Briefing = {
   id: string;
@@ -43,7 +44,7 @@ export function BriefingPanel({
       setBriefing(data.briefing);
       setCollapsed(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "error");
+      setError(errMsg(e, "error"));
     } finally {
       setLoading(false);
     }
@@ -101,8 +102,8 @@ export function BriefingPanel({
       {!collapsed && (
         <div className="px-5 py-4">
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-3">
-              {t("errorPrefix")}: {error}
+            <div className="mb-3">
+              <ErrorState title={t("errorPrefix")} description={error} variant="inline" />
             </div>
           )}
           {briefing ? (

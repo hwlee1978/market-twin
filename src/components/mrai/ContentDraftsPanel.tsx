@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { capture } from "@/lib/analytics/posthog";
@@ -25,6 +25,7 @@ import {
   FileText,
 } from "lucide-react";
 import { EmptyState } from "./EmptyState";
+import { ErrorState, errMsg } from "./ErrorState";
 
 type Draft = {
   id: string;
@@ -159,7 +160,7 @@ export function ContentDraftsPanel({
       });
       setOpenModal(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "생성 실패");
+      setError(errMsg(e, "생성 실패"));
     } finally {
       setGenerating(false);
     }
@@ -257,7 +258,11 @@ export function ContentDraftsPanel({
         </button>
       </div>
       <div className="px-5 py-4">
-        {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
+        {error && (
+          <div className="mb-3">
+            <ErrorState title="콘텐츠 작업 오류" description={error} variant="inline" />
+          </div>
+        )}
         {selectedIds.size > 0 && (
           <div className="mb-3 flex items-center gap-3 rounded-md bg-indigo-50 border border-indigo-200 px-3 py-2">
             <span className="text-xs text-indigo-900 font-medium">
@@ -428,7 +433,7 @@ function DraftCard({
       if (!res.ok) throw new Error(json.error || "스케줄 저장 실패");
       setScheduledAt(json.draft?.scheduled_at ?? iso);
     } catch (e) {
-      setScheduleError(e instanceof Error ? e.message : "스케줄 저장 실패");
+      setScheduleError(errMsg(e, "스케줄 저장 실패"));
     } finally {
       setSchedulingBusy(false);
     }
@@ -463,7 +468,7 @@ function DraftCard({
         has_image: !!draft.image_url || (draft.image_urls?.length ?? 0) > 0,
       });
     } catch (e) {
-      setPublishError(e instanceof Error ? e.message : "퍼블리시 실패");
+      setPublishError(errMsg(e, "퍼블리시 실패"));
     } finally {
       setPublishing(false);
     }
@@ -486,7 +491,7 @@ function DraftCard({
       if (!res.ok) throw new Error(json.error || "발행 취소 실패");
       setPublishedAt(null);
     } catch (e) {
-      setPublishError(e instanceof Error ? e.message : "발행 취소 실패");
+      setPublishError(errMsg(e, "발행 취소 실패"));
     } finally {
       setPublishing(false);
     }
@@ -522,7 +527,7 @@ function DraftCard({
         image_urls: json.draft.image_urls ?? [],
       });
     } catch (e) {
-      setImageError(e instanceof Error ? e.message : "이미지 생성 실패");
+      setImageError(errMsg(e, "이미지 생성 실패"));
     } finally {
       setGeneratingImage(false);
     }
@@ -563,7 +568,7 @@ function DraftCard({
         like_rate: (json.simulation as SimulationRow)?.like_rate ?? null,
       });
     } catch (e) {
-      setSimError(e instanceof Error ? e.message : "시뮬레이션 실패");
+      setSimError(errMsg(e, "시뮬레이션 실패"));
     } finally {
       setSimulating(false);
     }
@@ -1136,7 +1141,7 @@ function ImagePromptPreviewModal({
       setKo(json.image_prompt_ko);
       onUpdated({ en: json.image_prompt, ko: json.image_prompt_ko });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "새로고침 실패");
+      setErr(errMsg(e, "새로고침 실패"));
     } finally {
       setRefreshing(false);
     }
@@ -1686,7 +1691,7 @@ function EditDraftModal({
       }
       onSaved(json.draft);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "저장 실패");
+      setErr(errMsg(e, "저장 실패"));
     } finally {
       setBusy(false);
     }
@@ -1909,7 +1914,7 @@ function GenerateModal({
       setSuggestions((json.suggestions as TopicSuggestion[]) ?? []);
       setSourcesUsed(json.sources_used ?? null);
     } catch (e) {
-      setSuggestErr(e instanceof Error ? e.message : "제안 실패");
+      setSuggestErr(errMsg(e, "제안 실패"));
     } finally {
       setSuggesting(false);
     }

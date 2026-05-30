@@ -6,7 +6,6 @@ import {
   Loader2,
   RefreshCw,
   ExternalLink,
-  AlertCircle,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -15,6 +14,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { EmptyState } from "./EmptyState";
+import { ErrorState, errMsg } from "./ErrorState";
 
 type Status =
   | { connected: false }
@@ -85,7 +85,7 @@ export function SEOPerformancePanel() {
       if (!res.ok) throw new Error("sync 실패");
       await loadStatus();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "sync 실패");
+      setError(errMsg(e, "sync 실패"));
     } finally {
       setSyncing(false);
     }
@@ -186,9 +186,12 @@ export function SEOPerformancePanel() {
       </div>
 
       {(error || status.last_error) && (
-        <div className="mx-5 mt-3 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 flex items-start gap-2">
-          <AlertCircle className="w-3.5 h-3.5 mt-0.5" />
-          <div>{error || status.last_error}</div>
+        <div className="mx-5 mt-3">
+          <ErrorState
+            title="동기화 오류"
+            description={error || status.last_error || ""}
+            variant="inline"
+          />
         </div>
       )}
 

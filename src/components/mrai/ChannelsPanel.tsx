@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CheckCircle2, Loader2, Plus, Send, Trash2, Webhook, XCircle } from "lucide-react";
+import { ErrorState, errMsg } from "./ErrorState";
 
 type ChannelType = "slack_webhook" | "email" | "generic_webhook";
 
@@ -65,7 +66,7 @@ export function ChannelsPanel({ locale }: { locale: "ko" | "en" }) {
       setToast({ kind: "ok", text: t("testOk") });
       await loadStatus();
     } catch (e) {
-      setToast({ kind: "error", text: `${t("testFailed")}: ${e instanceof Error ? e.message : "error"}` });
+      setToast({ kind: "error", text: `${t("testFailed")}: ${errMsg(e, "error")}` });
     } finally {
       setBusy(null);
     }
@@ -239,7 +240,7 @@ function AddChannelForm({
       }
       onSaved();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "error");
+      setError(errMsg(e, "error"));
     } finally {
       setSaving(false);
     }
@@ -316,7 +317,7 @@ function AddChannelForm({
       )}
 
       {error && (
-        <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">{error}</div>
+        <ErrorState title="채널 작업 오류" description={error} variant="inline" />
       )}
 
       <div className="flex items-center justify-end gap-2">
