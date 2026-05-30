@@ -10,7 +10,8 @@ import {
   ShoppingBag,
   Hash,
   Repeat,
-  Swords,
+  Database,
+  Target,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -88,11 +89,11 @@ export default function ChallengeLandingPage() {
           />
           <Criterion
             num="02"
-            label="A/B 테스트 (LMArena 방식)"
+            label="CSV Batch 평가 지원"
             items={[
-              { icon: Swords, text: "4 LLM (Claude/GPT/Gemini/DeepSeek) 블라인드 비교" },
-              { icon: CheckCircle2, text: "ch_ab_battles 모든 battle 영구 보존" },
-              { icon: CheckCircle2, text: "심사기관 평가단이 직접 비교·평가 가능" },
+              { icon: Database, text: "심사기관 테스트셋 (CSV) 일괄 처리" },
+              { icon: Target, text: "각 기업별 적합 사업/바우처 정확한 답 + 이유" },
+              { icon: Repeat, text: "결과 CSV + input_hash 비교로 재현성 자동 검증" },
             ]}
           />
         </div>
