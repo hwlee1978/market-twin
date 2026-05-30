@@ -308,9 +308,9 @@ export function MrAIChat({
   }
 
   return (
-    <div className="grid grid-cols-[200px_1fr_280px] gap-3 h-[calc(100vh-380px)] min-h-[480px]">
-      {/* Threads sidebar */}
-      <aside className="bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col">
+    <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_280px] gap-3 lg:h-[calc(100vh-380px)] lg:min-h-[480px]">
+      {/* Threads sidebar — mobile: order-2 below chat, collapsible height */}
+      <aside className="bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col order-2 lg:order-1 max-h-[240px] lg:max-h-none">
         <div className="px-3 py-2.5 border-b border-slate-200 flex items-center gap-2">
           <MessagesSquare className="w-4 h-4 text-amber-600" />
           <span className="text-sm font-semibold text-slate-900">
@@ -357,8 +357,8 @@ export function MrAIChat({
         </div>
       </aside>
 
-      {/* Chat pane */}
-      <section className="bg-white border border-slate-200 rounded-lg flex flex-col overflow-hidden">
+      {/* Chat pane — mobile: order-1 first, fixed viewport-based height */}
+      <section className="bg-white border border-slate-200 rounded-lg flex flex-col overflow-hidden order-1 lg:order-2 h-[70vh] min-h-[400px] lg:h-auto lg:min-h-0">
         {(() => {
           const active = conversations.find((c) => c.id === activeConvoId);
           const title = active?.title ?? (locale === "ko" ? "새 대화" : "New conversation");
@@ -455,8 +455,8 @@ export function MrAIChat({
         </form>
       </section>
 
-      {/* Memory sidebar */}
-      <aside className="bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col">
+      {/* Memory sidebar — mobile: order-3 below threads */}
+      <aside className="bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col order-3 max-h-[320px] lg:max-h-none">
         <div className="p-3 border-b border-slate-200 flex items-center gap-2">
           <Brain className="w-4 h-4 text-amber-600" />
           <span className="text-sm font-semibold text-slate-900">{tMem("title")}</span>
