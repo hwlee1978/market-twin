@@ -283,6 +283,7 @@
     "team": "Team",
     "settings": "Settings",
     "help": "Help",
+    "challenge": "Channel Recommend",
     "llmUsageAdmin": "LLM Usage",
     "siteSettingsAdmin": "Site Settings",
     "challengeDataAdmin": "Challenge Data"
