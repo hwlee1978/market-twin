@@ -28,8 +28,9 @@ interface ReplicatePrediction {
 
 const POLL_INTERVAL_MS = 3000;
 // 10초 영상은 5초 영상 대비 ~2배 generation 시간 필요 (실측 3-6분).
-// Vercel maxDuration 600s 와 일치시켜서 timeout 메시지가 일관되도록.
-const POLL_TIMEOUT_MS = 540_000;  // 9분
+// Vercel maxDuration 800s 한도 안쪽으로 770s 잡음 (스토리지 업로드 + TTS
+// 등 후처리 30s 여유). Tier B/C 의 10초 영상도 무리 없이 통과.
+const POLL_TIMEOUT_MS = 770_000;  // 12분 50초
 
 // Kling v1.6 Pro on Replicate — model endpoint format (no version pin
 // needed, Replicate routes to latest stable).

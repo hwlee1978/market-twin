@@ -10,7 +10,8 @@ import {
 } from "@/lib/challenge/video";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 600;
+// Vercel Pro 한도 800s 활용. Tier C (3 × 10초 영상 + TTS) 까지 안전.
+export const maxDuration = 800;
 
 const RequestSchema = z.object({
   image_url: z.string().url(),

@@ -4,7 +4,9 @@
     "src/app/api/simulations/[id]/run/route.ts": { "maxDuration": 800 },
     "src/app/api/simulations/[id]/retry/route.ts": { "maxDuration": 800 },
     "src/app/api/admin/simulations/[id]/retry/route.ts": { "maxDuration": 800 },
-    "src/app/api/projects/demo/route.ts": { "maxDuration": 800 }
+    "src/app/api/projects/demo/route.ts": { "maxDuration": 800 },
+    "src/app/api/challenge/video/route.ts": { "maxDuration": 800 },
+    "src/app/api/challenge/content/route.ts": { "maxDuration": 300 }
   },
   "crons": [
     {
