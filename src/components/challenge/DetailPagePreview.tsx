@@ -496,21 +496,21 @@ export function DetailPagePreview({
           <TierCard
             label="Tier A"
             sub="단일 클립 (smart prompt)"
-            desc="제품별 LLM 자동 모션 prompt · 2-4분 · ~$0.50"
+            desc="제품별 LLM 자동 모션 prompt · 2-4분 · 5초 $0.50 / 10초 $1.00"
             active={tier === "A"}
             onClick={() => setTier("A")}
           />
           <TierCard
             label="Tier B"
             sub="3-scene 스토리보드"
-            desc="제품 리빌 + 시나리오 + 클로즈업 병렬 · 3-5분 · ~$1.50"
+            desc="리빌+시나리오+클로즈업 sequential · 4-7분 · 5초 $1.50 / 10초 $3.00"
             active={tier === "B"}
             onClick={() => setTier("B")}
           />
           <TierCard
             label="Tier C"
             sub="+ TTS 보이스오버"
-            desc="Tier B + OpenAI TTS 한국어 음성 · 5-7분 · ~$2.00"
+            desc="Tier B + Nova TTS 한국어 · 5-8분 · 5초 ~$1.50 / 10초 ~$3.00"
             active={tier === "C"}
             onClick={() => setTier("C")}
           />
@@ -556,7 +556,12 @@ export function DetailPagePreview({
               ? jobProgress
                 ? `생성 중 ${jobProgress.done}/${jobProgress.total} (${jobStatus ?? "running"})`
                 : "생성 시작 중…"
-              : `Tier ${tier} 영상 생성 (~$${tier === "A" ? (duration === 10 ? "1.00" : "0.50") : tier === "B" ? "1.50" : "2.00"})`}
+              : `Tier ${tier} 영상 생성 (~$${(() => {
+                  const perClip = duration === 10 ? 1.0 : 0.5;
+                  const clipCount = tier === "A" ? 1 : 3;
+                  const tts = tier === "C" ? 0.005 : 0;
+                  return (perClip * clipCount + tts).toFixed(2);
+                })()})`}
           </button>
         </div>
 
