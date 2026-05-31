@@ -112,6 +112,8 @@ export function DetailPagePreview({
   const [tier, setTier] = useState<"A" | "B" | "C">("A");
   const [duration, setDuration] = useState<5 | 10>(5);
   const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
+  // 영상 생성 모델 — 동일 입력으로 3가지 비교 테스트 가능
+  const [model, setModel] = useState<"kling-stable" | "kling-dynamic" | "seedance-pro">("kling-stable");
   type GeneratedClip = {
     scene: "single" | "reveal" | "scenario" | "closeup";
     video_url: string;
@@ -177,6 +179,7 @@ export function DetailPagePreview({
         duration,
         aspect_ratio: aspectRatio,
         tier,
+        model,
         product_name: productName,
         product_category: productCategory,
       };
@@ -516,6 +519,52 @@ export function DetailPagePreview({
           />
         </div>
 
+        {/* Model selector — 비교 테스트용 */}
+        <div className="px-5 py-2 border-t border-slate-100">
+          <div className="text-[11px] text-slate-500 mb-1.5">
+            영상 모델 (같은 입력으로 비교 가능):
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[
+              {
+                v: "kling-stable" as const,
+                label: "Kling 1.6 Pro (Stable)",
+                desc: "현재 기본 · cfg=0.8 · 텍스트 보존",
+                cost: "$0.50/5초",
+              },
+              {
+                v: "kling-dynamic" as const,
+                label: "Kling 1.6 Pro (Dynamic)",
+                desc: "cfg=0.5 · cinematic prompt · 더 dramatic",
+                cost: "$0.50/5초",
+              },
+              {
+                v: "seedance-pro" as const,
+                label: "Seedance 1 Pro (ByteDance)",
+                desc: "최상위 motion · cinematic 자동",
+                cost: "$0.65/5초",
+              },
+            ].map((m) => (
+              <button
+                key={m.v}
+                type="button"
+                onClick={() => setModel(m.v)}
+                className={`text-left flex-1 min-w-[200px] rounded border p-2 transition ${
+                  model === m.v
+                    ? "border-rose-500 bg-rose-50 ring-2 ring-rose-200"
+                    : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
+              >
+                <div className={`text-xs font-semibold ${model === m.v ? "text-rose-700" : "text-slate-900"}`}>
+                  {m.label}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5">{m.desc}</div>
+                <div className="text-[10px] text-slate-700 mt-0.5 font-semibold">{m.cost}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* aspect / duration */}
         <div className="px-5 py-2 border-t border-slate-100 flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2 text-[11px]">
@@ -557,10 +606,10 @@ export function DetailPagePreview({
                 ? `생성 중 ${jobProgress.done}/${jobProgress.total} (${jobStatus ?? "running"})`
                 : "생성 시작 중…"
               : `Tier ${tier} 영상 생성 (~$${(() => {
-                  const perClip = duration === 10 ? 1.0 : 0.5;
+                  const base = duration === 10 ? (model === "seedance-pro" ? 1.3 : 1.0) : (model === "seedance-pro" ? 0.65 : 0.5);
                   const clipCount = tier === "A" ? 1 : 3;
                   const tts = tier === "C" ? 0.005 : 0;
-                  return (perClip * clipCount + tts).toFixed(2);
+                  return (base * clipCount + tts).toFixed(2);
                 })()})`}
           </button>
         </div>

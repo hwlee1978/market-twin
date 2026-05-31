@@ -42,14 +42,28 @@ export async function createKlingPrediction(
     motionPrompt: string;
     duration: 5 | 10;
     aspectRatio: "16:9" | "9:16" | "1:1";
+    /**
+     * Dynamic mode: cfg_scale=0.5로 낮춰 motion 자유도 ↑.
+     * 텍스트 morph 위험 증가하지만 cinematic effect (dolly·particle·
+     * lighting transition) 가능. 기본 false (stable).
+     */
+    dynamic?: boolean;
   },
   retries = 4,
 ): Promise<{ predictionId: string }> {
   const token = process.env.REPLICATE_API_TOKEN;
   if (!token) throw new Error("REPLICATE_API_TOKEN not set");
 
+  const cfgScale = input.dynamic ? 0.5 : 0.8;
+  // Dynamic mode: motion blocker 빼고 image quality 만 막음.
+  const negativePrompt = input.dynamic
+    ? "blurry, low quality, distorted, jittery, deformed faces, extra limbs"
+    : "text deformation, character morphing, letterform distortion, " +
+      "garbled text, illegible writing, smeared letters, fake brand names, " +
+      "watermarks, logos morphing, people morphing, blurry, low quality, distorted, jittery";
+
   console.log(
-    `[kling-create] duration=${input.duration}s aspect=${input.aspectRatio} prompt_len=${input.motionPrompt.length} retries_left=${retries}`,
+    `[kling-create] mode=${input.dynamic ? "dynamic" : "stable"} cfg=${cfgScale} duration=${input.duration}s aspect=${input.aspectRatio} retries_left=${retries}`,
   );
   const res = await fetch(
     `https://api.replicate.com/v1/models/${KLING_MODEL_OWNER}/${KLING_MODEL_NAME}/predictions`,
@@ -66,11 +80,8 @@ export async function createKlingPrediction(
           start_image: input.imageUrl,
           duration: input.duration,
           aspect_ratio: input.aspectRatio,
-          cfg_scale: 0.8,
-          negative_prompt:
-            "text deformation, character morphing, letterform distortion, " +
-            "garbled text, illegible writing, smeared letters, fake brand names, " +
-            "watermarks, logos morphing, people morphing, blurry, low quality, distorted, jittery",
+          cfg_scale: cfgScale,
+          negative_prompt: negativePrompt,
         },
       }),
     },
@@ -102,8 +113,81 @@ export async function createKlingPrediction(
 }
 
 /**
+ * Seedance 1 Pro (ByteDance) i2v prediction 생성. Kling 대비 더 dynamic
+ * 한 motion handling 평가. Schema 다름:
+ *   - image (Kling은 start_image)
+ *   - duration (5 or 10 정수)
+ *   - resolution (480p / 720p / 1080p)
+ *   - fps (16, 24)
+ *   - camera_fixed (false 권장 — dynamic camera)
+ *
+ * Aspect ratio 직접 파라미터 없음 → resolution 으로 추정. 16:9 = 1080p,
+ * 9:16 = 1080p (vertical resolution은 모델이 알아서 처리), 1:1 = 720p.
+ */
+export async function createSeedancePrediction(
+  input: {
+    imageUrl: string;
+    motionPrompt: string;
+    duration: 5 | 10;
+    aspectRatio: "16:9" | "9:16" | "1:1";
+  },
+  retries = 4,
+): Promise<{ predictionId: string }> {
+  const token = process.env.REPLICATE_API_TOKEN;
+  if (!token) throw new Error("REPLICATE_API_TOKEN not set");
+
+  console.log(
+    `[seedance-create] duration=${input.duration}s aspect=${input.aspectRatio} prompt_len=${input.motionPrompt.length} retries_left=${retries}`,
+  );
+  const res = await fetch(
+    `https://api.replicate.com/v1/models/${SEEDANCE_MODEL_OWNER}/${SEEDANCE_MODEL_NAME}/predictions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+        Prefer: "wait=0",
+      },
+      body: JSON.stringify({
+        input: {
+          image: input.imageUrl,
+          prompt: input.motionPrompt,
+          duration: input.duration,
+          resolution: "1080p",
+          aspect_ratio: input.aspectRatio,
+          fps: 24,
+          camera_fixed: false,
+        },
+      }),
+    },
+  );
+
+  if (res.status === 429 && retries > 0) {
+    const bodyText = await res.text().catch(() => "");
+    let retryAfter = 12;
+    try {
+      const body = JSON.parse(bodyText) as { retry_after?: number };
+      if (typeof body.retry_after === "number") retryAfter = body.retry_after + 2;
+    } catch {
+      const hdr = res.headers.get("retry-after");
+      if (hdr) retryAfter = Number(hdr) || 12;
+    }
+    console.log(`[seedance-create] 429 throttled — waiting ${retryAfter}s before retry (${retries} left)`);
+    await new Promise((r) => setTimeout(r, retryAfter * 1000));
+    return createSeedancePrediction(input, retries - 1);
+  }
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`seedance create ${res.status}: ${detail.slice(0, 300)}`);
+  }
+  const j = (await res.json()) as { id: string };
+  return { predictionId: j.id };
+}
+
+/**
  * 특정 prediction의 현재 상태 + (완료 시) Replicate URL 반환.
- * polling 없이 단발 조회.
+ * polling 없이 단발 조회. Kling/Seedance 모두 동일 Replicate prediction API.
  */
 export async function getKlingPredictionStatus(predictionId: string): Promise<{
   status: ReplicateStatus;
@@ -134,6 +218,19 @@ const POLL_TIMEOUT_MS = 770_000;  // 12분 50초
 // needed, Replicate routes to latest stable).
 const KLING_MODEL_OWNER = "kwaivgi";
 const KLING_MODEL_NAME = "kling-v1.6-pro";
+
+// Seedance 1 Pro (ByteDance) — i2v 중 motion handling 최상위 평가.
+// Kling 대비 더 dynamic·cinematic. 가격 $0.65/5초.
+const SEEDANCE_MODEL_OWNER = "bytedance";
+const SEEDANCE_MODEL_NAME = "seedance-1-pro";
+
+export type VideoModelChoice = "kling-stable" | "kling-dynamic" | "seedance-pro";
+
+export const MODEL_PRICING: Record<VideoModelChoice, { perFiveSec: number; perTenSec: number; label: string }> = {
+  "kling-stable": { perFiveSec: 0.5, perTenSec: 1.0, label: "Kling v1.6 Pro (Stable)" },
+  "kling-dynamic": { perFiveSec: 0.5, perTenSec: 1.0, label: "Kling v1.6 Pro (Dynamic, cfg=0.5)" },
+  "seedance-pro": { perFiveSec: 0.65, perTenSec: 1.3, label: "Seedance 1 Pro (ByteDance)" },
+};
 
 async function pollPrediction(predictionId: string, token: string): Promise<string> {
   const start = Date.now();
@@ -192,6 +289,12 @@ export async function generateSmartMotionPrompt(input: {
   productCategory?: string;
   productDescription?: string;
   sceneHint?: "reveal" | "scenario" | "closeup" | "default";
+  /**
+   * Cinematic mode — boring rotation 대신 dramatic dolly, particle effects,
+   * lighting transition, depth-of-field shift 같은 cinematic 요소 강제.
+   * Kling Dynamic / Seedance 와 함께 쓰면 효과 극대화.
+   */
+  cinematic?: boolean;
 }): Promise<string> {
   try {
     const provider = getLLMProvider({ provider: "anthropic", model: "claude-haiku-4-5-20251001" });
@@ -203,17 +306,28 @@ export async function generateSmartMotionPrompt(input: {
     };
     const sceneInstr = scenePresets[input.sceneHint ?? "default"];
 
+    const systemStable =
+      "You are a video director generating concise i2v motion prompts for product marketing. " +
+      "Output a SINGLE English prompt (1-2 sentences, max 200 chars) describing camera movement, " +
+      "lighting, and product behavior. NO text overlay instructions. NO people morphing. " +
+      "Match camera style to product category (cosmetics: bottle rotation + macro pump; " +
+      "footwear: side panning + low-angle sole; food: package closeup + content reveal; " +
+      "electronics: glow + interface highlights; etc.).";
+
+    const systemCinematic =
+      "You are a CINEMATIC commercial director writing i2v motion prompts for premium product films. " +
+      "Output a SINGLE English prompt (2-3 sentences, max 300 chars) with these MANDATORY elements: " +
+      "(1) DYNAMIC camera move — dramatic dolly-in, parallax track, orbital, or hero crane (NOT static rotation). " +
+      "(2) ATMOSPHERIC effect — backlit particles, soft floating dust, golden lens flare, or volumetric light beam. " +
+      "(3) LIGHTING TRANSITION — color temperature shift, rim light reveal, or shadow-to-spotlight wipe. " +
+      "Style: think Apple/Dyson/Burberry commercial. Premium, cinematic, depth-of-field rich. " +
+      "NO static rotation, NO simple zoom, NO text overlay instructions.";
+
     const res = await provider.generate({
-      system:
-        "You are a video director generating concise i2v motion prompts for Kling v1.6 Pro. " +
-        "Output a SINGLE English prompt (1-2 sentences, max 200 chars) describing camera movement, " +
-        "lighting, and product behavior. NO text overlay instructions. NO people morphing. " +
-        "Match camera style to product category (cosmetics: bottle rotation + macro pump; " +
-        "footwear: side panning + low-angle sole; food: package closeup + content reveal; " +
-        "electronics: glow + interface highlights; etc.).",
+      system: input.cinematic ? systemCinematic : systemStable,
       prompt: `Product: ${input.productName ?? "(unnamed)"}\nCategory: ${input.productCategory ?? "(unspecified)"}\nDescription: ${input.productDescription ?? "(none)"}\nIntent: ${sceneInstr}\n\nOutput the motion prompt only (no JSON, no preamble).`,
-      temperature: 0.4,
-      maxTokens: 300,
+      temperature: input.cinematic ? 0.6 : 0.4,
+      maxTokens: 400,
     });
     const text = (res.text ?? "").trim().replace(/^["']|["']$/g, "");
     if (text.length < 20) {
