@@ -27,7 +27,9 @@ interface ReplicatePrediction {
 }
 
 const POLL_INTERVAL_MS = 3000;
-const POLL_TIMEOUT_MS = 300_000;  // 5분 — Kling이 SVD보다 느리므로 여유
+// 10초 영상은 5초 영상 대비 ~2배 generation 시간 필요 (실측 3-6분).
+// Vercel maxDuration 600s 와 일치시켜서 timeout 메시지가 일관되도록.
+const POLL_TIMEOUT_MS = 540_000;  // 9분
 
 // Kling v1.6 Pro on Replicate — model endpoint format (no version pin
 // needed, Replicate routes to latest stable).
@@ -36,12 +38,21 @@ const KLING_MODEL_NAME = "kling-v1.6-pro";
 
 async function pollPrediction(predictionId: string, token: string): Promise<string> {
   const start = Date.now();
+  let lastStatus = "";
+  let pollCount = 0;
   while (Date.now() - start < POLL_TIMEOUT_MS) {
     const r = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!r.ok) throw new Error(`replicate poll ${r.status}`);
     const j = (await r.json()) as ReplicatePrediction;
+    pollCount++;
+    if (j.status !== lastStatus) {
+      console.log(
+        `[kling] ${predictionId.slice(0, 8)} status=${j.status} elapsed=${Math.round((Date.now() - start) / 1000)}s polls=${pollCount}`,
+      );
+      lastStatus = j.status;
+    }
     if (j.status === "succeeded") {
       const url = Array.isArray(j.output) ? j.output[0] : j.output;
       if (!url) throw new Error("replicate succeeded but no output url");
@@ -52,7 +63,9 @@ async function pollPrediction(predictionId: string, token: string): Promise<stri
     }
     await new Promise((res) => setTimeout(res, POLL_INTERVAL_MS));
   }
-  throw new Error(`replicate poll timeout after ${POLL_TIMEOUT_MS}ms`);
+  throw new Error(
+    `replicate poll timeout after ${Math.round(POLL_TIMEOUT_MS / 1000)}s (${pollCount} polls, last status: ${lastStatus})`,
+  );
 }
 
 /**
@@ -190,6 +203,9 @@ export async function generatePromotionalVideo(input: {
   const prompt = buildMotionPrompt(input.motionPrompt);
 
   const t0 = Date.now();
+  console.log(
+    `[kling] create duration=${duration}s aspect=${aspectRatio} prompt_len=${prompt.length} image_url=${input.imageUrl.slice(0, 80)}…`,
+  );
   // Use model endpoint format — Replicate auto-routes to latest version.
   const createRes = await fetch(
     `https://api.replicate.com/v1/models/${KLING_MODEL_OWNER}/${KLING_MODEL_NAME}/predictions`,
