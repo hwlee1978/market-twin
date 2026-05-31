@@ -186,8 +186,9 @@ export function ContentOnlyPanel() {
               <input
                 value={productImageUrl}
                 onChange={(e) => setProductImageUrl(e.target.value)}
+                onFocus={(e) => e.currentTarget.select()}
                 placeholder="https://..."
-                className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900"
+                className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 truncate"
               />
             </div>
             <div>
