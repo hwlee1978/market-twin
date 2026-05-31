@@ -13,6 +13,12 @@ type Spec = {
 
 type Locale = "ko" | "en" | "ja" | "zh-tw" | "zh-cn";
 
+export type DetailPageData = {
+  detail_specs: Array<{ label: string; value: string }>;
+  usage_scenarios: Array<{ title: string; description: string }>;
+  faq: Array<{ q: string; a: string }>;
+};
+
 const LOCALE_LABELS: Record<Locale, string> = {
   ko: "한국어 (Smartstore 스타일)",
   en: "English (Global)",
@@ -87,6 +93,7 @@ export function DetailPagePreview({
   productName,
   priceKrw,
   productCategory,
+  detailPage,
 }: {
   spec: Record<Locale, Spec>;
   imageUrl?: string | null;
@@ -94,6 +101,8 @@ export function DetailPagePreview({
   /** 사용자가 입력한 KRW 정가. null이면 카테고리 기반 placeholder + warning. */
   priceKrw?: number | null;
   productCategory?: string;
+  /** 상세페이지 풍부한 데이터 (스펙 표·시나리오·FAQ). 한국어 전용. */
+  detailPage?: DetailPageData;
 }) {
   const [activeLocale, setActiveLocale] = useState<Locale>("ko");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -252,6 +261,81 @@ export function DetailPagePreview({
               <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
                 {s.body}
               </div>
+
+              {/* 상세페이지 전용 풍부한 데이터 — locale 무관하게 한국어 표시
+                  (실제 e-commerce도 한국어 페이지에서만 풀 옵션 노출).
+                  ②번 다국어 상품 기술서와 차별화. */}
+              {detailPage && activeLocale === "ko" && (
+                <div className="pt-4 border-t border-slate-100 space-y-5">
+                  {/* 상세 스펙 표 */}
+                  {detailPage.detail_specs.length > 0 && (
+                    <div>
+                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                        상세 스펙
+                      </h3>
+                      <table className="w-full text-xs">
+                        <tbody className="divide-y divide-slate-100">
+                          {detailPage.detail_specs.map((s, i) => (
+                            <tr key={i}>
+                              <td className="py-1.5 text-slate-500 w-28">{s.label}</td>
+                              <td className="py-1.5 text-slate-900">{s.value}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* 사용 시나리오 */}
+                  {detailPage.usage_scenarios.length > 0 && (
+                    <div>
+                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                        사용 시나리오
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {detailPage.usage_scenarios.map((sc, i) => (
+                          <div key={i} className="bg-slate-50 rounded-md p-3">
+                            <div className="text-xs font-semibold text-slate-900 mb-1">{sc.title}</div>
+                            <div className="text-xs text-slate-700 leading-relaxed">{sc.description}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* FAQ */}
+                  {detailPage.faq.length > 0 && (
+                    <div>
+                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                        자주 묻는 질문
+                      </h3>
+                      <ul className="space-y-2">
+                        {detailPage.faq.map((f, i) => (
+                          <li key={i} className="border-l-2 border-slate-200 pl-3">
+                            <div className="text-xs font-medium text-slate-900">Q. {f.q}</div>
+                            <div className="text-xs text-slate-600 mt-0.5">A. {f.a}</div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* 배송·환불 boilerplate */}
+                  <div className="bg-slate-50 rounded-md p-3 text-[11px] text-slate-600 leading-relaxed">
+                    <div className="font-semibold text-slate-700 mb-1">배송·환불 정보</div>
+                    <div>· 평일 14시 이전 주문 시 당일 출고 (택배 1-3일 소요)</div>
+                    <div>· 단순 변심 7일 내 교환·환불 가능 (왕복 배송비 고객 부담)</div>
+                    <div>· 제품 하자 시 30일 내 무상 교환·환불</div>
+                  </div>
+                </div>
+              )}
+
+              {detailPage && activeLocale !== "ko" && (
+                <div className="pt-3 border-t border-slate-100 text-[11px] text-slate-500 italic">
+                  상세 스펙·사용 시나리오·FAQ는 한국어 페이지(KR Smartstore 스타일)에서만
+                  표시됩니다. 다른 시장은 헤로·tagline·body 중심 간결 layout.
+                </div>
+              )}
 
               <div className="flex gap-2 pt-2">
                 <button className="flex-1 bg-slate-900 text-white py-3 rounded-md font-medium hover:bg-slate-800">

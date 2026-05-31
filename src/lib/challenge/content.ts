@@ -45,6 +45,17 @@ export type MultilingualSpec = {
       cta: string;             // 행동 유도 문구
     }
   >;
+  /**
+   * 상세페이지 전용 풍부한 데이터 (한국어, locale-independent).
+   * Smartstore·Shopee·Tmall 등 e-commerce 상세페이지 convention에 맞춰
+   * detail_specs 표 + 사용 시나리오 + FAQ를 LLM이 한 번에 생성.
+   * 다국어 spec과 분리해서 상세페이지가 단순히 기술서를 mirror하지 않도록.
+   */
+  detail_page?: {
+    detail_specs: Array<{ label: string; value: string }>;  // 5-8개 spec 표 행
+    usage_scenarios: Array<{ title: string; description: string }>; // 3-5 시나리오
+    faq: Array<{ q: string; a: string }>;                    // 3-5 FAQ
+  };
   generation_ms: number;
   cost_usd: number;
 };
@@ -158,25 +169,41 @@ ${groundingBlock}
   };
 }
 
-const SPEC_SYSTEM = `당신은 한국 제품의 다국어 마케팅 카피라이터입니다.
+const SPEC_SYSTEM = `당신은 한국 제품의 다국어 마케팅 카피라이터 + e-commerce 상세페이지 기획자입니다.
 
 입력: 제품 정보 + 타겟 시장 컨텍스트.
-출력: 5개 locale (KR/EN/JP/TW-zh/CN-zh) 의 상품 기술서 (JSON).
+출력: 두 가지를 JSON으로 한 번에:
+  (A) by_locale — 5개 locale (KR/EN/JP/TW-zh/CN-zh) 의 짧은 상품 기술서 (카피용)
+  (B) detail_page — 한국어 풍부한 상세페이지 데이터 (Smartstore convention)
 
 원칙:
-- 각 locale의 모국어로 자연스럽게.
-- 한국 인명·고유명사는 [[name-localization]] 규칙 따름 — TW/CN는 중문명+로마자 (예: 임윤아 → 潤娥 (Yoona)). 명확하지 않으면 로마자만.
-- 단정적·구체적. 외래어 남용 금지.
+- (A) 각 locale의 모국어로 자연스럽게. 한국 인명·고유명사 [[name-localization]] 규칙 (TW/CN는 중문명+로마자).
+- (B) 한국어로만. detail_page는 (A) ko와 중복되지 않는 풍부한 정보 (스펙 표·시나리오·FAQ).
+- 단정적·구체적. 외래어 남용 금지. 추정·창작 금지 — 입력 정보로 도출 가능한 사실만.
 - 각 필드 길이 엄수 — headline ≤ 60자, tagline ≤ 120자, body 200-400자.
 
 JSON only:
 {
   "by_locale": {
     "ko": { "headline": "", "tagline": "", "body": "", "bullets": ["", ...], "cta": "" },
-    "en": { ... },
-    "ja": { ... },
-    "zh-tw": { ... },
-    "zh-cn": { ... }
+    "en": { ... }, "ja": { ... }, "zh-tw": { ... }, "zh-cn": { ... }
+  },
+  "detail_page": {
+    "detail_specs": [
+      { "label": "소재", "value": "메리노 울 100%" },
+      { "label": "사이즈", "value": "230-280mm (5mm 단위)" },
+      { "label": "원산지", "value": "대한민국" },
+      { "label": "인증", "value": "친환경 ISO 14001" }
+      // 5-8개. 소재·사이즈·컬러·중량·원산지·인증·구성품·KC인증번호 등 카테고리 적합한 것만
+    ],
+    "usage_scenarios": [
+      { "title": "통근·도심 일상", "description": "1-2문장 한국어 — 어떤 상황에서 어떻게 쓰는지" }
+      // 3-5개 시나리오
+    ],
+    "faq": [
+      { "q": "사이즈는 어떻게 선택하나요?", "a": "1-2문장 한국어 답변" }
+      // 3-5 FAQ. 사이즈/세탁/배송/교환/A/S 등 실제 구매 의사결정 시 떠오를 질문
+    ]
   }
 }`;
 
@@ -213,7 +240,7 @@ ${input.targetMarkets ? `# 타겟 시장\n${input.targetMarkets.join(", ")}\n` :
     system: SPEC_SYSTEM,
     prompt,
     temperature: 0.3,
-    maxTokens: 4000,
+    maxTokens: 6000,
     cacheSystem: true,
     jsonSchema: {
       type: "object",
@@ -229,15 +256,58 @@ ${input.targetMarkets ? `# 타겟 시장\n${input.targetMarkets.join(", ")}\n` :
             "zh-cn": localeSchema,
           },
         },
+        detail_page: {
+          type: "object",
+          properties: {
+            detail_specs: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["label", "value"],
+                properties: {
+                  label: { type: "string" },
+                  value: { type: "string" },
+                },
+              },
+            },
+            usage_scenarios: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["title", "description"],
+                properties: {
+                  title: { type: "string" },
+                  description: { type: "string" },
+                },
+              },
+            },
+            faq: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["q", "a"],
+                properties: {
+                  q: { type: "string" },
+                  a: { type: "string" },
+                },
+              },
+            },
+          },
+        },
       },
     },
   });
 
-  const raw = (res.json as { by_locale?: MultilingualSpec["by_locale"] }) ?? {};
+  const raw = (res.json as {
+    by_locale?: MultilingualSpec["by_locale"];
+    detail_page?: MultilingualSpec["detail_page"];
+  }) ?? {};
   console.log(
     `[generateMultilingualSpec] raw keys=[${Object.keys(raw).join(",")}] ` +
       `locales=${Object.keys(raw.by_locale ?? {}).join(",")} ` +
-      `text_head: "${(res.text ?? "").slice(0, 150).replace(/\s+/g, " ")}"`,
+      `detail_specs=${raw.detail_page?.detail_specs?.length ?? 0} ` +
+      `scenarios=${raw.detail_page?.usage_scenarios?.length ?? 0} ` +
+      `faq=${raw.detail_page?.faq?.length ?? 0}`,
   );
   const inputTokens = res.usage?.inputTokens ?? 0;
   const outputTokens = res.usage?.outputTokens ?? 0;
@@ -254,6 +324,7 @@ ${input.targetMarkets ? `# 타겟 시장\n${input.targetMarkets.join(", ")}\n` :
       "zh-tw": byLocale["zh-tw"] ?? empty,
       "zh-cn": byLocale["zh-cn"] ?? empty,
     },
+    detail_page: raw.detail_page,
     generation_ms: Date.now() - t0,
     cost_usd: Number(costUsd.toFixed(4)),
   };

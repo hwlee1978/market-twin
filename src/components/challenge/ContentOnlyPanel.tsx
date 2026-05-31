@@ -75,6 +75,11 @@ type Locale = "ko" | "en" | "ja" | "zh-tw" | "zh-cn";
 
 type MultilingualSpec = {
   by_locale: Record<Locale, { headline: string; tagline: string; body: string; bullets: string[]; cta: string }>;
+  detail_page?: {
+    detail_specs: Array<{ label: string; value: string }>;
+    usage_scenarios: Array<{ title: string; description: string }>;
+    faq: Array<{ q: string; a: string }>;
+  };
   humanize_meta?: HumanizeMeta;
   generation_ms: number;
   cost_usd: number;
@@ -290,6 +295,7 @@ export function ContentOnlyPanel() {
             productName={productName}
             priceKrw={productPriceKrw ? Number(productPriceKrw) : null}
             productCategory={productCategory}
+            detailPage={spec.detail_page}
           />
         </div>
       )}
