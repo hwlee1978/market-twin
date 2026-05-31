@@ -108,9 +108,31 @@ export function DetailPagePreview({
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoLoading, setVideoLoading] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
+  // Tier 옵션
+  const [tier, setTier] = useState<"A" | "B" | "C">("A");
+  const [duration, setDuration] = useState<5 | 10>(5);
+  const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
+  type GeneratedClip = {
+    scene: "single" | "reveal" | "scenario" | "closeup";
+    video_url: string;
+    motion_prompt: string;
+    duration_sec: number;
+  };
+  const [clips, setClips] = useState<GeneratedClip[]>([]);
+  const [voiceoverUrl, setVoiceoverUrl] = useState<string | null>(null);
+  const [videoCostUsd, setVideoCostUsd] = useState<number | null>(null);
+  const [videoGenerationMs, setVideoGenerationMs] = useState<number | null>(null);
 
   const s = spec[activeLocale];
   const cta = s?.cta || LOCALE_CTA_FALLBACK[activeLocale];
+
+  // Tier C 보이스오버 텍스트 — ko spec의 tagline + body 첫 100자
+  const voiceoverText = (() => {
+    const ko = spec.ko;
+    if (!ko) return "";
+    const t = `${ko.tagline ?? ""} ${ko.body ?? ""}`.replace(/\s+/g, " ").trim();
+    return t.slice(0, 300);
+  })();
 
   const generateVideo = async () => {
     if (!imageUrl) {
@@ -119,24 +141,47 @@ export function DetailPagePreview({
     }
     setVideoLoading(true);
     setVideoError(null);
+    setClips([]);
+    setVoiceoverUrl(null);
+    setVideoUrl(null);
+    setVideoCostUsd(null);
+    setVideoGenerationMs(null);
     try {
+      const body: Record<string, unknown> = {
+        image_url: imageUrl,
+        duration,
+        aspect_ratio: aspectRatio,
+        tier,
+        product_name: productName,
+        product_category: productCategory,
+      };
+      if (tier === "C" && voiceoverText) {
+        body.voiceover_text = voiceoverText;
+        body.voiceover_locale = "ko";
+        body.voiceover_voice = "nova";
+      }
       const res = await fetch("/api/challenge/video", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          image_url: imageUrl,
-          motion_prompt: productName
-            ? `${productName} product showcase, premium quality reveal`
-            : undefined,
-          duration: 5,
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error ?? "video failed");
       }
-      const json = (await res.json()) as { video_url: string };
-      setVideoUrl(json.video_url);
+      const json = (await res.json()) as {
+        tier: "A" | "B" | "C";
+        clips: GeneratedClip[];
+        voiceover_url: string | null;
+        cost_usd: number;
+        generation_ms: number;
+        video_url: string | null;
+      };
+      setClips(json.clips ?? []);
+      setVoiceoverUrl(json.voiceover_url);
+      setVideoCostUsd(json.cost_usd);
+      setVideoGenerationMs(json.generation_ms);
+      if (json.video_url) setVideoUrl(json.video_url);
     } catch (e) {
       setVideoError(e instanceof Error ? e.message : "video failed");
     } finally {
@@ -350,34 +395,185 @@ export function DetailPagePreview({
         )}
       </div>
 
-      {/* Video generation footer */}
-      <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
-        <div className="text-xs text-slate-600">
-          {videoUrl
-            ? "✓ 홍보영상 생성됨 (위 hero에서 재생 중)"
-            : "Hero 영역을 정적 이미지 대신 3-4초 홍보영상으로 교체"}
+      {/* Video generation — 3-tier 선택 UI */}
+      <div className="border-t border-slate-200 bg-slate-50/60">
+        <header className="px-5 py-3 border-b border-slate-100">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+              <Video className="w-4 h-4 text-rose-600" />
+              홍보영상 콘텐츠 — Tier 선택
+            </div>
+            {(clips.length > 0 || voiceoverUrl) && videoCostUsd !== null && (
+              <div className="text-[11px] text-slate-500 tabular-nums">
+                생성 {videoGenerationMs ? `${(videoGenerationMs / 1000).toFixed(0)}s` : ""} · ${videoCostUsd.toFixed(2)}
+              </div>
+            )}
+          </div>
+        </header>
+
+        <div className="px-5 py-3 grid grid-cols-1 md:grid-cols-3 gap-2">
+          <TierCard
+            label="Tier A"
+            sub="단일 클립 (smart prompt)"
+            desc="제품별 LLM 자동 모션 prompt · 2-4분 · ~$0.50"
+            active={tier === "A"}
+            onClick={() => setTier("A")}
+          />
+          <TierCard
+            label="Tier B"
+            sub="3-scene 스토리보드"
+            desc="제품 리빌 + 시나리오 + 클로즈업 병렬 · 3-5분 · ~$1.50"
+            active={tier === "B"}
+            onClick={() => setTier("B")}
+          />
+          <TierCard
+            label="Tier C"
+            sub="+ TTS 보이스오버"
+            desc="Tier B + OpenAI TTS 한국어 음성 · 5-7분 · ~$2.00"
+            active={tier === "C"}
+            onClick={() => setTier("C")}
+          />
         </div>
-        {!videoUrl && (
+
+        {/* aspect / duration */}
+        <div className="px-5 py-2 border-t border-slate-100 flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2 text-[11px]">
+            <span className="text-slate-500">Aspect:</span>
+            {(["16:9", "9:16", "1:1"] as const).map((a) => (
+              <button
+                key={a}
+                type="button"
+                onClick={() => setAspectRatio(a)}
+                className={`px-2 py-1 rounded border ${aspectRatio === a ? "bg-slate-900 border-slate-900 text-white" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"}`}
+              >
+                {a}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 text-[11px]">
+            <span className="text-slate-500">Duration:</span>
+            {([5, 10] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDuration(d)}
+                className={`px-2 py-1 rounded border ${duration === d ? "bg-slate-900 border-slate-900 text-white" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"}`}
+              >
+                {d}초
+              </button>
+            ))}
+          </div>
+          <div className="flex-1" />
           <button
             type="button"
             onClick={() => void generateVideo()}
             disabled={!imageUrl || videoLoading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-rose-600 text-white text-xs font-medium hover:bg-rose-700 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-rose-600 text-white text-xs font-medium hover:bg-rose-700 disabled:opacity-60"
           >
-            {videoLoading ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Video className="w-3.5 h-3.5" />
-            )}
-            {videoLoading ? "생성 중… (2-4분 소요, $0.50)" : "홍보영상 생성 (Kling Pro · 2-4분, $0.50)"}
+            {videoLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Video className="w-3.5 h-3.5" />}
+            {videoLoading
+              ? `생성 중… (${tier === "A" ? "2-4분" : tier === "B" ? "3-5분" : "5-7분"})`
+              : `Tier ${tier} 영상 생성 (~$${tier === "A" ? (duration === 10 ? "1.00" : "0.50") : tier === "B" ? "1.50" : "2.00"})`}
           </button>
+        </div>
+
+        {!imageUrl && (
+          <div className="px-5 py-2 text-[11px] text-amber-700 bg-amber-50 border-t border-amber-200">
+            ⓘ 영상 생성에는 제품 이미지 URL이 필요합니다 (상단 폼).
+          </div>
+        )}
+
+        {/* 결과 표시 */}
+        {clips.length > 0 && (
+          <div className="px-5 py-4 border-t border-slate-100 space-y-3">
+            <div className={`grid gap-3 ${clips.length === 1 ? "grid-cols-1" : "grid-cols-1 md:grid-cols-3"}`}>
+              {clips.map((c, i) => (
+                <div key={i} className="bg-white rounded-md border border-slate-200 overflow-hidden">
+                  <div
+                    className={`bg-slate-100 ${aspectRatio === "9:16" ? "aspect-[9/16]" : aspectRatio === "1:1" ? "aspect-square" : "aspect-video"}`}
+                  >
+                    <video
+                      src={c.video_url}
+                      controls
+                      autoPlay
+                      loop
+                      muted
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="px-3 py-2">
+                    <div className="text-[11px] font-semibold text-slate-900 capitalize">
+                      {c.scene === "reveal"
+                        ? "① 제품 리빌"
+                        : c.scene === "scenario"
+                          ? "② 사용 시나리오"
+                          : c.scene === "closeup"
+                            ? "③ 디테일 클로즈업"
+                            : "홍보영상"}{" "}
+                      <span className="text-slate-400 font-normal">· {c.duration_sec}초</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2">
+                      <span className="text-slate-400">motion: </span>
+                      {c.motion_prompt}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {voiceoverUrl && (
+              <div className="bg-violet-50 border border-violet-200 rounded-md p-3">
+                <div className="text-[11px] font-semibold text-violet-700 mb-1.5">
+                  🎙 한국어 보이스오버 (OpenAI TTS · Nova 보이스)
+                </div>
+                <audio src={voiceoverUrl} controls className="w-full" />
+                <p className="text-[10px] text-violet-600 mt-1">
+                  영상 위에 oever 가능 — HTML5 audio sync.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {videoError && (
+          <div className="px-5 py-2 text-xs text-red-700 bg-red-50 border-t border-red-200">
+            {videoError}
+          </div>
         )}
       </div>
-      {videoError && (
-        <div className="px-5 py-2 text-xs text-red-700 bg-red-50 border-t border-red-200">
-          {videoError}
-        </div>
-      )}
     </section>
+  );
+}
+
+function TierCard({
+  label,
+  sub,
+  desc,
+  active,
+  onClick,
+}: {
+  label: string;
+  sub: string;
+  desc: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`text-left rounded-md border p-3 transition ${
+        active
+          ? "border-rose-500 bg-rose-50 ring-2 ring-rose-200"
+          : "border-slate-200 bg-white hover:border-slate-300"
+      }`}
+    >
+      <div className="flex items-baseline justify-between mb-0.5">
+        <span className={`text-xs font-bold ${active ? "text-rose-700" : "text-slate-900"}`}>{label}</span>
+        {active && <span className="text-[10px] text-rose-600">✓ 선택됨</span>}
+      </div>
+      <div className={`text-xs font-semibold ${active ? "text-rose-900" : "text-slate-700"} mb-0.5`}>{sub}</div>
+      <div className="text-[10px] text-slate-500 leading-relaxed">{desc}</div>
+    </button>
   );
 }

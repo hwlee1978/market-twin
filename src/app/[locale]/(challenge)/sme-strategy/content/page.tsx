@@ -65,16 +65,28 @@ export default function ContentPage() {
               <td className="text-right text-slate-600">$0</td>
             </tr>
             <tr className="border-t border-slate-100">
-              <td className="py-1 pl-3 text-slate-600">└ ③-b 홍보영상 5초 (요청 시)</td>
-              <td className="text-slate-600">Kling v1.6 Pro (Replicate)</td>
+              <td className="py-1 pl-3 text-slate-600">└ ③-b 홍보영상 Tier A · 단일 클립</td>
+              <td className="text-slate-600">Kling v1.6 Pro + smart motion (Haiku)</td>
               <td className="text-right text-slate-600">~2-4분</td>
               <td className="text-right text-slate-600">~$0.50</td>
             </tr>
+            <tr className="border-t border-slate-100">
+              <td className="py-1 pl-3 text-slate-600">└ ③-b 홍보영상 Tier B · 3-scene 스토리보드</td>
+              <td className="text-slate-600">Kling × 3 병렬 (리빌·시나리오·클로즈업)</td>
+              <td className="text-right text-slate-600">~3-5분</td>
+              <td className="text-right text-slate-600">~$1.50</td>
+            </tr>
+            <tr className="border-t border-slate-100">
+              <td className="py-1 pl-3 text-slate-600">└ ③-b 홍보영상 Tier C · + 보이스오버</td>
+              <td className="text-slate-600">Tier B + OpenAI TTS Nova (한국어)</td>
+              <td className="text-right text-slate-600">~5-7분</td>
+              <td className="text-right text-slate-600">~$2.00</td>
+            </tr>
             <tr className="border-t border-slate-100 font-medium">
               <td className="py-1">③ 홍보영상 + 상세페이지 통합 (챌린지 정의)</td>
-              <td className="text-slate-500 text-[10px]">상세페이지 hero에 영상 재생</td>
-              <td className="text-right">~2-4분</td>
-              <td className="text-right">~$0.50</td>
+              <td className="text-slate-500 text-[10px]">상세페이지 hero에 Tier A/B/C 영상 재생</td>
+              <td className="text-right">~2-7분</td>
+              <td className="text-right">~$0.50-2.00</td>
             </tr>
             <tr className="border-t-2 border-slate-300 font-semibold">
               <td className="py-1.5">합계 (영상 포함)</td>
