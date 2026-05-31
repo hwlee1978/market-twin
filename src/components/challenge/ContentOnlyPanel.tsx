@@ -84,6 +84,7 @@ export function ContentOnlyPanel() {
   const [productCategory, setProductCategory] = useState("");
   const [productDescription, setProductDescription] = useState("");
   const [productImageUrl, setProductImageUrl] = useState("");
+  const [productPriceKrw, setProductPriceKrw] = useState("");
   const [goal, setGoal] = useState("");
   const [activeSpecLocale, setActiveSpecLocale] = useState<Locale>("ko");
 
@@ -167,16 +168,30 @@ export function ContentOnlyPanel() {
               className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900"
             />
           </div>
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-slate-500 block mb-1">
-              제품 이미지 URL (선택 — 상세페이지 hero + 홍보영상에 사용)
-            </label>
-            <input
-              value={productImageUrl}
-              onChange={(e) => setProductImageUrl(e.target.value)}
-              placeholder="https://..."
-              className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_180px] gap-3">
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-slate-500 block mb-1">
+                제품 이미지 URL (선택 — 상세페이지 hero + 홍보영상에 사용)
+              </label>
+              <input
+                value={productImageUrl}
+                onChange={(e) => setProductImageUrl(e.target.value)}
+                placeholder="https://..."
+                className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-slate-500 block mb-1">
+                정가 KRW (선택)
+              </label>
+              <input
+                value={productPriceKrw}
+                onChange={(e) => setProductPriceKrw(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder="예: 1800"
+                inputMode="numeric"
+                className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900"
+              />
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Field label="기업명 (선택)" value={companyName} setValue={setCompanyName} placeholder="(주)예시기업" />
@@ -255,7 +270,13 @@ export function ContentOnlyPanel() {
           <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 px-1">
             <span className="font-bold">③</span> 상세페이지 미리보기 + ④ 홍보영상
           </div>
-          <DetailPagePreview spec={spec.by_locale} imageUrl={productImageUrl || null} productName={productName} />
+          <DetailPagePreview
+            spec={spec.by_locale}
+            imageUrl={productImageUrl || null}
+            productName={productName}
+            priceKrw={productPriceKrw ? Number(productPriceKrw) : null}
+            productCategory={productCategory}
+          />
         </div>
       )}
 

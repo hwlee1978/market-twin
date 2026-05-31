@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ShoppingBag, Heart, Share, Loader2, Video } from "lucide-react";
+import { ShoppingBag, Heart, Share, Loader2, Video, Info } from "lucide-react";
 
 type Spec = {
   headline: string;
@@ -29,27 +29,44 @@ const LOCALE_CTA_FALLBACK: Record<Locale, string> = {
   "zh-cn": "立即购买",
 };
 
-// 시장별 placeholder 가격 (시각용 mockup — LLM이 가격을 결정하지 않음).
-// 정가는 할인가의 30% 위로 자동 계산해 strikethrough가 의미 있도록.
-const PRICE_PLACEHOLDER: Record<Locale, { current: number; symbol: string }> = {
-  ko: { current: 159000, symbol: "₩" },
-  en: { current: 119, symbol: "$" },
-  ja: { current: 16800, symbol: "¥" },
-  "zh-tw": { current: 3580, symbol: "NT$" },
-  "zh-cn": { current: 780, symbol: "¥" },
+// 사용자 입력 KRW를 각 locale 통화로 환산. 환율은 2026-05 기준 근사치
+// (정확도 < 실시간 환율 < 입점 시점 최종 결정). 실제 입점가는 별도 협의.
+const FX_FROM_KRW: Record<Locale, { rate: number; symbol: string; roundTo: number }> = {
+  ko: { rate: 1, symbol: "₩", roundTo: 100 },
+  en: { rate: 1 / 1350, symbol: "$", roundTo: 1 },         // 1 USD ≈ 1,350 KRW
+  ja: { rate: 1 / 9.2, symbol: "¥", roundTo: 10 },          // 100 KRW ≈ ¥10.86
+  "zh-tw": { rate: 1 / 41.5, symbol: "NT$", roundTo: 10 },  // 1 TWD ≈ 41.5 KRW
+  "zh-cn": { rate: 1 / 188, symbol: "¥", roundTo: 1 },      // 1 CNY ≈ 188 KRW
 };
 
-function formatPrice(symbol: string, n: number): string {
-  return `${symbol}${n.toLocaleString()}`;
+function formatLocalePrice(krw: number, loc: Locale): { current: string; original: string; discountPct: number } {
+  const fx = FX_FROM_KRW[loc];
+  const localCurrent = Math.round((krw * fx.rate) / fx.roundTo) * fx.roundTo;
+  const localOriginal = Math.round((krw * 1.3 * fx.rate) / fx.roundTo) * fx.roundTo;
+  const discountPct = Math.round(((localOriginal - localCurrent) / localOriginal) * 100);
+  return {
+    current: `${fx.symbol}${localCurrent.toLocaleString()}`,
+    original: `${fx.symbol}${localOriginal.toLocaleString()}`,
+    discountPct,
+  };
 }
 
-// 정가 — 할인가 × 1.3을 통화별 단위로 round (KR/JP는 천원 단위, USD는 정수).
-function originalPriceOf(loc: Locale): number {
-  const raw = PRICE_PLACEHOLDER[loc].current * 1.3;
-  if (loc === "ko" || loc === "ja") return Math.round(raw / 1000) * 1000;
-  if (loc === "en") return Math.round(raw);
-  if (loc === "zh-tw") return Math.round(raw / 10) * 10;
-  return Math.round(raw / 10) * 10; // zh-cn
+// 가격 미입력 시 카테고리 기반 현실적 placeholder (KRW). 사용자에게
+// "placeholder임" warning 명시 — 실제 입점가와 다를 수 있음.
+function guessFallbackPriceKrw(productName?: string, productCategory?: string): number {
+  const text = `${productCategory ?? ""} ${productName ?? ""}`.toLowerCase();
+  if (/라면|noodle/.test(text)) return 1800;
+  if (/스낵|과자|초콜릿|쿠키|snack|cookie/.test(text)) return 3000;
+  if (/음료|커피|차|주스|drink|beverage|coffee/.test(text)) return 3500;
+  if (/주류|소주|맥주|와인|위스키|alcohol|liquor/.test(text)) return 29000;
+  if (/홍삼|건강기능|영양제|health|supplement|ginseng/.test(text)) return 250000;
+  if (/스니커즈|신발|운동화|구두|sneaker|shoe|footwear/.test(text)) return 159000;
+  if (/티셔츠|셔츠|의류|패션|apparel|fashion|shirt/.test(text)) return 89000;
+  if (/전자|가전|tv|스마트폰|이어폰|electronic|appliance/.test(text)) return 290000;
+  if (/쿠션|파운데이션|립|마스크|크림|에센스|cosmetic|cushion|foundation|mask|essence/.test(text)) return 35000;
+  if (/스킨케어|skincare|toner|serum/.test(text)) return 49000;
+  if (/주방|생활용품|home|kitchen/.test(text)) return 35000;
+  return 50000; // default
 }
 
 /**
@@ -68,10 +85,15 @@ export function DetailPagePreview({
   spec,
   imageUrl,
   productName,
+  priceKrw,
+  productCategory,
 }: {
   spec: Record<Locale, Spec>;
   imageUrl?: string | null;
   productName?: string;
+  /** 사용자가 입력한 KRW 정가. null이면 카테고리 기반 placeholder + warning. */
+  priceKrw?: number | null;
+  productCategory?: string;
 }) {
   const [activeLocale, setActiveLocale] = useState<Locale>("ko");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -188,26 +210,33 @@ export function DetailPagePreview({
                 <p className="text-sm text-slate-600 mt-1">{s.tagline}</p>
               </div>
 
-              <div className="flex items-baseline gap-2">
-                {(() => {
-                  const p = PRICE_PLACEHOLDER[activeLocale];
-                  const original = originalPriceOf(activeLocale);
-                  const discountPct = Math.round(((original - p.current) / original) * 100);
-                  return (
-                    <>
+              {(() => {
+                const isFallback = !priceKrw || priceKrw <= 0;
+                const effectiveKrw = isFallback
+                  ? guessFallbackPriceKrw(productName, productCategory)
+                  : priceKrw;
+                const p = formatLocalePrice(effectiveKrw, activeLocale);
+                return (
+                  <div className="space-y-1">
+                    <div className="flex items-baseline gap-2 flex-wrap">
                       <span className="text-xs font-bold text-rose-600 px-1.5 py-0.5 rounded bg-rose-50">
-                        {discountPct}%
+                        {p.discountPct}%
                       </span>
-                      <span className="text-2xl font-bold text-rose-600">
-                        {formatPrice(p.symbol, p.current)}
-                      </span>
-                      <span className="text-xs text-slate-400 line-through">
-                        {formatPrice(p.symbol, original)}
-                      </span>
-                    </>
-                  );
-                })()}
-              </div>
+                      <span className="text-2xl font-bold text-rose-600">{p.current}</span>
+                      <span className="text-xs text-slate-400 line-through">{p.original}</span>
+                    </div>
+                    {isFallback && (
+                      <div className="inline-flex items-start gap-1.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded">
+                        <Info className="w-3 h-3 mt-0.5 shrink-0" />
+                        <span>
+                          가격 데이터 미입력 — 카테고리 기반 가상 placeholder.
+                          정확한 평가를 위해 상단 폼에 정가 KRW 입력 권장.
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {s.bullets && s.bullets.length > 0 && (
                 <ul className="space-y-1.5 border-y border-slate-100 py-3">
