@@ -223,8 +223,25 @@ export function ContentOnlyPanel() {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || j.detail || "content failed");
+        const j = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          detail?: unknown;
+        };
+        // zod fieldErrors / formErrors 펼쳐서 보여주기
+        let detailMsg = "";
+        if (typeof j.detail === "string") {
+          detailMsg = j.detail;
+        } else if (j.detail && typeof j.detail === "object") {
+          const d = j.detail as {
+            fieldErrors?: Record<string, string[]>;
+            formErrors?: string[];
+          };
+          const fieldEntries = Object.entries(d.fieldErrors ?? {})
+            .filter(([, v]) => Array.isArray(v) && v.length > 0)
+            .map(([k, v]) => `${k}: ${v.join(", ")}`);
+          detailMsg = [...(d.formErrors ?? []), ...fieldEntries].join(" | ");
+        }
+        throw new Error(`${j.error ?? "content failed"}${detailMsg ? ` — ${detailMsg}` : ""}`);
       }
       const json = (await res.json()) as {
         hash?: string;

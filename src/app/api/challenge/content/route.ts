@@ -61,10 +61,10 @@ const RequestSchema = z.object({
     .object({
       name: z.string().max(200),
       category: z.string().max(100).optional(),
-      description: z.string().max(1000).optional(),
+      description: z.string().max(3000).optional(),
     })
     .optional(),
-  goal: z.string().max(500).optional(),
+  goal: z.string().max(1000).optional(),
   recommendations: z
     .array(
       z.object({
@@ -88,7 +88,8 @@ const RequestSchema = z.object({
   }).optional(),
   /** UI 사용 입력 (영구 저장용, LLM 생성에는 미사용) */
   price_krw: z.number().int().nonnegative().optional(),
-  image_url: z.string().max(2000).optional(),
+  // data:image/...;base64,... URL 지원 (max ~200KB base64 = ~150KB 원본 이미지)
+  image_url: z.string().max(300000).optional(),
   /** 캐시 사용 — 동일 input_hash 있으면 LLM 호출 없이 즉시 반환 */
   use_cache: z.boolean().optional(),
 });
