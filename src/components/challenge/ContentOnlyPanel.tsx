@@ -8,8 +8,48 @@ import {
   FileText,
   Globe2,
   AlertTriangle,
+  Database,
 } from "lucide-react";
 import { DetailPagePreview } from "./DetailPagePreview";
+
+type HofstedeProfile = {
+  powerDistance: number;
+  individualism: number;
+  masculinity: number;
+  uncertaintyAvoidance: number;
+  longTermOrientation: number;
+  indulgence: number;
+};
+
+type PublicDataGrounding = {
+  targetCountry: string;
+  category: string;
+  hofstede: { korea: HofstedeProfile; target: HofstedeProfile; distance: number } | null;
+  worldBank: {
+    country: string;
+    gdpPerCapitaPpp: number;
+    population: number;
+    householdConsumptionPpp: number;
+    gdpUsd: number;
+    year: number;
+  } | null;
+  kotra: {
+    totalKoreanCompanies: number;
+    categoryMatched: Array<{
+      parentName: string;
+      localName: string;
+      industry: string;
+      category: string;
+    }>;
+  } | null;
+  comtrade: {
+    hsCodes: string[];
+    flows: Array<{ year: number; tradeValueUsd: number }>;
+    yoyGrowthPct: number | null;
+  } | null;
+  fetched_ms: number;
+  errors: string[];
+};
 
 type MarketReport = {
   executive_summary: string;
@@ -17,6 +57,7 @@ type MarketReport = {
   market_signals: string[];
   recommended_actions: string[];
   risks: string[];
+  public_data_grounding?: PublicDataGrounding;
   generation_ms: number;
   cost_usd: number;
 };
@@ -173,6 +214,11 @@ export function ContentOnlyPanel() {
         </div>
       )}
 
+      {/* 공공데이터 grounding (Market Twin anchor) */}
+      {report?.public_data_grounding && (
+        <GroundingPanel g={report.public_data_grounding} />
+      )}
+
       {/* ① 시장분석 리포트 */}
       {report && (
         <section className="bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -309,6 +355,202 @@ function Row({ label, v }: { label: string; v: React.ReactNode }) {
     <div>
       <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">{label}</div>
       {v}
+    </div>
+  );
+}
+
+function GroundingPanel({ g }: { g: PublicDataGrounding }) {
+  const fmtUsd = (n: number, unit: "M" | "B") => {
+    if (!Number.isFinite(n)) return "n/a";
+    const div = unit === "M" ? 1e6 : 1e9;
+    return `$${(n / div).toFixed(1)}${unit}`;
+  };
+  const fmtPop = (n: number) =>
+    Number.isFinite(n) ? `${(n / 1e6).toFixed(1)}M` : "n/a";
+
+  return (
+    <section className="bg-gradient-to-br from-violet-50 to-sky-50 rounded-xl border border-violet-200 shadow-sm">
+      <header className="px-5 py-4 border-b border-violet-200">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+            <Database className="w-4 h-4 text-violet-600" />
+            공공데이터 그라운딩
+            <span className="text-[10px] font-normal text-violet-600 bg-white px-2 py-0.5 rounded-full border border-violet-200">
+              Market Twin anchor
+            </span>
+          </h2>
+          <div className="text-[10px] text-slate-500">
+            타겟국 <strong className="text-violet-700">{g.targetCountry}</strong> · {g.category} · fetch {g.fetched_ms}ms
+          </div>
+        </div>
+        <p className="text-[11px] text-slate-600 mt-1">
+          아래 4개 정부·국제기구 공개 데이터가 LLM 리포트의 grounding context로 주입됩니다.
+          시장신호 항목에서 이 수치를 직접 인용합니다.
+        </p>
+      </header>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-5">
+        {/* Hofstede */}
+        {g.hofstede ? (
+          <div className="bg-white rounded-lg border border-slate-200 p-3">
+            <div className="flex items-baseline justify-between mb-1">
+              <h3 className="text-xs font-semibold text-slate-900">Hofstede 6-Dim</h3>
+              <span className="text-[10px] text-slate-400">cultural distance</span>
+            </div>
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-2xl font-bold text-violet-600 tabular-nums">{g.hofstede.distance}</span>
+              <span className="text-[11px] text-slate-500">
+                KR↔{g.targetCountry} 거리 ({g.hofstede.distance < 30 ? "매우 가까움" : g.hofstede.distance < 50 ? "보통" : "먼 거리"})
+              </span>
+            </div>
+            <div className="space-y-0.5 text-[10px] text-slate-600 font-mono">
+              {(
+                [
+                  ["권력거리", "powerDistance"],
+                  ["개인주의", "individualism"],
+                  ["남성성", "masculinity"],
+                  ["불확실성회피", "uncertaintyAvoidance"],
+                  ["장기지향", "longTermOrientation"],
+                  ["탐닉", "indulgence"],
+                ] as Array<[string, keyof HofstedeProfile]>
+              ).map(([label, key]) => {
+                const kr = g.hofstede!.korea[key];
+                const tg = g.hofstede!.target[key];
+                return (
+                  <div key={key} className="flex justify-between">
+                    <span className="text-slate-500">{label}</span>
+                    <span>
+                      KR <strong>{kr}</strong> · {g.targetCountry} <strong>{tg}</strong>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <Skeleton label="Hofstede" />
+        )}
+
+        {/* World Bank */}
+        {g.worldBank ? (
+          <div className="bg-white rounded-lg border border-slate-200 p-3">
+            <div className="flex items-baseline justify-between mb-1">
+              <h3 className="text-xs font-semibold text-slate-900">World Bank 거시지표</h3>
+              <span className="text-[10px] text-slate-400">{g.worldBank.year}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <div className="text-base font-bold text-violet-600 tabular-nums">{fmtPop(g.worldBank.population)}</div>
+                <div className="text-[10px] text-slate-500">인구</div>
+              </div>
+              <div>
+                <div className="text-base font-bold text-violet-600 tabular-nums">
+                  ${Math.round(g.worldBank.gdpPerCapitaPpp).toLocaleString()}
+                </div>
+                <div className="text-[10px] text-slate-500">GDP/cap PPP</div>
+              </div>
+              <div>
+                <div className="text-base font-bold text-violet-600 tabular-nums">
+                  {fmtUsd(g.worldBank.householdConsumptionPpp, "B")}
+                </div>
+                <div className="text-[10px] text-slate-500">가계소비</div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <Skeleton label="World Bank" note="Taiwan 등 일부 국가 미수록" />
+        )}
+
+        {/* KOTRA */}
+        {g.kotra ? (
+          <div className="bg-white rounded-lg border border-slate-200 p-3">
+            <div className="flex items-baseline justify-between mb-1">
+              <h3 className="text-xs font-semibold text-slate-900">KOTRA 진출 한국기업</h3>
+              <span className="text-[10px] text-slate-400">korCompList</span>
+            </div>
+            <div className="flex items-baseline gap-3 mb-2">
+              <div>
+                <span className="text-2xl font-bold text-violet-600 tabular-nums">{g.kotra.totalKoreanCompanies}</span>
+                <span className="text-[11px] text-slate-500 ml-1">전체</span>
+              </div>
+              <div>
+                <span className="text-lg font-semibold text-emerald-600 tabular-nums">{g.kotra.categoryMatched.length}</span>
+                <span className="text-[11px] text-slate-500 ml-1">{g.category} 매칭</span>
+              </div>
+            </div>
+            {g.kotra.categoryMatched.length > 0 && (
+              <ul className="text-[10px] text-slate-600 space-y-0.5">
+                {g.kotra.categoryMatched.slice(0, 5).map((c, i) => (
+                  <li key={i} className="truncate">
+                    · <strong>{c.parentName || c.localName}</strong>
+                    <span className="text-slate-400"> ({c.industry || c.category})</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : (
+          <Skeleton label="KOTRA" note="DATAGOKR_API_KEY 필요" />
+        )}
+
+        {/* Comtrade */}
+        {g.comtrade && g.comtrade.flows.length > 0 ? (
+          <div className="bg-white rounded-lg border border-slate-200 p-3">
+            <div className="flex items-baseline justify-between mb-1">
+              <h3 className="text-xs font-semibold text-slate-900">UN Comtrade — KR 수출</h3>
+              <span className="text-[10px] text-slate-400">HS {g.comtrade.hsCodes.join("/")}</span>
+            </div>
+            <div className="space-y-0.5 mb-1">
+              {g.comtrade.flows.map((f) => (
+                <div key={f.year} className="flex justify-between text-[11px] font-mono">
+                  <span className="text-slate-500">{f.year}</span>
+                  <span className="font-semibold text-slate-900">{fmtUsd(f.tradeValueUsd, "M")}</span>
+                </div>
+              ))}
+            </div>
+            {g.comtrade.yoyGrowthPct !== null && (
+              <div className="text-[11px] mt-1 pt-1 border-t border-slate-100">
+                YoY{" "}
+                <span
+                  className={
+                    g.comtrade.yoyGrowthPct >= 0
+                      ? "text-emerald-600 font-semibold"
+                      : "text-red-600 font-semibold"
+                  }
+                >
+                  {g.comtrade.yoyGrowthPct >= 0 ? "▲" : "▼"} {Math.abs(g.comtrade.yoyGrowthPct)}%
+                </span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <Skeleton label="UN Comtrade" note="COMTRADE_API_KEY 필요 (free tier)" />
+        )}
+      </div>
+
+      {g.errors.length > 0 && (
+        <div className="px-5 pb-4 -mt-1">
+          <details className="text-[10px] text-slate-500">
+            <summary className="cursor-pointer hover:text-slate-700">
+              {g.errors.length}개 anchor fetch 실패 — 자세히
+            </summary>
+            <ul className="mt-1 ml-3 space-y-0.5 list-disc">
+              {g.errors.map((e, i) => (
+                <li key={i}>{e}</li>
+              ))}
+            </ul>
+          </details>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Skeleton({ label, note }: { label: string; note?: string }) {
+  return (
+    <div className="bg-white/60 rounded-lg border border-dashed border-slate-300 p-3">
+      <h3 className="text-xs font-semibold text-slate-400">{label}</h3>
+      <p className="text-[10px] text-slate-400 mt-1">데이터 없음{note ? ` — ${note}` : ""}</p>
     </div>
   );
 }

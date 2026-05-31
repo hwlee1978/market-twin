@@ -5,6 +5,11 @@ import {
   generateMarketReport,
   generateMultilingualSpec,
 } from "@/lib/challenge/content";
+import {
+  buildPublicDataGrounding,
+  inferCategory,
+  inferTargetCountry,
+} from "@/lib/challenge/anchors";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 180;
@@ -78,6 +83,31 @@ export async function POST(req: Request) {
   const wantReport = parsed.data.generate?.report ?? true;
   const wantSpec = parsed.data.generate?.spec ?? true;
 
+  // 공공데이터 grounding — Hofstede/WB/KOTRA/Comtrade 4종 anchor 병렬 fetch.
+  // 타겟국 추론 실패 시 (예: 내수 전용 매칭) skip — best-effort.
+  let grounding: Awaited<ReturnType<typeof buildPublicDataGrounding>> | undefined;
+  if (wantReport) {
+    const targetCountry = inferTargetCountry(parsed.data.goal, parsed.data.recommendations);
+    const category = inferCategory(parsed.data.product);
+    if (targetCountry) {
+      try {
+        grounding = await buildPublicDataGrounding(targetCountry, category);
+        console.log(
+          `[challenge/content] grounding ${targetCountry}/${category} ` +
+            `hofstede=${grounding.hofstede ? "✓" : "✗"} ` +
+            `wb=${grounding.worldBank ? "✓" : "✗"} ` +
+            `kotra=${grounding.kotra?.categoryMatched.length ?? 0} ` +
+            `comtrade=${grounding.comtrade?.flows.length ?? 0}y ` +
+            `errors=${grounding.errors.length}`,
+        );
+      } catch (e) {
+        console.warn(`[challenge/content] grounding failed: ${e instanceof Error ? e.message : e}`);
+      }
+    } else {
+      console.log("[challenge/content] grounding skipped — 타겟국 추론 실패 (내수 only?)");
+    }
+  }
+
   const [reportRes, specRes] = await Promise.allSettled([
     wantReport
       ? generateMarketReport({
@@ -85,6 +115,7 @@ export async function POST(req: Request) {
           products: parsed.data.product ? [parsed.data.product] : undefined,
           goal: parsed.data.goal,
           recommendations: parsed.data.recommendations,
+          grounding,
         })
       : Promise.resolve(null),
     wantSpec && parsed.data.product
