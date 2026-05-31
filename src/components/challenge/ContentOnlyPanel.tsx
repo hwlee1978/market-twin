@@ -75,8 +75,21 @@ type MarketReport = {
 
 type Locale = "ko" | "en" | "ja" | "zh-tw" | "zh-cn";
 
+type LocaleSpec = {
+  headline: string;
+  subtitle?: string;
+  tagline: string;
+  body: string;
+  bullets: string[];
+  features?: Array<{ title: string; description: string }>;
+  target_audience?: Array<{ persona: string; pain_point: string }>;
+  brand_story?: string;
+  seo_keywords?: string[];
+  cta: string;
+};
+
 type MultilingualSpec = {
-  by_locale: Record<Locale, { headline: string; tagline: string; body: string; bullets: string[]; cta: string }>;
+  by_locale: Record<Locale, LocaleSpec>;
   detail_page?: {
     detail_specs: Array<{ label: string; value: string }>;
     usage_scenarios: Array<{ title: string; description: string }>;
@@ -456,28 +469,125 @@ export function ContentOnlyPanel() {
               </button>
             ))}
           </div>
-          <div className="px-5 py-4 space-y-3">
+          <div className="px-5 py-5 space-y-5">
             {(() => {
               const s = spec.by_locale[activeSpecLocale];
-              if (!s || !s.headline) return <p className="text-xs text-slate-500">데이터 없음</p>;
+              if (!s || !s.headline) return <p className="text-sm text-slate-500">데이터 없음</p>;
               return (
                 <>
-                  <Row label="Headline" v={<p className="text-lg font-bold text-slate-900">{s.headline}</p>} />
-                  <Row label="Tagline" v={<p className="text-sm text-slate-800">{s.tagline}</p>} />
-                  <Row label="Body" v={<p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{s.body}</p>} />
+                  {/* Headline + subtitle */}
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-900 leading-tight">{s.headline}</h3>
+                    {s.subtitle && (
+                      <p className="text-base text-slate-700 mt-1">{s.subtitle}</p>
+                    )}
+                  </div>
+
+                  <Row label="Tagline" v={<p className="text-base text-slate-800 italic">{s.tagline}</p>} />
+
+                  <Row
+                    label="Body"
+                    v={<p className="text-sm text-slate-800 leading-relaxed whitespace-pre-line">{s.body}</p>}
+                  />
+
+                  {/* Brand story */}
+                  {s.brand_story && (
+                    <Row
+                      label="Brand Story"
+                      v={
+                        <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 border-l-2 border-slate-300 pl-3 py-2 italic">
+                          {s.brand_story}
+                        </p>
+                      }
+                    />
+                  )}
+
+                  {/* Key bullets */}
                   {s.bullets && s.bullets.length > 0 && (
                     <Row
-                      label="Key bullets"
+                      label="Key Bullets"
                       v={
-                        <ul className="space-y-1">
+                        <ul className="space-y-1.5">
                           {s.bullets.map((b, i) => (
-                            <li key={i} className="text-sm text-slate-800">· {b}</li>
+                            <li key={i} className="text-sm text-slate-800 flex items-start gap-2">
+                              <span className="shrink-0 mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              <span>{b}</span>
+                            </li>
                           ))}
                         </ul>
                       }
                     />
                   )}
-                  <Row label="CTA" v={<p className="text-sm font-medium text-emerald-700">{s.cta}</p>} />
+
+                  {/* Features 5-7개 */}
+                  {s.features && s.features.length > 0 && (
+                    <Row
+                      label="Features"
+                      v={
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {s.features.map((f, i) => (
+                            <div key={i} className="bg-white border border-slate-200 rounded-md p-3">
+                              <div className="text-sm font-semibold text-slate-900 mb-1">{f.title}</div>
+                              <div className="text-xs text-slate-600 leading-relaxed">{f.description}</div>
+                            </div>
+                          ))}
+                        </div>
+                      }
+                    />
+                  )}
+
+                  {/* Target audience */}
+                  {s.target_audience && s.target_audience.length > 0 && (
+                    <Row
+                      label="Target Audience"
+                      v={
+                        <div className="space-y-2">
+                          {s.target_audience.map((ta, i) => (
+                            <div key={i} className="bg-sky-50 border border-sky-200 rounded-md p-3">
+                              <div className="text-sm font-semibold text-sky-900 mb-0.5">
+                                👤 {ta.persona}
+                              </div>
+                              <div className="text-xs text-sky-800 leading-relaxed">
+                                <span className="text-sky-600">→ Pain point: </span>
+                                {ta.pain_point}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      }
+                    />
+                  )}
+
+                  {/* SEO keywords */}
+                  {s.seo_keywords && s.seo_keywords.length > 0 && (
+                    <Row
+                      label="SEO Keywords"
+                      v={
+                        <div className="flex flex-wrap gap-1.5">
+                          {s.seo_keywords.map((k, i) => (
+                            <span
+                              key={i}
+                              className="text-xs px-2 py-1 rounded bg-violet-50 text-violet-700 border border-violet-200"
+                            >
+                              #{k}
+                            </span>
+                          ))}
+                        </div>
+                      }
+                    />
+                  )}
+
+                  <Row
+                    label="CTA"
+                    v={
+                      <button
+                        type="button"
+                        className="inline-flex items-center text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-md cursor-default"
+                      >
+                        {s.cta}
+                      </button>
+                    }
+                  />
                 </>
               );
             })()}
@@ -522,7 +632,7 @@ function BulletSection({ title, items, tone }: { title: string; items: string[];
 function Row({ label, v }: { label: string; v: React.ReactNode }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">{label}</div>
+      <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-1.5">{label}</div>
       {v}
     </div>
   );
@@ -577,8 +687,10 @@ function GroundingPanel({ g }: { g: PublicDataGrounding }) {
               Market Twin anchor
             </span>
           </h2>
-          <div className="text-[10px] text-slate-500">
-            타겟국 <strong className="text-violet-700">{g.targetCountry}</strong> · {g.category} · fetch {g.fetched_ms}ms
+          <div className="text-xs text-slate-600">
+            타겟국 <strong className="text-violet-700 text-sm">{g.targetCountry}</strong>
+            <span className="mx-1.5">·</span>{g.category}
+            <span className="mx-1.5">·</span>fetch {g.fetched_ms}ms
           </div>
         </div>
         <p className="text-[11px] text-slate-600 mt-1">

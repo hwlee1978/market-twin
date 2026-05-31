@@ -39,9 +39,20 @@ export type MultilingualSpec = {
     "ko" | "en" | "ja" | "zh-tw" | "zh-cn",
     {
       headline: string;        // ≤60자
+      subtitle: string;        // headline 직하 부제 ≤100자
       tagline: string;         // ≤120자
-      body: string;            // 200-400자
+      body: string;            // 본문 400-700자 (확장)
       bullets: string[];       // 3-5개 핵심 spec
+      features: Array<{        // 5-7개 상세 feature (title + 1-2문장 설명)
+        title: string;
+        description: string;
+      }>;
+      target_audience: Array<{ // 2-3개 타겟 페르소나
+        persona: string;       // "30대 직장인 워킹맘" 같은 구체 페르소나
+        pain_point: string;    // 이 페르소나가 본 제품으로 해결할 문제
+      }>;
+      brand_story: string;     // 50-150자 브랜드/제품 탄생 배경
+      seo_keywords: string[];  // 각 locale별 검색 SEO 키워드 5-8개
       cta: string;             // 행동 유도 문구
     }
   >;
@@ -173,19 +184,37 @@ const SPEC_SYSTEM = `당신은 한국 제품의 다국어 마케팅 카피라이
 
 입력: 제품 정보 + 타겟 시장 컨텍스트.
 출력: 두 가지를 JSON으로 한 번에:
-  (A) by_locale — 5개 locale (KR/EN/JP/TW-zh/CN-zh) 의 짧은 상품 기술서 (카피용)
+  (A) by_locale — 5개 locale (KR/EN/JP/TW-zh/CN-zh) 풍부한 상품 기술서
   (B) detail_page — 한국어 풍부한 상세페이지 데이터 (Smartstore convention)
 
 원칙:
 - (A) 각 locale의 모국어로 자연스럽게. 한국 인명·고유명사 [[name-localization]] 규칙 (TW/CN는 중문명+로마자).
 - (B) 한국어로만. detail_page는 (A) ko와 중복되지 않는 풍부한 정보 (스펙 표·시나리오·FAQ).
 - 단정적·구체적. 외래어 남용 금지. 추정·창작 금지 — 입력 정보로 도출 가능한 사실만.
-- 각 필드 길이 엄수 — headline ≤ 60자, tagline ≤ 120자, body 200-400자.
+
+⚠️ (A) by_locale 각 locale마다 다음 9개 필드 모두 작성:
+- headline: ≤ 60자, 강력한 단언 + 핵심 차별점 1개
+- subtitle: ≤ 100자, headline을 보완하는 부제 (감성·이유·약속)
+- tagline: ≤ 120자, 한 줄 슬로건
+- body: 400-700자 본문. 제품 정의 + 차별점 + 사용 시나리오 + 신뢰 근거를 2-3 문단으로
+- bullets: 3-5개 핵심 spec (각 ≤ 50자, 짧고 검색 가능한 키워드)
+- features: 5-7개 상세 feature {title (≤ 20자), description (1-2문장)}
+- target_audience: 2-3개 타겟 페르소나 {persona (구체적 인구·생활 패턴), pain_point (이 페르소나가 본 제품으로 해결할 구체 문제)}
+- brand_story: 50-150자, 제품·브랜드 탄생 배경 (story-driven, 감성)
+- seo_keywords: 5-8개 검색 키워드 (해당 locale 시장에서 실제 검색되는 키워드, 한국어 키워드 직역 금지)
+- cta: 행동 유도 문구 1줄
+
+⚠️ Locale별 톤 가이드:
+- ko: 친근한 정중체, Smartstore convention
+- en: Benefit-driven, SEO-friendly, active voice, US/Global
+- ja: 정중한 です·ます 체, 안전성·인증·세심함 강조
+- zh-tw: 繁體中文, Shopee/momo TW 톤, 가격·할인·즉시 구매 강조
+- zh-cn: 简体中文, Tmall 톤, 브랜드 신뢰성·후기·정품 강조
 
 JSON only:
 {
   "by_locale": {
-    "ko": { "headline": "", "tagline": "", "body": "", "bullets": ["", ...], "cta": "" },
+    "ko": { "headline": "", "subtitle": "", "tagline": "", "body": "", "bullets": [...], "features": [{"title":"","description":""}, ...], "target_audience": [{"persona":"","pain_point":""}, ...], "brand_story": "", "seo_keywords": [...], "cta": "" },
     "en": { ... }, "ja": { ... }, "zh-tw": { ... }, "zh-cn": { ... }
   },
   "detail_page": {
@@ -230,9 +259,34 @@ ${input.targetMarkets ? `# 타겟 시장\n${input.targetMarkets.join(", ")}\n` :
     required: ["headline", "body"],
     properties: {
       headline: { type: "string" },
+      subtitle: { type: "string" },
       tagline: { type: "string" },
       body: { type: "string" },
       bullets: { type: "array", items: { type: "string" } },
+      features: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["title", "description"],
+          properties: {
+            title: { type: "string" },
+            description: { type: "string" },
+          },
+        },
+      },
+      target_audience: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["persona", "pain_point"],
+          properties: {
+            persona: { type: "string" },
+            pain_point: { type: "string" },
+          },
+        },
+      },
+      brand_story: { type: "string" },
+      seo_keywords: { type: "array", items: { type: "string" } },
       cta: { type: "string" },
     },
   };
@@ -240,7 +294,7 @@ ${input.targetMarkets ? `# 타겟 시장\n${input.targetMarkets.join(", ")}\n` :
     system: SPEC_SYSTEM,
     prompt,
     temperature: 0.3,
-    maxTokens: 6000,
+    maxTokens: 12000,
     cacheSystem: true,
     jsonSchema: {
       type: "object",
@@ -313,7 +367,18 @@ ${input.targetMarkets ? `# 타겟 시장\n${input.targetMarkets.join(", ")}\n` :
   const outputTokens = res.usage?.outputTokens ?? 0;
   const costUsd = (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15;
 
-  const empty = { headline: "", tagline: "", body: "", bullets: [], cta: "" };
+  const empty = {
+    headline: "",
+    subtitle: "",
+    tagline: "",
+    body: "",
+    bullets: [] as string[],
+    features: [] as Array<{ title: string; description: string }>,
+    target_audience: [] as Array<{ persona: string; pain_point: string }>,
+    brand_story: "",
+    seo_keywords: [] as string[],
+    cta: "",
+  };
   const byLocale = raw.by_locale ?? {} as MultilingualSpec["by_locale"];
 
   return {
