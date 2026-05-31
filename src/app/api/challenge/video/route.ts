@@ -54,6 +54,19 @@ type GeneratedClip = {
  * Supabase Storage에 모든 결과 영구 저장.
  */
 export async function POST(req: Request) {
+  try {
+    return await handlePOST(req);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "internal_error";
+    console.error("[challenge/video] top-level error:", msg);
+    return NextResponse.json(
+      { error: "internal_error", detail: msg },
+      { status: 500 },
+    );
+  }
+}
+
+async function handlePOST(req: Request) {
   const workspaceId = await getChallengeWorkspaceId();
   if (!workspaceId) {
     return NextResponse.json(
@@ -66,7 +79,7 @@ export async function POST(req: Request) {
   const parsed = RequestSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "bad_request", detail: parsed.error.flatten() },
+      { error: "bad_request", detail: JSON.stringify(parsed.error.flatten()) },
       { status: 400 },
     );
   }
@@ -74,6 +87,10 @@ export async function POST(req: Request) {
   const tier = parsed.data.tier ?? "A";
   const duration = parsed.data.duration ?? 5;
   const aspect = parsed.data.aspect_ratio ?? "16:9";
+
+  console.log(
+    `[challenge/video] tier=${tier} duration=${duration} aspect=${aspect} image_url_len=${parsed.data.image_url.length} workspaceId=${workspaceId.slice(0, 8)}`,
+  );
 
   try {
     let clips: GeneratedClip[] = [];
@@ -178,7 +195,11 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "video generation failed";
-    console.error("[challenge/video]", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const stack = e instanceof Error ? e.stack?.split("\n").slice(0, 5).join(" | ") : "";
+    console.error("[challenge/video] handler error:", msg, stack);
+    return NextResponse.json(
+      { error: "video_failed", detail: msg },
+      { status: 500 },
+    );
   }
 }

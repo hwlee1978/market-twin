@@ -166,8 +166,18 @@ export function DetailPagePreview({
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.error ?? "video failed");
+        let detail = "";
+        let code: string | null = null;
+        const ct = res.headers.get("content-type") ?? "";
+        if (ct.includes("application/json")) {
+          const j = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
+          code = j.error ?? null;
+          if (typeof j.detail === "string") detail = j.detail;
+        } else {
+          const text = await res.text().catch(() => "");
+          detail = text.slice(0, 200).replace(/\s+/g, " ").trim();
+        }
+        throw new Error(`[HTTP ${res.status}] ${code ?? "video failed"}${detail ? ` — ${detail}` : ""}`);
       }
       const json = (await res.json()) as {
         tier: "A" | "B" | "C";
