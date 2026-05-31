@@ -99,9 +99,15 @@ export async function generatePromotionalVideo(input: {
           start_image: input.imageUrl,
           duration,
           aspect_ratio: aspectRatio,
-          cfg_scale: 0.5,
+          // cfg_scale: 높을수록 prompt + 입력 이미지에 강하게 매여 frame-by-frame
+          // 재해석으로 인한 텍스트/로고 morph가 줄어듦. 0.5 = 자유로움 (글자
+          // 일그러짐 다발), 0.8 = 원본 형태 보존 우선. 응모 데모에서 실제
+          // 제품 packshot 업로드 시 텍스트가 hallucinated되는 문제 해결.
+          cfg_scale: 0.8,
           negative_prompt:
-            "text overlays, watermarks, logos morphing, people morphing, blurry, low quality, distorted, jittery",
+            "text deformation, character morphing, letterform distortion, " +
+              "garbled text, illegible writing, smeared letters, fake brand names, " +
+              "watermarks, logos morphing, people morphing, blurry, low quality, distorted, jittery",
         },
       }),
     },
