@@ -81,8 +81,8 @@ type MultilingualSpec = {
 };
 
 /**
- * Task 2 전용 패널 — 4 산출물 통합 생성:
- *   ① 시장분석 리포트  ② 다국어 상품 기술서  ③ 상세페이지  ④ 홍보영상
+ * Task 2 전용 패널 — 챌린지 정의 3 산출물 통합 생성:
+ *   ① 시장분석 리포트  ② 다국어 상품 기술서  ③ 홍보영상 + 상세페이지 (통합 mockup)
  *
  * 추천 결과 의존성 없음 — 기업·제품 정보만으로 작동. 응모/심사 시
  * Task 1 추천 없이 단독 검증 가능.
@@ -278,11 +278,11 @@ export function ContentOnlyPanel() {
         </section>
       )}
 
-      {/* ③ 상세페이지 (spec 있을 때) */}
+      {/* ③ 홍보영상 + 상세페이지 (챌린지 정의 통합 산출물) */}
       {spec && (
         <div>
           <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 px-1">
-            <span className="font-bold">③</span> 상세페이지 미리보기 + ④ 홍보영상
+            <span className="font-bold">③</span> 홍보영상 + 상세페이지 (통합 e-commerce mockup)
           </div>
           <DetailPagePreview
             spec={spec.by_locale}

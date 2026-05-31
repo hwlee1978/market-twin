@@ -4,11 +4,10 @@ import { ContentOnlyPanel } from "@/components/challenge/ContentOnlyPanel";
 export const dynamic = "force-dynamic";
 
 /**
- * Task 2 — 마케팅 콘텐츠 제작 페이지. 4 산출물 통합:
+ * Task 2 — 마케팅 콘텐츠 제작 페이지. 챌린지 정의 3 산출물:
  *   ① 시장분석 리포트
  *   ② 다국어 상품 기술서 (5개국어)
- *   ③ 상세페이지 (Smartstore · Shopee TW · Tmall 등)
- *   ④ 홍보영상 (Kling v1.6 Pro)
+ *   ③ 홍보영상 콘텐츠 + 상세페이지 (Kling v1.6 Pro + e-commerce mockup)
  */
 export default function ContentPage() {
   return (
@@ -22,8 +21,8 @@ export default function ContentPage() {
           마케팅 콘텐츠 제작
         </h1>
         <p className="text-sm text-slate-600 mt-1">
-          제품 정보 → <strong>4 산출물 자동 생성</strong>. 시장분석 리포트 + 5개국어 상품 기술서 +
-          상세페이지 (e-commerce 시뮬) + 홍보영상 5초 (Kling v1.6 Pro).
+          제품 정보 → 챌린지 정의 <strong>3 산출물 자동 생성</strong>. ① 시장분석 리포트 +
+          ② 다국어 상품 기술서 (5개국어) + ③ 홍보영상 콘텐츠 + 상세페이지 통합 (Kling v1.6 Pro).
         </p>
       </header>
 
@@ -42,32 +41,38 @@ export default function ContentPage() {
           </thead>
           <tbody className="text-slate-700">
             <tr className="border-t border-slate-200">
-              <td className="py-1">시장분석 리포트</td>
+              <td className="py-1">① 시장분석 리포트</td>
               <td>Claude Sonnet 4.6</td>
               <td className="text-right">~30초</td>
               <td className="text-right">~$0.04</td>
             </tr>
             <tr className="border-t border-slate-100">
-              <td className="py-1">다국어 기술서 (5개국어)</td>
+              <td className="py-1">② 다국어 상품 기술서 (5개국어)</td>
               <td>Claude Sonnet 4.6 (jsonSchema)</td>
               <td className="text-right">~40초</td>
               <td className="text-right">~$0.06</td>
             </tr>
             <tr className="border-t border-slate-100 bg-violet-50/40">
-              <td className="py-1">AI 윤문 자동 적용</td>
+              <td className="py-1">AI 윤문 자동 적용 (①·② 후처리)</td>
               <td>Humanize KR (im-not-ai 룰북, Sonnet 4.6)</td>
               <td className="text-right">+~60초</td>
               <td className="text-right">+~$0.07</td>
             </tr>
             <tr className="border-t border-slate-100">
-              <td className="py-1">상세페이지</td>
-              <td>다국어 기술서 결합 + UI 렌더</td>
-              <td className="text-right">즉시</td>
-              <td className="text-right">$0</td>
+              <td className="py-1 pl-3 text-slate-600">└ ③-a 상세페이지 (즉시 렌더)</td>
+              <td className="text-slate-600">다국어 기술서 결합 + UI 렌더</td>
+              <td className="text-right text-slate-600">즉시</td>
+              <td className="text-right text-slate-600">$0</td>
             </tr>
             <tr className="border-t border-slate-100">
-              <td className="py-1">홍보영상 5초 (요청 시)</td>
-              <td>Kling v1.6 Pro (Replicate)</td>
+              <td className="py-1 pl-3 text-slate-600">└ ③-b 홍보영상 5초 (요청 시)</td>
+              <td className="text-slate-600">Kling v1.6 Pro (Replicate)</td>
+              <td className="text-right text-slate-600">~2-4분</td>
+              <td className="text-right text-slate-600">~$0.50</td>
+            </tr>
+            <tr className="border-t border-slate-100 font-medium">
+              <td className="py-1">③ 홍보영상 + 상세페이지 통합 (챌린지 정의)</td>
+              <td className="text-slate-500 text-[10px]">상세페이지 hero에 영상 재생</td>
               <td className="text-right">~2-4분</td>
               <td className="text-right">~$0.50</td>
             </tr>

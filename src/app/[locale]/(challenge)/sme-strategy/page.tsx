@@ -7,7 +7,6 @@ import {
   Sparkles,
   Globe2,
   Video,
-  ShoppingBag,
   Hash,
   Repeat,
   Database,
@@ -61,12 +60,11 @@ export default function ChallengeLandingPage() {
           tag="Task 2"
           tone="sky"
           title="마케팅 콘텐츠 제작"
-          summary="추천 결과 기반 + 자체 제품 정보 → 4종 산출물 자동 생성"
+          summary="추천 결과 기반 + 자체 제품 정보 → 챌린지 정의 3종 산출물 자동 생성"
           deliverables={[
-            "시장분석 리포트 (경영진 brief)",
-            "다국어 상품 기술서 (5개국어)",
-            "홍보영상 5초 (Kling v1.6 Pro)",
-            "상세페이지 (Smartstore · Shopee · Tmall)",
+            "① 시장분석 리포트 (경영진 brief)",
+            "② 다국어 상품 기술서 (5개국어)",
+            "③ 홍보영상 콘텐츠 + 상세페이지 (Kling v1.6 Pro)",
           ]}
           ctaHref="/sme-strategy/content"
           ctaLabel="콘텐츠 생성"
@@ -128,14 +126,17 @@ export default function ChallengeLandingPage() {
         </div>
       </section>
 
-      {/* 4 deliverables 미리보기 */}
+      {/* 3 deliverables 미리보기 (챌린지 정의: 영상 + 상세페이지는 1개 묶음) */}
       <section className="mb-8">
-        <h2 className="text-lg font-bold text-slate-900 mb-4">Task 2 산출물 4종</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <MiniCard icon={FileText} label="시장분석 리포트" desc="경영진 brief" />
-          <MiniCard icon={Globe2} label="다국어 기술서" desc="KR·EN·JP·TW·CN" />
-          <MiniCard icon={Video} label="홍보영상 5초" desc="Kling v1.6 Pro" />
-          <MiniCard icon={ShoppingBag} label="상세페이지" desc="시장별 mockup" />
+        <h2 className="text-lg font-bold text-slate-900 mb-1">Task 2 산출물 3종</h2>
+        <p className="text-xs text-slate-500 mb-4">
+          챌린지 과제설명 정의를 따름 — ③ 홍보 영상 콘텐츠와 상세페이지는 하나의 산출물 (e-commerce
+          상세페이지 hero에 영상이 재생되는 통합 mockup).
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <NumberedMiniCard num={1} icon={FileText} label="시장분석 리포트" desc="경영진 brief" />
+          <NumberedMiniCard num={2} icon={Globe2} label="다국어 상품 기술서" desc="KR·EN·JP·TW·CN" />
+          <NumberedMiniCard num={3} icon={Video} label="홍보영상 + 상세페이지" desc="Kling v1.6 Pro · e-commerce mockup" />
         </div>
       </section>
 
@@ -261,6 +262,31 @@ function MiniCard({
       </div>
       <div className="text-sm font-semibold text-slate-900">{label}</div>
       <div className="text-[10px] text-slate-500 mt-0.5">{desc}</div>
+    </div>
+  );
+}
+
+function NumberedMiniCard({
+  num,
+  icon: Icon,
+  label,
+  desc,
+}: {
+  num: number;
+  icon: typeof FileText;
+  label: string;
+  desc: string;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-5 text-center relative">
+      <div className="absolute top-3 left-3 w-6 h-6 rounded-full bg-slate-900 text-white text-[11px] font-bold flex items-center justify-center">
+        {num}
+      </div>
+      <div className="w-12 h-12 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center mx-auto mb-3 mt-2">
+        <Icon className="w-6 h-6" />
+      </div>
+      <div className="text-sm font-semibold text-slate-900 leading-tight">{label}</div>
+      <div className="text-[10px] text-slate-500 mt-1">{desc}</div>
     </div>
   );
 }
