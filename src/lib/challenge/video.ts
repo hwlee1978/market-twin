@@ -26,6 +26,80 @@ interface ReplicatePrediction {
   error: string | null;
 }
 
+export type ReplicateStatus = ReplicatePrediction["status"];
+
+/**
+ * Replicate prediction만 생성 후 즉시 반환 (polling 없음).
+ * 클라이언트가 GET /api/challenge/video/status?ids=… 로 polling.
+ * Edge proxy idle timeout 회피 핵심.
+ */
+export async function createKlingPrediction(input: {
+  imageUrl: string;
+  motionPrompt: string;
+  duration: 5 | 10;
+  aspectRatio: "16:9" | "9:16" | "1:1";
+}): Promise<{ predictionId: string }> {
+  const token = process.env.REPLICATE_API_TOKEN;
+  if (!token) throw new Error("REPLICATE_API_TOKEN not set");
+
+  console.log(
+    `[kling-create] duration=${input.duration}s aspect=${input.aspectRatio} prompt_len=${input.motionPrompt.length}`,
+  );
+  const res = await fetch(
+    `https://api.replicate.com/v1/models/${KLING_MODEL_OWNER}/${KLING_MODEL_NAME}/predictions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+        Prefer: "wait=0",
+      },
+      body: JSON.stringify({
+        input: {
+          prompt: input.motionPrompt,
+          start_image: input.imageUrl,
+          duration: input.duration,
+          aspect_ratio: input.aspectRatio,
+          cfg_scale: 0.8,
+          negative_prompt:
+            "text deformation, character morphing, letterform distortion, " +
+            "garbled text, illegible writing, smeared letters, fake brand names, " +
+            "watermarks, logos morphing, people morphing, blurry, low quality, distorted, jittery",
+        },
+      }),
+    },
+  );
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`replicate create ${res.status}: ${detail.slice(0, 300)}`);
+  }
+  const j = (await res.json()) as { id: string };
+  return { predictionId: j.id };
+}
+
+/**
+ * 특정 prediction의 현재 상태 + (완료 시) Replicate URL 반환.
+ * polling 없이 단발 조회.
+ */
+export async function getKlingPredictionStatus(predictionId: string): Promise<{
+  status: ReplicateStatus;
+  outputUrl: string | null;
+  error: string | null;
+}> {
+  const token = process.env.REPLICATE_API_TOKEN;
+  if (!token) throw new Error("REPLICATE_API_TOKEN not set");
+
+  const res = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`replicate poll ${res.status}`);
+  const j = (await res.json()) as ReplicatePrediction;
+  const url = j.status === "succeeded"
+    ? (Array.isArray(j.output) ? j.output[0] : j.output)
+    : null;
+  return { status: j.status, outputUrl: url ?? null, error: j.error ?? null };
+}
+
 const POLL_INTERVAL_MS = 3000;
 // 10초 영상은 5초 영상 대비 ~2배 generation 시간 필요 (실측 3-6분).
 // Vercel maxDuration 800s 한도 안쪽으로 770s 잡음 (스토리지 업로드 + TTS

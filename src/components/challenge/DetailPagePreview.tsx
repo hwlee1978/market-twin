@@ -134,6 +134,27 @@ export function DetailPagePreview({
     return t.slice(0, 300);
   })();
 
+  const [jobStatus, setJobStatus] = useState<string | null>(null);
+  const [jobProgress, setJobProgress] = useState<{ done: number; total: number } | null>(null);
+
+  type PredictionStatus = {
+    prediction_id: string;
+    scene: "single" | "reveal" | "scenario" | "closeup";
+    motion_prompt: string;
+    status: "starting" | "processing" | "succeeded" | "failed" | "canceled";
+    video_url?: string | null;
+  };
+  type JobResponse = {
+    job_id: string;
+    tier: "A" | "B" | "C";
+    duration: 5 | 10;
+    aspect_ratio: "16:9" | "9:16" | "1:1";
+    status: "running" | "succeeded" | "failed" | "partial";
+    predictions: PredictionStatus[];
+    voiceover_url: string | null;
+    total_cost_usd?: number;
+  };
+
   const generateVideo = async () => {
     if (!imageUrl) {
       setVideoError("이미지가 있어야 영상 생성 가능");
@@ -146,6 +167,10 @@ export function DetailPagePreview({
     setVideoUrl(null);
     setVideoCostUsd(null);
     setVideoGenerationMs(null);
+    setJobStatus("starting");
+    setJobProgress(null);
+    const tStart = Date.now();
+
     try {
       const body: Record<string, unknown> = {
         image_url: imageUrl,
@@ -160,6 +185,7 @@ export function DetailPagePreview({
         body.voiceover_locale = "ko";
         body.voiceover_voice = "nova";
       }
+      // 1. POST — Replicate prediction 생성 후 즉시 job_id 반환 (~30s)
       const res = await fetch("/api/challenge/video", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -179,23 +205,68 @@ export function DetailPagePreview({
         }
         throw new Error(`[HTTP ${res.status}] ${code ?? "video failed"}${detail ? ` — ${detail}` : ""}`);
       }
-      const json = (await res.json()) as {
-        tier: "A" | "B" | "C";
-        clips: GeneratedClip[];
-        voiceover_url: string | null;
-        cost_usd: number;
-        generation_ms: number;
-        video_url: string | null;
-      };
-      setClips(json.clips ?? []);
-      setVoiceoverUrl(json.voiceover_url);
-      setVideoCostUsd(json.cost_usd);
-      setVideoGenerationMs(json.generation_ms);
-      if (json.video_url) setVideoUrl(json.video_url);
+      const job = (await res.json()) as JobResponse;
+      setJobStatus(job.status);
+      if (job.voiceover_url) setVoiceoverUrl(job.voiceover_url);
+      setJobProgress({ done: 0, total: job.predictions.length });
+
+      // 2. GET /status?job_id 로 5초마다 polling
+      const POLL_INTERVAL = 5000;
+      const POLL_MAX_MS = 15 * 60 * 1000; // 15분 최대 (Tier C 10초 × 3)
+      const tPollStart = Date.now();
+      let finalJob: JobResponse | null = null;
+      while (Date.now() - tPollStart < POLL_MAX_MS) {
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+        const sres = await fetch(`/api/challenge/video/status?job_id=${job.job_id}`, {
+          cache: "no-store",
+        });
+        if (!sres.ok) {
+          console.warn(`[video/status] poll http ${sres.status}`);
+          continue;
+        }
+        const s = (await sres.json()) as JobResponse;
+        const done = s.predictions.filter(
+          (p) => p.status === "succeeded" || p.status === "failed" || p.status === "canceled",
+        ).length;
+        setJobProgress({ done, total: s.predictions.length });
+        setJobStatus(s.status);
+        if (s.voiceover_url && !voiceoverUrl) setVoiceoverUrl(s.voiceover_url);
+        if (s.status !== "running") {
+          finalJob = s;
+          break;
+        }
+      }
+      if (!finalJob) throw new Error("polling timed out (15 min)");
+
+      // 3. 결과 → clips state
+      const succeededClips: GeneratedClip[] = finalJob.predictions
+        .filter((p) => p.status === "succeeded" && p.video_url)
+        .map((p) => ({
+          scene: p.scene,
+          video_url: p.video_url as string,
+          motion_prompt: p.motion_prompt,
+          duration_sec: finalJob!.duration,
+        }));
+      setClips(succeededClips);
+      if (succeededClips.length > 0) setVideoUrl(succeededClips[0].video_url);
+      setVideoCostUsd(finalJob.total_cost_usd ?? null);
+      setVideoGenerationMs(Date.now() - tStart);
+
+      if (finalJob.status === "failed") {
+        const failedReasons = finalJob.predictions
+          .filter((p) => p.status === "failed" || p.status === "canceled")
+          .map((p) => `${p.scene}: ${p.status}`)
+          .join(" | ");
+        setVideoError(`전체 실패 — ${failedReasons}`);
+      } else if (finalJob.status === "partial") {
+        const failed = finalJob.predictions.length - succeededClips.length;
+        setVideoError(`일부 실패 (${failed}/${finalJob.predictions.length}) — 성공한 영상만 표시`);
+      }
     } catch (e) {
       setVideoError(e instanceof Error ? e.message : "video failed");
     } finally {
       setVideoLoading(false);
+      setJobStatus(null);
     }
   };
 
@@ -482,7 +553,9 @@ export function DetailPagePreview({
           >
             {videoLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Video className="w-3.5 h-3.5" />}
             {videoLoading
-              ? `생성 중… (${tier === "A" ? "2-4분" : tier === "B" ? "3-5분" : "5-7분"})`
+              ? jobProgress
+                ? `생성 중 ${jobProgress.done}/${jobProgress.total} (${jobStatus ?? "running"})`
+                : "생성 시작 중…"
               : `Tier ${tier} 영상 생성 (~$${tier === "A" ? (duration === 10 ? "1.00" : "0.50") : tier === "B" ? "1.50" : "2.00"})`}
           </button>
         </div>
