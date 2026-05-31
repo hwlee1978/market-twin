@@ -359,14 +359,43 @@ function Row({ label, v }: { label: string; v: React.ReactNode }) {
   );
 }
 
+// 한국식 단위 formatter — 미국식 "101.0M" 대신 "1억 100만 명" 등 한국 독자
+// 친화적 표기. anchors.ts의 fmtKoPopulation/fmtKoUsd/fmtKoUsdSmall과 동일.
+function fmtKoPopulation(n: number): string {
+  if (!Number.isFinite(n)) return "n/a";
+  const eok = Math.floor(n / 1e8);
+  const man = Math.floor((n - eok * 1e8) / 1e4);
+  if (eok > 0) return man > 0 ? `${eok}억 ${man.toLocaleString()}만 명` : `${eok}억 명`;
+  return man > 0 ? `${man.toLocaleString()}만 명` : `${Math.round(n).toLocaleString()}명`;
+}
+function fmtKoUsd(n: number): string {
+  if (!Number.isFinite(n)) return "n/a";
+  if (n >= 1e12) {
+    const jo = n / 1e12;
+    return `${jo.toFixed(jo >= 10 ? 1 : 2)}조 달러`;
+  }
+  if (n >= 1e8) {
+    const eok = Math.floor(n / 1e8);
+    const cheonman = Math.floor((n - eok * 1e8) / 1e7);
+    if (eok >= 100) return `${eok.toLocaleString()}억 달러`;
+    if (cheonman > 0) return `${eok}억 ${cheonman}천만 달러`;
+    return `${eok}억 달러`;
+  }
+  if (n >= 1e4) return `${Math.round(n / 1e4).toLocaleString()}만 달러`;
+  return `$${Math.round(n).toLocaleString()}`;
+}
+function fmtKoUsdSmall(n: number): string {
+  if (!Number.isFinite(n)) return "n/a";
+  if (n >= 1e4) {
+    const man = Math.floor(n / 1e4);
+    const rest = Math.round((n - man * 1e4) / 100) * 100;
+    if (rest > 0) return `${man}만 ${rest.toLocaleString()}달러`;
+    return `${man}만 달러`;
+  }
+  return `${Math.round(n).toLocaleString()}달러`;
+}
+
 function GroundingPanel({ g }: { g: PublicDataGrounding }) {
-  const fmtUsd = (n: number, unit: "M" | "B") => {
-    if (!Number.isFinite(n)) return "n/a";
-    const div = unit === "M" ? 1e6 : 1e9;
-    return `$${(n / div).toFixed(1)}${unit}`;
-  };
-  const fmtPop = (n: number) =>
-    Number.isFinite(n) ? `${(n / 1e6).toFixed(1)}M` : "n/a";
 
   return (
     <section className="bg-gradient-to-br from-violet-50 to-sky-50 rounded-xl border border-violet-200 shadow-sm">
@@ -438,22 +467,24 @@ function GroundingPanel({ g }: { g: PublicDataGrounding }) {
               <h3 className="text-xs font-semibold text-slate-900">World Bank 거시지표</h3>
               <span className="text-[10px] text-slate-400">{g.worldBank.year}</span>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div>
-                <div className="text-base font-bold text-violet-600 tabular-nums">{fmtPop(g.worldBank.population)}</div>
-                <div className="text-[10px] text-slate-500">인구</div>
+            <div className="space-y-1.5">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[11px] text-slate-500">인구</span>
+                <span className="text-sm font-semibold text-violet-700">
+                  {fmtKoPopulation(g.worldBank.population)}
+                </span>
               </div>
-              <div>
-                <div className="text-base font-bold text-violet-600 tabular-nums">
-                  ${Math.round(g.worldBank.gdpPerCapitaPpp).toLocaleString()}
-                </div>
-                <div className="text-[10px] text-slate-500">GDP/cap PPP</div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-[11px] text-slate-500">1인당 GDP(PPP)</span>
+                <span className="text-sm font-semibold text-violet-700">
+                  {fmtKoUsdSmall(g.worldBank.gdpPerCapitaPpp)}
+                </span>
               </div>
-              <div>
-                <div className="text-base font-bold text-violet-600 tabular-nums">
-                  {fmtUsd(g.worldBank.householdConsumptionPpp, "B")}
-                </div>
-                <div className="text-[10px] text-slate-500">가계소비</div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-[11px] text-slate-500">가계소비</span>
+                <span className="text-sm font-semibold text-violet-700">
+                  {fmtKoUsd(g.worldBank.householdConsumptionPpp)}
+                </span>
               </div>
             </div>
           </div>
@@ -502,15 +533,15 @@ function GroundingPanel({ g }: { g: PublicDataGrounding }) {
             </div>
             <div className="space-y-0.5 mb-1">
               {g.comtrade.flows.map((f) => (
-                <div key={f.year} className="flex justify-between text-[11px] font-mono">
-                  <span className="text-slate-500">{f.year}</span>
-                  <span className="font-semibold text-slate-900">{fmtUsd(f.tradeValueUsd, "M")}</span>
+                <div key={f.year} className="flex justify-between text-[11px]">
+                  <span className="text-slate-500">{f.year}년</span>
+                  <span className="font-semibold text-slate-900">{fmtKoUsd(f.tradeValueUsd)}</span>
                 </div>
               ))}
             </div>
             {g.comtrade.yoyGrowthPct !== null && (
               <div className="text-[11px] mt-1 pt-1 border-t border-slate-100">
-                YoY{" "}
+                전년 대비{" "}
                 <span
                   className={
                     g.comtrade.yoyGrowthPct >= 0

@@ -288,6 +288,61 @@ export async function buildPublicDataGrounding(
   };
 }
 
+/* ────────────────────────────────── KR 단위 formatter ─── */
+
+/**
+ * 한국식 인구 표기 — "1억 100만 명" / "3,900만 명".
+ * 미국식 "101.0M" 보다 한국 독자가 즉시 규모 인식 가능.
+ */
+export function fmtKoPopulation(n: number): string {
+  if (!Number.isFinite(n)) return "n/a";
+  const eok = Math.floor(n / 1e8);
+  const man = Math.floor((n - eok * 1e8) / 1e4);
+  if (eok > 0) {
+    return man > 0 ? `${eok}억 ${man.toLocaleString()}만 명` : `${eok}억 명`;
+  }
+  return man > 0 ? `${man.toLocaleString()}만 명` : `${Math.round(n).toLocaleString()}명`;
+}
+
+/**
+ * 한국식 큰 금액 USD 표기 — "8,661억 달러" / "3조 달러" / "5억 2천만 달러".
+ * 가계소비, 수출액 등 대규모 금액용. $XXXm/B 보다 한국 독자 친화적.
+ */
+export function fmtKoUsd(n: number): string {
+  if (!Number.isFinite(n)) return "n/a";
+  if (n >= 1e12) {
+    const jo = n / 1e12;
+    return `${jo.toFixed(jo >= 10 ? 1 : 2)}조 달러`;
+  }
+  if (n >= 1e8) {
+    const eok = Math.floor(n / 1e8);
+    const cheonman = Math.floor((n - eok * 1e8) / 1e7);
+    if (eok >= 100) return `${eok.toLocaleString()}억 달러`;
+    if (cheonman > 0) return `${eok}억 ${cheonman}천만 달러`;
+    return `${eok}억 달러`;
+  }
+  if (n >= 1e4) {
+    // 만 단위 (1만 ~ 1억 미만): "8,700만 달러", "500만 달러"
+    return `${Math.round(n / 1e4).toLocaleString()}만 달러`;
+  }
+  return `$${Math.round(n).toLocaleString()}`;
+}
+
+/**
+ * 한국식 1인당 금액 (소규모) — "5만 2,000달러" / "4,323달러".
+ * 1인당 GDP처럼 자릿수가 작은 값용.
+ */
+export function fmtKoUsdSmall(n: number): string {
+  if (!Number.isFinite(n)) return "n/a";
+  if (n >= 1e4) {
+    const man = Math.floor(n / 1e4);
+    const rest = Math.round((n - man * 1e4) / 100) * 100;
+    if (rest > 0) return `${man}만 ${rest.toLocaleString()}달러`;
+    return `${man}만 달러`;
+  }
+  return `${Math.round(n).toLocaleString()}달러`;
+}
+
 /* ────────────────────────────────── prompt formatter ─── */
 
 /**
@@ -322,11 +377,12 @@ export function renderGroundingBlock(g: PublicDataGrounding): string {
 
   if (g.worldBank) {
     const wb = g.worldBank;
-    const popM = Number.isFinite(wb.population) ? (wb.population / 1e6).toFixed(1) : "n/a";
-    const gdpCap = Number.isFinite(wb.gdpPerCapitaPpp) ? Math.round(wb.gdpPerCapitaPpp).toLocaleString() : "n/a";
-    const consB = Number.isFinite(wb.householdConsumptionPpp) ? (wb.householdConsumptionPpp / 1e9).toFixed(1) : "n/a";
     lines.push(`### World Bank 거시지표 (${wb.year})`);
-    lines.push(`  인구 ${popM}M  ·  1인당 GDP(PPP) $${gdpCap}  ·  가계소비 $${consB}B`);
+    lines.push(
+      `  인구 ${fmtKoPopulation(wb.population)}  ·  ` +
+        `1인당 GDP(PPP) ${fmtKoUsdSmall(wb.gdpPerCapitaPpp)}  ·  ` +
+        `가계소비 ${fmtKoUsd(wb.householdConsumptionPpp)}`,
+    );
     lines.push("");
   }
 
@@ -342,8 +398,7 @@ export function renderGroundingBlock(g: PublicDataGrounding): string {
   if (g.comtrade && g.comtrade.flows.length > 0) {
     lines.push(`### UN Comtrade — KR→${g.targetCountry} 수출 (HSCode ${g.comtrade.hsCodes.join("/")})`);
     for (const f of g.comtrade.flows) {
-      const valM = (f.tradeValueUsd / 1e6).toFixed(1);
-      lines.push(`  ${f.year}: $${valM}M`);
+      lines.push(`  ${f.year}: ${fmtKoUsd(f.tradeValueUsd)}`);
     }
     if (g.comtrade.yoyGrowthPct !== null) {
       const arrow = g.comtrade.yoyGrowthPct >= 0 ? "▲" : "▼";
