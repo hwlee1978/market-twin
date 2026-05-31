@@ -9,6 +9,7 @@ import {
   Globe2,
   AlertTriangle,
   Database,
+  Sparkles,
 } from "lucide-react";
 import { DetailPagePreview } from "./DetailPagePreview";
 
@@ -51,6 +52,13 @@ type PublicDataGrounding = {
   errors: string[];
 };
 
+type HumanizeMeta = {
+  target: string;
+  grade: "A" | "B" | "C" | "D";
+  detected_count: number;
+  change_rate: number;
+};
+
 type MarketReport = {
   executive_summary: string;
   matched_programs: Array<{ program_name: string; type: "domestic" | "export"; fit_score: number; leverage: string }>;
@@ -58,6 +66,7 @@ type MarketReport = {
   recommended_actions: string[];
   risks: string[];
   public_data_grounding?: PublicDataGrounding;
+  humanize_meta?: HumanizeMeta;
   generation_ms: number;
   cost_usd: number;
 };
@@ -66,6 +75,7 @@ type Locale = "ko" | "en" | "ja" | "zh-tw" | "zh-cn";
 
 type MultilingualSpec = {
   by_locale: Record<Locale, { headline: string; tagline: string; body: string; bullets: string[]; cta: string }>;
+  humanize_meta?: HumanizeMeta;
   generation_ms: number;
   cost_usd: number;
 };
@@ -248,7 +258,10 @@ export function ContentOnlyPanel() {
           </header>
           <div className="px-5 py-4 space-y-4">
             <div>
-              <h3 className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Executive Summary</h3>
+              <div className="flex items-baseline justify-between mb-1">
+                <h3 className="text-[10px] uppercase tracking-wider text-slate-500">Executive Summary</h3>
+                {report.humanize_meta && <HumanizeBadge meta={report.humanize_meta} />}
+              </div>
               <p className="text-sm text-slate-900 leading-relaxed">{report.executive_summary}</p>
             </div>
             {report.market_signals.length > 0 && (
@@ -292,6 +305,14 @@ export function ContentOnlyPanel() {
               </h2>
             </div>
           </header>
+          {spec.humanize_meta && (
+            <div className="px-5 py-2 bg-violet-50 border-b border-violet-100 flex items-center justify-between">
+              <p className="text-[11px] text-violet-700">
+                한국어 본문은 AI 자연스러움 윤문 자동 적용됨 (다른 언어는 원문 유지)
+              </p>
+              <HumanizeBadge meta={spec.humanize_meta} />
+            </div>
+          )}
           <div className="px-5 py-3 border-b border-slate-100 flex gap-1.5 overflow-x-auto">
             {(["ko", "en", "ja", "zh-tw", "zh-cn"] as Locale[]).map((loc) => (
               <button
@@ -595,6 +616,25 @@ function GroundingPanel({ g }: { g: PublicDataGrounding }) {
         </div>
       )}
     </section>
+  );
+}
+
+function HumanizeBadge({ meta }: { meta: HumanizeMeta }) {
+  const gradeColor: Record<HumanizeMeta["grade"], string> = {
+    A: "text-emerald-700 bg-emerald-50 border-emerald-200",
+    B: "text-sky-700 bg-sky-50 border-sky-200",
+    C: "text-amber-700 bg-amber-50 border-amber-200",
+    D: "text-red-700 bg-red-50 border-red-200",
+  };
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${gradeColor[meta.grade]}`}
+      title={`Humanize KR 자동 적용 — 변경률 ${(meta.change_rate * 100).toFixed(0)}%, 패턴 ${meta.detected_count}건 수정. 등급 ${meta.grade}.`}
+    >
+      <Sparkles className="w-2.5 h-2.5" />
+      AI 윤문 {meta.grade}
+      <span className="text-[9px] opacity-70">· {meta.detected_count}건</span>
+    </span>
   );
 }
 

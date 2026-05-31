@@ -4,12 +4,15 @@ import { getChallengeWorkspaceId } from "@/lib/challenge/context";
 import {
   generateMarketReport,
   generateMultilingualSpec,
+  type MarketReport,
+  type MultilingualSpec,
 } from "@/lib/challenge/content";
 import {
   buildPublicDataGrounding,
   inferCategory,
   inferTargetCountry,
 } from "@/lib/challenge/anchors";
+import { humanizeKorean } from "@/lib/humanize";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 180;
@@ -139,9 +142,51 @@ export async function POST(req: Request) {
       : `${specRes.status === "rejected" ? `rejected: ${String(specRes.reason).slice(0, 200)}` : "skipped"}`;
   console.log(`[challenge/content] report → ${reportSummary} | spec → ${specSummary}`);
 
+  const finalReport =
+    reportRes.status === "fulfilled" && reportRes.value ? (reportRes.value as MarketReport) : null;
+  const finalSpec =
+    specRes.status === "fulfilled" && specRes.value ? (specRes.value as MultilingualSpec) : null;
+
+  // 자동 윤문 — 가장 AI smell 강한 두 section을 humanizeKorean로 후처리.
+  // best-effort: 실패 시 원본 그대로 응답 (사용자가 결과 못 받는 일 없도록).
+  // 비용: +$0.034 × 2 = ~$0.07. 응모 데모에서 변별력이 비용 정당화.
+  if (finalReport && typeof finalReport.executive_summary === "string" && finalReport.executive_summary.length >= 20) {
+    try {
+      const h = await humanizeKorean(finalReport.executive_summary);
+      finalReport.executive_summary = h.humanized;
+      (finalReport as MarketReport & { humanize_meta?: unknown }).humanize_meta = {
+        target: "executive_summary",
+        grade: h.grade,
+        detected_count: h.detected.length,
+        change_rate: h.change_rate,
+      };
+      console.log(
+        `[challenge/content] humanize report.executive_summary → grade=${h.grade} detected=${h.detected.length}`,
+      );
+    } catch (e) {
+      console.warn(`[challenge/content] humanize report failed: ${e instanceof Error ? e.message : e}`);
+    }
+  }
+  if (finalSpec?.by_locale?.ko?.body && finalSpec.by_locale.ko.body.length >= 20) {
+    try {
+      const h = await humanizeKorean(finalSpec.by_locale.ko.body);
+      finalSpec.by_locale.ko.body = h.humanized;
+      (finalSpec as MultilingualSpec & { humanize_meta?: unknown }).humanize_meta = {
+        target: "spec.ko.body",
+        grade: h.grade,
+        detected_count: h.detected.length,
+        change_rate: h.change_rate,
+      };
+      console.log(
+        `[challenge/content] humanize spec.ko.body → grade=${h.grade} detected=${h.detected.length}`,
+      );
+    } catch (e) {
+      console.warn(`[challenge/content] humanize spec failed: ${e instanceof Error ? e.message : e}`);
+    }
+  }
+
   return NextResponse.json({
-    report:
-      reportRes.status === "fulfilled" ? reportRes.value : { error: String(reportRes.reason) },
-    spec: specRes.status === "fulfilled" ? specRes.value : { error: String(specRes.reason) },
+    report: finalReport ?? { error: reportRes.status === "rejected" ? String(reportRes.reason) : "skipped" },
+    spec: finalSpec ?? { error: specRes.status === "rejected" ? String(specRes.reason) : "skipped" },
   });
 }
