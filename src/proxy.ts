@@ -14,6 +14,8 @@ const PUBLIC_PATHS = [
   // 챌린지 응모/심사용 독립 페이지 — 인증 없이 평가 가능. 비인증 호출은
   // CHALLENGE_DEMO_WORKSPACE_ID env로 fallback (lib/challenge/context.ts).
   "/sme-strategy",
+  // im-not-ai 기반 한국어 윤문 도구 — 인증 없이 누구나 테스트.
+  "/ai-humanize",
 ];
 
 function isPublic(pathname: string) {
