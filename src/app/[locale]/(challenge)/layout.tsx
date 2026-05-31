@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "@/i18n/navigation";
 import { setRequestLocale } from "next-intl/server";
-import { Building2, FileText, Layers, BookOpen, Users, ExternalLink } from "lucide-react";
+import { Building2, FileText, Layers, BookOpen, Users, ExternalLink, History } from "lucide-react";
 
 /**
  * 챌린지 전용 레이아웃 — Mr.AI 사이드바·워크스페이스 셀렉터·챗 모두
@@ -25,6 +25,7 @@ export default async function ChallengeLayout({
     { href: "/sme-strategy", label: "시스템 개요", icon: Layers },
     { href: "/sme-strategy/recommend", label: "Task 1 · 적합 판로 추천", icon: Building2 },
     { href: "/sme-strategy/content", label: "Task 2 · 마케팅 콘텐츠", icon: FileText },
+    { href: "/sme-strategy/history", label: "최근 생성물", icon: History },
     { href: "/sme-strategy/api", label: "API 문서", icon: BookOpen },
     { href: "/sme-strategy/about", label: "팀·아키텍처", icon: Users },
   ];
