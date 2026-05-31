@@ -53,6 +53,12 @@ export default function ContentPage() {
               <td className="text-right">~40초</td>
               <td className="text-right">~$0.06</td>
             </tr>
+            <tr className="border-t border-slate-100 bg-violet-50/40">
+              <td className="py-1">AI 윤문 자동 적용</td>
+              <td>Humanize KR (im-not-ai 룰북, Sonnet 4.6)</td>
+              <td className="text-right">+~60초</td>
+              <td className="text-right">+~$0.07</td>
+            </tr>
             <tr className="border-t border-slate-100">
               <td className="py-1">상세페이지</td>
               <td>다국어 기술서 결합 + UI 렌더</td>
@@ -60,15 +66,15 @@ export default function ContentPage() {
               <td className="text-right">$0</td>
             </tr>
             <tr className="border-t border-slate-100">
-              <td className="py-1">홍보영상 5초</td>
+              <td className="py-1">홍보영상 5초 (요청 시)</td>
               <td>Kling v1.6 Pro (Replicate)</td>
-              <td className="text-right">~90초</td>
+              <td className="text-right">~2-4분</td>
               <td className="text-right">~$0.50</td>
             </tr>
             <tr className="border-t-2 border-slate-300 font-semibold">
               <td className="py-1.5">합계 (영상 포함)</td>
-              <td colSpan={2} className="text-right">~3분</td>
-              <td className="text-right">~$0.60</td>
+              <td colSpan={2} className="text-right">~4-6분</td>
+              <td className="text-right">~$0.67</td>
             </tr>
           </tbody>
         </table>
