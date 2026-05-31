@@ -223,25 +223,35 @@ export function ContentOnlyPanel() {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const j = (await res.json().catch(() => ({}))) as {
-          error?: string;
-          detail?: unknown;
-        };
-        // zod fieldErrors / formErrors 펼쳐서 보여주기
+        // JSON 응답인지 먼저 확인 — gateway timeout/HTML 에러 페이지일 수도
         let detailMsg = "";
-        if (typeof j.detail === "string") {
-          detailMsg = j.detail;
-        } else if (j.detail && typeof j.detail === "object") {
-          const d = j.detail as {
-            fieldErrors?: Record<string, string[]>;
-            formErrors?: string[];
+        let errorCode: string | null = null;
+        const contentType = res.headers.get("content-type") ?? "";
+        if (contentType.includes("application/json")) {
+          const j = (await res.json().catch(() => ({}))) as {
+            error?: string;
+            detail?: unknown;
           };
-          const fieldEntries = Object.entries(d.fieldErrors ?? {})
-            .filter(([, v]) => Array.isArray(v) && v.length > 0)
-            .map(([k, v]) => `${k}: ${v.join(", ")}`);
-          detailMsg = [...(d.formErrors ?? []), ...fieldEntries].join(" | ");
+          errorCode = j.error ?? null;
+          if (typeof j.detail === "string") {
+            detailMsg = j.detail;
+          } else if (j.detail && typeof j.detail === "object") {
+            const d = j.detail as {
+              fieldErrors?: Record<string, string[]>;
+              formErrors?: string[];
+            };
+            const fieldEntries = Object.entries(d.fieldErrors ?? {})
+              .filter(([, v]) => Array.isArray(v) && v.length > 0)
+              .map(([k, v]) => `${k}: ${v.join(", ")}`);
+            detailMsg = [...(d.formErrors ?? []), ...fieldEntries].join(" | ");
+          }
+        } else {
+          // 비-JSON 응답 (timeout 시 HTML 페이지, edge gateway 에러 등)
+          const text = await res.text().catch(() => "");
+          detailMsg = text.slice(0, 200).replace(/\s+/g, " ").trim();
         }
-        throw new Error(`${j.error ?? "content failed"}${detailMsg ? ` — ${detailMsg}` : ""}`);
+        const prefix = `[HTTP ${res.status}] ${errorCode ?? "request failed"}`;
+        throw new Error(`${prefix}${detailMsg ? ` — ${detailMsg}` : ""}`);
       }
       const json = (await res.json()) as {
         hash?: string;

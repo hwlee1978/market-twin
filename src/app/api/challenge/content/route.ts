@@ -38,7 +38,7 @@ function hashContentInput(input: {
 }
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 180;
+export const maxDuration = 300;
 
 /**
  * POST /api/challenge/content
@@ -136,6 +136,20 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  try {
+    return await handlePOST(req);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "internal_error";
+    const stack = e instanceof Error ? e.stack?.split("\n").slice(0, 5).join(" | ") : "";
+    console.error("[challenge/content] top-level error:", msg, stack);
+    return NextResponse.json(
+      { error: "internal_error", detail: msg },
+      { status: 500 },
+    );
+  }
+}
+
+async function handlePOST(req: Request) {
   const workspaceId = await getChallengeWorkspaceId();
   if (!workspaceId) {
     return NextResponse.json(
