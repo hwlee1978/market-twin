@@ -256,7 +256,7 @@ export function DetailPagePreview({
             ) : (
               <Video className="w-3.5 h-3.5" />
             )}
-            {videoLoading ? "생성 중… (~90s, ~$0.50)" : "홍보영상 생성 (Kling Pro)"}
+            {videoLoading ? "생성 중… (2-4분 소요, $0.50)" : "홍보영상 생성 (Kling Pro · 2-4분, $0.50)"}
           </button>
         )}
       </div>
