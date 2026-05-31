@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ShoppingBag, Heart, Share, Loader2, Video, Info } from "lucide-react";
+import { ShoppingBag, Heart, Share, Loader2, Video, Info, Download, Link2, Check } from "lucide-react";
 
 type Spec = {
   headline: string;
@@ -571,36 +571,7 @@ export function DetailPagePreview({
           <div className="px-5 py-4 border-t border-slate-100 space-y-3">
             <div className={`grid gap-3 ${clips.length === 1 ? "grid-cols-1" : "grid-cols-1 md:grid-cols-3"}`}>
               {clips.map((c, i) => (
-                <div key={i} className="bg-white rounded-md border border-slate-200 overflow-hidden">
-                  <div
-                    className={`bg-slate-100 ${aspectRatio === "9:16" ? "aspect-[9/16]" : aspectRatio === "1:1" ? "aspect-square" : "aspect-video"}`}
-                  >
-                    <video
-                      src={c.video_url}
-                      controls
-                      autoPlay
-                      loop
-                      muted
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="px-3 py-2">
-                    <div className="text-[11px] font-semibold text-slate-900 capitalize">
-                      {c.scene === "reveal"
-                        ? "① 제품 리빌"
-                        : c.scene === "scenario"
-                          ? "② 사용 시나리오"
-                          : c.scene === "closeup"
-                            ? "③ 디테일 클로즈업"
-                            : "홍보영상"}{" "}
-                      <span className="text-slate-400 font-normal">· {c.duration_sec}초</span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2">
-                      <span className="text-slate-400">motion: </span>
-                      {c.motion_prompt}
-                    </p>
-                  </div>
-                </div>
+                <ClipCard key={i} clip={c} aspectRatio={aspectRatio} productName={productName} index={i} />
               ))}
             </div>
 
@@ -625,6 +596,126 @@ export function DetailPagePreview({
         )}
       </div>
     </section>
+  );
+}
+
+type Clip = {
+  scene: "single" | "reveal" | "scenario" | "closeup";
+  video_url: string;
+  motion_prompt: string;
+  duration_sec: number;
+};
+
+function ClipCard({
+  clip,
+  aspectRatio,
+  productName,
+  index,
+}: {
+  clip: Clip;
+  aspectRatio: "16:9" | "9:16" | "1:1";
+  productName?: string;
+  index: number;
+}) {
+  const [urlCopied, setUrlCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const sceneLabel =
+    clip.scene === "reveal"
+      ? "① 제품 리빌"
+      : clip.scene === "scenario"
+        ? "② 사용 시나리오"
+        : clip.scene === "closeup"
+          ? "③ 디테일 클로즈업"
+          : "홍보영상";
+
+  const copyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(clip.video_url);
+      setUrlCopied(true);
+      setTimeout(() => setUrlCopied(false), 2000);
+    } catch {
+      // ignore
+    }
+  };
+
+  const downloadVideo = async () => {
+    setDownloading(true);
+    try {
+      // CORS 우회 — fetch + blob + a[download] (Supabase Storage URL은 CORS 허용됨)
+      const res = await fetch(clip.video_url);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const safeName = (productName || "promo")
+        .replace(/[^a-zA-Z0-9가-힣_-]+/g, "_")
+        .slice(0, 40);
+      a.download = `${safeName}_${clip.scene}_${index + 1}.mp4`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // 다운로드 실패 시 → 새 탭으로 fallback
+      window.open(clip.video_url, "_blank");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-md border border-slate-200 overflow-hidden">
+      <div
+        className={`bg-slate-100 ${
+          aspectRatio === "9:16"
+            ? "aspect-[9/16]"
+            : aspectRatio === "1:1"
+              ? "aspect-square"
+              : "aspect-video"
+        }`}
+      >
+        <video src={clip.video_url} controls autoPlay loop muted className="w-full h-full object-cover" />
+      </div>
+      <div className="px-3 py-2 space-y-1.5">
+        <div className="text-[11px] font-semibold text-slate-900">
+          {sceneLabel}
+          <span className="text-slate-400 font-normal"> · {clip.duration_sec}초</span>
+        </div>
+        <p className="text-[10px] text-slate-500 line-clamp-2">
+          <span className="text-slate-400">motion: </span>
+          {clip.motion_prompt}
+        </p>
+        <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={() => void downloadVideo()}
+            disabled={downloading}
+            className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 rounded bg-emerald-600 text-white text-[11px] font-medium hover:bg-emerald-700 disabled:opacity-60"
+          >
+            {downloading ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Download className="w-3 h-3" />
+            )}
+            저장
+          </button>
+          <button
+            type="button"
+            onClick={() => void copyUrl()}
+            className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 rounded border border-slate-200 text-slate-700 text-[11px] font-medium hover:bg-slate-50"
+          >
+            {urlCopied ? (
+              <>
+                <Check className="w-3 h-3 text-emerald-600" /> 복사됨
+              </>
+            ) : (
+              <>
+                <Link2 className="w-3 h-3" /> URL
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

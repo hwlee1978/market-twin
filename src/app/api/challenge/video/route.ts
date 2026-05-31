@@ -10,8 +10,9 @@ import {
 import { createServiceClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
-// TTS sync (~10s) + 3 Replicate prediction create (~3s each) → 30초면 충분.
-export const maxDuration = 60;
+// Tier B/C 는 sequential 생성 (429 회피, 11s 간격 × 3 = ~45s).
+// + TTS ~5s + 기타 → 120s 여유 있게.
+export const maxDuration = 120;
 
 const RequestSchema = z.object({
   image_url: z.string().url(),
@@ -101,6 +102,7 @@ async function handlePOST(req: Request) {
     ];
   } else {
     const scenes: Array<"reveal" | "scenario" | "closeup"> = ["reveal", "scenario", "closeup"];
+    // Smart prompts 는 Anthropic 호출이라 parallel OK
     const motions = await Promise.all(
       scenes.map((s) =>
         generateSmartMotionPrompt({
@@ -111,22 +113,25 @@ async function handlePOST(req: Request) {
         }),
       ),
     );
-    const created = await Promise.all(
-      scenes.map((s, i) =>
-        createKlingPrediction({
-          imageUrl: parsed.data.image_url,
-          motionPrompt: motions[i],
-          duration,
-          aspectRatio: aspect,
-        }).then((r) => ({ s, predictionId: r.predictionId, motion: motions[i] })),
-      ),
-    );
-    predictions = created.map((c) => ({
-      prediction_id: c.predictionId,
-      scene: c.s,
-      motion_prompt: c.motion,
-      status: "starting",
-    }));
+    // Replicate prediction 은 sequential — 계정 credit < $5 시 6 req/min +
+    // burst 1 throttle. parallel 보내면 첫번째만 통과하고 나머지 429.
+    // 11초 간격으로 sequential 호출하면 retry 없이 한 번에 통과.
+    predictions = [];
+    for (let i = 0; i < scenes.length; i++) {
+      if (i > 0) await new Promise((r) => setTimeout(r, 11_000));
+      const r = await createKlingPrediction({
+        imageUrl: parsed.data.image_url,
+        motionPrompt: motions[i],
+        duration,
+        aspectRatio: aspect,
+      });
+      predictions.push({
+        prediction_id: r.predictionId,
+        scene: scenes[i],
+        motion_prompt: motions[i],
+        status: "starting",
+      });
+    }
   }
 
   // 2. Tier C TTS 보이스오버 — sync 생성 (10s 안쪽이라 POST 안에서 처리)

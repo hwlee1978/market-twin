@@ -32,18 +32,24 @@ export type ReplicateStatus = ReplicatePrediction["status"];
  * Replicate prediction만 생성 후 즉시 반환 (polling 없음).
  * 클라이언트가 GET /api/challenge/video/status?ids=… 로 polling.
  * Edge proxy idle timeout 회피 핵심.
+ *
+ * 429 (rate limit) 자동 재시도 — Replicate 계정에 $5 미만 credit 시
+ * 6 req/min + burst 1 제한. retry_after 만큼 대기 후 재시도 (최대 4회).
  */
-export async function createKlingPrediction(input: {
-  imageUrl: string;
-  motionPrompt: string;
-  duration: 5 | 10;
-  aspectRatio: "16:9" | "9:16" | "1:1";
-}): Promise<{ predictionId: string }> {
+export async function createKlingPrediction(
+  input: {
+    imageUrl: string;
+    motionPrompt: string;
+    duration: 5 | 10;
+    aspectRatio: "16:9" | "9:16" | "1:1";
+  },
+  retries = 4,
+): Promise<{ predictionId: string }> {
   const token = process.env.REPLICATE_API_TOKEN;
   if (!token) throw new Error("REPLICATE_API_TOKEN not set");
 
   console.log(
-    `[kling-create] duration=${input.duration}s aspect=${input.aspectRatio} prompt_len=${input.motionPrompt.length}`,
+    `[kling-create] duration=${input.duration}s aspect=${input.aspectRatio} prompt_len=${input.motionPrompt.length} retries_left=${retries}`,
   );
   const res = await fetch(
     `https://api.replicate.com/v1/models/${KLING_MODEL_OWNER}/${KLING_MODEL_NAME}/predictions`,
@@ -69,6 +75,24 @@ export async function createKlingPrediction(input: {
       }),
     },
   );
+
+  // 429 rate limit — retry_after 존중해서 재시도
+  if (res.status === 429 && retries > 0) {
+    const bodyText = await res.text().catch(() => "");
+    let retryAfter = 12;
+    try {
+      const body = JSON.parse(bodyText) as { retry_after?: number };
+      if (typeof body.retry_after === "number") retryAfter = body.retry_after + 2;
+    } catch {
+      // Header fallback
+      const hdr = res.headers.get("retry-after");
+      if (hdr) retryAfter = Number(hdr) || 12;
+    }
+    console.log(`[kling-create] 429 throttled — waiting ${retryAfter}s before retry (${retries} left)`);
+    await new Promise((r) => setTimeout(r, retryAfter * 1000));
+    return createKlingPrediction(input, retries - 1);
+  }
+
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     throw new Error(`replicate create ${res.status}: ${detail.slice(0, 300)}`);
