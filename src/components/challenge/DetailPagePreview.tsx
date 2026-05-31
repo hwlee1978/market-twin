@@ -29,13 +29,28 @@ const LOCALE_CTA_FALLBACK: Record<Locale, string> = {
   "zh-cn": "立即购买",
 };
 
-const PRICE_PLACEHOLDER: Record<Locale, string> = {
-  ko: "₩159,000",
-  en: "$119",
-  ja: "¥16,800",
-  "zh-tw": "NT$3,580",
-  "zh-cn": "¥780",
+// 시장별 placeholder 가격 (시각용 mockup — LLM이 가격을 결정하지 않음).
+// 정가는 할인가의 30% 위로 자동 계산해 strikethrough가 의미 있도록.
+const PRICE_PLACEHOLDER: Record<Locale, { current: number; symbol: string }> = {
+  ko: { current: 159000, symbol: "₩" },
+  en: { current: 119, symbol: "$" },
+  ja: { current: 16800, symbol: "¥" },
+  "zh-tw": { current: 3580, symbol: "NT$" },
+  "zh-cn": { current: 780, symbol: "¥" },
 };
+
+function formatPrice(symbol: string, n: number): string {
+  return `${symbol}${n.toLocaleString()}`;
+}
+
+// 정가 — 할인가 × 1.3을 통화별 단위로 round (KR/JP는 천원 단위, USD는 정수).
+function originalPriceOf(loc: Locale): number {
+  const raw = PRICE_PLACEHOLDER[loc].current * 1.3;
+  if (loc === "ko" || loc === "ja") return Math.round(raw / 1000) * 1000;
+  if (loc === "en") return Math.round(raw);
+  if (loc === "zh-tw") return Math.round(raw / 10) * 10;
+  return Math.round(raw / 10) * 10; // zh-cn
+}
 
 /**
  * 챌린지 Task 2 ④ — 상세페이지 미리보기.
@@ -174,12 +189,24 @@ export function DetailPagePreview({
               </div>
 
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-rose-600">
-                  {PRICE_PLACEHOLDER[activeLocale]}
-                </span>
-                <span className="text-xs text-slate-400 line-through">
-                  {PRICE_PLACEHOLDER[activeLocale]}
-                </span>
+                {(() => {
+                  const p = PRICE_PLACEHOLDER[activeLocale];
+                  const original = originalPriceOf(activeLocale);
+                  const discountPct = Math.round(((original - p.current) / original) * 100);
+                  return (
+                    <>
+                      <span className="text-xs font-bold text-rose-600 px-1.5 py-0.5 rounded bg-rose-50">
+                        {discountPct}%
+                      </span>
+                      <span className="text-2xl font-bold text-rose-600">
+                        {formatPrice(p.symbol, p.current)}
+                      </span>
+                      <span className="text-xs text-slate-400 line-through">
+                        {formatPrice(p.symbol, original)}
+                      </span>
+                    </>
+                  );
+                })()}
               </div>
 
               {s.bullets && s.bullets.length > 0 && (
