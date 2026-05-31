@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Package,
   Building2,
@@ -10,6 +10,8 @@ import {
   AlertTriangle,
   Database,
   Sparkles,
+  Link2,
+  Check,
 } from "lucide-react";
 import { DetailPagePreview } from "./DetailPagePreview";
 
@@ -107,6 +109,73 @@ export function ContentOnlyPanel() {
   const [spec, setSpec] = useState<MultilingualSpec | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** 생성물 영구 저장 hash. URL ?hash=… 로 공유 가능. */
+  const [resultHash, setResultHash] = useState<string | null>(null);
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+
+  // URL ?hash=… 가 있으면 mount 시 자동 복원
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const hash = url.searchParams.get("hash");
+    if (!hash || !/^[a-f0-9]{64}$/.test(hash)) return;
+    setRestoring(true);
+    void (async () => {
+      try {
+        const res = await fetch(`/api/challenge/content?hash=${hash}`);
+        if (!res.ok) {
+          setError(`이전 결과 복원 실패 (status ${res.status}) — 새로 생성하세요`);
+          return;
+        }
+        const json = (await res.json()) as {
+          hash: string;
+          input: {
+            company?: { name?: string; industry?: string } | null;
+            product?: { name?: string; category?: string; description?: string } | null;
+            goal?: string | null;
+            price_krw?: number | null;
+            image_url?: string | null;
+          };
+          report: MarketReport | { error: string };
+          spec: MultilingualSpec | { error: string };
+          generated_at: string;
+        };
+        // 입력값 복원
+        if (json.input.company) {
+          setCompanyName(json.input.company.name ?? "");
+          setIndustry(json.input.company.industry ?? "");
+        }
+        if (json.input.product) {
+          setProductName(json.input.product.name ?? "");
+          setProductCategory(json.input.product.category ?? "");
+          setProductDescription(json.input.product.description ?? "");
+        }
+        setGoal(json.input.goal ?? "");
+        setProductImageUrl(json.input.image_url ?? "");
+        setProductPriceKrw(json.input.price_krw ? String(json.input.price_krw) : "");
+        // 결과 복원
+        if (!("error" in json.report)) setReport(json.report);
+        if (!("error" in json.spec)) setSpec(json.spec);
+        setResultHash(json.hash);
+        setCachedAt(json.generated_at);
+      } catch (e) {
+        setError(`복원 중 오류: ${e instanceof Error ? e.message : "unknown"}`);
+      } finally {
+        setRestoring(false);
+      }
+    })();
+  }, []);
+
+  const copyShareUrl = async () => {
+    if (!resultHash || typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("hash", resultHash);
+    await navigator.clipboard.writeText(url.toString());
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2000);
+  };
 
   const run = async () => {
     if (!productName.trim()) {
@@ -117,6 +186,8 @@ export function ContentOnlyPanel() {
     setError(null);
     setReport(null);
     setSpec(null);
+    setResultHash(null);
+    setCachedAt(null);
     try {
       const body = {
         company: {
@@ -130,6 +201,8 @@ export function ContentOnlyPanel() {
         },
         goal: goal || undefined,
         recommendations: [],
+        price_krw: productPriceKrw ? Number(productPriceKrw) : undefined,
+        image_url: productImageUrl || undefined,
       };
       const res = await fetch("/api/challenge/content", {
         method: "POST",
@@ -141,6 +214,9 @@ export function ContentOnlyPanel() {
         throw new Error(j.error || j.detail || "content failed");
       }
       const json = (await res.json()) as {
+        hash?: string;
+        cached?: boolean;
+        generated_at?: string;
         report?: MarketReport | { error: string };
         spec?: MultilingualSpec | { error: string };
       };
@@ -151,6 +227,16 @@ export function ContentOnlyPanel() {
       setSpec(specErr ? null : ((json.spec as MultilingualSpec) ?? null));
       if (reportErr) setError(`시장분석 실패: ${reportErr}`);
       if (specErr) setError(`다국어 기술서 실패: ${specErr}`);
+      // hash + cached_at 저장 후 URL ?hash=… 로 업데이트 (back/forward 정상 작동)
+      if (json.hash) {
+        setResultHash(json.hash);
+        if (json.generated_at) setCachedAt(json.generated_at);
+        if (typeof window !== "undefined") {
+          const url = new URL(window.location.href);
+          url.searchParams.set("hash", json.hash);
+          window.history.replaceState({}, "", url.toString());
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "콘텐츠 생성 실패");
     } finally {
@@ -160,6 +246,40 @@ export function ContentOnlyPanel() {
 
   return (
     <div className="space-y-6">
+      {/* 복원 / 공유 배너 */}
+      {restoring && (
+        <div className="rounded-md bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm text-slate-700 flex items-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          이전 결과 복원 중…
+        </div>
+      )}
+      {resultHash && cachedAt && !loading && (
+        <div className="rounded-md bg-emerald-50 border border-emerald-200 px-4 py-2.5 text-sm flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 text-emerald-800">
+            <Check className="w-4 h-4" />
+            <span>
+              <strong>결과 영구 저장됨</strong> · 생성 {new Date(cachedAt).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })}
+              <span className="text-emerald-600 ml-2">(이 URL 북마크하면 동일 결과 다시 열람 가능)</span>
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => void copyShareUrl()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-emerald-300 text-emerald-700 text-xs font-medium hover:bg-emerald-50"
+          >
+            {shareCopied ? (
+              <>
+                <Check className="w-3.5 h-3.5" /> 복사됨
+              </>
+            ) : (
+              <>
+                <Link2 className="w-3.5 h-3.5" /> 공유 URL 복사
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
       {/* Input */}
       <section className="bg-white rounded-xl border border-slate-200 shadow-sm">
         <header className="px-5 py-4 border-b border-slate-100">
