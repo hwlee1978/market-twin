@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ShoppingBag, Heart, Share, Loader2, Video, Info, Download, Link2, Check } from "lucide-react";
+import { ShoppingBag, Heart, Share, Loader2, Video, Info, Download, Link2, Check, Sparkles } from "lucide-react";
 
 type Spec = {
   headline: string;
@@ -108,12 +108,21 @@ export function DetailPagePreview({
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoLoading, setVideoLoading] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
-  // Tier 옵션
-  const [tier, setTier] = useState<"A" | "B" | "C">("A");
-  const [duration, setDuration] = useState<5 | 10>(5);
+  // 영상 옵션 — Seedance 2.0 only
+  const [duration, setDuration] = useState<4 | 5 | 8 | 10>(8);
   const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
-  // 영상 생성 모델 — 동일 입력으로 3가지 비교 테스트 가능
-  const [model, setModel] = useState<"kling-stable" | "kling-dynamic" | "seedance-pro">("kling-stable");
+  // 사용자 입력 motion prompt + AI 제안 옵션
+  const [motionPrompt, setMotionPrompt] = useState<string>("");
+  type PromptOption = { title: string; description: string; prompt: string };
+  const [promptOptions, setPromptOptions] = useState<{
+    optionA: PromptOption;
+    optionB: PromptOption;
+    optionC: PromptOption;
+  } | null>(null);
+  const [promptsLoading, setPromptsLoading] = useState(false);
+  const [promptsError, setPromptsError] = useState<string | null>(null);
+  // Tier C TTS 토글
+  const [enableVoiceover, setEnableVoiceover] = useState(false);
   type GeneratedClip = {
     scene: "single" | "reveal" | "scenario" | "closeup";
     video_url: string;
@@ -148,13 +157,43 @@ export function DetailPagePreview({
   };
   type JobResponse = {
     job_id: string;
-    tier: "A" | "B" | "C";
-    duration: 5 | 10;
+    duration: number;
     aspect_ratio: "16:9" | "9:16" | "1:1";
     status: "running" | "succeeded" | "failed" | "partial";
     predictions: PredictionStatus[];
     voiceover_url: string | null;
     total_cost_usd?: number;
+  };
+
+  /** AI 제안 — 제품 정보 + 이미지 URL 로 3가지 motion prompt 옵션 받기 */
+  const suggestPrompts = async () => {
+    setPromptsLoading(true);
+    setPromptsError(null);
+    try {
+      const res = await fetch("/api/challenge/video/prompts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          product_name: productName,
+          product_category: productCategory,
+          image_url: imageUrl || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
+        throw new Error(`${j.error ?? "prompts failed"}${j.detail ? ` — ${j.detail}` : ""}`);
+      }
+      const json = (await res.json()) as {
+        optionA: PromptOption;
+        optionB: PromptOption;
+        optionC: PromptOption;
+      };
+      setPromptOptions(json);
+    } catch (e) {
+      setPromptsError(e instanceof Error ? e.message : "prompts failed");
+    } finally {
+      setPromptsLoading(false);
+    }
   };
 
   const generateVideo = async () => {
@@ -178,12 +217,13 @@ export function DetailPagePreview({
         image_url: imageUrl,
         duration,
         aspect_ratio: aspectRatio,
-        tier,
-        model,
         product_name: productName,
         product_category: productCategory,
       };
-      if (tier === "C" && voiceoverText) {
+      if (motionPrompt.trim()) {
+        body.motion_prompt = motionPrompt.trim();
+      }
+      if (enableVoiceover && voiceoverText) {
         body.voiceover_text = voiceoverText;
         body.voiceover_locale = "ko";
         body.voiceover_voice = "nova";
@@ -479,13 +519,13 @@ export function DetailPagePreview({
         )}
       </div>
 
-      {/* Video generation — 3-tier 선택 UI */}
+      {/* Video generation — Seedance 2.0 only + 사용자 prompt + AI 제안 */}
       <div className="border-t border-slate-200 bg-slate-50/60">
         <header className="px-5 py-3 border-b border-slate-100">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
               <Video className="w-4 h-4 text-rose-600" />
-              홍보영상 콘텐츠 — Tier 선택
+              홍보영상 콘텐츠 — <span className="text-rose-600">Seedance 2.0</span> (ByteDance · 4K · 8초)
             </div>
             {(clips.length > 0 || voiceoverUrl) && videoCostUsd !== null && (
               <div className="text-[11px] text-slate-500 tabular-nums">
@@ -495,78 +535,88 @@ export function DetailPagePreview({
           </div>
         </header>
 
-        <div className="px-5 py-3 grid grid-cols-1 md:grid-cols-3 gap-2">
-          <TierCard
-            label="Tier A"
-            sub="단일 클립 (smart prompt)"
-            desc="제품별 LLM 자동 모션 prompt · 2-4분 · 5초 $0.50 / 10초 $1.00"
-            active={tier === "A"}
-            onClick={() => setTier("A")}
+        {/* Motion prompt — textarea + AI 제안 버튼 */}
+        <div className="px-5 py-4 border-b border-slate-100 space-y-3">
+          <div className="flex items-baseline justify-between flex-wrap gap-2">
+            <label className="text-xs font-semibold text-slate-700">
+              Motion Prompt <span className="text-slate-400 font-normal">(영상 동작 설명, 한국어 가능)</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => void suggestPrompts()}
+              disabled={promptsLoading || (!productName && !imageUrl)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-violet-600 text-white text-xs font-medium hover:bg-violet-700 disabled:opacity-60"
+            >
+              {promptsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+              AI 프롬프트 3가지 제안
+            </button>
+          </div>
+          <textarea
+            value={motionPrompt}
+            onChange={(e) => setMotionPrompt(e.target.value)}
+            rows={4}
+            placeholder="예시: 빨간색 TIRTIR 쿠션을 향해 시네마틱한 매크로 돌리인 샷, 광택 있는 레드 뚜껑이 천천히 열리며..."
+            className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500"
           />
-          <TierCard
-            label="Tier B"
-            sub="3-scene 스토리보드"
-            desc="리빌+시나리오+클로즈업 sequential · 4-7분 · 5초 $1.50 / 10초 $3.00"
-            active={tier === "B"}
-            onClick={() => setTier("B")}
-          />
-          <TierCard
-            label="Tier C"
-            sub="+ TTS 보이스오버"
-            desc="Tier B + Nova TTS 한국어 · 5-8분 · 5초 ~$1.50 / 10초 ~$3.00"
-            active={tier === "C"}
-            onClick={() => setTier("C")}
-          />
+          <p className="text-[10px] text-slate-500">
+            비워두면 AI 가 자동으로 럭셔리 오프닝 prompt (옵션 A) 사용. 한국어·영문 모두 지원.
+          </p>
+
+          {promptsError && (
+            <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+              {promptsError}
+            </div>
+          )}
+
+          {/* AI 제안 3-카드 */}
+          {promptOptions && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-1">
+              {[
+                { key: "optionA" as const, tone: "emerald", emoji: "💎" },
+                { key: "optionB" as const, tone: "amber", emoji: "🌀" },
+                { key: "optionC" as const, tone: "sky", emoji: "🌐" },
+              ].map(({ key, tone, emoji }) => {
+                const opt = promptOptions[key];
+                const toneClass: Record<string, string> = {
+                  emerald: "border-emerald-200 bg-emerald-50",
+                  amber: "border-amber-200 bg-amber-50",
+                  sky: "border-sky-200 bg-sky-50",
+                };
+                const labelTone: Record<string, string> = {
+                  emerald: "text-emerald-700",
+                  amber: "text-amber-700",
+                  sky: "text-sky-700",
+                };
+                return (
+                  <div
+                    key={key}
+                    className={`rounded-md border p-3 ${toneClass[tone]}`}
+                  >
+                    <div className={`text-xs font-bold mb-1 ${labelTone[tone]}`}>
+                      {emoji} {opt.title}
+                    </div>
+                    <p className="text-[10px] text-slate-600 leading-relaxed mb-2 line-clamp-2">
+                      {opt.description}
+                    </p>
+                    <p className="text-[10px] text-slate-700 leading-relaxed mb-2 line-clamp-4">
+                      {opt.prompt}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setMotionPrompt(opt.prompt)}
+                      className="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-white border border-slate-300 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      이 프롬프트 사용
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Model selector — 비교 테스트용 */}
-        <div className="px-5 py-2 border-t border-slate-100">
-          <div className="text-[11px] text-slate-500 mb-1.5">
-            영상 모델 (같은 입력으로 비교 가능):
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {[
-              {
-                v: "kling-stable" as const,
-                label: "Kling 1.6 Pro (Stable)",
-                desc: "현재 기본 · cfg=0.8 · 텍스트 보존",
-                cost: "$0.50/5초",
-              },
-              {
-                v: "kling-dynamic" as const,
-                label: "Kling 1.6 Pro (Dynamic)",
-                desc: "cfg=0.5 · cinematic prompt · 더 dramatic",
-                cost: "$0.50/5초",
-              },
-              {
-                v: "seedance-pro" as const,
-                label: "Seedance 1 Pro (ByteDance)",
-                desc: "최상위 motion · cinematic 자동",
-                cost: "$0.65/5초",
-              },
-            ].map((m) => (
-              <button
-                key={m.v}
-                type="button"
-                onClick={() => setModel(m.v)}
-                className={`text-left flex-1 min-w-[200px] rounded border p-2 transition ${
-                  model === m.v
-                    ? "border-rose-500 bg-rose-50 ring-2 ring-rose-200"
-                    : "border-slate-200 bg-white hover:border-slate-300"
-                }`}
-              >
-                <div className={`text-xs font-semibold ${model === m.v ? "text-rose-700" : "text-slate-900"}`}>
-                  {m.label}
-                </div>
-                <div className="text-[10px] text-slate-500 mt-0.5">{m.desc}</div>
-                <div className="text-[10px] text-slate-700 mt-0.5 font-semibold">{m.cost}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* aspect / duration */}
-        <div className="px-5 py-2 border-t border-slate-100 flex items-center gap-4 flex-wrap">
+        {/* aspect / duration / TTS toggle / 생성 버튼 */}
+        <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2 text-[11px]">
             <span className="text-slate-500">Aspect:</span>
             {(["16:9", "9:16", "1:1"] as const).map((a) => (
@@ -582,7 +632,7 @@ export function DetailPagePreview({
           </div>
           <div className="flex items-center gap-2 text-[11px]">
             <span className="text-slate-500">Duration:</span>
-            {([5, 10] as const).map((d) => (
+            {([4, 5, 8, 10] as const).map((d) => (
               <button
                 key={d}
                 type="button"
@@ -593,6 +643,15 @@ export function DetailPagePreview({
               </button>
             ))}
           </div>
+          <label className="flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={enableVoiceover}
+              onChange={(e) => setEnableVoiceover(e.target.checked)}
+              className="rounded border-slate-300"
+            />
+            한국어 TTS 보이스오버 추가 (+$0.005)
+          </label>
           <div className="flex-1" />
           <button
             type="button"
@@ -605,11 +664,11 @@ export function DetailPagePreview({
               ? jobProgress
                 ? `생성 중 ${jobProgress.done}/${jobProgress.total} (${jobStatus ?? "running"})`
                 : "생성 시작 중…"
-              : `Tier ${tier} 영상 생성 (~$${(() => {
-                  const base = duration === 10 ? (model === "seedance-pro" ? 1.3 : 1.0) : (model === "seedance-pro" ? 0.65 : 0.5);
-                  const clipCount = tier === "A" ? 1 : 3;
-                  const tts = tier === "C" ? 0.005 : 0;
-                  return (base * clipCount + tts).toFixed(2);
+              : `Seedance 2.0 영상 생성 (~$${(() => {
+                  // Seedance 2.0 estimate: $1.50/5초 · $2.00/8초 · $2.50/10초 (Replicate)
+                  const base = duration <= 4 ? 1.2 : duration <= 5 ? 1.5 : duration <= 8 ? 2.0 : 2.5;
+                  const tts = enableVoiceover ? 0.005 : 0;
+                  return (base + tts).toFixed(2);
                 })()})`}
           </button>
         </div>

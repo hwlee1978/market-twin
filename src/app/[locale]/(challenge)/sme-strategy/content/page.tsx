@@ -65,28 +65,28 @@ export default function ContentPage() {
               <td className="text-right text-slate-600">$0</td>
             </tr>
             <tr className="border-t border-slate-100">
-              <td className="py-1 pl-3 text-slate-600">└ ③-b Tier A · 단일 클립 (5초 / 10초)</td>
-              <td className="text-slate-600">Kling v1.6 Pro + smart motion (Haiku)</td>
-              <td className="text-right text-slate-600">~2-4분</td>
-              <td className="text-right text-slate-600">$0.50 / $1.00</td>
-            </tr>
-            <tr className="border-t border-slate-100">
-              <td className="py-1 pl-3 text-slate-600">└ ③-b Tier B · 3-scene 스토리보드 (5초 / 10초)</td>
-              <td className="text-slate-600">Kling × 3 sequential (11s 간격, 429 회피)</td>
-              <td className="text-right text-slate-600">~4-7분</td>
-              <td className="text-right text-slate-600">$1.50 / $3.00</td>
-            </tr>
-            <tr className="border-t border-slate-100">
-              <td className="py-1 pl-3 text-slate-600">└ ③-b Tier C · + TTS (5초 / 10초)</td>
-              <td className="text-slate-600">Tier B + OpenAI TTS Nova (한국어)</td>
+              <td className="py-1 pl-3 text-slate-600">└ ③-b 홍보영상 (Seedance 2.0, 사용자 prompt or AI 제안)</td>
+              <td className="text-slate-600">ByteDance Seedance 2.0 (Replicate · 4K · multimodal)</td>
               <td className="text-right text-slate-600">~5-8분</td>
-              <td className="text-right text-slate-600">~$1.50 / ~$3.00</td>
+              <td className="text-right text-slate-600">$1.50 (5초) / $2.00 (8초) / $2.50 (10초)</td>
+            </tr>
+            <tr className="border-t border-slate-100">
+              <td className="py-1 pl-3 text-slate-600">└ ③-b AI 프롬프트 3가지 제안 (선택)</td>
+              <td className="text-slate-600">Claude Haiku — A 럭셔리·B 다이내믹·C 글로벌</td>
+              <td className="text-right text-slate-600">~5초</td>
+              <td className="text-right text-slate-600">+$0.003</td>
+            </tr>
+            <tr className="border-t border-slate-100">
+              <td className="py-1 pl-3 text-slate-600">└ ③-b TTS 한국어 보이스오버 (선택)</td>
+              <td className="text-slate-600">OpenAI TTS Nova</td>
+              <td className="text-right text-slate-600">+~5초</td>
+              <td className="text-right text-slate-600">+$0.005</td>
             </tr>
             <tr className="border-t border-slate-100 font-medium">
               <td className="py-1">③ 홍보영상 + 상세페이지 통합 (챌린지 정의)</td>
-              <td className="text-slate-500 text-[10px]">상세페이지 hero에 Tier A/B/C 영상 재생</td>
-              <td className="text-right">~2-7분</td>
-              <td className="text-right">~$0.50-2.00</td>
+              <td className="text-slate-500 text-[10px]">상세페이지 hero에 Seedance 2.0 영상 재생</td>
+              <td className="text-right">~5-8분</td>
+              <td className="text-right">~$1.50-2.50</td>
             </tr>
             <tr className="border-t-2 border-slate-300 font-semibold">
               <td className="py-1.5">합계 (영상 포함)</td>

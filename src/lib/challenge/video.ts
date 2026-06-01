@@ -2,21 +2,18 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getLLMProvider } from "@/lib/llm";
 
 /**
- * 홍보영상 생성 — 3-tier 옵션.
+ * 홍보영상 생성 — Seedance 2.0 단일 모델.
  *
- * 모델: kwaivgi/kling-v1.6-pro (2025 출시, i2v 최상 품질).
- * 입력: 기존 product/lifestyle 이미지 + motion prompt (영상 의도 한국어).
+ * 모델: bytedance/seedance-2.0 (Replicate, ByteDance Volcengine 라이선스).
+ *   - 4K · 8초 default · multimodal (이미지·텍스트·오디오·참조 입력)
+ *   - 1 Pro 대비 cinematic motion / 디테일 보존 큰 폭 향상
  *
- * Tier A — 단일 클립 (smart motion prompt + aspect/duration 선택)
- *   비용 ~$0.50 (5초) / ~$1.00 (10초), 시간 2-4분
+ * 입력: 제품 이미지 URL + motion prompt (한국어 또는 영문).
  *
- * Tier B — 3-scene 스토리보드 (제품 리빌 → 사용 시나리오 → 클로즈업)
- *   비용 ~$1.50 (3 × 5초 병렬), 시간 3-5분
+ * UX: 사용자가 직접 motion prompt 입력. 입력 시 AI 가 3가지 prompt
+ * 옵션 (A 럭셔리 / B 다이내믹 / C 글로벌) 자동 제안.
  *
- * Tier C — Tier B + OpenAI TTS 한국어/영어 보이스오버 + BGM hook
- *   비용 ~$2.00+ (3 video + TTS), 시간 5분+
- *
- * 저장: Replicate 출력 URL은 24h 후 만료 → Supabase Storage 영구 보존.
+ * 저장: Replicate 출력 URL 은 24h 후 만료 → Supabase Storage 영구 보존.
  */
 
 interface ReplicatePrediction {
@@ -28,209 +25,12 @@ interface ReplicatePrediction {
 
 export type ReplicateStatus = ReplicatePrediction["status"];
 
-/**
- * Replicate prediction만 생성 후 즉시 반환 (polling 없음).
- * 클라이언트가 GET /api/challenge/video/status?ids=… 로 polling.
- * Edge proxy idle timeout 회피 핵심.
- *
- * 429 (rate limit) 자동 재시도 — Replicate 계정에 $5 미만 credit 시
- * 6 req/min + burst 1 제한. retry_after 만큼 대기 후 재시도 (최대 4회).
- */
-export async function createKlingPrediction(
-  input: {
-    imageUrl: string;
-    motionPrompt: string;
-    duration: 5 | 10;
-    aspectRatio: "16:9" | "9:16" | "1:1";
-    /**
-     * Dynamic mode: cfg_scale=0.5로 낮춰 motion 자유도 ↑.
-     * 텍스트 morph 위험 증가하지만 cinematic effect (dolly·particle·
-     * lighting transition) 가능. 기본 false (stable).
-     */
-    dynamic?: boolean;
-  },
-  retries = 4,
-): Promise<{ predictionId: string }> {
-  const token = process.env.REPLICATE_API_TOKEN;
-  if (!token) throw new Error("REPLICATE_API_TOKEN not set");
-
-  const cfgScale = input.dynamic ? 0.5 : 0.8;
-  // Dynamic mode: motion blocker 빼고 image quality 만 막음.
-  const negativePrompt = input.dynamic
-    ? "blurry, low quality, distorted, jittery, deformed faces, extra limbs"
-    : "text deformation, character morphing, letterform distortion, " +
-      "garbled text, illegible writing, smeared letters, fake brand names, " +
-      "watermarks, logos morphing, people morphing, blurry, low quality, distorted, jittery";
-
-  console.log(
-    `[kling-create] mode=${input.dynamic ? "dynamic" : "stable"} cfg=${cfgScale} duration=${input.duration}s aspect=${input.aspectRatio} retries_left=${retries}`,
-  );
-  const res = await fetch(
-    `https://api.replicate.com/v1/models/${KLING_MODEL_OWNER}/${KLING_MODEL_NAME}/predictions`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "content-type": "application/json",
-        Prefer: "wait=0",
-      },
-      body: JSON.stringify({
-        input: {
-          prompt: input.motionPrompt,
-          start_image: input.imageUrl,
-          duration: input.duration,
-          aspect_ratio: input.aspectRatio,
-          cfg_scale: cfgScale,
-          negative_prompt: negativePrompt,
-        },
-      }),
-    },
-  );
-
-  // 429 rate limit — retry_after 존중해서 재시도
-  if (res.status === 429 && retries > 0) {
-    const bodyText = await res.text().catch(() => "");
-    let retryAfter = 12;
-    try {
-      const body = JSON.parse(bodyText) as { retry_after?: number };
-      if (typeof body.retry_after === "number") retryAfter = body.retry_after + 2;
-    } catch {
-      // Header fallback
-      const hdr = res.headers.get("retry-after");
-      if (hdr) retryAfter = Number(hdr) || 12;
-    }
-    console.log(`[kling-create] 429 throttled — waiting ${retryAfter}s before retry (${retries} left)`);
-    await new Promise((r) => setTimeout(r, retryAfter * 1000));
-    return createKlingPrediction(input, retries - 1);
-  }
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`replicate create ${res.status}: ${detail.slice(0, 300)}`);
-  }
-  const j = (await res.json()) as { id: string };
-  return { predictionId: j.id };
-}
-
-/**
- * Seedance 1 Pro (ByteDance) i2v prediction 생성. Kling 대비 더 dynamic
- * 한 motion handling 평가. Schema 다름:
- *   - image (Kling은 start_image)
- *   - duration (5 or 10 정수)
- *   - resolution (480p / 720p / 1080p)
- *   - fps (16, 24)
- *   - camera_fixed (false 권장 — dynamic camera)
- *
- * Aspect ratio 직접 파라미터 없음 → resolution 으로 추정. 16:9 = 1080p,
- * 9:16 = 1080p (vertical resolution은 모델이 알아서 처리), 1:1 = 720p.
- */
-export async function createSeedancePrediction(
-  input: {
-    imageUrl: string;
-    motionPrompt: string;
-    duration: 5 | 10;
-    aspectRatio: "16:9" | "9:16" | "1:1";
-  },
-  retries = 4,
-): Promise<{ predictionId: string }> {
-  const token = process.env.REPLICATE_API_TOKEN;
-  if (!token) throw new Error("REPLICATE_API_TOKEN not set");
-
-  console.log(
-    `[seedance-create] duration=${input.duration}s aspect=${input.aspectRatio} prompt_len=${input.motionPrompt.length} retries_left=${retries}`,
-  );
-  const res = await fetch(
-    `https://api.replicate.com/v1/models/${SEEDANCE_MODEL_OWNER}/${SEEDANCE_MODEL_NAME}/predictions`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "content-type": "application/json",
-        Prefer: "wait=0",
-      },
-      body: JSON.stringify({
-        input: {
-          image: input.imageUrl,
-          prompt: input.motionPrompt,
-          duration: input.duration,
-          resolution: "1080p",
-          aspect_ratio: input.aspectRatio,
-          fps: 24,
-          camera_fixed: false,
-        },
-      }),
-    },
-  );
-
-  if (res.status === 429 && retries > 0) {
-    const bodyText = await res.text().catch(() => "");
-    let retryAfter = 12;
-    try {
-      const body = JSON.parse(bodyText) as { retry_after?: number };
-      if (typeof body.retry_after === "number") retryAfter = body.retry_after + 2;
-    } catch {
-      const hdr = res.headers.get("retry-after");
-      if (hdr) retryAfter = Number(hdr) || 12;
-    }
-    console.log(`[seedance-create] 429 throttled — waiting ${retryAfter}s before retry (${retries} left)`);
-    await new Promise((r) => setTimeout(r, retryAfter * 1000));
-    return createSeedancePrediction(input, retries - 1);
-  }
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`seedance create ${res.status}: ${detail.slice(0, 300)}`);
-  }
-  const j = (await res.json()) as { id: string };
-  return { predictionId: j.id };
-}
-
-/**
- * 특정 prediction의 현재 상태 + (완료 시) Replicate URL 반환.
- * polling 없이 단발 조회. Kling/Seedance 모두 동일 Replicate prediction API.
- */
-export async function getKlingPredictionStatus(predictionId: string): Promise<{
-  status: ReplicateStatus;
-  outputUrl: string | null;
-  error: string | null;
-}> {
-  const token = process.env.REPLICATE_API_TOKEN;
-  if (!token) throw new Error("REPLICATE_API_TOKEN not set");
-
-  const res = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error(`replicate poll ${res.status}`);
-  const j = (await res.json()) as ReplicatePrediction;
-  const url = j.status === "succeeded"
-    ? (Array.isArray(j.output) ? j.output[0] : j.output)
-    : null;
-  return { status: j.status, outputUrl: url ?? null, error: j.error ?? null };
-}
+const SEEDANCE_2_OWNER = "bytedance";
+const SEEDANCE_2_MODEL = "seedance-2.0";
 
 const POLL_INTERVAL_MS = 3000;
-// 10초 영상은 5초 영상 대비 ~2배 generation 시간 필요 (실측 3-6분).
-// Vercel maxDuration 800s 한도 안쪽으로 770s 잡음 (스토리지 업로드 + TTS
-// 등 후처리 30s 여유). Tier B/C 의 10초 영상도 무리 없이 통과.
-const POLL_TIMEOUT_MS = 770_000;  // 12분 50초
-
-// Kling v1.6 Pro on Replicate — model endpoint format (no version pin
-// needed, Replicate routes to latest stable).
-const KLING_MODEL_OWNER = "kwaivgi";
-const KLING_MODEL_NAME = "kling-v1.6-pro";
-
-// Seedance 1 Pro (ByteDance) — i2v 중 motion handling 최상위 평가.
-// Kling 대비 더 dynamic·cinematic. 가격 $0.65/5초.
-const SEEDANCE_MODEL_OWNER = "bytedance";
-const SEEDANCE_MODEL_NAME = "seedance-1-pro";
-
-export type VideoModelChoice = "kling-stable" | "kling-dynamic" | "seedance-pro";
-
-export const MODEL_PRICING: Record<VideoModelChoice, { perFiveSec: number; perTenSec: number; label: string }> = {
-  "kling-stable": { perFiveSec: 0.5, perTenSec: 1.0, label: "Kling v1.6 Pro (Stable)" },
-  "kling-dynamic": { perFiveSec: 0.5, perTenSec: 1.0, label: "Kling v1.6 Pro (Dynamic, cfg=0.5)" },
-  "seedance-pro": { perFiveSec: 0.65, perTenSec: 1.3, label: "Seedance 1 Pro (ByteDance)" },
-};
+// Seedance 2.0 4K 8초 영상은 5-8분 소요. Vercel maxDuration 800s 한도 안쪽.
+const POLL_TIMEOUT_MS = 770_000;
 
 async function pollPrediction(predictionId: string, token: string): Promise<string> {
   const start = Date.now();
@@ -245,7 +45,7 @@ async function pollPrediction(predictionId: string, token: string): Promise<stri
     pollCount++;
     if (j.status !== lastStatus) {
       console.log(
-        `[kling] ${predictionId.slice(0, 8)} status=${j.status} elapsed=${Math.round((Date.now() - start) / 1000)}s polls=${pollCount}`,
+        `[seedance-2] ${predictionId.slice(0, 8)} status=${j.status} elapsed=${Math.round((Date.now() - start) / 1000)}s polls=${pollCount}`,
       );
       lastStatus = j.status;
     }
@@ -265,86 +65,278 @@ async function pollPrediction(predictionId: string, token: string): Promise<stri
 }
 
 /**
- * Kling 기본 motion prompt — 제품 마케팅 영상의 보편적 카메라 워크
- * (살짝 줌인 + 부드러운 패닝). 사용자가 product/scene 정보 주면
- * specifics 첨가, 없으면 generic하게.
+ * Seedance 2.0 prediction 생성 후 즉시 반환 (polling 없음).
+ * 클라이언트가 GET /api/challenge/video/status 로 polling.
+ *
+ * Seedance 2.0 schema:
+ *   - image (URL or base64)
+ *   - prompt (text)
+ *   - duration (4 / 8 default / -1 intelligent)
+ *   - aspect_ratio ("16:9" / "9:16" / "1:1" / "adaptive")
+ *   - resolution ("480p" / "720p" / "1080p" — Replicate variant)
+ *   - fps (24 default)
+ *   - seed (optional)
+ *
+ * 429 retry-after 자동 재시도 (4회).
  */
-function buildMotionPrompt(productHint?: string): string {
-  const base =
-    "Subtle camera push-in with gentle product reveal. Soft natural lighting, professional product showcase, cinematic quality. No abrupt movements, no text overlays, no people morphing.";
-  if (!productHint) return base;
-  return `${productHint}. ${base}`;
+export async function createSeedance2Prediction(
+  input: {
+    imageUrl: string;
+    motionPrompt: string;
+    duration?: number;
+    aspectRatio?: "16:9" | "9:16" | "1:1";
+    resolution?: "480p" | "720p" | "1080p";
+  },
+  retries = 4,
+): Promise<{ predictionId: string }> {
+  const token = process.env.REPLICATE_API_TOKEN;
+  if (!token) throw new Error("REPLICATE_API_TOKEN not set");
+
+  const duration = input.duration ?? 8;
+  const aspectRatio = input.aspectRatio ?? "16:9";
+  const resolution = input.resolution ?? "1080p";
+
+  console.log(
+    `[seedance-2-create] duration=${duration}s aspect=${aspectRatio} resolution=${resolution} prompt_len=${input.motionPrompt.length} retries_left=${retries}`,
+  );
+
+  const res = await fetch(
+    `https://api.replicate.com/v1/models/${SEEDANCE_2_OWNER}/${SEEDANCE_2_MODEL}/predictions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+        Prefer: "wait=0",
+      },
+      body: JSON.stringify({
+        input: {
+          image: input.imageUrl,
+          prompt: input.motionPrompt,
+          duration,
+          aspect_ratio: aspectRatio,
+          resolution,
+          fps: 24,
+        },
+      }),
+    },
+  );
+
+  if (res.status === 429 && retries > 0) {
+    const bodyText = await res.text().catch(() => "");
+    let retryAfter = 12;
+    try {
+      const body = JSON.parse(bodyText) as { retry_after?: number };
+      if (typeof body.retry_after === "number") retryAfter = body.retry_after + 2;
+    } catch {
+      const hdr = res.headers.get("retry-after");
+      if (hdr) retryAfter = Number(hdr) || 12;
+    }
+    console.log(`[seedance-2-create] 429 throttled — waiting ${retryAfter}s before retry (${retries} left)`);
+    await new Promise((r) => setTimeout(r, retryAfter * 1000));
+    return createSeedance2Prediction(input, retries - 1);
+  }
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`seedance-2 create ${res.status}: ${detail.slice(0, 300)}`);
+  }
+  const j = (await res.json()) as { id: string };
+  return { predictionId: j.id };
 }
 
 /**
- * Smart motion prompt — Claude Haiku로 제품 특성에 맞는 motion 설명
- * 자동 생성. generic "camera push-in"이 아닌 카테고리 적합 카메라 워크.
- * (예: 화장품 → "용기 회전 → 펌프 노즐 클로즈업", 신발 → "측면 패닝 →
- *  바닥창 로우 앵글", 식품 → "포장 클로즈업 → 내용물 reveal")
- *
- * Tier A·B·C 공통 진입점. 비용 ~$0.001-0.003 (Haiku, ~500 토큰).
+ * 특정 prediction의 현재 상태 + (완료 시) Replicate URL 반환.
+ * polling 없이 단발 조회. 모든 Replicate prediction 에 공통 적용.
  */
-export async function generateSmartMotionPrompt(input: {
+export async function getReplicatePredictionStatus(predictionId: string): Promise<{
+  status: ReplicateStatus;
+  outputUrl: string | null;
+  error: string | null;
+}> {
+  const token = process.env.REPLICATE_API_TOKEN;
+  if (!token) throw new Error("REPLICATE_API_TOKEN not set");
+
+  const res = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`replicate poll ${res.status}`);
+  const j = (await res.json()) as ReplicatePrediction;
+  const url = j.status === "succeeded"
+    ? (Array.isArray(j.output) ? j.output[0] : j.output)
+    : null;
+  return { status: j.status, outputUrl: url ?? null, error: j.error ?? null };
+}
+
+// Backward-compat alias — 기존 status route 가 호출하는 이름.
+export const getKlingPredictionStatus = getReplicatePredictionStatus;
+
+/**
+ * 시너지 영상 생성용 promotional video (legacy — Kling polling 동기 호출).
+ * 새 코드는 createSeedance2Prediction + client polling 사용.
+ * legacy import (e.g. 옛 PR 코드) 보호용으로만 유지.
+ */
+export async function generatePromotionalVideo(input: {
+  imageUrl: string;
+  motionPrompt?: string;
+  duration?: 5 | 10;
+  aspectRatio?: "16:9" | "9:16" | "1:1";
+}): Promise<{ replicateUrl: string; durationSec: number; ms: number }> {
+  const token = process.env.REPLICATE_API_TOKEN;
+  if (!token) throw new Error("REPLICATE_API_TOKEN not set");
+  const duration = input.duration ?? 5;
+  const t0 = Date.now();
+  const { predictionId } = await createSeedance2Prediction({
+    imageUrl: input.imageUrl,
+    motionPrompt: input.motionPrompt ?? "Cinematic product showcase, premium quality, hyperreal, 4K.",
+    duration: duration === 10 ? 10 : 8,
+    aspectRatio: input.aspectRatio ?? "16:9",
+  });
+  const replicateUrl = await pollPrediction(predictionId, token);
+  return { replicateUrl, durationSec: duration, ms: Date.now() - t0 };
+}
+
+/**
+ * 영상 prompt 3가지 옵션 자동 제안.
+ *
+ * 입력: 제품 정보 + (선택) 이미지 URL.
+ * 출력: A (럭셔리 오프닝) / B (다이내믹 회전) / C (글로벌 포용성) 3개 옵션.
+ *
+ * 비용 ~$0.005-0.01 (Claude Haiku). 사용자가 이미지 업로드 후 클릭하면
+ * 호출됨. 결과는 그대로 motion_prompt 필드에 복사하여 사용.
+ */
+export async function generateVideoPromptOptions(input: {
   productName?: string;
   productCategory?: string;
   productDescription?: string;
-  sceneHint?: "reveal" | "scenario" | "closeup" | "default";
-  /**
-   * Cinematic mode — boring rotation 대신 dramatic dolly, particle effects,
-   * lighting transition, depth-of-field shift 같은 cinematic 요소 강제.
-   * Kling Dynamic / Seedance 와 함께 쓰면 효과 극대화.
-   */
-  cinematic?: boolean;
-}): Promise<string> {
-  try {
-    const provider = getLLMProvider({ provider: "anthropic", model: "claude-haiku-4-5-20251001" });
-    const scenePresets: Record<string, string> = {
-      reveal: "Scene 1: Product reveal — slow camera approach with elegant lighting transition",
-      scenario: "Scene 2: Lifestyle/usage scenario — product in natural use environment",
-      closeup: "Scene 3: Detail closeup — macro shot highlighting texture/material/key feature",
-      default: "Marketing showcase — single elegant camera move",
-    };
-    const sceneInstr = scenePresets[input.sceneHint ?? "default"];
+  imageUrl?: string;
+}): Promise<{
+  optionA: { title: string; description: string; prompt: string };
+  optionB: { title: string; description: string; prompt: string };
+  optionC: { title: string; description: string; prompt: string };
+}> {
+  const provider = getLLMProvider({ provider: "anthropic", model: "claude-haiku-4-5-20251001" });
 
-    const systemStable =
-      "You are a video director generating concise i2v motion prompts for product marketing. " +
-      "Output a SINGLE English prompt (1-2 sentences, max 200 chars) describing camera movement, " +
-      "lighting, and product behavior. NO text overlay instructions. NO people morphing. " +
-      "Match camera style to product category (cosmetics: bottle rotation + macro pump; " +
-      "footwear: side panning + low-angle sole; food: package closeup + content reveal; " +
-      "electronics: glow + interface highlights; etc.).";
+  const systemPrompt = `당신은 럭셔리 commercial video director 입니다.
+제품 정보를 보고 Seedance 2.0 i2v 모델에 입력할 motion prompt 3가지 옵션을 한국어로 생성합니다.
 
-    const systemCinematic =
-      "You are a CINEMATIC commercial director writing i2v motion prompts for premium product films. " +
-      "Output a SINGLE English prompt (2-3 sentences, max 300 chars) with these MANDATORY elements: " +
-      "(1) DYNAMIC camera move — dramatic dolly-in, parallax track, orbital, or hero crane (NOT static rotation). " +
-      "(2) ATMOSPHERIC effect — backlit particles, soft floating dust, golden lens flare, or volumetric light beam. " +
-      "(3) LIGHTING TRANSITION — color temperature shift, rim light reveal, or shadow-to-spotlight wipe. " +
-      "Style: think Apple/Dyson/Burberry commercial. Premium, cinematic, depth-of-field rich. " +
-      "NO static rotation, NO simple zoom, NO text overlay instructions.";
+⚠️ 각 옵션은 다음 톤 가이드를 엄격히 따릅니다 (Apple/Dyson/Burberry 광고 수준 cinematic).
 
-    const res = await provider.generate({
-      system: input.cinematic ? systemCinematic : systemStable,
-      prompt: `Product: ${input.productName ?? "(unnamed)"}\nCategory: ${input.productCategory ?? "(unspecified)"}\nDescription: ${input.productDescription ?? "(none)"}\nIntent: ${sceneInstr}\n\nOutput the motion prompt only (no JSON, no preamble).`,
-      temperature: input.cinematic ? 0.6 : 0.4,
-      maxTokens: 400,
-    });
-    const text = (res.text ?? "").trim().replace(/^["']|["']$/g, "");
-    if (text.length < 20) {
-      return buildMotionPrompt(input.productName);
-    }
-    return text;
-  } catch (e) {
-    console.warn(`[smart-motion-prompt] fallback to default: ${e instanceof Error ? e.message : e}`);
-    return buildMotionPrompt(input.productName);
-  }
+[옵션 A — 럭셔리 오프닝 (안전·추천)]
+- 시네마틱 매크로 돌리인 샷
+- 제품의 핵심 부분 (뚜껑·로고·디테일) 슬로 reveal
+- 골든 림 라이트 / 광택 표면 반사
+- 럭셔리 에디토리얼 뷰티 광고 톤, 하이퍼리얼, 얕은 피사계 심도
+- 8초, 4K
+
+[옵션 B — 다이내믹 회전 (SNS·숏폼용)]
+- 360도 부드러운 오빗 / 회전 카메라
+- 슬로모션 디테일 효과 (물방울·입자·반사)
+- 강렬한 컬러 팔레트
+- TikTok·Reels 스타일 활기찬 톤, 하이퍼리얼
+- 8초, 4K
+
+[옵션 C — 글로벌 포용성 (수출 바우처·정부 사업 톤)]
+- 천천히 트래킹하는 와이드 샷
+- 다양한 사용·시나리오 swatch 흐름
+- 중앙에서 제품 부드럽게 떠오름·열림
+- 부드러운 데이라이트, 클린·미니멀 에디토리얼
+- 프리미엄 글로벌 광고 무드, 하이퍼리얼
+- 8초, 4K
+
+⚠️ 출력 형식 (JSON only):
+{
+  "optionA": { "title": "럭셔리 오프닝", "description": "1-line 한국어 요약 (~30자)", "prompt": "2-3문장 한국어 prompt (제품명·소재·컬러·카메라·라이팅·무드 포함, 끝에 '하이퍼리얼, 8초, 4K' 명시)" },
+  "optionB": { "title": "다이내믹 회전", "description": "...", "prompt": "..." },
+  "optionC": { "title": "글로벌 포용성", "description": "...", "prompt": "..." }
+}
+
+⚠️ 제약:
+- 한국어로만 출력 (prompt 도 한국어 — Seedance 2.0 한국어 prompt 지원)
+- 제품의 핵심 식별 정보 (브랜드명·컬러·소재) 반드시 포함
+- "정적 회전", "단순 zoom" 같은 보수적 표현 금지`;
+
+  const res = await provider.generate({
+    system: systemPrompt,
+    prompt: `# 제품 정보
+- 제품명: ${input.productName ?? "(미지정)"}
+- 카테고리: ${input.productCategory ?? "(미지정)"}
+- 설명: ${input.productDescription ?? "(없음)"}
+- 이미지 URL: ${input.imageUrl ?? "(미업로드)"}
+
+위 정보로 옵션 A/B/C 3가지 motion prompt 를 JSON 으로 출력.`,
+    temperature: 0.7,
+    maxTokens: 2000,
+    jsonSchema: {
+      type: "object",
+      required: ["optionA", "optionB", "optionC"],
+      properties: {
+        optionA: {
+          type: "object",
+          required: ["title", "description", "prompt"],
+          properties: {
+            title: { type: "string" },
+            description: { type: "string" },
+            prompt: { type: "string" },
+          },
+        },
+        optionB: {
+          type: "object",
+          required: ["title", "description", "prompt"],
+          properties: {
+            title: { type: "string" },
+            description: { type: "string" },
+            prompt: { type: "string" },
+          },
+        },
+        optionC: {
+          type: "object",
+          required: ["title", "description", "prompt"],
+          properties: {
+            title: { type: "string" },
+            description: { type: "string" },
+            prompt: { type: "string" },
+          },
+        },
+      },
+    },
+  });
+
+  const raw = (res.json ?? {}) as {
+    optionA?: { title?: string; description?: string; prompt?: string };
+    optionB?: { title?: string; description?: string; prompt?: string };
+    optionC?: { title?: string; description?: string; prompt?: string };
+  };
+
+  const fallback = (label: string) => ({
+    title: label,
+    description: "AI prompt 생성 실패 — 직접 작성하세요",
+    prompt: `${input.productName ?? "제품"}의 cinematic 광고 영상. 하이퍼리얼, 8초, 4K.`,
+  });
+
+  return {
+    optionA: {
+      title: raw.optionA?.title ?? "럭셔리 오프닝",
+      description: raw.optionA?.description ?? "",
+      prompt: raw.optionA?.prompt ?? fallback("럭셔리 오프닝").prompt,
+    },
+    optionB: {
+      title: raw.optionB?.title ?? "다이내믹 회전",
+      description: raw.optionB?.description ?? "",
+      prompt: raw.optionB?.prompt ?? fallback("다이내믹 회전").prompt,
+    },
+    optionC: {
+      title: raw.optionC?.title ?? "글로벌 포용성",
+      description: raw.optionC?.description ?? "",
+      prompt: raw.optionC?.prompt ?? fallback("글로벌 포용성").prompt,
+    },
+  };
 }
 
 /**
- * OpenAI TTS — 한국어/영어 보이스오버 생성. Tier C 전용.
- * 모델: gpt-4o-mini-tts (2024 출시, multilingual).
- * 비용: $0.015 per 1K char (~30초 보이스오버 = ~150자 = $0.002).
- * 반환: MP3 buffer.
+ * OpenAI TTS — 한국어/영어 보이스오버. Tier C / 영상 결합 사용.
+ * gpt-4o-mini-tts, voice=nova (한국어 자연스러움 양호).
+ * 비용 ~$0.015 per 1K char (~30초 보이스오버 = ~150자 = ~$0.002).
  */
 export async function generateVoiceover(input: {
   text: string;
@@ -397,70 +389,7 @@ export async function persistAudioToStorage(
 }
 
 /**
- * Generate a promotional video clip from a still image.
- *
- * Throws on Replicate failure — caller decides whether to fall back to
- * showing the static image only.
- */
-export async function generatePromotionalVideo(input: {
-  imageUrl: string;
-  motionPrompt?: string;        // 제품 motion 설명 (한국어 또는 영문)
-  duration?: 5 | 10;             // 초 단위 (Kling 지원 옵션)
-  aspectRatio?: "16:9" | "9:16" | "1:1";
-}): Promise<{ replicateUrl: string; durationSec: number; ms: number }> {
-  const token = process.env.REPLICATE_API_TOKEN;
-  if (!token) throw new Error("REPLICATE_API_TOKEN not set");
-
-  const duration = input.duration ?? 5;
-  const aspectRatio = input.aspectRatio ?? "16:9";
-  const prompt = buildMotionPrompt(input.motionPrompt);
-
-  const t0 = Date.now();
-  console.log(
-    `[kling] create duration=${duration}s aspect=${aspectRatio} prompt_len=${prompt.length} image_url=${input.imageUrl.slice(0, 80)}…`,
-  );
-  // Use model endpoint format — Replicate auto-routes to latest version.
-  const createRes = await fetch(
-    `https://api.replicate.com/v1/models/${KLING_MODEL_OWNER}/${KLING_MODEL_NAME}/predictions`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "content-type": "application/json",
-        Prefer: "wait=0",
-      },
-      body: JSON.stringify({
-        input: {
-          prompt,
-          start_image: input.imageUrl,
-          duration,
-          aspect_ratio: aspectRatio,
-          // cfg_scale: 높을수록 prompt + 입력 이미지에 강하게 매여 frame-by-frame
-          // 재해석으로 인한 텍스트/로고 morph가 줄어듦. 0.5 = 자유로움 (글자
-          // 일그러짐 다발), 0.8 = 원본 형태 보존 우선. 응모 데모에서 실제
-          // 제품 packshot 업로드 시 텍스트가 hallucinated되는 문제 해결.
-          cfg_scale: 0.8,
-          negative_prompt:
-            "text deformation, character morphing, letterform distortion, " +
-              "garbled text, illegible writing, smeared letters, fake brand names, " +
-              "watermarks, logos morphing, people morphing, blurry, low quality, distorted, jittery",
-        },
-      }),
-    },
-  );
-  if (!createRes.ok) {
-    const detail = await createRes.text().catch(() => "");
-    throw new Error(`replicate create ${createRes.status}: ${detail.slice(0, 300)}`);
-  }
-  const created = (await createRes.json()) as { id: string };
-  const replicateUrl = await pollPrediction(created.id, token);
-  const ms = Date.now() - t0;
-  return { replicateUrl, durationSec: duration, ms };
-}
-
-/**
- * Mirror Replicate's temp video URL to Supabase Storage so it's
- * permanently servable from our domain (Replicate URLs expire ~24h).
+ * Replicate 출력 URL 은 24h 후 만료. 영상을 Supabase Storage로 즉시 mirror.
  */
 export async function persistVideoToStorage(
   workspaceId: string,

@@ -2,31 +2,31 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getChallengeWorkspaceId } from "@/lib/challenge/context";
 import {
-  createKlingPrediction,
-  createSeedancePrediction,
-  generateSmartMotionPrompt,
+  createSeedance2Prediction,
+  generateVideoPromptOptions,
   generateVoiceover,
   persistAudioToStorage,
-  type VideoModelChoice,
 } from "@/lib/challenge/video";
 import { createServiceClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
-// Tier B/C 는 sequential 생성 (429 회피, 11s 간격 × 3 = ~45s).
-// + TTS ~5s + 기타 → 120s 여유 있게.
-export const maxDuration = 120;
+// Seedance 2.0 prediction create (~5s) + TTS sync (~10s) + DB insert.
+// Polling 은 클라이언트가 GET /status 로 분리.
+export const maxDuration = 60;
 
 const RequestSchema = z.object({
   image_url: z.string().url(),
-  duration: z.union([z.literal(5), z.literal(10)]).optional(),
+  /** 사용자가 직접 작성한 motion prompt. 비어있으면 server 가 자동 제안 A 사용. */
+  motion_prompt: z.string().max(2000).optional(),
+  /** Seedance 2.0 지원 (4 / 8 default / 10). */
+  duration: z.union([z.literal(4), z.literal(5), z.literal(8), z.literal(10)]).optional(),
   aspect_ratio: z.enum(["16:9", "9:16", "1:1"]).optional(),
-  tier: z.enum(["A", "B", "C"]).optional(),
-  /** 영상 생성 모델 선택 (default: kling-stable, 비교 테스트용) */
-  model: z.enum(["kling-stable", "kling-dynamic", "seedance-pro"]).optional(),
-  motion_prompt: z.string().max(500).optional(),
+  resolution: z.enum(["480p", "720p", "1080p"]).optional(),
+  /** Tier C 보이스오버 (선택) — 영상과 동시 생성, 클라이언트에서 합성. */
   voiceover_text: z.string().max(500).optional(),
   voiceover_locale: z.enum(["ko", "en"]).optional(),
   voiceover_voice: z.enum(["alloy", "echo", "nova", "onyx", "shimmer"]).optional(),
+  /** 제품 정보 — motion_prompt 미입력 시 자동 제안에 사용 */
   product_name: z.string().max(200).optional(),
   product_category: z.string().max(100).optional(),
   product_description: z.string().max(1000).optional(),
@@ -34,7 +34,7 @@ const RequestSchema = z.object({
 
 type PredictionRecord = {
   prediction_id: string;
-  scene: "single" | "reveal" | "scenario" | "closeup";
+  scene: "single";
   motion_prompt: string;
   status: "starting" | "processing" | "succeeded" | "failed" | "canceled";
   video_url?: string | null;
@@ -43,12 +43,12 @@ type PredictionRecord = {
 /**
  * POST /api/challenge/video
  *
- * Job 기반 비동기 영상 생성. Replicate prediction 만 즉시 생성하고
- * job_id 반환. 클라이언트는 GET /status?job_id=… 로 polling.
- * Edge proxy idle timeout (6-7분짜리 단일 요청 끊김) 회피.
+ * Seedance 2.0 단일 모델 영상 생성. Job + polling 패턴 — POST 는
+ * prediction 즉시 생성 후 job_id 반환, 클라이언트는 GET /status 로 polling.
  *
- * Tier C 의 TTS 보이스오버는 sync 생성 (~5-10s) — 즉시 voiceover_url
- * 반환. 영상은 백그라운드에서 Replicate가 처리.
+ * motion_prompt 우선순위:
+ *   1. 사용자 입력 motion_prompt
+ *   2. 미입력 시 generateVideoPromptOptions().optionA.prompt (안전 default)
  */
 export async function POST(req: Request) {
   try {
@@ -75,87 +75,57 @@ async function handlePOST(req: Request) {
     );
   }
 
-  const tier = parsed.data.tier ?? "A";
-  const duration = parsed.data.duration ?? 5;
+  const duration = parsed.data.duration ?? 8;
   const aspect = parsed.data.aspect_ratio ?? "16:9";
-  const model: VideoModelChoice = parsed.data.model ?? "kling-stable";
+  const resolution = parsed.data.resolution ?? "1080p";
   const svc = createServiceClient();
 
-  console.log(
-    `[challenge/video] CREATE tier=${tier} duration=${duration} aspect=${aspect} model=${model} ws=${workspaceId.slice(0, 8)}`,
-  );
-
-  // Model dispatcher — Kling stable/dynamic 또는 Seedance.
-  // smart prompt 도 cinematic mode 사용 여부 결정 (dynamic + seedance 는 cinematic).
-  const useCinematic = model !== "kling-stable";
-  const callCreate = async (motionPrompt: string) => {
-    if (model === "seedance-pro") {
-      return createSeedancePrediction({
-        imageUrl: parsed.data.image_url,
-        motionPrompt,
-        duration,
-        aspectRatio: aspect,
-      });
-    }
-    return createKlingPrediction({
-      imageUrl: parsed.data.image_url,
-      motionPrompt,
-      duration,
-      aspectRatio: aspect,
-      dynamic: model === "kling-dynamic",
-    });
-  };
-
-  // 1. Replicate predictions 생성 (Tier B/C 는 sequential)
-  let predictions: PredictionRecord[] = [];
-  if (tier === "A") {
-    const motion =
-      parsed.data.motion_prompt ||
-      (await generateSmartMotionPrompt({
+  // motion_prompt 결정 — 사용자 입력 우선, 미입력 시 AI 제안 A 사용
+  let motionPrompt = parsed.data.motion_prompt?.trim();
+  if (!motionPrompt) {
+    try {
+      const suggested = await generateVideoPromptOptions({
         productName: parsed.data.product_name,
         productCategory: parsed.data.product_category,
         productDescription: parsed.data.product_description,
-        sceneHint: "default",
-        cinematic: useCinematic,
-      }));
-    const r = await callCreate(motion);
-    predictions = [
-      { prediction_id: r.predictionId, scene: "single", motion_prompt: motion, status: "starting" },
-    ];
-  } else {
-    const scenes: Array<"reveal" | "scenario" | "closeup"> = ["reveal", "scenario", "closeup"];
-    // Smart prompts 는 Anthropic 호출이라 parallel OK
-    const motions = await Promise.all(
-      scenes.map((s) =>
-        generateSmartMotionPrompt({
-          productName: parsed.data.product_name,
-          productCategory: parsed.data.product_category,
-          productDescription: parsed.data.product_description,
-          sceneHint: s,
-          cinematic: useCinematic,
-        }),
-      ),
-    );
-    // Replicate prediction 은 sequential — 계정 credit < $5 시 6 req/min +
-    // burst 1 throttle. parallel 보내면 첫번째만 통과하고 나머지 429.
-    // 11초 간격으로 sequential 호출하면 retry 없이 한 번에 통과.
-    predictions = [];
-    for (let i = 0; i < scenes.length; i++) {
-      if (i > 0) await new Promise((r) => setTimeout(r, 11_000));
-      const r = await callCreate(motions[i]);
-      predictions.push({
-        prediction_id: r.predictionId,
-        scene: scenes[i],
-        motion_prompt: motions[i],
-        status: "starting",
+        imageUrl: parsed.data.image_url,
       });
+      motionPrompt = suggested.optionA.prompt;
+      console.log(
+        `[challenge/video] motion_prompt 미입력 → optionA 자동 사용 (${motionPrompt.length}자)`,
+      );
+    } catch (e) {
+      console.warn(`[challenge/video] auto-prompt failed: ${e instanceof Error ? e.message : e}`);
+      motionPrompt = `${parsed.data.product_name ?? "제품"}의 시네마틱 광고 영상. 하이퍼리얼, ${duration}초, 4K.`;
     }
   }
 
-  // 2. Tier C TTS 보이스오버 — sync 생성 (10s 안쪽이라 POST 안에서 처리)
+  console.log(
+    `[challenge/video] CREATE seedance-2.0 duration=${duration}s aspect=${aspect} resolution=${resolution} ws=${workspaceId.slice(0, 8)}`,
+  );
+
+  // Seedance 2.0 prediction 생성 (polling 없음, 즉시 반환)
+  const r = await createSeedance2Prediction({
+    imageUrl: parsed.data.image_url,
+    motionPrompt,
+    duration,
+    aspectRatio: aspect,
+    resolution,
+  });
+
+  const predictions: PredictionRecord[] = [
+    {
+      prediction_id: r.predictionId,
+      scene: "single",
+      motion_prompt: motionPrompt,
+      status: "starting",
+    },
+  ];
+
+  // Tier C — TTS 보이스오버 (선택, sync 생성)
   let voiceoverUrl: string | null = null;
   let voiceoverCostUsd = 0;
-  if (tier === "C" && parsed.data.voiceover_text) {
+  if (parsed.data.voiceover_text) {
     try {
       const vo = await generateVoiceover({
         text: parsed.data.voiceover_text,
@@ -170,12 +140,12 @@ async function handlePOST(req: Request) {
     }
   }
 
-  // 3. Job DB row 생성 → job_id 반환
+  // Job DB row 생성 (tier='A' 고정, 단일 클립)
   const { data: job, error } = await svc
     .from("ch_video_jobs")
     .insert({
       workspace_id: workspaceId,
-      tier,
+      tier: "A",
       duration,
       aspect_ratio: aspect,
       image_url: parsed.data.image_url,
@@ -197,13 +167,14 @@ async function handlePOST(req: Request) {
 
   return NextResponse.json({
     job_id: job.id,
-    tier,
+    model: "seedance-2.0",
     duration,
     aspect_ratio: aspect,
-    model,
+    resolution,
     predictions,
     voiceover_url: voiceoverUrl,
     status: "running",
     created_at: job.created_at,
+    motion_prompt: motionPrompt,
   });
 }
