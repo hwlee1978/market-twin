@@ -212,12 +212,12 @@ OpenAI text-embedding-3-small (1,536d)로 벡터화 후 pgvector 코사인
 거시지표 · KOTRA korCompList · UN Comtrade)로 grounding한 시장분석
 리포트 + 5개국어 × 9-필드 상품기술서
 (subtitle·features·target_audience·brand_story·SEO 포함) + 풍부
-상세페이지 (detail_specs·scenarios·FAQ) + 3-tier × 3-model 영상 (Tier A
-단일 / B 스토리보드 / C +TTS, Model: Kling Stable/Dynamic + Seedance 1
-Pro) 자동 생성. (3) im-not-ai 룰북 자동 후처리로 한국어 AI 글의
-번역체·기계적 구조를 사람 글로 정정. (4) Job + Polling 비동기 아키텍처 +
-Supabase Storage 영구 저장 + ?hash= permalink로 6-8분 long-running 영상
-안정 처리 + 결과 영구 공유.</td>
+상세페이지 (detail_specs·scenarios·FAQ) + Seedance 2.0 (ByteDance 4K
+i2v) 영상 (사용자 motion prompt 직접 입력 + AI 3-옵션 자동 제안:
+럭셔리/다이내믹/글로벌) 자동 생성. (3) im-not-ai 룰북 자동 후처리로
+한국어 AI 글의 번역체·기계적 구조를 사람 글로 정정. (4) Job + Polling
+비동기 아키텍처 + Supabase Storage 영구 저장 + ?hash= permalink로 5-8분
+long-running 영상 안정 처리 + 결과 영구 공유.</td>
 </tr>
 <tr>
 <td><strong>혁신성</strong></td>
@@ -234,11 +234,12 @@ headline·subtitle·tagline·body(400-700자)·bullets·features(5-7)·target_au
 + locale별 톤 가이드(Smartstore/SEO/정중/Shopee/Tmall). ⑦
 <strong>상세페이지 차별화</strong> — detail_specs 표(5-8) +
 usage_scenarios(3-5) + FAQ(3-5) + 배송·환불 boilerplate. ⑧
-<strong>홍보영상 3-tier × 3-model</strong> — Tier A 단일 / Tier B
-3-scene 스토리보드 / Tier C +TTS Nova. Model: Kling Stable / Kling
-Dynamic / Seedance 1 Pro. smart motion prompt (Haiku) cinematic 자동. ⑨
-<strong>Job + Polling 비동기 + 영구 저장</strong> — 6-8분 long-running
-안정, Supabase Storage mirror, ?hash= permalink, 클립별 다운로드.</td>
+<strong>홍보영상 Seedance 2.0 + AI 3-옵션 prompt 제안</strong> —
+ByteDance 4K · multimodal · 8초 default. 사용자가 motion prompt 직접
+입력 가능. AI 가 “럭셔리 오프닝 / 다이내믹 회전 / 글로벌 포용성” 3가지
+옵션 자동 제안 (Apple/Burberry 톤). 미입력 시 옵션 A 자동. ⑨ <strong>Job
++ Polling 비동기 + 영구 저장</strong> — 6-8분 long-running 안정,
+Supabase Storage mirror, ?hash= permalink, 클립별 다운로드.</td>
 </tr>
 <tr>
 <td><strong>가치창출 및 시장성</strong></td>
@@ -298,13 +299,16 @@ Stage 4 (Task 2: 마케팅 콘텐츠 생성)
     · 상세페이지 (e-commerce mockup) — 한국어 풍부 데이터: detail_specs 표
        (소재·사이즈·원산지·인증 등 5-8개) + usage_scenarios (3-5 시나리오)
        + FAQ (3-5) + 배송·환불 boilerplate. ② 기술서와 차별화.
-    · 홍보영상 — 3-tier × 3-model selector (사용자 선택):
-       Tier A 단일 클립 / Tier B 3-scene 스토리보드 (제품 리빌·시나리오·
-       클로즈업) / Tier C +OpenAI TTS Nova 한국어 보이스오버.
-       Model: Kling v1.6 Pro Stable / Kling v1.6 Pro Dynamic (cfg 0.5) /
-       Seedance 1 Pro (ByteDance, cinematic motion).
-       Job + polling 아키텍처로 6-8분 long-running 응답 안정 처리,
-       Supabase Storage 영구 저장, 클립별 다운로드/URL 복사 버튼.
+    · 홍보영상 — Seedance 2.0 (ByteDance, 4K · multimodal · 8초 default)
+       단일 모델. 사용자가 motion prompt 직접 입력 가능. 이미지 + 제품
+       정보 기반으로 AI 가 3가지 prompt 옵션 자동 제안:
+         · 옵션 A 럭셔리 오프닝 (시네마틱 매크로 돌리인, 안전·추천)
+         · 옵션 B 다이내믹 회전 (360 오빗 + 슬로모션, SNS·숏폼)
+         · 옵션 C 글로벌 포용성 (클린 미니멀 트래킹, 수출 바우처 톤)
+       사용자가 옵션 카드 클릭 시 textarea 자동 채움. 미입력 시 옵션 A
+       자동 적용. Duration 4/5/8/10초, Aspect 16:9·9:16·1:1, 한국어 TTS
+       보이스오버 토글. Job + polling 아키텍처로 5-8분 long-running 응답
+       안정 처리, Supabase Storage 영구 저장, 다운로드/URL 복사 버튼.
     ↓
 Stage 5 (Humanize KR 자동 후처리)
     · im-not-ai v2.0 룰북 (40+ AI 패턴) 기반 자체 검증 + 재작성
@@ -459,18 +463,18 @@ AI 알고리즘 및 AI 파운데이션 모델 추진체계</h3>
 <td>im-not-ai 룰북 40+ 패턴 탐지·재작성 + 자가검증</td>
 </tr>
 <tr>
-<td>영상 motion prompt (smart)</td>
+<td>영상 motion prompt 3-옵션 제안</td>
 <td>Anthropic Claude Haiku 4.5</td>
-<td>제품별 자동 cinematic prompt 생성 (~$0.003/회)</td>
+<td>럭셔리·다이내믹·글로벌 3가지 cinematic prompt 자동 (~$0.003/회)</td>
 </tr>
 <tr>
-<td>홍보영상 (3-model 선택)</td>
-<td>Kling v1.6 Pro Stable / Dynamic / Seedance 1 Pro</td>
-<td>사용자 비교 후 선택. Stable=안정, Dynamic=cinematic, Seedance=최상위
-motion</td>
+<td>홍보영상 (단일 모델)</td>
+<td>ByteDance <strong>Seedance 2.0</strong> (Replicate)</td>
+<td>2025 출시. 4K·multimodal·8초 default. 사용자 prompt 우선 / 미입력 시
+옵션 A 자동</td>
 </tr>
 <tr>
-<td>TTS 보이스오버 (Tier C)</td>
+<td>TTS 보이스오버 (선택)</td>
 <td>OpenAI gpt-4o TTS Nova</td>
 <td>한국어 자연스러움 +다국어 지원</td>
 </tr>
@@ -578,10 +582,12 @@ description)</li>
 </ul>
 <p>이제 ② 기술서 = 짧은 카피 (channel-ready), ③ 상세페이지 = 풀 페이지
 스크롤형 명확히 분리.</p>
-<p><strong>⑧ 홍보영상 3-tier × 3-model selector (사용자
-선택)</strong></p>
-<p>홍보영상 콘텐츠는 단일 모델 의존이 아닌 3 tier × 3 model 매트릭스로
-사용자가 직접 선택:</p>
+<p><strong>⑧ Seedance 2.0 + 사용자 prompt + AI 3-옵션 자동
+제안</strong></p>
+<p>홍보영상 콘텐츠는 ByteDance Seedance 2.0 단일 모델 (4K · multimodal ·
+8초 default) — 2025 출시 i2v 모델 중 motion handling 최상위 평가.</p>
+<p><strong>사용자 prompt 직접 입력</strong> + <strong>AI 가 3가지 옵션
+자동 제안</strong> 하이브리드:</p>
 <table>
 <colgroup>
 <col style="width: 33%" />
@@ -590,63 +596,69 @@ description)</li>
 </colgroup>
 <thead>
 <tr>
-<th>Tier</th>
-<th>출력</th>
-<th>비용 (5초/10초)</th>
+<th>옵션</th>
+<th>톤</th>
+<th>사용처</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>A</strong> 단일 클립</td>
-<td>smart motion prompt + 단일 영상</td>
-<td>$0.50 / $1.00</td>
+<td><strong>A — 럭셔리 오프닝</strong></td>
+<td>시네마틱 매크로 돌리인, 골든 림 라이트, 슬로 reveal</td>
+<td>Apple/Burberry 톤 광고. <strong>안전·추천 (default)</strong></td>
 </tr>
 <tr>
-<td><strong>B</strong> 3-scene 스토리보드</td>
-<td>제품 리빌 → 사용 시나리오 → 클로즈업 (sequential)</td>
-<td>$1.50 / $3.00</td>
+<td><strong>B — 다이내믹 회전</strong></td>
+<td>360° 오빗, 슬로모션 디테일, 강렬 컬러 팔레트</td>
+<td>TikTok·Reels 숏폼, SNS 바이럴</td>
 </tr>
 <tr>
-<td><strong>C</strong> + TTS 보이스오버</td>
-<td>Tier B + OpenAI TTS Nova 한국어 음성</td>
-<td>~$1.50 / ~$3.00</td>
+<td><strong>C — 글로벌 포용성</strong></td>
+<td>와이드 트래킹, 다양 사용 시나리오, 클린 미니멀</td>
+<td>수출 바우처·정부 사업 톤, 다양성 강조</td>
 </tr>
 </tbody>
 </table>
+<p>이미지 + 제품 정보 입력 → Claude Haiku 가 위 3개 prompt 한국어로 자동
+생성 (~$0.003). 사용자가 카드 클릭 시 textarea 자동 채움. 미입력 시 옵션
+A 자동 적용.</p>
+<p><strong>Seedance 2.0 비용</strong> (Replicate 기준):</p>
 <table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
 <thead>
 <tr>
-<th>Model</th>
-<th>특징</th>
-<th>추가 비용</th>
+<th>Duration</th>
+<th>비용</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Kling v1.6 Pro Stable</strong></td>
-<td>cfg=0.8, 텍스트 보존 우선, 안정적</td>
-<td>기본</td>
+<td>4초</td>
+<td>$1.20</td>
 </tr>
 <tr>
-<td><strong>Kling v1.6 Pro Dynamic</strong></td>
-<td>cfg=0.5 + cinematic prompt, dramatic motion</td>
-<td>동일</td>
+<td>5초</td>
+<td>$1.50</td>
 </tr>
 <tr>
-<td><strong>Seedance 1 Pro (ByteDance)</strong></td>
-<td>최상위 motion handling, premium feel</td>
-<td>+30%</td>
+<td><strong>8초</strong> (default)</td>
+<td><strong>$2.00</strong></td>
+</tr>
+<tr>
+<td>10초</td>
+<td>$2.50</td>
+</tr>
+<tr>
+<td>+ AI 3-옵션 제안 (Haiku)</td>
+<td>+$0.003</td>
+</tr>
+<tr>
+<td>+ 한국어 TTS 보이스오버 (Nova)</td>
+<td>+$0.005</td>
 </tr>
 </tbody>
 </table>
-<p>Smart motion prompt는 Claude Haiku 4.5가 제품 카테고리·특성을 인식해
-cinematic mode prompt 자동 생성 (Apple/Dyson/Burberry 스타일). 보수적
-“rotation only” 출력 회피.</p>
+<p>Aspect ratio 16:9 / 9:16 / 1:1 모두 지원. resolution 1080p (4K 옵션
+협의).</p>
 <p><strong>⑨ Job + Polling 비동기 아키텍처 + 영구 저장
 (production-ready)</strong></p>
 <p>6-8분짜리 long-running 영상 생성을 단일 HTTP 요청으로 처리하면
@@ -726,10 +738,16 @@ prediction 생성만 후 즉시 <code>job_id</code> 반환</li>
 <td>동일 유지</td>
 </tr>
 <tr>
-<td><strong>Task 2 영상 옵션</strong></td>
-<td>3-tier × 3-model = 9 조합 (Kling Stable/Dynamic + Seedance 1
-Pro)</td>
-<td>사용자 비교 후 default 결정</td>
+<td><strong>Task 2 영상 모델</strong></td>
+<td>Seedance 2.0 (ByteDance, 4K·multimodal) 단일 — 사용자 prompt + AI
+3-옵션 제안 (럭셔리·다이내믹·글로벌)</td>
+<td>동일 유지</td>
+</tr>
+<tr>
+<td><strong>Task 2 영상 prompt 입력 방식</strong></td>
+<td>(1) 사용자 textarea 직접 입력 / (2) AI 옵션 3가지 클릭 선택 / (3)
+미입력 시 자동 옵션 A</td>
+<td>100% 사용자 통제권</td>
 </tr>
 <tr>
 <td><strong>Task 2 비용 (회당, 영상 제외)</strong></td>
@@ -737,9 +755,9 @@ Pro)</td>
 <td>최적화 시 ~$0.15</td>
 </tr>
 <tr>
-<td><strong>Task 2 영상 비용 (5초 기준)</strong></td>
-<td>Tier A $0.50 / Tier B $1.50 / Tier C ~$1.50 (Kling) — Seedance
-+30%</td>
+<td><strong>Task 2 영상 비용 (Seedance 2.0)</strong></td>
+<td>4초 $1.20 / 5초 $1.50 / 8초 $2.00 / 10초 $2.50 (+ AI prompt $0.003,
+TTS $0.005)</td>
 <td>동일</td>
 </tr>
 <tr>
@@ -837,31 +855,28 @@ LLM에 합산)</td>
 <td>$0 (포함)</td>
 </tr>
 <tr>
-<td>Task 2 영상 — <strong>Tier A 5초</strong> (Kling Stable/Dynamic,
-smart Haiku 포함)</td>
-<td>$0.50</td>
+<td>Task 2 영상 prompt — AI 3-옵션 자동 제안 (Claude Haiku, 선택)</td>
+<td>$0.003</td>
 </tr>
 <tr>
-<td>Task 2 영상 — <strong>Tier A 5초</strong> (Seedance 1 Pro)</td>
-<td>$0.65</td>
+<td>Task 2 영상 — <strong>Seedance 2.0 · 4초</strong></td>
+<td>$1.20</td>
 </tr>
 <tr>
-<td>Task 2 영상 — <strong>Tier B 5초 × 3</strong> (스토리보드, Kling
-sequential)</td>
+<td>Task 2 영상 — <strong>Seedance 2.0 · 5초</strong></td>
 <td>$1.50</td>
 </tr>
 <tr>
-<td>Task 2 영상 — <strong>Tier B 5초 × 3</strong> (Seedance)</td>
-<td>$1.95</td>
+<td>Task 2 영상 — <strong>Seedance 2.0 · 8초</strong> (default)</td>
+<td>$2.00</td>
 </tr>
 <tr>
-<td>Task 2 영상 — <strong>Tier C</strong> Tier B + OpenAI TTS Nova
-한국어</td>
+<td>Task 2 영상 — <strong>Seedance 2.0 · 10초</strong></td>
+<td>$2.50</td>
+</tr>
+<tr>
+<td>Task 2 영상 — + 한국어 TTS 보이스오버 (Nova, 선택)</td>
 <td>+$0.005</td>
-</tr>
-<tr>
-<td>Task 2 영상 — <strong>10초 옵션</strong></td>
-<td>× 2 (예: Tier B 10초 $3.00)</td>
 </tr>
 <tr>
 <td>Supabase Storage (영상·이미지·생성물)</td>
@@ -872,22 +887,25 @@ sequential)</td>
 <td><strong>$0.37</strong></td>
 </tr>
 <tr>
-<td><strong>합계 (Tier A 5초 영상 Kling Stable 포함)</strong></td>
-<td><strong>$0.87</strong></td>
-</tr>
-<tr>
-<td><strong>합계 (Tier B 5초 × 3 영상 Kling 포함, 권장)</strong></td>
+<td><strong>합계 (Seedance 2.0 5초 영상 포함)</strong></td>
 <td><strong>$1.87</strong></td>
 </tr>
 <tr>
-<td><strong>합계 (Tier C 5초 × 3 + TTS, 최대)</strong></td>
-<td><strong>$1.88</strong></td>
+<td><strong>합계 (Seedance 2.0 8초 영상 + AI 제안 + TTS,
+권장)</strong></td>
+<td><strong>$2.39</strong></td>
+</tr>
+<tr>
+<td><strong>합계 (Seedance 2.0 10초 영상 + AI 제안 + TTS,
+최대)</strong></td>
+<td><strong>$2.89</strong></td>
 </tr>
 </tbody>
 </table>
 <p>(영상 비용은 회당 1회 호출 기준. 동일 입력 재호출 시 Supabase 영구
-저장으로 LLM·Replicate 호출 비용 0. ?hash= permalink로 무한 재열람
-가능.)</p>
+저장으로 LLM·Replicate 호출 비용 0. ?hash= permalink로 무한 재열람 가능.
+Seedance 2.0은 1 Pro 대비 cinematic motion / 4K resolution 대폭 향상으로
+1.5x 가치 — 외주 영상 30만~100만 원 대비 99.5% 절감.)</p>
 <p><strong>○ 업무효율·성과창출 효과</strong></p>
 <ul>
 <li>외주 비용 대비 4,500배 절감 (300만 원 → $0.67)</li>
