@@ -92,10 +92,14 @@ function admin() {
 
 async function main() {
   const args = process.argv.slice(2);
-  const prefix = args[0];
-  const tier = ((args[1] ?? "hypothesis") as Tier);
+  // CLI flag: --as-of=YYYY-MM-DD backdates anchors (K-beauty methodology
+  // benchmark). Filtered out before positional arg parsing.
+  const asOfArg = args.find((a) => a.startsWith("--as-of="))?.slice("--as-of=".length);
+  const positional = args.filter((a) => !a.startsWith("--"));
+  const prefix = positional[0];
+  const tier = ((positional[1] ?? "hypothesis") as Tier);
   if (!prefix) {
-    console.error("Usage: smoke-ensemble-e2e -- <project_id_prefix> [tier]");
+    console.error("Usage: smoke-ensemble-e2e -- <project_id_prefix> [tier] [--as-of=YYYY-MM-DD]");
     process.exit(1);
   }
   if (!(tier in TIER_PRESETS)) {
@@ -103,6 +107,14 @@ async function main() {
     process.exit(1);
   }
   const preset = TIER_PRESETS[tier];
+  const asOfDate = asOfArg ? new Date(asOfArg) : undefined;
+  const asOfYear = asOfDate && !Number.isNaN(asOfDate.getTime()) ? asOfDate.getUTCFullYear() : undefined;
+  const asOfYyyymm = asOfYear
+    ? { strtYymm: `${asOfYear}01`, endYymm: `${asOfYear}${String(asOfDate!.getUTCMonth() + 1).padStart(2, "0")}` }
+    : undefined;
+  if (asOfYear) {
+    console.log(`Historical anchors as-of ${asOfArg} (year=${asOfYear})`);
+  }
 
   const sb = admin();
   // Lookup project by id prefix. Supabase JS doesn't support text-cast on
@@ -202,6 +214,7 @@ async function main() {
     competitorUrls: project.competitor_urls ?? [],
     assetDescriptions: project.asset_descriptions ?? [],
     assetUrls: project.asset_urls ?? [],
+    asOfDate: asOfArg,
   };
 
   // 3. Run sims with per-provider concurrency cap. Cross-provider runs
@@ -231,7 +244,7 @@ async function main() {
     const { block } = await buildComtradeAnchor(
       projectInput.category,
       projectInput.candidateCountries,
-      { apiKey: process.env.COMTRADE_API_KEY, locale: "ko" },
+      { apiKey: process.env.COMTRADE_API_KEY, locale: "ko", period: asOfYear },
     );
     tradeAnchorBlock = block;
     if (block) {
@@ -252,6 +265,7 @@ async function main() {
     const { block, rows } = await buildWorldBankAnchor(
       projectInput.candidateCountries,
       "ko",
+      asOfYear,
     );
     worldBankBlock = block;
     if (block) {
@@ -280,7 +294,7 @@ async function main() {
         projectInput.category,
         projectInput.candidateCountries,
         hsCodes,
-        { locale: "ko" },
+        { locale: "ko", ...asOfYyyymm },
       );
       if (block) {
         console.log(`Korea Customs anchor: ${rows.length} (HSCode × country) rows`);
@@ -307,7 +321,7 @@ async function main() {
       const { block, financials, region, autoRegion, narrative } = await buildDartFullAnchor(
         slug,
         projectInput.candidateCountries,
-        { locale: "ko" },
+        { locale: "ko", bsnsYear: asOfYear },
       );
       if (block) {
         const rev = financials?.revenueKrw ?? 0;

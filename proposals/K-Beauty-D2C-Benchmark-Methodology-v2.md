@@ -1,8 +1,8 @@
-# K-Beauty D2C 해외 출시 결과 vs Market Twin 시뮬레이션 비교 (v1)
+# K-Beauty D2C 해외 출시 결과 vs Market Twin 시뮬레이션 비교 (v2)
 
-> **Status**: Phase A research + Phase B.1 anchor historization 인프라 완료. Phase B.2 (실제 sim 재런, LLM 비용 발생) pending user authorization.
+> **Status**: Phase A research + Phase B (anchor historization + 3 brand sim 재런) 완료. Hypothesis-tier 1×200 sim with `--as-of YYYY-MM-DD` historical anchor flag. 총 비용 ≈ $12.5 (3 ensemble × ~$4.1).
 >
-> **Document version**: v1 (research + infra; sim 결과 미반영)
+> **Document version**: v2 (sim 결과 반영)
 > **Owner**: ㈜미스터에이아이
 > **Last updated**: 2026-06-03
 
@@ -10,15 +10,17 @@
 
 ## TL;DR
 
-3건의 한국 D2C 뷰티 브랜드 해외 출시 사례를 Market Twin 시뮬레이션 결과와 비교했습니다.
+3건의 한국 D2C 뷰티 브랜드 해외 출시 사례를 Market Twin 시뮬레이션 결과와 비교했습니다. **결과: 1/3 top-1 hit** (BoJ만 일치). 두 holdout brand는 모두 실제와 다른 시장을 1위로 짚었습니다.
 
-| Brand | Calibration 여부 | 실제 Top market | Market Twin 예측 |
-|---|---|---|---|
-| **Anua** | Calibration set | US > JP > UK | _Phase B에서 채움_ |
-| **Tirtir** | **HOLDOUT** (한 번도 fit한 적 없음) | **JP** (2021-2023) → US (2024) | _Phase B에서 채움_ |
-| **Beauty of Joseon** | Calibration set | US (압도) > UK | _Phase B에서 채움_ |
+| Brand | Calibration 여부 | asOfDate | 실제 Top-1 | Market Twin Top-1 (vote share) | Top-1 hit | Actual의 sim 내 순위 |
+|---|---|---|---|---|---|---|
+| **Anua** | **HOLDOUT** | 2021-12-31 | US | **DE** (100%, STRONG) | ❌ | 6/10 |
+| **Tirtir** | **TRUE holdout** (never seen) | 2020-06-30 | **JP** | **CN** (100%, STRONG) | ❌ | 7/10 |
+| **Beauty of Joseon** | TUNING | 2021-12-31 | US | **US** (100%, STRONG) | ✅ | 1/11 |
 
-**투명성 공개**: 3건 중 2건은 우리 calibration corpus에 포함된 브랜드입니다. Tirtir만 한 번도 시뮬 결과에 fit한 적 없는 holdout이며, **JP-first** 라는 비직관적 정답을 짚어내는지가 진짜 test입니다.
+이 결과는 **(1) 우리가 cherry-pick하지 않음** + **(2) 우리 anchor historization이 실제 작동함** + **(3) 유저 trigger 변동(viral moment)을 단일 sim이 예측 못 함** 의 3가지 동시 신호입니다. 자세한 해석은 §4 Limitations.
+
+**투명성 공개**: 3건 중 2건은 holdout, 1건만 TUNING. Anua는 우리 v6-v11 benchmark fixture에 holdout split으로 등록되어 있고, Tirtir는 fixture에 아예 한 번도 등재된 적 없는 진짜 unseen brand입니다. Top-1 hit 1/3은 영업적으로 부담스러운 숫자지만, 정직한 baseline 기록입니다.
 
 ---
 
@@ -75,21 +77,23 @@
 
 시간 cut-off 불가 anchor (Hofstede / MFDS / Tavily / KOTRA snapshot)는 limitation 섹션에 명시.
 
-### 2.5 Calibration corpus 공개
+### 2.5 Calibration corpus 공개 (정정)
 
-| Brand | v1-v11 benchmark fixture 포함? | 의미 |
+v1 초안에서는 Anua를 calibration set으로 기재했으나 실제 ground truth (`validation/ground-truth/anua-heartleaf-toner.json`)를 확인한 결과 **Anua는 HOLDOUT split**입니다. 정정된 분류:
+
+| Brand | v6-v11 benchmark split | 의미 |
 |---|---|---|
-| Anua | Yes (v6 ~ v11) | Anchor 튜닝 시 이 브랜드의 실제 결과 사용됨 |
-| Beauty of Joseon | Yes (v1 ~ v11) | 동일 |
-| Tirtir | **No** | 한 번도 시뮬 결과 평가/튜닝에 사용된 적 없음 |
+| **Anua** | **HOLDOUT** | Ground truth fixture에는 등재되어 있지만 anchor 튜닝에 사용된 적 없음 |
+| **Beauty of Joseon** | TUNING | Anchor weight 튜닝 시 실제 결과를 참조했음 |
+| **Tirtir** | **TRUE holdout (not in fixture)** | Ground truth fixture에 한 번도 등재된 적 없음. anchor도 prompt도 이 brand의 결과를 본 적 없는 진짜 unseen case |
 
-본 문서를 읽는 분께: Tirtir의 결과를 두 calibration case의 "신뢰성 보정선"으로 사용해 주시기 바랍니다. Anua·BoJ가 잘 맞아도 Tirtir가 틀리면 우리 시스템의 일반화 한계를 시사합니다.
+즉 3건 중 **2건이 holdout**입니다. Tirtir는 그중에서도 fixture 등재 자체가 없어 가장 깨끗한 holdout이며, **BoJ만 cushion 효과(tuning 가까운 결과)** 신뢰선 역할입니다.
 
 ---
 
 ## 3. Case Studies
 
-### 3.1 Anua (Calibration set)
+### 3.1 Anua (HOLDOUT)
 
 #### 진출 결정 시점 brand state (~2021 Q4)
 
@@ -108,22 +112,24 @@
 - **채널 시퀀스**: Amazon (2022) → TikTok Shop (2023-24) → Ulta 1,400 stores (2025.2)
 - **출처**: [Herald Biz 2024 매출](https://biz.heraldcorp.com/article/10477661), [Glossy TikTok Shop](https://www.glossy.co/beauty/2024-was-tiktok-shops-beauty-moment/), [WWD Kendall Jenner](https://wwd.com/beauty-industry-news/beauty-features/kendall-jenner-anua-global-ambassador-1238987324/)
 
-#### Market Twin 시뮬레이션 (Phase B 채울 예정)
+#### Market Twin 시뮬레이션 (asOfDate=2021-12-31, ensemble c8d9e61e)
 
-| 평가 | Predicted | Actual | Match |
+| 평가 | Sim 결과 | Actual | Match |
 |---|---|---|---|
-| Top-1 country | _TBD_ | US | _TBD_ |
-| Top-3 ranking | _TBD_ | US, JP, UK | _TBD_ |
-| Persona 주요 demo | _TBD_ | 20-30 여성, 민감성/지성, TikTok 사용자 | _TBD_ |
-| Hero SKU 반응 | _TBD_ | Cleansing Oil > Toner | _TBD_ |
+| Top-1 country | **DE** (vote share 100%, STRONG) | US | ❌ |
+| US의 sim 내 ranking | 6/10 | — | Top-3 miss |
+| Sample 일관성 | DE=72 / 71 / 72 / 71 / 72 (median 70) | — | 모델 내부에서 DE를 일관되게 선호 |
+| Persona slips | voice 1/200, channel 113× rewrite | — | Olive Young 등 한국 채널어 다수 (persona pool 시점 cut-off 안 됨) |
 
-#### Discussion (Phase B 후 채움)
+#### Discussion
 
-_TBD — 시뮬 결과 분석 + miss 케이스 정직 보고_
+Sim의 DE 선택 rationale (synthesis critique 인용): "EU CPNP 미신고 + Flaconi·Douglas 미입점 + 어성초 인지도 zero + CN CFDA 미등록" 4개 HIGH 리스크가 모두 EU 정규 channel 진입을 향한 issue로 framed — 즉 모델은 DE를 **이미 작동하는 채널이 아니라 "다음에 정복할 채널"**로 봄.
+
+**Honest miss 해석**: 2021 Q4 시점 anchor (Comtrade·관세청·World Bank·DART 2021 cutoff)에서 모델은 K-beauty의 통상적 성숙 시장으로 DE를 골랐습니다. 실제 Anua는 **이듬해 미국 TikTok이 폭발하면서 US가 본진**이 되었지만, 그건 2023년 viral 이전 누구도 예측할 수 없던 정보입니다. v6-v11 benchmark에서 Anua는 **HOLDOUT 등록 상태로 calibration에 사용된 적이 없으며**, 그 결과 sim이 K-beauty 통념 ("거의 US")을 기억하지 못하고 2021 시점에서 가장 reasonable해 보인 DE를 골랐습니다 — **anchor historization이 실제로 작동하고 있음**의 정직한 증거.
 
 ---
 
-### 3.2 Tirtir (HOLDOUT — 진짜 테스트)
+### 3.2 Tirtir (TRUE HOLDOUT — never in fixture)
 
 > ⚠️ **이 케이스가 본 문서의 결정타입니다.**
 > Tirtir는 우리 calibration corpus에 한 번도 포함된 적이 없는 brand입니다.
@@ -152,28 +158,24 @@ _TBD — 시뮬 결과 분석 + miss 케이스 정직 보고_
 - **그룹 매출**: 2022 ₩123.7B → 2023 ₩171.9B (+40%) → 2024 ₩273.6B (+68%)
 - **출처**: [코스모닝 2024 공시](https://cosmorning.com/mobile/article.html?no=50298), [AsiaE 2024-08](https://www.asiae.co.kr/en/article/2024081310123751225), [Korea Herald K-Trendsetters](https://www.koreaherald.com/article/10663715)
 
-#### Market Twin 시뮬레이션 (Phase B 채울 예정)
+#### Market Twin 시뮬레이션 (asOfDate=2020-06-30, ensemble 09192578)
 
-| 평가 | Predicted | Actual | Match |
+| 평가 | Sim 결과 | Actual | Match |
 |---|---|---|---|
-| Top-1 country (~2020 Q2 input) | _TBD_ | **Japan** | _TBD — JP면 strong win, US면 honest miss_ |
-| Top-3 ranking | _TBD_ | JP, US, (KR domestic) | _TBD_ |
-| Hero SKU 반응 (cushion in JP) | _TBD_ | Red Cushion viral in JP | _TBD_ |
-| Viral 트리거 예측 가능? | N/A (방법론적으로 불가능) | Darcei 영상 2024.4 | 명시적 N/A |
+| Top-1 country | **CN** (vote share 100%, STRONG) | **JP** | ❌ |
+| JP의 sim 내 ranking | 7/10 | — | Top-3 miss |
+| Sample 일관성 | CN=76 × 7 / CN=73 × 1 (median 69) | — | 모델 내부에서 CN 매우 강하게 선호 |
+| Viral 트리거 (Darcei 2024.4) | N/A (방법론적으로 불가) | 결정타 | sim 평가 범주 외 |
 
-#### 해석 가이드
+#### Discussion (decisive holdout case)
 
-- **If Sim says "Japan #1"**: Market Twin이 naïve "K-beauty=US" stereotype을 깨고 일본 시장 수용성을 짚어냄. Strong evidence of actual market understanding.
-- **If Sim says "US #1"**: 우리 시스템이 K-beauty 통념에 빠진 것. 정직하게 miss로 보고. 단, Top-3에 일본이 포함되어 있다면 부분 cred.
-- **2024 viral 트리거 예측**: 방법론상 불가능. 평가 항목 아님.
+Sim의 CN 선택 rationale: 2020 Q2 시점 anchor에서 **CN은 K-beauty 화장품 export 1위 시장이었고 cushion foundation 카테고리는 중국 럭셔리 부문 강한 수요** — 매우 reasonable한 예측입니다. 하지만 Tirtir는 의외의 카드를 잡았습니다: Lotte 면세점 → Don Quijote 일본 → Qoo10 sale → 4.39M 누적판매 (2023.10). 일본 first 전략은 Tirtir 창업자의 그룹바이 출신 네트워크와 일본 라쿠텐의 인플루언서 driven 매대 구조에 베팅한 것으로, **2020 시점 anchor에 그 신호가 존재하지 않았습니다**.
 
-#### Discussion (Phase B 후 채움)
-
-_TBD_
+**핵심 finding**: 이건 우리 시스템 (또는 어떤 시스템도) "viral moment 예측 불가" 카테고리에 들어가는 case가 아닙니다. 일본 4.39M 누적판매는 Darcei 영상 (2024.4) 훨씬 전 (2023.10) 달성된 매출이기 때문입니다. 즉 Tirtir의 JP-first 성공은 **유저 전략의 결정** 차원이지 viral lottery가 아닙니다. 그럼에도 우리 sim이 JP를 7/10위에 머물게 한 것은 **anchor만으로는 brand-specific 전략적 베팅 (창업자 네트워크·면세점 distribution 등)을 포착할 수 없다**는 분명한 한계 신호입니다. 진짜 잘 맞히려면 brand strategy interview 같은 input 차원이 필요.
 
 ---
 
-### 3.3 Beauty of Joseon (Calibration set)
+### 3.3 Beauty of Joseon (TUNING — calibration set)
 
 #### 진출 결정 시점 brand state (~2021 Q4)
 
@@ -195,23 +197,36 @@ _TBD_
 - **주목할 사실**: Japan/China 시장 거의 무명. Hanbang 포지셔닝이 의외로 SEA 보다 미국에서 작동
 - **출처**: [BoF TikTok 선크림](https://www.businessoffashion.com/articles/beauty/tiktoks-favourite-sunscreen-brand-pushes-further-into-the-us/), [WWD Sephora 입점](https://wwd.com/beauty-industry-news/skin-care/beauty-of-joseon-sephora-launch-1237966876/), [Glossy Sumin Lee 인터뷰](https://www.glossy.co/podcasts/sumin-lee-on-why-beauty-of-joseon-is-blowing-up-in-the-us-before-its-native-korea/)
 
-#### Market Twin 시뮬레이션 (Phase B 채울 예정)
+#### Market Twin 시뮬레이션 (asOfDate=2021-12-31, ensemble 64240569, Dynasty Cream input)
 
-| 평가 | Predicted | Actual | Match |
+| 평가 | Sim 결과 | Actual | Match |
 |---|---|---|---|
-| Top-1 country | _TBD_ | US | _TBD_ |
-| Top-3 ranking | _TBD_ | US, UK, (KR domestic 무시) | _TBD_ |
-| Persona 주요 demo | _TBD_ | 25-40 여성, skincare enthusiast, Reddit/Hyram-style 추종 | _TBD_ |
-| Hero SKU 반응 | _TBD_ | Relief Sun viral, Dynasty Cream 꾸준 | _TBD_ |
-| **Japan/China 비반응 예측?** | _TBD_ | 양 시장 모두 무명 | _TBD — 흥미로운 negative test_ |
+| Top-1 country | **US** (vote share 100%, STRONG) | US | ✅ |
+| US의 sim 내 ranking | 1/11 | — | Top-1 hit |
+| Sample 일관성 | US=71 / 71 / 72 / 71 / 68 (median 68) | — | 모델 일관 US |
+| Persona slips | voice 0/200, channel 11× rewrite | — | 한국 채널어 적음 (BoJ는 한국 인지도 낮아 자연스러움) |
 
-#### Discussion (Phase B 후 채움)
+#### Discussion
 
-_TBD_
+이 케이스가 BoJ의 calibration set 포함 효과를 알 수 있는 신호입니다. BoJ는 우리 v6-v11 benchmark에서 TUNING split이라 anchor weight가 이 brand의 실제 US 1위 결과에 fit되었을 가능성을 배제할 수 없습니다. 그러나 흥미롭게도, 우리가 input한 hero SKU는 **Dynasty Cream** (MFDS 선크림 규제 시간 cut-off 문제로 Relief Sun 의도적 제외) — BoJ가 실제로 viral 된 SKU와 다른 제품입니다. 그런데도 US를 짚었습니다.
+
+이는 두 가지 해석 모두 가능:
+- (a) anchor가 BoJ-US 연결을 학습한 결과 SKU 변경에도 같은 답
+- (b) "한방 + Reddit r/AsianBeauty + 미국 K-beauty 리뷰어 추종" framing이 충분히 US를 가리키는 신호
+
+방법론상으로는 (a) bias 가능성을 인정하고 BoJ를 calibration overlap case로 표시하는 것이 정직합니다. Anua·Tirtir holdout 결과가 더 의미 있는 신호이며, BoJ는 "잘 맞아서 좋다"가 아니라 "calibration set은 잘 맞는다"를 confirm하는 baseline 역할입니다.
 
 ---
 
 ## 4. Limitations & Honest Disclosure
+
+### 4.0 Top-1 hit 1/3 의 정직한 해석
+
+이 결과는 다음 3가지를 동시에 보여줍니다:
+
+1. **Anchor historization이 실제 작동** — Anua는 v6-v11 benchmark에서 current anchor로 US를 짚었습니다. 같은 brand가 2021 anchor에서는 DE를 짚었습니다. 즉 시간 cut-off가 sim output에 진짜 영향을 줍니다 (hindsight 차단 성공).
+2. **Single-sim hypothesis tier의 한계** — 1 sim × 200 personas × Anthropic-only로는 model의 단일 prior가 그대로 결과로 나옵니다. Decision tier (6 sims × 3 providers) 또는 Deep tier (25 sims × 3 providers)에서는 multi-LLM round-robin이 단일 prior bias를 상당히 cancel합니다. 예산 잡고 decision tier 재런 시 결과 크게 달라질 가능성 있음.
+3. **Brand-specific 전략 베팅을 anchor만으로 못 잡음** — Tirtir의 일본 면세점 전략, Anua의 미국 TikTok 베팅 같은 founder-level 결정은 거시 anchor (Comtrade·World Bank 등)에 신호가 없습니다. Brand strategy interview가 input의 일부가 되어야 진짜로 잡을 수 있는 차원.
 
 ### 4.1 n=3은 통계적 유의성 없음
 
@@ -241,6 +256,16 @@ Tirtir는 한 번도 fixture로 사용된 적 없는 holdout이며, **그 결과
 - Macro 경쟁자 출현 (Rare Beauty US, J-beauty 부활, 중국 C-beauty 역공)
 - 단일 viral 영상의 trigger (Darcei, Hyram, Charlotte Palermino 등)
 
+### 4.5 Persona pool 시간 cut-off 안 됨
+
+본 sim의 200개 persona는 우리 production persona pool에서 sampling된 것으로, **persona의 "지식 cut-off"는 현재 시점입니다** (2024-2026). Sim log에서 "Olive Young 1위 제품이면 일단 Amazon에서 $20 긁어요" 같은 발언이 다수 발견 — 이는 2021 시점에 한국인 persona가 보유했을 정보가 아닙니다. Anchor는 historize했지만 persona는 안 됐다는 점이 sim의 가장 약한 link.
+
+해결책: per-asOfDate persona pool 또는 fresh-gen-only mode (pool 비활성화). 비용 증가하지만 더 깨끗한 backtest 가능. v3 도입 후보.
+
+### 4.6 KOTRA HTTP 500 — 외부 API 의존성
+
+3개 sim 모두 KOTRA `natnInfo` 엔드포인트가 HTTP 500을 반환하여 anchor가 비었습니다. KOTRA는 anyway "현재 등록 snapshot"이라 시간 cut-off 불가지만, 정상 작동 시점에는 sim 출력에 영향을 줍니다. 외부 API 의존이 안정성을 떨어뜨립니다.
+
 ---
 
 ## 5. Appendix
@@ -269,12 +294,26 @@ Tirtir는 한 번도 fixture로 사용된 적 없는 holdout이며, **그 결과
 - [Glossy — Sumin Lee podcast](https://www.glossy.co/podcasts/sumin-lee-on-why-beauty-of-joseon-is-blowing-up-in-the-us-before-its-native-korea/)
 - [Fashionista — BoJ US Launch Strategy](https://fashionista.com/2024/11/beauty-of-joseon-k-beauty-skin-care-us-launch-strategy)
 
-### 5.2 시뮬 parameters
+### 5.2 시뮬 parameters (실제 사용된 설정)
 
-- LLM ensemble: Claude (Sonnet) + OpenAI (gpt-4o) + Gemini (2.5 Pro) + DeepSeek
-- Country pool: 24 (KOSIS · BLS · e-Stat + 21 추가 seed)
-- Persona sample: 200 (stratified by income · age · country)
-- Anchor stack: Hofstede + World Bank + DART + Comtrade + KOTRA (Phase F.0)
+- **Tier**: hypothesis (1 sim × 200 personas × Anthropic-only — 가장 저렴, single-sim variance 큼)
+- **LLM**: 
+  - personas: `anthropic/claude-sonnet-4-6`
+  - countries · pricing: `anthropic/claude-haiku-4-5-20251001`
+  - synthesis: `anthropic/claude-sonnet-4-6`
+- **Country pool**: 10 candidates (US/JP/ID/CN/GB/DE/TH/VN/MX/MY)
+- **Persona sample**: 200 (per-country 20 stratified)
+- **Anchor stack 사용**: World Bank ✓ (asOfYear=2021/2020) · UN Comtrade ✓ (period=2021/2020) · 관세청 UNI-PASS ✓ (12-month window) · DART (BoJ만 적용 - Anua·Tirtir 미상장) · KOTRA ✗ (HTTP 500) · Hofstede ✓ (시간 cut-off 불가, 2024 snapshot)
+- **사용 안 한 anchor**: Tavily (live search 비활성화 권장), MFDS (선크림 제외라 무관)
+
+### 5.3 비용·시간 (실측)
+
+| Brand | Wall-clock | LLM tokens (in / out) | Cost |
+|---|---|---|---|
+| Anua | 693.9s | 559.6k / 207.1k | $3.99 |
+| Tirtir | 889.1s | 699.2k / 241.1k | $4.27 |
+| Beauty of Joseon | 821.5s | 575.7k / 221.6k | $4.22 |
+| **합계** | ~13분 (parallel) | ~1.83M / ~669k | **$12.48** |
 
 ### 5.3 재현성
 
