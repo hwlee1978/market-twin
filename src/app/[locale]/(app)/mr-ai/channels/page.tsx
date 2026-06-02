@@ -1,7 +1,7 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Radio } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { ChannelsPanel } from "@/components/mrai/ChannelsPanel";
+import { DispatchChannelsPanel } from "@/components/mrai/DispatchChannelsPanel";
 import { MarketingChannelsPanel } from "@/components/mrai/MarketingChannelsPanel";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ export default async function MrAIChannelsTab({
         iconTone="emerald"
       />
       <MarketingChannelsPanel />
-      <ChannelsPanel locale={safeLocale} />
+      <DispatchChannelsPanel locale={safeLocale} />
     </div>
   );
 }

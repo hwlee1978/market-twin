@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { createServiceClient } from "@/lib/supabase/server";
-import { listChannels, listRecentDispatches } from "@/lib/mrai/channels";
+import { listChannels, listRecentDispatches } from "@/lib/mrai/dispatch-channels";
 
 export const dynamic = "force-dynamic";
 

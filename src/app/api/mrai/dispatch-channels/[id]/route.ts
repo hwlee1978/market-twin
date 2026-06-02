@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { createServiceClient } from "@/lib/supabase/server";
-import { dispatchToChannel, type ChannelRow } from "@/lib/mrai/channels";
+import { dispatchToChannel, type ChannelRow } from "@/lib/mrai/dispatch-channels";
 
 export const dynamic = "force-dynamic";
 

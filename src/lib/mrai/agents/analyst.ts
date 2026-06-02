@@ -1,7 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { loadRelevantMemories, loadWorkspaceMemories, type MemoryRow } from "../memory";
-import { findRelevantSubgraph, type EntityRow, type RelationRow } from "../kg";
-import type { StrategistPlan } from "./strategist";
+import { findRelevantSubgraph, type EntityRow, type RelationRow } from "../memory/kg";
+import type { StrategistPlan } from "./market-strategist";
 
 /**
  * L2 ANALYST — executes the L1 plan. Pure data assembly, no LLM call.

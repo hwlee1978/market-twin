@@ -2,7 +2,7 @@ import { getLLMProvider } from "@/lib/llm";
 import { createServiceClient } from "@/lib/supabase/server";
 import { loadWorkspaceMemories, type MemoryRow } from "./memory";
 import { aggregateRecentFeedback, formatFeedbackForPrompt } from "./feedback";
-import { dispatchToAllChannels } from "./channels";
+import { dispatchToAllChannels } from "./dispatch-channels";
 
 interface SignalRow {
   source: string;
@@ -39,7 +39,8 @@ async function loadActiveSignals(workspaceId: string): Promise<SignalRow[]> {
  * labels, not historical briefing content — re-reads stay stable.
  */
 
-export type Locale = "ko" | "en";
+import type { Locale } from "./types";
+export type { Locale };
 
 const RECENT_CONVERSATIONS = 3;
 const RECENT_TURNS_PER_CONVERSATION = 8;

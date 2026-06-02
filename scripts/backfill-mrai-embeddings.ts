@@ -9,7 +9,7 @@
  * Batches of 64 to stay well under OpenAI's per-request token cap.
  */
 import { createClient } from "@supabase/supabase-js";
-import { embedTexts } from "../src/lib/mrai/embedding";
+import { embedTexts } from "../src/lib/mrai/memory/embedding";
 
 const BATCH_SIZE = 64;
 

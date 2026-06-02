@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { toFile } from "openai/uploads";
 import { createServiceClient } from "@/lib/supabase/server";
-import { getPlatformSpec, type Platform } from "./platform-rules";
+import { getPlatformSpec, type Platform } from "../platform-rules";
 import { compositeLogoOnImage } from "./composite-logo";
 import { detectLogoPlacement } from "./logo-placement";
 import {

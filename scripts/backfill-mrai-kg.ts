@@ -8,7 +8,7 @@
  *   npm run backfill:mrai-kg
  */
 import { createClient } from "@supabase/supabase-js";
-import { saveKgFromTurn } from "../src/lib/mrai/kg";
+import { saveKgFromTurn } from "../src/lib/mrai/memory/kg";
 
 async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

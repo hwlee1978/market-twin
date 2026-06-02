@@ -1,4 +1,4 @@
-import { getPlatformSpec, getSEOWeights, type SEOWeights } from "./platform-rules";
+import { getPlatformSpec, getSEOWeights, type SEOWeights } from "../platform-rules";
 
 /**
  * Heuristic SEO scorer (0-100) per platform. NOT a real Google/Naver

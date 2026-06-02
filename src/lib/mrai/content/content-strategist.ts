@@ -1,6 +1,7 @@
 import { getLLMProvider } from "@/lib/llm";
 import { loadWorkspaceMemories } from "../memory";
-import { findRelevantSubgraph, formatSubgraphForPrompt } from "../kg";
+import { findRelevantSubgraph, formatSubgraphForPrompt } from "../memory/kg";
+import type { Locale } from "../types";
 
 /**
  * Content Strategist — the "CMO Agent" of the Trina pipeline mapped to
@@ -15,7 +16,7 @@ import { findRelevantSubgraph, formatSubgraphForPrompt } from "../kg";
  * agent picks sections one at a time) without having to re-parse markdown.
  */
 
-export type Locale = "ko" | "en";
+export type { Locale };
 
 export interface ContentStrategy {
   pillar: string;

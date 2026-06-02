@@ -1,6 +1,6 @@
 import { getLLMProvider } from "@/lib/llm";
-import { getPlatformSpec } from "./platform-rules";
-import type { Locale } from "./strategist";
+import { getPlatformSpec } from "../platform-rules";
+import type { Locale } from "../types";
 
 /**
  * Persona Reaction Simulator — Sprint 3 of Phase 9.

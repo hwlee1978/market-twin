@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
-import { loadLatestBriefing } from "@/lib/mrai/briefing";
+import { loadLatestBriefing } from "@/lib/mrai/daily-briefing";
 
 export const dynamic = "force-dynamic";
 

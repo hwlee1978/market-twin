@@ -7,7 +7,7 @@
  * onboarding.ts and re-exports these types.
  */
 
-import type { MemoryKind } from "./memory";
+import type { MemoryKind } from "../memory";
 
 export type OnboardingStepId =
   | "business"

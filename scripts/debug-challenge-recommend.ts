@@ -76,7 +76,7 @@ async function main() {
   console.log("Stage 1 — RPC 직접 호출 (query embedding 생성 후)");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-  const { embedSingle } = await import("../src/lib/mrai/embedding");
+  const { embedSingle } = await import("../src/lib/mrai/memory/embedding");
   const queryText = [
     `업종: ${SAMPLE.company.industry}`,
     `지역: ${SAMPLE.company.region}`,

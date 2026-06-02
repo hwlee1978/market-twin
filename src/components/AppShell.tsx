@@ -23,7 +23,7 @@ import { LogoMark } from "./ui/Logo";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { createClient } from "@/lib/supabase/client";
 import type { WorkspaceSummary } from "@/lib/workspace";
-import { MRAI_ENABLED } from "@/lib/mrai/enabled";
+import { MRAI_ENABLED } from "@/lib/mrai/config/enabled";
 
 // Static base nav. The Mr.AI link is conditionally spliced in below
 // based on NEXT_PUBLIC_MRAI_ENABLED so the markettwin.ai (MarketTwin

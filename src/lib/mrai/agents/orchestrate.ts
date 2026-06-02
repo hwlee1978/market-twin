@@ -1,6 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getLLMProvider } from "@/lib/llm";
-import { runStrategist, type Locale, type StrategistPlan } from "./strategist";
+import { runStrategist, type Locale, type StrategistPlan } from "./market-strategist";
 import { runAnalyst, type AnalystEvidence } from "./analyst";
 import { runSynthesizer } from "./synthesizer";
 

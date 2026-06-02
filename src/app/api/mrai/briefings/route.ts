@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
-import { generateBriefing, listBriefings, type Locale } from "@/lib/mrai/briefing";
+import { generateBriefing, listBriefings } from "@/lib/mrai/daily-briefing";
+import type { Locale } from "@/lib/mrai/types";
 import { withLLMContext } from "@/lib/llm-context";
 
 export const dynamic = "force-dynamic";

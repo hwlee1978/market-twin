@@ -1,5 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import { runContentStrategist, type ContentStrategy, type Locale } from "./strategist";
+import { runContentStrategist, type ContentStrategy, type Locale } from "./content-strategist";
 
 /**
  * Content brief lifecycle: create → planning (run strategist) → planned.

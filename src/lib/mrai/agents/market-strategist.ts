@@ -1,4 +1,5 @@
 import { getLLMProvider } from "@/lib/llm";
+import type { Locale } from "../types";
 
 /**
  * L1 STRATEGIST — frames the user's question and decides what evidence
@@ -9,7 +10,7 @@ import { getLLMProvider } from "@/lib/llm";
  * sim, HubSpot deals, calendar, etc.) is just one more boolean.
  */
 
-export type Locale = "ko" | "en";
+export type { Locale };
 
 export interface StrategistPlan {
   /** Semantic-search query for workspace memories; null = skip memory load. */

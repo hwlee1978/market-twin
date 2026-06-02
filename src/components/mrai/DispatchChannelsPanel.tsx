@@ -25,7 +25,7 @@ type Dispatch = {
   dispatched_at: string;
 };
 
-export function ChannelsPanel({ locale }: { locale: "ko" | "en" }) {
+export function DispatchChannelsPanel({ locale }: { locale: "ko" | "en" }) {
   const t = useTranslations("mrai.channels");
   const tField = useTranslations("mrai.channels.field");
   const tType = useTranslations("mrai.channels.type");
@@ -48,7 +48,7 @@ export function ChannelsPanel({ locale }: { locale: "ko" | "en" }) {
   }, [toast]);
 
   async function loadStatus() {
-    const res = await fetch("/api/mrai/channels", { cache: "no-store" });
+    const res = await fetch("/api/mrai/dispatch-channels", { cache: "no-store" });
     if (!res.ok) return;
     const data = (await res.json()) as { channels: Channel[]; dispatches: Dispatch[] };
     setChannels(data.channels);
@@ -58,7 +58,7 @@ export function ChannelsPanel({ locale }: { locale: "ko" | "en" }) {
   async function testChannel(id: string) {
     setBusy(`test-${id}`);
     try {
-      const res = await fetch(`/api/mrai/channels/${id}`, { method: "POST" });
+      const res = await fetch(`/api/mrai/dispatch-channels/${id}`, { method: "POST" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || err.error || "test_failed");
@@ -75,7 +75,7 @@ export function ChannelsPanel({ locale }: { locale: "ko" | "en" }) {
   async function removeChannel(id: string) {
     if (!confirm(t("removeConfirm"))) return;
     setBusy(`del-${id}`);
-    const res = await fetch(`/api/mrai/channels/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/mrai/dispatch-channels/${id}`, { method: "DELETE" });
     if (res.ok) {
       setChannels((prev) => prev.filter((c) => c.id !== id));
     }
@@ -229,7 +229,7 @@ function AddChannelForm({
         : { url: genericUrl };
 
     try {
-      const res = await fetch("/api/mrai/channels", {
+      const res = await fetch("/api/mrai/dispatch-channels", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ channelType, name, config, sendBriefing: true }),

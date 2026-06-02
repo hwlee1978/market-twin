@@ -1,6 +1,6 @@
 import { tavilySearch } from "@/lib/market-research/tavily";
 import { getLLMProvider } from "@/lib/llm";
-import { ONBOARDING_STEPS, type OnboardingStepId } from "./onboarding-spec";
+import { ONBOARDING_STEPS, type OnboardingStepId } from "./config/onboarding-spec";
 import { saveStepAnswer, markOnboardingComplete } from "./onboarding";
 
 /**

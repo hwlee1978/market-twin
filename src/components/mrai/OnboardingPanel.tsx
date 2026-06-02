@@ -18,7 +18,7 @@ import {
   ONBOARDING_STEPS,
   type OnboardingStepId,
   type OnboardingState,
-} from "@/lib/mrai/onboarding-spec";
+} from "@/lib/mrai/config/onboarding-spec";
 
 type ChatItem =
   | { role: "assistant"; stepId: OnboardingStepId; text: string }

@@ -5,7 +5,7 @@ import {
   type OnboardingStep,
   type OnboardingStepId,
   type OnboardingState,
-} from "./onboarding-spec";
+} from "./config/onboarding-spec";
 
 export {
   ONBOARDING_STEPS,

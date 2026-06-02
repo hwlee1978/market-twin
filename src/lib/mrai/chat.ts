@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/server";
+import type { Locale } from "./types";
 import {
   extractMemoriesFromTurn,
   loadRelevantMemories,
@@ -6,7 +7,7 @@ import {
   type MemoryRow,
 } from "./memory";
 import { orchestrate, saveAgentTrace } from "./agents/orchestrate";
-import { saveKgFromTurn } from "./kg";
+import { saveKgFromTurn } from "./memory/kg";
 import {
   proposeSimulation,
   type SimulationProposal,
@@ -38,8 +39,6 @@ export type ChatTurn = {
   /** Optional structured actions attached to assistant messages. */
   actions?: ChatAction[];
 };
-
-export type ChatLocale = "ko" | "en";
 
 export type ChatAction =
   | { type: "simulation_proposal"; payload: SimulationProposal }
@@ -194,7 +193,7 @@ export async function runMrAIChat(input: {
   userId: string;
   conversationId: string | null;
   userMessage: string;
-  locale?: ChatLocale;
+  locale?: Locale;
 }): Promise<{
   conversationId: string;
   assistantMessage: string;
@@ -246,7 +245,7 @@ export async function runMrAIChat(input: {
 
   // 3. Run the 3-Layer Agent orchestrator (Strategist → Analyst → Synthesizer).
   // It auto-bypasses to a single cheap LLM call for trivial greetings.
-  const locale: ChatLocale = input.locale ?? "ko";
+  const locale: Locale = input.locale ?? "ko";
   const orchestrated = await orchestrate({
     workspaceId: input.workspaceId,
     conversationId: convoId,

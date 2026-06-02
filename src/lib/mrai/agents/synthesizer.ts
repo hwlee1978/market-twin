@@ -1,8 +1,8 @@
 import { getLLMProvider } from "@/lib/llm";
 import { formatMemoriesForPrompt } from "../memory";
-import { formatSubgraphForPrompt } from "../kg";
+import { formatSubgraphForPrompt } from "../memory/kg";
 import type { AnalystEvidence } from "./analyst";
-import type { Locale } from "./strategist";
+import type { Locale } from "../types";
 
 /**
  * L3 SYNTHESIZER — writes the user-facing answer from the evidence pack

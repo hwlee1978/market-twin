@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { MRAI_ENABLED } from "@/lib/mrai/enabled";
+import { MRAI_ENABLED } from "@/lib/mrai/config/enabled";
 import { MrAITabs } from "@/components/mrai/MrAITabs";
 
 /**

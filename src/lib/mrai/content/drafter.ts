@@ -1,8 +1,8 @@
 import { getLLMProvider } from "@/lib/llm";
-import { getPlatformSpec } from "./platform-rules";
+import { getPlatformSpec } from "../platform-rules";
 import { scoreSEO } from "./seo-score";
 import { scoreLLMSEO } from "@/lib/mrai/seo/llm-seo-score";
-import type { Locale } from "./strategist";
+import type { Locale } from "../types";
 
 /**
  * Content Drafter — Sprint 2 of Phase 9.

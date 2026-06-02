@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { generateBriefing, type Locale } from "@/lib/mrai/briefing";
+import { generateBriefing } from "@/lib/mrai/daily-briefing";
+import type { Locale } from "@/lib/mrai/types";
 import { withLLMContext } from "@/lib/llm-context";
-import { MRAI_ENABLED } from "@/lib/mrai/enabled";
+import { MRAI_ENABLED } from "@/lib/mrai/config/enabled";
 import { assertCronAuth } from "@/lib/auth/cron-gate";
 
 export const dynamic = "force-dynamic";

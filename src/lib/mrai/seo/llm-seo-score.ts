@@ -19,7 +19,7 @@
  * Total = weighted avg × 100.
  */
 
-import { getPlatformSpec } from "../content/platform-rules";
+import { getPlatformSpec } from "../platform-rules";
 
 export type LLMSEOInput = {
   platform: string;

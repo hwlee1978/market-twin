@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
-import { embedSingle } from "@/lib/mrai/embedding";
+import { embedSingle } from "@/lib/mrai/memory/embedding";
 import { getLLMProvider } from "@/lib/llm";
 
 /**

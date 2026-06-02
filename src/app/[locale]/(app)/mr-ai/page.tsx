@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { loadWorkspaceMemories } from "@/lib/mrai/memory";
 import { listConversations } from "@/lib/mrai/chat";
-import { loadLatestBriefing } from "@/lib/mrai/briefing";
+import { loadLatestBriefing } from "@/lib/mrai/daily-briefing";
 import { loadDashboardKPIs } from "@/lib/mrai/dashboard-kpis";
 import { MrAIChat } from "@/components/mrai/MrAIChat";
 import { BriefingPanel } from "@/components/mrai/BriefingPanel";

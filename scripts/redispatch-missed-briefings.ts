@@ -58,7 +58,7 @@ async function main() {
 
   // Re-call the dispatch logic. Import inline so the script can be
   // run standalone (not via the route bundle).
-  const { dispatchToAllChannels } = await import("@/lib/mrai/channels");
+  const { dispatchToAllChannels } = await import("@/lib/mrai/dispatch-channels");
 
   for (const b of rows) {
     const title =

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { computeTickDelta, daysSince, type TickDelta } from "@/lib/mrai/content/engagement-engine";
-import { MRAI_ENABLED } from "@/lib/mrai/enabled";
+import { MRAI_ENABLED } from "@/lib/mrai/config/enabled";
 import { assertCronAuth } from "@/lib/auth/cron-gate";
 
 export const dynamic = "force-dynamic";
