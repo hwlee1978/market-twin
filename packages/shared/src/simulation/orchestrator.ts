@@ -187,6 +187,27 @@ export async function runEnsembleOrchestration(
   let trendSnippets: TavilyResult[] = [];
   let marginSnippets: TavilyResult[] = [];
   // UN Comtrade trade-flow anchor — Phase E Week 4-5 (2026-05-16).
+  // Backdated anchor support (K-Beauty D2C methodology benchmark, 2026-06-03).
+  // When projectInput.asOfDate is set, anchors fetch historical data instead
+  // of latest. Allows comparing sim to real launch decisions without hindsight
+  // bias. Not all anchors are time-pinnable (Hofstede, MFDS, KOTRA snapshot,
+  // Tavily) — those silently use latest, documented in methodology doc.
+  const asOfDate = projectInput.asOfDate
+    ? new Date(projectInput.asOfDate)
+    : undefined;
+  const asOfYear = asOfDate && !Number.isNaN(asOfDate.getTime())
+    ? asOfDate.getUTCFullYear()
+    : undefined;
+  const asOfYyyymm = asOfYear
+    ? {
+        strtYymm: `${asOfYear}01`,
+        endYymm: `${asOfYear}${String(asOfDate!.getUTCMonth() + 1).padStart(2, "0")}`,
+      }
+    : undefined;
+  if (asOfYear) {
+    console.log(`[ensemble ${ensembleId}] historical anchors as-of ${projectInput.asOfDate} (year=${asOfYear})`);
+  }
+
   // Pre-fetched once per ensemble; same block passed to every sim's
   // country-scoring stage so all 6/25 sims see identical trade evidence.
   // Best-effort: empty string when API down or category lacks HSCode
@@ -197,7 +218,7 @@ export async function runEnsembleOrchestration(
     const { block } = await buildComtradeAnchor(
       projectInput.category,
       projectInput.candidateCountries,
-      { apiKey: process.env.COMTRADE_API_KEY, locale },
+      { apiKey: process.env.COMTRADE_API_KEY, locale, period: asOfYear },
     );
     tradeAnchorBlock = block;
     if (block) {
@@ -218,6 +239,7 @@ export async function runEnsembleOrchestration(
     const { block, rows } = await buildWorldBankAnchor(
       projectInput.candidateCountries,
       locale,
+      asOfYear,
     );
     worldBankBlock = block;
     if (block) {
@@ -241,7 +263,7 @@ export async function runEnsembleOrchestration(
         projectInput.category,
         projectInput.candidateCountries,
         hsCodes,
-        { locale },
+        { locale, ...asOfYyyymm },
       );
       if (block) {
         console.log(`[ensemble ${ensembleId}] Korea Customs anchor: ${rows.length} rows`);
@@ -262,7 +284,7 @@ export async function runEnsembleOrchestration(
       const { block, financials, region, autoRegion, narrative } = await buildDartFullAnchor(
         slug,
         projectInput.candidateCountries,
-        { locale },
+        { locale, bsnsYear: asOfYear },
       );
       if (block) {
         const rev = financials?.revenueKrw ?? 0;

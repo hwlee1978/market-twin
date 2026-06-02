@@ -84,8 +84,18 @@ interface WBSeriesRow {
   country?: { id?: string };
 }
 
-async function fetchOne(countryIso3: string, indicator: string): Promise<{ year: number; value: number } | null> {
-  const url = `${WB_BASE}/country/${countryIso3}/indicator/${indicator}?format=json&per_page=5&MRV=5`;
+async function fetchOne(
+  countryIso3: string,
+  indicator: string,
+  asOfYear?: number,
+): Promise<{ year: number; value: number } | null> {
+  // Historical mode: fetch a 5-year window ending at asOfYear, pick the
+  // most recent non-null within that window. Required by K-Beauty D2C
+  // methodology benchmark to avoid hindsight bias when re-running brand
+  // entry decisions made in 2020-2022.
+  // Default mode: MRV=5 (latest 5 published values).
+  const dateParam = asOfYear ? `date=${asOfYear - 4}:${asOfYear}` : `MRV=5`;
+  const url = `${WB_BASE}/country/${countryIso3}/indicator/${indicator}?format=json&per_page=5&${dateParam}`;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), WB_TIMEOUT_MS);
   try {
@@ -117,6 +127,7 @@ const INDICATORS = {
 
 export async function fetchWorldBankIndicators(
   countryCodes: string[],
+  asOfYear?: number,
 ): Promise<WorldBankIndicators[]> {
   const results: WorldBankIndicators[] = [];
   const pairs = countryCodes
@@ -126,10 +137,10 @@ export async function fetchWorldBankIndicators(
   await Promise.all(
     pairs.map(async ({ iso2, iso3 }) => {
       const [gdpPpp, pop, cons, gdp] = await Promise.all([
-        fetchOne(iso3, INDICATORS.gdpPerCapitaPpp),
-        fetchOne(iso3, INDICATORS.population),
-        fetchOne(iso3, INDICATORS.householdConsumptionPpp),
-        fetchOne(iso3, INDICATORS.gdpUsd),
+        fetchOne(iso3, INDICATORS.gdpPerCapitaPpp, asOfYear),
+        fetchOne(iso3, INDICATORS.population, asOfYear),
+        fetchOne(iso3, INDICATORS.householdConsumptionPpp, asOfYear),
+        fetchOne(iso3, INDICATORS.gdpUsd, asOfYear),
       ]);
       const year = Math.max(
         gdpPpp?.year ?? 0,
@@ -194,7 +205,8 @@ export function renderWorldBankBlock(
 export async function buildWorldBankAnchor(
   candidateCountries: string[],
   locale: "ko" | "en" = "ko",
+  asOfYear?: number,
 ): Promise<{ block: string; rows: WorldBankIndicators[] }> {
-  const rows = await fetchWorldBankIndicators(candidateCountries);
+  const rows = await fetchWorldBankIndicators(candidateCountries, asOfYear);
   return { block: renderWorldBankBlock(rows, locale), rows };
 }

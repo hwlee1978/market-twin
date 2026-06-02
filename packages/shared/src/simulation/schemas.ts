@@ -44,6 +44,18 @@ export const ProjectInputSchema = z.object({
    * is the common case — wizard surfaces an accuracy hint.
    */
   assetUrls: z.array(z.string().url()).default([]),
+  /**
+   * Backdate anchor data to a specific point in time. ISO-8601 date string
+   * (e.g. "2021-12-31"). When set, all time-pinnable anchors (UN Comtrade,
+   * World Bank, Korea Customs, DART) fetch data as of this date — used by
+   * the K-Beauty D2C methodology benchmark to compare against real launch
+   * decisions without hindsight bias. Anchors that cannot be backdated
+   * (Hofstede, MFDS, Tavily, KOTRA snapshot) ignore this and their
+   * limitations are documented in the methodology doc.
+   *
+   * Leave undefined for normal production sims (anchors use latest).
+   */
+  asOfDate: z.string().optional(),
 });
 export type ProjectInput = z.infer<typeof ProjectInputSchema>;
 
