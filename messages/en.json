@@ -481,15 +481,15 @@
       "brandStrategy": {
         "title": "🧭 Brand strategy hints (optional)",
         "openHint": "optional — click to expand",
-        "intro": "K-Beauty D2C benchmark (2026-06-03) showed that brand-specific GTM strategy (founder network, channel priority, KOL relationships) is what macro anchors can't see — but it determines market choice. If you know these, share them — sim becomes more accurate. Leave blank to run with anchors only.",
+        "intro": "Brand-specific detail that macro anchors (population, income, tariff data) can't see. Even one or two lines help. Leaving blank is fine — sim still runs; this is an accuracy boost channel.",
         "founder": {
           "label": "Founder / core team background",
-          "hint": "The founder's network, prior industry, market know-how. Anchor data can't see this — but Tirtir-class outcomes (Japan-first via duty-free) hinge on it.",
-          "placeholder": "e.g. Ex-Japanese luxury distribution / former influencer-marketing operator / US K-beauty reviewer community connections"
+          "hint": "Who is building this brand? Influencer-turned-founder, domain expert, overseas distribution veteran — backgrounds that change market-entry odds.",
+          "placeholder": "e.g. Influencer-founder, group-buy origin (2017) / 15-yr footwear OEM + in-house R&D / Ex-Japanese luxury distribution / US K-beauty reviewer community"
         },
         "channel": {
           "label": "Channel priority",
-          "hint": "Which channel will you enter first? Channel strategy is a strong market-signal.",
+          "hint": "Where you'll sell first, if decided. Strong signal for \"which market fits.\"",
           "none": "— Undecided —",
           "online_first": "Online-first (Amazon, TikTok Shop, D2C)",
           "retail_first": "Retail-first (Sephora, Ulta, Olive Young Global, Watsons)",
@@ -499,8 +499,36 @@
         },
         "kol": {
           "label": "KOL / influencer relationships",
-          "hint": "Existing or in-discussion KOL / influencer / brand ambassador relationships. This is the leading indicator of viral moments.",
-          "placeholder": "e.g. Kendall Jenner endorsement scheduled Q3 2027 / organic Hyram + Charlotte Palermino followings / 5 Japanese top-tier influencers in negotiation"
+          "hint": "Existing / in-discussion influencer relationships, ambassador deals, or organic community followings — leading indicator of viral moments.",
+          "placeholder": "e.g. Founder's own IG 500k + 5 JP TikTok creators in negotiation / Reddit r/AsianBeauty organic mentions / Kendall Jenner endorsement Q3 2027"
+        },
+        "examples": {
+          "title": "📚 See examples — how detailed should this be?",
+          "openHint": "click to expand",
+          "intro": "Three typical archetypes showing the kind of detail that helps the sim. If one resembles your case, click \"Use this example\" to prefill — then edit to fit your brand.",
+          "apply": "📋 Use this example",
+          "applied": "✓ Applied — edit to fit your case",
+          "rowFounder": "Founder",
+          "rowChannel": "Channel",
+          "rowKol": "KOL",
+          "kolNative": {
+            "name": "KOL-native D2C (founder-as-influencer)",
+            "founder": "Influencer-founder started as group-buy in 2017, incorporated 2019. No traditional ATL ad budget. D2C site + domestic Olive Young as anchor channels.",
+            "channel": "online_first",
+            "kol": "Founder's own IG 500k + 5 JP TikTok cosmetic creators in negotiation. US market: Reddit r/AsianBeauty organic mentions starting to surface."
+          },
+          "domainExpert": {
+            "name": "Domain-expert founder (ex-manufacturer)",
+            "founder": "15 years footwear OEM + proprietary merino wool R&D. 3 years running domestic D2C, ~₩200M/month revenue. Now preparing overseas launch.",
+            "channel": "online_first",
+            "kol": "3 Korean clean-celebrity lifestyle influencers under collaboration (vs Allbirds positioning). JP KOL strategy undecided."
+          },
+          "indieOrganic": {
+            "name": "Indie + Western organic following",
+            "founder": "Started 2016 as solo indie, acquired by US D2C distributor in 2019. ~₩100M annual revenue. Minimal Korea domestic marketing.",
+            "channel": "online_first",
+            "kol": "Organic Reddit r/AsianBeauty following + Western K-beauty YouTubers (James Welsh era) covering the brand unsolicited. No paid KOL contracts."
+          }
         }
       },
       "validation": {

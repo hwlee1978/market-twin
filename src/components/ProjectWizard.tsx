@@ -583,6 +583,83 @@ export function ProjectWizard({ locale }: { locale: string }) {
                   />
                   <CharCounter value={form.kolRelationships} min={0} />
                 </Field>
+                <details className="mt-1 border border-dashed border-slate-300 rounded-md bg-white open:bg-slate-50/40">
+                  <summary className="cursor-pointer select-none px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:text-slate-900 flex items-center justify-between">
+                    <span>{tw("brandStrategy.examples.title")}</span>
+                    <span className="text-[10px] text-slate-500 group-open:hidden">
+                      {tw("brandStrategy.examples.openHint")}
+                    </span>
+                  </summary>
+                  <div className="px-2.5 pb-2.5 pt-1.5 space-y-2.5">
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      {tw("brandStrategy.examples.intro")}
+                    </p>
+                    {(
+                      [
+                        "kolNative",
+                        "domainExpert",
+                        "indieOrganic",
+                      ] as const
+                    ).map((slug) => {
+                      const founder = tw(`brandStrategy.examples.${slug}.founder`);
+                      const channel = tw(
+                        `brandStrategy.examples.${slug}.channel`,
+                      ) as FormState["channelPriority"];
+                      const kol = tw(`brandStrategy.examples.${slug}.kol`);
+                      const applied =
+                        form.founderBackground === founder &&
+                        form.channelPriority === channel &&
+                        form.kolRelationships === kol;
+                      return (
+                        <div
+                          key={slug}
+                          className="border border-slate-200 rounded p-2 bg-white text-[11px] leading-relaxed"
+                        >
+                          <div className="font-medium text-slate-800 mb-1">
+                            {tw(`brandStrategy.examples.${slug}.name`)}
+                          </div>
+                          <div className="text-slate-600 space-y-0.5">
+                            <div>
+                              <span className="text-slate-400">
+                                {tw("brandStrategy.examples.rowFounder")}:
+                              </span>{" "}
+                              {founder}
+                            </div>
+                            <div>
+                              <span className="text-slate-400">
+                                {tw("brandStrategy.examples.rowChannel")}:
+                              </span>{" "}
+                              {channel}
+                            </div>
+                            <div>
+                              <span className="text-slate-400">
+                                {tw("brandStrategy.examples.rowKol")}:
+                              </span>{" "}
+                              {kol}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              update("founderBackground", founder);
+                              update("channelPriority", channel);
+                              update("kolRelationships", kol);
+                            }}
+                            className={`mt-1.5 text-[11px] px-2 py-1 rounded border transition ${
+                              applied
+                                ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                                : "border-slate-300 hover:border-slate-400 text-slate-700 hover:bg-slate-100"
+                            }`}
+                          >
+                            {applied
+                              ? tw("brandStrategy.examples.applied")
+                              : tw("brandStrategy.examples.apply")}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </details>
               </div>
             </details>
           </>
