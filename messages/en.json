@@ -465,6 +465,44 @@
         "assetUploads": "Drop mockup images here if you have them. Vision-AI inspects each visual to sharpen the analysis. Either this or URLs below — pick whichever is easier; both work equally.",
         "assetUrls": "Already-hosted CDN / Imgur / Drive URLs (one per line). Identical effect to uploading the file directly. Skip if you uploaded above. URLs must be publicly accessible."
       },
+      "descriptionStrength": {
+        "title": "Description quality",
+        "tipsHeader": "Add these to improve sim accuracy:",
+        "strong": "Concrete enough — sim can leverage your market signals well.",
+        "tips": {
+          "length": "Expand to 80+ characters (include features, differentiators, context).",
+          "channel": "Mention distribution channels (e.g. Amazon, TikTok Shop, Sephora, Olive Young, duty-free, D2C).",
+          "demographic": "Specify target demographic (e.g. 20-30s women, Gen Z, working moms, young professionals).",
+          "audience": "Add audience signals (e.g. Reddit r/AsianBeauty, Hyram followers, K-pop fans, influencer marketing).",
+          "geography": "Regional/cultural positioning (e.g. US market, EU, Southeast Asia, global, Western consumers).",
+          "price_tier": "Price tier (e.g. mass, mid-price, premium, luxury, $20-30, around ₩30,000)."
+        }
+      },
+      "brandStrategy": {
+        "title": "🧭 Brand strategy hints (optional)",
+        "openHint": "optional — click to expand",
+        "intro": "K-Beauty D2C benchmark (2026-06-03) showed that brand-specific GTM strategy (founder network, channel priority, KOL relationships) is what macro anchors can't see — but it determines market choice. If you know these, share them — sim becomes more accurate. Leave blank to run with anchors only.",
+        "founder": {
+          "label": "Founder / core team background",
+          "hint": "The founder's network, prior industry, market know-how. Anchor data can't see this — but Tirtir-class outcomes (Japan-first via duty-free) hinge on it.",
+          "placeholder": "e.g. Ex-Japanese luxury distribution / former influencer-marketing operator / US K-beauty reviewer community connections"
+        },
+        "channel": {
+          "label": "Channel priority",
+          "hint": "Which channel will you enter first? Channel strategy is a strong market-signal.",
+          "none": "— Undecided —",
+          "online_first": "Online-first (Amazon, TikTok Shop, D2C)",
+          "retail_first": "Retail-first (Sephora, Ulta, Olive Young Global, Watsons)",
+          "duty_free_first": "Duty-free-first (Incheon / Japan duty-free, travel retail)",
+          "wholesale_first": "Wholesale-first (B2B distributors)",
+          "omni": "Omni (multi-channel parallel)"
+        },
+        "kol": {
+          "label": "KOL / influencer relationships",
+          "hint": "Existing or in-discussion KOL / influencer / brand ambassador relationships. This is the leading indicator of viral moments.",
+          "placeholder": "e.g. Kendall Jenner endorsement scheduled Q3 2027 / organic Hyram + Charlotte Palermino followings / 5 Japanese top-tier influencers in negotiation"
+        }
+      },
       "validation": {
         "projectName": "Enter a project name",
         "productName": "Enter a product name",

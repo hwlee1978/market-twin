@@ -45,6 +45,91 @@ function languageInstruction(locale: PromptLocale): string {
 const SYSTEM_BASE = `You are AI Market Twin, a B2B platform that simulates consumer behavior across countries to predict product launch outcomes. Your job is to generate realistic, internally consistent synthetic data and scoring that an executive can act on. Be concrete, specific, and avoid generic marketing fluff.`;
 
 /**
+ * v0.2-A brand strategy hints (2026-06-03).
+ *
+ * Macro anchors (Comtrade, World Bank, DART) miss brand-specific GTM
+ * decisions like founder network, channel sequencing, KOL relationships.
+ * When the user supplied these in the wizard, surface them here so the
+ * country-scoring + synthesis stages can weigh them against pure
+ * macro/anchor evidence.
+ *
+ * Returns "" when no hints set — caller string-concats without conditional.
+ *
+ * Labelled as "FROM USER" so the LLM treats them as ground-truth supplied
+ * intent (not anchor-derived inference). Tone hint: prefer these over
+ * generic K-beauty=US priors when they conflict.
+ */
+const CHANNEL_PRIORITY_LABEL: Record<string, { ko: string; en: string }> = {
+  online_first: {
+    ko: "Online-first (Amazon · TikTok Shop · D2C 자사몰 우선)",
+    en: "Online-first (Amazon, TikTok Shop, D2C direct preferred)",
+  },
+  retail_first: {
+    ko: "Retail-first (Sephora · Ulta · Olive Young Global · Watsons 우선)",
+    en: "Retail-first (Sephora, Ulta, Olive Young Global, Watsons preferred)",
+  },
+  duty_free_first: {
+    ko: "Duty-free-first (인천·일본 면세점 · 트레블 리테일 우선)",
+    en: "Duty-free-first (airport / travel retail preferred)",
+  },
+  wholesale_first: {
+    ko: "Wholesale-first (B2B 유통사 · 도매 우선)",
+    en: "Wholesale-first (B2B distributors / wholesale preferred)",
+  },
+  omni: {
+    ko: "Omni (다채널 동시 진입)",
+    en: "Omni (multi-channel parallel entry)",
+  },
+};
+
+function brandStrategyBlock(
+  input: ProjectInput,
+  locale: PromptLocale,
+): string {
+  const bs = input.brandStrategy;
+  if (
+    !bs ||
+    (!bs.founderBackground && !bs.channelPriority && !bs.kolRelationships)
+  ) {
+    return "";
+  }
+  const lines: string[] = [];
+  lines.push(
+    locale === "ko"
+      ? "═══ 브랜드 전략 힌트 (사용자 제공 — anchor 데이터 아님) ═══"
+      : "═══ BRAND STRATEGY HINTS (USER-PROVIDED — not anchor-derived) ═══",
+  );
+  if (bs.founderBackground) {
+    lines.push(
+      locale === "ko"
+        ? `· 창업자·핵심팀 배경: ${bs.founderBackground}`
+        : `· Founder / core team background: ${bs.founderBackground}`,
+    );
+  }
+  if (bs.channelPriority) {
+    const label = CHANNEL_PRIORITY_LABEL[bs.channelPriority];
+    lines.push(
+      locale === "ko"
+        ? `· 채널 우선순위: ${label?.ko ?? bs.channelPriority}`
+        : `· Channel priority: ${label?.en ?? bs.channelPriority}`,
+    );
+  }
+  if (bs.kolRelationships) {
+    lines.push(
+      locale === "ko"
+        ? `· KOL·인플루언서 관계: ${bs.kolRelationships}`
+        : `· KOL / influencer relationships: ${bs.kolRelationships}`,
+    );
+  }
+  lines.push(
+    locale === "ko"
+      ? "사용 지침: 위 힌트는 사용자가 직접 제공한 brand-level 의도/자산입니다. 거시 anchor 데이터 (Comtrade 무역 흐름 · World Bank 거시 지표 등) 와 충돌하면 안 됩니다 — 거시 anchor는 산업 패턴, 위 힌트는 본 brand의 차별화된 전략. 충돌 시 brand-strategy 힌트를 더 중요한 신호로 가중하세요 (e.g. Tirtir-class case: 일본 면세점 활용 founder network → 한국→CN cushion trade flow 1위라도 일본 시장 우위 가능). countryScore에 반영하되 rationale에 출처 명시."
+      : "Usage: the above are user-provided brand-level intent / assets, NOT anchor-derived inference. When they conflict with macro anchors (Comtrade trade flow, World Bank macro indicators), macro anchors describe industry-wide patterns while these hints describe THIS brand's differentiated strategy. Weight brand-strategy hints higher in such conflicts (e.g. Tirtir-class case: duty-free founder network can override the macro 'Korea→CN cushion is #1' signal). Reflect in countryScore and cite the source in rationale.",
+  );
+  return lines.join("\n");
+}
+
+/**
  * Per-category hint for what kinds of professions plausibly buy this category,
  * to fight the LLM's tendency to repeat the same 1-2 archetypes (esp. for KR
  * personas in ko-locale runs, which empirically over-index on student/teacher).
@@ -734,6 +819,8 @@ Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
 Objective: ${input.objective}
 Candidate target markets (ONLY these allowed): ${input.candidateCountries.join(", ")}
 
+${brandStrategyBlock(input, locale)}
+
 ${renderAggregateForPrompt(aggregate, locale)}
 
 ${renderHofstedeTable(input.candidateCountries, locale === "ko" ? "ko" : "en")}
@@ -1032,6 +1119,8 @@ Origin (home market): ${input.originatingCountry}
 RECOMMENDED COUNTRY: ${recommendedCountry}
 Consensus support: ${context.consensusPercent}% of sims · final score ${context.countryFinalScore.toFixed(1)}/100
 
+${brandStrategyBlock(input, context.locale)}
+
 Persona signal (already aggregated from sims) — use as grounding, not output:
   Top objections in ${recommendedCountry}:
 ${objectionsBlock}
@@ -1278,6 +1367,9 @@ Origin (home market): ${input.originatingCountry}
 Product: ${input.productName} (${input.category}) — ${input.description}
 Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
 Objective: ${input.objective}
+
+${brandStrategyBlock(input, locale)}
+
 Country scores (JSON): ${countriesJson}
 Pricing analysis (JSON): ${pricingJson}
 

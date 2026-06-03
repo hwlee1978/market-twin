@@ -12,6 +12,7 @@ import { WIZARD_TEMPLATES } from "@/lib/wizard/templates";
 import type { FormState } from "@/lib/wizard/types";
 import { capture } from "@/lib/analytics/posthog";
 import { detectEchoBias, summarizeEchoBias } from "@/lib/validation/echo-bias-detector";
+import { DescriptionStrengthHint } from "@/components/DescriptionStrengthHint";
 
 const STEPS = ["product", "pricing", "countries", "competitors", "assets", "review"] as const;
 
@@ -94,6 +95,9 @@ export function ProjectWizard({ locale }: { locale: string }) {
     // is needed. ~10× cost saving vs starting at decision tier directly.
     tier: "hypothesis",
     notifyEmail: "",
+    founderBackground: "",
+    channelPriority: "",
+    kolRelationships: "",
   });
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
@@ -387,6 +391,12 @@ export function ProjectWizard({ locale }: { locale: string }) {
           locale,
           assetDescriptions,
           assetUrls,
+          // v0.2-A: brand strategy hints. Send only non-empty values so
+          // the API can skip the DB column entirely when user didn't
+          // open the collapsible section.
+          founderBackground: form.founderBackground.trim() || undefined,
+          channelPriority: form.channelPriority || undefined,
+          kolRelationships: form.kolRelationships.trim() || undefined,
         }),
       });
       if (!res.ok) throw new Error(await parseApiError(res));
@@ -511,8 +521,70 @@ export function ProjectWizard({ locale }: { locale: string }) {
                 onChange={(e) => update("description", e.target.value)}
               />
               <CharCounter value={form.description} min={10} />
+              <DescriptionStrengthHint text={form.description} />
               <EchoBiasWarning text={form.description} />
             </Field>
+            <details className="mt-2 group border border-slate-200 rounded-md bg-slate-50/50 open:bg-white">
+              <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 flex items-center justify-between">
+                <span>{tw("brandStrategy.title")}</span>
+                <span className="text-xs text-slate-500 group-open:hidden">
+                  {tw("brandStrategy.openHint")}
+                </span>
+              </summary>
+              <div className="px-3 pb-3 pt-1 space-y-3 text-sm">
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  {tw("brandStrategy.intro")}
+                </p>
+                <Field
+                  label={tw("brandStrategy.founder.label")}
+                  hint={tw("brandStrategy.founder.hint")}
+                >
+                  <textarea
+                    className="input min-h-[60px] text-sm"
+                    placeholder={tw("brandStrategy.founder.placeholder")}
+                    maxLength={500}
+                    value={form.founderBackground}
+                    onChange={(e) => update("founderBackground", e.target.value)}
+                  />
+                  <CharCounter value={form.founderBackground} min={0} />
+                </Field>
+                <Field
+                  label={tw("brandStrategy.channel.label")}
+                  hint={tw("brandStrategy.channel.hint")}
+                >
+                  <select
+                    className="input"
+                    value={form.channelPriority}
+                    onChange={(e) =>
+                      update(
+                        "channelPriority",
+                        e.target.value as FormState["channelPriority"],
+                      )
+                    }
+                  >
+                    <option value="">{tw("brandStrategy.channel.none")}</option>
+                    <option value="online_first">{tw("brandStrategy.channel.online_first")}</option>
+                    <option value="retail_first">{tw("brandStrategy.channel.retail_first")}</option>
+                    <option value="duty_free_first">{tw("brandStrategy.channel.duty_free_first")}</option>
+                    <option value="wholesale_first">{tw("brandStrategy.channel.wholesale_first")}</option>
+                    <option value="omni">{tw("brandStrategy.channel.omni")}</option>
+                  </select>
+                </Field>
+                <Field
+                  label={tw("brandStrategy.kol.label")}
+                  hint={tw("brandStrategy.kol.hint")}
+                >
+                  <textarea
+                    className="input min-h-[60px] text-sm"
+                    placeholder={tw("brandStrategy.kol.placeholder")}
+                    maxLength={500}
+                    value={form.kolRelationships}
+                    onChange={(e) => update("kolRelationships", e.target.value)}
+                  />
+                  <CharCounter value={form.kolRelationships} min={0} />
+                </Field>
+              </div>
+            </details>
           </>
         )}
 

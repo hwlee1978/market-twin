@@ -24,6 +24,21 @@ const CreateProjectSchema = z.object({
   locale: z.enum(["ko", "en"]).default("ko"),
   assetDescriptions: z.array(z.string()).default([]),
   assetUrls: z.array(z.string().url()).default([]),
+  // v0.2-A brand strategy hints (2026-06-03). All optional — wizard
+  // omits them when collapsible section is unopened. DB columns added
+  // in migration 0069 with matching CHECK constraints (500 char cap,
+  // channel_priority enum).
+  founderBackground: z.string().max(500).optional(),
+  channelPriority: z
+    .enum([
+      "online_first",
+      "retail_first",
+      "duty_free_first",
+      "wholesale_first",
+      "omni",
+    ])
+    .optional(),
+  kolRelationships: z.string().max(500).optional(),
 });
 
 export async function POST(req: Request) {
@@ -89,6 +104,9 @@ export async function POST(req: Request) {
       competitors_resolved: resolved,
       asset_descriptions: input.assetDescriptions,
       asset_urls: input.assetUrls,
+      founder_background: input.founderBackground ?? null,
+      channel_priority: input.channelPriority ?? null,
+      kol_relationships: input.kolRelationships ?? null,
       status: "ready",
     })
     .select("id")

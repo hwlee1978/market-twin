@@ -122,7 +122,7 @@ async function main() {
   const { data: candidates, error: lookupErr } = await sb
     .from("projects")
     .select(
-      "id, workspace_id, product_name, category, description, base_price_cents, currency, objective, originating_country, candidate_countries, competitor_urls, asset_descriptions, asset_urls",
+      "id, workspace_id, product_name, category, description, base_price_cents, currency, objective, originating_country, candidate_countries, competitor_urls, asset_descriptions, asset_urls, founder_background, channel_priority, kol_relationships",
     )
     .order("created_at", { ascending: false })
     .limit(50);
@@ -202,6 +202,22 @@ async function main() {
   }
   await sb.from("projects").update({ status: "running" }).eq("id", project.id);
 
+  // v0.2-A brand strategy hints — only attach when at least one field is
+  // populated (DB columns nullable, schema marks brandStrategy optional).
+  const founderBg = (project as { founder_background?: string | null }).founder_background ?? null;
+  const channelPriority = (project as { channel_priority?: string | null }).channel_priority ?? null;
+  const kolRel = (project as { kol_relationships?: string | null }).kol_relationships ?? null;
+  const brandStrategy =
+    founderBg || channelPriority || kolRel
+      ? {
+          ...(founderBg ? { founderBackground: founderBg } : {}),
+          ...(channelPriority
+            ? { channelPriority: channelPriority as NonNullable<ProjectInput["brandStrategy"]>["channelPriority"] }
+            : {}),
+          ...(kolRel ? { kolRelationships: kolRel } : {}),
+        }
+      : undefined;
+
   const projectInput: ProjectInput = {
     productName: project.product_name,
     category: project.category ?? "other",
@@ -215,6 +231,7 @@ async function main() {
     assetDescriptions: project.asset_descriptions ?? [],
     assetUrls: project.asset_urls ?? [],
     asOfDate: asOfArg,
+    ...(brandStrategy ? { brandStrategy } : {}),
   };
 
   // 3. Run sims with per-provider concurrency cap. Cross-provider runs

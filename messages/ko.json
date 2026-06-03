@@ -465,6 +465,44 @@
         "assetUploads": "시안 이미지가 있다면 여기에 업로드. vision-AI가 실제 시각 자료를 보고 분석을 더 정확하게 합니다. 아래 URL과 둘 중 편한 쪽 — 둘 다 동일한 효과.",
         "assetUrls": "이미 호스팅된 CDN·Imgur·Drive URL (한 줄에 하나). 파일 업로드와 동일한 효과. 위에서 업로드했다면 여기는 비워두면 됩니다. URL은 공개 접근 가능해야 합니다."
       },
+      "descriptionStrength": {
+        "title": "설명 품질",
+        "tipsHeader": "다음을 추가하면 시뮬 정확도가 올라갑니다:",
+        "strong": "충분히 구체적인 설명입니다 — 시뮬이 시장 단서를 잘 활용할 수 있습니다.",
+        "tips": {
+          "length": "설명을 80자 이상으로 늘려주세요 (제품 특징·차별점·맥락 포함).",
+          "channel": "유통 채널 언급 추가 (예: Amazon, TikTok Shop, 올리브영, Sephora, 면세점, D2C).",
+          "demographic": "타깃 demographic 명시 (예: 20-30대 여성, Gen Z, working moms, 직장인).",
+          "audience": "오디언스 신호 추가 (예: Reddit r/AsianBeauty, Hyram 추종, K-pop fan, 인플루언서 마케팅).",
+          "geography": "지역·문화적 positioning (예: 미국 시장, EU, 동남아, 글로벌, Western consumers).",
+          "price_tier": "가격대 명시 (예: mass, mid-price, premium, luxury, ~$20-30, ₩30,000)."
+        }
+      },
+      "brandStrategy": {
+        "title": "🧭 브랜드 전략 힌트 (선택)",
+        "openHint": "선택 — 펼쳐서 추가",
+        "intro": "K-뷰티 D2C benchmark (2026-06-03) 에서 거시 anchor 데이터로는 잡지 못한 brand-specific GTM 전략 (창업자 네트워크·채널 우선순위·KOL 관계) 이 시장 예측의 결정 변수였습니다. 알고 있는 정보가 있다면 입력해 주세요 — 시뮬이 더 정확해집니다. 비워두면 anchor만으로 분석합니다.",
+        "founder": {
+          "label": "창업자·핵심팀 배경",
+          "hint": "창업자가 가진 네트워크·이전 경력·시장 노하우. Tirtir 일본 면세점 진출처럼 anchor 데이터에는 안 보이는 결정적 신호.",
+          "placeholder": "예: 일본 럭셔리 유통 출신 / 인플루언서 마케터 출신 / 미국 K-beauty 리뷰어 커뮤니티 보유"
+        },
+        "channel": {
+          "label": "채널 우선순위",
+          "hint": "어느 채널부터 진입할지 결정되어 있다면 선택. 채널 전략이 시장 선택의 강한 신호.",
+          "none": "— 미정 —",
+          "online_first": "Online-first (Amazon, TikTok Shop, D2C 자사몰)",
+          "retail_first": "Retail-first (Sephora, Ulta, Olive Young Global, Watsons)",
+          "duty_free_first": "Duty-free-first (인천·일본 면세점, 트레블 리테일)",
+          "wholesale_first": "Wholesale-first (B2B 유통사, 도매)",
+          "omni": "Omni (다채널 동시)"
+        },
+        "kol": {
+          "label": "KOL·인플루언서 관계",
+          "hint": "이미 보유 중이거나 협의 중인 KOL·인플루언서·광고 모델. 이게 viral 모멘트 trigger의 사전 신호.",
+          "placeholder": "예: Kendall Jenner endorsement 2027 Q3 예정 / Hyram·Charlotte Palermino 자생 추종 / 일본 토픽 인플루언서 5명 협의 중"
+        }
+      },
       "validation": {
         "projectName": "프로젝트명을 입력하세요",
         "productName": "제품명을 입력하세요",

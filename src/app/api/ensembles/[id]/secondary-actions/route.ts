@@ -67,13 +67,27 @@ export async function POST(
   const { data: project } = await supabase
     .from("projects")
     .select(
-      "name, product_name, category, description, base_price_cents, currency, objective, originating_country, candidate_countries, competitor_urls, asset_descriptions, asset_urls",
+      "name, product_name, category, description, base_price_cents, currency, objective, originating_country, candidate_countries, competitor_urls, asset_descriptions, asset_urls, founder_background, channel_priority, kol_relationships",
     )
     .eq("id", ensemble.project_id)
     .single();
   if (!project) {
     return NextResponse.json({ error: "project not found" }, { status: 404 });
   }
+
+  const founderBg = (project as { founder_background?: string | null }).founder_background ?? null;
+  const channelPriority = (project as { channel_priority?: string | null }).channel_priority ?? null;
+  const kolRel = (project as { kol_relationships?: string | null }).kol_relationships ?? null;
+  const brandStrategy =
+    founderBg || channelPriority || kolRel
+      ? {
+          ...(founderBg ? { founderBackground: founderBg } : {}),
+          ...(channelPriority
+            ? { channelPriority: channelPriority as NonNullable<ProjectInput["brandStrategy"]>["channelPriority"] }
+            : {}),
+          ...(kolRel ? { kolRelationships: kolRel } : {}),
+        }
+      : undefined;
 
   const projectInput: ProjectInput = {
     productName: project.product_name,
@@ -87,6 +101,7 @@ export async function POST(
     competitorUrls: project.competitor_urls ?? [],
     assetDescriptions: project.asset_descriptions ?? [],
     assetUrls: project.asset_urls ?? [],
+    ...(brandStrategy ? { brandStrategy } : {}),
   };
 
   // Pull the secondary's market profile from the sibling map so the

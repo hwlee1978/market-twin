@@ -34,6 +34,9 @@ interface ProjectRow {
   competitor_urls: string[] | null;
   asset_descriptions: string[] | null;
   asset_urls: string[] | null;
+  founder_background: string | null;
+  channel_priority: string | null;
+  kol_relationships: string | null;
 }
 
 function median(xs: number[]): number {
@@ -72,7 +75,8 @@ async function main() {
     const { rows } = await c.query<ProjectRow>(
       `select id::text, workspace_id::text, product_name, category, description,
               base_price_cents, currency, objective, originating_country,
-              candidate_countries, competitor_urls, asset_descriptions, asset_urls
+              candidate_countries, competitor_urls, asset_descriptions, asset_urls,
+              founder_background, channel_priority, kol_relationships
        from public.projects where id::text like $1 limit 1`,
       [`${projectPrefix}%`],
     );
@@ -94,6 +98,21 @@ async function main() {
   console.log(`  Plan:     ${parallel} parallel sims × ${perSim} personas = ${totalPersonas} total`);
   console.log(`${"=".repeat(72)}\n`);
 
+  const brandStrategy =
+    project.founder_background || project.channel_priority || project.kol_relationships
+      ? {
+          ...(project.founder_background ? { founderBackground: project.founder_background } : {}),
+          ...(project.channel_priority
+            ? {
+                channelPriority: project.channel_priority as NonNullable<
+                  ProjectInput["brandStrategy"]
+                >["channelPriority"],
+              }
+            : {}),
+          ...(project.kol_relationships ? { kolRelationships: project.kol_relationships } : {}),
+        }
+      : undefined;
+
   const projectInput: ProjectInput = {
     productName: project.product_name,
     category: project.category,
@@ -106,6 +125,7 @@ async function main() {
     competitorUrls: project.competitor_urls ?? [],
     assetDescriptions: project.asset_descriptions ?? [],
     assetUrls: project.asset_urls ?? [],
+    ...(brandStrategy ? { brandStrategy } : {}),
   };
 
   // Insert N simulation rows up front so they all have valid IDs the runner

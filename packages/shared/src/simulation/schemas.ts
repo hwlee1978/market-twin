@@ -56,6 +56,35 @@ export const ProjectInputSchema = z.object({
    * Leave undefined for normal production sims (anchors use latest).
    */
   asOfDate: z.string().optional(),
+  /**
+   * v0.2-A: Brand strategy hints (2026-06-03).
+   *
+   * Macro anchors (Comtrade, World Bank, DART) capture industry-level
+   * signals but miss brand-specific GTM decisions like founder network,
+   * channel sequencing, KOL relationships. Tirtir-class miss showed
+   * Japan-first strategy was invisible to anchors. These 3 optional
+   * hints are injected into synthesis + country-scoring prompts so the
+   * sim can factor in brand-level intent.
+   *
+   * All fields optional — when undefined, sim runs anchor-only as before.
+   * Field length caps enforced both client-side and via DB CHECK constraint
+   * (migration 0069).
+   */
+  brandStrategy: z
+    .object({
+      founderBackground: z.string().max(500).optional(),
+      channelPriority: z
+        .enum([
+          "online_first",
+          "retail_first",
+          "duty_free_first",
+          "wholesale_first",
+          "omni",
+        ])
+        .optional(),
+      kolRelationships: z.string().max(500).optional(),
+    })
+    .optional(),
 });
 export type ProjectInput = z.infer<typeof ProjectInputSchema>;
 

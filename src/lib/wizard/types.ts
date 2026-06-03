@@ -52,4 +52,20 @@ export interface FormState {
   tier: "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro";
   /** Optional email for completion notification (deep tier 30+ min). */
   notifyEmail: string;
+  /**
+   * v0.2-A brand strategy hints (2026-06-03). All optional — anchor-only
+   * sim when empty. Surfaced in wizard via collapsible section below
+   * description. Schema mirrors ProjectInputSchema.brandStrategy + DB
+   * columns (migration 0069). UI enforces 500-char cap matching the
+   * server-side CHECK constraint.
+   */
+  founderBackground: string;
+  channelPriority:
+    | ""
+    | "online_first"
+    | "retail_first"
+    | "duty_free_first"
+    | "wholesale_first"
+    | "omni";
+  kolRelationships: string;
 }
