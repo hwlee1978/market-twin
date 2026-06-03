@@ -34,9 +34,13 @@ import type {
 // they're dev-only variants exercising multi-LLM cheaply.
 const TIER_PRESETS = {
   hypothesis: {
-    parallelSims: 1,
+    // 2026-06-04: synced to orchestrator's 3-sim × multi-LLM upgrade
+    // (2026-05-20 production change). Previously this CLI mirror stayed
+    // at 1×anthropic-only, which produced misleading "hypothesis"
+    // baselines for backtests vs. real users on the web UI.
+    parallelSims: 3,
     perSimPersonas: 200,
-    llmProviders: ["anthropic"] as const,
+    llmProviders: ["anthropic", "openai", "deepseek"] as const,
   },
   decision: {
     parallelSims: 6,
