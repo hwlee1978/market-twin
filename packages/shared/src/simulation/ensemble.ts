@@ -1033,50 +1033,57 @@ export function aggregateEnsemble(
   // v0.2-C (2026-06-04): defensive origin filter at the ensemble winner
   // step. Per-sim synthesisPrompt has a "bestCountry != origin" rule but
   // benchmark + K-Beauty backtest (Tirtir) both showed LLMs sometimes
-  // violate it — synthesis returns bestCountry=KR despite KR being origin,
-  // and the country stage scores origin as just another candidate. When
-  // multiple sims violate the rule, the median-rank picker also collapses
-  // to origin (KR 67% MODERATE on Tirtir even though brand actually
-  // launched JP).
-  //
-  // Defensive fix: when ranking for the ensemble winner, exclude the
-  // origin row. Origin still appears in countryStats / bestCountryDistribution
-  // for transparency (user can see "KR scored 78 — domestic baseline").
-  // Fallback: when the candidate list is origin-only (no export markets),
-  // keep origin as winner so we don't return "?".
+  // violate it. Excluding origin at the aggregator level is the safest fix.
+  // Origin still appears in countryStats / bestCountryDistribution.
   const originUpper = opts.originatingCountry?.toUpperCase() ?? null;
   const exportRanking = originUpper
     ? meanRanking.filter((m) => m.country.toUpperCase() !== originUpper)
     : meanRanking;
-  const phaseEWinnerCountry =
+  const meanRankWinner =
     exportRanking[0]?.country ?? meanRanking[0]?.country ?? null;
-  // v0.2-D (2026-06-04): replace top3-hit confidence with top-1 vote share
-  // among export markets. Old metric overstated certainty — Tirtir test:
-  // 3 sims picked JP/US/CN respectively as top-1, yet US was in all 3 sims'
-  // top-3 → top3Hit confidence = 100% STRONG even though only 1/3 sims
-  // actually agreed US was the recommendation. New metric counts how many
-  // sims' top EXPORT pick matches the ensemble winner — directly reflects
-  // inter-sim agreement.
-  //
-  // top3Hits is kept as a diagnostic field (top3HitRate) for backward
-  // compatibility + dashboards that want to show "X countries appeared in
-  // every sim's top-3 list" as a separate signal.
+
+  // Per-sim top EXPORT pick (origin excluded). Drives both the
+  // confidence metric (v0.2-D) and the vote-share-priority winner
+  // (v0.2-E). Computed once + reused.
   let top3Hits = 0;
-  let top1Agreements = 0;
+  const voteTally = new Map<string, number>();
   for (const s of sims) {
     const sorted = [...s.countries].sort((a, b) => b.finalScore - a.finalScore);
     const top3 = sorted.slice(0, 3).map((c) => c.country.toUpperCase());
-    if (phaseEWinnerCountry && top3.includes(phaseEWinnerCountry)) top3Hits++;
+    if (meanRankWinner && top3.includes(meanRankWinner)) top3Hits++;
     const simTopExport = originUpper
       ? sorted.find((c) => c.country.toUpperCase() !== originUpper)
       : sorted[0];
-    if (
-      phaseEWinnerCountry &&
-      simTopExport?.country?.toUpperCase() === phaseEWinnerCountry
-    ) {
-      top1Agreements++;
-    }
+    const code = simTopExport?.country?.toUpperCase();
+    if (code) voteTally.set(code, (voteTally.get(code) ?? 0) + 1);
   }
+  const voteDistribution = [...voteTally.entries()]
+    .map(([country, count]) => ({ country, count }))
+    .sort((a, b) => b.count - a.count);
+  const voteWinner = voteDistribution[0] ?? null;
+  const voteWinnerShare =
+    voteWinner && simCount > 0 ? voteWinner.count / simCount : 0;
+
+  // v0.2-E (2026-06-04): vote-share-priority winner picker. When a
+  // candidate has plurality top-1 (≥50% sims agree), it wins — respects
+  // democratic intent. Otherwise fall back to mean-rank (current
+  // behaviour). Addresses Tirtir-class miss: 2/3 sims clearly picked JP
+  // as their #1, but mean-rank picker chose US (consistent rank 2-3
+  // across all sims) because anthropic sim's low JP rank dragged JP's
+  // mean down. Classic mean-vs-median outlier sensitivity in voting
+  // aggregation. Vote-share priority resolves it without changing
+  // mean-rank for genuinely-split ensembles.
+  const phaseEWinnerCountry =
+    voteWinnerShare >= 0.5 && voteWinner
+      ? voteWinner.country
+      : meanRankWinner;
+
+  // v0.2-D confidence = top-1 vote share for the chosen winner. Honest
+  // metric: counts sims whose top export = ensemble winner. Tirtir's
+  // 3-way split now shows ≤33% WEAK instead of misleading 100% STRONG.
+  const top1Agreements = phaseEWinnerCountry
+    ? voteTally.get(phaseEWinnerCountry) ?? 0
+    : 0;
   const winner = phaseEWinnerCountry
     ? {
         country: phaseEWinnerCountry,
@@ -1086,7 +1093,7 @@ export function aggregateEnsemble(
     : bestCountryDistribution[0];
   const consensusPercent = winner ? Math.round((winner.count / simCount) * 100) : 0;
   // Threshold change: 80/50 (top3-hit era) → 66/40 (top-1 agreement era).
-  // 3-sim ensemble: 2/3 (67%) = STRONG, 1/3 (33%) = WEAK. 6-sim: 4/6 ≥ 66%.
+  // 3-sim: 2/3 (67%) = STRONG, 1/3 (33%) = WEAK. 6-sim: 4/6 ≥ 66%.
   const confidence: "STRONG" | "MODERATE" | "WEAK" =
     consensusPercent >= 66 ? "STRONG" : consensusPercent >= 40 ? "MODERATE" : "WEAK";
 
