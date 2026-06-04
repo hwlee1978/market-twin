@@ -35,6 +35,7 @@ import {
 } from "@/lib/decision-aid/stress-scenarios";
 import { BackToTop } from "@/components/ui/BackToTop";
 import { HelpModal } from "@/components/ui/HelpModal";
+import { OutcomeFeedbackCTA } from "@/components/outcomes/OutcomeFeedbackCTA";
 import {
   BestCountryPieChart,
   CountryIntentChart,
@@ -1091,6 +1092,14 @@ function EnsembleDashboard({
         </div>
         <div className="flex flex-col items-stretch sm:items-end gap-1 shrink-0">
           <div className="flex flex-wrap items-center gap-2">
+            <OutcomeFeedbackCTA
+              projectId={projectId}
+              recommendationCountry={recommendation.country ?? null}
+              recommendationConfidence={
+                (recommendation.confidence as "STRONG" | "MODERATE" | "WEAK" | undefined) ?? null
+              }
+              locale={locale}
+            />
             <button
               type="button"
               onClick={() => setWelcomeOpen(true)}
