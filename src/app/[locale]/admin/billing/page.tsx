@@ -2,6 +2,7 @@ import { setRequestLocale } from "next-intl/server";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { createServiceClient } from "@/lib/supabase/server";
 import { formatCentsUsd } from "@/lib/llm/cost";
+import { getBillingReadiness } from "@/lib/billing/readiness";
 
 interface SimRow {
   id: string;
@@ -13,6 +14,69 @@ interface SimRow {
   started_at: string | null;
   status: string;
   model_provider: string | null;
+}
+
+// Inline label map for the billing-readiness panel. Lives in the page
+// file (not the shared messages/{ko,en}.json) because the admin surface
+// is operator-only and bi-lingual via a simple ternary is enough — adding
+// 30+ keys to the project's main i18n catalog would just bloat it.
+function billingReadinessLabels(isKo: boolean) {
+  return {
+    title: isKo ? "🟢 결제 가동 준비 상태" : "🟢 Billing activation readiness",
+    subtitle: isKo
+      ? "Stripe·Toss 환경변수와 dashboard 액션 상태. 모든 항목 ✓ 면 paid signup 가동 가능."
+      : "Stripe / Toss env-var presence + dashboard action status. All ✓ = paid signup can be enabled.",
+    overallOk: isKo ? "✓ 모든 항목 준비 완료" : "✓ All checks passing",
+    overallWarning: isKo ? "⚠ 일부 항목 경고" : "⚠ Some warnings",
+    overallMissing: isKo ? "✗ 미완료 항목 있음" : "✗ Missing items",
+    groups: {
+      stripe: isKo ? "Stripe (USD 결제)" : "Stripe (USD)",
+      toss: isKo ? "Toss Payments (KRW 결제)" : "Toss Payments (KRW)",
+      gate: isKo ? "Signup 활성 게이트" : "Signup activation gate",
+    } as Record<string, string>,
+    items: {
+      "stripe.secret": isKo ? "Stripe Secret Key" : "Stripe Secret Key",
+      "stripe.webhook": isKo ? "Stripe Webhook Secret" : "Stripe Webhook Secret",
+      "stripe.price.starterMonthly": isKo ? "Starter 월간 Price ID" : "Starter monthly price ID",
+      "stripe.price.starterAnnual": isKo ? "Starter 연간 Price ID" : "Starter annual price ID",
+      "stripe.price.validatorMonthly": isKo
+        ? "Validator 월간 Price ID"
+        : "Validator monthly price ID",
+      "stripe.price.validatorAnnual": isKo
+        ? "Validator 연간 Price ID"
+        : "Validator annual price ID",
+      "stripe.price.growthMonthly": isKo ? "Growth 월간 Price ID" : "Growth monthly price ID",
+      "stripe.price.growthAnnual": isKo ? "Growth 연간 Price ID" : "Growth annual price ID",
+      "toss.secret": isKo ? "Toss Secret Key" : "Toss Secret Key",
+      "toss.client": isKo
+        ? "Toss Client Key (public — 브라우저 노출)"
+        : "Toss Client Key (public — browser-exposed)",
+      "toss.webhook": isKo ? "Toss Webhook Secret" : "Toss Webhook Secret",
+      "gate.signup": isKo
+        ? "NEXT_PUBLIC_SIGNUP_ENABLED=true"
+        : "NEXT_PUBLIC_SIGNUP_ENABLED=true",
+    } as Record<string, string>,
+    checklistTitle: isKo
+      ? "Dashboard 수동 액션 체크리스트"
+      : "Manual dashboard checklist",
+    checklist: {
+      "checklist.stripeProducts": isKo
+        ? "Stripe Dashboard → 3개 product 생성 (Starter / Validator / Growth)"
+        : "Stripe Dashboard → create 3 products (Starter / Validator / Growth)",
+      "checklist.stripePrices": isKo
+        ? "각 product에 monthly + annual price 생성 (총 6개) → Price ID를 Vercel env 에 복사"
+        : "Create monthly + annual price per product (6 total) → paste Price IDs into Vercel env",
+      "checklist.stripeWebhook": isKo
+        ? "Stripe Dashboard → Developers → Webhooks → endpoint `https://<your-domain>/api/billing/webhook` 등록, signing secret 을 STRIPE_WEBHOOK_SECRET 에 복사"
+        : "Stripe Dashboard → Developers → Webhooks → add endpoint `https://<your-domain>/api/billing/webhook`, copy signing secret to STRIPE_WEBHOOK_SECRET",
+      "checklist.tossMerchant": isKo
+        ? "Toss Payments 가맹점 가입 완료 + 결제 모듈 → 빌링 키 발급"
+        : "Complete Toss merchant onboarding + issue billing keys",
+      "checklist.tossWebhook": isKo
+        ? "Toss 콘솔 → 웹훅 URL 등록 `https://<your-domain>/api/billing/toss/webhook`, signing secret 을 TOSS_WEBHOOK_SECRET 에 복사"
+        : "Toss console → register webhook `https://<your-domain>/api/billing/toss/webhook`, copy signing secret to TOSS_WEBHOOK_SECRET",
+    } as Record<string, string>,
+  };
 }
 
 interface WorkspaceMeta {
@@ -143,6 +207,21 @@ export default async function AdminBillingPage({
     .sort((a, b) => b.cents - a.cents);
   const providerMixMaxCents = providerMix[0]?.cents ?? 1;
 
+  const readiness = getBillingReadiness();
+  const readinessLabels = billingReadinessLabels(isKo);
+  const overallBannerTone =
+    readiness.overall === "ok"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+      : readiness.overall === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-900"
+        : "border-rose-200 bg-rose-50 text-rose-900";
+  const overallBannerLabel =
+    readiness.overall === "ok"
+      ? readinessLabels.overallOk
+      : readiness.overall === "warning"
+        ? readinessLabels.overallWarning
+        : readinessLabels.overallMissing;
+
   return (
     <div className="space-y-6">
       <div>
@@ -153,6 +232,59 @@ export default async function AdminBillingPage({
             : "Token usage + cost across completed / cancelled / failed sims. Cancelled & failed sims still burned LLM tokens, surfaced separately as \"wasted spend\"."}
         </p>
       </div>
+
+      {/* Billing activation readiness — env-var presence + manual checklist.
+          Shown above the cost rollups so the operator sees blockers first. */}
+      <details className={`card border ${overallBannerTone}`} open={readiness.overall !== "ok"}>
+        <summary className="cursor-pointer flex items-center justify-between text-sm font-medium">
+          <span>{readinessLabels.title}</span>
+          <span className="text-xs">{overallBannerLabel}</span>
+        </summary>
+        <div className="mt-3 space-y-4 text-sm">
+          <p className="text-xs opacity-80">{readinessLabels.subtitle}</p>
+          {readiness.groups.map((group) => (
+            <div key={group.titleKey} className="space-y-1">
+              <div className="font-medium">
+                {readinessLabels.groups[group.titleKey] ?? group.titleKey}
+              </div>
+              <div className="space-y-0.5 pl-1">
+                {group.items.map((item) => {
+                  const icon =
+                    item.status === "ok" ? "✓" : item.status === "warning" ? "⚠" : "✗";
+                  const colorClass =
+                    item.status === "ok"
+                      ? "text-emerald-700"
+                      : item.status === "warning"
+                        ? "text-amber-700"
+                        : "text-rose-700";
+                  const label = readinessLabels.items[item.key] ?? item.key;
+                  return (
+                    <div key={item.key} className="flex items-baseline gap-2 text-xs">
+                      <span className={`font-mono ${colorClass}`}>{icon}</span>
+                      <span className="text-slate-800">{label}</span>
+                      {item.env && (
+                        <code className="text-[10px] text-slate-500 font-mono">
+                          {item.env}
+                        </code>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          {readiness.manualChecklistKeys.length > 0 && (
+            <div className="pt-2 border-t border-current opacity-90">
+              <div className="font-medium mb-1">{readinessLabels.checklistTitle}</div>
+              <ul className="list-disc list-inside text-xs space-y-0.5 pl-1">
+                {readiness.manualChecklistKeys.map((k) => (
+                  <li key={k}>{readinessLabels.checklist[k] ?? k}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </details>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
