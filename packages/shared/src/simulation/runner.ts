@@ -11,6 +11,7 @@ import {
 import {
   formatTrendContextBlock,
   formatMarginBenchmarkBlock,
+  formatKolEcosystemBlock,
 } from "@/lib/market-research/tavily";
 import { createServiceClient } from "@/lib/supabase/admin";
 import {
@@ -150,6 +151,22 @@ interface RunOptions {
    * Pre-fetched per ensemble. Empty string when fetch failed.
    */
   worldBankBlock?: string;
+  /**
+   * v0.2-B per-country KOL / creator ecosystem snippets, keyed by
+   * candidate-country code. Pre-fetched once per ensemble by the
+   * orchestrator (Tavily English + native-language fan-out). Used
+   * to ground the country-ranking prompt so brands with KOL-native
+   * GTM strategy get matched against per-country creator-economy
+   * depth — addresses the Tirtir-class anchor blind spot diagnosed
+   * in the K-Beauty methodology v3 backtest (2026-06-03).
+   *
+   * Empty map when TAVILY_API_KEY is unset OR all per-country queries
+   * returned no snippets; the country prompt then skips the block.
+   */
+  kolEcosystemByCountry?: Record<
+    string,
+    Array<{ url: string; title: string; content: string; score: number }>
+  >;
 }
 
 // Smaller batches are more reliably completed by the LLM.
@@ -1609,7 +1626,20 @@ ${entries}
       if (Number.isFinite(env) && env > 0 && env <= 9) return Math.floor(env);
       return 5;
     })();
-    const countryPromptText = countryPrompt(projectInput, aggregate, locale, opts.tradeAnchorBlock, opts.worldBankBlock);
+    const kolEcosystemBlock = opts.kolEcosystemByCountry
+      ? formatKolEcosystemBlock(
+          opts.kolEcosystemByCountry,
+          locale === "ko",
+        )
+      : "";
+    const countryPromptText = countryPrompt(
+      projectInput,
+      aggregate,
+      locale,
+      opts.tradeAnchorBlock,
+      opts.worldBankBlock,
+      kolEcosystemBlock,
+    );
     const runCountryRound = async (sampleCount: number, attemptTag: string) =>
       Promise.all(
         Array.from({ length: sampleCount }, () =>

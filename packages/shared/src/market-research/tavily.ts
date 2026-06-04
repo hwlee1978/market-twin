@@ -313,6 +313,144 @@ export function buildMarginBenchmarkQuery(opts: {
 }
 
 /**
+ * Build a per-country KOL / creator-ecosystem query for Tavily.
+ * v0.2-B (2026-06-04) — added after K-뷰티 backtest revealed that
+ * macro anchors can't see market-specific KOL density (Tirtir-class
+ * miss: JP TikTok beauty creator ecosystem was the actual launch
+ * playbook, but anchors only saw "JP K-beauty has strong incumbents").
+ *
+ * Goal: surface per-country creator-economy strength FOR THIS CATEGORY
+ * at the ecosystem level (which platforms dominate, mid-tier creator
+ * density, brand collaboration norms) — NOT specific competitor
+ * viral case studies (those leak hindsight for backtests).
+ *
+ * Phrasing aimed at NielsenIQ / Statista / category-trade-press
+ * influencer-marketing reports rather than blog top-10 lists.
+ */
+export function buildKolEcosystemQuery(opts: {
+  country: string;
+  category: string;
+  productName: string;
+}): string {
+  const countryNames: Record<string, string> = {
+    KR: "South Korea",
+    JP: "Japan",
+    CN: "China",
+    TW: "Taiwan",
+    HK: "Hong Kong",
+    SG: "Singapore",
+    TH: "Thailand",
+    VN: "Vietnam",
+    ID: "Indonesia",
+    MY: "Malaysia",
+    PH: "Philippines",
+    IN: "India",
+    US: "United States",
+    CA: "Canada",
+    GB: "United Kingdom",
+    DE: "Germany",
+    FR: "France",
+    IT: "Italy",
+    ES: "Spain",
+    NL: "Netherlands",
+    AU: "Australia",
+    NZ: "New Zealand",
+    AE: "United Arab Emirates",
+    SA: "Saudi Arabia",
+    BR: "Brazil",
+    MX: "Mexico",
+  };
+  const country = countryNames[opts.country.toUpperCase()] ?? opts.country;
+  const year = new Date().getFullYear();
+  const prevYear = year - 1;
+  // "mid-tier creator economy" + "social commerce" steers toward
+  // ecosystem-level reports rather than top-influencer lists. Keep
+  // the brand's own product name OUT so the query doesn't leak
+  // hindsight competitor case studies into the snippets.
+  return `${opts.category} influencer creator economy ${country} ${year} TikTok Instagram social commerce ${prevYear} mid-tier brand collaboration density`;
+}
+
+/**
+ * Native-language KOL ecosystem query for non-English markets.
+ * JP / CN / KR / TW / HK have domestic creator economies that
+ * English coverage misses entirely (Japan's PR Times / Nikkei
+ * Cross Trend, China's Sina Finance / 36Kr, Korea's 디지털데일리 /
+ * 매경 IT-비즈니스). Returns null for English-default countries.
+ */
+export function buildKolEcosystemQueryNative(opts: {
+  country: string;
+  category: string;
+  productName: string;
+}): string | null {
+  const lang = nativeQueryLanguage(opts.country);
+  if (!lang) return null;
+  const year = new Date().getFullYear();
+  const prevYear = year - 1;
+  switch (lang.code) {
+    case "ja":
+      // インフルエンサー = influencer; SNSマーケティング = social commerce; ティックトック = TikTok
+      return `${opts.category} ${lang.countryName} インフルエンサー TikTok ${year} 美容 SNSマーケティング クリエイター ${prevYear}`;
+    case "zh-CN":
+      // 网红 = influencer; KOL; 抖音 = Douyin/TikTok; 小红书 = Xiaohongshu; 营销 = marketing
+      return `${opts.category} ${lang.countryName} 网红 KOL 抖音 小红书 ${year} 营销 内容创作者 ${prevYear}`;
+    case "zh-TW":
+      // 網紅 = influencer; 行銷 = marketing
+      return `${opts.category} ${lang.countryName} 網紅 KOL TikTok Instagram ${year} 行銷 內容創作 ${prevYear}`;
+    case "ko":
+      return `${opts.category} ${lang.countryName} 인플루언서 KOL ${year} 틱톡 인스타그램 마케팅 크리에이터 ${prevYear}`;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Format per-country KOL ecosystem snippets into a compact block
+ * for the country-ranking prompt. Each country gets 1-2 short
+ * lines (highest-score snippets) so 10 candidates fit in ~1k
+ * tokens.
+ *
+ * Caller passes a Record<country, TavilyResult[]> — empty arrays
+ * (Tavily missed for that country) get a "(no snippets)" line so
+ * the LLM knows the anchor was attempted but not the absence of
+ * a creator economy. Empty input map → empty string.
+ */
+export function formatKolEcosystemBlock(
+  snippetsByCountry: Record<string, TavilyResult[]>,
+  isKo: boolean,
+  maxLinesPerCountry: number = 2,
+): string {
+  const countries = Object.keys(snippetsByCountry);
+  if (countries.length === 0) return "";
+  const hasAnySignal = countries.some(
+    (c) => (snippetsByCountry[c]?.length ?? 0) > 0,
+  );
+  if (!hasAnySignal) return "";
+  const header = isKo
+    ? "═══ 후보국별 KOL·크리에이터 생태계 컨텍스트 (실제 웹 스니펫) ═══\n각 국가의 카테고리별 인플루언서·크리에이터 마케팅 생태계 신호. KOL-native 또는 인플루언서 중심 GTM 전략이 brand strategy 입력에서 강한 브랜드의 경우 이 신호를 country score에 가중 반영. 단순한 시장 규모와 다른 차원의 신호임:"
+    : "═══ PER-COUNTRY KOL / CREATOR ECOSYSTEM CONTEXT (real-world snippets) ═══\nCategory-specific influencer / creator marketing ecosystem signal per candidate country. When the brand-strategy input shows a KOL-native or influencer-led GTM, weight this signal in the country score. This is a separate dimension from market-size data:";
+  const blocks = countries.map((country) => {
+    const arr = snippetsByCountry[country] ?? [];
+    if (arr.length === 0) {
+      return `[${country}] ${isKo ? "(스니펫 없음 — Tavily 결과 없음)" : "(no snippets)"}`;
+    }
+    const top = [...arr]
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+      .slice(0, maxLinesPerCountry);
+    const lines = top.map((r) => {
+      const sentence = r.content
+        .replace(/\s+/g, " ")
+        .trim()
+        .split(/(?<=[.!?])\s/)[0] ?? "";
+      const trimmed =
+        sentence.length > 130 ? sentence.slice(0, 127) + "..." : sentence;
+      return `  - ${trimmed}`;
+    });
+    return `[${country}]\n${lines.join("\n")}`;
+  });
+  return `${header}\n${blocks.join("\n")}`;
+}
+
+/**
  * Country → native query language. Drives the localized-search pass
  * added after the Buldak/Shin/COSRX validation runs identified
  * Tavily's English-source bias as the root cause of EU + CN + JP

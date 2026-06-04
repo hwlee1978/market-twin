@@ -18,21 +18,7 @@ import { createServiceClient } from "@/lib/supabase/admin";
 import { runSimulation } from "@/lib/simulation/runner";
 import type { ProjectInput, CountryScore } from "@/lib/simulation/schemas";
 import { prefetchInlineAssets } from "@/lib/llm/asset-fetch";
-import {
-  buildCategoryTrendQuery,
-  buildCategoryTrendQueryNative,
-  buildMarginBenchmarkQuery,
-  tavilySearch,
-  type TavilyResult,
-} from "@/lib/market-research/tavily";
-import {
-  buildCategoryTrendQuerySonar,
-  sonarSearch,
-} from "@/lib/market-research/sonar";
-import {
-  extractCompetitorPrices,
-  type CompetitorPriceResult,
-} from "@/lib/simulation/competitor-prices";
+import { prefetchSimulationContext } from "@/lib/simulation/prefetch";
 import {
   aggregateEnsemble,
   type EnsembleSimSnapshot,
@@ -184,290 +170,18 @@ export async function runEnsembleOrchestration(
         )
       : [];
 
-  let trendSnippets: TavilyResult[] = [];
-  let marginSnippets: TavilyResult[] = [];
-  // UN Comtrade trade-flow anchor — Phase E Week 4-5 (2026-05-16).
-  // Backdated anchor support (K-Beauty D2C methodology benchmark, 2026-06-03).
-  // When projectInput.asOfDate is set, anchors fetch historical data instead
-  // of latest. Allows comparing sim to real launch decisions without hindsight
-  // bias. Not all anchors are time-pinnable (Hofstede, MFDS, KOTRA snapshot,
-  // Tavily) — those silently use latest, documented in methodology doc.
-  const asOfDate = projectInput.asOfDate
-    ? new Date(projectInput.asOfDate)
-    : undefined;
-  const asOfYear = asOfDate && !Number.isNaN(asOfDate.getTime())
-    ? asOfDate.getUTCFullYear()
-    : undefined;
-  const asOfYyyymm = asOfYear
-    ? {
-        strtYymm: `${asOfYear}01`,
-        endYymm: `${asOfYear}${String(asOfDate!.getUTCMonth() + 1).padStart(2, "0")}`,
-      }
-    : undefined;
-  if (asOfYear) {
-    console.log(`[ensemble ${ensembleId}] historical anchors as-of ${projectInput.asOfDate} (year=${asOfYear})`);
-  }
-
-  // Pre-fetched once per ensemble; same block passed to every sim's
-  // country-scoring stage so all 6/25 sims see identical trade evidence.
-  // Best-effort: empty string when API down or category lacks HSCode
-  // mapping, in which case sims revert to pre-anchor behavior.
-  let tradeAnchorBlock = "";
-  try {
-    const { buildComtradeAnchor } = await import("@/lib/market-research/comtrade");
-    const { block } = await buildComtradeAnchor(
-      projectInput.category,
-      projectInput.candidateCountries,
-      { apiKey: process.env.COMTRADE_API_KEY, locale, period: asOfYear },
-    );
-    tradeAnchorBlock = block;
-    if (block) {
-      console.log(
-        `[ensemble ${ensembleId}] Comtrade anchor: ${block.split("\n").length} lines, ${(block.length / 100).toFixed(0)}×100 chars`,
-      );
-    } else {
-      console.log(`[ensemble ${ensembleId}] Comtrade anchor: empty (no data or unsupported category)`);
-    }
-  } catch (err) {
-    console.warn(`[ensemble ${ensembleId}] Comtrade anchor build failed: ${(err as Error).message}`);
-  }
-
-  // Phase F.0-2 (2026-05-17): World Bank macro indicators prefetch.
-  let worldBankBlock = "";
-  try {
-    const { buildWorldBankAnchor } = await import("@/lib/market-research/world-bank");
-    const { block, rows } = await buildWorldBankAnchor(
-      projectInput.candidateCountries,
-      locale,
-      asOfYear,
-    );
-    worldBankBlock = block;
-    if (block) {
-      console.log(`[ensemble ${ensembleId}] World Bank anchor: ${rows.length} countries`);
-    } else {
-      console.log(`[ensemble ${ensembleId}] World Bank anchor: empty`);
-    }
-  } catch (err) {
-    console.warn(`[ensemble ${ensembleId}] World Bank anchor build failed: ${(err as Error).message}`);
-  }
-
-  // Phase F.1-1 (2026-05-17): 관세청 trade statistics — appended to
-  // Comtrade block since they confirm each other (same underlying data,
-  // different aggregation granularity).
-  try {
-    const { buildKoreaCustomsAnchor } = await import("@/lib/market-research/korea-customs");
-    const { hsCodesForCategory } = await import("@/lib/market-research/comtrade");
-    const hsCodes = hsCodesForCategory(projectInput.category);
-    if (hsCodes.length > 0) {
-      const { block, rows } = await buildKoreaCustomsAnchor(
-        projectInput.category,
-        projectInput.candidateCountries,
-        hsCodes,
-        { locale, ...asOfYyyymm },
-      );
-      if (block) {
-        console.log(`[ensemble ${ensembleId}] Korea Customs anchor: ${rows.length} rows`);
-        tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
-      } else {
-        console.log(`[ensemble ${ensembleId}] Korea Customs anchor: empty`);
-      }
-    }
-  } catch (err) {
-    console.warn(`[ensemble ${ensembleId}] Korea Customs anchor build failed: ${(err as Error).message}`);
-  }
-
-  // Phase F.1-A + F.1-B (2026-05-17): DART scale + brand region revenue.
-  try {
-    const { buildDartFullAnchor, inferSlugFromProductName } = await import("@/lib/market-research/dart");
-    const slug = inferSlugFromProductName(projectInput.productName);
-    if (slug) {
-      const { block, financials, region, autoRegion, narrative } = await buildDartFullAnchor(
-        slug,
-        projectInput.candidateCountries,
-        { locale, bsnsYear: asOfYear },
-      );
-      if (block) {
-        const rev = financials?.revenueKrw ?? 0;
-        const regionCount = region?.regions?.length ?? 0;
-        const autoTag = autoRegion ? ` + auto-region ${autoRegion.rows.length}` : "";
-        const narrativeTag = narrative ? ` + narrative ${narrative.countries.length}` : "";
-        console.log(
-          `[ensemble ${ensembleId}] DART anchor: ${financials?.corpNameKo ?? slug} (${(rev / 1e12).toFixed(2)}T KRW + ${regionCount} manual regions${autoTag}${narrativeTag})`,
-        );
-        tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
-      }
-    }
-  } catch (err) {
-    console.warn(`[ensemble ${ensembleId}] DART anchor build failed: ${(err as Error).message}`);
-  }
-
-  // Phase F.3 (2026-05-18): MFDS narrow regulatory anchor (sunscreen only).
-  // Activates only when fixture has a brand-ingredients.json entry with
-  // uvFilters list — currently BoJ Relief Sun. Skips otherwise (empty block).
-  // Why narrow: MFDS reg has 7,257 internationally-regulated ingredients;
-  // safe skincare actives (Centella, snail mucin, niacinamide) aren't there,
-  // so this anchor only adds value for sunscreens where ingredient × country
-  // restrictions are dramatic (Korean-developed UV filters lack US FDA approval).
-  try {
-    const { buildMfdsAnchor } = await import("@/lib/market-research/mfds");
-    const { inferSlugFromProductName } = await import("@/lib/market-research/dart");
-    const slug = inferSlugFromProductName(projectInput.productName);
-    if (slug) {
-      const { block, result } = buildMfdsAnchor(slug, { locale });
-      if (block && result) {
-        console.log(
-          `[ensemble ${ensembleId}] MFDS anchor: ${slug} — ${result.matched.length} matched, ${result.unmatchedIngredients.length} not-in-list`,
-        );
-        tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
-      }
-    }
-  } catch (err) {
-    console.warn(`[ensemble ${ensembleId}] MFDS anchor build failed: ${(err as Error).message}`);
-  }
-
-  // Phase F.1-C (2026-05-17): KOTRA per-country Korean-companies anchor.
-  // Names Korean parent companies already operating in each candidate market —
-  // direct brand-presence signal that closes the Phase F.0 gap where sims
-  // missed Binggrae VN (own subsidiary) and KGC CN (duty-free service).
-  //
-  // KOTRA_ANCHOR_ENABLED=false disables this anchor. Used for A/B diagnostic
-  // when v8 (n=10) measurement revealed confident_wrong on buldak/jinro
-  // (non-US-top fixtures) suggesting US-heavy KOTRA registry was over-
-  // weighting the US prior. Default ON.
-  if (process.env.KOTRA_ANCHOR_ENABLED === "false") {
-    console.log(`[ensemble ${ensembleId}] KOTRA anchor: disabled via KOTRA_ANCHOR_ENABLED=false`);
-  } else try {
-    const { buildKotraNationalAnchor } = await import("@/lib/market-research/kotra");
-    const keywords = [projectInput.category, projectInput.productName].filter(
-      (s): s is string => typeof s === "string" && s.length > 0,
-    );
-    const { block, bundles, skipped } = await buildKotraNationalAnchor(
-      projectInput.candidateCountries,
-      // Cap 3 per country (v2 2026-05-18) to balance per-country weight after
-      // v8a diagnostic showed US-heavy KOTRA registry was amplifying US-prior
-      // on non-US-top fixtures (jinro JP regressed -22pt under v1 cap=5).
-      // category opt-in (v3 2026-05-18) auto-disables KOTRA for K-Food /
-      // K-Alcohol where US-heavy bias hurt rather than helped.
-      { categoryKeywords: keywords, locale, maxPerCountry: 3, category: projectInput.category },
-    );
-    if (skipped === "category") {
-      console.log(`[ensemble ${ensembleId}] KOTRA anchor: skipped (category=${projectInput.category})`);
-    } else if (block) {
-      const totalComps = bundles.reduce((n, b) => n + b.koreanCompanies.length, 0);
-      console.log(
-        `[ensemble ${ensembleId}] KOTRA anchor: ${bundles.length}/${projectInput.candidateCountries.length} countries (${totalComps} Korean companies)`,
-      );
-      tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
-    } else {
-      console.log(`[ensemble ${ensembleId}] KOTRA anchor: empty`);
-    }
-  } catch (err) {
-    console.warn(`[ensemble ${ensembleId}] KOTRA anchor build failed: ${(err as Error).message}`);
-  }
-  // Run grounding when EITHER provider key is set — Sonar Pro alone is
-  // a valid grounding source even without Tavily (cheaper-fallback
-  // scenario), and we want the trend block to fire if any signal is
-  // available. The per-call functions (tavilySearch, sonarSearch) each
-  // gracefully return null when their own key is missing.
-  if (process.env.TAVILY_API_KEY || process.env.PERPLEXITY_API_KEY) {
-    // English trend query always runs. For non-English originating
-    // countries (K-product launches: KR / JP / CN / TW / HK origin),
-    // a parallel native-language query also runs — pulls 조선비즈 /
-    // 매경 / 한경 / Nikkei / Sina Finance IR articles that publish
-    // export growth news in the native language before (or instead
-    // of) English coverage.
-    const trendNativeQuery = buildCategoryTrendQueryNative({
-      category: projectInput.category,
-      productName: projectInput.productName,
-      originatingCountry: projectInput.originatingCountry,
-    });
-    const trendSonarQuery = buildCategoryTrendQuerySonar({
-      category: projectInput.category,
-      productName: projectInput.productName,
-    });
-    const [trendResult, trendNativeResult, trendSonarResult] = await Promise.all([
-      tavilySearch({
-        query: buildCategoryTrendQuery({
-          category: projectInput.category,
-          productName: projectInput.productName,
-        }),
-        searchDepth: "advanced",
-        maxResults: 5,
-        includeAnswer: false,
-      }),
-      trendNativeQuery
-        ? tavilySearch({
-            query: trendNativeQuery,
-            searchDepth: "advanced",
-            maxResults: 5,
-            includeAnswer: false,
-          })
-        : Promise.resolve(null),
-      // Sonar Pro is best-effort and skipped when PERPLEXITY_API_KEY is
-      // unset — sonarSearch returns null and the merge just sees an
-      // empty third slot. Same Promise.all shape as the Tavily calls
-      // so total latency = max(t_en, t_native, t_sonar) instead of sum.
-      sonarSearch({ query: trendSonarQuery, model: "sonar-pro" }),
-    ]);
-    const enTrendSnippets = trendResult?.results ?? [];
-    const nativeTrendSnippets = trendNativeResult?.results ?? [];
-    const sonarTrendSnippets = trendSonarResult?.results ?? [];
-    const seenTrendUrls = new Set(enTrendSnippets.map((r) => r.url));
-    const nativeUniqueTrend = nativeTrendSnippets.filter(
-      (r) => !seenTrendUrls.has(r.url),
-    );
-    nativeUniqueTrend.forEach((r) => seenTrendUrls.add(r.url));
-    const sonarUniqueTrend = sonarTrendSnippets.filter(
-      (r) => !seenTrendUrls.has(r.url),
-    );
-    trendSnippets = [...enTrendSnippets, ...nativeUniqueTrend, ...sonarUniqueTrend];
-    if (trendSnippets.length > 0) {
-      console.log(
-        `[ensemble ${ensembleId}] trend grounding: ${enTrendSnippets.length}EN + ${nativeUniqueTrend.length}native + ${sonarUniqueTrend.length}sonar = ${trendSnippets.length} for ${projectInput.category}`,
-      );
-    }
-
-    const marginResult = await tavilySearch({
-      query: buildMarginBenchmarkQuery({
-        category: projectInput.category,
-        country: projectInput.originatingCountry,
-        productName: projectInput.productName,
-      }),
-      searchDepth: "advanced",
-      maxResults: 5,
-      includeAnswer: false,
-    });
-    marginSnippets = marginResult?.results ?? [];
-    if (marginSnippets.length > 0) {
-      console.log(
-        `[ensemble ${ensembleId}] tavily margin: ${marginSnippets.length} snippets for ${projectInput.category}`,
-      );
-    }
-  }
-
-  let competitorPrices: CompetitorPriceResult[] = [];
-  if (projectInput.competitorUrls.length > 0) {
-    try {
-      competitorPrices = await extractCompetitorPrices({
-        urls: projectInput.competitorUrls,
-        productCategory: projectInput.category,
-        targetCurrency: projectInput.currency,
-        locale: locale === "ko" ? "ko" : "en",
-      });
-      const ok = competitorPrices.filter((r) => r.status === "extracted");
-      console.log(
-        `[ensemble ${ensembleId}] competitor prices: ${ok.length}/${competitorPrices.length} extracted` +
-          (ok.length > 0
-            ? ` — ${ok.map((r) => `${r.productName ?? "?"}=${r.priceCents}`).join(" / ")}`
-            : ""),
-      );
-    } catch (err) {
-      console.warn(
-        `[ensemble ${ensembleId}] competitor extraction failed:`,
-        err,
-      );
-    }
-  }
+  const {
+    tradeAnchorBlock,
+    worldBankBlock,
+    trendSnippets,
+    marginSnippets,
+    kolEcosystemByCountry,
+    competitorPrices,
+  } = await prefetchSimulationContext({
+    projectInput,
+    locale,
+    logPrefix: `[ensemble ${ensembleId}]`,
+  });
 
   /* ── 2. Run sims with provider-grouped worker pool + cost cap ── */
 
@@ -493,6 +207,7 @@ export async function runEnsembleOrchestration(
         inlineAssets,
         trendSnippets,
         marginSnippets,
+        kolEcosystemByCountry,
         competitorPrices,
         tradeAnchorBlock,
         worldBankBlock,

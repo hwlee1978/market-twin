@@ -254,171 +254,24 @@ async function main() {
     `\nRunning ${preset.parallelSims} sim(s) (${groupSummary}) — gemini cap ${PROVIDER_SIM_CONCURRENCY.gemini}`,
   );
 
-  // Phase E Week 4-5 (2026-05-16): UN Comtrade prefetch. Same logic as
-  // orchestrator.ts so smoke-driven runs see the same anchor as
-  // production-routed runs.
-  let tradeAnchorBlock = "";
-  try {
-    const { buildComtradeAnchor } = await import(
-      "../packages/shared/src/market-research/comtrade"
-    );
-    const { block } = await buildComtradeAnchor(
-      projectInput.category,
-      projectInput.candidateCountries,
-      { apiKey: process.env.COMTRADE_API_KEY, locale: "ko", period: asOfYear },
-    );
-    tradeAnchorBlock = block;
-    if (block) {
-      console.log(`Comtrade anchor: ${block.split("\n").length} lines (HSCode-aggregate K-export evidence)`);
-    } else {
-      console.log("Comtrade anchor: empty (no data or unsupported category)");
-    }
-  } catch (err) {
-    console.warn(`Comtrade anchor build failed: ${(err as Error).message}`);
-  }
-
-  // Phase F.0-2 (2026-05-17): World Bank macro indicators prefetch.
-  let worldBankBlock = "";
-  try {
-    const { buildWorldBankAnchor } = await import(
-      "../packages/shared/src/market-research/world-bank"
-    );
-    const { block, rows } = await buildWorldBankAnchor(
-      projectInput.candidateCountries,
-      "ko",
-      asOfYear,
-    );
-    worldBankBlock = block;
-    if (block) {
-      console.log(`World Bank macro anchor: ${rows.length} countries fetched`);
-    } else {
-      console.log("World Bank macro anchor: empty (fetch failed)");
-    }
-  } catch (err) {
-    console.warn(`World Bank anchor build failed: ${(err as Error).message}`);
-  }
-
-  // Phase F.1-1 (2026-05-17): 관세청 (Korea Customs) trade statistics
-  // prefetch. Same HSCode mapping as Comtrade. Appended to Comtrade block
-  // when both succeed — they confirm each other (same underlying trade
-  // data) but 관세청 supports finer HSCode and more recent months.
-  try {
-    const { buildKoreaCustomsAnchor } = await import(
-      "../packages/shared/src/market-research/korea-customs"
-    );
-    const { hsCodesForCategory } = await import(
-      "../packages/shared/src/market-research/comtrade"
-    );
-    const hsCodes = hsCodesForCategory(projectInput.category);
-    if (hsCodes.length > 0) {
-      const { block, rows } = await buildKoreaCustomsAnchor(
-        projectInput.category,
-        projectInput.candidateCountries,
-        hsCodes,
-        { locale: "ko", ...asOfYyyymm },
-      );
-      if (block) {
-        console.log(`Korea Customs anchor: ${rows.length} (HSCode × country) rows`);
-        tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
-      } else {
-        console.log("Korea Customs anchor: empty");
-      }
-    }
-  } catch (err) {
-    console.warn(`Korea Customs anchor build failed: ${(err as Error).message}`);
-  }
-
-  // Phase F.1-A + F.1-B (2026-05-17): DART consolidated financials + brand
-  // region revenue reference. Targets v5 brand-mismatch finding (HSCode
-  // aggregate misses 자회사 production like Binggrae VN and 면세점
-  // service revenue like KGC CN). Region table is the cheap fix; DART
-  // company-scale gives absolute size prior.
-  try {
-    const { buildDartFullAnchor, inferSlugFromProductName } = await import(
-      "../packages/shared/src/market-research/dart"
-    );
-    const slug = inferSlugFromProductName(projectInput.productName);
-    if (slug) {
-      const { block, financials, region, autoRegion, narrative } = await buildDartFullAnchor(
-        slug,
-        projectInput.candidateCountries,
-        { locale: "ko", bsnsYear: asOfYear },
-      );
-      if (block) {
-        const rev = financials?.revenueKrw ?? 0;
-        const regionCount = region?.regions?.length ?? 0;
-        const autoTag = autoRegion ? ` + auto-region ${autoRegion.rows.length}` : "";
-        const narrativeTag = narrative ? ` + narrative ${narrative.countries.length}` : "";
-        console.log(
-          `DART anchor: ${financials?.corpNameKo ?? slug} (${(rev / 1e12).toFixed(2)}T KRW + ${regionCount} manual regions${autoTag}${narrativeTag})`,
-        );
-        tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
-      } else {
-        console.log(`DART anchor: empty for slug=${slug} (unlisted + no region table entry)`);
-      }
-    } else {
-      console.log(`DART anchor: no slug match for "${projectInput.productName}"`);
-    }
-  } catch (err) {
-    console.warn(`DART anchor build failed: ${(err as Error).message}`);
-  }
-
-  // Phase F.3 (2026-05-18): MFDS narrow regulatory anchor (sunscreen only).
-  try {
-    const { buildMfdsAnchor } = await import(
-      "../packages/shared/src/market-research/mfds"
-    );
-    const { inferSlugFromProductName } = await import(
-      "../packages/shared/src/market-research/dart"
-    );
-    const slug = inferSlugFromProductName(projectInput.productName);
-    if (slug) {
-      const { block, result } = buildMfdsAnchor(slug, { locale: "ko" });
-      if (block && result) {
-        console.log(
-          `MFDS anchor: ${slug} — ${result.matched.length} matched, ${result.unmatchedIngredients.length} not-in-list`,
-        );
-        tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
-      }
-    }
-  } catch (err) {
-    console.warn(`MFDS anchor build failed: ${(err as Error).message}`);
-  }
-
-  // Phase F.1-C (2026-05-17): KOTRA per-country Korean-companies anchor.
-  // Closes the Phase F.0 gap: sims that missed Binggrae VN / KGC CN now see
-  // explicit parent-company presence from KOTRA's registry.
-  //
-  // KOTRA_ANCHOR_ENABLED=false disables for A/B diagnostic (see orchestrator
-  // comment for context). Default ON.
-  if (process.env.KOTRA_ANCHOR_ENABLED === "false") {
-    console.log(`KOTRA anchor: disabled via KOTRA_ANCHOR_ENABLED=false`);
-  } else try {
-    const { buildKotraNationalAnchor } = await import(
-      "../packages/shared/src/market-research/kotra"
-    );
-    const keywords = [projectInput.category, projectInput.productName].filter(
-      (s): s is string => typeof s === "string" && s.length > 0,
-    );
-    const { block, bundles, skipped } = await buildKotraNationalAnchor(
-      projectInput.candidateCountries,
-      // Cap 3 per country (v2 2026-05-18) + category opt-in (v3 2026-05-18).
-      { categoryKeywords: keywords, locale: "ko", maxPerCountry: 3, category: projectInput.category },
-    );
-    if (skipped === "category") {
-      console.log(`KOTRA anchor: skipped (category=${projectInput.category})`);
-    } else if (block) {
-      const totalComps = bundles.reduce((n, b) => n + b.koreanCompanies.length, 0);
-      console.log(
-        `KOTRA anchor: ${bundles.length}/${projectInput.candidateCountries.length} countries (${totalComps} Korean companies)`,
-      );
-      tradeAnchorBlock = tradeAnchorBlock ? `${tradeAnchorBlock}\n\n${block}` : block;
-    } else {
-      console.log(`KOTRA anchor: empty`);
-    }
-  } catch (err) {
-    console.warn(`KOTRA anchor build failed: ${(err as Error).message}`);
-  }
+  // Shared prefetch pipeline — same anchor sequence + Tavily grounding
+  // that production orchestrator uses. Drift-proof: when a new anchor
+  // gets added to prefetch.ts, smoke picks it up automatically without
+  // touching this file. (2026-06-04 refactor.)
+  const { prefetchSimulationContext } = await import(
+    "../packages/shared/src/simulation/prefetch"
+  );
+  const {
+    tradeAnchorBlock,
+    worldBankBlock,
+    trendSnippets,
+    marginSnippets,
+    kolEcosystemByCountry,
+  } = await prefetchSimulationContext({
+    projectInput,
+    locale: "ko",
+    logPrefix: "",
+  });
 
   const runOne = async ({
     id: simId,
@@ -435,6 +288,9 @@ async function main() {
         provider,
         tradeAnchorBlock,
         worldBankBlock,
+        trendSnippets,
+        marginSnippets,
+        kolEcosystemByCountry,
       });
       console.log(`  ✓ sim ${index} (${simId.slice(0, 8)}) [${provider}] done`);
     } catch (err) {

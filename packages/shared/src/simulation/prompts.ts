@@ -796,6 +796,16 @@ export function countryPrompt(
    * pop × GDP/cap PPP × household consumption PPP. Empty on fetch failure.
    */
   worldBankBlock?: string,
+  /**
+   * v0.2-B per-country KOL / creator ecosystem block (2026-06-04).
+   * Pre-formatted by the runner from orchestrator-level Tavily fan-out.
+   * Empty string when Tavily key is unset or all per-country queries
+   * returned no signal. Injected after Hofstede + World Bank + trade
+   * anchors so the LLM weighs creator-economy depth as a separate
+   * dimension when ranking countries — particularly load-bearing for
+   * brands whose brand-strategy input shows a KOL-native GTM.
+   */
+  kolEcosystemBlock?: string,
 ): string {
   // Channel-cost grounding block — built per candidate country so the
   // LLM anchors cacEstimateUsd on real industry medians (Meta CPM,
@@ -825,7 +835,7 @@ ${renderAggregateForPrompt(aggregate, locale)}
 
 ${renderHofstedeTable(input.candidateCountries, locale === "ko" ? "ko" : "en")}
 
-${worldBankBlock ? `${worldBankBlock}\n\n` : ""}${tradeAnchorBlock ? `${tradeAnchorBlock}\n\n` : ""}═══ CAC GROUNDING — CHANNEL COSTS PER CANDIDATE COUNTRY ═══
+${worldBankBlock ? `${worldBankBlock}\n\n` : ""}${tradeAnchorBlock ? `${tradeAnchorBlock}\n\n` : ""}${kolEcosystemBlock ? `${kolEcosystemBlock}\n\n` : ""}═══ CAC GROUNDING — CHANNEL COSTS PER CANDIDATE COUNTRY ═══
 Use these medians as the basis for cacEstimateUsd. Do NOT free-style a number — start from the channel mix you'd realistically run for this category and arithmetic from there.
 
 ${channelCostsBlock}
