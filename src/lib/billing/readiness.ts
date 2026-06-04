@@ -52,9 +52,13 @@ function rollGroup(items: ReadinessItem[]): CheckStatus {
 }
 
 function rollOverall(groups: ReadinessGroup[]): CheckStatus {
+  // 2026-06-05: groups whose status is "warning" (deferred mode — e.g.
+  // Stripe USD route disabled while we ship Toss-only) are not counted
+  // as blocking the overall rollup. Only groups that are actively trying
+  // to be configured but missing pieces count as "missing".
   if (groups.some((g) => g.status === "missing")) return "missing";
-  if (groups.some((g) => g.status === "warning")) return "warning";
-  return "ok";
+  if (groups.every((g) => g.status === "ok")) return "ok";
+  return "warning";
 }
 
 export function getBillingReadiness(): ReadinessReport {
@@ -99,10 +103,27 @@ export function getBillingReadiness(): ReadinessReport {
       status: check("STRIPE_PRICE_GROWTH_ANNUAL"),
     },
   ];
+  // 2026-06-05: Toss-only path elected for initial paid pilot — Stripe
+  // (USD route) deferred until Korea entity gets Stripe approval OR
+  // until a Paddle-style MoR decision. When ZERO Stripe env vars are
+  // set, treat the group as "deferred" (warning) rather than missing —
+  // it does NOT block overall readiness. As soon as the operator sets
+  // ANY Stripe env var, the group reverts to normal missing/ok logic
+  // (signals "you're configuring this, fill the rest in").
+  const stripeAttempted = stripeItems.some((i) => i.status === "ok");
+  let stripeStatus = rollGroup(stripeItems);
+  if (!stripeAttempted) {
+    // Force-warning state — all 8 vars unset, mark as deferred.
+    stripeStatus = "warning";
+    for (const item of stripeItems) {
+      item.status = "warning";
+      item.hintKey = item.hintKey ?? "stripe.deferredHint";
+    }
+  }
   const stripeGroup: ReadinessGroup = {
     titleKey: "stripe",
     items: stripeItems,
-    status: rollGroup(stripeItems),
+    status: stripeStatus,
   };
 
   // Toss — KRW route. Public client key is exposed to the browser
@@ -148,10 +169,11 @@ export function getBillingReadiness(): ReadinessReport {
   const groups = [stripeGroup, tossGroup, gateGroup];
 
   // Manual dashboard actions — surfaced as i18n-keyed checklist for
-  // the operator. Not auto-detectable; reflects the "do this in your
-  // browser" workflow.
+  // the operator. Skipped for groups in "deferred" warning state
+  // (Stripe USD route disabled) to keep the checklist focused on
+  // what's actually blocking go-live.
   const manualChecklistKeys: string[] = [];
-  if (stripeGroup.status !== "ok") {
+  if (stripeGroup.status === "missing") {
     manualChecklistKeys.push(
       "checklist.stripeProducts",
       "checklist.stripePrices",

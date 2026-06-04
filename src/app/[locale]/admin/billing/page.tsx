@@ -30,7 +30,9 @@ function billingReadinessLabels(isKo: boolean) {
     overallWarning: isKo ? "⚠ 일부 항목 경고" : "⚠ Some warnings",
     overallMissing: isKo ? "✗ 미완료 항목 있음" : "✗ Missing items",
     groups: {
-      stripe: isKo ? "Stripe (USD 결제)" : "Stripe (USD)",
+      stripe: isKo
+        ? "Stripe (USD 결제) — 현재 보류 (Toss 단독 가동)"
+        : "Stripe (USD) — deferred (Toss-only launch)",
       toss: isKo ? "Toss Payments (KRW 결제)" : "Toss Payments (KRW)",
       gate: isKo ? "Signup 활성 게이트" : "Signup activation gate",
     } as Record<string, string>,
