@@ -1050,19 +1050,45 @@ export function aggregateEnsemble(
     : meanRanking;
   const phaseEWinnerCountry =
     exportRanking[0]?.country ?? meanRanking[0]?.country ?? null;
-  // Top-3 hit rate as confidence — same definition as Phase D.
+  // v0.2-D (2026-06-04): replace top3-hit confidence with top-1 vote share
+  // among export markets. Old metric overstated certainty — Tirtir test:
+  // 3 sims picked JP/US/CN respectively as top-1, yet US was in all 3 sims'
+  // top-3 → top3Hit confidence = 100% STRONG even though only 1/3 sims
+  // actually agreed US was the recommendation. New metric counts how many
+  // sims' top EXPORT pick matches the ensemble winner — directly reflects
+  // inter-sim agreement.
+  //
+  // top3Hits is kept as a diagnostic field (top3HitRate) for backward
+  // compatibility + dashboards that want to show "X countries appeared in
+  // every sim's top-3 list" as a separate signal.
   let top3Hits = 0;
+  let top1Agreements = 0;
   for (const s of sims) {
     const sorted = [...s.countries].sort((a, b) => b.finalScore - a.finalScore);
     const top3 = sorted.slice(0, 3).map((c) => c.country.toUpperCase());
     if (phaseEWinnerCountry && top3.includes(phaseEWinnerCountry)) top3Hits++;
+    const simTopExport = originUpper
+      ? sorted.find((c) => c.country.toUpperCase() !== originUpper)
+      : sorted[0];
+    if (
+      phaseEWinnerCountry &&
+      simTopExport?.country?.toUpperCase() === phaseEWinnerCountry
+    ) {
+      top1Agreements++;
+    }
   }
   const winner = phaseEWinnerCountry
-    ? { country: phaseEWinnerCountry, count: top3Hits, percent: Math.round((top3Hits / simCount) * 100) }
+    ? {
+        country: phaseEWinnerCountry,
+        count: top1Agreements,
+        percent: Math.round((top1Agreements / simCount) * 100),
+      }
     : bestCountryDistribution[0];
   const consensusPercent = winner ? Math.round((winner.count / simCount) * 100) : 0;
+  // Threshold change: 80/50 (top3-hit era) → 66/40 (top-1 agreement era).
+  // 3-sim ensemble: 2/3 (67%) = STRONG, 1/3 (33%) = WEAK. 6-sim: 4/6 ≥ 66%.
   const confidence: "STRONG" | "MODERATE" | "WEAK" =
-    consensusPercent >= 80 ? "STRONG" : consensusPercent >= 50 ? "MODERATE" : "WEAK";
+    consensusPercent >= 66 ? "STRONG" : consensusPercent >= 40 ? "MODERATE" : "WEAK";
 
   // ── Top-2 vs single-winner dominance check (2026-05-20) ──
   // User feedback (Lingtea Deep × 2 runs): single-winner framing was misleading
