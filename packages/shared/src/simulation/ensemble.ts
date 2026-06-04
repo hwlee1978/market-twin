@@ -1030,7 +1030,26 @@ export function aggregateEnsemble(
       if (Math.abs(dr) > 1e-3) return dr;
       return b.meanScore - a.meanScore;
     });
-  const phaseEWinnerCountry = meanRanking[0]?.country ?? null;
+  // v0.2-C (2026-06-04): defensive origin filter at the ensemble winner
+  // step. Per-sim synthesisPrompt has a "bestCountry != origin" rule but
+  // benchmark + K-Beauty backtest (Tirtir) both showed LLMs sometimes
+  // violate it — synthesis returns bestCountry=KR despite KR being origin,
+  // and the country stage scores origin as just another candidate. When
+  // multiple sims violate the rule, the median-rank picker also collapses
+  // to origin (KR 67% MODERATE on Tirtir even though brand actually
+  // launched JP).
+  //
+  // Defensive fix: when ranking for the ensemble winner, exclude the
+  // origin row. Origin still appears in countryStats / bestCountryDistribution
+  // for transparency (user can see "KR scored 78 — domestic baseline").
+  // Fallback: when the candidate list is origin-only (no export markets),
+  // keep origin as winner so we don't return "?".
+  const originUpper = opts.originatingCountry?.toUpperCase() ?? null;
+  const exportRanking = originUpper
+    ? meanRanking.filter((m) => m.country.toUpperCase() !== originUpper)
+    : meanRanking;
+  const phaseEWinnerCountry =
+    exportRanking[0]?.country ?? meanRanking[0]?.country ?? null;
   // Top-3 hit rate as confidence — same definition as Phase D.
   let top3Hits = 0;
   for (const s of sims) {
@@ -1050,9 +1069,13 @@ export function aggregateEnsemble(
   // when top 2-3 countries are bunched within noise margin. New rule: show
   // TWO candidates unless top-1 is genuinely dominant (2-of-3 criteria pass).
   const top1Country = phaseEWinnerCountry;
-  const top2Country = meanRanking[1]?.country ?? null;
-  const top1Mean = meanRanking[0]?.meanScore ?? 0;
-  const top2Mean = meanRanking[1]?.meanScore ?? 0;
+  // Top-2 uses the same origin-filtered ranking — otherwise the "alternative
+  // candidate" surfaced to users could itself be the origin (KR), which is
+  // never a valid export target. Mean / gap also drawn from exportRanking
+  // for consistent comparison.
+  const top2Country = exportRanking[1]?.country ?? null;
+  const top1Mean = exportRanking[0]?.meanScore ?? 0;
+  const top2Mean = exportRanking[1]?.meanScore ?? 0;
   const meanGap = top1Mean - top2Mean;
 
   const top1Votes = top1Country

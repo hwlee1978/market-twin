@@ -415,7 +415,10 @@ async function main() {
       },
     ];
   });
-  const aggregate = aggregateEnsemble(snapshots);
+  const aggregate = aggregateEnsemble(snapshots, {
+    category: projectInput.category,
+    originatingCountry: projectInput.originatingCountry,
+  });
   const finalStatus = snapshots.length === 0 ? "failed" : "completed";
 
   // Same narrative-merge step the production endpoint runs.
