@@ -114,6 +114,10 @@ export default async function AdminBillingPage({
   const last30Start = new Date();
   last30Start.setDate(last30Start.getDate() - 30);
   last30Start.setHours(0, 0, 0, 0);
+  // 12 month history window — pull from the 1st of (today - 12 months) so
+  // every full prior month appears intact. Caller renders most recent first.
+  const last12Start = new Date(monthStart);
+  last12Start.setMonth(last12Start.getMonth() - 11);
 
   // Pull every billable sim row in the window — completed AND
   // cancelled/failed — because the runner now persists partial token
@@ -122,7 +126,7 @@ export default async function AdminBillingPage({
   // still cost real LLM dollars but produce no usable output).
   // Filter on started_at (set at runner entry) instead of completed_at
   // so cancelled/failed rows aren't excluded by a missing completed_at.
-  const [{ data: thisMonthSims }, { data: last30Sims }, { data: workspaces }] =
+  const [{ data: thisMonthSims }, { data: last30Sims }, { data: last12Sims }, { data: workspaces }] =
     await Promise.all([
       admin
         .from("simulations")
@@ -138,11 +142,21 @@ export default async function AdminBillingPage({
         )
         .gte("started_at", last30Start.toISOString())
         .not("total_cost_cents", "is", null),
+      // 12 month history — same shape; lighter projection would help if
+      // volume grows past ~50k rows but for now mirror is fine.
+      admin
+        .from("simulations")
+        .select(
+          "id, workspace_id, total_input_tokens, total_output_tokens, total_cost_cents, completed_at, started_at, status, model_provider",
+        )
+        .gte("started_at", last12Start.toISOString())
+        .not("total_cost_cents", "is", null),
       admin.from("workspaces").select("id, name"),
     ]);
 
   const monthRows = (thisMonthSims ?? []) as unknown as SimRow[];
   const recent30Rows = (last30Sims ?? []) as unknown as SimRow[];
+  const last12Rows = (last12Sims ?? []) as unknown as SimRow[];
   const wsList = (workspaces ?? []) as WorkspaceMeta[];
   const wsName = (id: string | null) => {
     if (!id) return "?";
@@ -194,6 +208,59 @@ export default async function AdminBillingPage({
     .map(([wsId, v]) => ({ wsId, ...v }))
     .sort((a, b) => b.cents - a.cents)
     .slice(0, 10);
+
+  // ── 월별 사용 내역 (12개월) ──
+  // Bucket by YYYY-MM string from started_at; split completed vs wasted
+  // for the same "useful vs burned" framing as the headline KPI.
+  type MonthlyBucket = {
+    monthKey: string;
+    completedSims: number;
+    wastedSims: number;
+    completedCents: number;
+    wastedCents: number;
+    tokens: number;
+  };
+  const monthlyMap = new Map<string, MonthlyBucket>();
+  // Seed the last 12 months so empty months render as a row (instead of
+  // collapsing the timeline — useful for spotting silent periods).
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(monthStart);
+    d.setMonth(d.getMonth() - i);
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+    monthlyMap.set(key, {
+      monthKey: key,
+      completedSims: 0,
+      wastedSims: 0,
+      completedCents: 0,
+      wastedCents: 0,
+      tokens: 0,
+    });
+  }
+  for (const r of last12Rows) {
+    if (!r.started_at) continue;
+    const d = new Date(r.started_at);
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+    const bucket = monthlyMap.get(key);
+    if (!bucket) continue;
+    const cents = r.total_cost_cents ?? 0;
+    const tokens = (r.total_input_tokens ?? 0) + (r.total_output_tokens ?? 0);
+    bucket.tokens += tokens;
+    if (r.status === "completed") {
+      bucket.completedSims += 1;
+      bucket.completedCents += cents;
+    } else if (isWasted(r.status)) {
+      bucket.wastedSims += 1;
+      bucket.wastedCents += cents;
+    }
+  }
+  const monthlyHistory = [...monthlyMap.values()].sort((a, b) =>
+    b.monthKey.localeCompare(a.monthKey),
+  );
+  // For bar visualisation — max total spend across the 12 months.
+  const monthlyMaxCents = monthlyHistory.reduce(
+    (max, m) => Math.max(max, m.completedCents + m.wastedCents),
+    1,
+  );
 
   // Provider mix this month.
   const byProvider = new Map<string, { sims: number; cents: number }>();
@@ -392,6 +459,111 @@ export default async function AdminBillingPage({
             })}
           </div>
         )}
+      </div>
+
+      {/* 월별 사용 내역 (12개월) — 가장 최근 달부터 표시. 빈 달도 행 유지해서
+          silent 기간 식별 가능. completed/wasted 분리 + bar visualisation. */}
+      <div className="card p-0">
+        <div className="px-6 py-4 border-b border-slate-100">
+          <h2 className="text-base font-semibold">
+            {isKo ? "월별 사용 내역 (최근 12개월)" : "Monthly history (last 12 months)"}
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            {isKo
+              ? "월 단위 완료·낭비 비용 + 시뮬 수 + 토큰. 가장 최근 달이 위에 표시됩니다."
+              : "Per-month completed / wasted spend + sim count + tokens. Most recent month at top."}
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="text-left px-6 py-3 font-medium">{isKo ? "월" : "Month"}</th>
+                <th className="text-right px-6 py-3 font-medium">{isKo ? "완료" : "Completed"}</th>
+                <th className="text-right px-6 py-3 font-medium">{isKo ? "낭비" : "Wasted"}</th>
+                <th className="text-right px-6 py-3 font-medium">{isKo ? "합계" : "Total"}</th>
+                <th className="text-right px-6 py-3 font-medium">{isKo ? "시뮬" : "Sims"}</th>
+                <th className="text-right px-6 py-3 font-medium">{isKo ? "토큰" : "Tokens"}</th>
+                <th className="text-left px-6 py-3 font-medium" style={{ width: "30%" }}>
+                  {isKo ? "비교" : "Trend"}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthlyHistory.map((m) => {
+                const total = m.completedCents + m.wastedCents;
+                const totalSims = m.completedSims + m.wastedSims;
+                const barTotalPct = (total / monthlyMaxCents) * 100;
+                const completedShareOfBar =
+                  total > 0 ? (m.completedCents / total) * barTotalPct : 0;
+                const wastedShareOfBar = barTotalPct - completedShareOfBar;
+                const isCurrentMonth =
+                  m.monthKey ===
+                  `${monthStart.getUTCFullYear()}-${String(monthStart.getUTCMonth() + 1).padStart(2, "0")}`;
+                return (
+                  <tr
+                    key={m.monthKey}
+                    className={`border-t border-slate-100 hover:bg-slate-50 ${
+                      isCurrentMonth ? "bg-brand/5" : ""
+                    }`}
+                  >
+                    <td className="px-6 py-3 text-slate-900 font-mono text-xs">
+                      {m.monthKey}
+                      {isCurrentMonth && (
+                        <span className="ml-2 text-[10px] text-brand font-sans">
+                          {isKo ? "(이번 달)" : "(current)"}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-3 text-right tabular-nums font-mono text-slate-900">
+                      {formatCentsUsd(m.completedCents)}
+                    </td>
+                    <td className="px-6 py-3 text-right tabular-nums font-mono text-slate-500">
+                      {m.wastedCents > 0 ? formatCentsUsd(m.wastedCents) : "—"}
+                    </td>
+                    <td className="px-6 py-3 text-right tabular-nums font-mono text-slate-900 font-medium">
+                      {total > 0 ? formatCentsUsd(total) : "—"}
+                    </td>
+                    <td className="px-6 py-3 text-right tabular-nums text-slate-700">
+                      {totalSims > 0 ? totalSims.toLocaleString() : "—"}
+                    </td>
+                    <td className="px-6 py-3 text-right tabular-nums text-slate-500 text-xs">
+                      {m.tokens > 0 ? `${(m.tokens / 1_000_000).toFixed(2)}M` : "—"}
+                    </td>
+                    <td className="px-6 py-3">
+                      {total > 0 ? (
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden flex">
+                          <div
+                            className="h-full bg-brand"
+                            style={{ width: `${completedShareOfBar}%` }}
+                          />
+                          {wastedShareOfBar > 0 && (
+                            <div
+                              className="h-full bg-rose-300"
+                              style={{ width: `${wastedShareOfBar}%` }}
+                            />
+                          )}
+                        </div>
+                      ) : (
+                        <div className="h-2 bg-slate-50 rounded-full" />
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-6 py-3 border-t border-slate-100 flex items-center gap-3 text-[11px] text-slate-500">
+          <span className="flex items-center gap-1">
+            <span className="w-3 h-1.5 bg-brand rounded-sm" />
+            {isKo ? "완료" : "Completed"}
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-3 h-1.5 bg-rose-300 rounded-sm" />
+            {isKo ? "낭비 (취소·실패)" : "Wasted (cancelled / failed)"}
+          </span>
+        </div>
       </div>
     </div>
   );
