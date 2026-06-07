@@ -1255,8 +1255,8 @@ function ExternalPublishRow({
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            rows={4}
-            className="w-full text-[11px] border border-slate-200 rounded px-2 py-1 bg-white text-slate-700 leading-relaxed resize-y"
+            rows={14}
+            className="w-full min-h-[16rem] text-[11px] border border-slate-200 rounded px-2 py-1 bg-white text-slate-700 leading-relaxed resize-y"
           />
           <div className="mt-1 flex items-center gap-2 flex-wrap">
             <span className={over ? "text-red-600 font-medium" : "text-slate-400"}>
