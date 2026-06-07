@@ -35,10 +35,15 @@ export const X_SCOPES = [
   "offline.access",
 ];
 
-const AUTHORIZE_URL = "https://twitter.com/i/oauth2/authorize";
-const TOKEN_URL = "https://api.twitter.com/2/oauth2/token";
-const USERME_URL = "https://api.twitter.com/2/users/me";
-const TWEET_URL = "https://api.twitter.com/2/tweets";
+// X migrated twitter.com → x.com. The OAuth *authorize* page must run
+// on x.com: a user logged into x.com is seen as logged-out on
+// twitter.com (separate cookie domain), so twitter.com/i/oauth2/authorize
+// bounces into a blank /i/jf/onboarding/web/sso flow. API hosts on
+// api.x.com (api.twitter.com still 200s but we stay consistent).
+const AUTHORIZE_URL = "https://x.com/i/oauth2/authorize";
+const TOKEN_URL = "https://api.x.com/2/oauth2/token";
+const USERME_URL = "https://api.x.com/2/users/me";
+const TWEET_URL = "https://api.x.com/2/tweets";
 
 export function xRedirectUri(): string {
   const base =
@@ -275,6 +280,6 @@ export async function publishToX(args: {
   if (!id) throw new Error("x publish: no tweet id returned");
   return {
     postId: id,
-    url: `https://twitter.com/i/web/status/${id}`,
+    url: `https://x.com/i/web/status/${id}`,
   };
 }
