@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link2, Loader2, Plug, RefreshCw, Trash2 } from "lucide-react";
 
+type Provider = "hubspot" | "linkedin" | "x";
+
 type Integration = {
-  provider: "hubspot" | "linkedin";
+  provider: Provider;
   account_label: string | null;
   connected_at: string;
   updated_at: string;
@@ -45,12 +47,12 @@ export function IntegrationsPanel({
     setLatestSignal(data.latestSignal);
   }
 
-  function connect(provider: "hubspot") {
+  function connect(provider: Provider) {
     // Top-level redirect — server handles OAuth bounce.
     window.location.href = `/api/mrai/integrations/${provider}/connect`;
   }
 
-  async function disconnect(provider: "hubspot" | "linkedin") {
+  async function disconnect(provider: Provider) {
     if (!confirm(t("disconnectConfirm", { provider: tProv(provider) }))) return;
     const res = await fetch(`/api/mrai/integrations/${provider}/disconnect`, { method: "DELETE" });
     if (res.ok) {
@@ -84,6 +86,8 @@ export function IntegrationsPanel({
 
   const hubspot = integrations.find((i) => i.provider === "hubspot");
   const hubspotSignal = latestSignal.hubspot;
+  const linkedin = integrations.find((i) => i.provider === "linkedin");
+  const x = integrations.find((i) => i.provider === "x");
 
   return (
     <section className="bg-white border border-slate-200 rounded-lg overflow-hidden">
@@ -172,22 +176,116 @@ export function IntegrationsPanel({
           )}
         </div>
 
-        {/* LinkedIn (stub) */}
-        <div className="border border-slate-200 rounded-md p-4 opacity-60">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="inline-flex items-center justify-center w-8 h-8 rounded bg-blue-100 text-blue-700 font-bold text-xs">
-              in
-            </span>
-            <div className="font-semibold text-slate-900">{tProv("linkedin")}</div>
-            <span className="ml-auto text-[10px] uppercase tracking-wider text-slate-400">
-              {t("comingSoon")}
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            LinkedIn API requires partner approval — placeholder for the next sprint.
-          </p>
-        </div>
+        {/* LinkedIn — publish channel */}
+        <PublishChannelCard
+          name={tProv("linkedin")}
+          badge="in"
+          badgeClass="bg-blue-100 text-blue-700"
+          connectClass="bg-blue-600 hover:bg-blue-700"
+          integration={linkedin ?? null}
+          locale={locale}
+          connectedAs={(label) => t("connectedAs", { label })}
+          connectLabel={t("connect")}
+          disconnectLabel={t("disconnect")}
+          publishHint={t("publishHint")}
+          onConnect={() => connect("linkedin")}
+          onDisconnect={() => disconnect("linkedin")}
+        />
+
+        {/* X (Twitter) — publish channel */}
+        <PublishChannelCard
+          name={tProv("x")}
+          badge="𝕏"
+          badgeClass="bg-slate-900 text-white"
+          connectClass="bg-slate-900 hover:bg-black"
+          integration={x ?? null}
+          locale={locale}
+          connectedAs={(label) => t("connectedAs", { label })}
+          connectLabel={t("connect")}
+          disconnectLabel={t("disconnect")}
+          publishHint={t("publishHint")}
+          onConnect={() => connect("x")}
+          onDisconnect={() => disconnect("x")}
+        />
       </div>
     </section>
+  );
+}
+
+/**
+ * Publish-only OAuth channel card (LinkedIn / X). Unlike HubSpot these
+ * have no sync/signal step — they're write-only outbound channels, so
+ * the card just shows connect / connected-account / disconnect.
+ */
+function PublishChannelCard({
+  name,
+  badge,
+  badgeClass,
+  connectClass,
+  integration,
+  locale,
+  connectedAs,
+  connectLabel,
+  disconnectLabel,
+  publishHint,
+  onConnect,
+  onDisconnect,
+}: {
+  name: string;
+  badge: string;
+  badgeClass: string;
+  connectClass: string;
+  integration: Integration | null;
+  locale: "ko" | "en";
+  connectedAs: (label: string) => string;
+  connectLabel: string;
+  disconnectLabel: string;
+  publishHint: string;
+  onConnect: () => void;
+  onDisconnect: () => void;
+}) {
+  return (
+    <div className="border border-slate-200 rounded-md p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <span
+          className={`inline-flex items-center justify-center w-8 h-8 rounded font-bold text-xs ${badgeClass}`}
+        >
+          {badge}
+        </span>
+        <div className="font-semibold text-slate-900">{name}</div>
+      </div>
+      {integration ? (
+        <>
+          <div className="text-xs text-slate-500 mb-1">
+            {connectedAs(integration.account_label || "—")}
+          </div>
+          <div className="text-[11px] text-slate-400 mb-3">
+            {new Date(integration.connected_at).toLocaleString(
+              locale === "ko" ? "ko-KR" : "en-US",
+            )}
+          </div>
+          <button
+            onClick={onDisconnect}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded"
+          >
+            <Trash2 className="w-3 h-3" />
+            {disconnectLabel}
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-slate-500 leading-relaxed mb-3">
+            {publishHint}
+          </p>
+          <button
+            onClick={onConnect}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white rounded ${connectClass}`}
+          >
+            <Link2 className="w-3 h-3" />
+            {connectLabel}
+          </button>
+        </>
+      )}
+    </div>
   );
 }

@@ -19,7 +19,9 @@ export async function GET(req: Request) {
   const error = url.searchParams.get("error");
 
   const back = (status: "ok" | "error", detail?: string) => {
-    const target = new URL("/ko/mrai", url.origin);
+    // IntegrationsPanel lives on the settings tab — bounce there so the
+    // success/error flash actually surfaces (mirrors the HubSpot callback).
+    const target = new URL("/ko/mr-ai/settings", url.origin);
     target.searchParams.set("x", status);
     if (detail) target.searchParams.set("detail", detail.slice(0, 200));
     const res = NextResponse.redirect(target);

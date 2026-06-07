@@ -27,6 +27,37 @@ import {
 import { EmptyState } from "./EmptyState";
 import { ErrorState, errMsg } from "./ErrorState";
 
+type ExternalProvider = "linkedin" | "x";
+
+/** Per-platform hard char limits enforced by /api/mrai/publish. */
+const EXTERNAL_LIMITS: Record<ExternalProvider, number> = {
+  linkedin: 3000,
+  x: 280,
+};
+
+const EXTERNAL_META: Record<
+  ExternalProvider,
+  { label: string; badge: string; cls: string }
+> = {
+  linkedin: { label: "LinkedIn", badge: "in", cls: "bg-blue-600 hover:bg-blue-700" },
+  x: { label: "X", badge: "𝕏", cls: "bg-slate-900 hover:bg-black" },
+};
+
+/**
+ * Assemble a publishable post body from a draft's parts. Mirrors what a
+ * marketer would paste manually: body, then CTA, then hashtags. Prefers
+ * the Korean translation when present (channels are KR-first).
+ */
+function composePostText(draft: Draft): string {
+  const ko = draft.seo_meta?.translations?.ko;
+  const body = (ko?.body_text || draft.body_text || "").trim();
+  const cta = (ko?.cta_text || draft.cta_text || "").trim();
+  const tags = (draft.hashtags ?? [])
+    .map((h) => (h.startsWith("#") ? h : `#${h}`))
+    .join(" ");
+  return [body, cta, tags].filter(Boolean).join("\n\n");
+}
+
 type Draft = {
   id: string;
   campaign_label: string | null;
@@ -84,6 +115,11 @@ export function ContentDraftsPanel({
   const [openModal, setOpenModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [brandAssetCount, setBrandAssetCount] = useState<number | null>(null);
+  // Which external publish channels (LinkedIn / X) the workspace has
+  // connected — drives the per-draft "Publish to …" buttons.
+  const [connectedExternal, setConnectedExternal] = useState<Set<ExternalProvider>>(
+    new Set(),
+  );
 
   useEffect(() => {
     void (async () => {
@@ -91,6 +127,22 @@ export function ContentDraftsPanel({
       if (!res.ok) return;
       const { assets } = (await res.json()) as { assets: unknown[] };
       setBrandAssetCount(assets.length);
+    })();
+    void (async () => {
+      const res = await fetch("/api/mrai/integrations/status", {
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const { integrations } = (await res.json()) as {
+        integrations: Array<{ provider: string }>;
+      };
+      setConnectedExternal(
+        new Set(
+          integrations
+            .map((i) => i.provider)
+            .filter((p): p is ExternalProvider => p === "linkedin" || p === "x"),
+        ),
+      );
     })();
   }, []);
 
@@ -316,6 +368,7 @@ export function ContentDraftsPanel({
                 key={d.id}
                 draft={d}
                 platform={platform}
+                connectedExternal={connectedExternal}
                 brandAssetCount={brandAssetCount}
                 selected={selectedIds.has(d.id)}
                 onToggleSelect={() => toggleSelect(d.id)}
@@ -370,6 +423,7 @@ type SimulationRow = {
 function DraftCard({
   draft,
   platform: _platform,
+  connectedExternal,
   brandAssetCount,
   selected,
   onToggleSelect,
@@ -378,6 +432,7 @@ function DraftCard({
 }: {
   draft: Draft;
   platform: string;
+  connectedExternal: Set<ExternalProvider>;
   brandAssetCount: number | null;
   selected: boolean;
   onToggleSelect: () => void;
@@ -1018,6 +1073,9 @@ function DraftCard({
           )}
         </div>
 
+        {/* External publish — LinkedIn / X */}
+        <ExternalPublishRow draft={draft} connected={connectedExternal} />
+
         {/* Scheduling row */}
         <div className="mt-1.5 flex items-center gap-2 flex-wrap text-[11px]">
           <span className="text-slate-500">⏰ 스케줄:</span>
@@ -1084,6 +1142,152 @@ function DraftCard({
         />
       )}
     </li>
+  );
+}
+
+/**
+ * Publish a draft to a real external channel (LinkedIn / X) via
+ * /api/mrai/publish. Opens an inline composer pre-filled from the draft
+ * so the user can trim to fit X's 280-char cap before sending. Channels
+ * that aren't connected link out to the settings tab.
+ */
+function ExternalPublishRow({
+  draft,
+  connected,
+}: {
+  draft: Draft;
+  connected: Set<ExternalProvider>;
+}) {
+  const [open, setOpen] = useState<ExternalProvider | null>(null);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ provider: ExternalProvider; url: string } | null>(
+    null,
+  );
+
+  const openComposer = (provider: ExternalProvider) => {
+    setError(null);
+    setText(composePostText(draft));
+    setOpen((cur) => (cur === provider ? null : provider));
+  };
+
+  const publish = async () => {
+    if (!open) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/mrai/publish", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          provider: open,
+          content: text,
+          contentDraftId: draft.id,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json.detail || json.error || "발행 실패");
+      }
+      setResult({ provider: open, url: json.platformUrl });
+      capture("mrai_external_published", {
+        draft_id: draft.id,
+        provider: open,
+        char_count: text.length,
+      });
+      setOpen(null);
+    } catch (e) {
+      setError(errMsg(e, "발행 실패"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const limit = open ? EXTERNAL_LIMITS[open] : 0;
+  const over = open ? text.length > limit : false;
+
+  return (
+    <div className="mt-1.5 text-[11px]">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-slate-500">🌐 외부 발행:</span>
+        {(Object.keys(EXTERNAL_META) as ExternalProvider[]).map((provider) => {
+          const meta = EXTERNAL_META[provider];
+          const isConnected = connected.has(provider);
+          return isConnected ? (
+            <button
+              key={provider}
+              type="button"
+              onClick={() => openComposer(provider)}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-white font-medium ${meta.cls} ${
+                open === provider ? "ring-2 ring-offset-1 ring-slate-400" : ""
+              }`}
+            >
+              <span className="text-[10px]">{meta.badge}</span>
+              {meta.label}
+            </button>
+          ) : (
+            <a
+              key={provider}
+              href="/ko/mr-ai/settings"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-dashed border-slate-300 text-slate-400 hover:text-slate-600 hover:border-slate-400"
+              title={`${meta.label} 연결 필요 — 설정에서 연결하세요`}
+            >
+              <span className="text-[10px]">{meta.badge}</span>
+              {meta.label} 연결
+            </a>
+          );
+        })}
+        {result && (
+          <a
+            href={result.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-emerald-700 underline"
+          >
+            ✓ {EXTERNAL_META[result.provider].label} 발행됨 · 보기
+          </a>
+        )}
+      </div>
+
+      {open && (
+        <div className="mt-1.5 border border-slate-200 rounded-md p-2 bg-slate-50">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={4}
+            className="w-full text-[11px] border border-slate-200 rounded px-2 py-1 bg-white text-slate-700 leading-relaxed resize-y"
+          />
+          <div className="mt-1 flex items-center gap-2 flex-wrap">
+            <span className={over ? "text-red-600 font-medium" : "text-slate-400"}>
+              {text.length} / {limit}
+            </span>
+            <button
+              type="button"
+              onClick={publish}
+              disabled={busy || over || text.trim().length === 0}
+              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-white font-medium disabled:opacity-50 ${EXTERNAL_META[open].cls}`}
+            >
+              {busy ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Sparkles className="w-3 h-3" />
+              )}
+              {EXTERNAL_META[open].label}에 발행
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(null)}
+              disabled={busy}
+              className="text-slate-500 hover:text-slate-700 disabled:opacity-50"
+            >
+              취소
+            </button>
+            {error && <span className="text-red-600">{error}</span>}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

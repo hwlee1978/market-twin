@@ -1410,13 +1410,15 @@
       "lastSyncedPrefix": "마지막 동기화",
       "lastSyncNever": "동기화 기록 없음",
       "connectedAs": "{label} 계정 연결됨",
-      "successToast": "HubSpot 연결 성공.",
-      "errorToast": "HubSpot 연결 실패",
+      "successToast": "연결 성공.",
+      "errorToast": "연결 실패",
       "syncedToast": "{count}건 deal 동기화 완료",
+      "publishHint": "연결하면 콘텐츠 드래프트를 이 채널에 바로 발행할 수 있습니다.",
       "disconnectConfirm": "{provider} 연결을 해제하시겠습니까? 동기화된 신호도 함께 삭제됩니다.",
       "providers": {
         "hubspot": "HubSpot",
-        "linkedin": "LinkedIn"
+        "linkedin": "LinkedIn",
+        "x": "X (Twitter)"
       },
       "envHint": "환경 변수에 HUBSPOT_CLIENT_ID, HUBSPOT_CLIENT_SECRET, APP_BASE_URL 설정 필요."
     }

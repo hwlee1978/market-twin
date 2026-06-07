@@ -4,7 +4,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED = new Set(["hubspot", "linkedin"]);
+const ALLOWED = new Set(["hubspot", "linkedin", "x"]);
 
 /**
  * DELETE /api/mrai/integrations/{provider}/disconnect

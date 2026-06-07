@@ -19,7 +19,12 @@ export default async function MrAISettingsTab({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ hubspot?: string; detail?: string }>;
+  searchParams: Promise<{
+    hubspot?: string;
+    linkedin?: string;
+    x?: string;
+    detail?: string;
+  }>;
 }) {
   const { locale } = await params;
   const sp = await searchParams;
@@ -32,10 +37,13 @@ export default async function MrAISettingsTab({
 
   const onboarding = await getOnboardingState(ctx.workspaceId);
 
+  // Any of the OAuth callbacks (hubspot / linkedin / x) bounce back here
+  // with a {provider}=ok|error flash param.
+  const flashStatus = sp.hubspot ?? sp.linkedin ?? sp.x;
   const integrationFlash =
-    sp.hubspot === "ok"
+    flashStatus === "ok"
       ? { kind: "ok" as const }
-      : sp.hubspot === "error"
+      : flashStatus === "error"
       ? { kind: "error" as const, detail: sp.detail }
       : null;
 

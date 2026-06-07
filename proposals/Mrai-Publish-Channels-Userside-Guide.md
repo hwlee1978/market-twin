@@ -13,12 +13,18 @@ Phase 1 가동 후 테스트 방법: 브라우저 직접 access (`/api/mrai/inte
 | 항목 | LinkedIn | X (Twitter) |
 |---|---|---|
 | BD 타겟 적합도 | 높음 (KOTRA·중진공·B2B SaaS 결재자) | 보통 (K-startup 커뮤니티) |
-| API 비용 | 무료 (Marketing Developer Platform 승인 필요) | Basic $100/월 (tweet write) |
-| 승인 기간 | 2-4주 (multi-user posting 시) | 1-7일 (Basic 가입 즉시) |
+| API 비용 | 무료 ("Share on LinkedIn" 셀프서비스) | Basic $100/월 (tweet write) |
+| 승인 기간 | 즉시 (개인 프로필 게시는 셀프서비스) | 1-7일 (Basic 가입 즉시) |
 | 글자 제한 | 3,000 자 | 280 자 (verified 시 더 길게) |
 | OAuth | OAuth 2.0 + scope `w_member_social` | OAuth 2.0 + PKCE |
 
-**추천 순서:** LinkedIn 등록 신청 → 승인 기다리는 동안 X 등록 + 결제 → 둘 다 가동.
+> **중요 (2026-06-07 정정):** 본 가이드의 publish 대상은 **운영자 본인 개인 프로필**
+> (`w_member_social` + `urn:li:person`)이다. 이 경우 **"Share on LinkedIn" 제품만 추가하면
+> 대체로 즉시 셀프서비스 승인**되며, **Marketing Developer Platform / Community Management
+> 심사(2-4주)는 불필요**하다 (그건 조직/회사 페이지 게시·광고용). 즉시 가동 가능.
+> 단, LinkedIn 포털 정책이 수시로 바뀌므로 신청 화면에서 자동 승인 여부를 확인할 것.
+
+**추천 순서:** LinkedIn 등록 (즉시) + X 등록 + 결제 → 둘 다 가동.
 
 ---
 
@@ -36,21 +42,22 @@ Phase 1 가동 후 테스트 방법: 브라우저 직접 access (`/api/mrai/inte
 ### 1.2 OAuth 2.0 설정
 
 App 페이지 → **Auth** 탭:
-- Redirect URLs → **Add redirect URL** → `https://markettwin.ai/api/mrai/integrations/linkedin/callback`
+- Redirect URLs → **Add redirect URL** → `https://app.markettwin.ai/api/mrai/integrations/linkedin/callback`
+  - **반드시 `APP_BASE_URL` env 값과 글자 단위로 일치**해야 함 (현재 `https://app.markettwin.ai`). 끝 슬래시 주의.
 - (개발용 추가) `http://localhost:3000/api/mrai/integrations/linkedin/callback`
-- OAuth 2.0 scopes에서 다음 4개가 enabled 되어 있는지 확인:
+- OAuth 2.0 scopes에서 다음 4개가 enabled 되어 있는지 확인 (Products 추가 시 자동 활성):
   - `openid` ✓
   - `profile` ✓
   - `email` ✓
-  - `w_member_social` ✓ (publish 권한, **승인 필요**)
+  - `w_member_social` ✓ (개인 프로필 publish 권한)
 
 ### 1.3 Products 추가
 
 **Products** 탭 → **Request access**:
 - **Sign In with LinkedIn using OpenID Connect** — 즉시 승인 (basic profile)
-- **Share on LinkedIn** — w_member_social 포함, **승인 신청 필요**
-  - 신청 시 사용 사례: "Market Twin Mr.AI AI agent posts founder's brand expansion announcements / shipping updates / customer case studies to their personal LinkedIn profile based on workspace-stored content drafts" 식으로 명시
-  - LinkedIn Marketing Developer Platform 승인 = 2-4주
+- **Share on LinkedIn** — `w_member_social` 포함, **개인 프로필 게시는 대체로 즉시 셀프서비스**
+  - 만약 use-case 설명을 요구하면: "Market Twin Mr.AI AI agent posts the operator's own brand expansion announcements / shipping updates / customer case studies to their personal LinkedIn profile based on workspace-stored content drafts" 식으로 명시
+  - **MDP / Community Management(조직 페이지·광고)는 신청 불필요** — 본 기능은 개인 프로필 게시만 사용
 
 ### 1.4 Client credentials 복사
 
@@ -68,16 +75,19 @@ Vercel Dashboard → **Settings** → **Environment Variables**:
 
 | Key | Value | 환경 |
 |---|---|---|
-| `LINKEDIN_CLIENT_ID` | (1.4 에서 복사) | Production + Preview + Development |
-| `LINKEDIN_CLIENT_SECRET` | (1.4 에서 복사) | Production + Preview + Development |
-| `APP_BASE_URL` | `https://markettwin.ai` | Production |
+| `LINKEDIN_CLIENT_ID` | (1.4 에서 복사) | Production + Preview (Sensitive) |
+| `LINKEDIN_CLIENT_SECRET` | (1.4 에서 복사) | Production + Preview (Sensitive) |
+| `APP_BASE_URL` | `https://app.markettwin.ai` | Production |
 
-(이미 `APP_BASE_URL` 설정돼 있으면 그대로)
+(이미 `APP_BASE_URL` 설정돼 있으면 그대로. 단 redirect URL 등록값과 반드시 일치.)
+
+> ⚠ Preview 배포는 URL이 매번 달라 OAuth 콜백이 안 맞을 수 있음. `APP_BASE_URL`을
+> Production 도메인 하나로 고정하면 Preview에서 연결해도 Production으로 콜백됨 (실가동 무관).
 
 ### 1.6 Redeploy + 테스트
 
-env 변경 후 redeploy. 그리고:
-1. https://markettwin.ai/ko/mrai 에서 "LinkedIn 연결" 클릭
+env 변경 후 **반드시 redeploy** (env는 새 배포부터 적용). 그리고:
+1. https://app.markettwin.ai/ko/mr-ai/settings 에서 "LinkedIn 연결" 클릭
 2. LinkedIn 인증 화면 → 권한 동의
 3. callback 후 `linkedin=ok` 파라미터로 mrai 페이지로 돌아오면 성공
 4. Mr.AI content draft → "Publish to LinkedIn" 버튼 클릭 → LinkedIn 피드 확인
@@ -106,7 +116,7 @@ App 페이지 → **User authentication settings** → **Set up**:
 - App permissions: **Read and write** (post 권한 필요)
 - Type of App: **Confidential client** (secret 사용)
 - Callback URI / Redirect URL:
-  - `https://markettwin.ai/api/mrai/integrations/x/callback`
+  - `https://app.markettwin.ai/api/mrai/integrations/x/callback`
   - `http://localhost:3000/api/mrai/integrations/x/callback` (개발용)
 - Website URL: `https://markettwin.ai`
 - Organization name: 미스터에이아이
@@ -133,7 +143,7 @@ X_CLIENT_SECRET = (OAuth 2.0 Client Secret)
 
 ### 2.6 Redeploy + 테스트
 
-1. https://markettwin.ai/ko/mrai 에서 "X 연결" 클릭
+1. https://app.markettwin.ai/ko/mr-ai/settings 에서 "X 연결" 클릭
 2. X 인증 화면 → "Authorize app"
 3. callback 후 `x=ok` 파라미터로 mrai 페이지로 돌아오면 성공
 4. Mr.AI content draft → "Publish to X" 버튼 → 280자 이하 글 등록 → X 타임라인 확인
@@ -167,9 +177,9 @@ Mr.AI content drafter 가 long-form 작성한 경우, 사용자가 X publish 시
 ## 4. Troubleshooting
 
 ### "LinkedIn 연결 후 publish 안 됨 — 'not authorized' 에러"
-- LinkedIn Marketing Developer Platform 의 `w_member_social` 승인 대기 중일 가능성
-- App 페이지 → Products 탭에서 "Share on LinkedIn" 승인 상태 확인
-- 승인 완료 후 한 번 재연결 (기존 토큰의 scope 갱신)
+- App 페이지 → Products 탭에서 **"Share on LinkedIn"** 추가 여부 확인 (이게 없으면 `w_member_social` scope 미발급)
+- 추가 후 한 번 **재연결** (기존 토큰의 scope 갱신)
+- access token 만료(~60일)일 수도 있음 → 설정 탭에서 재연결
 
 ### "X publish 시 'Forbidden' 에러"
 - Basic 플랜 미가입 (Free tier는 tweet write 불가)

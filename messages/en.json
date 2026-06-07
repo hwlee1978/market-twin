@@ -1410,13 +1410,15 @@
       "lastSyncedPrefix": "Last synced",
       "lastSyncNever": "Never synced",
       "connectedAs": "Connected as {label}",
-      "successToast": "HubSpot connected.",
-      "errorToast": "HubSpot connection failed",
+      "successToast": "Connected.",
+      "errorToast": "Connection failed",
       "syncedToast": "Synced {count} {count, plural, =1 {deal} other {deals}}",
+      "publishHint": "Connect to publish content drafts straight to this channel.",
       "disconnectConfirm": "Disconnect {provider}? Synced signals will be removed.",
       "providers": {
         "hubspot": "HubSpot",
-        "linkedin": "LinkedIn"
+        "linkedin": "LinkedIn",
+        "x": "X (Twitter)"
       },
       "envHint": "Set HUBSPOT_CLIENT_ID, HUBSPOT_CLIENT_SECRET, and APP_BASE_URL in your environment."
     }
