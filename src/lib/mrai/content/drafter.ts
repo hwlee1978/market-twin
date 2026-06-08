@@ -317,6 +317,23 @@ export async function runContentDrafter(input: DrafterInput): Promise<DrafterRes
       ? formatInstructionFor(input.contentFormat, locale)
       : "";
 
+  const system = locale === "en" ? SYSTEM_EN : SYSTEM_KO;
+
+  // Drafting model — Haiku for speed + low cost. Swap to a Sonnet id for
+  // higher creative quality; the parallelisation below keeps even Sonnet
+  // under the route timeout.
+  const DRAFTER_MODEL = "claude-haiku-4-5-20251001";
+
+  // Generate the variant(s) for a strategy subset. Called once per strategy
+  // and run concurrently (Promise.all) so wall-clock ≈ a single variant
+  // instead of the sum — the fix for Vercel FUNCTION_INVOCATION_TIMEOUT.
+  // Each call shares the same channel/brand/narrator context, so the voice
+  // stays consistent; distinct strategies keep the variants diverse.
+  async function genBatch(strategies: string[]): Promise<{
+    variants: DraftVariant[];
+    inTok: number;
+    outTok: number;
+  }> {
   const prompt = `# Topic (절대 변경·치환 금지 — 모든 variant는 이 topic 자체를 다뤄야 함)
 ${input.topic}
 
@@ -360,8 +377,8 @@ ${input.brandContext ? `# Brand context\n${input.brandContext}\n\n(주의: Brand
 - 같은 채널에서 1편은 "우리가 만들었다", 다른 1편은 "내가 사봤다"처럼 위치 모순
 - 동일 채널에 voice가 두 명 이상 등장하는 carousel/시리즈
 
-# Variants to produce (${variantCount}개, narrator 동일·hook angle만 차이)
-${variantStrategies.join("\n")}
+# Variants to produce (${strategies.length}개, narrator 동일·hook angle만 차이)
+${strategies.join("\n")}
 
 ---
 
@@ -387,10 +404,8 @@ ${variantStrategies.join("\n")}
 
 전체 응답: { "variants": [...] }`;
 
-  const system = locale === "en" ? SYSTEM_EN : SYSTEM_KO;
-  const provider = getLLMProvider({ provider: "anthropic" });
+  const provider = getLLMProvider({ provider: "anthropic", model: DRAFTER_MODEL });
 
-  const t0 = Date.now();
   const res = await provider.generate({
     system,
     prompt,
@@ -448,7 +463,6 @@ ${variantStrategies.join("\n")}
       },
     },
   });
-  const ms = Date.now() - t0;
 
   // Permissive variant extraction — Anthropic occasionally wraps the
   // array under an alt key ("drafts" / "posts" / "items") or emits a
@@ -514,7 +528,7 @@ ${variantStrategies.join("\n")}
     );
   }
 
-  const variants: DraftVariant[] = rawVariants.slice(0, variantCount).map((v, i) => {
+  const variants: DraftVariant[] = rawVariants.slice(0, strategies.length).map((v, i) => {
     const label = typeof v.variant_label === "string" ? v.variant_label : String.fromCharCode(65 + i);
     const body = (typeof v.body_text === "string" ? v.body_text : "").slice(0, spec.bodyMaxChars);
     const hashtags = Array.isArray(v.hashtags)
@@ -624,9 +638,30 @@ ${variantStrategies.join("\n")}
   });
 
   return {
+      variants,
+      inTok: res.usage?.inputTokens ?? 0,
+      outTok: res.usage?.outputTokens ?? 0,
+    };
+  }
+
+  // Parallelise: one LLM call per strategy, run concurrently → wall-clock
+  // ≈ a single variant rather than the sum of all. Distinct strategies keep
+  // variants diverse; shared channel/brand/narrator context keeps the voice
+  // consistent. Re-label A/B/C… by final order.
+  const t0 = Date.now();
+  const batches = await Promise.all(variantStrategies.map((s) => genBatch([s])));
+  const ms = Date.now() - t0;
+
+  const LABELS = ["A", "B", "C", "D", "E"];
+  const variants = batches
+    .flatMap((b) => b.variants)
+    .slice(0, variantCount)
+    .map((v, i) => ({ ...v, variant_label: LABELS[i] ?? v.variant_label }));
+
+  return {
     variants,
-    inputTokens: res.usage?.inputTokens ?? 0,
-    outputTokens: res.usage?.outputTokens ?? 0,
+    inputTokens: batches.reduce((a, b) => a + b.inTok, 0),
+    outputTokens: batches.reduce((a, b) => a + b.outTok, 0),
     ms,
   };
 }
