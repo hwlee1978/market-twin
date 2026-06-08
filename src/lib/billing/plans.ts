@@ -327,8 +327,14 @@ export function canStartSim(opts: {
   ) {
     return { allowed: false, reason: "decision_plus_requires_validator" };
   }
-  // Free trial path: gated on either time window OR sim quota.
+  // Free trial path: hypothesis(초기검증) tier ONLY, gated on time window
+  // OR sim quota. Restricting the tier keeps the free run's cost bounded
+  // (~$3-5) — without this, a trial user could pick Consensus(~$25)+ for
+  // free, blowing per-user cost (e.g. for the 「링크업」 program).
   if (plan.slug === "free_trial") {
+    if (simTier !== "hypothesis") {
+      return { allowed: false, reason: "trial_tier_hypothesis_only" };
+    }
     if (!opts.trialActive) return { allowed: false, reason: "trial_expired" };
     if (opts.trialSimsUsed >= opts.trialSimsLimit) {
       return { allowed: false, reason: "trial_sim_quota_exhausted" };

@@ -75,6 +75,10 @@ export async function friendlyApiError(
         ko: "체험 기간이 종료되었습니다. 결제 플랜을 활성화하면 시뮬을 계속 실행할 수 있습니다.",
         en: "Your trial has ended. Activate a paid plan to keep running sims.",
       },
+      trial_tier_hypothesis_only: {
+        ko: "무료 체험은 '초기검증' 분석만 가능합니다. 더 깊은 분석(검증분석 이상)은 결제 플랜에서 이용하세요.",
+        en: "The free trial supports the 'Hypothesis' tier only. Upgrade to a paid plan for Consensus and above.",
+      },
       trial_sim_quota_exhausted: {
         ko: "체험 기간 내 시뮬 횟수를 모두 사용했습니다. 결제 플랜을 활성화해 주세요.",
         en: "Trial sim quota used up. Activate a paid plan to continue.",
