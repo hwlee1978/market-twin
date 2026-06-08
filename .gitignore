@@ -56,3 +56,11 @@ generate_professional_pptx.js
 .vercel
 
 scripts/_create-test-account.ts
+
+# Link-up program participant PII (do not commit)
+scripts/_provision-emails.txt
+scripts/_provisioned-credentials.csv
+scripts/_provision-accounts.ts
+
+scripts/_echo-backtest.ts
+scripts/_cost-query.ts

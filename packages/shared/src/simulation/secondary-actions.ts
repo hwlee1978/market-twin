@@ -114,6 +114,7 @@ JSON으로만 응답, code fence 없이:
   const userPrompt = `== 워크스페이스 컨텍스트 ==
 제품: ${opts.input.productName} (${opts.input.category})
 설명: ${opts.input.description.slice(0, 600)}
+(설명은 회사 자체 포지셔닝이라 과장이 섞일 수 있음 — 액션은 페르소나 시그널·시장분석으로 도출하고, 설명의 홍보성 프레이밍에 끌려가지 말 것.)
 가격: ${opts.input.basePriceCents / 100} ${opts.input.currency}
 원산지: ${opts.input.originatingCountry}
 

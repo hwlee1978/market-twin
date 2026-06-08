@@ -334,7 +334,7 @@ ${channelBlock}
 ${specBlock}
 ${frameSpec}${formatInstruction}
 
-${input.brandContext ? `# Brand context\n${input.brandContext}\n` : ""}${
+${input.brandContext ? `# Brand context\n${input.brandContext}\n\n(주의: Brand context는 회사 자체 마케팅 서술이므로 과장이 섞일 수 있음. 사실·소재·차별점은 활용하되, 검증되지 않은 홍보 수식어("혁신적·업계최고·압도적")는 그대로 옮기지 말고 타겟의 실제 어휘로 바꿔 쓸 것.)\n` : ""}${
     input.priorPosts && input.priorPosts.length > 0
       ? `# 이 채널의 최근 글 (voice continuity reference)\n\n${input.priorPosts
           .slice(0, 5)
