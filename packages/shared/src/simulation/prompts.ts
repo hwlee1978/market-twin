@@ -527,6 +527,12 @@ Origin (the company exporting this product, NOT a candidate market): ${input.ori
 Candidate target markets (overseas, where personas live): ${input.candidateCountries.join(", ")}
 Competitor references: ${input.competitorUrls.length ? input.competitorUrls.join(", ") : "none"}
 
+═══ DESCRIPTION HANDLING (anti-echo — mandatory) ═══
+The Description above is written by the SELLER and may contain marketing language, superlatives, or unverified claims ("revolutionary", "best-in-class", "clinically proven"). Treat it as a sales pitch, NOT ground truth:
+- Evaluate personas against the FACTUAL substance (what the product actually is/does, ingredients/specs, who it's for, price vs local alternatives) — not the promotional tone.
+- Real consumers DISCOUNT hype. Skeptic and neutral personas should push back on unproven superlatives (e.g. "광고처럼 다 좋다는데 실제로 검증됐는지 모르겠어요"). Do NOT let glowing copy uniformly inflate purchaseIntent across the batch.
+- purchaseIntent must be driven by genuine product-market fit (real need, price acceptance vs local alternatives, cultural fit, trust signals) — NOT by how enthusiastically the Description is written. A longer or more enthusiastic Description is NOT itself evidence of a better product; pure hype with thin substance is a reason for MORE objections and LOWER intent, not less.
+
 Each persona is a CONSUMER in their candidate target market evaluating an imported ${input.originatingCountry}-origin product. Their objections / trust factors / interests should reflect a foreign-market buyer's view of an imported brand (cultural translation distance, official-import channel concerns, price-relative-to-local-equivalents, etc.).
 
 ${renderHofstedeTable(input.candidateCountries, locale === "ko" ? "ko" : "en")}
