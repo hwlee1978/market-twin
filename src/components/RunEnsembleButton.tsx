@@ -62,13 +62,13 @@ export function RunEnsembleButton({ projectId, className }: Props) {
         >
           <option value="hypothesis">
             {isKo
-              ? "초기검증 · 200명 · 약 7분"
-              : "Hypothesis · 200 personas · ~7 min"}
+              ? "초기검증 · 600명 · 약 7분"
+              : "Hypothesis · 600 personas · ~7 min"}
           </option>
           <option value="decision">
             {isKo
-              ? "검증분석 · 1,000명 · 약 12분"
-              : "Consensus · 1,000 personas · ~12 min"}
+              ? "검증분석 · 1,200명 · 약 12분"
+              : "Consensus · 1,200 personas · ~12 min"}
           </option>
           <option value="decision_plus">
             {isKo
