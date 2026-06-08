@@ -45,7 +45,8 @@ const NAV_BASE = [
   // hit a "접근 권한 없음" gate notice.
   { href: "/admin/llm-usage", icon: ShieldCheck, key: "llmUsageAdmin" as const },
   { href: "/admin/site-settings", icon: ShieldCheck, key: "siteSettingsAdmin" as const },
-  { href: "/admin/challenge-data", icon: ShieldCheck, key: "challengeDataAdmin" as const },
+  // 챌린지 데이터 nav 링크는 모든 유저에게서 숨김 (page는 직접 URL로만 접근).
+  // { href: "/admin/challenge-data", icon: ShieldCheck, key: "challengeDataAdmin" as const },
 ];
 const MRAI_NAV_ITEM = {
   href: "/mr-ai",
