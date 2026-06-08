@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { WorkspaceSettingsForm } from "@/components/settings/WorkspaceSettingsForm";
 import { NotificationsToggle } from "@/components/settings/NotificationsToggle";
+import { PasswordChangeForm } from "@/components/settings/PasswordChangeForm";
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
@@ -96,6 +97,26 @@ export default async function SettingsPage({
               initial={workspace.email_notifications ?? true}
             />
           )}
+        </section>
+
+        <section className="card">
+          <h2 className="text-base font-semibold text-slate-900 mb-1">
+            {t("password.title")}
+          </h2>
+          <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+            {t("password.subtitle")}
+          </p>
+          <PasswordChangeForm
+            labels={{
+              newPassword: t("password.newPassword"),
+              confirm: t("password.confirm"),
+              submit: t("password.submit"),
+              success: t("password.success"),
+              mismatch: t("password.mismatch"),
+              tooShort: t("password.tooShort"),
+              error: t("password.error"),
+            }}
+          />
         </section>
 
         <section className="card">

@@ -1084,6 +1084,17 @@
         "description": "Includes success score, best country, recommended price, and a one-click button to the results page."
       }
     },
+    "password": {
+      "title": "Change password",
+      "subtitle": "If you logged in with a temporary password, set a new one here.",
+      "newPassword": "New password",
+      "confirm": "Confirm new password",
+      "submit": "Change password",
+      "success": "Your password has been changed.",
+      "mismatch": "The two passwords don't match.",
+      "tooShort": "Password must be at least 8 characters.",
+      "error": "Couldn't change password. Please try again."
+    },
     "session": {
       "title": "Session",
       "subtitle": "Sign out of this browser. Other devices stay signed in.",
