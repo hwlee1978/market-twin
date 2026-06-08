@@ -367,6 +367,7 @@ export function ContentDraftsPanel({
               <DraftCard
                 key={d.id}
                 draft={d}
+                channelId={channelId}
                 platform={platform}
                 connectedExternal={connectedExternal}
                 brandAssetCount={brandAssetCount}
@@ -422,6 +423,7 @@ type SimulationRow = {
 
 function DraftCard({
   draft,
+  channelId,
   platform: _platform,
   connectedExternal,
   brandAssetCount,
@@ -431,6 +433,7 @@ function DraftCard({
   onUpdated,
 }: {
   draft: Draft;
+  channelId: string;
   platform: string;
   connectedExternal: Set<ExternalProvider>;
   brandAssetCount: number | null;
@@ -516,6 +519,11 @@ function DraftCard({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "퍼블리시 실패");
       setPublishedAt(json.publication?.published_at ?? new Date().toISOString());
+      // Tell the sibling VirtualSpaceFeed to re-fetch so the new card
+      // appears without a page reload.
+      window.dispatchEvent(
+        new CustomEvent("mrai:publications-changed", { detail: { channelId } }),
+      );
       capture("mrai_content_published", {
         draft_id: draft.id,
         variant_label: draft.variant_label,
@@ -545,6 +553,11 @@ function DraftCard({
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || "발행 취소 실패");
       setPublishedAt(null);
+      // Refresh the virtual feed so the cancelled card disappears
+      // immediately instead of lingering until a manual reload.
+      window.dispatchEvent(
+        new CustomEvent("mrai:publications-changed", { detail: { channelId } }),
+      );
     } catch (e) {
       setPublishError(errMsg(e, "발행 취소 실패"));
     } finally {

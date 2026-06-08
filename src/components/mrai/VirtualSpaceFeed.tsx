@@ -42,7 +42,7 @@ export function VirtualSpaceFeed({
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
+    const load = async () => {
       try {
         const res = await fetch(
           `/api/mrai/marketing-channels/${channelId}/publications`,
@@ -57,9 +57,19 @@ export function VirtualSpaceFeed({
       } catch {
         if (!cancelled) setPubs([]);
       }
-    })();
+    };
+    void load();
+
+    // The draft panel (a sibling client component) fires this event after
+    // a publish/unpublish so the feed re-fetches without a page reload.
+    const onChanged = (e: Event) => {
+      const detail = (e as CustomEvent<{ channelId?: string }>).detail;
+      if (!detail?.channelId || detail.channelId === channelId) void load();
+    };
+    window.addEventListener("mrai:publications-changed", onChanged);
     return () => {
       cancelled = true;
+      window.removeEventListener("mrai:publications-changed", onChanged);
     };
   }, [channelId]);
 
