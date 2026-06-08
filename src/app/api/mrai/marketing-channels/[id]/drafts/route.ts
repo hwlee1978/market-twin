@@ -8,13 +8,14 @@ import { loadWorkspaceMemories } from "@/lib/mrai/memory";
 
 export const dynamic = "force-dynamic";
 // Drafter loads workspace memories + prior posts + brand context, then
-// runs a single multi-variant LLM call. With 4-5 variants on slower
-// providers (Sonnet/GPT-4) the wall-clock routinely brushes 60s and we
-// were seeing Vercel timeouts surface to the client as "Unexpected token
-// 'A'… is not valid JSON" because the gateway returned a plain-text
-// error page in lieu of the JSON shape. 120s gives the LLM call enough
-// headroom even with retries.
-export const maxDuration = 120;
+// runs a single multi-variant LLM call (up to 16K tokens, bilingual). With
+// 3-5 variants on Sonnet the wall-clock can exceed 120s — especially when
+// the JSON-schema layer retries once — surfacing as a 504
+// FUNCTION_INVOCATION_TIMEOUT. 300s (Pro Fluid, matching the ensemble-pdf
+// route) gives headroom for a slow generation + one retry. NOTE: this is a
+// reliability backstop; the real latency fix is parallelising variants or
+// using a faster drafting model (tracked separately).
+export const maxDuration = 300;
 
 /**
  * GET  /api/mrai/marketing-channels/[id]/drafts
