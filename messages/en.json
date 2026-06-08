@@ -1110,7 +1110,10 @@
       "models": "Models",
       "health": "System Health",
       "simQuality": "Quality Audit",
-      "audit": "Audit Logs"
+      "audit": "Audit Logs",
+      "llmUsage": "LLM Usage",
+      "siteSettings": "Site Settings",
+      "challengeData": "Challenge Data"
     },
     "overview": {
       "title": "Operations Dashboard",

@@ -12,6 +12,9 @@ import {
   Activity,
   ClipboardList,
   ShieldCheck,
+  BarChart3,
+  Settings,
+  Database,
   ArrowLeftCircle,
   LogOut,
 } from "lucide-react";
@@ -30,6 +33,9 @@ const NAV = [
   { href: "/admin/health", icon: Activity, key: "health" as const },
   { href: "/admin/sim-quality", icon: ShieldCheck, key: "simQuality" as const },
   { href: "/admin/audit", icon: ClipboardList, key: "audit" as const },
+  { href: "/admin/llm-usage", icon: BarChart3, key: "llmUsage" as const },
+  { href: "/admin/site-settings", icon: Settings, key: "siteSettings" as const },
+  { href: "/admin/challenge-data", icon: Database, key: "challengeData" as const },
 ];
 
 export function AdminShell({

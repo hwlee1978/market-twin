@@ -35,6 +35,83 @@ FONT_EN = "Inter"
 FONT_SERIF = "Cormorant Garamond"
 FONT_MONO = "JetBrains Mono"
 
+# ── Font helper ─────────────────────────────────────────────────
+# python-pptx's font.name setter only writes <a:latin typeface="..">.
+# When a system doesn't have that face mapped as the East-Asian (CJK)
+# font, PowerPoint silently picks an entirely different fallback for
+# Korean glyphs in the same run — the rendering jumps between two
+# unrelated typefaces mid-line. Set ALL three slots (latin / ea / cs)
+# so Pretendard is used uniformly for Latin + Korean + complex scripts.
+
+def set_font(run, name):
+    if name is None:
+        return
+    rPr = run._r.get_or_add_rPr()
+    for slot in ('a:latin', 'a:ea', 'a:cs'):
+        el = rPr.find(qn(slot))
+        if el is None:
+            el = etree.SubElement(rPr, qn(slot))
+        el.set('typeface', name)
+
+
+# Monkey-patch python-pptx so Font.name setter populates ALL 3
+# typeface slots automatically — no more "I forgot to set ea" bugs
+# in legacy slide-building code below.
+from pptx.text.text import Font as _PptxFont
+_orig_name_setter = _PptxFont.name.fset
+
+
+def _patched_name_setter(self, value):
+    _orig_name_setter(self, value)
+    if value is None:
+        return
+    rPr = self._rPr
+    if rPr is None:
+        return
+    for slot in ('a:ea', 'a:cs'):
+        el = rPr.find(qn(slot))
+        if el is None:
+            el = etree.SubElement(rPr, qn(slot))
+        el.set('typeface', value)
+
+
+_PptxFont.name = property(_PptxFont.name.fget, _patched_name_setter)
+
+
+# ── Glyph sanitizer ─────────────────────────────────────────────
+# Pretendard ships Korean + Latin only — arrows / emoji / pictographs
+# fall back to whatever's available and render as garbage characters
+# on most machines. Replace them with ASCII-safe equivalents BEFORE
+# any text reaches the PPTX layer.
+import re as _re
+
+_GLYPH_MAP = {
+    # Arrows — Pretendard doesn't ship these, fallback fonts render
+    # them as random Latin garbage on most systems. Map to ASCII.
+    "→": ">", "←": "<", "↑": "+", "↓": "-",
+    "⇒": ">", "⇐": "<",
+    "↗": ">", "↘": ">", "↖": "<", "↙": "<",
+    "•": "-",     # bullet -> hyphen
+    "✓": "OK", "✗": "X", "✘": "X",
+    "★": "*", "☆": "*",
+    # NOTE: middle-dot (·), em-dash (—), multiplication sign (×) are
+    # kept as-is. Pretendard / system Korean fonts cover them.
+}
+_EMOJI_RE = _re.compile(
+    "[\U0001F000-\U0001FFFF"
+    "☀-➿"
+    "️]"
+)
+def _clean(txt):
+    if not isinstance(txt, str):
+        return txt
+    for k, v in _GLYPH_MAP.items():
+        txt = txt.replace(k, v)
+    txt = _EMOJI_RE.sub("", txt)
+    # Collapse double spaces from removed glyphs.
+    txt = _re.sub(r" +", " ", txt).strip(" ")
+    return txt
+
 # ── Init 16:9 deck ──────────────────────────────────────────────
 prs = Presentation()
 prs.slide_width = Inches(13.333)
@@ -64,13 +141,13 @@ def add_text(slide, x, y, w, h, text, *, font=FONT_KR, size=14, bold=False,
     p = tf.paragraphs[0]
     p.alignment = align
     run = p.add_run()
-    run.text = text
+    run.text = _clean(text)
     f = run.font
-    f.name = font
     f.size = Pt(size)
     f.bold = bold
     f.italic = italic
     f.color.rgb = color
+    set_font(run, font)
     if letter_spacing is not None:
         # set spc via xml
         rPr = run._r.get_or_add_rPr()
@@ -94,11 +171,11 @@ def add_multi(slide, x, y, w, h, lines, *, font=FONT_KR, size=12,
         p.line_spacing = line_space
         text = line if isinstance(line, str) else line["text"]
         run = p.add_run()
-        run.text = text
+        run.text = _clean(text)
         f = run.font
-        f.name = font
         f.size = Pt(size)
         f.color.rgb = color
+        chosen_font = font
         if isinstance(line, dict):
             if line.get("bold"):
                 f.bold = True
@@ -109,17 +186,28 @@ def add_multi(slide, x, y, w, h, lines, *, font=FONT_KR, size=12,
             if line.get("color"):
                 f.color.rgb = line["color"]
             if line.get("font"):
-                f.name = line["font"]
+                chosen_font = line["font"]
             if line.get("indent"):
                 p.level = line["indent"]
+        set_font(run, chosen_font)
     return tb
 
 
 def add_bullet_list(slide, x, y, w, h, items, *, size=12, color=TEXT):
-    """Bulleted list with • marker prepended, hanging indent feel."""
+    """Bulleted list with em-dash marker. Avoids glyphs Pretendard
+    doesn't ship (middle-dot, arrows, emoji) — those fall back to a
+    random font on systems without full coverage and render as garbage.
+    Also strips emoji + arrow characters defensively."""
+    import re
+    # Strip emoji + arrows from incoming text — keep meaning, drop glyph.
+    sanitize_re = re.compile(
+        r"[←-⇿⌀-⏿■-➿✀-➿"
+        r"\U0001F300-\U0001FAFF️]"
+    )
     lines = []
     for it in items:
-        lines.append({"text": f"·  {it}", "size": size, "color": color})
+        clean = sanitize_re.sub("", it).strip()
+        lines.append({"text": f"—  {clean}", "size": size, "color": color})
     return add_multi(slide, x, y, w, h, lines, size=size, color=color, line_space=1.5)
 
 
@@ -164,12 +252,12 @@ def add_pill(slide, x, y, text, *, fill=ACCENT, color=BG_PURE, size=8, w=None):
     p = tf.paragraphs[0]
     p.alignment = PP_ALIGN.CENTER
     r = p.add_run()
-    r.text = text
+    r.text = _clean(text)
     f = r.font
-    f.name = FONT_KR
     f.size = Pt(size)
     f.bold = True
     f.color.rgb = color
+    set_font(r, FONT_KR)
     rPr = r._r.get_or_add_rPr()
     rPr.set('spc', '180')
     return sh
@@ -204,20 +292,20 @@ def title_serif(slide, x, y, w, h, kr, en_em=None):
     p = tf.paragraphs[0]
     p.line_spacing = 1.05
     r = p.add_run()
-    r.text = kr
+    r.text = _clean(kr)
     f = r.font
-    f.name = FONT_KR
     f.size = Pt(34)
     f.bold = False
     f.color.rgb = NAVY
+    set_font(r, FONT_KR)
     if en_em:
         r2 = p.add_run()
-        r2.text = " " + en_em
+        r2.text = " " + _clean(en_em)
         f2 = r2.font
-        f2.name = FONT_SERIF
         f2.size = Pt(34)
         f2.italic = True
         f2.color.rgb = ACCENT
+        set_font(r2, FONT_SERIF)
     return tb
 
 
@@ -242,13 +330,17 @@ def screenshot_slot(slide, x, y, w, h, label="스크린샷 슬롯"):
     p = tf.paragraphs[0]
     p.alignment = PP_ALIGN.CENTER
     r1 = p.add_run()
-    r1.text = "📷"
-    r1.font.size = Pt(22)
+    r1.text = "SCREENSHOT"
+    r1.font.name = FONT_KR
+    r1.font.size = Pt(9)
+    r1.font.bold = True
     r1.font.color.rgb = RGBColor(0xC9, 0xB7, 0x9A)
+    rPr = r1._r.get_or_add_rPr()
+    rPr.set('spc', '350')
     p2 = tf.add_paragraph()
     p2.alignment = PP_ALIGN.CENTER
     r2 = p2.add_run()
-    r2.text = f"\n{label}"
+    r2.text = "\n" + _clean(label)
     r2.font.name = FONT_KR
     r2.font.size = Pt(10)
     r2.font.color.rgb = TEXT_MUTE
@@ -458,9 +550,9 @@ def section_divider(part_no, kr, en_em):
     tf = tb.text_frame; tf.word_wrap = True
     tf.margin_left = tf.margin_right = 0
     p = tf.paragraphs[0]; p.line_spacing = 1.05
-    r = p.add_run(); r.text = kr + " "
+    r = p.add_run(); r.text = _clean(kr) + " "
     r.font.name = FONT_KR; r.font.size = Pt(40); r.font.color.rgb = BG
-    r2 = p.add_run(); r2.text = en_em
+    r2 = p.add_run(); r2.text = _clean(en_em)
     r2.font.name = FONT_SERIF; r2.font.size = Pt(40)
     r2.font.italic = True
     r2.font.color.rgb = RGBColor(0xC9, 0xB7, 0x9A)
@@ -746,7 +838,7 @@ feature_slide(
 # ─────────────────────────────────────────────────────────────────
 feature_slide(
     "17 · 편집 · 발행 취소",
-    "콘텐츠 편집 + 라이프사이클", "edit · revision",
+    "콘텐츠 편집 및 라이프사이클", "edit revision",
     "즉시",
     "AI 가 만든 초안은 출발점. 임원이 한 줄 수정해도 — 모든 변경이 추적되고 KPI 루프에 반영.",
     [
@@ -780,8 +872,8 @@ feature_slide(
 # Slide 20 — Publish + KPI loop
 # ─────────────────────────────────────────────────────────────────
 feature_slide(
-    20, "16 · 발행 + KPI 루프",
-    "발행 + 학습", "publish · learn",
+    20, "16 · 발행 KPI 루프",
+    "발행 및 학습", "publish learn",
     "즉시 · 매주 자동 학습",
     "Winner 변형 발행 → 누적 좋아요 · 댓글 · 공유 자동 추적 → 다음 콘텐츠 spec 에 자동 반영.",
     [
@@ -954,7 +1046,7 @@ page_chrome(s, "18 · Market Twin 연결", next_pg())
 title_serif(s, 0.6, 1.05, 12.5, 1.2, "Market Twin 과 한 워크스페이스", "market twin")
 add_text(s, 0.6, 2.2, 12.5, 0.7,
          "시장 진출 검증 (Market Twin) 의 결과가 → 메모리 → Mr.AI 콘텐츠 생성의 컨텍스트로 즉시 흐름.\n"
-         "1 주: 시뮬 / 2 주: 결과 메모리 등재 / 3 주: 콘텐츠 생성 / 4 주: 발행 + KPI 측정.",
+         "1 주: 시뮬 / 2 주: 결과 메모리 등재 / 3 주: 콘텐츠 생성 / 4 주: 발행 및 KPI 측정.",
          font=FONT_KR, size=13, color=TEXT_SOFT)
 
 # 4-week timeline
@@ -962,7 +1054,7 @@ weeks = [
     ("WEEK 1", "Market Twin 시뮬", "Decision+ 티어 · 3,000 페르소나\n24개국 평가 · 추천 진출국 + 가격"),
     ("WEEK 2", "메모리 자동 등재", "결과를 워크스페이스 메모리에\ntype=decision / fact / context"),
     ("WEEK 3", "콘텐츠 자동 생성", "거부·신뢰 voice 컨텍스트로\n타겟 시장 언어 12+ 변형"),
-    ("WEEK 4", "발행 + KPI 측정", "winner 시뮬 검증 후 발행\n실제 KPI vs 시뮬 예측 비교"),
+    ("WEEK 4", "발행 및 KPI 측정", "winner 시뮬 검증 후 발행\n실제 KPI vs 시뮬 예측 비교"),
 ]
 top = 3.6; box_w = 3.0; gap = 0.18
 for i, (w, t, body) in enumerate(weeks):
@@ -1005,7 +1097,7 @@ days = [
     ("월", "08:00 Daily Briefing", "어제 경쟁사 신상·뉴스 3분 읽기. 이번 주 우선순위 결정."),
     ("화", "콘텐츠 12건 자동 생성", "주제 4 × A/B/C. 페르소나 시뮬 → winner 마킹."),
     ("수", "Market Twin 시뮬", "신규 진출국 후보 검토 · 가격 곡선 도출 (15분)."),
-    ("목", "발행 + 디자인 큐레이션", "winner 변형 5 채널 동시 발행. 디자이너는 이미지 review."),
+    ("목", "발행 및 디자인 큐레이션", "winner 변형 5 채널 동시 발행. 디자이너는 이미지 review."),
     ("금", "주간 KPI 자동 정리", "이번 주 winner 패턴 학습. 다음 주 spec 자동 업데이트."),
     ("주말", "자동 운영", "크롤 · 브리핑 (월요일분 준비) · 시뮬 큐 자동 진행."),
 ]
@@ -1066,7 +1158,7 @@ for i, (n, label, sub) in enumerate(nums):
     tf.margin_left = tf.margin_right = 0
     tf.margin_top = tf.margin_bottom = 0
     p = tf.paragraphs[0]; p.line_spacing = 0.95
-    r = p.add_run(); r.text = n
+    r = p.add_run(); r.text = _clean(n)
     r.font.name = FONT_SERIF
     r.font.size = Pt(40)
     r.font.italic = True
@@ -1129,7 +1221,7 @@ tb = s.shapes.add_textbox(Inches(0.95), Inches(2.0), Inches(11.5), Inches(1.5))
 tf = tb.text_frame; tf.word_wrap = True
 tf.margin_left = tf.margin_right = 0
 p = tf.paragraphs[0]; p.line_spacing = 1.05
-r = p.add_run(); r.text = "한 브랜드 · 4주 · "
+r = p.add_run(); r.text = _clean("한 브랜드 · 4주 · ")
 r.font.name = FONT_KR; r.font.size = Pt(40); r.font.color.rgb = BG
 r2 = p.add_run(); r2.text = "to validate."
 r2.font.name = FONT_SERIF; r2.font.size = Pt(40)
@@ -1158,6 +1250,22 @@ for i, (w, t, body) in enumerate(steps_data):
 # ─────────────────────────────────────────────────────────────────
 # Save
 # ─────────────────────────────────────────────────────────────────
+import os, sys, time
 out = r"C:\Project\Market-Twin\proposals\mrai-core-deck.pptx"
-prs.save(out)
-print(f"saved: {out} ({len(prs.slides)} slides)")
+candidates = [out]
+# Walk through timestamped fallbacks if the primary or previous
+# fallbacks are still locked (PowerPoint open). Each rebuild gets a
+# unique name so the user can compare before deciding which to keep.
+ts = time.strftime("%H%M%S")
+candidates.append(out.replace(".pptx", f"-{ts}.pptx"))
+last_err = None
+for path in candidates:
+    try:
+        prs.save(path)
+        print(f"saved: {path} ({len(prs.slides)} slides)")
+        sys.exit(0)
+    except PermissionError as e:
+        last_err = e
+        print(f"locked: {path}")
+print(f"all candidates locked. last error: {last_err}")
+sys.exit(1)

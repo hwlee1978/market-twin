@@ -91,12 +91,25 @@ async function fetchPage(
 }
 
 function inferIntent(item: BizinfoItem): "domestic" | "export" {
-  // "수출" 카테고리(04)나 본문에 수출 키워드 있으면 export
-  const txt =
-    `${item.pldirSportRealmLclasCodeNm ?? ""} ${item.pldirSportRealmMlsfcCodeNm ?? ""} ${item.bsnsSumryCn ?? ""} ${item.hashtags ?? ""}`.toLowerCase();
-  if (item.pldirSportRealmLclasCode === "04" || /수출|해외|글로벌|export|overseas/i.test(txt)) {
-    return "export";
-  }
+  // 카테고리 04 = 수출
+  if (item.pldirSportRealmLclasCode === "04") return "export";
+  // 사업명·분야명·본문·해시태그 통합 키워드 검색 (NFC 정규화 — 한글 unicode 일관성)
+  const txt = [
+    item.pblancNm,
+    item.pldirSportRealmLclasCodeNm,
+    item.pldirSportRealmMlsfcCodeNm,
+    item.bsnsSumryCn,
+    item.hashtags,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .normalize("NFC")
+    .toLowerCase();
+  const exportKeywords = [
+    "수출", "해외", "글로벌", "무역", "수입", "관세", "fta",
+    "export", "overseas", "global", "international",
+  ];
+  if (exportKeywords.some((k) => txt.includes(k))) return "export";
   return "domestic";
 }
 

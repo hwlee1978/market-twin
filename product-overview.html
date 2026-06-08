@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Market Twin × Mr. AI — 제품 기능 전체 도식</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --mt-primary: #2563eb;
+    --mt-light: #dbeafe;
+    --mt-dark: #1e40af;
+    --mr-primary: #7c3aed;
+    --mr-light: #ede9fe;
+    --mr-dark: #5b21b6;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-500: #6b7280;
+    --gray-700: #374151;
+    --gray-900: #111827;
+    --green: #10b981;
+    --orange: #f59e0b;
+    --red: #ef4444;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Pretendard", "Noto Sans KR", sans-serif;
+    color: var(--gray-900);
+    background: var(--gray-50);
+    line-height: 1.6;
+  }
+  .container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, #1e3a8a 0%, #5b21b6 100%);
+    color: white;
+    padding: 80px 0 100px;
+    text-align: center;
+  }
+  .hero h1 { font-size: 48px; font-weight: 800; margin-bottom: 16px; letter-spacing: -1px; }
+  .hero .sub { font-size: 20px; opacity: 0.9; margin-bottom: 32px; }
+  .hero .meta { display: inline-flex; gap: 16px; font-size: 13px; opacity: 0.8; background: rgba(255,255,255,0.1); padding: 8px 20px; border-radius: 999px; }
+  .hero .meta span::before { content: "•"; margin-right: 8px; }
+  .hero .meta span:first-child::before { content: ""; margin: 0; }
+
+  /* TOC */
+  .toc {
+    background: white; border-radius: 12px; padding: 24px;
+    margin: -60px auto 60px; box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    max-width: 1100px;
+  }
+  .toc h3 { font-size: 14px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+  .toc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+  .toc a {
+    display: block; padding: 10px 14px; border-radius: 8px;
+    text-decoration: none; color: var(--gray-700); font-size: 14px;
+    border: 1px solid var(--gray-200); transition: all 0.15s;
+  }
+  .toc a:hover { background: var(--gray-50); border-color: var(--gray-300); transform: translateY(-1px); }
+
+  /* SECTIONS */
+  section { padding: 60px 0; }
+  section h2 {
+    font-size: 32px; font-weight: 800; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  section h2 .badge {
+    font-size: 12px; padding: 4px 12px; border-radius: 999px;
+    background: var(--gray-200); color: var(--gray-700); font-weight: 600;
+  }
+  section .subtitle { color: var(--gray-500); font-size: 16px; margin-bottom: 40px; }
+
+  .section-mt { background: linear-gradient(180deg, white 0%, var(--mt-light) 100%); }
+  .section-mt h2 { color: var(--mt-dark); }
+  .section-mt h2 .badge { background: var(--mt-primary); color: white; }
+
+  .section-mr { background: linear-gradient(180deg, var(--mr-light) 0%, white 100%); }
+  .section-mr h2 { color: var(--mr-dark); }
+  .section-mr h2 .badge { background: var(--mr-primary); color: white; }
+
+  /* CARDS */
+  .grid { display: grid; gap: 24px; }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 900px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: white; border-radius: 12px; padding: 24px;
+    border: 1px solid var(--gray-200);
+    transition: all 0.2s;
+  }
+  .card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.08); transform: translateY(-2px); }
+  .card h4 { font-size: 16px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .card .icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; color: white;
+    flex-shrink: 0;
+  }
+  .card p { color: var(--gray-700); font-size: 14px; }
+  .card .meta { margin-top: 12px; font-size: 12px; color: var(--gray-500); font-family: monospace; }
+
+  /* TIER LADDER */
+  .tier-ladder {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin: 32px 0;
+  }
+  @media (max-width: 1100px) { .tier-ladder { grid-template-columns: repeat(2, 1fr); } }
+  .tier {
+    background: white; border-radius: 12px; padding: 20px;
+    border: 2px solid var(--gray-200); position: relative;
+  }
+  .tier.t1 { border-color: #94a3b8; }
+  .tier.t2 { border-color: #60a5fa; }
+  .tier.t3 { border-color: #3b82f6; }
+  .tier.t4 { border-color: #1d4ed8; background: linear-gradient(180deg, white 70%, #dbeafe); }
+  .tier.t5 { border-color: #7c3aed; background: linear-gradient(180deg, white 70%, #ede9fe); }
+  .tier .name { font-weight: 800; font-size: 16px; margin-bottom: 4px; }
+  .tier .price { font-size: 13px; color: var(--gray-500); margin-bottom: 12px; }
+  .tier ul { list-style: none; font-size: 13px; }
+  .tier ul li { padding: 4px 0; color: var(--gray-700); }
+  .tier ul li::before { content: "✓ "; color: var(--green); font-weight: 700; }
+  .tier ul li.x::before { content: "✗ "; color: var(--gray-300); }
+
+  /* 4-LAYER DIAGRAM */
+  .layer-diagram {
+    background: white; border-radius: 16px; padding: 32px;
+    margin: 32px 0; border: 1px solid var(--gray-200);
+  }
+  .layer-diagram h3 { margin-bottom: 24px; font-size: 18px; }
+  .layer {
+    border-left: 4px solid var(--mt-primary); padding: 16px 20px;
+    background: var(--gray-50); border-radius: 0 8px 8px 0;
+    margin-bottom: 12px;
+  }
+  .layer.l1 { border-left-color: #94a3b8; }
+  .layer.l2 { border-left-color: #60a5fa; }
+  .layer.l3 { border-left-color: #2563eb; }
+  .layer.l4 { border-left-color: #1e40af; }
+  .layer .ttl { font-weight: 700; margin-bottom: 4px; font-size: 14px; }
+  .layer .desc { font-size: 13px; color: var(--gray-700); }
+  .layer .modules { font-size: 12px; color: var(--gray-500); margin-top: 8px; font-family: monospace; }
+  .layer-arrow { text-align: center; color: var(--gray-300); font-size: 20px; margin: 4px 0; }
+
+  /* DATA ANCHOR GRID */
+  .anchor-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    margin: 24px 0;
+  }
+  @media (max-width: 900px) { .anchor-grid { grid-template-columns: repeat(2, 1fr); } }
+  .anchor {
+    background: white; border: 1px solid var(--gray-200);
+    border-radius: 8px; padding: 14px; text-align: center;
+  }
+  .anchor .a-name { font-weight: 700; font-size: 13px; color: var(--mt-dark); }
+  .anchor .a-org { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
+  .anchor .a-status { font-size: 11px; margin-top: 6px; padding: 2px 8px; border-radius: 999px; display: inline-block; }
+  .anchor .s-live { background: #d1fae5; color: #065f46; }
+  .anchor .s-tune { background: #fef3c7; color: #92400e; }
+
+  /* MRAI 3-LAYER */
+  .three-layer {
+    display: grid; grid-template-columns: 1fr auto 1fr auto 1fr;
+    align-items: center; gap: 12px;
+    background: white; padding: 32px; border-radius: 16px;
+    margin: 32px 0; border: 1px solid var(--gray-200);
+  }
+  @media (max-width: 900px) {
+    .three-layer { grid-template-columns: 1fr; }
+    .three-layer .arrow { transform: rotate(90deg); padding: 8px 0; }
+  }
+  .agent-box {
+    background: linear-gradient(135deg, var(--mr-light), white);
+    border: 2px solid var(--mr-primary); border-radius: 12px;
+    padding: 20px; text-align: center;
+  }
+  .agent-box .num {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--mr-primary); color: white;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 800; margin-bottom: 12px;
+  }
+  .agent-box .role { font-weight: 800; font-size: 16px; color: var(--mr-dark); margin-bottom: 6px; }
+  .agent-box .job { font-size: 13px; color: var(--gray-700); }
+  .arrow { font-size: 28px; color: var(--mr-primary); font-weight: 700; }
+
+  /* FEATURE TABLE */
+  table {
+    width: 100%; border-collapse: collapse; background: white;
+    border-radius: 12px; overflow: hidden; margin: 24px 0;
+    border: 1px solid var(--gray-200);
+  }
+  th, td { padding: 12px 16px; text-align: left; font-size: 14px; }
+  thead { background: var(--gray-100); }
+  th { font-weight: 700; color: var(--gray-700); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+  tbody tr { border-top: 1px solid var(--gray-200); }
+  tbody tr:hover { background: var(--gray-50); }
+  td code { background: var(--gray-100); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+  .chip {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 600;
+  }
+  .chip-blue { background: var(--mt-light); color: var(--mt-dark); }
+  .chip-purple { background: var(--mr-light); color: var(--mr-dark); }
+  .chip-green { background: #d1fae5; color: #065f46; }
+  .chip-gray { background: var(--gray-200); color: var(--gray-700); }
+  .chip-red { background: #fee2e2; color: #991b1b; }
+
+  /* FLOW */
+  .flow {
+    display: flex; align-items: stretch; gap: 0;
+    background: white; border-radius: 12px; padding: 24px;
+    border: 1px solid var(--gray-200); margin: 24px 0;
+    overflow-x: auto;
+  }
+  .flow-step {
+    flex: 1; min-width: 180px; padding: 16px; text-align: center;
+    position: relative;
+  }
+  .flow-step:not(:last-child)::after {
+    content: "→"; position: absolute; right: -8px; top: 50%;
+    transform: translateY(-50%); color: var(--gray-300); font-size: 24px;
+  }
+  .flow-step .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--gray-100); color: var(--gray-700);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; margin-bottom: 8px;
+  }
+  .flow-step .step-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .flow-step .step-desc { font-size: 12px; color: var(--gray-500); }
+
+  /* INFRA DIAGRAM */
+  .infra-diagram {
+    background: #0f172a; color: white; border-radius: 16px;
+    padding: 40px; margin: 32px 0;
+  }
+  .infra-row {
+    display: grid; grid-template-columns: 100px 1fr;
+    gap: 16px; align-items: center; padding: 14px 0;
+    border-bottom: 1px solid #1e293b;
+  }
+  .infra-row:last-child { border-bottom: none; }
+  .infra-label {
+    font-size: 11px; color: #94a3b8; text-transform: uppercase;
+    letter-spacing: 1px; font-weight: 700;
+  }
+  .infra-items { display: flex; gap: 8px; flex-wrap: wrap; }
+  .infra-pill {
+    background: #1e293b; padding: 6px 12px; border-radius: 6px;
+    font-size: 12px; color: #e2e8f0; font-weight: 500;
+    border: 1px solid #334155;
+  }
+  .infra-pill.hot { background: #1e3a8a; border-color: #3b82f6; }
+  .infra-pill.mr { background: #4c1d95; border-color: #7c3aed; }
+
+  /* TIMELINE */
+  .timeline {
+    background: white; border-radius: 12px; padding: 32px;
+    margin: 32px 0; border: 1px solid var(--gray-200);
+    max-height: 600px; overflow-y: auto;
+  }
+  .timeline-item {
+    display: grid; grid-template-columns: 80px 1fr;
+    gap: 16px; padding: 10px 0;
+    border-bottom: 1px dashed var(--gray-200);
+  }
+  .timeline-num {
+    font-family: monospace; font-weight: 700;
+    color: var(--gray-500); font-size: 13px;
+  }
+  .timeline-content { font-size: 14px; }
+  .timeline-title { font-weight: 600; color: var(--gray-900); }
+  .timeline-desc { color: var(--gray-500); font-size: 13px; margin-top: 2px; }
+
+  /* FOOTER */
+  footer {
+    background: var(--gray-900); color: white;
+    padding: 40px 0; text-align: center;
+  }
+  footer p { opacity: 0.7; font-size: 14px; }
+  footer .links { margin-top: 16px; font-size: 13px; opacity: 0.6; }
+
+  /* PRINT */
+  @media print {
+    .hero { background: white; color: black; padding: 20px 0; }
+    .hero h1 { color: var(--mt-dark); }
+    section { page-break-inside: avoid; padding: 20px 0; }
+    .toc { display: none; }
+    .card:hover { transform: none; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="container">
+    <h1>Market Twin × Mr. AI</h1>
+    <p class="sub">정부 OpenData × AI 페르소나 SaaS — 제품 기능 전체 도식</p>
+    <div class="meta">
+      <span>㈜미스터에이아이</span>
+      <span>markettwin.ai</span>
+      <span>2026-05-24 기준</span>
+      <span>v0.1 advisory tier</span>
+    </div>
+  </div>
+</div>
+
+<!-- TOC -->
+<div class="container">
+  <div class="toc">
+    <h3>목차</h3>
+    <div class="toc-grid">
+      <a href="#overview">1. 한눈에 보기</a>
+      <a href="#mt-engine">2. Market Twin 엔진</a>
+      <a href="#mt-anchors">3. 데이터 Anchor</a>
+      <a href="#mt-llm">4. Multi-LLM 전략</a>
+      <a href="#mt-routes">5. 사용자 흐름</a>
+      <a href="#mrai-core">6. Mr. AI 핵심</a>
+      <a href="#mrai-3layer">7. 3-Layer Agent</a>
+      <a href="#mrai-features">8. Mr. AI 기능 6종</a>
+      <a href="#pricing">9. 요금제·티어</a>
+      <a href="#api">10. API 카탈로그</a>
+      <a href="#infra">11. 인프라·통합</a>
+      <a href="#db">12. DB 진화 (0001→0037)</a>
+    </div>
+  </div>
+</div>
+
+<!-- 1. OVERVIEW -->
+<section id="overview">
+  <div class="container">
+    <h2>1. 한눈에 보기 <span class="badge">두 제품 한 플랫폼</span></h2>
+    <p class="subtitle">Market Twin은 "어느 시장으로 가야 하는가"를 시뮬레이션으로 답하고, Mr. AI는 그 결정을 매일 옆에서 지키는 CEO Assistant.</p>
+
+    <div class="grid grid-2">
+      <div class="card" style="border-top: 4px solid var(--mt-primary);">
+        <h4><span class="icon" style="background: var(--mt-primary);">MT</span> Market Twin (본체)</h4>
+        <p><b>입력:</b> 제품/카테고리/타겟 시장 후보<br>
+        <b>처리:</b> 8개 정부 데이터 Anchor + 3~5개 LLM × 200 Persona × N 시뮬<br>
+        <b>출력:</b> Best Country 분포, 세그먼트별 추천, 가격대, PDF/CSV 리포트, 공유 링크</p>
+        <div class="meta">5 Tier · Hypothesis ~ Deep Pro · KOTRA 급 사업타당성 검증</div>
+      </div>
+      <div class="card" style="border-top: 4px solid var(--mr-primary);">
+        <h4><span class="icon" style="background: var(--mr-primary);">AI</span> Mr. AI (CEO Assistant)</h4>
+        <p><b>입력:</b> 워크스페이스 메모리 + 대화 + HubSpot CRM + 시뮬 결과<br>
+        <b>처리:</b> 3-Layer Agent (Strategist→Analyst→Synthesizer) + Knowledge Graph + pgvector<br>
+        <b>출력:</b> Daily Briefing, Strategic Brief, Slack/Email/Webhook 자동 발송</p>
+        <div class="meta">Trina-pattern · 매일 08 KST 자동 · KPI Loop</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. MT ENGINE -->
+<section id="mt-engine" class="section-mt">
+  <div class="container">
+    <h2>2. Market Twin 엔진 <span class="badge">4-Layer Architecture</span></h2>
+    <p class="subtitle">데이터 → 페르소나 → 합의 → 출력. 각 레이어는 독립 모듈이며, Tier가 올라갈수록 LLM 다양성과 시뮬 개수가 증가.</p>
+
+    <div class="layer-diagram">
+      <h3>📊 4-Layer Simulation Pipeline</h3>
+
+      <div class="layer l1">
+        <div class="ttl">Layer 1 · Reference Anchor (정부 OpenData)</div>
+        <div class="desc">국가/카테고리 ground truth — DART, KOTRA, Comtrade, 관세청, World Bank, Hofstede, MFDS, aT</div>
+        <div class="modules">packages/shared/src/market-research/*.ts · packages/shared/src/reference/hofstede-dimensions.ts</div>
+      </div>
+      <div class="layer-arrow">▼</div>
+
+      <div class="layer l2">
+        <div class="ttl">Layer 2 · Persona Generation (LLM × N)</div>
+        <div class="desc">국가별 소득 분포 + 문화 차원 → 200명 Persona 생성. 채택의사·지불의향·반대이유 추론.</div>
+        <div class="modules">simulation/runner.ts · simulation/income-distribution.ts · llm/anthropic|openai|gemini|deepseek.ts</div>
+      </div>
+      <div class="layer-arrow">▼</div>
+
+      <div class="layer l3">
+        <div class="ttl">Layer 3 · Ensemble Synthesis (N개 시뮬 합의)</div>
+        <div class="desc">Round-robin Provider 배정 → Best Country 분포 + Cross-LLM Agreement Score 산출.</div>
+        <div class="modules">simulation/orchestrator.ts · simulation/ensemble-narrative.ts · calibration/provider-weights.ts</div>
+      </div>
+      <div class="layer-arrow">▼</div>
+
+      <div class="layer l4">
+        <div class="ttl">Layer 4 · Output & Delivery</div>
+        <div class="desc">대시보드 시각화, PDF/CSV, 공유 토큰, Persona-chat (개별 페르소나와 대화).</div>
+        <div class="modules">app/[locale]/(app)/projects/[id]/results · api/ensembles/[id]/pdf · api/persona-chat</div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 40px; margin-bottom: 16px; font-size: 18px;">🎚️ Tier별 시뮬 규모 (한 프로젝트당)</h3>
+    <div class="tier-ladder">
+      <div class="tier t1">
+        <div class="name">Hypothesis</div>
+        <div class="price">3 sims · ~$3-5</div>
+        <ul>
+          <li>200 Persona × 3</li>
+          <li>3 Provider</li>
+          <li>빠른 가설 검증</li>
+        </ul>
+      </div>
+      <div class="tier t2">
+        <div class="name">Decision</div>
+        <div class="price">6 sims · ~$25</div>
+        <ul>
+          <li>1,200 Persona</li>
+          <li>3 Provider RR</li>
+          <li>기본 추천 등급</li>
+        </ul>
+      </div>
+      <div class="tier t3">
+        <div class="name">Consensus+</div>
+        <div class="price">15 sims · ~$45</div>
+        <ul>
+          <li>3,000 Persona</li>
+          <li>3 Provider 합의</li>
+          <li>Region table ON</li>
+        </ul>
+      </div>
+      <div class="tier t4">
+        <div class="name">Deep</div>
+        <div class="price">25 sims · ~$60</div>
+        <ul>
+          <li>5,000 Persona</li>
+          <li>Multi-LLM 깊이</li>
+          <li>이사회급 자료</li>
+        </ul>
+      </div>
+      <div class="tier t5">
+        <div class="name">Deep Pro</div>
+        <div class="price">50 sims · ~$90</div>
+        <ul>
+          <li>10,000 Persona</li>
+          <li>+ Gemini 포함</li>
+          <li>최고 정확도 (UI 비활성)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. DATA ANCHORS -->
+<section id="mt-anchors">
+  <div class="container">
+    <h2>3. 데이터 Anchor 8종 <span class="badge">정부 OpenData 핵심</span></h2>
+    <p class="subtitle">각 Anchor는 LLM Persona의 환각을 제어하는 ground truth. Phase F 이후 한국 정부 데이터 비중을 1/6 → 3/8로 끌어올렸음.</p>
+
+    <div class="anchor-grid">
+      <div class="anchor">
+        <div class="a-name">DART</div>
+        <div class="a-org">금감원 · 상장사 공시</div>
+        <div class="a-status s-live">live · region parser</div>
+      </div>
+      <div class="anchor">
+        <div class="a-name">KOTRA</div>
+        <div class="a-org">대한무역투자진흥공사</div>
+        <div class="a-status s-live">v3 category opt-in</div>
+      </div>
+      <div class="anchor">
+        <div class="a-name">UN Comtrade</div>
+        <div class="a-org">UN · 글로벌 무역 통계</div>
+        <div class="a-status s-live">live</div>
+      </div>
+      <div class="anchor">
+        <div class="a-name">관세청 UNI-PASS</div>
+        <div class="a-org">한국 수출입 신고</div>
+        <div class="a-status s-live">live</div>
+      </div>
+      <div class="anchor">
+        <div class="a-name">World Bank</div>
+        <div class="a-org">GDP · 인구 · HDI</div>
+        <div class="a-status s-live">F.0 shipped</div>
+      </div>
+      <div class="anchor">
+        <div class="a-name">Hofstede</div>
+        <div class="a-org">6차원 문화 점수</div>
+        <div class="a-status s-live">F.0 shipped</div>
+      </div>
+      <div class="anchor">
+        <div class="a-name">MFDS</div>
+        <div class="a-org">식약처 (화장품/식품 narrow)</div>
+        <div class="a-status s-live">narrow scope</div>
+      </div>
+      <div class="anchor">
+        <div class="a-name">aT</div>
+        <div class="a-org">농수산식품유통공사</div>
+        <div class="a-status s-tune">brand-level 진행중</div>
+      </div>
+    </div>
+
+    <div class="grid grid-2" style="margin-top: 24px;">
+      <div class="card">
+        <h4>✅ 검증된 Composite 전략</h4>
+        <p>4-subsource composite: KOTRA korCompList + Comtrade + DART + compSucsCase. 8-row alignmentMatrix로 "데이터 부재 → 가중평균 제외" 로직 적용.</p>
+        <div class="meta">PDF Source C composite · 2026-05-20 SHIPPED</div>
+      </div>
+      <div class="card">
+        <h4>📈 정확도 진화</h4>
+        <p>Phase F.0 mean 47.9 → v6 (DART) 54.6 → v7 (full region) <b>72.0 paired p=0.0086</b> → v9 honest reframe 58.7 (n=15).</p>
+        <div class="meta">v7→v8→v9 sample-expansion은 small-sample illusion 경고</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. MULTI-LLM -->
+<section id="mt-llm" class="section-mt">
+  <div class="container">
+    <h2>4. Multi-LLM 전략 <span class="badge">5 Provider × 4 Stage</span></h2>
+    <p class="subtitle">단일 LLM 편향 제거가 핵심. Stage별 최적 모델 + Failover로 503 spike 대응.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>단계</th>
+          <th>역할</th>
+          <th>Primary</th>
+          <th>Failover</th>
+          <th>비고</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>Persona Generation</b></td>
+          <td>200명 가상 소비자 생성</td>
+          <td>Anthropic Sonnet 4.6</td>
+          <td>OpenAI GPT-4o, DeepSeek r1</td>
+          <td>Round-robin 분배 (Decision+)</td>
+        </tr>
+        <tr>
+          <td><b>Persona Reaction</b></td>
+          <td>채택/거부 의사 추론</td>
+          <td>Round-robin 3 Provider</td>
+          <td>—</td>
+          <td>편향 분산 핵심 단계</td>
+        </tr>
+        <tr>
+          <td><b>Synthesis</b></td>
+          <td>N개 결과 → 최종 추천</td>
+          <td>Gemini 2.0 Flash</td>
+          <td>→ Anthropic auto-failover</td>
+          <td>503 대응 shipped (f27d2d9 직후)</td>
+        </tr>
+        <tr>
+          <td><b>Structured Tasks</b></td>
+          <td>JSON 추출·검증·요약</td>
+          <td>Anthropic Haiku 4.5</td>
+          <td>OpenAI GPT-4o-mini</td>
+          <td>비용·속도 최우선</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="grid grid-3" style="margin-top: 24px;">
+      <div class="card">
+        <h4>🔄 Round-Robin</h4>
+        <p>시뮬 1·4·7 = Anthropic, 2·5·8 = OpenAI, 3·6·9 = DeepSeek. 시뮬 간 Provider 편향 분산.</p>
+      </div>
+      <div class="card">
+        <h4>⚠️ 자동 Failover</h4>
+        <p>Gemini synthesis 503 spike 자동 Anthropic 폴백. Honest snapshot attribution 보존.</p>
+      </div>
+      <div class="card">
+        <h4>📊 Provenance 추적</h4>
+        <p>각 결과의 어느 Provider Persona가 영향을 끼쳤는지 기록 → 사후 편향 분석.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. USER FLOW -->
+<section id="mt-routes">
+  <div class="container">
+    <h2>5. 사용자 흐름 <span class="badge">Project → Result → Share</span></h2>
+    <p class="subtitle">웹에서 사용자가 거치는 5단계.</p>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="step-num">1</div>
+        <div class="step-name">Project Wizard</div>
+        <div class="step-desc">제품 설명, 카테고리, 타겟 국가 선택</div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">2</div>
+        <div class="step-name">Tier 선택</div>
+        <div class="step-desc">Hypothesis ~ Deep Pro</div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">3</div>
+        <div class="step-name">Simulation Run</div>
+        <div class="step-desc">Cloud Run worker → 진행률 실시간</div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">4</div>
+        <div class="step-name">Results</div>
+        <div class="step-desc">Best Country, Personas, Pricing</div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">5</div>
+        <div class="step-name">Share / PDF</div>
+        <div class="step-desc">공유 토큰, PDF, CSV, 비교</div>
+      </div>
+    </div>
+
+    <h3 style="margin: 32px 0 16px; font-size: 18px;">📄 페이지 카탈로그</h3>
+    <table>
+      <thead>
+        <tr><th>경로</th><th>역할</th><th>접근</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>/</code></td><td>랜딩 (markettwin.ai로 redirect 권장)</td><td><span class="chip chip-green">public</span></td></tr>
+        <tr><td><code>/demo</code></td><td>회원 없이 즉시 시뮬 체험</td><td><span class="chip chip-green">public</span></td></tr>
+        <tr><td><code>/plans</code></td><td>요금제 비교표</td><td><span class="chip chip-green">public</span></td></tr>
+        <tr><td><code>/pitch/mr-ai</code></td><td>Mr. AI 단독 소개</td><td><span class="chip chip-green">public</span></td></tr>
+        <tr><td><code>/share/ensemble/[token]</code></td><td>공유 결과 (만료일 NULL ≠ 영구)</td><td><span class="chip chip-green">public</span></td></tr>
+        <tr><td><code>/dashboard</code></td><td>최근 시뮬·KPI 요약</td><td><span class="chip chip-blue">auth</span></td></tr>
+        <tr><td><code>/projects/new</code></td><td>Wizard (Tier 선택)</td><td><span class="chip chip-blue">auth</span></td></tr>
+        <tr><td><code>/projects/[id]/results</code></td><td>결과 대시보드</td><td><span class="chip chip-blue">auth</span></td></tr>
+        <tr><td><code>/projects/[id]/compare</code></td><td>2 시뮬 Side-by-Side</td><td><span class="chip chip-blue">auth</span></td></tr>
+        <tr><td><code>/projects/[id]/compare-ensembles</code></td><td>앙상블 비교</td><td><span class="chip chip-blue">auth</span></td></tr>
+        <tr><td><code>/analyses/compare</code></td><td>교차 프로젝트 비교</td><td><span class="chip chip-purple">Growth+</span></td></tr>
+        <tr><td><code>/mr-ai</code></td><td>Briefing · Chat · KG · Channels</td><td><span class="chip chip-blue">auth</span></td></tr>
+        <tr><td><code>/billing</code> · <code>/billing/upgrade</code></td><td>Stripe(USD) / Toss(KRW)</td><td><span class="chip chip-blue">auth</span></td></tr>
+        <tr><td><code>/admin/*</code></td><td>Customers · Simulations · Models · Health · Audit · Sim-quality</td><td><span class="chip chip-red">super admin</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 6. MR AI CORE -->
+<section id="mrai-core" class="section-mr">
+  <div class="container">
+    <h2>6. Mr. AI 핵심 <span class="badge">Trina-pattern CEO Assistant</span></h2>
+    <p class="subtitle">2026-05-23 W1~W4 4 sprint 한 세션에 완료. CMO/Lead/Executor 패턴을 1인 CEO 보조로 재해석.</p>
+
+    <div class="grid grid-3">
+      <div class="card">
+        <h4><span class="icon" style="background: var(--mr-primary);">M</span> Persistent Memory</h4>
+        <p>워크스페이스 공유 fact 누적. 각 턴 후 자동 추출 → 다음 대화에서 컨텍스트로 주입.</p>
+        <div class="meta">supabase/migrations/0029_mrai_memory.sql</div>
+      </div>
+      <div class="card">
+        <h4><span class="icon" style="background: var(--mr-primary);">V</span> pgvector Semantic Search</h4>
+        <p>메모리 ≥ 50개 시 임베딩 기반 retrieval로 전환. 대화당 비용 일정 유지.</p>
+        <div class="meta">migrations/0031_mrai_memory_embeddings.sql · embedding.ts</div>
+      </div>
+      <div class="card">
+        <h4><span class="icon" style="background: var(--mr-primary);">G</span> Knowledge Graph</h4>
+        <p>9 엔티티 (Person·Company·Product·Segment·Tech·Market·Decision·Metric·Competitor) + 7 릴레이션.</p>
+        <div class="meta">migrations/0034_mrai_kg.sql · kg.ts · TreeSoop 영향</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 7. 3-LAYER AGENT -->
+<section id="mrai-3layer">
+  <div class="container">
+    <h2>7. 3-Layer Agent <span class="badge">Strategist → Analyst → Synthesizer</span></h2>
+    <p class="subtitle">Trina의 CMO/Lead/Executor 패턴 차용. "simple" 모드 (짧은 인사) vs "full" 모드 (3-Layer) 자동 분기.</p>
+
+    <div class="three-layer">
+      <div class="agent-box">
+        <div class="num">1</div>
+        <div class="role">Strategist</div>
+        <div class="job">질문 해석<br>"무엇을 알아야 답할 수 있나?"<br>Plan 수립</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="agent-box">
+        <div class="num">2</div>
+        <div class="role">Analyst</div>
+        <div class="job">Plan 실행<br>Memory + KG + 실시간 신호<br>Evidence 수집</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="agent-box">
+        <div class="num">3</div>
+        <div class="role">Synthesizer</div>
+        <div class="job">Evidence → 답변<br>한국어/영어 자동<br>인용·근거 포함</div>
+      </div>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h4>🧠 Agent Traces</h4>
+        <p>각 Layer 실행 결과를 <code>mrai_agent_traces</code>에 저장. Debugging + 향후 RLHF 학습 데이터.</p>
+        <div class="meta">migrations/0033_mrai_agent_traces.sql · ContentPanel에서 시각화</div>
+      </div>
+      <div class="card">
+        <h4>🎯 KPI Feedback Loop</h4>
+        <p>각 응답에 Good/Bad 버튼. 사용자 평가 → trace + 메모리 → 개선 corpus.</p>
+        <div class="meta">migrations/0035_mrai_feedback.sql · FeedbackButtons.tsx</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 8. MR AI FEATURES -->
+<section id="mrai-features" class="section-mr">
+  <div class="container">
+    <h2>8. Mr. AI 기능 6종 <span class="badge">실 운영 중</span></h2>
+    <p class="subtitle">화면 단위 기능 — /mr-ai 페이지의 6개 탭.</p>
+
+    <div class="grid grid-3">
+      <div class="card">
+        <h4>📅 Daily Briefing</h4>
+        <p><b>입력:</b> 메모리 + 최근 대화 3개 + Signal<br>
+        <b>출력:</b> 3-section Markdown (어제 요약 / 오늘 챙길 것 / 주의 신호)<br>
+        <b>발송:</b> Vercel Cron 매일 08 KST</p>
+        <div class="meta">BriefingPanel.tsx · /api/mrai/briefings/cron</div>
+      </div>
+      <div class="card">
+        <h4>💬 Chat (3-Layer)</h4>
+        <p>Orchestrator 자동 분기: 짧은 인사는 "simple", 복잡한 질문은 Strategist→Analyst→Synthesizer Full pipeline.</p>
+        <div class="meta">MrAIChat.tsx · agents/orchestrate.ts</div>
+      </div>
+      <div class="card">
+        <h4>📝 Content Briefs</h4>
+        <p>Strategic Brief 자동 생성 (Market Opportunity / Competitive Threat / Product Recommendation).</p>
+        <div class="meta">ContentPanel.tsx · content/briefs.ts · migrations/0037</div>
+      </div>
+      <div class="card">
+        <h4>🔌 HubSpot OAuth</h4>
+        <p>Contact / Deal 양방향 동기화. 새 메모리 추출 시 Contact 자동 생성·업데이트.</p>
+        <div class="meta">IntegrationsPanel.tsx · integrations/hubspot.ts</div>
+      </div>
+      <div class="card">
+        <h4>📢 Channel Auto-Publish</h4>
+        <p>Slack (Block Kit) · Email (HTML) · Webhook (JSON). Briefing 생성 후 자동/수동 발송.</p>
+        <div class="meta">ChannelsPanel.tsx · channels.ts · migrations/0036</div>
+      </div>
+      <div class="card">
+        <h4>🕸️ Knowledge Graph 시각화</h4>
+        <p>대화 중 추출된 엔티티-릴레이션을 그래프로 표시. 워크스페이스 컨텍스트 한눈에.</p>
+        <div class="meta">KGPanel · kg.ts · pgvector 활용</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 9. PRICING -->
+<section id="pricing">
+  <div class="container">
+    <h2>9. 요금제·티어 <span class="badge">5단계 ladder</span></h2>
+    <p class="subtitle">200% margin 실 비용 기반. KOTRA-style 정부·공공 buyer 타겟. KRW(Toss) + USD(Stripe) 동시 지원.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>플랜</th>
+          <th>월 시뮬</th>
+          <th>Consensus+</th>
+          <th>심층분석</th>
+          <th>Multi-LLM</th>
+          <th>사용자</th>
+          <th>가격</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>Free Trial</b> <span class="chip chip-gray">7일/1건</span></td>
+          <td>1</td><td>0</td><td>0</td><td>✗</td><td>1</td>
+          <td>Free</td>
+        </tr>
+        <tr>
+          <td><b>Starter</b></td>
+          <td>5</td><td>0</td><td>0</td><td>✗</td><td>1</td>
+          <td>$210/mo · ₩290k</td>
+        </tr>
+        <tr>
+          <td><b>Validator</b></td>
+          <td>10</td><td>3</td><td>0</td><td>✗</td><td>1</td>
+          <td>$530/mo · ₩690k</td>
+        </tr>
+        <tr>
+          <td><b>Growth</b></td>
+          <td>20</td><td>5</td><td>3</td><td>✓</td><td>3</td>
+          <td>$1,140/mo · ₩1.49M</td>
+        </tr>
+        <tr>
+          <td><b>Enterprise</b></td>
+          <td>∞</td><td>∞</td><td>∞ Pro</td><td>✓</td><td>10+</td>
+          <td>Contact</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin: 32px 0 16px; font-size: 18px;">🔒 기능별 게이트</h3>
+    <div class="grid grid-4">
+      <div class="card"><h4>PDF/CSV 다운로드</h4><p><span class="chip chip-blue">Starter+</span></p></div>
+      <div class="card"><h4>공유 링크</h4><p><span class="chip chip-blue">Starter+</span></p></div>
+      <div class="card"><h4>Cross-Project Compare</h4><p><span class="chip chip-purple">Growth+</span></p></div>
+      <div class="card"><h4>Multi-LLM 합의</h4><p><span class="chip chip-purple">Growth+</span></p></div>
+      <div class="card"><h4>SSO</h4><p><span class="chip chip-red">Enterprise</span></p></div>
+      <div class="card"><h4>Audit Logs</h4><p><span class="chip chip-red">Enterprise</span></p></div>
+      <div class="card"><h4>API Access</h4><p><span class="chip chip-red">Enterprise</span></p></div>
+      <div class="card"><h4>Mr. AI 무제한</h4><p><span class="chip chip-red">Enterprise</span></p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 10. API -->
+<section id="api" class="section-mt">
+  <div class="container">
+    <h2>10. API 카탈로그 <span class="badge">60+ endpoints</span></h2>
+    <p class="subtitle">5개 도메인 — 시뮬레이션·Mr. AI·인증·결제·관리자.</p>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h4 style="color: var(--mt-dark);">🎯 Simulation & Ensemble</h4>
+        <ul style="font-size: 13px; list-style: none; padding-top: 8px;">
+          <li>POST <code>/projects</code> — 프로젝트 생성</li>
+          <li>POST <code>/projects/[id]/run-ensemble</code> — 시뮬 시작</li>
+          <li>POST <code>/projects/demo</code> — 비회원 데모</li>
+          <li>GET <code>/simulations/[id]/status</code> — 진행률</li>
+          <li>POST <code>/simulations/[id]/{run,retry,cancel}</code></li>
+          <li>GET <code>/ensembles/[id]/{status,result,personas,market-profile}</code></li>
+          <li>POST <code>/ensembles/[id]/{export,share,cancel}</code></li>
+          <li>GET <code>/ensembles/[id]/pdf</code> — PDF 리포트</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h4 style="color: var(--mr-dark);">🤖 Mr. AI</h4>
+        <ul style="font-size: 13px; list-style: none; padding-top: 8px;">
+          <li>POST <code>/mrai/chat</code> · GET <code>/mrai/chat/messages</code></li>
+          <li>GET·POST <code>/mrai/memories</code></li>
+          <li>POST <code>/mrai/briefings</code> · GET <code>/mrai/briefings/latest</code></li>
+          <li>POST <code>/mrai/briefings/cron</code> (Vercel)</li>
+          <li>GET·POST·PUT·DELETE <code>/mrai/channels</code></li>
+          <li>GET·POST <code>/mrai/content/briefs</code></li>
+          <li>GET <code>/mrai/integrations/status</code></li>
+          <li>GET <code>/mrai/integrations/hubspot/{connect,callback,sync}</code></li>
+          <li>POST <code>/mrai/feedback</code></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h4>💳 Billing</h4>
+        <ul style="font-size: 13px; list-style: none; padding-top: 8px;">
+          <li>POST <code>/billing/checkout</code> — Stripe</li>
+          <li>POST <code>/billing/toss/{issue,renew,cancel}</code></li>
+          <li>GET <code>/billing/{subscription,portal}</code></li>
+          <li>POST <code>/billing/webhook</code> — Stripe/Toss</li>
+          <li>POST <code>/billing/trial-reminder</code> — Cron</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h4>🔐 Admin</h4>
+        <ul style="font-size: 13px; list-style: none; padding-top: 8px;">
+          <li>GET <code>/admin/health</code></li>
+          <li>POST <code>/admin/simulations/[id]/{cancel,retry}</code></li>
+          <li>GET <code>/admin/workspaces/[id]/status</code></li>
+          <li>POST <code>/admin/zombie-cleanup</code></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 11. INFRA -->
+<section id="infra">
+  <div class="container">
+    <h2>11. 인프라·통합 <span class="badge">Stack & Integrations</span></h2>
+    <p class="subtitle">Next.js full-stack + Supabase + Cloud Run worker (Vercel 800s 우회).</p>
+
+    <div class="infra-diagram">
+      <div class="infra-row">
+        <div class="infra-label">Frontend</div>
+        <div class="infra-items">
+          <div class="infra-pill hot">Next.js 14 App Router</div>
+          <div class="infra-pill">React Server Components</div>
+          <div class="infra-pill">i18n (ko/en)</div>
+          <div class="infra-pill">Tailwind</div>
+        </div>
+      </div>
+      <div class="infra-row">
+        <div class="infra-label">Backend</div>
+        <div class="infra-items">
+          <div class="infra-pill hot">Next.js API Routes</div>
+          <div class="infra-pill hot">Vercel Edge/Node</div>
+          <div class="infra-pill">Cloud Run Worker (long sims)</div>
+          <div class="infra-pill">Vercel Cron (briefing·cleanup·trial)</div>
+        </div>
+      </div>
+      <div class="infra-row">
+        <div class="infra-label">Database</div>
+        <div class="infra-items">
+          <div class="infra-pill hot">Supabase PostgreSQL</div>
+          <div class="infra-pill">RLS (Row-Level Security)</div>
+          <div class="infra-pill mr">pgvector (Mr. AI)</div>
+          <div class="infra-pill">Supabase Storage (creative assets)</div>
+        </div>
+      </div>
+      <div class="infra-row">
+        <div class="infra-label">LLM</div>
+        <div class="infra-items">
+          <div class="infra-pill hot">Anthropic Sonnet 4.6</div>
+          <div class="infra-pill hot">Anthropic Haiku 4.5</div>
+          <div class="infra-pill">OpenAI GPT-4o</div>
+          <div class="infra-pill">Google Gemini 2.0 Flash</div>
+          <div class="infra-pill">DeepSeek r1</div>
+          <div class="infra-pill">X.AI Grok-3 (optional)</div>
+        </div>
+      </div>
+      <div class="infra-row">
+        <div class="infra-label">Payment</div>
+        <div class="infra-items">
+          <div class="infra-pill">Stripe (USD)</div>
+          <div class="infra-pill">Toss Payments (KRW)</div>
+        </div>
+      </div>
+      <div class="infra-row">
+        <div class="infra-label">Channels</div>
+        <div class="infra-items">
+          <div class="infra-pill mr">Slack (Block Kit)</div>
+          <div class="infra-pill mr">Email (HTML)</div>
+          <div class="infra-pill mr">Generic Webhook (JSON)</div>
+          <div class="infra-pill mr">HubSpot OAuth (CRM)</div>
+        </div>
+      </div>
+      <div class="infra-row">
+        <div class="infra-label">Data</div>
+        <div class="infra-items">
+          <div class="infra-pill">DART · KOTRA · Comtrade</div>
+          <div class="infra-pill">UNI-PASS (관세청)</div>
+          <div class="infra-pill">World Bank · Hofstede</div>
+          <div class="infra-pill">MFDS · aT</div>
+          <div class="infra-pill">Tavily (시장조사)</div>
+        </div>
+      </div>
+      <div class="infra-row">
+        <div class="infra-label">Monitoring</div>
+        <div class="infra-items">
+          <div class="infra-pill">Sentry (server+client)</div>
+          <div class="infra-pill">PostHog (analytics)</div>
+          <div class="infra-pill">Vercel Analytics</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 12. DB MIGRATIONS -->
+<section id="db" class="section-mr">
+  <div class="container">
+    <h2>12. DB 진화 (0001 → 0037) <span class="badge">37 migrations</span></h2>
+    <p class="subtitle">스키마 변화로 본 제품 진화 — 시뮬엔진 (0001-0028) + Mr. AI (0029-0037).</p>
+
+    <div class="timeline">
+      <div class="timeline-item"><div class="timeline-num">0001</div><div class="timeline-content"><div class="timeline-title">init</div><div class="timeline-desc">workspaces · projects · simulations · ensembles</div></div></div>
+      <div class="timeline-item"><div class="timeline-num">0002-03</div><div class="timeline-content"><div class="timeline-title">reference data · admin</div><div class="timeline-desc">국가 목록, 카테고리 taxonomy + Super Admin 역할</div></div></div>
+      <div class="timeline-item"><div class="timeline-num">0004-06</div><div class="timeline-content"><div class="timeline-title">workspace 정리</div><div class="timeline-desc">상태·중복 제거·설정</div></div></div>
+      <div class="timeline-item"><div class="timeline-num">0007</div><div class="timeline-content"><div class="timeline-title">simulation 비정규화</div><div class="timeline-desc">결과 캐싱 (조회 속도)</div></div></div>
+      <div class="timeline-item"><div class="timeline-num">0008-09</div><div class="timeline-content"><div class="timeline-title">category 메타</div><div class="timeline-desc">규제 사항·경쟁사 기본값</div></div></div>
+      <div class="timeline-item"><div class="timeline-num">0010</div><div class="timeline-content"><div class="timeline-title">originating_country</div><div class="timeline-desc">제조국/수출국 분리 (2026-05-01 live)</div></div></div>
+      <div class="timeline-item"><div class="timeline-num">0011</div><div class="timeline-content"><div class="timeline-title">creative_inputs</div><div class="timeline-desc">이미지 URL + 설명</div></div></div>
+      <div class="timeline-item"><div class="timeline-num">0012-13</div><div class="timeline-content"><div class="timeline-title">persona pool/voice</div><div class="timeline-desc">샘플 저장소 + voice 특성</div></div></div>
+      <div class="timeline-item"><div class="timeline-num">0014</div><div class="timeline-content"><div class="timeline-title">ensembles 테이블</div><div class="timeline-desc">N개 시뮬 그룹화</div></div></div>
+      <div class="timeline-item"><div class="timeline-num">0015-16</div><div class="timeline-content"><div class="timeline-title">tier extensions + token cost</div><div class="timeline-desc">Hypothesis/Decision/Deep + 시뮬별 비용</div></div></div>
+      <div class="timeline-item"><div class="timeline-num">0017</div><div class="timeline-content"><div class="timeline-title">ensemble share</div><div class="timeline-desc">공유 링크 토큰</div></div></div>
+      <div class="timeline-item"><div class="timeline-num">0018</div><div class="timeline-content"><div class="timeline-title">first_result_seen</div><div class="timeline-desc">KPI (TTV) 추적</div></div></div>
+      <div class="timeline-item"><div class="timeline-num">0019-20</div><div class="timeline-content"><div class="timeline-title">subscriptions + trial abuse</div><div class="timeline-desc">Stripe/Toss 연동 + 반복 가입 차단</div></div></div>
+      <div class="timeline-item"><div class="timeline-num">0021</div><div class="timeline-content"><div class="timeline-title">synthesis provider</div><div class="timeline-desc">종합 분석 LLM 선택</div></div></div>
+      <div class="timeline-item"><div class="timeline-num">0022</div><div class="timeline-content"><div class="timeline-title">simulation quality</div><div class="timeline-desc">벤치마크 품질 점수</div></div></div>
+      <div class="timeline-item"><div class="timeline-num">0023</div><div class="timeline-content"><div class="timeline-title">free rerun</div><div class="timeline-desc">Free Trial 재실행</div></div></div>
+      <div class="timeline-item"><div class="timeline-num">0024-25</div><div class="timeline-content"><div class="timeline-title">voice homogeneity + channel mismatch</div><div class="timeline-desc">Persona 일관성·채널 편차</div></div></div>
+      <div class="timeline-item"><div class="timeline-num">0026-28</div><div class="timeline-content"><div class="timeline-title">super admin · creative assets · competitor</div><div class="timeline-desc">관리자 시드 + Storage + URL 자동 추출</div></div></div>
+      <div class="timeline-item"><div class="timeline-num" style="color: var(--mr-primary);">0029</div><div class="timeline-content"><div class="timeline-title" style="color: var(--mr-dark);">🤖 mrai_memory</div><div class="timeline-desc">Mr. AI 메모리 테이블 — Foundation 시작</div></div></div>
+      <div class="timeline-item"><div class="timeline-num" style="color: var(--mr-primary);">0030</div><div class="timeline-content"><div class="timeline-title" style="color: var(--mr-dark);">mrai_briefings</div><div class="timeline-desc">Daily Briefing 저장소</div></div></div>
+      <div class="timeline-item"><div class="timeline-num" style="color: var(--mr-primary);">0031</div><div class="timeline-content"><div class="timeline-title" style="color: var(--mr-dark);">mrai_memory_embeddings</div><div class="timeline-desc">pgvector 임베딩 — Semantic search</div></div></div>
+      <div class="timeline-item"><div class="timeline-num" style="color: var(--mr-primary);">0032</div><div class="timeline-content"><div class="timeline-title" style="color: var(--mr-dark);">mrai_integrations</div><div class="timeline-desc">HubSpot OAuth 토큰 저장</div></div></div>
+      <div class="timeline-item"><div class="timeline-num" style="color: var(--mr-primary);">0033</div><div class="timeline-content"><div class="timeline-title" style="color: var(--mr-dark);">mrai_agent_traces</div><div class="timeline-desc">3-Layer Agent 실행 로그</div></div></div>
+      <div class="timeline-item"><div class="timeline-num" style="color: var(--mr-primary);">0034</div><div class="timeline-content"><div class="timeline-title" style="color: var(--mr-dark);">mrai_kg</div><div class="timeline-desc">Knowledge Graph (9 엔티티 + 7 릴레이션)</div></div></div>
+      <div class="timeline-item"><div class="timeline-num" style="color: var(--mr-primary);">0035</div><div class="timeline-content"><div class="timeline-title" style="color: var(--mr-dark);">mrai_feedback</div><div class="timeline-desc">Good/Bad 평가 — KPI Loop</div></div></div>
+      <div class="timeline-item"><div class="timeline-num" style="color: var(--mr-primary);">0036</div><div class="timeline-content"><div class="timeline-title" style="color: var(--mr-dark);">mrai_channels</div><div class="timeline-desc">Slack/Email/Webhook 설정</div></div></div>
+      <div class="timeline-item"><div class="timeline-num" style="color: var(--mr-primary);">0037</div><div class="timeline-content"><div class="timeline-title" style="color: var(--mr-dark);">mrai_content_briefs</div><div class="timeline-desc">Strategic Brief 저장소 — 최신</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <p>Market Twin × Mr. AI · ㈜미스터에이아이 · 사업자 693-87-03907</p>
+    <p class="links">markettwin.ai · 2026-05-24 생성 · 코드베이스 commit 382ee68 기준</p>
+  </div>
+</footer>
+
+</body>
+</html>

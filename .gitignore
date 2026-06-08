@@ -54,3 +54,5 @@ generate_professional_pptx.js
 ~$*.pptx
 
 .vercel
+
+scripts/_create-test-account.ts

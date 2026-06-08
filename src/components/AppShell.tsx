@@ -13,7 +13,6 @@ import {
   Settings as SettingsIcon,
   HelpCircle,
   LogOut,
-  ShieldCheck,
   Menu,
   X,
 } from "lucide-react";
@@ -36,17 +35,9 @@ const NAV_BASE = [
   { href: "/team", icon: Users, key: "team" as const },
   { href: "/settings", icon: SettingsIcon, key: "settings" as const },
   { href: "/help", icon: HelpCircle, key: "help" as const },
-  // /challenge 및 /challenge/arena 는 이제 (challenge) route group의
-  // 독립 페이지 /sme-strategy 로 리다이렉트. Mr.AI 사이드바에서 제외 —
-  // 챌린지 응모/심사용 페이지는 자체 layout으로만 노출.
-  // LLM usage admin — link visible to all users (intentional, helps
-  // operators discover where to look) but the page enforces a
-  // SUPERADMIN_EMAILS env match before rendering data. Non-admins
-  // hit a "접근 권한 없음" gate notice.
-  { href: "/admin/llm-usage", icon: ShieldCheck, key: "llmUsageAdmin" as const },
-  { href: "/admin/site-settings", icon: ShieldCheck, key: "siteSettingsAdmin" as const },
-  // 챌린지 데이터 nav 링크는 모든 유저에게서 숨김 (page는 직접 URL로만 접근).
-  // { href: "/admin/challenge-data", icon: ShieldCheck, key: "challengeDataAdmin" as const },
+  // Admin pages (LLM 사용량 · 사이트 설정 · 챌린지 데이터) now live ONLY in
+  // the dedicated /admin console (AdminShell, gated by admin_users), so
+  // regular/test users never see them in the workspace sidebar.
 ];
 const MRAI_NAV_ITEM = {
   href: "/mr-ai",

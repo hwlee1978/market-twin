@@ -42,9 +42,9 @@ Phase 1 가동 후 테스트 방법: 브라우저 직접 access (`/api/mrai/inte
 ### 1.2 OAuth 2.0 설정
 
 App 페이지 → **Auth** 탭:
-- Redirect URLs → **Add redirect URL** → `https://app.markettwin.ai/api/mrai/integrations/linkedin/callback`
-  - **반드시 `APP_BASE_URL` env 값과 글자 단위로 일치**해야 함 (현재 `https://app.markettwin.ai`). 끝 슬래시 주의.
-- (개발용 추가) `http://localhost:3000/api/mrai/integrations/linkedin/callback`
+- Redirect URLs → **Add redirect URL** → `https://mrai.markettwin.ai/api/mrai/integrations/linkedin/callback`
+  - **반드시 `APP_BASE_URL` env 값과 글자 단위로 일치**해야 함 (Mr.AI 배포 = `https://mrai.markettwin.ai`). 끝 슬래시 주의.
+- (개발용 추가) `http://localhost:3000/api/mrai/integrations/linkedin/callback` — 로컬 테스트용
 - OAuth 2.0 scopes에서 다음 4개가 enabled 되어 있는지 확인 (Products 추가 시 자동 활성):
   - `openid` ✓
   - `profile` ✓
@@ -77,9 +77,11 @@ Vercel Dashboard → **Settings** → **Environment Variables**:
 |---|---|---|
 | `LINKEDIN_CLIENT_ID` | (1.4 에서 복사) | Production + Preview (Sensitive) |
 | `LINKEDIN_CLIENT_SECRET` | (1.4 에서 복사) | Production + Preview (Sensitive) |
-| `APP_BASE_URL` | `https://app.markettwin.ai` | Production |
+| `APP_BASE_URL` | `https://mrai.markettwin.ai` | Production |
 
-(이미 `APP_BASE_URL` 설정돼 있으면 그대로. 단 redirect URL 등록값과 반드시 일치.)
+⚠️ **env 입력 위치 주의:** Mr.AI는 `mrai.markettwin.ai` 배포(`NEXT_PUBLIC_MRAI_ENABLED=true`)에서
+운영된다. `app.markettwin.ai`(MarketTwin 단독)에는 Mr.AI 라우트가 404다. 따라서 LinkedIn/X env는
+**mrai.markettwin.ai 배포의 Vercel 프로젝트**에 넣어야 한다 (app 프로젝트가 아님).
 
 > ⚠ Preview 배포는 URL이 매번 달라 OAuth 콜백이 안 맞을 수 있음. `APP_BASE_URL`을
 > Production 도메인 하나로 고정하면 Preview에서 연결해도 Production으로 콜백됨 (실가동 무관).
@@ -87,7 +89,7 @@ Vercel Dashboard → **Settings** → **Environment Variables**:
 ### 1.6 Redeploy + 테스트
 
 env 변경 후 **반드시 redeploy** (env는 새 배포부터 적용). 그리고:
-1. https://app.markettwin.ai/ko/mr-ai/settings 에서 "LinkedIn 연결" 클릭
+1. https://mrai.markettwin.ai/mr-ai/settings 에서 "LinkedIn 연결" 클릭
 2. LinkedIn 인증 화면 → 권한 동의
 3. callback 후 `linkedin=ok` 파라미터로 mrai 페이지로 돌아오면 성공
 4. Mr.AI content draft → "Publish to LinkedIn" 버튼 클릭 → LinkedIn 피드 확인
@@ -116,7 +118,7 @@ App 페이지 → **User authentication settings** → **Set up**:
 - App permissions: **Read and write** (post 권한 필요)
 - Type of App: **Confidential client** (secret 사용)
 - Callback URI / Redirect URL:
-  - `https://app.markettwin.ai/api/mrai/integrations/x/callback`
+  - `https://mrai.markettwin.ai/api/mrai/integrations/x/callback`
   - `http://localhost:3000/api/mrai/integrations/x/callback` (개발용)
 - Website URL: `https://markettwin.ai`
 - Organization name: 미스터에이아이
@@ -143,7 +145,7 @@ X_CLIENT_SECRET = (OAuth 2.0 Client Secret)
 
 ### 2.6 Redeploy + 테스트
 
-1. https://app.markettwin.ai/ko/mr-ai/settings 에서 "X 연결" 클릭
+1. https://mrai.markettwin.ai/mr-ai/settings 에서 "X 연결" 클릭
 2. X 인증 화면 → "Authorize app"
 3. callback 후 `x=ok` 파라미터로 mrai 페이지로 돌아오면 성공
 4. Mr.AI content draft → "Publish to X" 버튼 → 280자 이하 글 등록 → X 타임라인 확인
