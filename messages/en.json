@@ -221,6 +221,46 @@
         "title": "Contact",
         "body": "For questions about these terms, please contact hello@markettwin.app."
       }
+    },
+    "refund": {
+      "title": "Refund & Cancellation Policy",
+      "lastUpdated": "June 8, 2026",
+      "intro": "This policy governs refunds and cancellations for paid subscriptions to Market Twin (the 'Service'), operated by Mr.AI Inc. (the 'Company'). The Service is digital content (an intangible product) and complies with Korea's Act on Consumer Protection in Electronic Commerce.",
+      "scope": {
+        "title": "Scope",
+        "body": "This policy applies to all paid plans (Starter, Validator, Growth) purchased on a monthly or annual cycle. Usage is measured by the number of simulations run."
+      },
+      "trial": {
+        "title": "Free Trial",
+        "body": "The 7-day free trial requires no card and incurs no charge, so it is not subject to refunds. Conversion to a paid plan occurs only when you explicitly complete a payment."
+      },
+      "monthly": {
+        "title": "Monthly Subscription Refunds",
+        "body": "Monthly subscriptions are refunded as follows:",
+        "item1": "Within 7 days of payment, no simulations used: full refund.",
+        "item2": "Within 7 days of payment, some simulations used: partial refund after deducting the cost of simulations actually used (pro-rated by dividing the monthly fee by 30 days and by usage count).",
+        "item3": "More than 7 days after payment: digital content is deemed to have been provided, so refunds are limited in principle; the Company may, at its discretion, pro-rate a refund for the remaining period."
+      },
+      "annual": {
+        "title": "Annual Subscription Refunds",
+        "body": "For annual subscribers, refunds are calculated by dividing the total annual fee by 12 months and refunding the remainder after deducting elapsed months and simulations used. Discounts granted for annual billing may be recovered at the standard rate when calculating the refund."
+      },
+      "withdrawal": {
+        "title": "Limits on Withdrawal",
+        "body": "Under Article 17(2) of the Act on Consumer Protection in Electronic Commerce, once digital content has begun to be provided (one or more simulations run), withdrawal for a simple change of mind may be restricted. Full refunds are still issued where a payment error or service interruption is attributable to the Company."
+      },
+      "cancel": {
+        "title": "How to Cancel",
+        "body": "You can cancel a paid subscription directly on the in-app Billing & Usage (/billing) page. TossPayments (Korean card) subscriptions cancel via the 'Cancel subscription' button; Stripe (international card) subscriptions cancel via the Customer Portal under 'Manage billing'. You keep full access until the end of the current billing period, and no further charges are made from the next cycle."
+      },
+      "autopay": {
+        "title": "Automatic Payments",
+        "body": "Paid subscriptions are charged automatically to your registered card each billing cycle (monthly/annual). The Company notifies you by email of the amount and date at least 7 days before each charge, and you may cancel any time before then. If not cancelled, the subscription renews automatically on the same payment method."
+      },
+      "contact": {
+        "title": "Refund Requests & Contact",
+        "body": "For refund requests and billing inquiries, contact contact@markettwin.ai or call +82-70-8057-6274. Refunds are processed to the original payment method within 3–7 business days of confirmation."
+      }
     }
   },
   "onboarding": {

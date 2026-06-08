@@ -40,6 +40,7 @@ export default async function BillingPage({
       end: sub.currentPeriodEnd,
       cancelAtEnd: sub.cancelAtPeriodEnd,
     },
+    paymentProvider: sub.paymentProvider,
     usage,
   };
 

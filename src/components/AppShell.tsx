@@ -233,14 +233,16 @@ export function AppShell({
                 <Link href="/terms" className="hover:text-brand">
                   {tCommon("nav.terms")}
                 </Link>
-                <a href="https://www.markettwin.ai/refund.html" target="_blank" rel="noopener" className="hover:text-brand">
+                <Link href="/refund" className="hover:text-brand">
                   환불정책
-                </a>
+                </Link>
               </div>
             </div>
             <div className="text-[11px] text-slate-400 leading-relaxed">
               주식회사 미스터에이아이 (Mr.AI Inc.) · 대표이사 이현우 · 사업자등록번호 693-87-03907
+              · 통신판매업신고 제2026-용인수지-2253호
               · 경기도 용인시 수지구 죽전로27번길 14-30, 604-803호
+              · 전화 070-8057-6274
               · <a href="mailto:contact@markettwin.ai" className="hover:text-brand">contact@markettwin.ai</a>
             </div>
           </div>

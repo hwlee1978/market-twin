@@ -48,6 +48,7 @@ interface InitialState {
     end: string | null;
     cancelAtEnd: boolean;
   };
+  paymentProvider: "stripe" | "tosspayments" | null;
   usage: {
     monthStart: string;
     simsUsed: number;
@@ -77,9 +78,12 @@ export function BillingDashboard({
   locale: string;
 }) {
   const isKo = locale === "ko";
-  const { plan, status, trial, period, usage } = initial;
+  const { plan, status, trial, period, paymentProvider, usage } = initial;
   const [portalBusy, setPortalBusy] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancelScheduled, setCancelScheduled] = useState(period.cancelAtEnd);
 
   const onManage = async () => {
     setPortalBusy(true);
@@ -97,6 +101,36 @@ export function BillingDashboard({
       setPortalBusy(false);
     }
   };
+
+  // Toss has no self-serve portal, so we cancel via our own endpoint
+  // (cancel-at-period-end). Stripe cancels through the Customer Portal
+  // above, so this button only shows for Toss subscriptions.
+  const onCancelToss = async () => {
+    const ok = window.confirm(
+      isKo
+        ? "구독을 취소하시겠어요?\n현재 결제 주기가 끝날 때까지는 모든 기능을 그대로 사용할 수 있고, 다음 주기부터 자동결제가 청구되지 않습니다."
+        : "Cancel your subscription?\nYou keep full access until the end of the current billing period, and no further charges are made from the next cycle.",
+    );
+    if (!ok) return;
+    setCancelBusy(true);
+    setCancelError(null);
+    try {
+      const res = await fetch("/api/billing/toss/cancel", { method: "POST" });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.detail ?? j.error ?? "cancel_failed");
+      setCancelScheduled(true);
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCancelBusy(false);
+    }
+  };
+
+  const canCancelToss =
+    paymentProvider === "tosspayments" &&
+    plan.slug !== "free_trial" &&
+    status !== "canceled" &&
+    !cancelScheduled;
 
   return (
     <div className="space-y-6">
@@ -170,7 +204,27 @@ export function BillingDashboard({
                 <ExternalLink size={11} className="opacity-60" />
               </button>
             )}
+
+            {canCancelToss && (
+              <button
+                type="button"
+                onClick={onCancelToss}
+                disabled={cancelBusy}
+                className="w-full justify-center inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-risk disabled:opacity-50"
+              >
+                {cancelBusy && <Loader2 size={12} className="animate-spin" />}
+                {isKo ? "구독 취소" : "Cancel subscription"}
+              </button>
+            )}
           </div>
+          {cancelScheduled && status !== "canceled" && (
+            <p className="mt-2 text-xs text-slate-500">
+              {isKo
+                ? "구독이 현재 결제 주기 종료 시 취소되도록 예약되었습니다."
+                : "Your subscription is scheduled to cancel at the end of the current period."}
+            </p>
+          )}
+          {cancelError && <p className="mt-2 text-xs text-risk">{cancelError}</p>}
           {portalError && (
             <p className="mt-2 text-xs text-risk">
               {portalError === "no_stripe_customer"

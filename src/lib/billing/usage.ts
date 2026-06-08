@@ -26,6 +26,7 @@ export interface SubscriptionState {
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
+  paymentProvider: "stripe" | "tosspayments" | null;
 }
 
 export interface MonthlyUsage {
@@ -47,7 +48,7 @@ export async function getSubscription(workspaceId: string): Promise<Subscription
   const { data, error } = await admin
     .from("subscriptions")
     .select(
-      "plan, status, trial_ends_at, trial_sims_used, trial_sims_limit, current_period_start, current_period_end, cancel_at_period_end",
+      "plan, status, trial_ends_at, trial_sims_used, trial_sims_limit, current_period_start, current_period_end, cancel_at_period_end, payment_provider",
     )
     .eq("workspace_id", workspaceId)
     .maybeSingle();
@@ -73,6 +74,8 @@ export async function getSubscription(workspaceId: string): Promise<Subscription
     currentPeriodStart: data?.current_period_start ?? null,
     currentPeriodEnd: data?.current_period_end ?? null,
     cancelAtPeriodEnd: !!data?.cancel_at_period_end,
+    paymentProvider:
+      (data?.payment_provider as "stripe" | "tosspayments" | null) ?? null,
   };
 }
 
