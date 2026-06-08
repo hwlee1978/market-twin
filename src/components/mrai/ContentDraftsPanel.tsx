@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { capture } from "@/lib/analytics/posthog";
 import {
   Sparkles,
@@ -28,6 +28,15 @@ import { EmptyState } from "./EmptyState";
 import { ErrorState, errMsg } from "./ErrorState";
 
 type ExternalProvider = "linkedin" | "x";
+
+/** A live (status='sent') external publication, as returned by
+ *  GET /api/mrai/publish?draftId=… — drives the delete controls. */
+type SentExternalPost = {
+  id: string;
+  provider: ExternalProvider;
+  platform_url: string | null;
+  sent_at: string | null;
+};
 
 /** Per-platform hard char limits enforced by /api/mrai/publish. */
 const EXTERNAL_LIMITS: Record<ExternalProvider, number> = {
@@ -1175,9 +1184,27 @@ function ExternalPublishRow({
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ provider: ExternalProvider; url: string } | null>(
-    null,
-  );
+  // Live external posts for this draft (status='sent'), so the
+  // "발행됨 · 삭제" controls persist across reloads.
+  const [sent, setSent] = useState<SentExternalPost[]>([]);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const loadSent = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/mrai/publish?draftId=${draft.id}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const json = (await res.json()) as { posts?: SentExternalPost[] };
+      setSent(json.posts ?? []);
+    } catch {
+      /* non-fatal — list just stays empty */
+    }
+  }, [draft.id]);
+
+  useEffect(() => {
+    void loadSent();
+  }, [loadSent]);
 
   const openComposer = (provider: ExternalProvider) => {
     setError(null);
@@ -1203,17 +1230,42 @@ function ExternalPublishRow({
       if (!res.ok) {
         throw new Error(json.detail || json.error || "발행 실패");
       }
-      setResult({ provider: open, url: json.platformUrl });
       capture("mrai_external_published", {
         draft_id: draft.id,
         provider: open,
         char_count: text.length,
       });
       setOpen(null);
+      void loadSent();
     } catch (e) {
       setError(errMsg(e, "발행 실패"));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const deletePost = async (post: SentExternalPost) => {
+    const label = EXTERNAL_META[post.provider].label;
+    const ok = window.confirm(
+      `${label}에 게시된 글을 삭제할까요?\n${label} 계정에서도 실제로 삭제되며 되돌릴 수 없습니다.`,
+    );
+    if (!ok) return;
+    setDeletingId(post.id);
+    setError(null);
+    try {
+      const res = await fetch("/api/mrai/publish", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ postId: post.id }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.detail || json.error || "삭제 실패");
+      setSent((prev) => prev.filter((p) => p.id !== post.id));
+      capture("mrai_external_deleted", { draft_id: draft.id, provider: post.provider });
+    } catch (e) {
+      setError(errMsg(e, "삭제 실패"));
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -1251,17 +1303,45 @@ function ExternalPublishRow({
             </a>
           );
         })}
-        {result && (
-          <a
-            href={result.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-emerald-700 underline"
-          >
-            ✓ {EXTERNAL_META[result.provider].label} 발행됨 · 보기
-          </a>
-        )}
       </div>
+
+      {sent.length > 0 && (
+        <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+          {sent.map((post) => (
+            <span
+              key={post.id}
+              className="inline-flex items-center gap-1.5 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-emerald-800"
+            >
+              <span className="text-[10px]">{EXTERNAL_META[post.provider].badge}</span>
+              {post.platform_url ? (
+                <a
+                  href={post.platform_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  ✓ {EXTERNAL_META[post.provider].label} 발행됨 · 보기
+                </a>
+              ) : (
+                <span>✓ {EXTERNAL_META[post.provider].label} 발행됨</span>
+              )}
+              <button
+                type="button"
+                onClick={() => deletePost(post)}
+                disabled={deletingId === post.id}
+                title={`${EXTERNAL_META[post.provider].label}에서 삭제`}
+                className="inline-flex items-center text-slate-400 hover:text-red-600 disabled:opacity-50"
+              >
+                {deletingId === post.id ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3 h-3" />
+                )}
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
 
       {open && (
         <div className="mt-1.5 border border-slate-200 rounded-md p-2 bg-slate-50">

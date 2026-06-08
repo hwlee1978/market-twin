@@ -283,3 +283,28 @@ export async function publishToX(args: {
     url: `https://x.com/i/web/status/${id}`,
   };
 }
+
+/**
+ * Delete a tweet by id on the connected account's behalf. Requires the
+ * tweet.write scope (which we already request). A 404 means the tweet
+ * is already gone — treated as success so the caller can reconcile its
+ * record idempotently.
+ */
+export async function deleteFromX(args: {
+  accessToken: string;
+  tweetId: string;
+}): Promise<void> {
+  const res = await fetch(`${TWEET_URL}/${args.tweetId}`, {
+    method: "DELETE",
+    headers: { authorization: `Bearer ${args.accessToken}` },
+  });
+  if (res.status === 404) return; // already deleted upstream
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`x delete ${res.status}: ${detail.slice(0, 400)}`);
+  }
+  const json = (await res.json()) as { data?: { deleted?: boolean } };
+  if (!json.data?.deleted) {
+    throw new Error("x delete: platform reported not-deleted");
+  }
+}

@@ -212,3 +212,24 @@ export async function publishToLinkedIn(args: {
   const url = `https://www.linkedin.com/feed/update/${encodeURIComponent(json.id)}/`;
   return { postId: json.id, url };
 }
+
+/**
+ * Delete a previously published ugcPost by its URN. LinkedIn returns
+ * 204 No Content on success; a 404 means it's already gone (treated as
+ * success for idempotent reconciliation).
+ */
+export async function deleteFromLinkedIn(args: {
+  accessToken: string;
+  postUrn: string;
+}): Promise<void> {
+  const res = await fetch(`${POST_URL}/${encodeURIComponent(args.postUrn)}`, {
+    method: "DELETE",
+    headers: {
+      authorization: `Bearer ${args.accessToken}`,
+      "X-Restli-Protocol-Version": "2.0.0",
+    },
+  });
+  if (res.status === 404 || res.status === 204 || res.ok) return;
+  const detail = await res.text().catch(() => "");
+  throw new Error(`linkedin delete ${res.status}: ${detail.slice(0, 400)}`);
+}
