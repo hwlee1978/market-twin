@@ -1096,7 +1096,17 @@ function DraftCard({
         </div>
 
         {/* External publish — LinkedIn / X */}
-        <ExternalPublishRow draft={draft} connected={connectedExternal} />
+        <ExternalPublishRow
+          draft={draft}
+          connected={connectedExternal}
+          images={
+            imageState.image_urls.length > 0
+              ? imageState.image_urls.map((img) => img.url)
+              : imageState.image_url
+                ? [imageState.image_url]
+                : []
+          }
+        />
 
         {/* Scheduling row */}
         <div className="mt-1.5 flex items-center gap-2 flex-wrap text-[11px]">
@@ -1176,9 +1186,12 @@ function DraftCard({
 function ExternalPublishRow({
   draft,
   connected,
+  images,
 }: {
   draft: Draft;
   connected: Set<ExternalProvider>;
+  /** Generated image frame URLs available to attach (X only, ≤4). */
+  images: string[];
 }) {
   const [open, setOpen] = useState<ExternalProvider | null>(null);
   const [text, setText] = useState("");
@@ -1188,6 +1201,17 @@ function ExternalPublishRow({
   // "발행됨 · 삭제" controls persist across reloads.
   const [sent, setSent] = useState<SentExternalPost[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Which image frames to attach (X only). Selection capped at 4.
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const MAX_X_IMAGES = 4;
+
+  const toggleImage = (url: string) => {
+    setSelectedImages((cur) => {
+      if (cur.includes(url)) return cur.filter((u) => u !== url);
+      if (cur.length >= MAX_X_IMAGES) return cur; // cap at 4
+      return [...cur, url];
+    });
+  };
 
   const loadSent = useCallback(async () => {
     try {
@@ -1209,6 +1233,9 @@ function ExternalPublishRow({
   const openComposer = (provider: ExternalProvider) => {
     setError(null);
     setText(composePostText(draft));
+    // Pre-select up to 4 frames for X so images attach by default; clear
+    // for LinkedIn (image attach not supported there yet).
+    setSelectedImages(provider === "x" ? images.slice(0, MAX_X_IMAGES) : []);
     setOpen((cur) => (cur === provider ? null : provider));
   };
 
@@ -1224,6 +1251,8 @@ function ExternalPublishRow({
           provider: open,
           content: text,
           contentDraftId: draft.id,
+          imageUrls:
+            open === "x" && selectedImages.length > 0 ? selectedImages : undefined,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -1234,6 +1263,7 @@ function ExternalPublishRow({
         draft_id: draft.id,
         provider: open,
         char_count: text.length,
+        image_count: open === "x" ? selectedImages.length : 0,
       });
       setOpen(null);
       void loadSent();
@@ -1345,6 +1375,42 @@ function ExternalPublishRow({
 
       {open && (
         <div className="mt-1.5 border border-slate-200 rounded-md p-2 bg-slate-50">
+          {open === "x" && images.length > 0 && (
+            <div className="mb-2">
+              <div className="text-[10px] text-slate-500 mb-1">
+                첨부 이미지 ({selectedImages.length}/{MAX_X_IMAGES}) — 프레임을 눌러 선택
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {images.map((url, i) => {
+                  const idx = selectedImages.indexOf(url);
+                  const isSel = idx !== -1;
+                  const atCap = !isSel && selectedImages.length >= MAX_X_IMAGES;
+                  return (
+                    <button
+                      key={url}
+                      type="button"
+                      onClick={() => toggleImage(url)}
+                      disabled={atCap}
+                      title={atCap ? `최대 ${MAX_X_IMAGES}장까지` : `프레임 ${i + 1}`}
+                      className={`relative w-12 h-12 rounded overflow-hidden border-2 transition ${
+                        isSel
+                          ? "border-slate-900 ring-1 ring-slate-400"
+                          : "border-slate-200 hover:border-slate-400"
+                      } ${atCap ? "opacity-40 cursor-not-allowed" : ""}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt={`frame ${i + 1}`} className="w-full h-full object-cover" />
+                      {isSel && (
+                        <span className="absolute top-0 right-0 bg-slate-900 text-white text-[9px] font-bold w-3.5 h-3.5 flex items-center justify-center rounded-bl">
+                          {idx + 1}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}

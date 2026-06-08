@@ -16,7 +16,10 @@ import { createHash, randomBytes } from "crypto";
  *   ${APP_BASE_URL}/api/mrai/integrations/x/callback
  *
  * Scopes:
- *   - tweet.read tweet.write users.read offline.access
+ *   - tweet.read tweet.write users.read offline.access media.write
+ *   - media.write is required for attaching images to tweets (v2 media
+ *     upload). Adding it means previously-connected accounts must
+ *     RECONNECT to mint a token that carries the new scope.
  *
  * Subscription:
  *   - Basic plan ($100/mo) required for tweet write at the time of
@@ -33,6 +36,7 @@ export const X_SCOPES = [
   "tweet.write",
   "users.read",
   "offline.access",
+  "media.write",
 ];
 
 // X migrated twitter.com → x.com. The OAuth *authorize* page must run
@@ -44,6 +48,7 @@ const AUTHORIZE_URL = "https://x.com/i/oauth2/authorize";
 const TOKEN_URL = "https://api.x.com/2/oauth2/token";
 const USERME_URL = "https://api.x.com/2/users/me";
 const TWEET_URL = "https://api.x.com/2/tweets";
+const MEDIA_UPLOAD_URL = "https://api.x.com/2/media/upload";
 
 export function xRedirectUri(): string {
   const base =
@@ -262,14 +267,22 @@ export async function getXAccess(
 export async function publishToX(args: {
   accessToken: string;
   text: string;
+  /** Up to 4 media ids from uploadMediaToX(), attached as the tweet's images. */
+  mediaIds?: string[];
 }): Promise<{ postId: string; url: string }> {
+  const payload: { text: string; media?: { media_ids: string[] } } = {
+    text: args.text,
+  };
+  if (args.mediaIds && args.mediaIds.length > 0) {
+    payload.media = { media_ids: args.mediaIds.slice(0, 4) };
+  }
   const res = await fetch(TWEET_URL, {
     method: "POST",
     headers: {
       authorization: `Bearer ${args.accessToken}`,
       "content-type": "application/json",
     },
-    body: JSON.stringify({ text: args.text }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
@@ -282,6 +295,51 @@ export async function publishToX(args: {
     postId: id,
     url: `https://x.com/i/web/status/${id}`,
   };
+}
+
+/**
+ * Upload one image to X (v2 media upload) and return its media id, ready
+ * to attach via publishToX({ mediaIds }). Requires the media.write scope
+ * — a token minted before that scope was added returns 403, signalling
+ * the user must reconnect. X allows ≤4 images per tweet; the caller
+ * enforces that.
+ */
+export async function uploadMediaToX(args: {
+  accessToken: string;
+  data: ArrayBuffer;
+  mimeType: string;
+}): Promise<string> {
+  const ext = args.mimeType.includes("png")
+    ? "png"
+    : args.mimeType.includes("webp")
+      ? "webp"
+      : args.mimeType.includes("gif")
+        ? "gif"
+        : "jpg";
+  const form = new FormData();
+  form.append("media_category", "tweet_image");
+  form.append(
+    "media",
+    new Blob([args.data], { type: args.mimeType }),
+    `upload.${ext}`,
+  );
+
+  const res = await fetch(MEDIA_UPLOAD_URL, {
+    method: "POST",
+    headers: { authorization: `Bearer ${args.accessToken}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`x media upload ${res.status}: ${detail.slice(0, 400)}`);
+  }
+  const json = (await res.json()) as {
+    data?: { id?: string };
+    media_id_string?: string;
+  };
+  const id = json.data?.id ?? json.media_id_string;
+  if (!id) throw new Error("x media upload: no media id returned");
+  return id;
 }
 
 /**

@@ -7,7 +7,12 @@ import {
   publishToLinkedIn,
   deleteFromLinkedIn,
 } from "@/lib/mrai/integrations/linkedin";
-import { getXAccess, publishToX, deleteFromX } from "@/lib/mrai/integrations/x";
+import {
+  getXAccess,
+  publishToX,
+  deleteFromX,
+  uploadMediaToX,
+} from "@/lib/mrai/integrations/x";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +28,8 @@ const RequestSchema = z.object({
   provider: z.enum(["linkedin", "x"]),
   content: z.string().min(1).max(8000),
   contentDraftId: z.string().uuid().optional().nullable(),
+  // Image frame URLs to attach. X only, ≤4 (X's per-tweet image cap).
+  imageUrls: z.array(z.string().url()).max(4).optional(),
 });
 
 const PLATFORM_LIMITS = {
@@ -48,7 +55,7 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  const { provider, content, contentDraftId } = parsed.data;
+  const { provider, content, contentDraftId, imageUrls } = parsed.data;
 
   // Hard-stop on platform char limits — better to refuse upfront than
   // record a failed post that costs nothing to prevent.
@@ -103,9 +110,26 @@ export async function POST(req: Request) {
       if (!access) {
         throw new Error("X not connected (or refresh failed — reconnect required)");
       }
+      // Attach images: download each frame, upload to X, collect media ids.
+      let mediaIds: string[] | undefined;
+      if (imageUrls && imageUrls.length > 0) {
+        mediaIds = [];
+        for (const url of imageUrls.slice(0, 4)) {
+          const imgRes = await fetch(url);
+          if (!imgRes.ok) {
+            throw new Error(`이미지 다운로드 실패 (${imgRes.status}) — ${url}`);
+          }
+          const mimeType = imgRes.headers.get("content-type") ?? "image/jpeg";
+          const data = await imgRes.arrayBuffer();
+          mediaIds.push(
+            await uploadMediaToX({ accessToken: access.accessToken, data, mimeType }),
+          );
+        }
+      }
       result = await publishToX({
         accessToken: access.accessToken,
         text: content,
+        mediaIds,
       });
     }
 
