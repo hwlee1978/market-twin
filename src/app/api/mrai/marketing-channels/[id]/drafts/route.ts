@@ -210,7 +210,18 @@ export async function POST(
       // Tell the drafter the actual frame count image-gen will produce
       // so image_prompt's described frame count matches reality.
       frameCount: defaultFrameCountForPlatform(channel.platform),
-      locale: parsed.data.locale ?? "ko",
+      // Content language follows the channel's TARGET MARKET, not the
+      // operator UI: a US channel (@brand_us) must publish English, a KR
+      // channel Korean. The drafter still produces a Korean translation
+      // (body_text_ko) for the operator to read. Explicit request locale
+      // overrides. Drafter supports ko/en, so any non-KR market → en.
+      locale:
+        parsed.data.locale ??
+        (channel.market_country
+          ? channel.market_country.toUpperCase() === "KR"
+            ? "ko"
+            : "en"
+          : "ko"),
       brandContext: brandContext || undefined,
     });
   } catch (e) {
