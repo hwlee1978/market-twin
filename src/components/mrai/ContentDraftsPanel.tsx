@@ -57,13 +57,17 @@ const EXTERNAL_META: Record<
 
 /**
  * Assemble a publishable post body from a draft's parts. Mirrors what a
- * marketer would paste manually: body, then CTA, then hashtags. Prefers
- * the Korean translation when present (channels are KR-first).
+ * marketer would paste manually: body, then CTA, then hashtags.
+ *
+ * Uses the NATIVE body_text — the language the draft was generated in,
+ * which already follows the channel's target market (English for a US
+ * channel, Korean for a KR channel). The seo_meta.translations.ko copy
+ * is the operator's reading aid only; publishing it would post Korean to
+ * a foreign-market account, so we deliberately do NOT use it here.
  */
 function composePostText(draft: Draft): string {
-  const ko = draft.seo_meta?.translations?.ko;
-  const body = (ko?.body_text || draft.body_text || "").trim();
-  const cta = (ko?.cta_text || draft.cta_text || "").trim();
+  const body = (draft.body_text || "").trim();
+  const cta = (draft.cta_text || "").trim();
   const tags = (draft.hashtags ?? [])
     .map((h) => (h.startsWith("#") ? h : `#${h}`))
     .join(" ");
