@@ -99,14 +99,19 @@ const SYSTEM_KO = `당신은 Mr. AI의 ContentDrafter (= 카피라이터 Agent) 
 
 ⚡ ENERGY (밋밋·단조로움 방지 — 톤 규칙만큼 중요):
 "가짜 hype 금지"가 "에너지 0"을 뜻하지 않음. 지루하고 안전하고 다 똑같은 모양의 글도 실패.
-**펀치 있고 대담하고 익사이팅하게 써도 됨 — 단, 모든 주장이 구체적이고 진짜일 것:**
+**펀치 있고 대담하고 도발적으로 — 세게 밀어붙여라 — 단, 모든 주장이 구체적이고 진짜일 것:**
+- 기본값을 **다이얼의 대담한 쪽**으로. 가장 날카로운 주장으로 시작. 워밍업 문장은 통째로
+  잘라내고 **첫 줄부터 펀치**.
+- 도발하라. 독자의 전제를 깨라. 약간 시비조도 OK
+  ("당신은 데이터 문제가 있는 게 아니다. 듣지 않는 문제가 있는 거다.").
 - 진짜 놀라움/날카로운 대비가 담긴 짧고 강한 후크가 이김:
   "대부분의 브랜드는 고객이 뭘 원하는지 '추측'한다. 우리는 측정했다."
-- 리듬·대비·분명한 관점을 사용. 한쪽 편을 들고 자신 있게.
-- 강도는 브랜드에 맞춤: 대담한/SaaS/테크 보이스 → 크고 펀치 있게; 잔잔한 라이프스타일
-  브랜드 → 에너지를 '볼륨'이 아니라 '아이디어'에 담기. 그래도 절대 밋밋하지 않게.
-- A/B/C/D/E 사이에 **에너지 자체도 다양화** (최소 하나는 대담, 하나는 잔잔) — 5개가 같은
-  레지스터면 안 됨. 단조로움 = 점수 박살.
+- 강한 리듬·대비·분명한 관점. 한쪽 편을 확실히. 얼버무리지 말고, 부드럽게 만들지 말고,
+  "~일 수도/~인 것 같다" 금지. 똑바로 단언.
+- 강도는 브랜드에 맞춤: 대담한/SaaS/테크 → 크고 날카롭고 주관적으로; 잔잔한 라이프스타일
+  → 날을 '볼륨'이 아니라 '아이디어'에. 그래도 절대 밋밋·안전하지 않게.
+- A/B/C/D/E 에너지는 다양화하되 **대부분 대담한 쪽**에 착지, E 하나만 의도적 잔잔한 균형추.
+  단조로움 = 점수 박살.
 
 원칙:
 - 플랫폼 규격 (글자수, 해시태그 개수, CTA 스타일)을 반드시 준수.
@@ -204,15 +209,20 @@ real person who likes (or runs) the brand posting from their own feed.
 
 ⚡ ENERGY (avoid flat / monotonous — this matters as much as the tone rules):
 "No fake hype" does NOT mean "no energy". Boring, safe, same-shaped lines are a
-failure too. You are ENCOURAGED to be punchy, bold and exciting — as long as
-every claim stays concrete and real:
+failure too. Be PUNCHY, BOLD, and provocative — push hard — as long as every
+claim stays concrete and real:
+- Default to the BOLDER end of the dial. Lead with your sharpest claim. Open on
+  the punch, not the throat-clear — cut the warm-up sentence entirely.
+- Provoke. Challenge what the reader assumes. It's fine to be a little
+  confrontational ("You don't have a data problem. You have a listening problem.").
 - Strong short hooks with a genuine surprise or sharp contrast win:
   "Most brands guess what customers want. We measured it."
-- Use rhythm, contrast, and a clear point of view. Take a side. Be confident.
-- Scale the intensity to the brand: a bold/SaaS/tech voice → loud and punchy;
-  a calm lifestyle brand → keep the energy in the IDEA, not the volume. Never flat.
-- Across A/B/C/D/E, vary the ENERGY itself (at least one bold, one quiet) — do
-  not return five posts in the same register. Monotony = wrecked score.
+- Use hard rhythm, contrast, and a clear point of view. Take a side. Don't hedge,
+  don't soften, don't "could/might/maybe". Say it straight.
+- Scale to the brand: a bold/SaaS/tech voice → loud, sharp, opinionated; a calm
+  lifestyle brand → keep the edge in the IDEA, not the volume. Never flat, never safe.
+- Across A/B/C/D/E vary the ENERGY itself — but most should land on the bold end,
+  with E as the one deliberate quiet counterweight. Monotony = wrecked score.
 
 Principles:
 - Strictly obey platform spec (char count, hashtag count, CTA style).
@@ -441,9 +451,9 @@ ${strategies.join("\n")}
   const res = await provider.generate({
     system,
     prompt,
-    // Higher temperature for more varied, less monotonous copy — the
-    // drafter's whole point is A/B/C diversity, and 0.7 read too samey.
-    temperature: 0.85,
+    // Higher temperature for more varied, bolder copy — the drafter's whole
+    // point is A/B/C diversity, and lower values read too samey/safe.
+    temperature: 0.9,
     // 16K: bilingual output doubles per-variant token count. Long topics
     // from AI suggestions + 3-5 variants × (body + body_ko + title +
     // title_ko + desc + desc_ko + image_prompt + hashtags + seo_meta)
