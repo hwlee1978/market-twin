@@ -29,6 +29,9 @@ import { ErrorState, errMsg } from "./ErrorState";
 
 type ExternalProvider = "linkedin" | "x";
 
+/** A connected X account (multi-account publish target). */
+type XAccount = { accountId: string; label: string | null };
+
 /** A live (status='sent') external publication, as returned by
  *  GET /api/mrai/publish?draftId=… — drives the delete controls. */
 type SentExternalPost = {
@@ -129,6 +132,9 @@ export function ContentDraftsPanel({
   const [connectedExternal, setConnectedExternal] = useState<Set<ExternalProvider>>(
     new Set(),
   );
+  // Connected X accounts (multi-account) — drives the per-publish account
+  // picker so the user can choose @brand_us vs @brand_kr etc.
+  const [xAccounts, setXAccounts] = useState<XAccount[]>([]);
 
   useEffect(() => {
     void (async () => {
@@ -143,7 +149,11 @@ export function ContentDraftsPanel({
       });
       if (!res.ok) return;
       const { integrations } = (await res.json()) as {
-        integrations: Array<{ provider: string }>;
+        integrations: Array<{
+          provider: string;
+          account_id: string | null;
+          account_label: string | null;
+        }>;
       };
       setConnectedExternal(
         new Set(
@@ -151,6 +161,11 @@ export function ContentDraftsPanel({
             .map((i) => i.provider)
             .filter((p): p is ExternalProvider => p === "linkedin" || p === "x"),
         ),
+      );
+      setXAccounts(
+        integrations
+          .filter((i) => i.provider === "x" && i.account_id)
+          .map((i) => ({ accountId: i.account_id as string, label: i.account_label })),
       );
     })();
   }, []);
@@ -379,6 +394,7 @@ export function ContentDraftsPanel({
                 channelId={channelId}
                 platform={platform}
                 connectedExternal={connectedExternal}
+                xAccounts={xAccounts}
                 brandAssetCount={brandAssetCount}
                 selected={selectedIds.has(d.id)}
                 onToggleSelect={() => toggleSelect(d.id)}
@@ -435,6 +451,7 @@ function DraftCard({
   channelId,
   platform: _platform,
   connectedExternal,
+  xAccounts,
   brandAssetCount,
   selected,
   onToggleSelect,
@@ -445,6 +462,7 @@ function DraftCard({
   channelId: string;
   platform: string;
   connectedExternal: Set<ExternalProvider>;
+  xAccounts: XAccount[];
   brandAssetCount: number | null;
   selected: boolean;
   onToggleSelect: () => void;
@@ -1099,6 +1117,7 @@ function DraftCard({
         <ExternalPublishRow
           draft={draft}
           connected={connectedExternal}
+          xAccounts={xAccounts}
           images={
             imageState.image_urls.length > 0
               ? imageState.image_urls.map((img) => img.url)
@@ -1186,10 +1205,13 @@ function DraftCard({
 function ExternalPublishRow({
   draft,
   connected,
+  xAccounts,
   images,
 }: {
   draft: Draft;
   connected: Set<ExternalProvider>;
+  /** Connected X accounts — when >1, the user picks which to publish to. */
+  xAccounts: XAccount[];
   /** Generated image frame URLs available to attach (X only, ≤4). */
   images: string[];
 }) {
@@ -1204,6 +1226,9 @@ function ExternalPublishRow({
   // Which image frames to attach (X only). Selection capped at 4.
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const MAX_X_IMAGES = 4;
+  // Which X account to publish to (multi-account). Empty → first/most-recent.
+  const [xAccountId, setXAccountId] = useState<string>("");
+  const effectiveXAccountId = xAccountId || xAccounts[0]?.accountId || "";
 
   const toggleImage = (url: string) => {
     setSelectedImages((cur) => {
@@ -1253,6 +1278,8 @@ function ExternalPublishRow({
           contentDraftId: draft.id,
           imageUrls:
             open === "x" && selectedImages.length > 0 ? selectedImages : undefined,
+          accountId:
+            open === "x" && effectiveXAccountId ? effectiveXAccountId : undefined,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -1375,6 +1402,22 @@ function ExternalPublishRow({
 
       {open && (
         <div className="mt-1.5 border border-slate-200 rounded-md p-2 bg-slate-50">
+          {open === "x" && xAccounts.length > 1 && (
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-[10px] text-slate-500">발행 계정</span>
+              <select
+                value={effectiveXAccountId}
+                onChange={(e) => setXAccountId(e.target.value)}
+                className="text-[11px] border border-slate-200 rounded px-2 py-1 bg-white text-slate-700"
+              >
+                {xAccounts.map((a) => (
+                  <option key={a.accountId} value={a.accountId}>
+                    {a.label || a.accountId}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {open === "x" && images.length > 0 && (
             <div className="mb-2">
               <div className="text-[10px] text-slate-500 mb-1">

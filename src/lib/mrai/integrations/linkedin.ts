@@ -128,7 +128,7 @@ export async function storeLinkedInTokens(input: {
 
   const { error } = await supabase
     .from("mrai_integrations")
-    .upsert(row, { onConflict: "workspace_id,provider" });
+    .upsert(row, { onConflict: "workspace_id,provider,account_id" });
   if (error) throw new Error(`store linkedin tokens: ${error.message}`);
 }
 

@@ -8,6 +8,7 @@ type Provider = "hubspot" | "linkedin" | "x";
 
 type Integration = {
   provider: Provider;
+  account_id: string | null;
   account_label: string | null;
   connected_at: string;
   updated_at: string;
@@ -52,16 +53,27 @@ export function IntegrationsPanel({
     window.location.href = `/api/mrai/integrations/${provider}/connect`;
   }
 
-  async function disconnect(provider: Provider) {
+  async function disconnect(provider: Provider, accountId?: string | null) {
     if (!confirm(t("disconnectConfirm", { provider: tProv(provider) }))) return;
-    const res = await fetch(`/api/mrai/integrations/${provider}/disconnect`, { method: "DELETE" });
+    const qs = accountId ? `?accountId=${encodeURIComponent(accountId)}` : "";
+    const res = await fetch(`/api/mrai/integrations/${provider}/disconnect${qs}`, {
+      method: "DELETE",
+    });
     if (res.ok) {
-      setIntegrations((prev) => prev.filter((i) => i.provider !== provider));
-      setLatestSignal((prev) => {
-        const next = { ...prev };
-        delete next[provider];
-        return next;
-      });
+      setIntegrations((prev) =>
+        prev.filter((i) =>
+          accountId
+            ? !(i.provider === provider && i.account_id === accountId)
+            : i.provider !== provider,
+        ),
+      );
+      if (!accountId) {
+        setLatestSignal((prev) => {
+          const next = { ...prev };
+          delete next[provider];
+          return next;
+        });
+      }
     }
   }
 
@@ -87,7 +99,7 @@ export function IntegrationsPanel({
   const hubspot = integrations.find((i) => i.provider === "hubspot");
   const hubspotSignal = latestSignal.hubspot;
   const linkedin = integrations.find((i) => i.provider === "linkedin");
-  const x = integrations.find((i) => i.provider === "x");
+  const xAccounts = integrations.filter((i) => i.provider === "x");
 
   return (
     <section className="bg-white border border-slate-200 rounded-lg overflow-hidden">
@@ -192,20 +204,17 @@ export function IntegrationsPanel({
           onDisconnect={() => disconnect("linkedin")}
         />
 
-        {/* X (Twitter) — publish channel */}
-        <PublishChannelCard
-          name={tProv("x")}
-          badge="𝕏"
-          badgeClass="bg-slate-900 text-white"
-          connectClass="bg-slate-900 hover:bg-black"
-          integration={x ?? null}
+        {/* X (Twitter) — multi-account publish channel (브랜드/시장별) */}
+        <XMultiAccountCard
+          accounts={xAccounts}
           locale={locale}
           connectedAs={(label) => t("connectedAs", { label })}
           connectLabel={t("connect")}
+          addLabel={locale === "ko" ? "계정 추가" : "Add account"}
           disconnectLabel={t("disconnect")}
           publishHint={t("publishHint")}
           onConnect={() => connect("x")}
-          onDisconnect={() => disconnect("x")}
+          onDisconnect={(accountId) => disconnect("x", accountId)}
         />
       </div>
     </section>
@@ -286,6 +295,88 @@ function PublishChannelCard({
           </button>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * X (Twitter) card supporting MULTIPLE connected accounts per workspace
+ * (e.g. @brand_us / @brand_kr for market-specific publishing). Lists each
+ * connected account with its own disconnect, plus an "add account" action
+ * that re-runs the OAuth flow. To connect a different handle the user must
+ * be logged into THAT account on x.com first (an X OAuth constraint).
+ */
+function XMultiAccountCard({
+  accounts,
+  locale,
+  connectedAs,
+  connectLabel,
+  addLabel,
+  disconnectLabel,
+  publishHint,
+  onConnect,
+  onDisconnect,
+}: {
+  accounts: Integration[];
+  locale: "ko" | "en";
+  connectedAs: (label: string) => string;
+  connectLabel: string;
+  addLabel: string;
+  disconnectLabel: string;
+  publishHint: string;
+  onConnect: () => void;
+  onDisconnect: (accountId: string | null) => void;
+}) {
+  return (
+    <div className="border border-slate-200 rounded-md p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="inline-flex items-center justify-center w-8 h-8 rounded font-bold text-xs bg-slate-900 text-white">
+          𝕏
+        </span>
+        <div className="font-semibold text-slate-900">X (Twitter)</div>
+        {accounts.length > 0 && (
+          <span className="ml-auto text-[11px] text-slate-400">
+            {locale === "ko" ? `${accounts.length}개 계정` : `${accounts.length} accounts`}
+          </span>
+        )}
+      </div>
+
+      {accounts.length === 0 ? (
+        <p className="text-xs text-slate-500 leading-relaxed mb-3">{publishHint}</p>
+      ) : (
+        <ul className="space-y-2 mb-3">
+          {accounts.map((a) => (
+            <li
+              key={a.account_id ?? a.connected_at}
+              className="flex items-center justify-between gap-2 border border-slate-100 rounded px-2.5 py-1.5"
+            >
+              <div className="min-w-0">
+                <div className="text-xs text-slate-700 truncate">
+                  {connectedAs(a.account_label || "—")}
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {new Date(a.connected_at).toLocaleString(locale === "ko" ? "ko-KR" : "en-US")}
+                </div>
+              </div>
+              <button
+                onClick={() => onDisconnect(a.account_id)}
+                className="shrink-0 inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 rounded"
+              >
+                <Trash2 className="w-3 h-3" />
+                {disconnectLabel}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <button
+        onClick={onConnect}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white rounded bg-slate-900 hover:bg-black"
+      >
+        <Link2 className="w-3 h-3" />
+        {accounts.length === 0 ? connectLabel : addLabel}
+      </button>
     </div>
   );
 }

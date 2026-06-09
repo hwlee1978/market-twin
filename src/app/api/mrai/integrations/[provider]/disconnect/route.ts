@@ -16,7 +16,7 @@ const ALLOWED = new Set(["hubspot", "linkedin", "x"]);
  * defense-in-depth.
  */
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ provider: string }> },
 ) {
   const { provider } = await params;
@@ -30,20 +30,31 @@ export async function DELETE(
     return NextResponse.json({ error: `workspace_${ctx.status}` }, { status: 403 });
   }
 
+  // Multi-account: `accountId` disconnects ONE account; absent → all
+  // accounts for the provider (the single-account providers' behaviour).
+  const accountId = new URL(req.url).searchParams.get("accountId");
+
   const supabase = createServiceClient();
-  const { error: iErr } = await supabase
+  let del = supabase
     .from("mrai_integrations")
     .delete()
     .eq("workspace_id", ctx.workspaceId)
     .eq("provider", provider);
+  if (accountId) del = del.eq("account_id", accountId);
+  const { error: iErr } = await del;
   if (iErr) {
     return NextResponse.json({ error: "disconnect_failed", detail: iErr.message }, { status: 500 });
   }
-  await supabase
-    .from("mrai_signals")
-    .delete()
-    .eq("workspace_id", ctx.workspaceId)
-    .eq("source", provider);
+
+  // Only clear the provider signal when no account of that provider
+  // remains (signals are per-provider, not per-account).
+  if (!accountId) {
+    await supabase
+      .from("mrai_signals")
+      .delete()
+      .eq("workspace_id", ctx.workspaceId)
+      .eq("source", provider);
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -30,6 +30,9 @@ const RequestSchema = z.object({
   contentDraftId: z.string().uuid().optional().nullable(),
   // Image frame URLs to attach. X only, ≤4 (X's per-tweet image cap).
   imageUrls: z.array(z.string().url()).max(4).optional(),
+  // Which connected account to publish to (X multi-account). Absent →
+  // the most-recently-connected account for the provider.
+  accountId: z.string().optional().nullable(),
 });
 
 const PLATFORM_LIMITS = {
@@ -55,7 +58,7 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  const { provider, content, contentDraftId, imageUrls } = parsed.data;
+  const { provider, content, contentDraftId, imageUrls, accountId } = parsed.data;
 
   // Hard-stop on platform char limits — better to refuse upfront than
   // record a failed post that costs nothing to prevent.
@@ -106,7 +109,7 @@ export async function POST(req: Request) {
         text: content,
       });
     } else {
-      const access = await getXAccess(ctx.workspaceId);
+      const access = await getXAccess(ctx.workspaceId, accountId ?? undefined);
       if (!access) {
         throw new Error("X not connected (or refresh failed — reconnect required)");
       }

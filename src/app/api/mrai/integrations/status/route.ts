@@ -20,7 +20,7 @@ export async function GET() {
   const [integResp, signalResp] = await Promise.all([
     supabase
       .from("mrai_integrations")
-      .select("provider, account_label, connected_at, updated_at")
+      .select("provider, account_id, account_label, connected_at, updated_at")
       .eq("workspace_id", ctx.workspaceId),
     supabase
       .from("mrai_signals")
@@ -35,6 +35,7 @@ export async function GET() {
 
   const integrations = (integResp.data ?? []) as Array<{
     provider: string;
+    account_id: string | null;
     account_label: string | null;
     connected_at: string;
     updated_at: string;

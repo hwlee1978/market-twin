@@ -198,7 +198,7 @@ export async function storeXTokens(input: {
 
   const { error } = await supabase
     .from("mrai_integrations")
-    .upsert(row, { onConflict: "workspace_id,provider" });
+    .upsert(row, { onConflict: "workspace_id,provider,account_id" });
   if (error) throw new Error(`store x tokens: ${error.message}`);
 }
 
@@ -211,21 +211,44 @@ interface IntegrationRow {
 }
 
 /**
- * Get a valid X access token for the workspace, refreshing it 60s
- * before expiry. Returns null when no connection exists or refresh
- * fails terminally (user must reconnect).
+ * List every connected X account for the workspace (for the publish
+ * account picker + settings UI). Most-recently connected first.
  */
-export async function getXAccess(
+export async function listXAccounts(
   workspaceId: string,
-): Promise<{ accessToken: string; accountId: string; accountLabel: string | null } | null> {
+): Promise<Array<{ accountId: string; accountLabel: string | null }>> {
   const supabase = createServiceClient();
   const { data } = await supabase
     .from("mrai_integrations")
-    .select("access_token, refresh_token, expires_at, account_id, account_label")
+    .select("account_id, account_label")
     .eq("workspace_id", workspaceId)
     .eq("provider", "x")
-    .maybeSingle();
-  const row = data as IntegrationRow | null;
+    .not("account_id", "is", null)
+    .order("updated_at", { ascending: false });
+  return ((data ?? []) as Array<{ account_id: string; account_label: string | null }>).map(
+    (r) => ({ accountId: r.account_id, accountLabel: r.account_label }),
+  );
+}
+
+/**
+ * Get a valid X access token, refreshing it 60s before expiry. With
+ * multi-account support, `accountId` selects which connected account;
+ * when omitted we fall back to the most-recently-connected one. Returns
+ * null when no connection exists or refresh fails terminally (reconnect).
+ */
+export async function getXAccess(
+  workspaceId: string,
+  accountId?: string,
+): Promise<{ accessToken: string; accountId: string; accountLabel: string | null } | null> {
+  const supabase = createServiceClient();
+  let query = supabase
+    .from("mrai_integrations")
+    .select("access_token, refresh_token, expires_at, account_id, account_label")
+    .eq("workspace_id", workspaceId)
+    .eq("provider", "x");
+  if (accountId) query = query.eq("account_id", accountId);
+  const { data } = await query.order("updated_at", { ascending: false }).limit(1);
+  const row = (data?.[0] ?? null) as IntegrationRow | null;
   if (!row || !row.account_id) return null;
 
   const expMs = row.expires_at ? new Date(row.expires_at).getTime() : 0;
@@ -233,6 +256,8 @@ export async function getXAccess(
     if (!row.refresh_token) return null;
     try {
       const fresh = await refreshTokens(row.refresh_token);
+      // Scope the refresh write to THIS account so we don't clobber the
+      // tokens of the workspace's other connected X accounts.
       await supabase
         .from("mrai_integrations")
         .update({
@@ -242,7 +267,8 @@ export async function getXAccess(
           updated_at: new Date().toISOString(),
         })
         .eq("workspace_id", workspaceId)
-        .eq("provider", "x");
+        .eq("provider", "x")
+        .eq("account_id", row.account_id);
       return {
         accessToken: fresh.access_token,
         accountId: row.account_id,
