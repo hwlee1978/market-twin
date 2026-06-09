@@ -87,7 +87,7 @@ const SYSTEM_KO = `당신은 Mr. AI의 ContentDrafter (= 카피라이터 Agent) 
 - 외부 권위 인용 자랑: "Vogue가 ~라고 했다", "Forbes는 ~를 꼽았다"
 - 자사를 3인칭으로 추켜세우기: "(자사명)은 한국 OO다", "우리는 ~를 만든다"
 - 과장 형용사 / 추상 마케팅 단어: "프리미엄", "혁신적", "최상의", "독보적", "countless", "redefining"
-- 슬로건형 한 문장 단위: "Seoul is the source.", "Built where the trend starts."
+- 내용 없는 빈 슬로건: "Seoul is the source.", "서울이 시작이다." (← 구체적 주장이 담긴 펀치 라인은 OK. 금지는 알맹이 없는 추상 슬로건만 — 아래 ⚡ ENERGY 참고)
 - 모방품/경쟁사 까기 직접 언급 (질투처럼 보임)
 
 ✅ 자연스러운 톤 패턴:
@@ -96,6 +96,17 @@ const SYSTEM_KO = `당신은 Mr. AI의 ContentDrafter (= 카피라이터 Agent) 
 - 사용자 후기 같은 디테일: "양말이 미끄러져서 짜증나는데 이 신발은 그게 없다."
 - 약간 자조적/유머: "또 짝퉁 봤다. 모직 결이 달라서 한 눈에 보임."
 - 일정/스케줄 자연스러운 언급: "주말에 한강 7km 걸었음."
+
+⚡ ENERGY (밋밋·단조로움 방지 — 톤 규칙만큼 중요):
+"가짜 hype 금지"가 "에너지 0"을 뜻하지 않음. 지루하고 안전하고 다 똑같은 모양의 글도 실패.
+**펀치 있고 대담하고 익사이팅하게 써도 됨 — 단, 모든 주장이 구체적이고 진짜일 것:**
+- 진짜 놀라움/날카로운 대비가 담긴 짧고 강한 후크가 이김:
+  "대부분의 브랜드는 고객이 뭘 원하는지 '추측'한다. 우리는 측정했다."
+- 리듬·대비·분명한 관점을 사용. 한쪽 편을 들고 자신 있게.
+- 강도는 브랜드에 맞춤: 대담한/SaaS/테크 보이스 → 크고 펀치 있게; 잔잔한 라이프스타일
+  브랜드 → 에너지를 '볼륨'이 아니라 '아이디어'에 담기. 그래도 절대 밋밋하지 않게.
+- A/B/C/D/E 사이에 **에너지 자체도 다양화** (최소 하나는 대담, 하나는 잔잔) — 5개가 같은
+  레지스터면 안 됨. 단조로움 = 점수 박살.
 
 원칙:
 - 플랫폼 규격 (글자수, 해시태그 개수, CTA 스타일)을 반드시 준수.
@@ -174,8 +185,10 @@ real person who likes (or runs) the brand posting from their own feed.
   "We make ___." Reads as press release.
 - Marketing abstractions / superlatives: "premium", "best-in-class",
   "innovative", "redefining", "countless", "unrivaled".
-- Slogan-style standalone lines: "Seoul is the source.",
-  "Built where the trend starts."
+- EMPTY abstract slogans with no concrete claim: "Seoul is the source.",
+  "Built where the trend starts." (A punchy standalone line that carries a
+  REAL, specific claim is good — see ⚡ ENERGY below. The ban is only on
+  hollow, content-free slogans.)
 - Direct knockoff/competitor jabs (sounds jealous).
 
 ✅ Natural patterns:
@@ -188,6 +201,18 @@ real person who likes (or runs) the brand posting from their own feed.
   gives it away every time."
 - Casual schedule/diary mentions: "Walked 7km along the river this
   weekend."
+
+⚡ ENERGY (avoid flat / monotonous — this matters as much as the tone rules):
+"No fake hype" does NOT mean "no energy". Boring, safe, same-shaped lines are a
+failure too. You are ENCOURAGED to be punchy, bold and exciting — as long as
+every claim stays concrete and real:
+- Strong short hooks with a genuine surprise or sharp contrast win:
+  "Most brands guess what customers want. We measured it."
+- Use rhythm, contrast, and a clear point of view. Take a side. Be confident.
+- Scale the intensity to the brand: a bold/SaaS/tech voice → loud and punchy;
+  a calm lifestyle brand → keep the energy in the IDEA, not the volume. Never flat.
+- Across A/B/C/D/E, vary the ENERGY itself (at least one bold, one quiet) — do
+  not return five posts in the same register. Monotony = wrecked score.
 
 Principles:
 - Strictly obey platform spec (char count, hashtag count, CTA style).
@@ -287,21 +312,26 @@ export async function runContentDrafter(input: DrafterInput): Promise<DrafterRes
   // the topic with a generic version of the strategy template (e.g.
   // user-provided topic "임윤아 TVC 연계 착화 스토리" became "3개월 착화 일기"
   // because variant B's "3개월차에…" example was treated as the subject).
+  // Variant strategies span an ENERGY spectrum (bold → quiet) AND distinct
+  // angles, so a single generation returns a varied set instead of five
+  // same-register posts. A/B are the punchy, stop-the-scroll openers; E is
+  // the calm counterweight. All stay tied to the topic (no generic-diary
+  // substitution — enforced again in the prompt body).
   const variantStrategies =
     locale === "en"
       ? [
-          "A: open with a small ordinary moment that ties to the topic (commute, meeting, walk). Concrete sensory detail in the FIRST line — but the moment must serve the topic, not replace it.",
-          "B: timestamped angle on the topic — 'after 4 weeks of wearing…', 'on the 3rd month'. The time-log is a framing device for the topic, not a substitute.",
-          "C: sincere observation/question that comes from the topic. Conversational. No knockoff jab, no competitor swipe.",
-          "D: tactile detail from a specific scene in the topic. Sensory, no superlatives.",
-          "E: process beat tied to the topic — one quiet behind-the-scenes step (a fabric choice, a stitch decision, a sample test). Factual, no boasting.",
+          "A: BOLD punchy hook — a short, high-energy first line with a real, surprising claim or sharp contrast tied to the topic. Make them stop scrolling. Confident and concrete, never vague hype.",
+          "B: provocative / contrarian take — challenge a common assumption about the topic. A pointed question or a 'most people get this wrong' angle. Clear point of view.",
+          "C: story with a turn — a specific moment or mini-narrative from the topic with real tension or a twist. Not a flat diary entry.",
+          "D: vivid sensory / tactile detail from a specific scene in the topic. Make the reader feel it. No superlatives.",
+          "E: behind-the-scenes / process beat tied to the topic — one quiet, concrete step. The calm counterweight to the louder variants.",
         ].slice(0, variantCount)
       : [
-          "A: topic을 자연스럽게 떠올리게 하는 작은 일상 순간 (출퇴근/회의/산책)으로 오프닝. 첫 줄에 구체적 감각 디테일. 그러나 그 순간은 topic을 떠받치는 도구일 뿐, topic 자체를 일상 일기로 바꾸지 말 것.",
-          "B: topic에 시간 로그 angle 적용 — '4주 신고 나서…', '3개월차에…' 같은 시점 기준으로 topic을 풀어냄. 시간 로그는 topic을 보여주는 액자일 뿐, topic 자체를 generic 착화 일기로 치환 금지.",
-          "C: topic에서 발견한 진지한 관찰/질문 — 알아챈 것. 대화 톤. 모방품 비꼬기 금지, 경쟁사 깎기 금지.",
-          "D: topic 안의 특정 장면에서 촉감 디테일. 감각 묘사, 형용사 자랑 금지.",
-          "E: topic과 직접 연결되는 프로세스 한 컷 — 조용한 비하인드 한 단계 (원단 선택, 박음질 결정, 샘플 테스트). 사실 위주, 자랑 금지.",
+          "A: 강렬한 펀치 후크 — topic과 직결된 짧고 에너지 있는 첫 줄. 진짜 놀라움/날카로운 대비로 스크롤을 멈추게. 자신 있고 구체적이되 막연한 hype 금지.",
+          "B: 도발적 / contrarian 시각 — topic에 대한 흔한 통념을 뒤집기. 날카로운 질문 또는 '대부분 이걸 오해한다' angle. 분명한 관점.",
+          "C: 반전 있는 스토리 — topic 안의 특정 순간/미니 서사에 실제 긴장이나 반전. 밋밋한 일기 금지.",
+          "D: topic 안 특정 장면의 생생한 감각/촉감 디테일. 독자가 느끼게. 형용사 자랑 금지.",
+          "E: topic과 연결된 비하인드/프로세스 한 컷 — 조용하고 구체적인 한 단계. 시끄러운 변형들의 잔잔한 균형추.",
         ].slice(0, variantCount);
 
   const frameCount = input.frameCount;
@@ -319,10 +349,12 @@ export async function runContentDrafter(input: DrafterInput): Promise<DrafterRes
 
   const system = locale === "en" ? SYSTEM_EN : SYSTEM_KO;
 
-  // Drafting model — Haiku for speed + low cost. Swap to a Sonnet id for
-  // higher creative quality; the parallelisation below keeps even Sonnet
-  // under the route timeout.
-  const DRAFTER_MODEL = "claude-haiku-4-5-20251001";
+  // Drafting model — Sonnet for creative copy quality. Haiku was faster/
+  // cheaper but produced flat, monotonous copy; the parallelisation below
+  // keeps Sonnet comfortably under the route timeout (one call per variant,
+  // concurrent). Swap back to "claude-haiku-4-5-20251001" if cost matters
+  // more than punch.
+  const DRAFTER_MODEL = "claude-sonnet-4-6";
 
   // Generate the variant(s) for a strategy subset. Called once per strategy
   // and run concurrently (Promise.all) so wall-clock ≈ a single variant
@@ -409,7 +441,9 @@ ${strategies.join("\n")}
   const res = await provider.generate({
     system,
     prompt,
-    temperature: 0.7,
+    // Higher temperature for more varied, less monotonous copy — the
+    // drafter's whole point is A/B/C diversity, and 0.7 read too samey.
+    temperature: 0.85,
     // 16K: bilingual output doubles per-variant token count. Long topics
     // from AI suggestions + 3-5 variants × (body + body_ko + title +
     // title_ko + desc + desc_ko + image_prompt + hashtags + seo_meta)
