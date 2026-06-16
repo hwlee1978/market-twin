@@ -74,33 +74,60 @@ export class AnthropicProvider implements LLMProvider {
         ? [{ type: "text", text: systemText, cache_control: { type: "ephemeral" } }]
         : systemText;
 
-    const response = await withLLMRetry(
-      () =>
-        this.client.messages.create(
-          {
-            model: this.model,
-            max_tokens: req.maxTokens ?? 4096,
-            temperature: req.temperature ?? 0.7,
-            system: systemParam,
-            messages: [{ role: "user", content: userContent }],
-          },
-          // Anthropic SDK forwards signal to the underlying fetch call,
-          // so a user cancellation aborts the in-flight HTTP request
-          // immediately instead of waiting for the response to complete.
-          req.signal ? { signal: req.signal } : undefined,
-        ),
-      { provider: "anthropic", signal: req.signal },
-    );
+    const extractText = (resp: Anthropic.Message): string =>
+      resp.content
+        .filter((c): c is Anthropic.TextBlock => c.type === "text")
+        .map((c) => c.text)
+        .join("");
 
-    const text = response.content
-      .filter((c): c is Anthropic.TextBlock => c.type === "text")
-      .map((c) => c.text)
-      .join("");
+    const callOnce = (temperature: number) =>
+      withLLMRetry(
+        () =>
+          this.client.messages.create(
+            {
+              model: this.model,
+              max_tokens: req.maxTokens ?? 4096,
+              temperature,
+              system: systemParam,
+              messages: [{ role: "user", content: userContent }],
+            },
+            // Anthropic SDK forwards signal to the underlying fetch call,
+            // so a user cancellation aborts the in-flight HTTP request
+            // immediately instead of waiting for the response to complete.
+            req.signal ? { signal: req.signal } : undefined,
+          ),
+        { provider: "anthropic", signal: req.signal },
+      );
 
-    const truncated = response.stop_reason === "max_tokens";
-    const json = wantsJson
+    let response = await callOnce(req.temperature ?? 0.7);
+    let text = extractText(response);
+    let truncated = response.stop_reason === "max_tokens";
+    let json = wantsJson
       ? recoverJsonFromText(text, { arrayKey: req.expectedArrayKey })
       : undefined;
+
+    // Malformed-JSON salvage retry. The response completed normally (NOT
+    // truncated) yet the JSON couldn't be parsed or recovered — a transient
+    // sampling defect (e.g. an unescaped newline/quote inside a long string
+    // value), most common when generating long structured content at high
+    // temperature. withLLMRetry never sees this because the HTTP call itself
+    // succeeded: no throw, just `json === undefined`. Without a retry the
+    // caller drops the whole batch on a single bad roll (the drafter's
+    // "0 variants — try again" path). One re-sample at LOW temperature
+    // near-always yields clean JSON, and prompt caching keeps the retry's
+    // input cost ~0.1×. We only re-sample what we couldn't use anyway, so
+    // the creativity lost to low temperature costs nothing.
+    if (wantsJson && json === undefined && !truncated && !req.signal?.aborted) {
+      console.warn(
+        `[anthropic] JSON unparseable on a complete response ` +
+          `(output ${response.usage.output_tokens} tok, stop=${response.stop_reason}) — ` +
+          `re-sampling once at low temperature`,
+      );
+      response = await callOnce(0.2);
+      text = extractText(response);
+      truncated = response.stop_reason === "max_tokens";
+      json = recoverJsonFromText(text, { arrayKey: req.expectedArrayKey });
+    }
 
     // Surface output-cap truncation. When stop_reason == "max_tokens" and
     // we couldn't recover ANY usable JSON, throw — that triggers the
