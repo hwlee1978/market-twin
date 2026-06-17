@@ -20,13 +20,14 @@ export function getResend(): Resend | null {
 }
 
 /**
- * From-address used in every outbound notification. Falls back to Resend's
- * onboarding sender when EMAIL_FROM isn't configured — useful in dev so
- * the first simulation completion still produces a real email without
- * domain setup. Production should set EMAIL_FROM to a verified domain.
+ * From-address used in every outbound notification. Defaults to the
+ * verified markettwin.ai sender so production mail is delivered without
+ * extra env setup; override with EMAIL_FROM for a different verified
+ * sender. (The old onboarding@resend.dev fallback only delivered to the
+ * account owner — Resend rejects it for other recipients with a 403.)
  */
 export function getFromAddress(): string {
   return (
-    process.env.EMAIL_FROM ?? "AI Market Twin <onboarding@resend.dev>"
+    process.env.EMAIL_FROM ?? "AI Market Twin <noreply@markettwin.ai>"
   );
 }

@@ -103,7 +103,7 @@ async function sendEmail(
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY not set" };
   }
-  const from = process.env.RESEND_FROM || "Mr. AI <onboarding@resend.dev>";
+  const from = process.env.RESEND_FROM || "Mr. AI <noreply@markettwin.ai>";
 
   // Convert markdown-ish body to minimal HTML — newlines become <br>,
   // bullets to <li>. Good enough for CEO morning brief.
