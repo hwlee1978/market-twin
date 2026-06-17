@@ -38,6 +38,11 @@ export function SignupForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  // Email-confirmation resend: shown after a successful signup that didn't
+  // auto-log-in (Supabase "Confirm email" ON → data.session is null).
+  const [awaitingConfirm, setAwaitingConfirm] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   // Read the plan / billing-cycle the user picked on /plans. Falls back
   // to free_trial when the user reached /signup directly without going
@@ -121,8 +126,42 @@ export function SignupForm() {
       router.refresh();
     } else {
       setLoading(false);
+      setAwaitingConfirm(true);
       setInfo(t("auth.checkEmail"));
     }
+  };
+
+  // Re-send the signup confirmation email. Guarded by a 60s cooldown to
+  // respect Supabase's per-user SMTP rate limit (Minimum interval per
+  // user) and to prevent button-spam.
+  const onResend = async () => {
+    if (resending || resendCooldown > 0 || !email) return;
+    setResending(true);
+    setError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/oauth-callback?plan=${planSlug}&cycle=${cycle}`,
+      },
+    });
+    setResending(false);
+    if (error) {
+      setError(t(authErrorKey(error.message) as "errors.auth.generic"));
+      return;
+    }
+    setInfo(t("auth.resendSent"));
+    setResendCooldown(60);
+    const timer = setInterval(() => {
+      setResendCooldown((c) => {
+        if (c <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
   };
 
   return (
@@ -288,6 +327,20 @@ export function SignupForm() {
 
             {error && <div className="text-sm text-risk">{error}</div>}
             {info && <div className="text-sm text-success">{info}</div>}
+            {awaitingConfirm && (
+              <button
+                type="button"
+                onClick={onResend}
+                disabled={resending || resendCooldown > 0}
+                className="text-sm font-medium text-brand hover:underline disabled:opacity-50 disabled:no-underline"
+              >
+                {resendCooldown > 0
+                  ? t("auth.resendCooldown", { seconds: resendCooldown })
+                  : resending
+                    ? t("auth.resendSending")
+                    : t("auth.resendConfirm")}
+              </button>
+            )}
             <button
               type="submit"
               disabled={loading || !agreeTerms || !agreeCrossBorder}
