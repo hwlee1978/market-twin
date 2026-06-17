@@ -32,10 +32,11 @@ export const dynamic = "force-dynamic";
  * Demo creations allowed per workspace per UTC day. Each demo runs a
  * real 50-persona simulation costing $1-2 of LLM, so an uncapped
  * authenticated endpoint is a six-figure-bill exposure if any user
- * scripts it. 5/day is generous for genuine "compare runs" curiosity
- * while bounding worst-case spend to ~$10/user/day.
+ * scripts it. 3/day bounds worst-case spend per user, and the demo sim
+ * now runs on Haiku (see runSimulation call below) so the per-run cost is
+ * roughly 10x lower than the Sonnet default.
  */
-const DEMO_DAILY_CAP = 5;
+const DEMO_DAILY_CAP = 3;
 
 export async function POST() {
   const ctx = await getOrCreatePrimaryWorkspace();
@@ -131,6 +132,11 @@ export async function POST() {
         projectInput,
         personaCount: SAMPLE_PERSONA_COUNT,
         locale: "ko",
+        // 데모는 가입 유도용 맛보기 — voice 품질보다 비용·속도가 우선이라
+        // 전 stage를 Haiku로. 기본 라우팅(persona/synthesis=Sonnet) 대비
+        // 1회 비용 약 10배↓. hypothesis 무료 티어와 동일한 논리.
+        provider: "anthropic",
+        model: "claude-haiku-4-5-20251001",
       });
     } catch (err) {
       console.error("[demo] simulation failed", err);
