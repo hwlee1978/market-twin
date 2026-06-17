@@ -16,6 +16,8 @@ const PUBLIC_PATHS = [
   "/sme-strategy",
   // im-not-ai 기반 한국어 윤문 도구 — 인증 없이 누구나 테스트.
   "/ai-humanize",
+  // 베타 모집 랜딩 — 인증 없이 공개(모집 링크로 바로 진입).
+  "/beta",
 ];
 
 function isPublic(pathname: string) {
