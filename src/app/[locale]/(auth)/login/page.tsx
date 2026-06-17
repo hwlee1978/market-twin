@@ -23,15 +23,28 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  // Unconfirmed-email login → offer to resend the confirmation email.
+  const [unconfirmed, setUnconfirmed] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setInfo(null);
+    setUnconfirmed(false);
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setLoading(false);
+      // Unconfirmed-email accounts get a resend option (button below).
+      // Supabase returns code "email_not_confirmed" in this case.
+      setUnconfirmed(
+        error.code === "email_not_confirmed" ||
+          /not confirmed/i.test(error.message),
+      );
       // Map Supabase's English error to a locale-aware friendly message.
       setError(t(authErrorKey(error.message) as "errors.auth.generic"));
       return;
@@ -54,6 +67,38 @@ export default function LoginPage() {
         redirectTo: `${window.location.origin}/auth/oauth-callback`,
       },
     });
+  };
+
+  // Re-send the signup confirmation email for an unconfirmed account that
+  // just tried to log in. 60s cooldown mirrors the signup form.
+  const onResend = async () => {
+    if (resending || resendCooldown > 0 || !email) return;
+    setResending(true);
+    setError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/oauth-callback`,
+      },
+    });
+    setResending(false);
+    if (error) {
+      setError(t(authErrorKey(error.message) as "errors.auth.generic"));
+      return;
+    }
+    setInfo(t("auth.resendSent"));
+    setResendCooldown(60);
+    const timer = setInterval(() => {
+      setResendCooldown((c) => {
+        if (c <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
   };
 
   return (
@@ -158,6 +203,21 @@ export default function LoginPage() {
               />
             </div>
             {error && <div className="text-sm text-risk">{error}</div>}
+            {info && <div className="text-sm text-success">{info}</div>}
+            {unconfirmed && (
+              <button
+                type="button"
+                onClick={onResend}
+                disabled={resending || resendCooldown > 0}
+                className="text-sm font-medium text-brand hover:underline disabled:opacity-50 disabled:no-underline"
+              >
+                {resendCooldown > 0
+                  ? t("auth.resendCooldown", { seconds: resendCooldown })
+                  : resending
+                    ? t("auth.resendSending")
+                    : t("auth.resendConfirm")}
+              </button>
+            )}
             <button type="submit" disabled={loading} className="btn-primary w-full">
               {loading ? t("auth.loggingIn") : t("auth.loginCta")}
             </button>
