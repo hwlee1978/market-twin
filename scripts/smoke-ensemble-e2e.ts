@@ -286,6 +286,13 @@ async function main() {
         locale: "ko",
         seedOverride: `${ensembleId}-${index}`,
         provider,
+        // Mirror orchestrator: hypothesis(무료 베타 티어)의 anthropic sim은
+        // Haiku로 내려 800s inline 한도 안에 들어오게 한다. dev variant
+        // ("deep-3" 등)와 유료 티어는 Sonnet 유지.
+        model:
+          tier === "hypothesis" && provider === "anthropic"
+            ? "claude-haiku-4-5-20251001"
+            : undefined,
         tradeAnchorBlock,
         worldBankBlock,
         trendSnippets,

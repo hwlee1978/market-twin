@@ -204,6 +204,18 @@ export async function runEnsembleOrchestration(
         locale,
         seedOverride: `${ensembleId}-${sim.index}`,
         provider: sim.provider,
+        // Hypothesis는 무료 베타 진입 티어다. anthropic sim이 Sonnet으로 돌면
+        // 단계마다 voice가 풍부해져 느리고(prod p90 ≈ 880s), worker 미설정 시
+        // Vercel inline 800s 한도를 자주 넘겨 504로 죽는다. 무료 맛보기 단계
+        // 이므로 anthropic sim 전체를 Haiku로 내려 한도 안에 안정적으로 들어오게
+        // 한다(≈200-300s, 비용도 ~10x↓). 유료 티어(decision+)는 Sonnet 유지로
+        // 1인칭 voice 품질을 보존하고, openai/deepseek sim은 자체 모델이 이미
+        // 충분히 빠르므로 건드리지 않는다. opts.model은 getLLMProvider에서
+        // 최우선이라 persona·country·pricing·synthesis 전 stage가 Haiku가 된다.
+        model:
+          tier === "hypothesis" && sim.provider === "anthropic"
+            ? "claude-haiku-4-5-20251001"
+            : undefined,
         inlineAssets,
         trendSnippets,
         marginSnippets,
