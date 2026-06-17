@@ -322,7 +322,7 @@ function StatusBanner({
       <Banner
         tone="info"
         icon={<Sparkles size={16} />}
-        title={isKo ? "Free Trial 진행 중" : "Free trial in progress"}
+        title={isKo ? "베타 무료 체험 진행 중" : "Beta trial in progress"}
         body={
           isKo
             ? `시뮬 ${trial.simsUsed}/${trial.simsLimit}건 사용 · ${remaining != null ? `${remaining}일 남음` : ""}`
@@ -480,7 +480,7 @@ function statusLabel(s: SubscriptionStatus, isKo: boolean): string {
   if (isKo) {
     return {
       active: "활성",
-      trialing: "트라이얼",
+      trialing: "베타",
       past_due: "결제실패",
       canceled: "취소됨",
       paused: "일시중지",
