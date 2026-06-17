@@ -693,8 +693,8 @@ function EnsembleProgress({
         <p className="text-sm text-slate-500 text-center mb-1">
           {synthesizing
             ? isKo
-              ? "AI가 모든 시뮬 결과를 합성해 최종 narrative를 작성 중입니다 (보통 2~3분)."
-              : "AI is merging every sim into the final narrative (usually 2–3 min)."
+              ? "AI가 모든 시뮬 결과를 합성해 최종 narrative를 작성 중입니다 (보통 몇 분)."
+              : "AI is merging every sim into the final narrative (usually a few min)."
             : isKo
               ? `${status.parallel_sims}개 독립 시뮬레이션을 병렬 실행하여 신뢰도 있는 결과를 도출합니다.`
               : `Running ${status.parallel_sims} independent simulations in parallel for confidence-grade results.`}
