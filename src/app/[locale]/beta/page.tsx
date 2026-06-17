@@ -37,7 +37,7 @@ export default async function BetaLandingPage({
         {
           icon: FileText,
           title: "추천 시장·가격·리포트",
-          body: "Top-2 추천 시장, 페르소나 반응, 적정 가격, PDF 리포트까지 2~3분 만에 받습니다.",
+          body: "추천 시장 Top-2, 페르소나 반응, 적정 가격, PDF 리포트까지 몇 분이면 나옵니다.",
         },
       ]
     : [
@@ -54,7 +54,7 @@ export default async function BetaLandingPage({
         {
           icon: FileText,
           title: "Markets, pricing & a report",
-          body: "Top-2 markets, persona reactions, optimal price, and a PDF report — in 2-3 minutes.",
+          body: "Top-2 markets, persona reactions, pricing, and a PDF report — in a few minutes.",
         },
       ];
 
@@ -92,13 +92,13 @@ export default async function BetaLandingPage({
           </span>
           <h1 className="mt-5 text-[2.4rem] lg:text-[3.2rem] font-bold leading-[1.15] tracking-tight break-keep whitespace-pre-line">
             {isKo
-              ? "감으로 나라 고르지 마세요.\n출시 전에 현지 반응을 먼저 보세요."
-              : "Don't guess your market.\nValidate it before you launch."}
+              ? "어느 나라부터 진출할지,\n출시 전에 확인하세요"
+              : "See where your product fits abroad —\nbefore you launch"}
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-brand-100 leading-relaxed break-keep">
             {isKo
-              ? "Market Twin은 한국 제품의 해외 진출을 출시 전에 검증합니다. 600명의 현지 가상 소비자가 당신의 제품·가격에 어떻게 반응할지 2~3분 만에 보여드립니다."
-              : "Market Twin validates a Korean product's overseas launch before release. See how 600 local virtual consumers would react to your product and price — in 2-3 minutes."}
+              ? "제품 정보를 입력하면, 진출 후보국의 현지 소비자 600명이 어떻게 반응하는지 시뮬레이션해 보여드립니다. 추천 시장과 적정 가격까지 몇 분이면 확인할 수 있어요."
+              : "Tell us about your product, and we'll simulate how 600 local consumers would react — recommended markets and pricing included. It only takes a few minutes."}
           </p>
           <div className="mt-9 flex flex-wrap items-center gap-4">
             <Link
