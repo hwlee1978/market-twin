@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { isSignupEnabled } from "@/lib/app-settings";
 
 // 60-second window: anyone whose auth.users.created_at sits within
 // this many milliseconds of "now" is treated as a brand-new signup.
@@ -35,14 +36,20 @@ export async function GET(request: Request) {
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
       if (!error && data.user && data.user.email) {
         // Signup gate enforcement for OAuth path. The /signup page hides
-        // the password form when SIGNUP_ENABLED!=true, but Supabase's
+        // the password form when signup is closed, but Supabase's
         // signInWithOAuth happily creates new users from Google regardless.
         // If this user was just created (within NEW_USER_WINDOW_MS) AND
         // signup is closed, delete them via the admin API + sign out +
         // bounce to the closed-signup screen. Existing users on a fresh
         // OAuth login skip this branch because their created_at is far
         // in the past.
-        const signupOpen = process.env.NEXT_PUBLIC_SIGNUP_ENABLED === "true";
+        //
+        // Use isSignupEnabled() (DB app_settings.signup_enabled, env as
+        // fallback) — the SAME source the /signup page reads — so the
+        // runtime /admin/site-settings toggle governs BOTH paths. Reading
+        // the env directly here diverged from the toggle: flipping it ON
+        // opened email signup but still deleted brand-new Google users.
+        const signupOpen = await isSignupEnabled();
         const createdAt = data.user.created_at
           ? new Date(data.user.created_at).getTime()
           : 0;
