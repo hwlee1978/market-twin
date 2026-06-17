@@ -10,6 +10,21 @@ import {
 export type WorkspaceStatus = "active" | "suspended" | "archived";
 export const ACTIVE_WORKSPACE_COOKIE = "aw_id";
 
+// Open-beta knobs. Defaults preserve the original production behavior
+// (1 free sim within a 7-day window); set these env vars to widen the
+// free-trial quota during the open beta WITHOUT a code change, and unset
+// them to revert. Both gate the hypothesis tier only (canStartSim keeps
+// the per-run cost bounded), so widening them caps total beta cost at
+// roughly BETA_TRIAL_SIMS × (~$3-5) per new signup.
+function betaInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+const BETA_TRIAL_SIMS = betaInt("BETA_TRIAL_SIMS", 1);
+const BETA_TRIAL_DAYS = betaInt("BETA_TRIAL_DAYS", 7);
+
 type Result = {
   workspaceId: string;
   userId: string;
@@ -123,13 +138,15 @@ export const getOrCreatePrimaryWorkspace = cache(
       console.warn(`[workspace] trial-abuse check failed, defaulting to grant:`, err);
     }
 
-    const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const trialEndsAt = new Date(
+      Date.now() + BETA_TRIAL_DAYS * 24 * 60 * 60 * 1000,
+    ).toISOString();
     const { error: subErr } = await admin.from("subscriptions").insert({
       workspace_id: ws.id,
       plan: "free_trial",
       status: "trialing",
       trial_ends_at: trialEndsAt,
-      trial_sims_limit: abuseGrant ? 1 : 0,
+      trial_sims_limit: abuseGrant ? BETA_TRIAL_SIMS : 0,
     });
     if (subErr && (subErr as { code?: string }).code !== "23505") {
       console.warn(`[workspace] subscription bootstrap failed for ${ws.id}:`, subErr.message);
