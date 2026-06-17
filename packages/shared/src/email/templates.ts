@@ -43,10 +43,10 @@ const COPY = {
       `<strong>${p}</strong> 시뮬레이션이 완료되지 못했습니다. 아래 메시지를 확인하시고 재시도해주세요.`,
     failedCtaLabel: "프로젝트로 가서 재시도",
     footer: "이 메일은 워크스페이스 활동 알림입니다.",
-    welcomeSubject: "Market Twin에 오신 것을 환영합니다",
-    welcomeHello: "환영합니다",
+    welcomeSubject: "Market Twin 베타 테스트에 오신 것을 환영합니다",
+    welcomeHello: "베타 테스트에 참여해주셔서 감사합니다",
     welcomeIntro:
-      "AI Market Twin 가입을 환영합니다. 지금부터 7일 동안 또는 시뮬 1건을 사용하실 때까지 모든 기능을 무료로 사용해보실 수 있습니다.",
+      "Market Twin은 현재 베타 테스트 중입니다. 베타 기간 동안 7일 또는 초기검증 2회까지 모든 기능을 무료로 사용하실 수 있습니다. 신용카드는 필요 없습니다.",
     welcomeNextSteps: "다음 단계",
     welcomeStep1Title: "첫 프로젝트 생성",
     welcomeStep1Body:
@@ -60,7 +60,7 @@ const COPY = {
     welcomeCtaPrimary: "지금 시작하기",
     welcomeCtaSecondary: "방법론 보기",
     welcomeQuestions:
-      "궁금한 점이 있으시면 언제든 <a href=\"mailto:contact@markettwin.ai\" style=\"color:#0A1F4D;text-decoration:underline\">contact@markettwin.ai</a> 로 문의해주세요.",
+      "베타 기간 중 느낀 점이나 개선 아이디어가 있으시면 언제든 <a href=\"mailto:contact@markettwin.ai\" style=\"color:#0A1F4D;text-decoration:underline\">contact@markettwin.ai</a> 로 보내주세요. 여러분의 피드백을 제품에 적극 반영하겠습니다.",
   },
   en: {
     appName: "AI Market Twin",
@@ -76,10 +76,10 @@ const COPY = {
     failedHello: "Simulation failed",
     failedIntro: (p: string) =>
       `Your <strong>${p}</strong> simulation didn't finish. The error is shown below — head back to the project to retry.`,
-    welcomeSubject: "Welcome to Market Twin",
-    welcomeHello: "Welcome aboard",
+    welcomeSubject: "Welcome to the Market Twin beta",
+    welcomeHello: "Thanks for joining the beta",
     welcomeIntro:
-      "Thanks for signing up. You have free access for the next 7 days or 1 full simulation — whichever comes first. No credit card required.",
+      "Market Twin is currently in beta. During the beta you get free access for 7 days or 2 hypothesis simulations — whichever comes first. No credit card required.",
     welcomeNextSteps: "Next steps",
     welcomeStep1Title: "Create your first project",
     welcomeStep1Body:
@@ -93,7 +93,7 @@ const COPY = {
     welcomeCtaPrimary: "Get started",
     welcomeCtaSecondary: "Read the methodology",
     welcomeQuestions:
-      "Questions? Reach us anytime at <a href=\"mailto:contact@markettwin.ai\" style=\"color:#0A1F4D;text-decoration:underline\">contact@markettwin.ai</a>.",
+      "Have feedback or ideas during the beta? Email us anytime at <a href=\"mailto:contact@markettwin.ai\" style=\"color:#0A1F4D;text-decoration:underline\">contact@markettwin.ai</a> — we'll fold it straight into the product.",
     failedCtaLabel: "Retry from project",
     footer: "This email is a workspace activity notification.",
   },
