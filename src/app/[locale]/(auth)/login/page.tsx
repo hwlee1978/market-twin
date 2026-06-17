@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useState } from "react";
 import { BarChart3, Globe2, ShieldCheck, Sparkles } from "lucide-react";
@@ -18,6 +18,8 @@ const FEATURES = [
 
 export default function LoginPage() {
   const t = useTranslations();
+  const locale = useLocale();
+  const isKo = locale !== "en";
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -110,6 +112,10 @@ export default function LoginPage() {
         </Link>
         <div className="space-y-8 max-w-xl">
           <div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-accent mb-4">
+              <Sparkles size={13} />
+              {isKo ? "베타 테스트 진행 중" : "Now in beta"}
+            </span>
             <h1 className="text-[2rem] font-bold leading-[1.2] tracking-tight break-keep whitespace-pre-line">
               {t("common.tagline")}
             </h1>
