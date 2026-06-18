@@ -98,7 +98,11 @@ Results are organized into **10 tabs** (Summary · Overview · Countries · Mark
 
 # Beta Feedback — This Matters Most 🙏
 
-At the **bottom** of the results screen there's a short survey — *"Was this result useful for your decision?"* with a **1–5 rating + one-line comment**. **Please leave it every time you run a simulation.** It takes 30 seconds.
+There are **two places** to leave feedback:
+
+**① At the bottom of the simulation results screen** — a short survey, *"Was this result useful for your decision?"* with a **1–5 rating + one-line comment** (after you log in and run a simulation). **Please leave it every time you run a simulation** — it takes 30 seconds.
+
+**② At the bottom of the beta page (`app.markettwin.ai/beta`)** — an open feedback form anyone can use without logging in, with a rating, category, and a longer comment.
 
 These points especially help us:
 
@@ -108,9 +112,7 @@ These points especially help us:
 - How was the **speed** of getting results?
 - Any "I wish it had…" feature
 
-For anything beyond the survey, email us anytime at **contact@markettwin.ai**.
-
-You can also leave open feedback (anonymously, no login) at the bottom of **`app.markettwin.ai/beta`**.
+For anything else, email us anytime at **contact@markettwin.ai**.
 
 # Things to Know During Beta
 
