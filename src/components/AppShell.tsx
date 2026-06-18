@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import {
   LayoutDashboard,
@@ -64,6 +64,8 @@ export function AppShell({
   mraiEnabled?: boolean;
 }) {
   const NAV = buildNav(mraiEnabled);
+  const locale = useLocale();
+  const isKo = locale !== "en";
   const tNav = useTranslations("nav");
   const tCommon = useTranslations("common");
   const pathname = usePathname();
@@ -215,7 +217,7 @@ export function AppShell({
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col gap-3 text-xs text-slate-500">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
-                © {new Date().getFullYear()} 주식회사 미스터에이아이
+                © {new Date().getFullYear()} {isKo ? "주식회사 미스터에이아이" : "Mr.AI Inc."}
               </div>
               <div className="flex items-center gap-4 flex-wrap">
                 <Link href="/privacy" className="hover:text-brand">
@@ -225,16 +227,28 @@ export function AppShell({
                   {tCommon("nav.terms")}
                 </Link>
                 <Link href="/refund" className="hover:text-brand">
-                  환불정책
+                  {isKo ? "환불정책" : "Refund"}
                 </Link>
               </div>
             </div>
             <div className="text-[11px] text-slate-400 leading-relaxed">
-              주식회사 미스터에이아이 (Mr.AI Inc.) · 대표이사 이현우 · 사업자등록번호 693-87-03907
-              · 통신판매업신고 제2026-용인수지-2253호
-              · 경기도 용인시 수지구 죽전로27번길 14-30, 604-803호
-              · 전화 070-8057-6274
-              · <a href="mailto:contact@markettwin.ai" className="hover:text-brand">contact@markettwin.ai</a>
+              {isKo ? (
+                <>
+                  주식회사 미스터에이아이 (Mr.AI Inc.) · 대표이사 이현우 · 사업자등록번호 693-87-03907
+                  · 통신판매업신고 제2026-용인수지-2253호
+                  · 경기도 용인시 수지구 죽전로27번길 14-30, 604-803호
+                  · 전화 070-8057-6274
+                  · <a href="mailto:contact@markettwin.ai" className="hover:text-brand">contact@markettwin.ai</a>
+                </>
+              ) : (
+                <>
+                  Mr.AI Inc. · CEO Hyunwoo Lee · Business Reg. No. 693-87-03907
+                  · Mail-order License No. 2026-Yongin Suji-2253
+                  · 604-803, 14-30 Jukjeon-ro 27beon-gil, Suji-gu, Yongin-si, Gyeonggi-do, Korea
+                  · Tel +82-70-8057-6274
+                  · <a href="mailto:contact@markettwin.ai" className="hover:text-brand">contact@markettwin.ai</a>
+                </>
+              )}
             </div>
           </div>
         </footer>
