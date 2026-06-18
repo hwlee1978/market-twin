@@ -15,6 +15,7 @@ import {
   BarChart3,
   Settings,
   Database,
+  MessageSquare,
   ArrowLeftCircle,
   LogOut,
 } from "lucide-react";
@@ -36,6 +37,7 @@ const NAV = [
   { href: "/admin/llm-usage", icon: BarChart3, key: "llmUsage" as const },
   { href: "/admin/site-settings", icon: Settings, key: "siteSettings" as const },
   { href: "/admin/challenge-data", icon: Database, key: "challengeData" as const },
+  { href: "/admin/beta-feedback", icon: MessageSquare, key: "betaFeedback" as const },
 ];
 
 export function AdminShell({

@@ -1128,7 +1128,8 @@
       "audit": "감사 로그",
       "llmUsage": "LLM 사용량",
       "siteSettings": "사이트 설정",
-      "challengeData": "챌린지 데이터"
+      "challengeData": "챌린지 데이터",
+      "betaFeedback": "베타 피드백"
     },
     "overview": {
       "title": "운영 대시보드",
