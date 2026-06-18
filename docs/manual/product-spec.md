@@ -23,8 +23,6 @@ lang: ko
 
 ![대시보드 — 진행 프로젝트·평균 성공 점수·테스트 국가·리포트](images/02_dashboard.png)
 
----
-
 ## 2. 주요 기능 명세
 
 | # | 기능 | 설명 |
@@ -50,8 +48,6 @@ lang: ko
 
 ![F-03 AI 페르소나 시뮬레이션 — 구매의향 분포·강/약 관심](images/04_persona.png)
 
----
-
 ## 3. 입력 사양 (프로젝트 생성 6단계)
 
 | 단계 | 입력 항목 |
@@ -68,8 +64,6 @@ lang: ko
 ![입력 — 프로젝트 생성 Step 1(제품)](images/11_step1.png)
 
 ![입력 — Step 3(진출 시장 선택)](images/13_step3.png)
-
----
 
 ## 4. 시뮬레이션 엔진 사양
 
@@ -93,8 +87,6 @@ lang: ko
 - 규제·경쟁 참조 데이터: 카테고리별 규제·경쟁사 DB
 
 ![시뮬레이션 엔진 — N개 독립 시뮬 병렬 실행](images/16_done.png)
-
----
 
 ## 5. 출력(결과) 사양
 
@@ -122,8 +114,6 @@ lang: ko
 
 ![출력 — PDF 리포트(종합 의견)](images/21_report1.png)
 
----
-
 ## 6. 시스템 사양 (요약)
 
 | 구분 | 사양 |
@@ -137,8 +127,6 @@ lang: ko
 | 인프라 | AWS 글로벌 인프라 기반 PaaS (Supabase: AWS ap-northeast-1) |
 
 > 상세 아키텍처·ERD·보안은 별도 문서 `docs/procurement/tech-architecture.md` 참조.
-
----
 
 ## 7. 보안·운영 사양 (요약)
 

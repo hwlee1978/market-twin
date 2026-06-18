@@ -33,8 +33,6 @@ Run a simulation with a real product you want to validate (or the sample demo), 
 - ✅ **The full market simulation** — success score, multi-country comparison, personas, pricing, decision economics, risks, recommended actions, PDF reports
 - 🔒 **The Mr.AI marketing-automation module is not part of this beta** (we're focused on simulation validation)
 
----
-
 # Getting Started in 5 Minutes
 
 1. Open **`app.markettwin.ai`** in your browser
@@ -46,8 +44,6 @@ Run a simulation with a real product you want to validate (or the sample demo), 
 ![Login / product intro screen](images/01_login.png)
 
 > **Tip**: New here? Skip the input and explore the results screen first with the **sample demo** (3/day). It doesn't use up your validation runs.
-
----
 
 # Creating Your First Simulation (6 steps)
 
@@ -72,8 +68,6 @@ When you run it, hundreds to thousands of AI personas start simulating across mu
 
 ![Simulation in progress / complete](images/16_done.png)
 
----
-
 # Reading Your Results
 
 Results are organized into **10 tabs** (Summary · Overview · Countries · Market Analysis · Personas · Pricing · Decision · Risk · Actions · Data). For a first look, these four cover the essentials.
@@ -96,8 +90,6 @@ Results are organized into **10 tabs** (Summary · Overview · Countries · Mark
 
 > Use **PDF Report** at the top right of the results screen to download three formats: executive, full analysis, and cross-validation.
 
----
-
 # Beta Feedback — This Matters Most 🙏
 
 At the **bottom** of the results screen there's a short survey — *"Was this result useful for your decision?"* with a **1–5 rating + one-line comment**. **Please leave it every time you run a simulation.** It takes 30 seconds.
@@ -114,8 +106,6 @@ For anything beyond the survey, email us anytime at **contact@markettwin.ai**.
 
 You can also leave open feedback (anonymously, no login) at the bottom of **`app.markettwin.ai/beta`**.
 
----
-
 # Things to Know During Beta
 
 - **Result variability**: We ensemble several independent simulations, so the same input can produce slightly different numbers each run (shown with a confidence grade).
@@ -123,8 +113,6 @@ You can also leave open feedback (anonymously, no login) at the bottom of **`app
 - **Data handling**: To run the simulation, your input is sent to overseas LLM providers (per the **cross-border transfer consent** at signup). Payment card details are never stored.
 - **Results are saved**: Closing the screen doesn't lose results — find them again under Projects/Reports.
 - **Mr.AI not included**: The marketing-automation module is out of scope for this beta.
-
----
 
 # FAQ (Beta)
 
@@ -143,15 +131,11 @@ Yes. Use the result share link, or invite teammates to your workspace.
 **Q. I found a bug.**
 Thank you 🙇 Send a screenshot to `contact@markettwin.ai` and we'll look into it quickly.
 
----
-
 # Contact & Support
 
 - **Email**: contact@markettwin.ai
 - **Operated by**: Mr.AI Inc. (주식회사 미스터에이아이)
 
 Any error, friction, or idea you find during the beta is welcome — a single line from you can change the product. Thank you for being here.
-
----
 
 *Screens in this guide may differ slightly as the beta evolves. © 2026 Mr.AI Inc.*
