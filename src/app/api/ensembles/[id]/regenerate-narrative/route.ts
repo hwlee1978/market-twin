@@ -38,7 +38,7 @@ export async function POST(
   const supabase = await createClient();
   const { data: ensemble, error } = await supabase
     .from("ensembles")
-    .select("id, project_id, status, aggregate_result, workspace_id")
+    .select("id, project_id, status, aggregate_result, workspace_id, locale")
     .eq("id", id)
     .eq("workspace_id", wsCtx.workspaceId)
     .single();
@@ -170,12 +170,19 @@ export async function POST(
         })()
       : undefined;
 
-  // Locale heuristic from the existing narrative — preserves user's
-  // original language without forcing them to choose.
+  // Prefer the locale persisted at run time (migration 0076). Fall back to
+  // a heuristic from the existing narrative only for legacy rows created
+  // before the column existed (where it defaults to "ko").
+  const ensembleLocale = (ensemble as { locale?: string | null }).locale;
   const sampleText =
     (aggregate.narrative?.executiveSummary ?? "") +
     (aggregate.recommendation?.country ?? "");
-  const locale: "ko" | "en" = /[ㄱ-힝]/.test(sampleText) ? "ko" : "en";
+  const locale: "ko" | "en" =
+    ensembleLocale === "en" || ensembleLocale === "ko"
+      ? ensembleLocale
+      : /[ㄱ-힝]/.test(sampleText)
+        ? "ko"
+        : "en";
 
   let narrative;
   try {
