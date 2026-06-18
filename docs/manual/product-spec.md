@@ -1,7 +1,9 @@
-# Market Twin 제품 규격서
-
-> 작성일 2026-06-18 · 운영사: 주식회사 미스터에이아이 (Mr.AI Inc.)
-
+---
+title: "Market Twin 제품 규격서"
+subtitle: "AI 출시 시뮬레이션 · 제품 사양서"
+author: "주식회사 미스터에이아이 (Mr.AI Inc.)"
+date: "발행일 2026년 6월 · 문서버전 v1.0"
+lang: ko
 ---
 
 ## 1. 제품 개요
