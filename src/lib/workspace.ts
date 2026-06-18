@@ -10,8 +10,8 @@ import {
 export type WorkspaceStatus = "active" | "suspended" | "archived";
 export const ACTIVE_WORKSPACE_COOKIE = "aw_id";
 
-// Open-beta knobs. Defaults preserve the original production behavior
-// (1 free sim within a 7-day window); set these env vars to widen the
+// Open-beta knobs. Defaults match the published beta policy (2 free
+// hypothesis sims within a 7-day window); set these env vars to widen the
 // free-trial quota during the open beta WITHOUT a code change, and unset
 // them to revert. Both gate the hypothesis tier only (canStartSim keeps
 // the per-run cost bounded), so widening them caps total beta cost at
@@ -22,7 +22,9 @@ function betaInt(name: string, fallback: number): number {
   const n = Number.parseInt(raw, 10);
   return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
-const BETA_TRIAL_SIMS = betaInt("BETA_TRIAL_SIMS", 1);
+// Beta policy = 2 free hypothesis validations. Keep the default at 2 so a
+// missing env var doesn't silently drop new signups back to 1.
+const BETA_TRIAL_SIMS = betaInt("BETA_TRIAL_SIMS", 2);
 const BETA_TRIAL_DAYS = betaInt("BETA_TRIAL_DAYS", 7);
 
 type Result = {
