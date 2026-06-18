@@ -11,6 +11,9 @@ type Tier = "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro";
 interface Props {
   projectId: string;
   className?: string;
+  /** Beta (free_trial) workspaces can only run Hypothesis — lock the
+   *  higher tier options so they aren't selectable. */
+  betaTrialOnly?: boolean;
 }
 
 /**
@@ -20,7 +23,7 @@ interface Props {
  * the form. Posts to the same /api/projects/:id/run-ensemble endpoint
  * the wizard uses, then routes to the live results page.
  */
-export function RunEnsembleButton({ projectId, className }: Props) {
+export function RunEnsembleButton({ projectId, className, betaTrialOnly = false }: Props) {
   const locale = useLocale();
   const router = useRouter();
   const isKo = locale === "ko";
@@ -65,20 +68,23 @@ export function RunEnsembleButton({ projectId, className }: Props) {
               ? "초기검증 · 600명 · 약 7분"
               : "Hypothesis · 600 personas · ~7 min"}
           </option>
-          <option value="decision">
+          <option value="decision" disabled={betaTrialOnly}>
             {isKo
               ? "검증분석 · 1,200명 · 약 12분"
               : "Consensus · 1,200 personas · ~12 min"}
+            {betaTrialOnly ? (isKo ? " · 베타 전용" : " · paid plan") : ""}
           </option>
-          <option value="decision_plus">
+          <option value="decision_plus" disabled={betaTrialOnly}>
             {isKo
               ? "검증분석 Plus · 3,000명 · 약 12–17분"
               : "Consensus Plus · 3,000 personas · ~12–17 min"}
+            {betaTrialOnly ? (isKo ? " · 베타 전용" : " · paid plan") : ""}
           </option>
-          <option value="deep">
+          <option value="deep" disabled={betaTrialOnly}>
             {isKo
               ? "심층분석 · 5,000명 · 멀티 LLM · 약 17–22분"
               : "Triangulated · 5,000 personas · multi-LLM · ~17–22 min"}
+            {betaTrialOnly ? (isKo ? " · 베타 전용" : " · paid plan") : ""}
           </option>
           {/* deep_pro hidden until we redesign for sub-800s execution —
               50 sims × multi-LLM exceeds Vercel's maxDuration today. */}

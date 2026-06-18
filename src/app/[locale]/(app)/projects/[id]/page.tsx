@@ -7,6 +7,7 @@ import { RunSimulationButton } from "@/components/RunSimulationButton";
 import { RunEnsembleButton } from "@/components/RunEnsembleButton";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
+import { getSubscription } from "@/lib/billing/usage";
 
 export default async function ProjectDetailPage({
   params,
@@ -18,6 +19,11 @@ export default async function ProjectDetailPage({
   const t = await getTranslations();
   const ctx = await getOrCreatePrimaryWorkspace();
   if (!ctx) return null;
+
+  // Beta (free_trial) workspaces can only run Hypothesis — lock higher tiers
+  // in the re-run control too, matching the project-creation wizard.
+  const sub = await getSubscription(ctx.workspaceId);
+  const betaTrialOnly = sub.plan.slug === "free_trial";
 
   const supabase = await createClient();
   const { data: project } = await supabase
@@ -226,7 +232,7 @@ export default async function ProjectDetailPage({
                 <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">
                   {t("projectDetail.runNew")}
                 </div>
-                <RunEnsembleButton projectId={id} />
+                <RunEnsembleButton projectId={id} betaTrialOnly={betaTrialOnly} />
                 <details className="mt-3">
                   <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-600">
                     {locale === "ko" ? "단일 시뮬 (legacy)" : "Single sim (legacy)"}
@@ -252,7 +258,7 @@ export default async function ProjectDetailPage({
               <p className="text-xs text-slate-500 leading-relaxed mb-4 break-keep">
                 {t("projectDetail.firstSimSubtitle")}
               </p>
-              <RunEnsembleButton projectId={id} />
+              <RunEnsembleButton projectId={id} betaTrialOnly={betaTrialOnly} />
             </div>
           )}
         </div>
