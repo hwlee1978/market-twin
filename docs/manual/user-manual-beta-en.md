@@ -116,6 +116,7 @@ For anything else, email us anytime at **contact@markettwin.ai**.
 
 # Things to Know During Beta
 
+- **Hypothesis tier — accuracy note**: The beta provides the lightest **Hypothesis** analysis (3 simulations · 600 personas). Compared with the full **Decision / Deep** tiers (15–50 simulations · 3,000–10,000 personas), the smaller sample means **accuracy can be lower.** The beta is for directional validation and usability feedback; for high-stakes decisions we recommend the higher tiers.
 - **Result variability**: We ensemble several independent simulations, so the same input can produce slightly different numbers each run (shown with a confidence grade).
 - **Per-country data variance**: Accuracy is higher for countries with richer statistics.
 - **Data handling**: To run the simulation, your input is sent to overseas LLM providers (per the **cross-border transfer consent** at signup). Payment card details are never stored.
