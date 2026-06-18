@@ -189,6 +189,12 @@ export interface MergeNarrativeOpts {
    */
   basePriceCents?: number;
   currency?: string;
+  /**
+   * Analysis tier. Hypothesis (free beta) merges with Haiku to keep the
+   * post-sim aggregation fast — the merge is summarization, not part of
+   * the cross-model diversity story, so the cheaper model is fine here.
+   */
+  tier?: string;
 }
 
 export async function mergeNarrative(
@@ -253,7 +259,17 @@ export async function mergeNarrative(
   // Default provider chain (anthropic/openai/gemini env-driven) handles
   // it; we don't pin to a specific provider here since the merge isn't
   // part of the cross-model diversity story.
-  const llm = getLLMProvider({ stage: "synthesis" });
+  // Hypothesis (free beta) merges with Haiku — the merge is summarization,
+  // not cross-model diversity, so the cheap+fast model keeps the post-sim
+  // aggregation from adding ~70s on top of the (already Haiku-ified) sims.
+  const llm =
+    opts.tier === "hypothesis"
+      ? getLLMProvider({
+          stage: "synthesis",
+          provider: "anthropic",
+          model: "claude-haiku-4-5-20251001",
+        })
+      : getLLMProvider({ stage: "synthesis" });
   try {
     const t0 = Date.now();
     const res = await llm.generate({

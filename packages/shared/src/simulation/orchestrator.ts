@@ -300,6 +300,7 @@ export async function runEnsembleOrchestration(
       projectInput,
       wantMarketProfile: preset.marketProfile,
       expectedSimCount: preset.parallelSims,
+      tier,
     });
     if (aggregate) {
       await notifyEnsembleComplete({
@@ -346,6 +347,7 @@ export async function aggregateAndPersist(opts: {
   projectInput?: ProjectInput;
   wantMarketProfile?: boolean;
   expectedSimCount?: number;
+  tier?: string;
 }) {
   const {
     ensembleId,
@@ -354,6 +356,7 @@ export async function aggregateAndPersist(opts: {
     projectInput,
     wantMarketProfile,
     expectedSimCount,
+    tier,
   } = opts;
   const admin = createServiceClient();
 
@@ -579,6 +582,7 @@ export async function aggregateAndPersist(opts: {
       top2: top2Info,
       basePriceCents: projectInput?.basePriceCents,
       currency: projectInput?.currency,
+      tier,
     });
     if (narrative) aggregate.narrative = narrative;
   }
