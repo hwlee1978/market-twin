@@ -36,6 +36,7 @@ import {
 import { BackToTop } from "@/components/ui/BackToTop";
 import { HelpModal } from "@/components/ui/HelpModal";
 import { OutcomeFeedbackCTA } from "@/components/outcomes/OutcomeFeedbackCTA";
+import { ResultFeedback } from "./ResultFeedback";
 import {
   BestCountryPieChart,
   CountryIntentChart,
@@ -440,7 +441,14 @@ export function EnsembleView({
     );
   }
 
-  return <EnsembleDashboard projectId={projectId} result={result} locale={locale} />;
+  return (
+    <EnsembleDashboard
+      projectId={projectId}
+      result={result}
+      locale={locale}
+      ensembleId={ensembleId}
+    />
+  );
 }
 
 /**
@@ -891,10 +899,12 @@ function EnsembleDashboard({
   projectId,
   result,
   locale,
+  ensembleId,
 }: {
   projectId: string;
   result: EnsembleResult;
   locale: string;
+  ensembleId: string;
 }) {
   const { aggregate, llm_providers, tier, parallel_sims } = result;
   const [pdfBusy, setPdfBusy] = useState<"executive" | "detailed" | "validation" | null>(null);
@@ -1474,6 +1484,7 @@ function EnsembleDashboard({
           }}
         />
       )}
+      <ResultFeedback ensembleId={ensembleId} />
       <BackToTop />
     </div>
   );
