@@ -9,6 +9,7 @@ import {
   Sparkles,
   CheckCircle2,
   MessageSquare,
+  Download,
 } from "lucide-react";
 
 /**
@@ -118,6 +119,18 @@ export default async function BetaLandingPage({
             >
               {isKo ? "무료로 시작하기" : "Start free"}
             </Link>
+            <a
+              href={
+                isKo
+                  ? "/guides/market-twin-beta-guide-ko.pdf"
+                  : "/guides/market-twin-beta-guide-en.pdf"
+              }
+              download
+              className="inline-flex items-center gap-2 rounded-lg border border-white/30 px-6 py-3.5 text-base font-semibold text-white hover:bg-white/10 transition-colors"
+            >
+              <Download size={18} />
+              {isKo ? "가이드 다운로드" : "Download guide"}
+            </a>
             <span className="text-sm text-brand-100">
               {isKo
                 ? "신용카드 불필요 · 1분 가입"
