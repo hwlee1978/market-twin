@@ -13,6 +13,7 @@ import type { FormState } from "@/lib/wizard/types";
 import { capture } from "@/lib/analytics/posthog";
 import { detectEchoBias, summarizeEchoBias } from "@/lib/validation/echo-bias-detector";
 import { DescriptionStrengthHint } from "@/components/DescriptionStrengthHint";
+import { friendlyApiError } from "@/lib/api/error-message";
 
 const STEPS = ["product", "pricing", "countries", "competitors", "assets", "review"] as const;
 
@@ -48,7 +49,16 @@ type StepKey = (typeof STEPS)[number];
 // country as a candidate too — useful for domestic + export comparison.
 const RECOMMENDED_PRESET = ["US", "JP", "ID"];
 
-export function ProjectWizard({ locale }: { locale: string }) {
+export function ProjectWizard({
+  locale,
+  betaTrialOnly = false,
+}: {
+  locale: string;
+  /** Free-trial (beta) workspaces can only run the Hypothesis tier — the
+   *  higher tiers are locked in the UI so users don't hit a plan_limit
+   *  error after selecting one. */
+  betaTrialOnly?: boolean;
+}) {
   const t = useTranslations();
   const tw = useTranslations("project.wizard");
   const currentLocale = useLocale();
@@ -420,7 +430,10 @@ export function ProjectWizard({ locale }: { locale: string }) {
           locale: currentLocale,
         }),
       });
-      if (!runRes.ok) throw new Error(await parseApiError(runRes));
+      if (!runRes.ok)
+        throw new Error(
+          await friendlyApiError(runRes, currentLocale === "ko" ? "ko" : "en"),
+        );
       const { ensembleId } = await runRes.json();
       capture("ensemble_started", {
         project_id: projectId,
@@ -995,22 +1008,35 @@ export function ProjectWizard({ locale }: { locale: string }) {
                   ] as const
                 ).map((t) => {
                   const active = form.tier === t;
+                  const locked = betaTrialOnly && t !== "hypothesis";
                   return (
                     <button
                       key={t}
                       type="button"
-                      onClick={() => update("tier", t)}
+                      disabled={locked}
+                      onClick={() => {
+                        if (!locked) update("tier", t);
+                      }}
+                      title={
+                        locked
+                          ? currentLocale === "ko"
+                            ? "베타에서는 초기검증만 실행할 수 있습니다"
+                            : "Beta runs the Hypothesis tier only"
+                          : undefined
+                      }
                       className={clsx(
                         "rounded-lg border px-3 py-3 text-left transition-colors",
-                        active
-                          ? "border-brand bg-brand-50"
-                          : "border-slate-200 hover:border-slate-300",
+                        locked
+                          ? "border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed"
+                          : active
+                            ? "border-brand bg-brand-50"
+                            : "border-slate-200 hover:border-slate-300",
                       )}
                     >
                       <div
                         className={clsx(
                           "text-sm font-semibold",
-                          active ? "text-brand" : "text-slate-900",
+                          active && !locked ? "text-brand" : "text-slate-900",
                         )}
                       >
                         {tw(`tier.${t}.name`)}
@@ -1024,6 +1050,13 @@ export function ProjectWizard({ locale }: { locale: string }) {
                       <div className="text-[10px] text-slate-400 mt-1.5">
                         {tw(`tier.${t}.time`)}
                       </div>
+                      {locked && (
+                        <div className="mt-1.5 text-[10px] font-semibold text-brand">
+                          {currentLocale === "ko"
+                            ? "🔒 베타 전용 — 초기검증만"
+                            : "🔒 Beta — Hypothesis only"}
+                        </div>
+                      )}
                     </button>
                   );
                 })}
