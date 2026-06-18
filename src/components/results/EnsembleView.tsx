@@ -1076,6 +1076,19 @@ function EnsembleDashboard({
 
   return (
     <div className="space-y-6">
+      {/* Beta accuracy notice — only on the lightest (hypothesis) tier,
+          which is what the open beta serves. Sets expectations that
+          precision is lower than the Decision/Deep tiers. */}
+      {tier === "hypothesis" && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <span className="font-semibold">
+            {isKo ? "초기검증(베타) 결과입니다." : "Hypothesis (beta) result."}
+          </span>{" "}
+          {isKo
+            ? "가장 가벼운 초기검증 티어(시뮬 3회 · 페르소나 600명)로, 검증분석·심층분석보다 정확도가 낮을 수 있습니다. 방향성 확인 용도로 활용하시고, 정밀한 의사결정에는 상위 티어를 권장합니다."
+            : "This is the lightest Hypothesis tier (3 sims · 600 personas), so accuracy can be lower than the Decision/Deep tiers. Use it for directional checks; for high-stakes decisions, run a higher tier."}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div className="min-w-0">
