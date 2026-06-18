@@ -41,15 +41,15 @@ Run a simulation with a real product you want to validate (or the sample demo), 
    - No email? Check spam, then use **"Resend confirmation email"** on the screen (60-second interval)
 4. Once in, the **Dashboard** is your home screen.
 
-![Login screen](images/01_login.png)
+![Login screen](images/01_login_en.png)
 
 On first signup, the dashboard shows a **sample demo card**. Try **Start sample demo** to see overseas-market results with no input first (3/day, doesn't use your validation runs).
 
-![Dashboard — first-time user (sample demo)](images/24_dashboard_demo.png)
+![Dashboard — first-time user (sample demo)](images/24_dashboard_demo_en.png)
 
 To validate a real product, go to **Projects** in the left menu and click **+ New Project** at the top right. (After you run the sample demo once, **+ New Project** also appears on the dashboard.)
 
-![Projects screen — + New Project](images/25_projects.png)
+![Projects screen — + New Project](images/25_projects_en.png)
 
 # Creating Your First Simulation (6 steps)
 
@@ -66,13 +66,13 @@ Enter your product over six steps: **1 Product → 2 Price & Goal → 3 Target M
 
 > **⚠️ Important — input caution**: Do **not** put market figures like *"40% of sales in the US"* into the product description. The simulation will take that at face value and skew the result (e.g. auto-recommending the US). Describe **only the product itself** for a more reliable recommendation. — *If this tripped you up during the beta, please tell us.*
 
-![Step 1 — product details](images/11_step1.png)
+![Step 1 — product details](images/11_step1_en.png)
 
-![Step 3 — target market selection](images/13_step3.png)
+![Step 3 — target market selection](images/13_step3_en.png)
 
 When you run it, hundreds to thousands of AI personas start simulating across multiple LLMs. You can close the screen — it keeps running, and usually finishes in **a few minutes**.
 
-![Simulation in progress / complete](images/16_done.png)
+![Simulation in progress / complete](images/16_done_en.png)
 
 # Reading Your Results
 
@@ -80,19 +80,19 @@ Results are organized into **10 tabs** (Summary · Overview · Countries · Mark
 
 - **Personas** — purchase-intent distribution and **positive/negative voices** (first-person quotes)
 
-![Results — persona analysis](images/04_persona.png)
+![Results — persona analysis](images/04_persona_en.png)
 
 - **Pricing** — recommended price vs. your input, revenue-maximizing point
 
-![Results — price optimization](images/17_price.png)
+![Results — price optimization](images/17_price_en.png)
 
 - **Decision** — CAC, expected revenue, **break-even** scenarios
 
-![Results — investment / ROI decision](images/18_decision.png)
+![Results — investment / ROI decision](images/18_decision_en.png)
 
 - **Actions** — impact × difficulty priority (start top-left with **Quick Wins**)
 
-![Results — recommended action matrix](images/20_action.png)
+![Results — recommended action matrix](images/20_action_en.png)
 
 > Use **PDF Report** at the top right of the results screen to download three formats: executive, full analysis, and cross-validation.
 
