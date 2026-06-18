@@ -39,11 +39,17 @@ Run a simulation with a real product you want to validate (or the sample demo), 
 2. Sign up with **Continue with Google** or **email/password**
 3. (Email signup) Click the link in the **confirmation email** from `noreply@markettwin.ai` → you're logged in automatically
    - No email? Check spam, then use **"Resend confirmation email"** on the screen (60-second interval)
-4. Once in, the **Dashboard** is your home screen. Start with **+ New Project** at the top right.
+4. Once in, the **Dashboard** is your home screen.
 
-![Login / product intro screen](images/01_login.png)
+![Login screen](images/01_login.png)
 
-> **Tip**: New here? Skip the input and explore the results screen first with the **sample demo** (3/day). It doesn't use up your validation runs.
+On first signup, the dashboard shows a **sample demo card**. Try **Start sample demo** to see overseas-market results with no input first (3/day, doesn't use your validation runs).
+
+![Dashboard — first-time user (sample demo)](images/24_dashboard_demo.png)
+
+To validate a real product, go to **Projects** in the left menu and click **+ New Project** at the top right. (After you run the sample demo once, **+ New Project** also appears on the dashboard.)
+
+![Projects screen — + New Project](images/25_projects.png)
 
 # Creating Your First Simulation (6 steps)
 
