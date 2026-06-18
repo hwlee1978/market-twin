@@ -1,5 +1,6 @@
 import { Link } from "@/i18n/navigation";
 import { LogoMark } from "@/components/ui/Logo";
+import { BetaFeedbackForm } from "@/components/beta/BetaFeedbackForm";
 import {
   Globe2,
   Users,
@@ -7,6 +8,7 @@ import {
   FileText,
   Sparkles,
   CheckCircle2,
+  MessageSquare,
 } from "lucide-react";
 
 /**
@@ -78,9 +80,18 @@ export default async function BetaLandingPage({
           <LogoMark size={22} />
           <span className="text-lg font-semibold tracking-tight">Market Twin</span>
         </Link>
-        <Link href="/login" className="text-sm font-medium text-brand hover:underline">
-          {isKo ? "로그인" : "Log in"}
-        </Link>
+        <div className="flex items-center gap-4 sm:gap-5">
+          <Link
+            href="/beta"
+            locale={isKo ? "en" : "ko"}
+            className="text-sm font-medium text-slate-500 hover:text-brand"
+          >
+            {isKo ? "EN" : "한국어"}
+          </Link>
+          <Link href="/login" className="text-sm font-medium text-brand hover:underline">
+            {isKo ? "로그인" : "Log in"}
+          </Link>
+        </div>
       </header>
 
       {/* Hero */}
@@ -197,6 +208,31 @@ export default async function BetaLandingPage({
         >
           {isKo ? "무료로 시작하기" : "Start free"}
         </Link>
+      </section>
+
+      {/* Beta tester feedback — anonymous, private collection */}
+      <section className="bg-slate-50 border-t border-slate-200">
+        <div className="max-w-3xl mx-auto px-6 py-20">
+          <div className="text-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/5 px-3 py-1 text-xs font-semibold text-brand">
+              <MessageSquare size={13} />
+              {isKo ? "베타 피드백" : "Beta feedback"}
+            </span>
+            <h2 className="mt-4 text-2xl lg:text-3xl font-bold tracking-tight break-keep">
+              {isKo
+                ? "써보셨나요? 의견을 들려주세요"
+                : "Tried it? Tell us what you think"}
+            </h2>
+            <p className="mt-3 text-slate-600 break-keep">
+              {isKo
+                ? "로그인 없이 익명으로 보낼 수 있어요. 한 줄이라도 베타에 큰 힘이 됩니다."
+                : "Send it anonymously — no login needed. Even one line helps the beta a lot."}
+            </p>
+          </div>
+          <div className="mt-10">
+            <BetaFeedbackForm isKo={isKo} />
+          </div>
+        </div>
       </section>
 
       {/* Footer */}
