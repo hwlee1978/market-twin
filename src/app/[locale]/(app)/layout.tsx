@@ -1,7 +1,9 @@
+import { headers } from "next/headers";
 import { setRequestLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
 import { AppShell } from "@/components/AppShell";
 import { getOrCreatePrimaryWorkspace, listMyWorkspaces } from "@/lib/workspace";
+import { isMraiEnabledForHost } from "@/lib/mrai/config/enabled";
 
 export default async function AppLayout({
   children,
@@ -20,8 +22,17 @@ export default async function AppLayout({
 
   const workspaces = await listMyWorkspaces();
 
+  // Host-aware Mr.AI gate: show the Mr.AI menu only on mrai.* (or when the
+  // build flag forces it on). markettwin.ai stays simulation-only.
+  const host = (await headers()).get("host");
+  const mraiEnabled = isMraiEnabledForHost(host);
+
   return (
-    <AppShell userEmail={ctx!.email} workspaces={workspaces}>
+    <AppShell
+      userEmail={ctx!.email}
+      workspaces={workspaces}
+      mraiEnabled={mraiEnabled}
+    >
       {children}
     </AppShell>
   );

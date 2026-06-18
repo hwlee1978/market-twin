@@ -22,11 +22,11 @@ import { LogoMark } from "./ui/Logo";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { createClient } from "@/lib/supabase/client";
 import type { WorkspaceSummary } from "@/lib/workspace";
-import { MRAI_ENABLED } from "@/lib/mrai/config/enabled";
 
 // Static base nav. The Mr.AI link is conditionally spliced in below
-// based on NEXT_PUBLIC_MRAI_ENABLED so the markettwin.ai (MarketTwin
-// only) deployment doesn't show it.
+// based on the `mraiEnabled` prop (host-aware, decided server-side) so the
+// markettwin.ai (MarketTwin only / beta) surface doesn't show it while
+// mrai.markettwin.ai does.
 const NAV_BASE = [
   { href: "/dashboard", icon: LayoutDashboard, key: "dashboard" as const },
   { href: "/projects", icon: FolderOpen, key: "projects" as const },
@@ -44,27 +44,26 @@ const MRAI_NAV_ITEM = {
   icon: Sparkles,
   key: "mrAi" as const,
 };
-const NAV = MRAI_ENABLED
-  ? // Insert Mr.AI after Reports (position 3) so the order is unchanged
-    // when the flag is on.
-    [
-      NAV_BASE[0],
-      NAV_BASE[1],
-      NAV_BASE[2],
-      MRAI_NAV_ITEM,
-      ...NAV_BASE.slice(3),
-    ]
-  : NAV_BASE;
+// Insert Mr.AI after Reports (position 3) when enabled so the order is
+// unchanged for the base case.
+function buildNav(mraiEnabled: boolean) {
+  return mraiEnabled
+    ? [NAV_BASE[0], NAV_BASE[1], NAV_BASE[2], MRAI_NAV_ITEM, ...NAV_BASE.slice(3)]
+    : NAV_BASE;
+}
 
 export function AppShell({
   children,
   userEmail,
   workspaces = [],
+  mraiEnabled = false,
 }: {
   children: React.ReactNode;
   userEmail?: string;
   workspaces?: WorkspaceSummary[];
+  mraiEnabled?: boolean;
 }) {
+  const NAV = buildNav(mraiEnabled);
   const tNav = useTranslations("nav");
   const tCommon = useTranslations("common");
   const pathname = usePathname();

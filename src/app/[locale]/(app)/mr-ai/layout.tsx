@@ -1,11 +1,15 @@
 import { notFound } from "next/navigation";
-import { MRAI_ENABLED } from "@/lib/mrai/config/enabled";
+import { headers } from "next/headers";
+import { isMraiEnabledForHost } from "@/lib/mrai/config/enabled";
 import { MrAITabs } from "@/components/mrai/MrAITabs";
 
 /**
  * Mr.AI feature-gate + tab shell.
  *
- * Gate: NEXT_PUBLIC_MRAI_ENABLED controls availability. False = notFound().
+ * Gate: host-aware. Available on the mrai.* subdomain (or when
+ * NEXT_PUBLIC_MRAI_ENABLED forces it on); otherwise notFound(). This keeps
+ * markettwin.ai (beta, simulation-only) from exposing /mr-ai while
+ * mrai.markettwin.ai serves the full product from the same deployment.
  *
  * Shell: renders the top tab bar above every /mr-ai/* page. Each sub-
  * route owns its own panels (dashboard / content / channels / brand /
@@ -19,7 +23,8 @@ export default async function MrAILayout({
   children: React.ReactNode;
   params: Promise<{ locale: string }>;
 }) {
-  if (!MRAI_ENABLED) {
+  const host = (await headers()).get("host");
+  if (!isMraiEnabledForHost(host)) {
     notFound();
   }
   const { locale } = await params;
