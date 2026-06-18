@@ -688,7 +688,7 @@ export async function loadOrchestrationContext(opts: {
 
   const { data: ensemble } = await admin
     .from("ensembles")
-    .select("id, project_id, tier")
+    .select("id, project_id, tier, locale")
     .eq("id", opts.ensembleId)
     .single();
   if (!ensemble) return null;
@@ -756,11 +756,12 @@ export async function loadOrchestrationContext(opts: {
     provider: ((r.model_provider as string | null) ?? "anthropic") as ProviderName,
   }));
 
-  // Locale isn't on the ensemble row in v0.1 — pull from project context
-  // when present, default to "ko" (the primary user locale per memory note
-  // user_language.md). The web side can override by writing locale into
-  // ensemble.error_message metadata or extending the ensembles schema.
-  const locale: "ko" | "en" = "ko";
+  // Persisted on the ensemble row (migration 0076) so this worker, which
+  // reconstructs context from ensembleId alone, generates narrative/hot-take
+  // in the user's language. Legacy rows created before the column default
+  // to "ko".
+  const locale: "ko" | "en" =
+    (ensemble as { locale?: string | null }).locale === "en" ? "en" : "ko";
 
   return {
     ensembleId: opts.ensembleId,

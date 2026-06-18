@@ -222,6 +222,9 @@ export async function POST(
       llm_providers: Array.from(new Set(preset.llmProviders)),
       status: "running",
       notify_email: notifyEmail ?? null,
+      // Persist the request locale so the Cloud Run worker (which only gets
+      // ensembleId) generates narrative/hot-take in the user's language.
+      locale,
       is_free_rerun: isFreeRerun,
       parent_ensemble_id: isFreeRerun ? parentEnsembleId : null,
     })
