@@ -8,8 +8,29 @@ import { DemoLaunchButton } from "./DemoLaunchButton";
  * Designed to be the first thing the eye lands on so trial conversion
  * doesn't stall on "what do I even type into this form?".
  */
-export async function DemoCard() {
+export async function DemoCard({ compact = false }: { compact?: boolean }) {
   const t = await getTranslations("onboarding.card");
+
+  // Compact variant — shown at the BOTTOM of an active dashboard (the user
+  // already has projects) so the sample demo stays one click away (3/day)
+  // without the full "first time?" hero treatment.
+  if (compact) {
+    return (
+      <div className="card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3 min-w-0">
+          <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-brand-50 text-brand shrink-0">
+            <Sparkles size={16} />
+          </span>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-slate-900">{t("title")}</div>
+            <p className="mt-0.5 text-xs text-slate-500">{t("etaHint")}</p>
+          </div>
+        </div>
+        <DemoLaunchButton />
+      </div>
+    );
+  }
+
   return (
     <div className="card p-8 border-brand-100 bg-gradient-to-br from-brand-50/50 via-white to-white">
       <div className="flex flex-col lg:flex-row gap-8 items-start">

@@ -174,6 +174,11 @@ export default async function DashboardPage({
               </tbody>
             </table>
           </div>
+
+          {/* Keep the sample demo reachable even after the user has real
+              projects — it's capped 3/day and useful for re-checking how
+              results look. Compact so it doesn't dominate the dashboard. */}
+          <DemoCard compact />
         </>
       )}
     </>
