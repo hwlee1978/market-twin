@@ -1084,7 +1084,9 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * meaningful. decision_plus / deep / deep_pro all show it.
    */
   const renderOnePageBriefPage = () => {
-    if (!tierBudget.showAppendix) return null; // appendix flag doubles as "richer-tier" signal
+    // appendix flag doubles as "richer-tier" signal — but the executive deck
+    // always needs the 30-second brief, so don't gate it out for exec.
+    if (!tierBudget.showAppendix && variant !== "executive") return null;
     const narrative = aggregate.narrative;
     const recommendation = aggregate.recommendation;
     const variance = aggregate.varianceAssessment;
@@ -1606,7 +1608,9 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * ensembles): defaults to CAUTION with a "data missing" note.
    */
   const renderGoNoGoVerdictPage = () => {
-    if (!tierBudget.showGoNoGo) return null;
+    // Exec deck always shows the verdict even on tiers where the detailed
+    // report omits it (e.g. Hypothesis showGoNoGo:false).
+    if (!tierBudget.showGoNoGo && variant !== "executive") return null;
     const conf = aggregate.quality?.confidenceScore;
     const recConf = aggregate.recommendation.confidence;
     const riskLevel = aggregate.narrative?.overallRiskLevel ?? "medium";
@@ -1890,6 +1894,96 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * the LLM may have skipped low-confidence categories rather than
    * fabricate. Better empty than wrong.
    */
+  // Compact, single-page Top-2 market & competition summary used by the
+  // EXECUTIVE deck (the full per-country renderMarketProfilePage stays in the
+  // detailed report). Shows the primary and the Top-2 secondary symmetrically:
+  // TAM, top-3 named competitors (threat + price), and local price tiers.
+  const renderMarketSummaryPage = () => {
+    const primaryMp = aggregate.marketProfile;
+    const recExt = aggregate.recommendation as unknown as {
+      displayMode?: string;
+      secondary?: { country?: string };
+    };
+    const distTop = aggregate.bestCountryDistribution?.[0]?.country;
+    const secCountry =
+      recExt.secondary?.country && recExt.secondary.country !== aggregate.recommendation.country
+        ? recExt.secondary.country
+        : recExt.displayMode === "top2" && distTop && distTop !== aggregate.recommendation.country
+          ? distTop
+          : null;
+    const aggExtra = aggregate as unknown as {
+      additionalMarketProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
+    };
+    const secondaryMp = secCountry
+      ? aggExtra.additionalMarketProfiles?.[secCountry] ?? null
+      : null;
+
+    if (!primaryMp && !secondaryMp) return null;
+
+    const threatTxt = (t: string) =>
+      isKo ? (t === "high" ? "높음" : t === "medium" ? "중" : "낮음") : t.toUpperCase();
+
+    type Mp = NonNullable<EnsembleAggregate["marketProfile"]>;
+    const block = (mp: Mp, rank: string) => {
+      const comps = mp.competitors ?? [];
+      const pb = mp.pricingBenchmarks;
+      const tiers = pb
+        ? [
+            pb.entryLevel && `${isKo ? "엔트리" : "Entry"} ${pb.entryLevel}`,
+            pb.mid && `${isKo ? "미드" : "Mid"} ${pb.mid}`,
+            pb.premium && `${isKo ? "프리미엄" : "Premium"} ${pb.premium}`,
+          ].filter(Boolean)
+        : [];
+      return (
+        <View style={{ marginBottom: 16 }} wrap={false}>
+          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8, marginBottom: 5 }}>
+            <MText style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>{mp.country}</MText>
+            <MText style={{ fontSize: 8, color: C.muted, fontWeight: 600 }}>{rank}</MText>
+          </View>
+          {mp.marketSize?.estimateUsd && (
+            <MText style={{ fontSize: 9, color: C.body, marginBottom: 5, lineHeight: 1.5 }}>
+              {`TAM  ${mp.marketSize.estimateUsd}${mp.marketSize.growthTrend ? `  ·  ${mp.marketSize.growthTrend}` : ""}`}
+            </MText>
+          )}
+          {comps.length > 0 && (
+            <View style={{ marginBottom: 5 }}>
+              <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600, marginBottom: 2 }}>
+                {isKo ? "주요 경쟁자" : "Key competitors"}
+              </MText>
+              {comps.slice(0, 3).map((c, i) => (
+                <MText key={i} style={{ fontSize: 8.5, color: C.body, lineHeight: 1.5 }}>
+                  {`•  ${c.name} — ${threatTxt(c.threatLevel)}${c.pricePoint ? `  ·  ${c.pricePoint}` : ""}`}
+                </MText>
+              ))}
+            </View>
+          )}
+          {tiers.length > 0 && (
+            <MText style={{ fontSize: 8.5, color: C.muted, lineHeight: 1.5 }}>
+              {`${isKo ? "현지 가격대  " : "Local tiers  "}${tiers.join("  /  ")}`}
+            </MText>
+          )}
+        </View>
+      );
+    };
+
+    return (
+      <Page size="A4" style={styles.page} wrap>
+        {pageHeader}
+        <MText style={styles.pageTitle}>
+          {isKo ? "시장 · 경쟁 요약" : "Market & competition summary"}
+        </MText>
+        <MText style={styles.pageSubtitle}>
+          {isKo
+            ? "추천 후보국의 시장 규모·핵심 경쟁자·현지 가격대 한눈에 보기. 채널·규제·GTM 등 상세 분석은 전체 분석 PDF를 참고하세요."
+            : "Top-candidate markets at a glance — size, key competitors, local price tiers. Channels, regulatory, and GTM detail are in the full detailed report."}
+        </MText>
+        {primaryMp && block(primaryMp, isKo ? "1순위" : "#1 pick")}
+        {secondaryMp && block(secondaryMp, isKo ? "2순위 (Top-2 동등)" : "#2 (Top-2 tie)")}
+        {pageFooter}
+      </Page>
+    );
+  };
+
   const renderMarketProfilePage = () => {
     // Don't gate on tierBudget.showMarketProfile: the market profile is
     // generated on demand (even on the Hypothesis tier, where the preset is
@@ -7343,25 +7437,16 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         <>
           {renderOnePageBriefPage()}
           {renderGoNoGoVerdictPage()}
-          {/* Primary market profile FIRST so the exec sees the winner's
-              market context (TAM, competitors, channels, regulatory,
-              cultural, pricing benchmarks, GTM) BEFORE the secondary
-              comparison. Added 2026-05-25 — earlier exec variant
-              skipped this page entirely, producing a visible asymmetry
-              where TW had a dedicated market page but US did not.
-              User correctly read this as "TW만 나옴". */}
-          {renderMarketProfilePage()}
-          {secondaryMarketPage}
-          {/* Primary risks page — same fix as market profile. Earlier
-              exec variant merged risks into Go/No-Go to keep the deck
-              tight, but pairing a dedicated TW risks page with no
-              dedicated US risks page broke symmetry. Both now present. */}
-          {renderRisksPage()}
-          {secondaryRisksPage}
-          {renderActionsPage()}
-          {secondaryActionsPage}
+          {/* Compact market & competition summary covering the Top-2
+              candidates (e.g. GB·JP) on a SINGLE page. This replaces the
+              full per-country market / risk / action pages — those belong
+              in the detailed report. The earlier full-page version blew the
+              exec deck up to ~17p and, worse, showed only the secondary's
+              market when the primary profile hadn't been generated. A
+              compact symmetric summary keeps the exec at ~5 pages while
+              still giving the reader both markets' context. */}
+          {renderMarketSummaryPage()}
           {renderPricingPage()}
-          {secondaryPricingPage}
         </>
       ) : (
         // Detailed report — order set by user 2026-05-09. Five pages

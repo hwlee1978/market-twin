@@ -1184,7 +1184,7 @@ function EnsembleDashboard({
                       className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100"
                     >
                       <div className="text-sm font-semibold text-slate-900">
-                        {isKo ? "임원용 (2-3 페이지)" : "Executive (2-3 pages)"}
+                        {isKo ? "임원용 (5-6 페이지)" : "Executive (5-6 pages)"}
                       </div>
                       <div className="text-xs text-slate-500 mt-0.5">
                         {isKo
