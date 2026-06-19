@@ -1891,7 +1891,12 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * fabricate. Better empty than wrong.
    */
   const renderMarketProfilePage = () => {
-    if (!tierBudget.showMarketProfile) return null;
+    // Don't gate on tierBudget.showMarketProfile: the market profile is
+    // generated on demand (even on the Hypothesis tier, where the preset is
+    // false), and the SECONDARY page has no such gate. Gating only the primary
+    // dropped the winner's (e.g. GB) market page while still rendering the
+    // secondary (JP) — the exact JP-only asymmetry the user hit. Render
+    // whenever the data exists.
     const mp = aggregate.marketProfile;
     if (!mp) return null;
 
@@ -2458,7 +2463,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * page hides entirely when none of the four sub-fields are populated.
    */
   const renderGtmStrategyPage = () => {
-    if (!tierBudget.showMarketProfile) return null;
+    // Gate on data, not tier (same rationale as renderMarketProfilePage): the
+    // GTM strategy is part of the on-demand market profile.
     const mp = aggregate.marketProfile;
     const gtm = mp?.goToMarketStrategy;
     if (
