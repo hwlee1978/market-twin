@@ -38,6 +38,30 @@ export default async function AdminSimulationsPage({
     .order("started_at", { ascending: false, nullsFirst: false })
     .range(offset, offset + pageSize - 1);
 
+  // Fold in the owning workspace's plan + owner email so the admin can tell
+  // which rows are beta testers (plan === "free_trial") and who is running
+  // them. Scoped to just the workspaces on this page slice.
+  const wsIds = Array.from(
+    new Set(
+      ((data ?? []) as { workspace_id: string | null }[])
+        .map((r) => r.workspace_id)
+        .filter((v): v is string => !!v),
+    ),
+  );
+  const [{ data: workspaces }, { data: members }, ownersRes] = await Promise.all([
+    admin.from("workspaces").select("id, plan").in("id", wsIds),
+    admin.from("workspace_members").select("workspace_id, user_id, role").in("workspace_id", wsIds),
+    admin.auth.admin.listUsers({ perPage: 200 }),
+  ]);
+  const planByWs = new Map<string, string>();
+  for (const w of (workspaces ?? []) as { id: string; plan: string }[]) planByWs.set(w.id, w.plan);
+  const ownerByWs = new Map<string, string>();
+  for (const m of (members ?? []) as { workspace_id: string; user_id: string; role: string }[]) {
+    if (m.role === "owner") ownerByWs.set(m.workspace_id, m.user_id);
+  }
+  const emailById = new Map<string, string>();
+  for (const u of ownersRes.data?.users ?? []) emailById.set(u.id, u.email ?? "");
+
   type RawRow = {
     id: string;
     workspace_id: string | null;
@@ -68,6 +92,10 @@ export default async function AdminSimulationsPage({
       model_provider: r.model_provider,
       model_version: r.model_version,
       project_name: project?.name ?? null,
+      plan: r.workspace_id ? planByWs.get(r.workspace_id) ?? null : null,
+      owner_email: r.workspace_id
+        ? emailById.get(ownerByWs.get(r.workspace_id) ?? "") ?? null
+        : null,
     };
   });
 

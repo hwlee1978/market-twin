@@ -1158,6 +1158,7 @@
       "empty": "No simulations match the current filter.",
       "filter": {
         "all": "All",
+        "beta": "Beta",
         "running": "Running",
         "failed": "Failed",
         "cancelled": "Cancelled",

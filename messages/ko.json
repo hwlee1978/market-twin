@@ -1158,6 +1158,7 @@
       "empty": "조건에 맞는 시뮬레이션이 없습니다.",
       "filter": {
         "all": "전체",
+        "beta": "베타",
         "running": "진행 중",
         "failed": "실패",
         "cancelled": "취소됨",

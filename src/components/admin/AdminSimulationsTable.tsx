@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { AlertTriangle, RotateCcw, X } from "lucide-react";
@@ -26,10 +26,13 @@ interface Row {
   error_message: string | null;
   model_provider: string | null;
   model_version: string | null;
+  plan?: string | null;
+  owner_email?: string | null;
 }
 
 const FILTERS = [
   { key: "all", label: "all" },
+  { key: "beta", label: "beta" },
   { key: "running", label: "running" },
   { key: "failed", label: "failed" },
   { key: "cancelled", label: "cancelled" },
@@ -51,6 +54,7 @@ export function AdminSimulationsTable({
 
   const filtered = useMemo(() => {
     if (filter === "all") return rows;
+    if (filter === "beta") return rows.filter((r) => r.plan === "free_trial");
     if (filter === "running") {
       return rows.filter((r) => r.status === "running" || r.status === "pending");
     }
@@ -105,12 +109,14 @@ export function AdminSimulationsTable({
   const counts = useMemo(() => {
     const c: Record<string, number> = {
       all: rows.length,
+      beta: 0,
       running: 0,
       failed: 0,
       cancelled: 0,
       completed: 0,
     };
     for (const r of rows) {
+      if (r.plan === "free_trial") c.beta++;
       if (r.status === "running" || r.status === "pending") c.running++;
       if (r.status === "failed") c.failed++;
       if (r.status === "cancelled") c.cancelled++;
@@ -118,6 +124,14 @@ export function AdminSimulationsTable({
     }
     return c;
   }, [rows]);
+
+  // Auto-refresh while sims are in flight so the admin watches stage progress
+  // without manual reloads. Polls every 8s, and only when something is running.
+  useEffect(() => {
+    if (counts.running === 0) return;
+    const id = setInterval(() => router.refresh(), 8000);
+    return () => clearInterval(id);
+  }, [counts.running, router]);
 
   /**
    * A "running" row is suspect when started > ZOMBIE_THRESHOLD_MINUTES ago.
@@ -181,8 +195,18 @@ export function AdminSimulationsTable({
                   <div className="text-slate-900 truncate max-w-[200px]">
                     {s.project_name ?? "—"}
                   </div>
-                  <div className="font-mono text-[10px] text-slate-400">
-                    {(s.workspace_id ?? "").slice(0, 8)}
+                  <div className="text-[11px] text-slate-500 truncate max-w-[200px]">
+                    {s.owner_email ?? "—"}
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="font-mono text-[10px] text-slate-400">
+                      {(s.workspace_id ?? "").slice(0, 8)}
+                    </span>
+                    {s.plan === "free_trial" && (
+                      <span className="inline-flex items-center rounded bg-warn-soft px-1.5 py-0.5 text-[9px] font-semibold text-warn">
+                        {locale === "ko" ? "베타" : "BETA"}
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-6 py-3">
