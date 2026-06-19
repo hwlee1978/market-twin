@@ -716,7 +716,12 @@ ${internalGrowthGroundedText}
 
 ${competitiveGroundedText ? `# GROUNDED DATA — Competitive landscape\n${competitiveGroundedText}` : ""}
 
-# OUTPUT SCHEMA — return EXACTLY this JSON, all text in ${lang}
+# OUTPUT SCHEMA — return EXACTLY this JSON.
+# CRITICAL LANGUAGE RULE: EVERY string value — all "label", "dimension", "value",
+# "interpretation", "verdict", "netVerdict", "headline", "keyMessage" fields —
+# MUST be written in ${lang}. Some examples below show Korean text only to
+# illustrate structure; treat them as placeholders and translate every value
+# into ${lang}. NEVER copy a Korean label verbatim into an English report.
 
 {
   "executiveSummary": {
@@ -737,9 +742,9 @@ ${competitiveGroundedText ? `# GROUNDED DATA — Competitive landscape\n${compet
       "title": "≤40 chars",
       "rows": [
         {"label": "CAGR (2024-2029)", "value": "n.n%", "interpretation": "≤80 chars"},
-        {"label": "주요 성장 요인", "value": "≤40 chars", "interpretation": "≤80 chars"},
-        {"label": "핵심 segment", "value": "≤40 chars", "interpretation": "≤80 chars"},
-        {"label": "Premium 브랜드 진입", "value": "≤40 chars", "interpretation": "≤80 chars"}
+        {"label": ${isKo ? '"주요 성장 요인"' : '"Primary growth driver"'}, "value": "≤40 chars", "interpretation": "≤80 chars"},
+        {"label": ${isKo ? '"핵심 세그먼트"' : '"Key segment"'}, "value": "≤40 chars", "interpretation": "≤80 chars"},
+        {"label": ${isKo ? '"프리미엄 브랜드 진입"' : '"Premium brand entry"'}, "value": "≤40 chars", "interpretation": "≤80 chars"}
       ],
       "verdict": "≤120 chars one-line verdict.",
       "verdictKind": "support | neutral | caveat",
@@ -763,9 +768,9 @@ ${competitiveGroundedText ? `# GROUNDED DATA — Competitive landscape\n${compet
     "sourceD": {
       "title": "≤40 chars (internal brand growth)",
       "rows": [
-        {"label": "최근 매출 성장", "value": "n.n%", "interpretation": "≤80 chars"},
-        {"label": "국내 distribution", "value": "≤40 chars", "interpretation": "≤80 chars"},
-        {"label": "해외 진출 이력", "value": "≤30 chars", "interpretation": "≤80 chars"}
+        {"label": ${isKo ? '"최근 매출 성장"' : '"Recent revenue growth"'}, "value": "n.n%", "interpretation": "≤80 chars"},
+        {"label": ${isKo ? '"국내 유통"' : '"Domestic distribution"'}, "value": "≤40 chars", "interpretation": "≤80 chars"},
+        {"label": ${isKo ? '"해외 진출 이력"' : '"Prior overseas entry"'}, "value": "≤30 chars", "interpretation": "≤80 chars"}
       ],
       "verdict": "≤120 chars",
       "verdictKind": "support | neutral | caveat",
