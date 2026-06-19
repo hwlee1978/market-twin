@@ -4527,8 +4527,8 @@ function SecondaryCountryMarketSection({
             </h2>
             <p className="text-xs text-slate-700 leading-relaxed mb-4">
               {isKo
-                ? `Top 2 동등 후보이므로 ${country} 시장 분석도 함께 봐야 의사결정이 완성됩니다. 위 분석과 같은 깊이로 시장 규모·경쟁자·채널·규제·가격·GTM 전략을 추가 LLM 호출(~$0.05, 30-60초)로 생성합니다.`
-                : `Since this is a Top 2 tie, you need a parallel profile for ${country} to make a complete decision. One additional LLM call (~$0.05, 30-60s) generates the same depth of market size · competitors · channels · regulatory · pricing · GTM strategy.`}
+                ? `Top 2 동등 후보이므로 ${country} 시장 분석도 함께 봐야 의사결정이 완성됩니다. 위 분석과 같은 깊이로 시장 규모·경쟁자·채널·규제·가격·GTM 전략을 추가 LLM 호출(30-60초)로 생성합니다.`
+                : `Since this is a Top 2 tie, you need a parallel profile for ${country} to make a complete decision. One additional LLM call (30-60s) generates the same depth of market size · competitors · channels · regulatory · pricing · GTM strategy.`}
             </p>
             <button
               type="button"
@@ -7315,8 +7315,8 @@ function PricingTab({
           <PricingCurveChart data={pricing.curve} currency={currency} />
           <p className="text-xs text-slate-500 mt-3 leading-relaxed">
             {isKo
-              ? '실선(파랑) = LLM 원본 전환율. 점선(주황, 보일 때) = "monotonic envelope" — 가격이 오를수록 거부율도 늘어난다는 경제 원리에 따라 곡선이 다시 올라가는 noise 지점을 직전 running-min으로 클램프한 보정 곡선. 권장가/매출 최대점 계산은 envelope 기준 (즉 점선이 있으면 실선 우측의 위로 솟은 부분은 일부러 무시됩니다). 두 선이 겹치면 곡선이 깨끗한 단조감소라 점선 미표시.'
-              : 'Solid (blue) = raw LLM conversion. Dashed (amber, when shown) = "monotonic envelope" — the curve clamped to the running min, on the principle that real demand cannot reverse upward as price rises. Recommended-price / revenue-max computations use the envelope (so any high-price bumps on the solid line are intentionally suppressed). When the two overlap perfectly the dashed line is hidden — the curve is cleanly monotonic.'}
+              ? '실선(파랑) = 보정 곡선("monotonic envelope") — 권장가·매출 최대점 계산에 실제 사용되는 곡선입니다. 가격이 오르면 수요가 다시 늘 수 없다는 원리에 따라, LLM 원본에서 위로 솟은 noise를 직전 running-min으로 눌러 보정합니다. 점선(회색, 보일 때) = LLM 원본 전환율(보정 전 신호) — LLM이 가격대마다 독립적으로 추정하다 보니 들쭉날쭉한데, 이는 참고용이며 의사결정에는 쓰이지 않습니다. 곡선이 이미 깨끗한 단조감소면 둘이 일치해 점선은 표시되지 않습니다.'
+              : 'Solid (blue) = the monotonic-envelope curve actually used for the recommended price / revenue-max. It clamps the LLM\'s upward "bumps" to the running min, on the principle that real demand can\'t rise as price rises. Dashed (grey, when shown) = the raw LLM conversion before correction — it looks jagged because the LLM scores each price point independently; it\'s shown for reference only and is NOT used in any decision. When the curve is already cleanly monotonic the two coincide and the dashed line is hidden.'}
           </p>
         </div>
         <ChartGuide isKo={isKo}>
@@ -7343,6 +7343,13 @@ function PricingTab({
                 </>
               )}
             </ul>
+          </GuideSection>
+          <GuideSection title={isKo ? "추천가 vs 매출 최대가 — 왜 다를까" : "Recommended vs Revenue-max price — why they differ"}>
+            <p className="m-0">
+              {isKo
+                ? "추천가는 매출만 극대화하는 값이 아닙니다. LLM이 전환 안정성·시장 침투·경쟁·리스크를 종합해 고른 '적정가'로, 보통 매출 최대점보다 낮습니다. 'CURVE REVENUE MAX'는 순수하게 가격×전환이 가장 큰 지점일 뿐입니다. 여러 가격대에서 전환율이 평탄하면(envelope 보정 구간) 매출 최대가가 고가 쪽으로 밀릴 수 있어, 그 구간의 매출 비교는 신뢰도가 낮습니다. 안전·시장 침투를 원하면 추천가를, 단기 매출 극대화를 노린다면 매출 최대가를 참고하세요."
+                : "The recommended price is NOT the revenue-maximizing one. It's the LLM's all-things-considered fair price (conversion stability, market entry, competition, risk) and is usually below the revenue max. 'CURVE REVENUE MAX' is simply where price × conversion peaks. When conversion is flat across several prices (an envelope-clamped band), that max can drift toward the high end, so revenue comparisons there are low-confidence. Lean on the recommended price for safe entry, or the revenue-max for a short-term revenue bet."}
+            </p>
           </GuideSection>
         </ChartGuide>
       </div>
@@ -7479,12 +7486,12 @@ function SecondaryPricingBlock({
                       hasProfile
                         ? `${country} 시장 분석이 있어 competitor 벤치마크 + 문화적 인사이트로 grounded한 결과가 나옵니다.`
                         : `${country} 시장 분석이 아직 없어 페르소나 신호만으로 가격이 생성됩니다 (시장 분석 먼저 권장).`
-                    } 단일 LLM 호출 (~$0.10, 30-60초).`
+                    } 단일 LLM 호출 (30-60초).`
                   : `Top 2 ties need a parallel ${country} pricing analysis (recommended price, conversion curve, margin) to reach winner-parity depth. ${
                       hasProfile
                         ? `Market profile already exists — generation grounded on competitor benchmarks + cultural insights.`
                         : `No market profile yet — pricing will rely on persona signal only (generate the profile first for better grounding).`
-                    } Single LLM call (~$0.10, 30-60s).`}
+                    } Single LLM call (30-60s).`}
               </p>
               <button
                 type="button"
@@ -9230,12 +9237,12 @@ function SecondaryRisksBlock({
                       hasProfile
                         ? `${country} 시장 분석이 이미 있어 풍부한 리스크가 생성됩니다.`
                         : `${country} 시장 분석이 아직 없어 페르소나 시그널만으로 생성됩니다 (시장 분석 먼저 생성 권장).`
-                    } 단일 LLM 호출 (~$0.10, 30-60초).`
+                    } 단일 LLM 호출 (30-60초).`
                   : `Top 2 ties need parallel ${country} risks (compliance · channels · personas, 5-8 items). ${
                       hasProfile
                         ? `Market profile already exists — generates rich, grounded risks.`
                         : `No market profile yet — risks will rely on persona signal only (generate the profile first for better quality).`
-                    } Single LLM call (~$0.10, 30-60s).`}
+                    } Single LLM call (30-60s).`}
               </p>
               <button
                 type="button"
@@ -9530,12 +9537,12 @@ function SecondaryActionsBlock({
                       hasProfile
                         ? `${country} 시장 분석이 이미 있어 풍부한 액션이 생성됩니다.`
                         : `${country} 시장 분석이 아직 없어 페르소나 시그널만으로 액션이 생성됩니다 (시장 분석 먼저 생성 권장).`
-                    } 단일 LLM 호출 (~$0.10, 30-60초).`
+                    } 단일 LLM 호출 (30-60초).`
                   : `Top 2 ties need parallel ${country} actions (entry · PR · compliance · pricing · channels · partnerships, 5-8 items). ${
                       hasProfile
                         ? `Market profile already exists — generates rich, grounded actions.`
                         : `No market profile yet — actions will rely on persona signal only (generate the profile first for better quality).`
-                    } Single LLM call (~$0.10, 30-60s).`}
+                    } Single LLM call (30-60s).`}
               </p>
               <button
                 type="button"

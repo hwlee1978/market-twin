@@ -302,7 +302,7 @@ export function SimulationProposalCard({
                       : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50",
                   )}
                 >
-                  {TIER_LABEL[t].name} <span className="opacity-70">· {TIER_LABEL[t].cost}</span>
+                  {TIER_LABEL[t].name}
                 </button>
               ))}
             </div>
@@ -313,7 +313,7 @@ export function SimulationProposalCard({
       {/* Footer */}
       <div className="mt-3 flex items-center justify-between">
         <span className="text-[11px] text-violet-700">
-          {tierInfo.name} · 예상 비용 {tierInfo.cost} · 소요 시간 {tierInfo.time}
+          {tierInfo.name} · 소요 시간 {tierInfo.time}
         </span>
         <button
           type="button"
@@ -691,7 +691,7 @@ function StartedCard({
         </span>
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-semibold text-emerald-900">
-            시뮬 시작됨 · {tierInfo.name} ({tierInfo.cost})
+            시뮬 시작됨 · {tierInfo.name}
           </h3>
           <p className="text-xs text-emerald-700 mt-0.5">
             {productName} · {countries.join(", ")} 시장 검증. 약 {tierInfo.time} 후 완료. Email + Slack로 자동 알림.

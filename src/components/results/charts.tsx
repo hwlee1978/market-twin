@@ -265,27 +265,38 @@ export function PricingCurveChart({
           }}
           labelFormatter={() => ""}
         />
-        <Line
-          type="monotone"
-          dataKey="conv"
-          stroke={COLORS.brand}
-          strokeWidth={2}
-          dot={{ r: 3, fill: COLORS.brand }}
-          name="raw"
-          isAnimationActive={false}
-        />
+        {/* Raw LLM conversion — drawn first (background) and de-emphasized:
+            light grey dashed, no dots. Only when it diverges from the
+            envelope, since on a clean monotonic curve the two coincide.
+            (Swapped 2026-06: raw used to be the bold blue line, but its
+            non-monotonic noise misled users into thinking the chart was
+            wrong. The envelope — what the recommendation actually uses —
+            is now the emphasized line.) */}
         {envelopeDiverges && (
           <Line
             type="monotone"
-            dataKey="envelope"
-            stroke={COLORS.warn}
-            strokeWidth={2}
-            strokeDasharray="4 3"
-            dot={{ r: 2, fill: COLORS.warn }}
-            name="envelope"
+            dataKey="conv"
+            stroke={COLORS.muted}
+            strokeWidth={1.5}
+            strokeDasharray="3 4"
+            strokeOpacity={0.55}
+            dot={false}
+            name="raw"
             isAnimationActive={false}
           />
         )}
+        {/* Monotonic envelope — the curve the recommendation / revenue-max
+            actually use. Emphasized: solid brand line with dots. Always
+            shown (on a monotonic curve it equals the raw values). */}
+        <Line
+          type="monotone"
+          dataKey="envelope"
+          stroke={COLORS.brand}
+          strokeWidth={2.5}
+          dot={{ r: 3, fill: COLORS.brand }}
+          name="envelope"
+          isAnimationActive={false}
+        />
       </LineChart>
     </ResponsiveContainer>
   );
