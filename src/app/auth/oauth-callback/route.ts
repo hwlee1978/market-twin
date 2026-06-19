@@ -67,6 +67,29 @@ export async function GET(request: Request) {
           return blocked;
         }
 
+        // Google signup consent — the signup form passes consent flags in
+        // the callback query (the password path writes consent into auth
+        // metadata directly). Persist the same audit trail for OAuth signups
+        // so every account, however created, has a consent record.
+        if (isNewUser && searchParams.get("consent") === "1") {
+          const existing = (data.user.user_metadata ?? {}) as { consent?: unknown };
+          if (!existing.consent) {
+            const now = new Date().toISOString();
+            await supabase.auth.updateUser({
+              data: {
+                consent: {
+                  tos_version: "2026-05-28",
+                  tos_accepted_at: now,
+                  cross_border_transfer: true,
+                  cross_border_accepted_at: now,
+                  marketing_email: searchParams.get("mkt") === "1",
+                  via: "google",
+                },
+              },
+            });
+          }
+        }
+
         const meta = (data.user.user_metadata ?? {}) as { welcome_sent_at?: string };
         if (!meta.welcome_sent_at) {
           // Stamp BEFORE send so a retry that lands here again doesn't

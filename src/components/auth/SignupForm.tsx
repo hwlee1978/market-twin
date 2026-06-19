@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -28,6 +28,7 @@ const FEATURES = [
  */
 export function SignupForm() {
   const t = useTranslations();
+  const isKo = useLocale() === "ko";
   const router = useRouter();
   const search = useSearchParams();
   const [email, setEmail] = useState("");
@@ -162,6 +163,41 @@ export function SignupForm() {
         return c - 1;
       });
     }, 1000);
+  };
+
+  // Google signup — same OAuth flow as login, but gated behind the
+  // required consents. The password path stamps consent into auth
+  // metadata directly; for OAuth we pass flags via the callback query so
+  // the oauth-callback route can persist the same audit trail.
+  const onGoogle = async () => {
+    if (!agreeTerms || !agreeCrossBorder) {
+      setError(
+        isKo
+          ? "구글로 가입하려면 먼저 필수 항목에 동의해 주세요."
+          : "Please agree to the required items before continuing with Google.",
+      );
+      return;
+    }
+    capture("signup_started", {
+      via: "google",
+      intended_plan: planSlug,
+      billing_cycle: cycle,
+      marketing_consent: agreeMarketing,
+      cross_border_consent: agreeCrossBorder,
+    });
+    const supabase = createClient();
+    const params = new URLSearchParams({
+      plan: planSlug,
+      cycle,
+      consent: "1",
+      mkt: agreeMarketing ? "1" : "0",
+    });
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/oauth-callback?${params.toString()}`,
+      },
+    });
   };
 
   return (
@@ -349,6 +385,24 @@ export function SignupForm() {
               {loading ? t("auth.signingUp") : t("auth.signupCta")}
             </button>
           </form>
+
+          <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
+            <div className="h-px flex-1 bg-slate-200" />
+            {isKo ? "또는" : "or"}
+            <div className="h-px flex-1 bg-slate-200" />
+          </div>
+          <button
+            type="button"
+            onClick={onGoogle}
+            className="btn-secondary w-full"
+          >
+            {t("auth.googleLogin")}
+          </button>
+          <p className="mt-2 text-[11px] text-slate-400 leading-relaxed">
+            {isKo
+              ? "구글 가입도 위 필수 항목 동의가 적용됩니다."
+              : "Google signup also applies the required consents above."}
+          </p>
 
           <p className="mt-6 text-sm text-slate-600">
             {t("auth.haveAccount")}{" "}
