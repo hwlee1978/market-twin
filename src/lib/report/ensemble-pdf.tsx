@@ -7512,8 +7512,16 @@ function renderEnsembleSecondaryPages(opts: {
       </MText>
       <MText style={{ fontSize: 9, color: C.body, marginTop: 2, lineHeight: 1.5 }}>
         {isKo
-          ? `점수 격차가 작아 ${rec.country}와 ${secondaryCountry}가 사실상 동등합니다. 1순위 ${rec.country} 분석은 이 페이지 직전의 primary 페이지를 참고하세요.`
-          : `Score gap is narrow — ${rec.country} and ${secondaryCountry} are effectively tied. Primary ${rec.country} analysis is in the page just before this one.`}
+          ? `점수 격차가 작아 ${rec.country}와 ${secondaryCountry}가 사실상 동등합니다. ${
+              aggregate.marketProfile
+                ? `1순위 ${rec.country} 분석은 이 페이지 직전의 primary 페이지를 참고하세요.`
+                : `(1순위 ${rec.country} 시장조사는 이 리포트에 생성되지 않아, 본 페이지는 ${secondaryCountry} 단독 분석입니다. 결과 화면의 'Market profile' 탭에서 ${rec.country}를 생성하면 다음 리포트에 포함됩니다.)`
+            }`
+          : `Score gap is narrow — ${rec.country} and ${secondaryCountry} are effectively tied. ${
+              aggregate.marketProfile
+                ? `Primary ${rec.country} analysis is in the page just before this one.`
+                : `(The primary ${rec.country} market profile wasn't generated for this report, so this page stands alone as the ${secondaryCountry} analysis. Generate ${rec.country} from the Market profile tab to include it next time.)`
+            }`}
       </MText>
     </View>
   );
