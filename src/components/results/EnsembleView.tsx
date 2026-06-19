@@ -3849,10 +3849,6 @@ function MarketProfileTab({
   const [busy, setBusy] = useState(false);
   const [busySecondary, setBusySecondary] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  // Which recommended country to generate the (first) market profile for.
-  // Defaults to the winner; the empty-state lets the user pick another of
-  // the tied/recommended candidates instead of being locked to the winner.
-  const [selectedCountry, setSelectedCountry] = useState(recommendedCountry);
 
   // Detect a secondary candidate the user should also see a market
   // profile for. Same logic as the Summary/Overview tabs: trust
@@ -3897,15 +3893,10 @@ function MarketProfileTab({
     setBusy(true);
     setErr(null);
     try {
-      // When the user picked a non-winner recommended country, pass it as
-      // ?country= so the backend stores it under additionalMarketProfiles
-      // (the winner stays the primary marketProfile). Winner → no param →
-      // primary path.
-      const qs =
-        selectedCountry && selectedCountry !== recommendedCountry
-          ? `?country=${selectedCountry}`
-          : "";
-      const res = await fetch(`/api/ensembles/${ensembleId}/market-profile${qs}`, {
+      // Primary profile is always the winner (recommendedCountry). Secondary
+      // candidates are generated separately from the secondary block below,
+      // so the empty-state can't leave the primary (winner) profile unfilled.
+      const res = await fetch(`/api/ensembles/${ensembleId}/market-profile`, {
         method: "POST",
       });
       if (!res.ok) throw new Error(await friendlyApiError(res, isKo ? "ko" : "en"));
@@ -3925,59 +3916,19 @@ function MarketProfileTab({
 
   // Empty state — no profile yet. Offer a one-click backfill.
   if (!profile) {
-    // Recommended candidates the user can pick to generate the first
-    // profile for: winner + secondary + any vote-share tie tops.
-    const recCountries = (() => {
-      const set = new Set<string>([recommendedCountry]);
-      if (recSecondary?.country) set.add(recSecondary.country);
-      const topPct = bestCountryDistribution[0]?.percent;
-      if (topPct != null) {
-        for (const d of bestCountryDistribution) {
-          if (d.percent === topPct) set.add(d.country);
-        }
-      }
-      return Array.from(set).slice(0, 4);
-    })();
     return (
       <div className="card p-12 text-center max-w-2xl mx-auto">
         <Lightbulb size={32} className="text-brand mx-auto mb-3" />
         <h2 className="text-xl font-semibold text-slate-900 mb-2">
           {isKo
-            ? `${selectedCountry} 시장 상황 + 경쟁자 분석을 생성하세요`
-            : `Generate market profile for ${selectedCountry}`}
+            ? `${recommendedCountry} 시장 상황 + 경쟁자 분석을 생성하세요`
+            : `Generate market profile for ${recommendedCountry}`}
         </h2>
-        <p className="text-sm text-slate-500 leading-relaxed mb-5 max-w-md mx-auto">
+        <p className="text-sm text-slate-500 leading-relaxed mb-6 max-w-md mx-auto">
           {isKo
-            ? "추천 진출국에 대한 시장 규모, 명명된 경쟁자, 채널 환경, 규제, 가격 벤치마크, GTM 전략을 한 번의 LLM 호출로 채워줍니다. 약 30초-1분 소요."
-            : "Fill in market size, named competitors, channels, regulatory, pricing benchmarks, and GTM strategy via a single LLM call. Takes about 30-60 seconds."}
+            ? "추천 1위 진출국의 시장 규모, 경쟁자, 채널, 규제, 가격 벤치마크, GTM 전략을 한 번의 LLM 호출로 채워줍니다. 약 30초-1분 소요. (Top-2 동등이면 2위 시장은 생성 후 아래 섹션에서 추가할 수 있습니다.)"
+            : "Fill in market size, named competitors, channels, regulatory, pricing benchmarks, and GTM strategy for the #1 recommended market via a single LLM call. Takes about 30-60 seconds. (For a Top-2 tie, add the runner-up market from the section below after this generates.)"}
         </p>
-        {recCountries.length > 1 && (
-          <div className="mb-5">
-            <div className="text-xs text-slate-500 mb-2">
-              {isKo
-                ? "추천 국가 중 시장조사할 곳을 선택하세요"
-                : "Pick which recommended market to analyze"}
-            </div>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {recCountries.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setSelectedCountry(c)}
-                  disabled={busy}
-                  className={clsx(
-                    "px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors disabled:opacity-50",
-                    selectedCountry === c
-                      ? "border-brand bg-brand-50 text-brand"
-                      : "border-slate-200 text-slate-600 hover:border-brand/40",
-                  )}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
         <button
           type="button"
           onClick={generate}
@@ -3990,8 +3941,8 @@ function MarketProfileTab({
               ? "생성 중... (LLM 호출)"
               : "Generating... (LLM call)"
             : isKo
-              ? `${selectedCountry} 시장 분석 생성`
-              : `Generate for ${selectedCountry}`}
+              ? "시장 분석 생성"
+              : "Generate market profile"}
         </button>
         {err && <p className="text-xs text-risk mt-4">{err}</p>}
         <p className="text-[11px] text-slate-400 mt-6 leading-relaxed">
@@ -6871,6 +6822,13 @@ function PricingTab({
                 {isKo
                   ? `LLM 안내가는 ${fmt(pricing.recommendedPriceCents)}였으나 기본가에 anchor된 것으로 보여 곡선 매출 최대점으로 자동 보정되었습니다.`
                   : `LLM said ${fmt(pricing.recommendedPriceCents)}, but it appears anchored on the base price — auto-corrected to the curve revenue-max point.`}
+              </div>
+            )}
+            {(recommendation as { displayMode?: string }).displayMode === "top2" && (
+              <div className="text-[11px] text-slate-500 mt-2 leading-relaxed max-w-lg">
+                {isKo
+                  ? "이 권장가는 전체 시뮬(모든 후보 시장)을 통합한 cross-sim 값입니다. JP 등 개별 시장의 단독 추천가는 아래 'Top 2 보조 가격' 섹션을 참고하세요 — 시장마다 가격 민감도가 달라 값이 다를 수 있습니다."
+                  : "This is the cross-sim recommended price across all candidate markets combined. Per-market prices (e.g. JP) appear in the 'Top 2 secondary pricing' section below — they can differ because price sensitivity varies by market."}
               </div>
             )}
           </div>
