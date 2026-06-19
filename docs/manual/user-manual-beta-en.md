@@ -12,7 +12,7 @@ Thank you for joining the **Market Twin beta**. Your hands-on experience and hon
 
 ## What is this product?
 
-**Market Twin** lets you validate an overseas launch **before** you ship. AI personas — modeled on government statistics for each candidate country's local consumers — react to your product and pricing, and you get a market simulation **in just a few minutes**. It answers "which country first, at what price, and how" with data.
+**Market Twin** lets you validate an overseas launch **before** you ship. AI personas — modeled on government statistics for each candidate country's local consumers — react to your product and pricing, and you get a market simulation **in just 5-6 minutes**. It answers "which country first, at what price, and how" with data.
 
 ## What you'll do in the beta
 
@@ -70,7 +70,7 @@ Enter your product over six steps: **1 Product → 2 Price & Goal → 3 Target M
 
 ![Step 3 — target market selection](images/13_step3_en.png)
 
-When you run it, hundreds to thousands of AI personas start simulating across multiple LLMs. You can close the screen — it keeps running, and usually finishes in **a few minutes**.
+When you run it, hundreds to thousands of AI personas start simulating across multiple LLMs. You can close the screen — it keeps running, and usually finishes in **5-6 minutes**.
 
 ![Simulation in progress / complete](images/16_done_en.png)
 
@@ -132,7 +132,7 @@ Once you've used the beta period (7 days) or both hypothesis runs, validation ru
 No. The demo (3/day) is **separate** from your 2 hypothesis runs.
 
 **Q. How long do results take?**
-The sample demo takes 2–3 minutes; a real product validation usually a few minutes. It keeps running even if you close the screen.
+The sample demo takes 2–3 minutes; a real product validation usually 5-6 minutes. It keeps running even if you close the screen.
 
 **Q. Can my team view it together?**
 Yes. Use the result share link, or invite teammates to your workspace.

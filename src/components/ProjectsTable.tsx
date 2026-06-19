@@ -72,8 +72,8 @@ export function ProjectsTable({ projects, locale }: Props) {
           </h2>
           <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
             {isKo
-              ? "제품과 후보 진출국을 입력하면 AI 페르소나가 시장 적합성을 평가하고, 어느 시장에 먼저 진출할지 알려줍니다. 7분 안에 첫 결과를 받을 수 있습니다."
-              : "Enter your product and candidate markets. AI personas evaluate fit and tell you which market to launch first. First result in ~7 minutes."}
+              ? "제품과 후보 진출국을 입력하면 AI 페르소나가 시장 적합성을 평가하고, 어느 시장에 먼저 진출할지 알려줍니다. 5~6분 안에 첫 결과를 받을 수 있습니다."
+              : "Enter your product and candidate markets. AI personas evaluate fit and tell you which market to launch first. First result in ~5-6 minutes."}
           </p>
         </div>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-2">

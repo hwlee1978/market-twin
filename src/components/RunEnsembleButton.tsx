@@ -65,8 +65,8 @@ export function RunEnsembleButton({ projectId, className, betaTrialOnly = false 
         >
           <option value="hypothesis">
             {isKo
-              ? "초기검증 · 600명 · 약 7분"
-              : "Hypothesis · 600 personas · ~7 min"}
+              ? "초기검증 · 600명 · 약 5~6분"
+              : "Hypothesis · 600 personas · ~5-6 min"}
           </option>
           <option value="decision" disabled={betaTrialOnly}>
             {isKo

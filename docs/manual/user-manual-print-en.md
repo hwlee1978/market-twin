@@ -32,7 +32,7 @@ lang: en
 
 **Market Twin** is a SaaS that lets you **validate an overseas launch with a simulation — before** you ship. AI personas, modeled on government statistics for each candidate country's local consumers, react to your product, price, and creative.
 
-Where traditional market research takes weeks to months and costs tens of thousands of dollars, Market Twin delivers the following **in just a few minutes**:
+Where traditional market research takes weeks to months and costs tens of thousands of dollars, Market Twin delivers the following **in just 5-6 minutes**:
 
 - Which country to enter first (recommended markets)
 - How local consumers react to your product and price
@@ -198,7 +198,7 @@ When you run it, a progress screen appears. Multiple independent simulations run
 - Progress and completed-sim counts update in real time.
 - Turn on **browser notification on completion** to be alerted while doing other work.
 - You can close the screen — the simulation keeps running, and you'll find results on the results page when done.
-- Time: the sample demo takes 2–3 minutes; a real product validation usually a few minutes.
+- Time: the sample demo takes 2–3 minutes; a real product validation usually 5-6 minutes.
 
 ![Simulation in progress / complete](images/16_done_en.png)
 
@@ -308,7 +308,7 @@ Manage your profile, workspace, and notifications under **Settings** in the left
 # 10. Frequently Asked Questions (FAQ)
 
 **Q. How long do results take?**
-The sample demo takes 2–3 minutes; a real product validation usually a few minutes. Results are kept even if you close the screen.
+The sample demo takes 2–3 minutes; a real product validation usually 5-6 minutes. Results are kept even if you close the screen.
 
 **Q. What's free?**
 During the beta, 7 days or 2 hypothesis validations are free, with no credit card. The sample demo is available 3 times a day separately.

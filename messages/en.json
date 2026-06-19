@@ -637,7 +637,7 @@
           "name": "Hypothesis (recommended start)",
           "spec": "600 personas · 3 sims · multi-LLM",
           "desc": "Top-2 cluster check",
-          "time": "~7-10 min"
+          "time": "~5-6 min"
         },
         "decision": {
           "name": "Consensus",

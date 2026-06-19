@@ -23,7 +23,7 @@ export default async function HelpPage({
     ? [
         {
           q: "시뮬레이션은 얼마나 걸리나요?",
-          a: "Tier에 따라 다릅니다. 초기검증(Hypothesis)은 약 7분, 검증분석(Consensus) 12분, 검증분석 Plus(Consensus Plus) 12-17분, 심층분석(Triangulated) 17-22분. 시뮬 끝나면 이메일로 완료 알림이 옵니다.",
+          a: "Tier에 따라 다릅니다. 초기검증(Hypothesis)은 약 5~6분, 검증분석(Consensus) 12분, 검증분석 Plus(Consensus Plus) 12-17분, 심층분석(Triangulated) 17-22분. 시뮬 끝나면 이메일로 완료 알림이 옵니다.",
         },
         {
           q: "결과는 얼마나 정확한가요?",
@@ -57,7 +57,7 @@ export default async function HelpPage({
     : [
         {
           q: "How long does a simulation take?",
-          a: "Depends on tier. Hypothesis ~7 min, Consensus ~12 min, Consensus Plus 12-17 min, Triangulated 17-22 min. You'll receive an email notification when it completes.",
+          a: "Depends on tier. Hypothesis ~5-6 min, Consensus ~12 min, Consensus Plus 12-17 min, Triangulated 17-22 min. You'll receive an email notification when it completes.",
         },
         {
           q: "How accurate are the results?",
