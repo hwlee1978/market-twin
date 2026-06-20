@@ -1975,9 +1975,6 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
         pageFooter,
       }
     : null;
-  const secondaryMarketPage = secondaryCtx && secondaryAnalysis?.marketProfile
-    ? renderSecondaryMarketPage(secondaryCtx)
-    : null;
   const secondaryActionsPage =
     secondaryCtx && secondaryAnalysis?.actions && secondaryAnalysis.actions.length > 0
       ? renderSecondaryActionsPage(secondaryCtx)
@@ -1985,10 +1982,6 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
   const secondaryRisksPage =
     secondaryCtx && secondaryAnalysis?.risks && secondaryAnalysis.risks.length > 0
       ? renderSecondaryRisksPage(secondaryCtx)
-      : null;
-  const secondaryPricingPage =
-    secondaryCtx && secondaryAnalysis?.pricing
-      ? renderSecondaryPricingPage(secondaryCtx, meta.currency ?? "USD")
       : null;
 
   const doc = (
@@ -2003,15 +1996,15 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
       {sourceCPage}
       {sourceDPage}
       {integratedPage}
-      {secondaryMarketPage}
+      {/* Secondary (Top-2) shows only risk + action pages, matching the
+          primary's depth in this cross-check report. The secondary market
+          profile and pricing pages were dropped so US (primary) and GB
+          (secondary) present the same set — those live in the detailed
+          report, not the validation/cross-check report. */}
       {riskPage}
       {secondaryRisksPage}
       {actionPage}
       {secondaryActionsPage}
-      {/* Secondary pricing slots in after actions so the reader reads
-          "primary actions → secondary actions → secondary pricing"
-          as a complete secondary deck before the honest disclosure. */}
-      {secondaryPricingPage}
       {honestPage}
       {appendixPage}
       {closingPage}
