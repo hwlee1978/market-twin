@@ -808,17 +808,24 @@ ${competitiveGroundedText ? `# GROUNDED DATA — Competitive landscape\n${compet
          omitted from this rows list AND excluded from weightedAverage —
          missing data infrastructure should not deflate the simulation's
          alignment score. */
-      {"dimension": "시장 성장 momentum", "percent": 100},
+${isKo ? `      {"dimension": "시장 성장 momentum", "percent": 100},
       {"dimension": "타깃 segment 적합성", "percent": 100},
       {"dimension": "경쟁사 진입 패턴", "percent": 80},
       {"dimension": "시장 absolute 사이즈", "percent": 50},
       {"dimension": "진입 채널 / 진입 장벽", "percent": 90},
       {"dimension": "한국기업 진출 패턴", "percent": 80},
       {"dimension": "한국 카테고리 수출 추이", "percent": 70},
-      {"dimension": "기업 재무 신호", "percent": 60}
+      {"dimension": "기업 재무 신호", "percent": 60}` : `      {"dimension": "Market growth momentum", "percent": 100},
+      {"dimension": "Target segment fit", "percent": 100},
+      {"dimension": "Competitor entry pattern", "percent": 80},
+      {"dimension": "Market absolute size", "percent": 50},
+      {"dimension": "Entry channels / barriers", "percent": 90},
+      {"dimension": "Korean-company entry pattern", "percent": 80},
+      {"dimension": "Korean category export trend", "percent": 70},
+      {"dimension": "Corporate financial signals", "percent": 60}`}
     ],
     "weightedAverage": 84,
-    "label": "매우 높음 | 높음 | 보통 | 낮음",
+    "label": ${isKo ? '"매우 높음 | 높음 | 보통 | 낮음"' : '"Very high | High | Moderate | Low"'},
     "netVerdict": "≤200 chars — overall reasonableness statement matching the percent."
   },
   "riskAssessment": [

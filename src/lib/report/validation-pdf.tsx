@@ -1389,7 +1389,11 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
           {srcC.korCompanies.rows.map((r, i, arr) => (
             <View key={i} style={[styles.tableRow, i === arr.length - 1 ? styles.tableRowLast : {}]}>
               <MText style={[styles.tdBold, { flex: 1.4 }]}>
-                {stripUnsupportedGlyphs(r.parentKo + (r.localKo ? ` (현지: ${r.localKo})` : ""))}
+                {stripUnsupportedGlyphs(
+                  isKo
+                    ? r.parentKo + (r.localKo ? ` (현지: ${r.localKo})` : "")
+                    : r.localKo || r.parentKo,
+                )}
               </MText>
               <MText style={[styles.td, { flex: 1.6 }]}>{stripUnsupportedGlyphs(r.category || r.industry)}</MText>
               <MText style={[styles.td, { flex: 0.6 }]}>{r.year}</MText>

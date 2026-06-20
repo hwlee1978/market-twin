@@ -4327,7 +4327,13 @@ function MarketProfileTab({
                     sevToneClass(b.severity),
                   )}
                 >
-                  {b.severity.toUpperCase()}
+                  {isKo
+                    ? b.severity === "high"
+                      ? "높음"
+                      : b.severity === "medium"
+                        ? "보통"
+                        : "낮음"
+                    : b.severity.toUpperCase()}
                 </span>
                 <div>
                   <div className="text-sm font-semibold text-slate-900">{b.name}</div>

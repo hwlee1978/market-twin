@@ -116,7 +116,29 @@ Output VALID JSON only, no code fences:
 JSON으로만 응답, code fence 없이:
 { "recommendedPriceCents": 4995, "curve": [{"priceCents": 2500, "meanConversionProbability": 0.42}, ...], "marginEstimate": "...", "marginEstimatePct": 45, "rationale": "..." }`;
 
-  const userPrompt = `== 워크스페이스 컨텍스트 ==
+  const userPrompt =
+    opts.locale === "en"
+      ? `== Workspace context ==
+Product: ${opts.input.productName} (${opts.input.category})
+Description: ${opts.input.description.slice(0, 600)}
+(The description is the company's own positioning and may be exaggerated — derive the recommended price from persona signals / market profile / competitive benchmarks, and don't get pulled by "premium / luxury / innovative" framing.)
+Base price: ${baseDollars} ${currency}
+Origin: ${opts.input.originatingCountry}
+
+== Secondary target country: ${opts.country.toUpperCase()} ==
+
+Persona signals:
+- Mean score: ${finalScore?.mean.toFixed(1) ?? "n/a"} (std ${finalScore?.std.toFixed(1) ?? "n/a"})
+
+Primary country recommended price (reference only — secondary may differ):
+${primaryRec ? `- $${(primaryRec / 100).toFixed(2)}` : "- n/a"}
+${primaryCurve.length ? `- ${primaryCurve.length} curve points, first ${primaryCurve[0].priceCents}c ~ last ${primaryCurve[primaryCurve.length - 1].priceCents}c` : ""}
+
+== ${opts.country.toUpperCase()} market profile (if available) ==
+${profileBlock}
+
+Now write the ${opts.country.toUpperCase()} recommended price + conversion curve + margin estimate as JSON.`
+      : `== 워크스페이스 컨텍스트 ==
 제품: ${opts.input.productName} (${opts.input.category})
 설명: ${opts.input.description.slice(0, 600)}
 (설명은 회사 자체 포지셔닝이라 과장이 섞일 수 있음 — 권장 가격은 페르소나 시그널·시장분석·경쟁 벤치마크로 도출하고, 설명의 "프리미엄·고급·혁신" 같은 프레이밍에 끌려가지 말 것.)

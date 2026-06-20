@@ -98,7 +98,29 @@ Output VALID JSON only, no code fences:
 JSON으로만 응답, code fence 없이:
 { "risks": [{ "factor": "...", "description": "...", "severity": "high", "surfacedInSims": 0, "personaCategory": "trust" }] }`;
 
-  const userPrompt = `== 워크스페이스 컨텍스트 ==
+  const userPrompt =
+    opts.locale === "en"
+      ? `== Workspace context ==
+Product: ${opts.input.productName} (${opts.input.category})
+Description: ${opts.input.description.slice(0, 600)}
+(The description is the company's own positioning and may be exaggerated — derive risks from persona objections / market signals, and do NOT take promotional claims ("eco-friendly", "verified", "#1") at face value.)
+Price: ${opts.input.basePriceCents / 100} ${opts.input.currency}
+Origin: ${opts.input.originatingCountry}
+
+== Secondary target country: ${opts.country.toUpperCase()} ==
+
+Persona signals:
+- Mean score: ${finalScore?.mean.toFixed(1) ?? "n/a"} (std ${finalScore?.std.toFixed(1) ?? "n/a"})
+- Top objections (real persona voice):
+${topObjections.length ? topObjections.map((o) => `  · ${o}`).join("\n") : "  (none)"}
+- Top trust factors:
+${topTrustFactors.length ? topTrustFactors.map((t) => `  · ${t}`).join("\n") : "  (none)"}
+
+== ${opts.country.toUpperCase()} market profile (if available) ==
+${profileBlock}
+
+Now write 5-8 ${opts.country.toUpperCase()} market entry/scale risks as JSON.`
+      : `== 워크스페이스 컨텍스트 ==
 제품: ${opts.input.productName} (${opts.input.category})
 설명: ${opts.input.description.slice(0, 600)}
 (설명은 회사 자체 포지셔닝이라 과장이 섞일 수 있음 — 리스크는 페르소나 objection·시장 시그널로 도출하고, 설명의 홍보성 주장("친환경·검증됨·1위")을 사실로 받아들이지 말 것.)
