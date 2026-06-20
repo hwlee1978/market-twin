@@ -6782,11 +6782,11 @@ function PricingTab({
             <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
               {wasCorrected
                 ? isKo
-                  ? "권장 가격 (곡선 매출 최대점)"
-                  : "Recommended price (curve revenue max)"
+                  ? `${recommendation.country} 권장 가격 (곡선 매출 최대점)`
+                  : `${recommendation.country} recommended price (curve revenue max)`
                 : isKo
-                  ? "권장 가격 (시뮬 합산 중앙값)"
-                  : "Recommended price (median across sims)"}
+                  ? `${recommendation.country} 권장 가격 (시뮬 합산 중앙값)`
+                  : `${recommendation.country} recommended price (median across sims)`}
             </div>
             <div className="flex items-baseline gap-3 flex-wrap">
               <div className="text-4xl font-bold text-brand tabular-nums leading-none">
@@ -7557,7 +7557,6 @@ function SecondaryPricingBlock({
   }
 
   // LLM pricing already persisted — render full analysis with curve.
-  const maxConv = Math.max(...pricing.curve.map((p) => p.meanConversionProbability), 0.0001);
   const peakPoint = pricing.curve.reduce<typeof pricing.curve[number] | null>(
     (best, p) => (best === null || p.meanConversionProbability > best.meanConversionProbability ? p : best),
     null,
@@ -7627,22 +7626,7 @@ function SecondaryPricingBlock({
           <h3 className="text-sm font-semibold text-slate-700 mb-3">
             {isKo ? "가격 – 전환 곡선" : "Price – conversion curve"}
           </h3>
-          <div className="space-y-1.5">
-            {pricing.curve.map((p) => (
-              <div key={p.priceCents} className="flex items-center gap-3 text-xs">
-                <div className="w-16 text-slate-700 tabular-nums">{fmt(p.priceCents)}</div>
-                <div className="flex-1 h-2 bg-slate-100 rounded overflow-hidden">
-                  <div
-                    className="h-2 bg-brand"
-                    style={{ width: `${(p.meanConversionProbability / maxConv) * 100}%` }}
-                  />
-                </div>
-                <div className="w-14 text-right text-slate-600 tabular-nums">
-                  {(p.meanConversionProbability * 100).toFixed(1)}%
-                </div>
-              </div>
-            ))}
-          </div>
+          <PricingCurveChart data={pricing.curve} currency={currency} />
         </div>
       )}
 
