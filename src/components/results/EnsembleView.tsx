@@ -8991,12 +8991,20 @@ function RisksTab({
       </div>
       <div className="card divide-y divide-slate-100">
         {narrative.mergedRisks.map((r, i) => {
-          const sevClass =
+          // Match the secondary risk list's badge exactly: localized label
+          // ("높음/보통/낮음") + filled pill, instead of an English text column.
+          const sevLabel =
             r.severity === "high"
-              ? "text-risk"
+              ? isKo ? "높음" : "HIGH"
               : r.severity === "medium"
-                ? "text-warn"
-                : "text-slate-500";
+                ? isKo ? "보통" : "MEDIUM"
+                : isKo ? "낮음" : "LOW";
+          const sevBadge =
+            r.severity === "high"
+              ? "bg-risk text-white"
+              : r.severity === "medium"
+                ? "bg-warn text-white"
+                : "bg-slate-200 text-slate-600";
           // Persona-coverage metric — pulled from the cross-country
           // distribution matrix when the merge LLM tagged personaCategory.
           // Replaces the old "X/Y sims" framing because a sim count is
@@ -9100,9 +9108,9 @@ function RisksTab({
 
           return (
             <div key={i} className="p-4 flex gap-3 items-start">
-              <div className={clsx("shrink-0 w-16 text-[10px] font-bold uppercase tracking-wider pt-0.5", sevClass)}>
-                {r.severity}
-              </div>
+              <span className={clsx("shrink-0 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold mt-0.5", sevBadge)}>
+                {sevLabel}
+              </span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2 mb-0.5">
                   <div className="text-sm font-semibold text-slate-900 min-w-0">{r.factor}</div>
