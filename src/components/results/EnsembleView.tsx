@@ -1358,6 +1358,7 @@ function EnsembleDashboard({
             }).additionalPricing
           }
           ensembleId={result.id}
+          marketProfile={aggregate.marketProfile}
         />
       )}
       {activeTab === "decisionAid" && (
@@ -6613,6 +6614,7 @@ function PricingTab({
   additionalProfiles,
   additionalPricing,
   ensembleId,
+  marketProfile,
 }: {
   pricing: EnsembleAggregate["pricing"];
   /** User-input base price — used to surface the user-input vs
@@ -6640,6 +6642,10 @@ function PricingTab({
   additionalProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
   additionalPricing?: Record<string, SecondaryPricingItem>;
   ensembleId: string;
+  /** Primary (winner) market profile — used to surface the same benchmark /
+   *  purchase-behavior blocks the secondary pricing block shows, so the
+   *  primary pricing tab isn't asymmetrically missing them. */
+  marketProfile?: EnsembleAggregate["marketProfile"];
 }) {
   const secondaryCountry = detectSecondary(recommendation, bestCountryDistribution);
   const secondaryProfile = secondaryCountry
@@ -6648,6 +6654,8 @@ function PricingTab({
   const secondaryPricing = secondaryCountry
     ? additionalPricing?.[secondaryCountry] ?? null
     : null;
+  const primaryBenchmarks = marketProfile?.pricingBenchmarks;
+  const primaryPurchaseBehavior = marketProfile?.culturalNotes?.purchaseBehavior;
   if (!pricing) {
     return (
       <div className="card p-8 text-center text-slate-500">
@@ -7417,6 +7425,46 @@ function PricingTab({
           ))}
         </div>
       </details>
+
+      {/* Primary market-profile benchmarks + purchase behavior — mirrors the
+          secondary block so the primary pricing tab shows the same context
+          (it previously appeared only for the secondary country). */}
+      {primaryBenchmarks &&
+        (primaryBenchmarks.entryLevel || primaryBenchmarks.mid || primaryBenchmarks.premium) && (
+          <div className="card p-5">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">
+              {isKo ? "시장 분석 가격 벤치마크 (참고)" : "Market profile benchmarks (reference)"}
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+              {primaryBenchmarks.entryLevel && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500">Entry</div>
+                  <div className="text-slate-900 mt-0.5">{primaryBenchmarks.entryLevel}</div>
+                </div>
+              )}
+              {primaryBenchmarks.mid && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500">Mid</div>
+                  <div className="text-slate-900 mt-0.5">{primaryBenchmarks.mid}</div>
+                </div>
+              )}
+              {primaryBenchmarks.premium && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500">Premium</div>
+                  <div className="text-slate-900 mt-0.5">{primaryBenchmarks.premium}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      {primaryPurchaseBehavior && (
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-slate-700 mb-1">
+            {isKo ? "구매 행동" : "Purchase behavior"}
+          </h3>
+          <p className="text-sm text-slate-700 leading-relaxed">{primaryPurchaseBehavior}</p>
+        </div>
+      )}
 
       {secondaryCountry && (
         <SecondaryPricingBlock
