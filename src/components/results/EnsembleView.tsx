@@ -6824,13 +6824,16 @@ function PricingTab({
                   : `LLM said ${fmt(pricing.recommendedPriceCents)}, but it appears anchored on the base price — auto-corrected to the curve revenue-max point.`}
               </div>
             )}
-            {(recommendation as { displayMode?: string }).displayMode === "top2" && (
-              <div className="text-[11px] text-slate-500 mt-2 leading-relaxed max-w-lg">
-                {isKo
-                  ? "이 권장가는 전체 시뮬(모든 후보 시장)을 통합한 cross-sim 값입니다. JP 등 개별 시장의 단독 추천가는 아래 'Top 2 보조 가격' 섹션을 참고하세요 — 시장마다 가격 민감도가 달라 값이 다를 수 있습니다."
-                  : "This is the cross-sim recommended price across all candidate markets combined. Per-market prices (e.g. JP) appear in the 'Top 2 secondary pricing' section below — they can differ because price sensitivity varies by market."}
-              </div>
-            )}
+            {(recommendation as { displayMode?: string }).displayMode === "top2" && (() => {
+              const secCountry = (recommendation as { secondary?: { country?: string } }).secondary?.country;
+              return (
+                <div className="text-[11px] text-slate-500 mt-2 leading-relaxed max-w-lg">
+                  {isKo
+                    ? `이 권장가는 주 후보 ${recommendation.country}를 포함한 전체 시뮬 통합(cross-sim) 값으로, 사실상 ${recommendation.country} 시장의 대표 권장가입니다.${secCountry ? ` 2순위 ${secCountry} 시장의 단독 추천가는 아래 'Top 2 보조 가격' 섹션을 참고하세요` : ""} — 시장마다 가격 민감도가 달라 값이 다를 수 있습니다.`
+                    : `This recommended price is the cross-sim value including the primary candidate ${recommendation.country} — effectively the representative price for ${recommendation.country}.${secCountry ? ` The standalone price for the #2 market (${secCountry}) is in the 'Top 2 secondary pricing' section below` : ""} — values can differ because price sensitivity varies by market.`}
+                </div>
+              );
+            })()}
           </div>
           <div className="flex gap-2 flex-wrap">
             {/* Independent verification tile — shows the curve's revenue-max
