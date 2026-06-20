@@ -47,8 +47,11 @@ const WEIGHTS = {
 } as const;
 
 // Channel keyword patterns. Korean + English, case-insensitive.
-// Match retail chains, marketplaces, direct channels that are
-// concrete enough to suggest market entry strategy.
+// NOTE: JS \b (word boundary) is ASCII-only — it does NOT fire at a
+// Hangul/space boundary, so wrapping Korean tokens in \b makes them
+// NEVER match (e.g. /\b쿠팡\b/ fails). Korean tokens therefore use NO \b;
+// English tokens keep \b to avoid substring false-positives ("mid" in
+// "midnight"). This was the bug behind Korean descriptions scoring ~30.
 const CHANNEL_PATTERNS = [
   /\bamazon\b/i,
   /\bsephora\b/i,
@@ -57,40 +60,44 @@ const CHANNEL_PATTERNS = [
   /\btiktok\b/i,
   /\binstagram\s*shop\b/i,
   /\bolive\s*young\b/i,
-  /\bolive\s*young\s*global\b/i,
-  /\b올리브\s*영\b/,
+  /올리브\s*영/,
   /\bcostco\b/i,
   /\bcoupang\b/i,
-  /\b쿠팡\b/,
+  /쿠팡/,
   /\bqoo10\b/i,
   /\brakuten\b/i,
   /\bdon\s*quijote\b/i,
-  /\b돈키호테\b/,
+  /돈키호테/,
   /\bduty\s*free\b/i,
-  /\b면세점\b/,
+  /면세점/,
   /\bshopee\b/i,
   /\blazada\b/i,
   /\btmall\b/i,
   /\btaobao\b/i,
-  /\b京东|jd\.com\b/i,
+  /京东|jd\.com/i,
   /\bwatsons\b/i,
   /\bd2c\b/i,
   /\bdtc\b/i,
-  /\bd\s*\.\s*t\s*\.\s*c\b/i,
-  /\b직판\b/,
-  /\b자사몰\b/,
+  /직판/,
+  /자사몰/,
+  /\bnaver\b/i,
+  /네이버\s*(쇼핑|스마트스토어)?/,
+  /스마트스토어/,
 ];
 
 // Demographic patterns: age × gender, income, life stage.
 const DEMOGRAPHIC_PATTERNS = [
-  /\b\d{2,3}\s*[-~–]?\s*\d{2,3}\s*대?\s*(여성|남성|여자|남자|female|male|women|men)\b/i,
+  /\d{2,3}\s*[-~–]?\s*\d{2,3}\s*대?\s*(여성|남성|여자|남자)/, // 20-30대 여성
+  /\b\d{2,3}\s*[-~–]?\s*\d{2,3}\s*(female|male|women|men)\b/i,
+  /\d{2,3}\s*[-~–]\s*\d{2,3}\s*세/, // 19~35세
   /\b(gen|generation)\s*[zxy]\b/i,
+  /[zZ]\s*세대|제트\s*세대|mz\s*세대|엠지\s*세대/i,
   /\b(millennial|millennials)\b/i,
-  /\b밀레니얼\b/,
-  /\b\d{2}\s*대\b/, // 20대, 30대
+  /밀레니얼/,
+  /\d{2}\s*대/, // 20대, 30대
   /\b(teen|teens|youth|young\s*adult|adult|middle[-\s]aged|senior)\b/i,
   /\b(working\s*women|working\s*moms?|young\s*professionals?)\b/i,
-  /\b(직장인|학생|주부|맘|아빠)\b/,
+  /(직장인|학생|주부|맘|아빠|대학생)/,
   /\b(soccer\s*moms?|gen-?z|gen-?x)\b/i,
 ];
 
@@ -105,35 +112,49 @@ const AUDIENCE_PATTERNS = [
   /\bskincare\s*addiction\b/i,
   /\basian\s*beauty\b/i,
   /\bk[-\s]?(pop|drama|beauty)\s*fan\b/i,
-  /\b(인플루언서|크리에이터|유튜버|틱톡커)\b/,
+  /(인플루언서|크리에이터|유튜버|틱톡커|인플루언서\s*마케팅)/,
   /\b(influencer|creator|reviewer)\s*(network|community)?\b/i,
   /\bword[-\s]of[-\s]mouth\b/i,
   /\borganic\s*(traffic|following|growth)\b/i,
   /\bcommunity[-\s]driven\b/i,
+  /언박싱|하울|입소문/,
 ];
 
 // Geographic positioning: regional/cultural cues.
 const GEOGRAPHY_PATTERNS = [
-  /\b(north\s*america|na|us|usa|states|america|미국|북미)\b/i,
-  /\b(europe|eu|european|유럽|euro)\b/i,
-  /\b(asia|asian|southeast\s*asia|sea|아시아|동남아)\b/i,
-  /\b(latin\s*america|latam|남미|중남미)\b/i,
-  /\b(middle\s*east|중동|gcc)\b/i,
-  /\b(western|글로벌|global|export)\b/i,
-  /\b(japanese|korean|chinese|일본|한국|중국)\s*(market|consumers?|소비자)\b/i,
+  /\b(north\s*america|usa?|states|america)\b/i,
+  /미국|북미/,
+  /\b(europe|eu|european|euro)\b/i,
+  /유럽/,
+  /\b(asia|asian|southeast\s*asia|sea)\b/i,
+  /아시아|동남아|동아시아/,
+  /\b(latin\s*america|latam)\b/i,
+  /남미|중남미/,
+  /\b(middle\s*east|gcc)\b/i,
+  /중동/,
+  /\b(western|global|export)\b/i,
+  /글로벌|수출/,
+  /\b(japanese|korean|chinese)\s*(market|consumers?)\b/i,
+  /(일본|한국|중국|동아시아)\s*(시장|소비자|도시)?/,
 ];
 
 // Price tier signals.
 const PRICE_TIER_PATTERNS = [
-  /\b(mass|massmarket|드럭스토어|저가)\b/i,
-  /\b(mid[-\s]price|mid[-\s]tier|중가|미들|mid)\b/i,
-  /\b(premium|프리미엄|고급)\b/i,
-  /\b(luxury|럭셔리|하이엔드|high[-\s]end)\b/i,
-  /\b(affordable|가성비|value)\b/i,
-  /\b\$\s*\d+[-~]\s*\$?\s*\d+\b/, // $20-50 range
+  /\b(mass|massmarket)\b/i,
+  /드럭스토어|저가/,
+  /\bmid[-\s]?(price|tier)\b/i,
+  /중가|미들/,
+  /\bpremium\b/i,
+  /프리미엄|고급/,
+  /\b(luxury|high[-\s]end)\b/i,
+  /럭셔리|하이엔드/,
+  /\baffordable\b/i,
+  /가성비|합리적(인)?\s*(가격|가격대)/,
+  /\$\s*\d+\s*[-~]\s*\$?\s*\d+/, // $20-50 range
+  /\$\s*\d+/, // single $40 price point
   /\b(under|below)\s*\$\s*\d+\b/i,
-  /\b\d{1,3}\s*달러\b/,
-  /\b₩\s*[\d,]+\b/, // ₩50,000
+  /\d{1,3}\s*달러/,
+  /₩\s*[\d,]+/, // ₩50,000
 ];
 
 function matchesIn(text: string, patterns: readonly RegExp[]): string[] {
