@@ -7468,10 +7468,14 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           {renderExecutiveSummaryPage()}
           {renderRecommendationPage()}
           {renderMarketProfilePage()}
-          {/* Top-2 secondary market profile right after primary's so
-              the reader compares both market backgrounds together. */}
-          {secondaryMarketPage}
+          {/* Primary GTM immediately after the primary market profile so the
+              reader reads "US market → US GTM" as one block. Previously the
+              secondary (GB) market + its GTM sat between them, so US GTM landed
+              after the GB block and read as out of order. */}
           {renderGtmStrategyPage()}
+          {/* Top-2 secondary market profile (+ its own GTM) as a self-contained
+              block after the full primary pair. */}
+          {secondaryMarketPage}
           {renderCountryDecisionMatrixPage()}
           {renderCountriesPage()}
           {renderExecutionTimelinePage()}
