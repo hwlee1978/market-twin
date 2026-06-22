@@ -64,3 +64,9 @@ scripts/_provision-accounts.ts
 
 scripts/_echo-backtest.ts
 scripts/_cost-query.ts
+
+scripts/_check-draft-lang.ts
+
+.vercel
+
+scripts/_check-lunarcrush.ts
