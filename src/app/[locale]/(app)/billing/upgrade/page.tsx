@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { getPlan, type PlanSlug } from "@/lib/billing/plans";
 import { UpgradeDispatcher } from "@/components/billing/UpgradeDispatcher";
+import { NiceCardForm } from "@/components/billing/NiceCardForm";
 
 /**
  * Post-signup / explicit-upgrade entry point. Reads ?plan=&cycle= from
@@ -42,6 +43,22 @@ export default async function UpgradePage({
   // automatically on workspace creation; enterprise routes to email.
   if (plan.slug !== "starter" && plan.slug !== "growth") {
     redirect(`/${locale}/billing`);
+  }
+
+  // KRW 정기결제 PG 전환: 기본은 Toss(호스팅 결제창 redirect), env 플래그가
+  // 'nicepay'면 NICE 키인 카드입력 폼을 인앱으로 띄운다. 포스타트는 결제창
+  // 빌키발급이 없어 redirect가 아니라 자체 폼이 필요하다(NICE 답변 2026-06-22).
+  // NICE는 계약 완료+내부셋팅 후에만 실연동되므로 그 전까진 toss 유지.
+  const krwProvider = process.env.NEXT_PUBLIC_KRW_PROVIDER === "nicepay" ? "nicepay" : "toss";
+  if (currency === "krw" && krwProvider === "nicepay") {
+    return (
+      <NiceCardForm
+        locale={locale}
+        planSlug={plan.slug}
+        planName={plan.name}
+        cycle={cycle}
+      />
+    );
   }
 
   return (
