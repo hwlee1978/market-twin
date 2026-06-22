@@ -448,109 +448,94 @@ ${strategies.join("\n")}
 
   const provider = getLLMProvider({ provider: "anthropic", model: DRAFTER_MODEL });
 
-  const res = await provider.generate({
-    system,
-    prompt,
-    // Higher temperature for more varied, bolder copy — the drafter's whole
-    // point is A/B/C diversity, and lower values read too samey/safe.
-    temperature: 0.9,
-    // 16K: bilingual output doubles per-variant token count. Long topics
-    // from AI suggestions + 3-5 variants × (body + body_ko + title +
-    // title_ko + desc + desc_ko + image_prompt + hashtags + seo_meta)
-    // can easily hit 10-12K. 16K gives a safety margin against silent
-    // truncation that leaves zero valid variants.
-    maxTokens: 16000,
-    cacheSystem: true,
-    // Hint for the JSON recovery layer — when the LLM emits an oddly-
-    // wrapped or partially-truncated response, this lets the parser
-    // reconstruct `{ variants: [...] }` from any complete variant
-    // objects it can salvage from the body, instead of dropping the
-    // whole response on a single trailing-comma defect.
-    expectedArrayKey: "variants",
-    jsonSchema: {
-      type: "object",
-      required: ["variants"],
-      properties: {
-        variants: {
-          type: "array",
-          minItems: 1,
-          maxItems: 5,
-          items: {
-            type: "object",
-            required: ["variant_label", "body_text"],
-            properties: {
-              variant_label: { type: "string", maxLength: 4 },
-              body_text: { type: "string", maxLength: 5000 },
-              body_text_ko: { type: ["string", "null"], maxLength: 5000 },
-              hashtags: {
-                type: "array",
-                items: { type: "string", maxLength: 60 },
-                maxItems: 15,
-              },
-              cta_text: { type: "string", maxLength: 200 },
-              cta_text_ko: { type: ["string", "null"], maxLength: 200 },
-              image_prompt: { type: "string", maxLength: 500 },
-              image_prompt_ko: { type: ["string", "null"], maxLength: 500 },
-              seo_title: { type: "string", maxLength: 120 },
-              seo_title_ko: { type: ["string", "null"], maxLength: 120 },
-              seo_description: { type: "string", maxLength: 300 },
-              seo_description_ko: { type: ["string", "null"], maxLength: 300 },
-              seo_keywords: {
-                type: "array",
-                items: { type: "string", maxLength: 60 },
-                maxItems: 10,
-              },
-              seo_meta: { type: "object", additionalProperties: true },
-            },
+  // JSON schema for structured output — shared across attempts.
+  const JSON_SCHEMA = {
+    type: "object",
+    required: ["variants"],
+    properties: {
+      variants: {
+        type: "array",
+        minItems: 1,
+        maxItems: 5,
+        items: {
+          type: "object",
+          required: ["variant_label", "body_text"],
+          properties: {
+            variant_label: { type: "string", maxLength: 4 },
+            body_text: { type: "string", maxLength: 5000 },
+            body_text_ko: { type: ["string", "null"], maxLength: 5000 },
+            hashtags: { type: "array", items: { type: "string", maxLength: 60 }, maxItems: 15 },
+            cta_text: { type: "string", maxLength: 200 },
+            cta_text_ko: { type: ["string", "null"], maxLength: 200 },
+            image_prompt: { type: "string", maxLength: 500 },
+            image_prompt_ko: { type: ["string", "null"], maxLength: 500 },
+            seo_title: { type: "string", maxLength: 120 },
+            seo_title_ko: { type: ["string", "null"], maxLength: 120 },
+            seo_description: { type: "string", maxLength: 300 },
+            seo_description_ko: { type: ["string", "null"], maxLength: 300 },
+            seo_keywords: { type: "array", items: { type: "string", maxLength: 60 }, maxItems: 10 },
+            seo_meta: { type: "object", additionalProperties: true },
           },
         },
       },
     },
-  });
+  };
 
-  // Permissive variant extraction — Anthropic occasionally wraps the
-  // array under an alt key ("drafts" / "posts" / "items") or emits a
-  // top-level array directly. Strict `raw.variants` access then yields
-  // 0 variants despite a perfectly-formed response. Accept any of:
-  //   • { variants: [...] }   (canonical)
-  //   • [...]                 (top-level array)
-  //   • { drafts: [...] }     (common drift)
-  //   • { posts: [...] }      (Instagram/Twitter drift)
-  //   • { items: [...] }      (generic)
-  // As a last resort, scan top-level values for the first array of
-  // objects with a body_text field — handles arbitrary wrapper keys.
-  const rawJson = (res.json ?? {}) as unknown;
-  const ALT_KEYS = ["variants", "drafts", "posts", "items", "results"] as const;
-  let rawVariants: Array<Partial<DraftVariant>> = [];
-  let usedKey: string | null = null;
-  if (Array.isArray(rawJson)) {
-    rawVariants = rawJson as Array<Partial<DraftVariant>>;
-    usedKey = "(top-level array)";
-  } else if (rawJson && typeof rawJson === "object") {
-    const obj = rawJson as Record<string, unknown>;
-    for (const k of ALT_KEYS) {
-      if (Array.isArray(obj[k])) {
-        rawVariants = obj[k] as Array<Partial<DraftVariant>>;
-        usedKey = k;
-        break;
-      }
-    }
-    if (rawVariants.length === 0) {
-      for (const [k, v] of Object.entries(obj)) {
-        if (
-          Array.isArray(v) &&
-          v.length > 0 &&
-          v.every(
-            (item) =>
-              item && typeof item === "object" && "body_text" in (item as object),
-          )
-        ) {
-          rawVariants = v as Array<Partial<DraftVariant>>;
-          usedKey = `(fallback: ${k})`;
+  // 한 번 생성 + 관대한 variant 추출. (temperature만 바꿔 재시도 가능.)
+  async function runOnce(temperature: number) {
+    const res = await provider.generate({
+      system,
+      prompt,
+      temperature,
+      maxTokens: 16000,
+      cacheSystem: true,
+      // JSON recovery 힌트 — 부분 손상 응답에서 완전한 variant만 건짐.
+      expectedArrayKey: "variants",
+      jsonSchema: JSON_SCHEMA,
+    });
+
+    // Permissive variant extraction — { variants } / top-level array /
+    // { drafts|posts|items } / 마지막엔 body_text 배열 스캔.
+    const rawJson = (res.json ?? {}) as unknown;
+    const ALT_KEYS = ["variants", "drafts", "posts", "items", "results"] as const;
+    let rawVariants: Array<Partial<DraftVariant>> = [];
+    let usedKey: string | null = null;
+    if (Array.isArray(rawJson)) {
+      rawVariants = rawJson as Array<Partial<DraftVariant>>;
+      usedKey = "(top-level array)";
+    } else if (rawJson && typeof rawJson === "object") {
+      const obj = rawJson as Record<string, unknown>;
+      for (const k of ALT_KEYS) {
+        if (Array.isArray(obj[k])) {
+          rawVariants = obj[k] as Array<Partial<DraftVariant>>;
+          usedKey = k;
           break;
         }
       }
+      if (rawVariants.length === 0) {
+        for (const [k, v] of Object.entries(obj)) {
+          if (
+            Array.isArray(v) &&
+            v.length > 0 &&
+            v.every((item) => item && typeof item === "object" && "body_text" in (item as object))
+          ) {
+            rawVariants = v as Array<Partial<DraftVariant>>;
+            usedKey = `(fallback: ${k})`;
+            break;
+          }
+        }
+      }
     }
+    return { rawVariants, res, usedKey };
+  }
+
+  // 1차 시도(temp 0.9, 다양성 우선). 0개면 temp 0.5로 1회 자동 재시도 —
+  // 낮은 temperature가 JSON 구조를 안정화해, 긴 explainer/bilingual 출력에서
+  // LLM이 escape를 흘리는 일시 noise를 회복한다.
+  let { rawVariants, res, usedKey } = await runOnce(0.9);
+  if (rawVariants.length === 0) {
+    console.warn("[drafter] zero variants at temp 0.9 — retrying once at temp 0.5");
+    ({ rawVariants, res, usedKey } = await runOnce(0.5));
   }
 
   // Diagnostic surface — when zero variants survive, log enough to
