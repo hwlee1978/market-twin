@@ -68,6 +68,14 @@ function encryptCardData(plain: string): string {
   return cipher.update(plain, "utf8", "hex") + cipher.final("hex");
 }
 
+/** signData for 빌키발급(regist): hex(sha256(orderId + ediDate + SecretKey)). */
+function registSignData(orderId: string, ediDate: string): string {
+  return crypto
+    .createHash("sha256")
+    .update(`${orderId}${ediDate}${niceSecretKey()}`)
+    .digest("hex");
+}
+
 /** signData for 빌키승인: hex(sha256(orderId + bid + ediDate + SecretKey)). */
 function chargeSignData(orderId: string, bid: string, ediDate: string): string {
   return crypto
@@ -124,11 +132,15 @@ export async function registBillingKey(opts: {
   const c = opts.card;
   const plain = `cardNo=${c.cardNo}&expYear=${c.expYear}&expMonth=${c.expMonth}&idNo=${c.idNo}&cardPw=${c.cardPw}`;
   const encData = encryptCardData(plain);
+  const ediDate = new Date().toISOString();
+  const signData = registSignData(opts.orderId, ediDate);
   type Resp = { resultCode: string; resultMsg: string; bid: string; tid: string; cardCode?: string; cardName?: string };
   const data = await niceRequest<Resp>("POST", "/v1/subscribe/regist", {
     encData,
     orderId: opts.orderId,
     encMode: "A2", // A2 = AES-128/ECB/hex
+    ediDate,
+    signData,
     buyerName: opts.buyerName,
     buyerEmail: opts.buyerEmail,
   });
