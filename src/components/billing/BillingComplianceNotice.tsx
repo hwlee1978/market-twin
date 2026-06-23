@@ -14,27 +14,39 @@ import { Receipt, ShieldCheck, RefreshCcw, Mail } from "lucide-react";
  */
 export function BillingComplianceNotice({ locale }: { locale: "ko" | "en" }) {
   const isKo = locale === "ko";
+  // 국내카드(KRW) PG가 나이스페이먼츠 단건결제로 전환됐는지. nicepay면 KRW는
+  // 1회성 결제(자동갱신 없음)라 자동결제·해지 문구를 단건 기준으로 바꾼다.
+  // USD(Stripe)는 어느 경우든 정기구독이므로 그 부분은 유지한다.
+  const krwSingle = process.env.NEXT_PUBLIC_KRW_PROVIDER === "nicepay";
   const items: Array<{ icon: typeof Receipt; title: string; body: string }> = [
     {
       icon: ShieldCheck,
       title: isKo ? "결제대행사 (PG)" : "Payment processor",
       body: isKo
-        ? "USD 결제: Stripe, Inc. (미국) · KRW 결제: 토스페이먼츠 주식회사 (한국). 카드 정보는 PG사가 PCI-DSS Level 1 환경에서 직접 보관하며 회사 서버에 저장되지 않습니다."
-        : "USD payments processed by Stripe, Inc. KRW payments by TossPayments (Korea). Card details are stored only by the PCI-DSS Level 1 PG provider, never on our servers.",
+        ? `USD 결제: Stripe, Inc. (미국) · KRW 결제: ${krwSingle ? "나이스페이먼츠 주식회사" : "토스페이먼츠 주식회사"} (한국). 카드 정보는 PG사가 PCI-DSS Level 1 환경에서 직접 보관하며 회사 서버에 저장되지 않습니다.`
+        : `USD payments processed by Stripe, Inc. KRW payments by ${krwSingle ? "NICE Payments" : "TossPayments"} (Korea). Card details are stored only by the PCI-DSS Level 1 PG provider, never on our servers.`,
     },
     {
       icon: Mail,
-      title: isKo ? "자동결제 사전 안내" : "Auto-billing notice",
-      body: isKo
-        ? "구독 갱신 7일 전 등록 이메일로 다음 결제 일자·금액을 안내합니다 (전자상거래법 §15-3). 안내 후 7일 이내 해지 시 다음 결제는 청구되지 않습니다."
-        : "We email a notice 7 days before each renewal with the upcoming charge date and amount. Cancel within that window and the next charge will not be processed.",
+      title: isKo ? "결제 방식 안내" : "Billing notice",
+      body: krwSingle
+        ? isKo
+          ? "해외카드(Stripe)는 정기구독으로, 갱신 7일 전 다음 결제 일자·금액을 이메일로 안내합니다 (전자상거래법 §15-3). 국내카드(나이스페이먼츠)는 1회성 결제로 자동갱신이 없으며, 이용기간 만료 시 계속 이용하려면 재결제가 필요합니다."
+          : "International cards (Stripe) are recurring — we email a notice 7 days before each renewal. Korean cards (NICE Payments) are one-time charges with no auto-renewal; re-purchase to continue after the period ends."
+        : isKo
+          ? "구독 갱신 7일 전 등록 이메일로 다음 결제 일자·금액을 안내합니다 (전자상거래법 §15-3). 안내 후 7일 이내 해지 시 다음 결제는 청구되지 않습니다."
+          : "We email a notice 7 days before each renewal with the upcoming charge date and amount. Cancel within that window and the next charge will not be processed.",
     },
     {
       icon: RefreshCcw,
       title: isKo ? "해지 절차" : "Cancellation",
-      body: isKo
-        ? "결제 페이지의 '구독 관리' → '해지' 2단계 (가입 단계 수와 동일). 해지 즉시 다음 결제 차단, 현재 결제 기간 만료일까지 서비스 이용 가능."
-        : "Subscription page → 'Manage' → 'Cancel' (2 steps, same as signup). Cancellation stops the next charge; service remains available until the current period end.",
+      body: krwSingle
+        ? isKo
+          ? "해외카드 구독은 '구독 관리' → '해지' 2단계(가입 단계 수와 동일). 국내카드 1회성 결제는 자동결제가 없어 별도 해지가 필요 없으며, 이용기간 만료 시 자동 종료됩니다."
+          : "International subscriptions: 'Manage' → 'Cancel' (2 steps). Korean one-time payments need no cancellation — access simply ends when the period expires."
+        : isKo
+          ? "결제 페이지의 '구독 관리' → '해지' 2단계 (가입 단계 수와 동일). 해지 즉시 다음 결제 차단, 현재 결제 기간 만료일까지 서비스 이용 가능."
+          : "Subscription page → 'Manage' → 'Cancel' (2 steps, same as signup). Cancellation stops the next charge; service remains available until the current period end.",
     },
     {
       icon: Receipt,

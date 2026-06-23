@@ -22,6 +22,16 @@ export default async function PlansPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const isKo = locale === "ko";
+  // 국내카드 PG 라벨 — nicepay 전환 시 나이스페이먼츠(바로오픈은 카드만),
+  // 그 전엔 토스페이먼츠(국내카드·계좌이체).
+  const krwSingle = process.env.NEXT_PUBLIC_KRW_PROVIDER === "nicepay";
+  const krwPgLabel = krwSingle
+    ? isKo
+      ? "나이스페이먼츠 (국내 신용카드)"
+      : "NICE Payments (Korean cards)"
+    : isKo
+      ? "토스페이먼츠 (국내카드·계좌이체)"
+      : "TossPayments (Korean cards / bank transfer)";
   const supabase = await createClient();
   const {
     data: { user },
@@ -92,13 +102,13 @@ export default async function PlansPage({
             <>
               연간 결제 시 <strong className="text-slate-700">2개월 무료</strong> (16.7% 할인). 모든 플랜은 언제든 업그레이드·다운그레이드 가능합니다.
               <br />
-              가격은 부가세 별도. 결제는 Stripe (해외카드) 및 토스페이먼츠 (국내카드·계좌이체) 지원.
+              가격은 부가세 별도. 결제는 Stripe (해외카드) 및 {krwPgLabel} 지원.
             </>
           ) : (
             <>
               Annual billing saves <strong className="text-slate-700">2 months</strong> (16.7% off). Upgrade or downgrade any time.
               <br />
-              Prices exclude tax. Payment via Stripe (international cards) and TossPayments (Korean cards / bank transfer).
+              Prices exclude tax. Payment via Stripe (international cards) and {krwPgLabel}.
             </>
           )}
         </div>
