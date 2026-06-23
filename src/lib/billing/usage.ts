@@ -26,7 +26,13 @@ export interface SubscriptionState {
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
-  paymentProvider: "stripe" | "tosspayments" | null;
+  paymentProvider: "stripe" | "tosspayments" | "nicepay" | null;
+  /**
+   * 나이스페이먼츠 단건결제(빌키 없음) 여부. provider=nicepay이면서 nice_bid가
+   * 없으면 1회성 결제 — 자동갱신이 없어 current_period_end는 '다음 결제일'이
+   * 아니라 '이용 만료일'이다. (nicepay + nice_bid 있음 = 정기과금/키인.)
+   */
+  singlePayment: boolean;
 }
 
 export interface MonthlyUsage {
@@ -48,7 +54,7 @@ export async function getSubscription(workspaceId: string): Promise<Subscription
   const { data, error } = await admin
     .from("subscriptions")
     .select(
-      "plan, status, trial_ends_at, trial_sims_used, trial_sims_limit, current_period_start, current_period_end, cancel_at_period_end, payment_provider",
+      "plan, status, trial_ends_at, trial_sims_used, trial_sims_limit, current_period_start, current_period_end, cancel_at_period_end, payment_provider, nice_bid",
     )
     .eq("workspace_id", workspaceId)
     .maybeSingle();
@@ -75,7 +81,8 @@ export async function getSubscription(workspaceId: string): Promise<Subscription
     currentPeriodEnd: data?.current_period_end ?? null,
     cancelAtPeriodEnd: !!data?.cancel_at_period_end,
     paymentProvider:
-      (data?.payment_provider as "stripe" | "tosspayments" | null) ?? null,
+      (data?.payment_provider as "stripe" | "tosspayments" | "nicepay" | null) ?? null,
+    singlePayment: data?.payment_provider === "nicepay" && data?.nice_bid == null,
   };
 }
 

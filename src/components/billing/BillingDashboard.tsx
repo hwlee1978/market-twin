@@ -48,7 +48,10 @@ interface InitialState {
     end: string | null;
     cancelAtEnd: boolean;
   };
-  paymentProvider: "stripe" | "tosspayments" | null;
+  paymentProvider: "stripe" | "tosspayments" | "nicepay" | null;
+  // 나이스페이먼츠 단건결제(빌키 없음). true면 자동갱신이 없어 만료일을
+  // '다음 결제'가 아니라 '이용 만료'로 표시한다.
+  singlePayment: boolean;
   usage: {
     monthStart: string;
     simsUsed: number;
@@ -78,7 +81,7 @@ export function BillingDashboard({
   locale: string;
 }) {
   const isKo = locale === "ko";
-  const { plan, status, trial, period, paymentProvider, usage } = initial;
+  const { plan, status, trial, period, paymentProvider, singlePayment, usage } = initial;
   const [portalBusy, setPortalBusy] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
   const [cancelBusy, setCancelBusy] = useState(false);
@@ -150,6 +153,7 @@ export function BillingDashboard({
         status={status}
         trial={trial}
         period={period}
+        singlePayment={singlePayment}
         isKo={isKo}
       />
 
@@ -290,9 +294,13 @@ export function BillingDashboard({
           {isKo ? "결제 수단 안내" : "Payment methods"}
         </div>
         <p className="text-sm text-slate-600 leading-relaxed">
-          {isKo
-            ? "해외 카드 (Visa / Master / Amex) 결제는 Stripe로 처리되며, 국내 카드 및 계좌이체는 토스페이먼츠로 처리됩니다. 결제 통화는 첫 결제 시 USD 또는 KRW로 고정되며, 변경하려면 현재 구독 취소 후 재결제가 필요합니다."
-            : "International cards (Visa / Master / Amex) are processed via Stripe; Korean cards and bank transfers via TossPayments. Billing currency (USD or KRW) is locked at first checkout; changing it requires canceling and re-subscribing."}
+          {process.env.NEXT_PUBLIC_KRW_PROVIDER === "nicepay"
+            ? isKo
+              ? "해외 카드 (Visa / Master / Amex) 결제는 Stripe로 처리되며, 국내 신용카드 결제는 나이스페이먼츠로 처리됩니다. 국내 결제는 1회성 결제로 자동갱신이 없으며, 계속 이용하려면 이용기간 만료 전 재결제가 필요합니다."
+              : "International cards (Visa / Master / Amex) are processed via Stripe; Korean card payments via NICE Payments. Korean payments are one-time charges with no auto-renewal — re-purchase before the period ends to continue."
+            : isKo
+              ? "해외 카드 (Visa / Master / Amex) 결제는 Stripe로 처리되며, 국내 카드 및 계좌이체는 토스페이먼츠로 처리됩니다. 결제 통화는 첫 결제 시 USD 또는 KRW로 고정되며, 변경하려면 현재 구독 취소 후 재결제가 필요합니다."
+              : "International cards (Visa / Master / Amex) are processed via Stripe; Korean cards and bank transfers via TossPayments. Billing currency (USD or KRW) is locked at first checkout; changing it requires canceling and re-subscribing."}
         </p>
       </div>
     </div>
@@ -306,12 +314,14 @@ function StatusBanner({
   status,
   trial,
   period,
+  singlePayment,
   isKo,
 }: {
   plan: PlanShape;
   status: SubscriptionStatus;
   trial: InitialState["trial"];
   period: InitialState["period"];
+  singlePayment: boolean;
   isKo: boolean;
 }) {
   // Trial ending soon
@@ -374,15 +384,21 @@ function StatusBanner({
     );
   }
   if (status === "active") {
+    // 단건결제는 자동갱신이 없다 → '다음 결제'가 아니라 '이용 만료'로 안내해
+    // 자동과금 오해를 막는다(공시와 일치).
     return (
       <Banner
         tone="success"
         icon={<CheckCircle2 size={16} />}
-        title={isKo ? "정상 구독 중" : "Subscription active"}
+        title={isKo ? (singlePayment ? "정상 이용 중" : "정상 구독 중") : "Subscription active"}
         body={
-          isKo
-            ? `다음 결제: ${formatDate(period.end, isKo) ?? "—"}`
-            : `Next billing: ${formatDate(period.end, isKo) ?? "—"}`
+          singlePayment
+            ? isKo
+              ? `이용 만료: ${formatDate(period.end, isKo) ?? "—"} · 자동갱신 없음, 계속 이용하려면 만료 전 재결제`
+              : `Access until: ${formatDate(period.end, isKo) ?? "—"} · One-time payment, no auto-renewal`
+            : isKo
+              ? `다음 결제: ${formatDate(period.end, isKo) ?? "—"}`
+              : `Next billing: ${formatDate(period.end, isKo) ?? "—"}`
         }
       />
     );
