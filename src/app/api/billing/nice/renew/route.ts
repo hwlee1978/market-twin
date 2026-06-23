@@ -152,10 +152,50 @@ export async function GET(req: Request) {
     }
   }
 
+  // ── 단건결제 만료 sweep ────────────────────────────────────────────
+  // 결제창 단건결제는 빌키(bid)가 없어 위 자동과금 루프(nice_bid IS NOT NULL)
+  // 가 건드리지 않는다. getSubscription도 current_period_end로 자동 강등을
+  // 하지 않으므로, 기간이 지난 단건 구독은 여기서 free_trial로 내려준다.
+  let expiredSingle = 0;
+  const { data: lapsed, error: lapsedErr } = await admin
+    .from("subscriptions")
+    .select("workspace_id, plan")
+    .eq("payment_provider", "nicepay")
+    .eq("status", "active")
+    .is("nice_bid", null)
+    .lte("current_period_end", now);
+
+  if (lapsedErr) {
+    console.error("[nice renew] single-payment sweep query failed:", lapsedErr.message);
+  } else {
+    for (const row of lapsed ?? []) {
+      const workspaceId = row.workspace_id as string;
+      await admin
+        .from("subscriptions")
+        .update({
+          plan: "free_trial",
+          status: "canceled",
+          cancel_at_period_end: false,
+          trial_sims_limit: 0,
+        })
+        .eq("workspace_id", workspaceId);
+      await admin.from("subscription_events").insert({
+        workspace_id: workspaceId,
+        event: "canceled",
+        from_plan: row.plan as string,
+        to_plan: "free_trial",
+        to_status: "canceled",
+        metadata: { provider: "nicepay", mode: "single", reason: "period_expired" },
+      });
+      expiredSingle += 1;
+    }
+  }
+
   return NextResponse.json({
     processed: results.length,
     succeeded: results.filter((r) => r.outcome === "success").length,
     failed: results.filter((r) => r.outcome === "failed").length,
+    expiredSingle,
     results,
   });
 }

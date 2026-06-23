@@ -84,6 +84,22 @@ function chargeSignData(orderId: string, bid: string, ediDate: string): string {
     .digest("hex");
 }
 
+/** signData for 결제승인(결제창 단건): hex(sha256(tid + amount + ediDate + SecretKey)). */
+function paymentSignData(tid: string, amount: number, ediDate: string): string {
+  return crypto
+    .createHash("sha256")
+    .update(`${tid}${amount}${ediDate}${niceSecretKey()}`)
+    .digest("hex");
+}
+
+/** 동일 길이 hex 문자열 상수시간 비교. */
+function safeHexEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 async function niceRequest<T>(
   method: "GET" | "POST",
   path: string,
@@ -179,6 +195,53 @@ export async function chargeBillingKey(opts: {
 /** bid 삭제(만료). 구독 해지 teardown. */
 export async function expireBillingKey(opts: { bid: string; orderId: string }): Promise<void> {
   await niceRequest("POST", `/v1/subscribe/${opts.bid}/expire`, { orderId: opts.orderId });
+}
+
+/**
+ * 결제창 단건결제 인증결과 위변조 검증.
+ * NICE가 returnUrl로 POST한 signature = hex(sha256(authToken + clientId +
+ * amount + SecretKey))를 우리 키로 재계산해 상수시간 비교한다.
+ * amount는 NICE가 서명한 값이므로, 이 검증 통과 = 금액 무결성 보장.
+ */
+export function verifyAuthSignature(opts: {
+  authToken: string;
+  amount: number | string;
+  signature: string;
+}): boolean {
+  const expected = crypto
+    .createHash("sha256")
+    .update(`${opts.authToken}${niceClientId()}${opts.amount}${niceSecretKey()}`)
+    .digest("hex");
+  return safeHexEqual(expected, opts.signature);
+}
+
+/**
+ * 결제창 단건결제 최종 승인. 인증(결제창)으로 받은 tid를 금액과 함께
+ * /v1/payments/{tid}에 보내 실제 매출(승인)을 일으킨다. 빌키 없는 1회성
+ * 결제라 저장할 bid가 없고, current_period_end로 기간 접근만 부여한다.
+ */
+export async function approvePayment(opts: {
+  tid: string;
+  amountKrw: number;
+}): Promise<{ tid: string; orderId?: string; status?: string; amount: number; paidAt?: string }> {
+  const ediDate = new Date().toISOString();
+  const signData = paymentSignData(opts.tid, opts.amountKrw, ediDate);
+  type Resp = {
+    resultCode: string;
+    resultMsg: string;
+    tid: string;
+    orderId?: string;
+    status?: string;
+    amount: number;
+    paidAt?: string;
+  };
+  const data = await niceRequest<Resp>("POST", `/v1/payments/${opts.tid}`, {
+    amount: opts.amountKrw,
+    ediDate,
+    signData,
+    returnCharSet: "utf-8",
+  });
+  return { tid: data.tid, orderId: data.orderId, status: data.status, amount: data.amount, paidAt: data.paidAt };
 }
 
 /**
