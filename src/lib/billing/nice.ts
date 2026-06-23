@@ -84,6 +84,14 @@ function chargeSignData(orderId: string, bid: string, ediDate: string): string {
     .digest("hex");
 }
 
+/** signData for 결제취소(환불): hex(sha256(tid + ediDate + SecretKey)). (취소는 amount 미포함) */
+function cancelSignData(tid: string, ediDate: string): string {
+  return crypto
+    .createHash("sha256")
+    .update(`${tid}${ediDate}${niceSecretKey()}`)
+    .digest("hex");
+}
+
 /** signData for 결제승인(결제창 단건): hex(sha256(tid + amount + ediDate + SecretKey)). */
 function paymentSignData(tid: string, amount: number, ediDate: string): string {
   return crypto
@@ -242,6 +250,45 @@ export async function approvePayment(opts: {
     returnCharSet: "utf-8",
   });
   return { tid: data.tid, orderId: data.orderId, status: data.status, amount: data.amount, paidAt: data.paidAt };
+}
+
+/**
+ * 결제취소(환불). 승인된 거래(tid)를 취소한다. cancelAmtKrw 생략 시 전액취소,
+ * 지정 시 부분취소(카드는 부분취소 가능). orderId는 취소건 고유번호로 매번
+ * unique해야 한다(중복 재호출 불가). 7일 내 미사용 전액환불(청약철회) 등에 사용.
+ */
+export async function cancelPayment(opts: {
+  tid: string;
+  reason: string;
+  orderId: string;
+  cancelAmtKrw?: number;
+}): Promise<{ cancelledTid?: string; status?: string; cancelledAt?: string; balanceAmt?: number }> {
+  const ediDate = new Date().toISOString();
+  const signData = cancelSignData(opts.tid, ediDate);
+  type Resp = {
+    resultCode: string;
+    resultMsg: string;
+    tid: string;
+    cancelledTid?: string;
+    status?: string;
+    cancelledAt?: string;
+    balanceAmt?: number;
+  };
+  const data = await niceRequest<Resp>("POST", `/v1/payments/${opts.tid}/cancel`, {
+    reason: opts.reason,
+    orderId: opts.orderId,
+    ediDate,
+    signData,
+    returnCharSet: "utf-8",
+    // cancelAmt 생략 = 전액취소. 부분취소 시에만 포함.
+    ...(opts.cancelAmtKrw != null ? { cancelAmt: opts.cancelAmtKrw } : {}),
+  });
+  return {
+    cancelledTid: data.cancelledTid,
+    status: data.status,
+    cancelledAt: data.cancelledAt,
+    balanceAmt: data.balanceAmt,
+  };
 }
 
 /**

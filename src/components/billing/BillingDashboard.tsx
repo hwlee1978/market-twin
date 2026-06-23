@@ -87,6 +87,8 @@ export function BillingDashboard({
   const [cancelBusy, setCancelBusy] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelScheduled, setCancelScheduled] = useState(period.cancelAtEnd);
+  const [refundBusy, setRefundBusy] = useState(false);
+  const [refundMsg, setRefundMsg] = useState<string | null>(null);
 
   const onManage = async () => {
     setPortalBusy(true);
@@ -134,6 +136,32 @@ export function BillingDashboard({
     plan.slug !== "free_trial" &&
     status !== "canceled" &&
     !cancelScheduled;
+
+  // 단건결제 자가 환불(청약철회). 자격(7일 이내·시뮬 미사용)은 서버가 최종
+  // 판정하고, 부적격이면 안내 메시지를 돌려준다.
+  const canRefund = singlePayment && status === "active" && plan.slug !== "free_trial";
+
+  const onRefund = async () => {
+    const ok = window.confirm(
+      isKo
+        ? "전액 환불을 요청하시겠어요?\n결제 후 7일 이내이고 시뮬레이션을 사용하지 않은 경우 전액 환불되며, 즉시 무료 등급으로 전환됩니다."
+        : "Request a full refund?\nFull refund if within 7 days of payment and no simulations were used. You'll move to the free tier immediately.",
+    );
+    if (!ok) return;
+    setRefundBusy(true);
+    setRefundMsg(null);
+    try {
+      const res = await fetch("/api/billing/nice/refund", { method: "POST" });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.message ?? j.error ?? "refund_failed");
+      setRefundMsg(isKo ? "환불이 완료되었습니다. 잠시 후 새로고침됩니다." : "Refund complete. Reloading…");
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err) {
+      setRefundMsg(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRefundBusy(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -196,7 +224,7 @@ export function BillingDashboard({
               </Link>
             )}
 
-            {plan.slug !== "free_trial" && status !== "canceled" && (
+            {plan.slug !== "free_trial" && status !== "canceled" && !singlePayment && (
               <button
                 type="button"
                 onClick={onManage}
@@ -220,7 +248,20 @@ export function BillingDashboard({
                 {isKo ? "구독 취소" : "Cancel subscription"}
               </button>
             )}
+
+            {canRefund && (
+              <button
+                type="button"
+                onClick={onRefund}
+                disabled={refundBusy}
+                className="w-full justify-center inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-risk disabled:opacity-50"
+              >
+                {refundBusy && <Loader2 size={12} className="animate-spin" />}
+                {isKo ? "환불 요청 (7일 이내·미사용)" : "Request refund (within 7 days · unused)"}
+              </button>
+            )}
           </div>
+          {refundMsg && <p className="mt-2 text-xs text-slate-500">{refundMsg}</p>}
           {cancelScheduled && status !== "canceled" && (
             <p className="mt-2 text-xs text-slate-500">
               {isKo
@@ -327,7 +368,8 @@ function StatusBanner({
   // Trial ending soon
   if (plan.slug === "free_trial" && trial.active) {
     const endsAt = trial.endsAt ? new Date(trial.endsAt).getTime() : null;
-    const remaining = endsAt ? Math.max(0, Math.ceil((endsAt - Date.now()) / (24 * 60 * 60 * 1000))) : null;
+    // eslint-disable-next-line react-hooks/purity
+    const remaining = endsAt ? Math.max(0, Math.ceil((endsAt - Date.now()) / (24 * 60 * 60 * 1000))) : null; // intentional: countdown needs current time
     return (
       <Banner
         tone="info"
