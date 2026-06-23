@@ -119,6 +119,16 @@ export async function POST(req: Request) {
     }
   }
 
+  // 매핑 실패(customerKey 미해결) 시 subscription_events.workspace_id는
+  // NOT NULL이라 기록할 수 없다. 무한 재전송을 막기 위해 로그만 남기고 ack
+  // 한다(우리가 모르는/이미 정리된 결제의 통보일 수 있음).
+  if (!workspaceId) {
+    console.warn(
+      `[toss/webhook] unmapped customerKey=${data.customerKey ?? "?"} status=${status} — acked without persist`,
+    );
+    return NextResponse.json({ ok: true, unmapped: true });
+  }
+
   // Map Toss status → our subscription status side-effects.
   // We DON'T flip subscription.status here for normal DONE/CANCELED
   // events because the cron-initiated charge already does that. We
@@ -133,23 +143,26 @@ export async function POST(req: Request) {
     appliedStatusChange = "past_due";
   }
 
-  // Log the event (idempotency + audit trail).
+  // Log the event (idempotency + audit trail). 컬럼은 실제 스키마(0019)에
+  // 맞춘다: event(text) / amount_cents(KRW×100) / metadata. subscription_id·
+  // event_type·amount 컬럼은 존재하지 않으므로 메타데이터로 보존한다.
   await svc.from("subscription_events").insert({
     workspace_id: workspaceId,
-    subscription_id: subscriptionId,
-    event_type:
+    event:
       status === "DONE"
-        ? "toss_payment_confirmed"
+        ? "payment_succeeded"
         : status === "CANCELED" || status === "PARTIAL_CANCELED"
-          ? "toss_payment_canceled"
+          ? "canceled"
           : status === "ABORTED" || status === "EXPIRED"
-            ? "toss_payment_failed"
-            : "toss_webhook_other",
-    amount: data.totalAmount ?? null,
+            ? "payment_failed"
+            : "status_changed",
+    to_status: appliedStatusChange,
+    amount_cents: data.totalAmount != null ? data.totalAmount * 100 : null,
     currency: "KRW",
     metadata: {
       toss_event_key: eventKey,
-      event_type: eventType,
+      subscription_id: subscriptionId,
+      toss_event_type: eventType,
       payment_key: paymentKey,
       status,
       method: data.method,
