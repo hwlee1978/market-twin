@@ -146,6 +146,13 @@ export async function POST(
   const isSuperAdmin = adminCtx?.role === "super";
   if (!isFreeRerun && !isSuperAdmin) {
     const usage = await getMonthlyUsage(wsCtx.workspaceId, sub);
+    // 단건결제(자동갱신 없음) 이용기간 만료 여부 — 만료됐으면 일일 cron이
+    // 강등하기 전이라도 차단. 정기결제(빌키/Stripe)는 false로 둬 갱신 lag에
+    // 막히지 않게 한다.
+    const singlePaymentExpired =
+      sub.singlePayment &&
+      sub.currentPeriodEnd != null &&
+      new Date(sub.currentPeriodEnd).getTime() < Date.now();
     const decision = canStartSim({
       plan: sub.plan,
       trialActive: sub.trialActive,
@@ -155,6 +162,7 @@ export async function POST(
       monthDecisionPlusSimsUsed: usage.decisionPlusSimsUsed,
       monthDeepSimsUsed: usage.deepSimsUsed,
       simTier: tier as "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro",
+      singlePaymentExpired,
     });
     if (!decision.allowed) {
       return NextResponse.json(

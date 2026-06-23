@@ -309,6 +309,13 @@ export function canStartSim(opts: {
   monthDecisionPlusSimsUsed: number;
   monthDeepSimsUsed: number;
   simTier: "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro";
+  /**
+   * 단건결제(자동갱신 없음) 이용기간이 만료됐는지. trialActive처럼 시간 판정은
+   * 호출부에서 계산해 넘긴다. true면 일일 만료 cron이 아직 강등하지 않았더라도
+   * 유료 시뮬을 차단한다. 정기결제(자동갱신)는 갱신 lag에 막으면 안 되므로 이
+   * 플래그는 단건일 때만 true로 넘긴다.
+   */
+  singlePaymentExpired?: boolean;
 }): { allowed: true } | { allowed: false; reason: string } {
   const { plan, simTier } = opts;
   // deep_pro is gated to plans that explicitly enable it (Enterprise only).
@@ -340,6 +347,12 @@ export function canStartSim(opts: {
       return { allowed: false, reason: "trial_sim_quota_exhausted" };
     }
     return { allowed: true };
+  }
+  // 단건결제 만료 — 일일 cron이 free_trial로 강등하기 전이라도(최대 ~24h lag)
+  // plan은 아직 유료라 quota 검사를 통과해버린다. 만료됐으면 여기서 차단해
+  // 재결제를 유도한다. (정기결제는 호출부에서 이 플래그를 false로 넘긴다.)
+  if (opts.singlePaymentExpired) {
+    return { allowed: false, reason: "single_payment_expired" };
   }
   // Paid plans: check monthly quotas (-1 means unlimited).
   if (plan.limits.simsPerMonth >= 0 && opts.monthSimsUsed >= plan.limits.simsPerMonth) {

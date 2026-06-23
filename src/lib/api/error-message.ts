@@ -87,6 +87,10 @@ export async function friendlyApiError(
         ko: "이번 달 시뮬 한도를 모두 사용했습니다. 다음 달 갱신을 기다리거나 플랜을 업그레이드하세요.",
         en: "Monthly sim quota used up. Wait for next month or upgrade your plan.",
       },
+      single_payment_expired: {
+        ko: "결제하신 이용기간이 만료되었습니다. 단건 결제는 자동갱신되지 않으니, 계속 이용하려면 다시 결제해주세요.",
+        en: "Your paid access period has expired. One-time payments don't auto-renew — please pay again to continue.",
+      },
       month_deep_quota_exhausted: {
         ko: "이번 달 Triangulated tier 한도를 모두 사용했습니다. 다음 달 갱신을 기다리거나 더 높은 플랜으로 업그레이드하세요.",
         en: "Monthly Triangulated tier quota used up. Wait for next month or upgrade.",
