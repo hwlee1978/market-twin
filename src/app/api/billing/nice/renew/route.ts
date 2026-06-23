@@ -6,6 +6,8 @@ import { getPlan, type PlanSlug } from "@/lib/billing/plans";
 import {
   notifyPaymentFailed,
   notifyPaymentSucceeded,
+  notifySinglePaymentExpiring,
+  defaultUpgradeUrl,
 } from "@/lib/email/billing-notify";
 import { assertCronAuth } from "@/lib/auth/cron-gate";
 
@@ -191,11 +193,64 @@ export async function GET(req: Request) {
     }
   }
 
+  // ── 단건결제 만료 임박 재구매 안내 (D-3 근처) ─────────────────────────
+  // 단건은 자동갱신이 없어 가만두면 그냥 끊긴다. 만료 ~3일 전(2~4일 창)에
+  // 재결제 안내 메일을 한 번 보낸다. 멱등성은 해당 period_end에 대한
+  // single_expiry_reminder 이벤트 존재 여부로 보장(주기마다 재구매하면
+  // period_end가 바뀌므로 다음 주기엔 다시 안내된다).
+  let remindersSent = 0;
+  const remindFrom = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
+  const remindTo = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: expiring, error: expiringErr } = await admin
+    .from("subscriptions")
+    .select("workspace_id, plan, current_period_end")
+    .eq("payment_provider", "nicepay")
+    .eq("status", "active")
+    .is("nice_bid", null)
+    .gte("current_period_end", remindFrom)
+    .lt("current_period_end", remindTo);
+
+  if (expiringErr) {
+    console.error("[nice renew] expiring-soon query failed:", expiringErr.message);
+  } else {
+    for (const row of expiring ?? []) {
+      const workspaceId = row.workspace_id as string;
+      const periodEnd = row.current_period_end as string;
+      const { data: sent } = await admin
+        .from("subscription_events")
+        .select("id")
+        .eq("workspace_id", workspaceId)
+        .eq("event", "single_expiry_reminder")
+        .eq("metadata->>period_end", periodEnd)
+        .limit(1);
+      if (sent && sent.length) continue;
+
+      const plan = getPlan(row.plan as PlanSlug);
+      const daysLeft = Math.max(
+        1,
+        Math.ceil((new Date(periodEnd).getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
+      );
+      void notifySinglePaymentExpiring({
+        workspaceId,
+        planName: plan.name,
+        daysLeft,
+        upgradeUrl: defaultUpgradeUrl("ko"), // 수신자별 locale은 헬퍼 내부에서 해석
+      });
+      await admin.from("subscription_events").insert({
+        workspace_id: workspaceId,
+        event: "single_expiry_reminder",
+        metadata: { period_end: periodEnd, days_left: daysLeft, provider: "nicepay", mode: "single" },
+      });
+      remindersSent += 1;
+    }
+  }
+
   return NextResponse.json({
     processed: results.length,
     succeeded: results.filter((r) => r.outcome === "success").length,
     failed: results.filter((r) => r.outcome === "failed").length,
     expiredSingle,
+    remindersSent,
     results,
   });
 }

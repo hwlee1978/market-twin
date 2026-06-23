@@ -44,6 +44,12 @@ interface TrialEndedArgs extends BillingNotifyArgs {
   upgradeUrl: string;
 }
 
+interface SinglePaymentExpiringArgs extends BillingNotifyArgs {
+  planName: string;
+  daysLeft: number;
+  upgradeUrl: string;
+}
+
 /** Resolve workspace owner email + locale (defaults to ko). */
 async function getRecipientContext(
   workspaceId: string,
@@ -321,6 +327,53 @@ export async function notifyTrialEnded(args: TrialEndedArgs): Promise<void> {
     });
   } catch (err) {
     console.warn("[billing-notify] trial_ended email failed", err);
+  }
+}
+
+/**
+ * 나이스페이먼츠 단건결제 이용기간 만료 임박 안내. 단건은 자동갱신이 없어,
+ * 만료 전에 재결제하지 않으면 접근이 끊긴다 — 그 전에 재구매를 유도한다.
+ */
+export async function notifySinglePaymentExpiring(args: SinglePaymentExpiringArgs): Promise<void> {
+  const resend = getResend();
+  if (!resend) return;
+  try {
+    const recipient = await getRecipientContext(args.workspaceId, args.locale);
+    if (!recipient) return;
+    const isKo = recipient.locale === "ko";
+
+    const subject = isKo
+      ? `[Market Twin] ${args.planName} 이용기간 ${args.daysLeft}일 남음 — 재결제 안내`
+      : `[Market Twin] ${args.planName} expires in ${args.daysLeft} day${args.daysLeft === 1 ? "" : "s"} — renew to continue`;
+
+    const bodyHtml = isKo
+      ? `<p><strong>${args.planName}</strong> 이용기간이 <strong>${args.daysLeft}일 후</strong> 만료됩니다. 1회성 결제라 자동으로 갱신되지 않으니, 계속 이용하시려면 만료 전에 재결제해주세요.</p>` +
+        `<p style="color:#64748b;font-size:13px">만료 후에는 새 시뮬레이션을 시작할 수 없으며, 기존 결과·PDF·공유 링크는 그대로 열람 가능합니다.</p>`
+      : `<p>Your <strong>${args.planName}</strong> access expires in <strong>${args.daysLeft} day${args.daysLeft === 1 ? "" : "s"}</strong>. This was a one-time payment with no auto-renewal — re-purchase before it ends to keep going.</p>` +
+        `<p style="color:#64748b;font-size:13px">After expiry you can't start new simulations; past results, PDFs, and share links stay accessible.</p>`;
+
+    const text = isKo
+      ? `${args.planName} 이용기간이 ${args.daysLeft}일 후 만료됩니다. 자동갱신이 없으니 재결제가 필요합니다.\n재결제: ${args.upgradeUrl}\n`
+      : `Your ${args.planName} access expires in ${args.daysLeft} day(s). No auto-renewal — renew to continue.\nRenew: ${args.upgradeUrl}\n`;
+
+    await resend.emails.send({
+      from: getFromAddress(),
+      to: [recipient.email],
+      subject,
+      html: shellHtml({
+        eyebrow: isKo ? "이용기간 만료 임박" : "Access Expiring",
+        title: isKo
+          ? `${args.planName} 이용 ${args.daysLeft}일 남음`
+          : `${args.daysLeft} day${args.daysLeft === 1 ? "" : "s"} of ${args.planName} left`,
+        bodyHtml,
+        ctaLabel: isKo ? "재결제하기" : "Renew now",
+        ctaUrl: args.upgradeUrl,
+        footnote: "Market Twin · Billing",
+      }),
+      text,
+    });
+  } catch (err) {
+    console.warn("[billing-notify] single_payment_expiring email failed", err);
   }
 }
 
