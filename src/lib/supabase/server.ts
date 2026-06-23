@@ -28,6 +28,7 @@ export async function createClient() {
 
 export function createServiceClient() {
   // For privileged server-only operations (never expose to client).
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy require keeps this out of the edge/client bundle
   const { createClient: createSupabaseClient } = require("@supabase/supabase-js");
   return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -39,6 +39,7 @@ export default async function SharedEnsemblePage({
   if (!ensemble || !ensemble.share_expires_at) {
     notFound();
   }
+  // eslint-disable-next-line react-hooks/purity -- server component: Date.now() used for expiry check, not a client render
   if (new Date(ensemble.share_expires_at).getTime() < Date.now()) {
     notFound();
   }

@@ -2034,7 +2034,7 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
  * 1265510e PDF surfaced this with badly overlapping text on every
  * S1/S2/S3 page; this rewrite fixes that.
  */
-function renderSecondaryAnalysisPages(opts: {
+function _renderSecondaryAnalysisPages(opts: {
   secondary: NonNullable<ValidationReportData["secondaryAnalysis"]>;
   winnerLabel: string;
   winnerCode: string;
@@ -2050,10 +2050,6 @@ function renderSecondaryAnalysisPages(opts: {
   // inner View flex:1 wrappers we use for two-line bullets (header +
   // description). react-pdf's layout engine resolves the nested flex
   // wrong → both lines get painted at the same y-coordinate and rows
-  // stack on top of each other. Use this flex-less alias inside every
-  // nested-bullet pattern below.
-  const bulletTextSafe = { fontSize: 10, color: C.body, lineHeight: 1.55 };
-
   const sectionTitle = (text: string) => (
     <MText style={styles.subSectionTitle}>{text}</MText>
   );
@@ -2481,7 +2477,7 @@ function renderSecondaryHeader(opts: SecondaryRenderOpts, label: string): React.
   );
 }
 
-function renderSecondaryMarketPage(opts: SecondaryRenderOpts): React.ReactElement | null {
+function _renderSecondaryMarketPage(opts: SecondaryRenderOpts): React.ReactElement | null {
   const { secondary, isKo, pageHeader, pageFooter } = opts;
   const mp = secondary.marketProfile;
   if (!mp) return null;
@@ -2955,7 +2951,7 @@ function renderSecondaryActionsPage(opts: SecondaryRenderOpts): React.ReactEleme
  * depth as the primary winner's pricing. Returns null when the user
  * hasn't yet generated the secondary pricing via the dashboard CTA.
  */
-function renderSecondaryPricingPage(
+function _renderSecondaryPricingPage(
   opts: SecondaryRenderOpts,
   currency: string,
 ): React.ReactElement | null {

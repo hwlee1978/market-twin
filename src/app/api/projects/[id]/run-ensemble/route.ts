@@ -68,7 +68,8 @@ export async function POST(
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  let { tier, notifyEmail, locale } = parsed.data;
+  let { tier } = parsed.data;
+  const { notifyEmail, locale } = parsed.data;
   const { parentEnsembleId } = parsed.data;
 
   // Free rerun validation. Set isFreeRerun = true ONLY when every gate

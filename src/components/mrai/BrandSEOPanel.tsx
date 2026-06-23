@@ -57,6 +57,7 @@ export function BrandSEOPanel() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, []);
 
@@ -394,7 +395,7 @@ function PropertyModal({
                 </li>
               </ul>
               <div className="mt-1.5 text-slate-500">
-                각 섹션의 <span className="text-brand font-medium">"처음이라면…"</span> 링크를 펼치면 어디서 찾는지 단계별로 안내합니다.
+                각 섹션의 <span className="text-brand font-medium">&quot;처음이라면…&quot;</span> 링크를 펼치면 어디서 찾는지 단계별로 안내합니다.
               </div>
             </div>
           )}
@@ -607,7 +608,7 @@ function PropertyModal({
                 <strong>기본 메타 제목</strong>: 검색 결과에 굵게 표시되는 한 줄. <strong>50-60자</strong> 권장. 형식 = <em>브랜드 — 핵심 가치 + 카테고리</em>. 예: <code className="font-mono bg-white px-1">자사 브랜드 — 핵심 가치 + 제품 카테고리</code>.
               </>,
               <>
-                <strong>기본 메타 설명</strong>: 제목 아래 회색 두 줄. <strong>140-160자</strong> 권장. 누가·뭐가·왜 좋은지 핵심을 한 문장으로. 예: <em>"타겟 고객층을 위한 제품 정의 + 가장 강력한 차별점 한 문장."</em>
+                <strong>기본 메타 설명</strong>: 제목 아래 회색 두 줄. <strong>140-160자</strong> 권장. 누가·뭐가·왜 좋은지 핵심을 한 문장으로. 예: <em>&quot;타겟 고객층을 위한 제품 정의 + 가장 강력한 차별점 한 문장.&quot;</em>
               </>,
               <>
                 <strong>기본 키워드</strong>: 콤마(,) 로 구분한 5-10개 핵심 검색어. 사용자가 실제로 검색할 표현을 그대로. 예: <code className="font-mono bg-white px-1">제품 카테고리, 자사 브랜드명, 핵심 차별 키워드, 타겟 세그먼트</code>.

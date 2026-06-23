@@ -165,7 +165,7 @@ async function spawnEnsembleForFixture(
   workspaceId: string,
   tier: Tier,
   projectId: string,
-  fixture: LoadedTruth,
+  _fixture: LoadedTruth,
 ): Promise<{ ensembleId: string; simRows: OrchestrationSimRow[] }> {
   const preset = TIER_PRESETS[tier];
   // Single-provider Anthropic mode when LLM_PROVIDER=anthropic is set —

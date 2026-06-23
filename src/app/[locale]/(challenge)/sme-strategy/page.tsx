@@ -246,26 +246,6 @@ function Criterion({
   );
 }
 
-function MiniCard({
-  icon: Icon,
-  label,
-  desc,
-}: {
-  icon: typeof FileText;
-  label: string;
-  desc: string;
-}) {
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
-      <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center mx-auto mb-2">
-        <Icon className="w-5 h-5" />
-      </div>
-      <div className="text-sm font-semibold text-slate-900">{label}</div>
-      <div className="text-[10px] text-slate-500 mt-0.5">{desc}</div>
-    </div>
-  );
-}
-
 function NumberedMiniCard({
   num,
   icon: Icon,

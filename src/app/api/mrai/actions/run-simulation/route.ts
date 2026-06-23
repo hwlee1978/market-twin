@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { resolveCompetitors } from "@/lib/simulation/competitor-resolver";
 
 export const dynamic = "force-dynamic";

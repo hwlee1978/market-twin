@@ -58,6 +58,7 @@ export default async function AdminModelsPage({
   // 7-day per-stage stats. Failed sims now retain current_stage (after the
   // runner fix), so this groups failures by the actual breaking stage —
   // not a generic 'failed' bucket like before.
+  // eslint-disable-next-line react-hooks/purity -- server component: Date.now() is safe in async data-fetch, not a client render
   const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const { data: recent } = await admin
     .from("simulations")

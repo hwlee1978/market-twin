@@ -226,17 +226,20 @@ export function PricingCurveChart({
   // $260=45%, $300=60%) — the envelope clamps those to the prior
   // running min, surfacing the high-price bumps as suppressed noise
   // rather than treating them as real demand growth.
-  let runningMin = Infinity;
-  const enriched = bucketed.map((d) => {
-    runningMin = Math.min(runningMin, d.meanConversionProbability);
-    return {
+  const enriched = bucketed.reduce<
+    { price: string; priceCents: number; conv: number; envelope: number; n: number }[]
+  >((acc, d) => {
+    const prevMin = acc.length > 0 ? acc[acc.length - 1].envelope / 10 : Infinity;
+    const envelopeRaw = Math.min(prevMin, d.meanConversionProbability);
+    acc.push({
       price: formatPrice(d.priceCents, currency),
       priceCents: d.priceCents,
       conv: Math.round(d.meanConversionProbability * 1000) / 10, // raw %
-      envelope: Math.round(runningMin * 1000) / 10, // envelope %
+      envelope: Math.round(envelopeRaw * 1000) / 10, // envelope %
       n: d.sampleCount,
-    };
-  });
+    });
+    return acc;
+  }, []);
   // Only show envelope line when it actually diverges from raw —
   // monotonic curves overlap perfectly and the dashed line just adds
   // visual clutter.

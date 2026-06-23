@@ -487,7 +487,7 @@ async function pickBestCompositeViaVision(
           role: "user",
           content: [
             ...downsized.map(
-              (buf, i) =>
+              (buf) =>
                 ({
                   type: "image",
                   source: {

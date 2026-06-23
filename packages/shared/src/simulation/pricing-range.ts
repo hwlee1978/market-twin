@@ -40,7 +40,7 @@ const DEFAULT_HIGH_MULT = 2.0;
 
 export function computePricingRange(opts: PricingRangeOpts): PricingRange {
   const base = opts.basePriceCents;
-  let lowMult = DEFAULT_LOW_MULT;
+  const lowMult = DEFAULT_LOW_MULT;
   let highMult = DEFAULT_HIGH_MULT;
   const rationale: string[] = [];
 

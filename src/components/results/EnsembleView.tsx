@@ -1,7 +1,6 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
 import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download, ChevronDown, ChevronRight, HelpCircle, Lightbulb, MessageCircle, Send, X, RefreshCw, Gift, ArrowLeft } from "lucide-react";
 import { useRouter, Link } from "@/i18n/navigation";
 import { capture } from "@/lib/analytics/posthog";
@@ -18,7 +17,6 @@ import {
   isFactuallyWrongCompetitorPriceClaim,
   isGenericLaunchConcern,
   isGenericPriceObjection,
-  isGenericTrustFactor,
 } from "@/lib/simulation/surfaced-recount";
 import {
   computePricingSensitivity,
@@ -196,15 +194,15 @@ function IncomeIntentHelpKo() {
       </section>
 
       <section>
-        <h4 className="font-semibold text-slate-900 mb-1.5">"→ 국가 (X%)" 깊이 읽기</h4>
-        <p>이 % 는 흔히 오해됩니다. 정확히는: <em>"이 소득대 페르소나가 사는 국가의 분포"</em> 입니다.</p>
+        <h4 className="font-semibold text-slate-900 mb-1.5">&quot;→ 국가 (X%)&quot; 깊이 읽기</h4>
+        <p>이 % 는 흔히 오해됩니다. 정확히는: <em>&quot;이 소득대 페르소나가 사는 국가의 분포&quot;</em> 입니다.</p>
         <ul className="space-y-1 list-disc pl-5 mt-2">
           <li><strong>15-30%</strong>: 분산형 — 페르소나가 여러 시장에 고루 분포</li>
           <li><strong>40-60%</strong>: 한 시장에 집중 분포</li>
           <li><strong>60%+</strong>: 그 소득대는 거의 한 시장에 한정</li>
           <li><strong>100%</strong>: 그 소득대 페르소나가 단 한 시장에만 존재 (다른 후보국에 0명) — 인구통계 한계 또는 샘플링 결과</li>
         </ul>
-        <p className="mt-2 text-slate-600 text-xs">예: <code>$150k+ → TW (100%)</code> = 슈퍼리치 페르소나 전부가 대만 거주자. 다른 후보국에 $150k+ 슬롯이 0개라는 뜻이지, "TW 가 슈퍼리치에게 매력적" 이라는 뜻 아님.</p>
+        <p className="mt-2 text-slate-600 text-xs">예: <code>$150k+ → TW (100%)</code> = 슈퍼리치 페르소나 전부가 대만 거주자. 다른 후보국에 $150k+ 슬롯이 0개라는 뜻이지, &quot;TW 가 슈퍼리치에게 매력적&quot; 이라는 뜻 아님.</p>
       </section>
 
       <section>
@@ -221,7 +219,7 @@ function IncomeIntentHelpKo() {
         <ul className="space-y-1 list-disc pl-5">
           <li><strong>n &lt; 100 (소표본 라벨)</strong> — 신뢰구간 ±5점 이상. 단정적 해석 자제, 다음 시뮬에서 personaCount 늘려 재검증.</li>
           <li><strong>topCountryShare 100%</strong> — 그 소득대 인구가 실제로 한 시장에 한정된 경우 (예: 정말 그 후보국 set 안에서 슈퍼리치가 한 곳에만 분포). 후보국에 US/UK/JP 같은 선진국이 있는데도 100% 가 한 곳이면 페르소나 생성 단계의 편향 가능성 — 그 소득대 페르소나 voice 와 profession 분포 검토 권장.</li>
-          <li><strong>전 구간 의향 50점대</strong> — "관심은 있지만 결정타 없음". USP 강화 또는 메시지 재포지셔닝 필요.</li>
+          <li><strong>전 구간 의향 50점대</strong> — &quot;관심은 있지만 결정타 없음&quot;. USP 강화 또는 메시지 재포지셔닝 필요.</li>
         </ul>
         <p className="mt-2 text-xs text-slate-500">참고: 2026-05-09 이전 ensemble 은 income bucketing 로직 (range 의 low end 사용) 의 버그로 $150k+ 집중도가 부풀려졌을 수 있습니다. 그 이후 시뮬은 midpoint 기반으로 보정됨.</p>
       </section>
@@ -243,15 +241,15 @@ function IncomeIntentHelpEn() {
       </section>
 
       <section>
-        <h4 className="font-semibold text-slate-900 mb-1.5">Reading "→ Country (X%)" correctly</h4>
-        <p>Common misread: this is NOT "X% of this income bracket prefers Country Y as their launch market". It IS: "X% of personas in this income bracket happen to live in Country Y."</p>
+        <h4 className="font-semibold text-slate-900 mb-1.5">Reading &quot;→ Country (X%)&quot; correctly</h4>
+        <p>Common misread: this is NOT &quot;X% of this income bracket prefers Country Y as their launch market&quot;. It IS: &quot;X% of personas in this income bracket happen to live in Country Y.&quot;</p>
         <ul className="space-y-1 list-disc pl-5 mt-2">
           <li><strong>15-30%</strong>: dispersed — personas spread evenly across markets</li>
           <li><strong>40-60%</strong>: concentrated in one market</li>
           <li><strong>60%+</strong>: this income bracket is heavily one-market</li>
           <li><strong>100%</strong>: this bracket exists in only one candidate country in the sample — demographic ceiling or sampling artifact</li>
         </ul>
-        <p className="mt-2 text-slate-600 text-xs">Example: <code>$150k+ → TW (100%)</code> = all $150k+ personas live in Taiwan. It does NOT mean "Taiwan appeals to the rich" — it means no other candidate country had $150k+ slots in this run.</p>
+        <p className="mt-2 text-slate-600 text-xs">Example: <code>$150k+ → TW (100%)</code> = all $150k+ personas live in Taiwan. It does NOT mean &quot;Taiwan appeals to the rich&quot; — it means no other candidate country had $150k+ slots in this run.</p>
       </section>
 
       <section>
@@ -266,9 +264,9 @@ function IncomeIntentHelpEn() {
       <section>
         <h4 className="font-semibold text-slate-900 mb-1.5">⚠ Caveats</h4>
         <ul className="space-y-1 list-disc pl-5">
-          <li><strong>n &lt; 100 (low-n label)</strong> — Wide confidence interval. Don't over-interpret; rerun with larger personaCount.</li>
-          <li><strong>topCountryShare = 100%</strong> — Possible when this bracket's population is genuinely concentrated in one candidate market. If candidates include US/UK/JP and yet the bracket lands 100% in one country, suspect persona-generation bias — review that bracket's voices and profession distribution.</li>
-          <li><strong>All brackets at 50-something</strong> — "Interest without conviction." USP needs strengthening or repositioning.</li>
+          <li><strong>n &lt; 100 (low-n label)</strong> — Wide confidence interval. Don&apos;t over-interpret; rerun with larger personaCount.</li>
+          <li><strong>topCountryShare = 100%</strong> — Possible when this bracket&apos;s population is genuinely concentrated in one candidate market. If candidates include US/UK/JP and yet the bracket lands 100% in one country, suspect persona-generation bias — review that bracket&apos;s voices and profession distribution.</li>
+          <li><strong>All brackets at 50-something</strong> — &quot;Interest without conviction.&quot; USP needs strengthening or repositioning.</li>
         </ul>
         <p className="mt-2 text-xs text-slate-500">Note: ensembles run before 2026-05-09 may show inflated $150k+ concentration due to a bucketing bug (income range parsed at low end). Sims after that date use midpoint and are corrected.</p>
       </section>
@@ -285,7 +283,6 @@ export function EnsembleView({
   ensembleId: string;
   locale: string;
 }) {
-  const t = useTranslations();
   const [status, setStatus] = useState<EnsembleStatus | null>(null);
   const [result, setResult] = useState<EnsembleResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -352,6 +349,9 @@ export function EnsembleView({
     return () => {
       active = false;
     };
+    // locale and projectId are stable for the lifetime of this poll; adding them
+    // to deps would restart the long-poll on locale change unnecessarily.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ensembleId]);
 
   // Fire an OS-level notification once when the result arrives, IF the user
@@ -853,7 +853,8 @@ function NotificationToggle({ locale }: { locale: string }) {
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof Notification === "undefined") {
-      setPerm("unsupported");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPerm("unsupported"); // reading browser API — must run in effect
       return;
     }
     setPerm(Notification.permission);
@@ -918,7 +919,8 @@ function EnsembleDashboard({
   const [pdfElapsed, setPdfElapsed] = useState(0);
   useEffect(() => {
     if (!pdfBusy) {
-      setPdfElapsed(0);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPdfElapsed(0); // intentional reset when PDF finishes
       return;
     }
     const startedAt = Date.now();
@@ -5565,7 +5567,7 @@ function SegmentGuide({ isKo }: { isKo: boolean }) {
                 <li><span className="font-medium">그룹</span> — 위 정규화 결과 라벨</li>
                 <li><span className="font-medium">n</span> — 이 세그먼트에 속한 페르소나 수</li>
                 <li><span className="font-medium">평균</span> — 이 세그먼트의 평균 구매의향 (0-100). 70 이상 강한 관심, 35 미만 약한 관심</li>
-                <li><span className="font-medium">1순위 시장</span> — 이 세그먼트가 <span className="font-semibold text-slate-900">가장 많이 분포한 모집단 국가</span> + 해당 비중. 즉 "이 세그먼트의 페르소나 중 X%가 그 국가 출신"</li>
+                <li><span className="font-medium">1순위 시장</span> — 이 세그먼트가 <span className="font-semibold text-slate-900">가장 많이 분포한 모집단 국가</span> + 해당 비중. 즉 &quot;이 세그먼트의 페르소나 중 X%가 그 국가 출신&quot;</li>
               </>
             ) : (
               <>
@@ -5586,8 +5588,8 @@ function SegmentGuide({ isKo }: { isKo: boolean }) {
             {isKo ? (
               <>
                 <li>
-                  <span className="font-medium">"1순위 시장" ≠ "이 세그먼트가 사고 싶은 1위 국가"</span>
-                  <br />페르소나의 country 필드는 거주국 / 모집단입니다. 즉 "30-39대 페르소나가 가장 많이 발생한 국가"이지 "30-39대가 사고 싶어하는 1위 시장"이 아닙니다.
+                  <span className="font-medium">&quot;1순위 시장&quot; ≠ &quot;이 세그먼트가 사고 싶은 1위 국가&quot;</span>
+                  <br />페르소나의 country 필드는 거주국 / 모집단입니다. 즉 &quot;30-39대 페르소나가 가장 많이 발생한 국가&quot;이지 &quot;30-39대가 사고 싶어하는 1위 시장&quot;이 아닙니다.
                 </li>
                 <li>
                   <span className="font-medium">n 비율 ≠ 모집단 인구통계</span>
@@ -5599,14 +5601,14 @@ function SegmentGuide({ isKo }: { isKo: boolean }) {
                 </li>
                 <li>
                   <span className="font-medium">세그먼트 표 = 상관 신호, 인과 분석 아님</span>
-                  <br />"남성 의향이 높음"이 성별 자체의 효과인지 남성 페르소나 풀에 친화적 직군이 더 많이 배치된 결과인지 구분하지 않습니다.
+                  <br />&quot;남성 의향이 높음&quot;이 성별 자체의 효과인지 남성 페르소나 풀에 친화적 직군이 더 많이 배치된 결과인지 구분하지 않습니다.
                 </li>
               </>
             ) : (
               <>
                 <li>
-                  <span className="font-medium">"Top market" is NOT "preferred country"</span>
-                  <br />A persona&apos;s country field is their home market, not a preference. So "Top market: TH" means "30-39 personas are most concentrated in Thailand", not "30-39 most want to buy in Thailand".
+                  <span className="font-medium">&quot;Top market&quot; is NOT &quot;preferred country&quot;</span>
+                  <br />A persona&apos;s country field is their home market, not a preference. So &quot;Top market: TH&quot; means &quot;30-39 personas are most concentrated in Thailand&quot;, not &quot;30-39 most want to buy in Thailand&quot;.
                 </li>
                 <li>
                   <span className="font-medium">n share ≠ real population mix</span>
@@ -5762,7 +5764,8 @@ function AllPersonasModal({
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoading(true); // intentional load-start reset before async fetch
     setError(null);
     const params = new URLSearchParams({
       page: String(page),
@@ -5788,7 +5791,7 @@ function AllPersonasModal({
     return () => {
       active = false;
     };
-  }, [ensembleId, page, country, intentFilter]);
+  }, [ensembleId, page, country, intentFilter, isKo]);
 
   // Reset to page 0 when filters change so we don't sit on an out-of-range
   // page after the result count shrinks.
@@ -5999,7 +6002,7 @@ function VoiceList({
         ) : (
           voices.map((v, i) => (
             <div key={i} className="text-sm group">
-              <p className="text-slate-700 leading-relaxed">"{v.text}"</p>
+              <p className="text-slate-700 leading-relaxed">&quot;{v.text}&quot;</p>
               <div className="text-xs text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
                 <span>{v.country}</span>
                 <span>·</span>
@@ -6195,7 +6198,7 @@ function PersonaChatModal({
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-2 leading-relaxed line-clamp-2 italic">
-              "{persona.text}"
+              &quot;{persona.text}&quot;
             </p>
           </div>
           <button
@@ -6707,15 +6710,6 @@ function PricingTab({
     pricing.curveRevenueMaxCents,
     pricing.recommendedPriceP75,
   );
-  // Trust ceiling values still computed for the "추가 정보" annotations
-  // below (the helper doesn't return them; they drive UI explanations
-  // like "곡선 매출 최대점 outside trusted range").
-  const trustCeilingBase = Math.max(
-    pricing.recommendedPriceP75 ?? 0,
-    pricing.recommendedPriceCents > 0 ? pricing.recommendedPriceCents : 0,
-  );
-  const trustCeilingCents =
-    trustCeilingBase > 0 ? trustCeilingBase * 1.5 : Infinity;
   // Kept for backwards-compat with downstream conditionals that reference
   // matchesCurve. Helper already accounts for this internally, but the
   // explanatory copy below still inspects it.
@@ -6747,15 +6741,14 @@ function PricingTab({
   const sortedAsc = [...pricing.curve].sort(
     (a, b) => a.priceCents - b.priceCents,
   );
-  let runningMin = Infinity;
-  const envelopeRevenue = sortedAsc.map((p) => {
-    runningMin = Math.min(runningMin, p.meanConversionProbability);
-    return {
-      priceCents: p.priceCents,
-      conv: runningMin,
-      revenueIndex: p.priceCents * runningMin,
-    };
-  });
+  const envelopeRevenue = sortedAsc.reduce<
+    { priceCents: number; conv: number; revenueIndex: number }[]
+  >((acc, p) => {
+    const prevMin = acc.length > 0 ? acc[acc.length - 1].conv : Infinity;
+    const conv = Math.min(prevMin, p.meanConversionProbability);
+    acc.push({ priceCents: p.priceCents, conv, revenueIndex: p.priceCents * conv });
+    return acc;
+  }, []);
   const sortedAllRevenue = [...envelopeRevenue].sort(
     (a, b) => b.revenueIndex - a.revenueIndex,
   );
@@ -8849,6 +8842,7 @@ function TieWinnerOnlyBanner({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function SecondaryNotesCard({
   country,
   profile,

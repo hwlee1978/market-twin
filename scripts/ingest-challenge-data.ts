@@ -147,7 +147,7 @@ function loadRows(file: string): { headers: string[]; rows: Record<string, unkno
   if (ext === ".csv") {
     const buf = readFileSync(file);
     // Try UTF-8 first; fall back to CP949 if Korean chars look broken.
-    let text = buf.toString("utf8");
+    const text = buf.toString("utf8");
     if (text.includes("�")) {
       // CP949 fallback (not natively supported — install iconv-lite if
       // needed; for now warn).
@@ -233,8 +233,8 @@ async function ingest(args: Args): Promise<void> {
 
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
-  let inserted = 0;
-  let skipped = 0;
+  const inserted = 0;
+  const skipped = 0;
   try {
     if (args.mode === "programs" || args.mode === "voucher-programs") {
       await ingestPrograms(client, args, rows, colMap);
@@ -257,7 +257,6 @@ async function ingestPrograms(
   rows: Record<string, unknown>[],
   colMap: Record<string, string | null>,
 ): Promise<void> {
-  const table = args.mode === "programs" ? "ch_pp_programs" : "ch_voucher_programs";
   for (let i = 0; i < rows.length; i += args.batchSize) {
     const batch = rows.slice(i, i + args.batchSize);
     const values: unknown[] = [];
@@ -281,10 +280,6 @@ async function ingestPrograms(
         year,
         JSON.stringify(r),
       ];
-      const cols =
-        args.mode === "programs"
-          ? "(program_name, source_id, program_purpose, eligibility, support_content, organization, application_period, region, source_year, raw)"
-          : "(program_name, source_id, program_purpose, eligibility, support_content, organization, application_period, selection_criteria, source_year, raw)";
       const place =
         args.mode === "programs"
           ? `($${p}, $${p + 1}, $${p + 2}, $${p + 3}, $${p + 4}, $${p + 5}, $${p + 6}, $${p + 7}, $${p + 8}, $${p + 9}::jsonb)`

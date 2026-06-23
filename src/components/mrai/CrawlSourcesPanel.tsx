@@ -69,6 +69,7 @@ export function CrawlSourcesPanel() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, []);
 
@@ -577,7 +578,7 @@ function CreateModal({
                 </div>
               ) : !presets || presets.length === 0 ? (
                 <p className="text-xs text-slate-500 text-center py-6">
-                  프리셋 로드 실패. "직접 입력" 탭으로 진행하세요.
+                  프리셋 로드 실패. &quot;직접 입력&quot; 탭으로 진행하세요.
                 </p>
               ) : (
                 <PresetList
@@ -797,7 +798,7 @@ function PresetList({
   return (
     <div className="space-y-5">
       <div className="text-[11px] text-slate-500 leading-relaxed bg-slate-50 border border-slate-200 rounded-md px-3 py-2">
-        💡 체크박스로 여러 개 선택 후 하단 <strong>"선택 N개 일괄 추가"</strong> 버튼으로 한 번에 등록할 수 있습니다. 하나씩 추가하려면 우측 <strong>+ 추가</strong>.
+        💡 체크박스로 여러 개 선택 후 하단 <strong>&quot;선택 N개 일괄 추가&quot;</strong> 버튼으로 한 번에 등록할 수 있습니다. 하나씩 추가하려면 우측 <strong>+ 추가</strong>.
       </div>
       {Object.entries(groups).map(([group, items]) => {
         const addable = items.filter((p) => !!p.url);

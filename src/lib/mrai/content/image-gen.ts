@@ -9,7 +9,7 @@ import {
   loadProductProfile,
   type ProductProfile,
 } from "./product-profile";
-import { pickSourceForFrame, touchupProductImage } from "./product-touchup";
+import { touchupProductImage } from "./product-touchup";
 import { strictCompositeImage } from "./strict-composite";
 
 /**

@@ -66,7 +66,6 @@ export function TikTokPreview({
     })();
   }, [channel.id]);
 
-  const followers = channel.follower_count ?? 0;
   void audienceTotal;
 
   return (

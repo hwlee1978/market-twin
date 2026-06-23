@@ -831,36 +831,3 @@ function ClipCard({
     </div>
   );
 }
-
-function TierCard({
-  label,
-  sub,
-  desc,
-  active,
-  onClick,
-}: {
-  label: string;
-  sub: string;
-  desc: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`text-left rounded-md border p-3 transition ${
-        active
-          ? "border-rose-500 bg-rose-50 ring-2 ring-rose-200"
-          : "border-slate-200 bg-white hover:border-slate-300"
-      }`}
-    >
-      <div className="flex items-baseline justify-between mb-0.5">
-        <span className={`text-xs font-bold ${active ? "text-rose-700" : "text-slate-900"}`}>{label}</span>
-        {active && <span className="text-[10px] text-rose-600">✓ 선택됨</span>}
-      </div>
-      <div className={`text-xs font-semibold ${active ? "text-rose-900" : "text-slate-700"} mb-0.5`}>{sub}</div>
-      <div className="text-[10px] text-slate-500 leading-relaxed">{desc}</div>
-    </button>
-  );
-}

@@ -61,14 +61,14 @@ export function SelfCustomerCase({ pageNumber, totalPages }: { pageNumber: numbe
             <div>cross-LLM agree &nbsp; ✗ (Anthropic SG, DeepSeek US 등 분산)</div>
             <div style={{ marginTop: 6, color: "var(--mrai-accent)" }}>passCount: 0 / 3</div>
             <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--mrai-rule-dark)" }}>
-              <strong style={{ color: "var(--mrai-accent)" }}>displayMode = "top2"</strong>
+              <strong style={{ color: "var(--mrai-accent)" }}>displayMode = &ldquo;top2&rdquo;</strong>
             </div>
-            <div style={{ marginTop: 4, color: "var(--mrai-ink-on-dark)" }}>"🥇 US · 🥈 SG 동등 후보"</div>
-            <div style={{ color: "var(--mrai-ink-muted-dark)", fontSize: 10 }}>"이 제품은 5pt 안에 US/SG/VN/TH/JP/AU 6개국 cluster — 내부 capability로 결정"</div>
+            <div style={{ marginTop: 4, color: "var(--mrai-ink-on-dark)" }}>&ldquo;🥇 US · 🥈 SG 동등 후보&rdquo;</div>
+            <div style={{ color: "var(--mrai-ink-muted-dark)", fontSize: 10 }}>&ldquo;이 제품은 5pt 안에 US/SG/VN/TH/JP/AU 6개국 cluster — 내부 capability로 결정&rdquo;</div>
           </div>
           <div style={{ marginTop: 12, fontSize: 12, lineHeight: 1.6 }}>
             <strong style={{ color: "var(--mrai-accent)" }}>의미:</strong> AI가 휘둘리지 않고 borderline을 정직히 알림.<br />
-            CEO 신뢰 ↑ — "AI가 매번 다른 답하는 게 아니라, 이 제품은 진짜 borderline인 것"
+            CEO 신뢰 ↑ — &ldquo;AI가 매번 다른 답하는 게 아니라, 이 제품은 진짜 borderline인 것&rdquo;
           </div>
         </div>
       </div>

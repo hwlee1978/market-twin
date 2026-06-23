@@ -17,7 +17,7 @@ async function main() {
     );
     if (fullSim.rows.length === 0) { console.log("no sim"); return; }
     const sim = fullSim.rows[0];
-    const stageData = sim.stage_data ?? sim.regulatory ?? null;
+    const _stageData = sim.stage_data ?? sim.regulatory ?? null;
     console.log("=== FIRST SIM (col names) ===");
     console.log(Object.keys(sim).join(", "));
     console.log("\n=== STAGE-RELEVANT FIELDS ===");

@@ -184,7 +184,6 @@ export default async function AdminBillingPage({
   const monthWastedSimCount = monthWastedRows.length;
 
   const recent30CompletedRows = recent30Rows.filter((r) => r.status === "completed");
-  const recent30TotalCents = sum(recent30Rows, "total_cost_cents");
   const recent30CompletedCents = sum(recent30CompletedRows, "total_cost_cents");
   const recent30CompletedCount = recent30CompletedRows.length;
   // Avg / sim is computed against COMPLETED only — that's the useful

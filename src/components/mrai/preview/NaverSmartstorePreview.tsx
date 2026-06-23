@@ -93,6 +93,7 @@ export function NaverSmartstorePreview({
       {/* Store header */}
       <div className="border-b border-slate-200 px-6 py-5 flex items-center gap-4">
         {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-provided avatar URL; next/image would break dynamic preview layout
           <img
             src={avatarUrl}
             alt={channel.handle}
@@ -171,6 +172,7 @@ export function NaverSmartstorePreview({
                 >
                   <div className="relative aspect-square bg-slate-100 border border-slate-200 rounded-md overflow-hidden">
                     {d.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- dynamic AI-generated image URL; next/image would break preview layout
                       <img
                         src={d.image_url}
                         alt={title}

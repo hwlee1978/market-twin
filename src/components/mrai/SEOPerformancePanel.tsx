@@ -74,6 +74,7 @@ export function SEOPerformancePanel() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadStatus();
   }, [loadStatus]);
 
@@ -127,6 +128,10 @@ export function SEOPerformancePanel() {
             title="Google 계정 연결이 필요해요"
             description="브랜드 SEO 자산 패널에서 등록한 GSC 속성·GA4 ID와 연결됩니다. 읽기 전용 권한만 요청, 다른 데이터엔 접근하지 않습니다."
             action={
+              // Full-page navigation required: this hits an OAuth-start API
+              // route that issues a server 302 redirect to Google. A client-side
+              // <Link> would not trigger the browser redirect.
+              // eslint-disable-next-line @next/next/no-html-link-for-pages
               <a
                 href="/api/mrai/seo/google/start"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700"

@@ -306,7 +306,7 @@ function CreateWorkspaceModal({
         has_country: !!country.trim(),
       });
       onCreated(json.workspaceId);
-    } catch (err) {
+    } catch {
       setError(t("createFailed"));
     } finally {
       setSubmitting(false);

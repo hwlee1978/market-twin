@@ -342,7 +342,7 @@ export default async function VirtualSpacePage({
             </div>
           ) : (
             <p className="text-xs text-slate-400">
-              타겟 세그먼트가 설정되지 않았습니다. 우상단 "편집"으로 추가하세요.
+              타겟 세그먼트가 설정되지 않았습니다. 우상단 &quot;편집&quot;으로 추가하세요.
             </p>
           )}
           {channel.posting_style ? (

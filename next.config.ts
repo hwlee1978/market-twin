@@ -6,6 +6,10 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // ESLint runs as a separate `npm run lint` step (see eslint.config.mjs).
+  // Next 16 (Turbopack) no longer runs ESLint during `next build`, and the
+  // `eslint` config key was removed from NextConfig — so no build-time
+  // ignore flag is needed (or even valid) here anymore.
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**" },

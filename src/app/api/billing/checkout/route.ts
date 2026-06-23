@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
-import { getPlan, type PlanSlug } from "@/lib/billing/plans";
+import { getPlan } from "@/lib/billing/plans";
 import { stripe, stripePriceId, appOrigin } from "@/lib/billing/stripe";
 
 export const dynamic = "force-dynamic";

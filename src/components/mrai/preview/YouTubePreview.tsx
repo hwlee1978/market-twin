@@ -77,6 +77,7 @@ export function YouTubePreview({
       {/* Channel header */}
       <div className="px-8 py-6 flex items-start gap-5 border-b border-slate-200">
         {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-provided avatar URL; next/image would break dynamic preview layout
           <img
             src={avatarUrl}
             alt={channel.handle}
@@ -152,6 +153,7 @@ export function YouTubePreview({
                 <div key={d.id} className="group cursor-pointer">
                   <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
                     {d.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- dynamic AI-generated image URL; next/image would break preview layout
                       <img
                         src={d.image_url}
                         alt=""
@@ -173,6 +175,7 @@ export function YouTubePreview({
                   </div>
                   <div className="mt-2 flex gap-3">
                     {avatarUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-provided avatar URL; next/image would break dynamic preview layout
                       <img
                         src={avatarUrl}
                         alt=""

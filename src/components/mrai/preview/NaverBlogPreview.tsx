@@ -78,6 +78,7 @@ export function NaverBlogPreview({
       {/* Blog title bar */}
       <div className="border-b border-slate-200 px-6 py-5 flex items-center gap-4 bg-gradient-to-r from-emerald-50/40 to-white">
         {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-provided avatar URL; next/image would break dynamic preview layout
           <img
             src={avatarUrl}
             alt={channel.handle}
@@ -164,6 +165,7 @@ export function NaverBlogPreview({
                     </div>
                   )}
                   {d.image_url && (
+                    // eslint-disable-next-line @next/next/no-img-element -- dynamic AI-generated image URL; next/image would break preview layout
                     <img
                       src={d.image_url}
                       alt=""

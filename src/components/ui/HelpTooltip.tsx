@@ -31,7 +31,10 @@ export function HelpTooltip({
 
   // SSR-safe portal target — only set on the client after mount.
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true); // SSR-safe mount flag
+  }, []);
 
   // Recompute coords whenever the popover opens, and again on scroll/resize
   // while it's open so it tracks with the page.

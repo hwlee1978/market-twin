@@ -15,7 +15,7 @@ export function FSNDirection({ pageNumber, totalPages }: { pageNumber: number; t
       </h2>
       <div className="mrai-slide__rule" />
       <p className="mrai-slide__subtitle" style={{ marginBottom: 28 }}>
-        FSN은 이미 "브랜딩 컴퍼니로 체질 전환" + "AI Driven 전략"을 공식화. 부스터즈가 <span className="mrai-emph">브랜드 자산</span>의
+        FSN은 이미 &ldquo;브랜딩 컴퍼니로 체질 전환&rdquo; + &ldquo;AI Driven 전략&rdquo;을 공식화. 부스터즈가 <span className="mrai-emph">브랜드 자산</span>의
         2nd 축이라면, Mr. AI는 <span className="mrai-emph">AI 운영 인프라</span>의 3rd 축으로 자연스럽게 정착.
       </p>
 
@@ -61,10 +61,10 @@ export function FSNDirection({ pageNumber, totalPages }: { pageNumber: number; t
         <div className="mrai-card" style={{ background: "var(--mrai-bg-dark)", borderColor: "var(--mrai-bg-dark)", color: "var(--mrai-ink-on-dark)", padding: "20px 24px" }}>
           <div className="mrai-card__label" style={{ color: "var(--mrai-accent)" }}>FSN 2026 공식 메시지</div>
           <p style={{ fontSize: 16, lineHeight: 1.55, color: "var(--mrai-ink-on-dark)", margin: "8px 0 0", fontWeight: 500 }}>
-            "Marketing · Data 노하우와 <span className="mrai-emph">AI Driven 전략</span>으로 광고주 · 브랜드 · 플랫폼과 함께 상생하며 성장합니다."
+            &ldquo;Marketing · Data 노하우와 <span className="mrai-emph">AI Driven 전략</span>으로 광고주 · 브랜드 · 플랫폼과 함께 상생하며 성장합니다.&rdquo;
           </p>
           <p style={{ fontSize: 12, color: "var(--mrai-ink-muted-dark)", marginTop: 12, lineHeight: 1.5 }}>
-            "FSN, 브랜딩 컴퍼니로 체질 전환…부스터즈 중심 실적 턴어라운드"
+            &ldquo;FSN, 브랜딩 컴퍼니로 체질 전환…부스터즈 중심 실적 턴어라운드&rdquo;
             <br />
             <span style={{ opacity: 0.7 }}>— 아시아경제 2026.3</span>
           </p>
@@ -76,7 +76,7 @@ export function FSNDirection({ pageNumber, totalPages }: { pageNumber: number; t
           <ul style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 14, lineHeight: 1.55, paddingLeft: 0, listStyle: "none" }}>
             <li>
               <span style={{ color: "var(--mrai-accent)", fontWeight: 700, marginRight: 8 }}>01</span>
-              FSN 공식 "AI Driven" 메시지 = Mr. AI가 그 메시지의 <span className="mrai-emph">유형의 product</span>. 슬로건을 실제 사업으로.
+              FSN 공식 &ldquo;AI Driven&rdquo; 메시지 = Mr. AI가 그 메시지의 <span className="mrai-emph">유형의 product</span>. 슬로건을 실제 사업으로.
             </li>
             <li>
               <span style={{ color: "var(--mrai-accent)", fontWeight: 700, marginRight: 8 }}>02</span>
@@ -95,7 +95,7 @@ export function FSNDirection({ pageNumber, totalPages }: { pageNumber: number; t
       </div>
 
       <div style={{ marginTop: "auto", paddingTop: 16, fontSize: 11, color: "var(--mrai-ink-muted-light)", letterSpacing: 0.5 }}>
-        출처 — FSN 공식 (fsn.co.kr) · 아시아경제 2026.3 "FSN 브랜딩 컴퍼니 체질 전환" · Dealsite 2026 "FSN 사상 최대 분기 매출 — 링티·르무통"
+        출처 — FSN 공식 (fsn.co.kr) · 아시아경제 2026.3 &ldquo;FSN 브랜딩 컴퍼니 체질 전환&rdquo; · Dealsite 2026 &ldquo;FSN 사상 최대 분기 매출 — 링티·르무통&rdquo;
       </div>
     </Slide>
   );

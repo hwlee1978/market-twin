@@ -62,8 +62,8 @@ export async function GET(
   const drafts = data ?? [];
 
   // Annotate each draft with publication + simulation-winner state.
-  let pubMap = new Map<string, string>();
-  let simLikeRate = new Map<string, number>();
+  const pubMap = new Map<string, string>();
+  const simLikeRate = new Map<string, number>();
   if (drafts.length > 0) {
     const draftIds = drafts.map((d) => d.id);
     const [pubsQ, simsQ] = await Promise.all([

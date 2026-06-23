@@ -104,7 +104,7 @@ function timeAgo(iso: string): string {
 
 export function InstagramPreview({
   channel,
-  audienceTotal,
+  audienceTotal: _audienceTotal,
   avatarUrl,
 }: {
   channel: PreviewChannel;
@@ -622,7 +622,7 @@ function PostDetailModal({
                   <GrowthSparkline history={localPub.metrics_history} />
                 )}
                 <div className="mt-1 text-emerald-700">
-                  매일 02시 KST 자동 cron + "시뮬 진행" 수동 트리거로 view/like/follow 누적.
+                  매일 02시 KST 자동 cron + &quot;시뮬 진행&quot; 수동 트리거로 view/like/follow 누적.
                 </div>
               </div>
             ) : sim ? (

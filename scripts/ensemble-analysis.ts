@@ -23,13 +23,6 @@ interface CountryRow {
   finalScore: number;
 }
 
-interface SimRecord {
-  sim_id: string;
-  created_at: string;
-  best_country: string | null;
-  countries: CountryRow[];
-  personas: Array<{ country?: string; purchaseIntent?: number }>;
-}
 
 function median(xs: number[]): number {
   if (xs.length === 0) return 0;

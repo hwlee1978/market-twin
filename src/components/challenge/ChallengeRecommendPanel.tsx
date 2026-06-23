@@ -7,7 +7,6 @@ import {
   Target,
   Loader2,
   Sparkles,
-  ExternalLink,
   AlertTriangle,
   Hash,
   Clock,

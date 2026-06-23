@@ -38,7 +38,10 @@ export function HelpModal({
   const [mounted, setMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true); // SSR-safe mount flag
+  }, []);
 
   // Esc to close + body scroll lock while modal is open. Restore
   // overflow on cleanup so navigating away doesn't leave the page

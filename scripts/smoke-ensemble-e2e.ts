@@ -113,9 +113,6 @@ async function main() {
   const preset = TIER_PRESETS[tier];
   const asOfDate = asOfArg ? new Date(asOfArg) : undefined;
   const asOfYear = asOfDate && !Number.isNaN(asOfDate.getTime()) ? asOfDate.getUTCFullYear() : undefined;
-  const asOfYyyymm = asOfYear
-    ? { strtYymm: `${asOfYear}01`, endYymm: `${asOfYear}${String(asOfDate!.getUTCMonth() + 1).padStart(2, "0")}` }
-    : undefined;
   if (asOfYear) {
     console.log(`Historical anchors as-of ${asOfArg} (year=${asOfYear})`);
   }

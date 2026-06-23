@@ -31,12 +31,13 @@ export function TossSuccessHandler({ locale }: { locale: string }) {
     const cycle = (search.get("cycle") ?? "monthly") as "monthly" | "annual";
 
     if (!authKey || (plan !== "starter" && plan !== "validator" && plan !== "growth")) {
-      setError(
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setError( // URL param validation on mount — intentional guard
         isKo
           ? "결제 정보가 올바르지 않습니다. 플랜 페이지로 돌아가 다시 시도해주세요."
           : "Missing or invalid payment info. Please return to the plans page and try again.",
       );
-      setStage("error");
+      setStage("error"); // URL param validation on mount — intentional guard
       return;
     }
 

@@ -77,7 +77,8 @@ export function AppShell({
   // hanging open over the new page.
   const [drawerOpen, setDrawerOpen] = useState(false);
   useEffect(() => {
-    setDrawerOpen(false);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDrawerOpen(false); // close drawer on route change — intentional nav sync
   }, [pathname]);
 
   const logout = async () => {

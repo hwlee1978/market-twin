@@ -212,7 +212,7 @@ export default async function ProjectDetailPage({
                       href={`/projects/${id}/results?sim=${s.id}`}
                       className="text-brand hover:underline truncate"
                     >
-                      {new Date(s.started_at ?? Date.now()).toLocaleString(locale)}
+                      {s.started_at ? new Date(s.started_at).toLocaleString(locale) : "—"}
                     </Link>
                     <StatusBadge status={s.status} label={t(`project.status.${s.status}`)} />
                   </li>

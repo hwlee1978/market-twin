@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import {
   Package,
-  Building2,
   Loader2,
   FileText,
   Globe2,
@@ -134,7 +133,8 @@ export function ContentOnlyPanel() {
     const url = new URL(window.location.href);
     const hash = url.searchParams.get("hash");
     if (!hash || !/^[a-f0-9]{64}$/.test(hash)) return;
-    setRestoring(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRestoring(true); // URL hash restore on mount — intentional loading gate
     void (async () => {
       try {
         const res = await fetch(`/api/challenge/content?hash=${hash}`);

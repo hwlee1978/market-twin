@@ -635,7 +635,7 @@ function buildAllowedPriceCents(opts: MergeNarrativeOpts): number[] {
  */
 function priceTokenToCents(
   rawValue: number,
-  unit: "USD" | "KRW",
+  _unit: "USD" | "KRW",
 ): number {
   return Math.round(rawValue * 100);
 }

@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { capture } from "@/lib/analytics/posthog";
 import {
@@ -184,7 +185,9 @@ export function ContentDraftsPanel({
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelId]);
 
   const generate = async (payload: {
@@ -805,12 +808,14 @@ function DraftCard({
               )}
               {!imagesExpanded && (
                 <div className="flex gap-1 shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- dynamic AI-generated image URL, next/image would break thumbnail layout */}
                   <img
                     src={imageState.image_url}
                     alt="cover thumb"
                     className="w-8 h-8 object-cover rounded border border-slate-200"
                   />
                   {imageState.image_urls.slice(0, 3).map((img) => (
+                    // eslint-disable-next-line @next/next/no-img-element -- dynamic AI-generated image URL, next/image would break thumbnail layout
                     <img
                       key={img.url}
                       src={img.url}
@@ -921,7 +926,7 @@ function DraftCard({
               >
                 {brandAssetCount === 0 ? (
                   <>
-                    ⚠ 참조 사진 없음 — 일반 컨셉 이미지 생성됨. 실제 제품 사진을 "브랜드 자산 라이브러리"에 업로드 권장.
+                    ⚠ 참조 사진 없음 — 일반 컨셉 이미지 생성됨. 실제 제품 사진을 &quot;브랜드 자산 라이브러리&quot;에 업로드 권장.
                   </>
                 ) : (
                   <>
@@ -1256,6 +1261,7 @@ function ExternalPublishRow({
   }, [draft.id]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadSent();
   }, [loadSent]);
 
@@ -1353,7 +1359,7 @@ function ExternalPublishRow({
               {meta.label}
             </button>
           ) : (
-            <a
+            <Link
               key={provider}
               href="/ko/mr-ai/settings"
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-dashed border-slate-300 text-slate-400 hover:text-slate-600 hover:border-slate-400"
@@ -1361,7 +1367,7 @@ function ExternalPublishRow({
             >
               <span className="text-[10px]">{meta.badge}</span>
               {meta.label} 연결
-            </a>
+            </Link>
           );
         })}
       </div>
@@ -1604,10 +1610,10 @@ function ImagePromptPreviewModal({
               className="w-full text-xs border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-700 leading-relaxed resize-y font-mono"
             />
             <p className="text-[10px] text-slate-400 mt-1">
-              직접 수정 가능 — "생성" 누르면 이 텍스트로 이미지가 생성되고 드래프트에도 저장됩니다.
+              직접 수정 가능 — &quot;생성&quot; 누르면 이 텍스트로 이미지가 생성되고 드래프트에도 저장됩니다.
             </p>
             <div className="mt-1.5 rounded-md bg-amber-50 border border-amber-200 px-2.5 py-1.5 text-[10px] text-amber-800 leading-snug">
-              💡 <strong>배경(scene)만 묘사하세요.</strong> 제품 사진은 분리해서 합성되므로 제품명·카테고리 단어 (예: "shoes", "sneakers", "bottle", 자사 브랜드명) 를 prompt에 넣으면 모델이 배경에 제품을 또 그려 중복됩니다. 예: <em>"sunlit cafe interior with magazines on a wooden table, warm afternoon light"</em>
+              💡 <strong>배경(scene)만 묘사하세요.</strong> 제품 사진은 분리해서 합성되므로 제품명·카테고리 단어 (예: &quot;shoes&quot;, &quot;sneakers&quot;, &quot;bottle&quot;, 자사 브랜드명) 를 prompt에 넣으면 모델이 배경에 제품을 또 그려 중복됩니다. 예: <em>&quot;sunlit cafe interior with magazines on a wooden table, warm afternoon light&quot;</em>
             </div>
           </div>
 
@@ -1897,6 +1903,7 @@ function FrameCell({
 
   return (
     <div className={`relative group ${spanFull ? "col-span-2" : ""}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- dynamic AI-generated image URL, next/image would break preview layout */}
       <img
         src={url}
         alt={label}
@@ -1962,7 +1969,7 @@ function BilingualQuoteLine({
 
   return (
     <li className={`rounded ${bg} border px-2 py-1.5`}>
-      <div className="text-slate-800 italic leading-snug">"{native}"</div>
+      <div className="text-slate-800 italic leading-snug">&quot;{native}&quot;</div>
       {showKo && (
         <div className="text-slate-500 text-[10.5px] leading-snug mt-0.5">
           ↳ {ko}
@@ -2192,7 +2199,7 @@ function EditDraftModal({
               placeholder="이미지 생성 시 사용될 영문 프롬프트 (장면·분위기·구도)"
             />
             <div className="text-[10px] text-slate-400 mt-1">
-              {imagePrompt.length} / 2000자 · 수정 후 카드의 "이미지 생성" 누르면 새 프롬프트로 다시 생성됩니다.
+              {imagePrompt.length} / 2000자 · 수정 후 카드의 &quot;이미지 생성&quot; 누르면 새 프롬프트로 다시 생성됩니다.
             </div>
           </div>
 

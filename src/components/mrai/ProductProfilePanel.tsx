@@ -66,6 +66,7 @@ export function ProductProfilePanel() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, []);
 
@@ -141,7 +142,7 @@ export function ProductProfilePanel() {
                   🤖 AI 추출 (제품 사진 기반)
                 </div>
                 <p className="text-slate-600 leading-relaxed">
-                  실물 제품이 있는 브랜드 (패션·뷰티·식품·전자기기 등): 브랜드 자산 라이브러리에 제품 사진을 2-5장 업로드 → "AI 추출" 클릭 → Claude Vision 이 카테고리·소재·색상·로고 위치를 자동 추출 (~$0.02-0.05).
+                  실물 제품이 있는 브랜드 (패션·뷰티·식품·전자기기 등): 브랜드 자산 라이브러리에 제품 사진을 2-5장 업로드 → &quot;AI 추출&quot; 클릭 → Claude Vision 이 카테고리·소재·색상·로고 위치를 자동 추출 (~$0.02-0.05).
                 </p>
               </div>
               <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 space-y-1.5">

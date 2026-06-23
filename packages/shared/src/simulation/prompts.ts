@@ -4,7 +4,7 @@ import { renderAggregateForPrompt } from "./aggregate";
 import type { PersonaSlot } from "./profession-pool";
 import { INCOME_BRACKET_USD_RANGES } from "./income-distribution";
 import { buildChannelCostsBlock } from "@/lib/reference/channel-costs";
-import { renderHofstedeTable, renderHofstedeBlock } from "@/lib/reference/hofstede-dimensions";
+import { renderHofstedeTable } from "@/lib/reference/hofstede-dimensions";
 import { taxonomyPromptBlock } from "./taxonomy";
 import { COMPETITION_RUBRIC_BANDS } from "./calibration/competition-rubric";
 import {

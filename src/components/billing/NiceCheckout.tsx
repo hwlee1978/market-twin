@@ -59,13 +59,6 @@ export function NiceCheckout({
   const [error, setError] = useState<string | null>(null);
   const startedRef = useRef(false);
 
-  useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-    void start();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const start = async () => {
     setStage("loading");
     setError(null);
@@ -112,6 +105,13 @@ export function NiceCheckout({
       setStage("error");
     }
   };
+
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    void start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">

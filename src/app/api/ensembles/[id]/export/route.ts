@@ -45,7 +45,7 @@ export async function GET(
   const aggregate = ensemble.aggregate_result as EnsembleAggregate;
 
   let csv = "";
-  let filename = `ensemble-${id.slice(0, 8)}-${type}.csv`;
+  const filename = `ensemble-${id.slice(0, 8)}-${type}.csv`;
 
   switch (type) {
     case "countries": {

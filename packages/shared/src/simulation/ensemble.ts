@@ -1045,12 +1045,9 @@ export function aggregateEnsemble(
   // Per-sim top EXPORT pick (origin excluded). Drives both the
   // confidence metric (v0.2-D) and the vote-share-priority winner
   // (v0.2-E). Computed once + reused.
-  let top3Hits = 0;
   const voteTally = new Map<string, number>();
   for (const s of sims) {
     const sorted = [...s.countries].sort((a, b) => b.finalScore - a.finalScore);
-    const top3 = sorted.slice(0, 3).map((c) => c.country.toUpperCase());
-    if (meanRankWinner && top3.includes(meanRankWinner)) top3Hits++;
     const simTopExport = originUpper
       ? sorted.find((c) => c.country.toUpperCase() !== originUpper)
       : sorted[0];

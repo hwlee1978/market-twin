@@ -5,7 +5,6 @@ import {
   Wand2,
   Loader2,
   Play,
-  Pencil,
   Check,
   ExternalLink,
   ChevronDown,

@@ -46,11 +46,11 @@ export function MarketTwinShowcase({ pageNumber, totalPages }: { pageNumber: num
           <div className="mrai-card" style={{ background: "rgba(245,158,11,0.10)", borderColor: "var(--mrai-accent)" }}>
             <div className="mrai-card__label" style={{ color: "var(--mrai-accent)" }}>Output — 5종 strategic answer</div>
             <ul style={{ paddingLeft: 18, margin: "8px 0 0", fontSize: 13, lineHeight: 1.8, color: "var(--mrai-ink-on-dark)" }}>
-              <li><strong>"어느 시장 1순위?"</strong> — 5,000 페르소나 vote + 외부 데이터 cross-check</li>
-              <li><strong>"가격 ₩X면 어떤 반응?"</strong> — 페르소나별 pricing sensitivity</li>
-              <li><strong>"어느 채널 우선?"</strong> — 페르소나 채널 mention rate</li>
-              <li><strong>"리스크 5가지"</strong> — 페르소나가 직접 objection 표현</li>
-              <li><strong>"정합성 매트릭스"</strong> — 시뮬 vs 외부 데이터 alignment 점수</li>
+              <li><strong>&ldquo;어느 시장 1순위?&rdquo;</strong> — 5,000 페르소나 vote + 외부 데이터 cross-check</li>
+              <li><strong>&ldquo;가격 ₩X면 어떤 반응?&rdquo;</strong> — 페르소나별 pricing sensitivity</li>
+              <li><strong>&ldquo;어느 채널 우선?&rdquo;</strong> — 페르소나 채널 mention rate</li>
+              <li><strong>&ldquo;리스크 5가지&rdquo;</strong> — 페르소나가 직접 objection 표현</li>
+              <li><strong>&ldquo;정합성 매트릭스&rdquo;</strong> — 시뮬 vs 외부 데이터 alignment 점수</li>
             </ul>
           </div>
         </div>

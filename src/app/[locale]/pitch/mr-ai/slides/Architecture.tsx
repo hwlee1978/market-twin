@@ -63,7 +63,7 @@ export function Architecture({ pageNumber, totalPages }: { pageNumber: number; t
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 17, fontWeight: 700 }}>Attribution Engine · 모든 action에 tracking ID</div>
             <div style={{ fontSize: 12, color: "var(--mrai-ink-muted-dark)", marginTop: 2 }}>
-              HubSpot (CRM) · LinkedIn · X · GA4 (웹 분석) 통합 → "Mr. AI가 한 일 → ₩X 매출" closed-loop
+              HubSpot (CRM) · LinkedIn · X · GA4 (웹 분석) 통합 → &ldquo;Mr. AI가 한 일 → ₩X 매출&rdquo; closed-loop
             </div>
           </div>
         </div>

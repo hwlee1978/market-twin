@@ -16,7 +16,7 @@ const TABS = ["overview", "countries", "personas", "pricing", "risks", "recommen
 type Tab = (typeof TABS)[number];
 
 export function ResultsDashboard({
-  projectId,
+  projectId: _projectId,
   simulationId,
   result,
   sources,
@@ -41,7 +41,8 @@ export function ResultsDashboard({
   const [pdfElapsed, setPdfElapsed] = useState(0);
   useEffect(() => {
     if (!pdfBusy) {
-      setPdfElapsed(0);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPdfElapsed(0); // intentional reset when PDF finishes
       return;
     }
     const startedAt = Date.now();

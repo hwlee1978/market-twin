@@ -1717,10 +1717,10 @@ ${entries}
     // Track + log scale slips (LLM scoring on 0-10 instead of 0-100) so we
     // can monitor frequency in production. The aggregator auto-rescales,
     // but we want visibility into how often the prompt fails.
-    let scaleSlipsCount = 0;
+    let _scaleSlipsCount = 0;
     for (const sample of countrySamples) {
       if (sample.length > 0 && Math.max(...sample.map((c) => c.finalScore)) < 25) {
-        scaleSlipsCount++;
+        _scaleSlipsCount++;
         console.warn(
           `[sim ${opts.simulationId}] country sample on 0-10 scale (LLM mistake) — ` +
             `auto-rescaled. Top: ${sample.map((c) => `${c.country}=${c.finalScore}`).join(", ")}`,

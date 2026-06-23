@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Loader2, Plus, Trash2, Save, Sliders, X, Star } from "lucide-react";
-import { clsx } from "clsx";
 import { EmptyState } from "./EmptyState";
 
 type Preset = {

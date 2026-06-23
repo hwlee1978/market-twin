@@ -18,7 +18,6 @@
 
 import {
   type GroundTruth,
-  type Evidence,
   type EvidenceMetric,
 } from "./schema";
 import { spearmanRho } from "./stats";
@@ -250,12 +249,11 @@ function computeConfidenceCalibration(agg: SimAggregate, truth: GroundTruth): nu
   return 1 - consensus;
 }
 
-function computeTrendMatch(_agg: SimAggregate, truth: GroundTruth): number {
+function computeTrendMatch(_agg: SimAggregate, _truth: GroundTruth): number {
   // Trend match is hard to compute without time-series sims. For MVP we
   // count it as NaN unless the truth has explicit growth_trajectory rows AND
   // we add per-country trend output to the sim schema. Returning NaN drops
   // the metric from composite via renormalization.
-  const _trendRows = truth.evidence.filter((e) => e.metric === "growth_trajectory");
   return NaN;
 }
 

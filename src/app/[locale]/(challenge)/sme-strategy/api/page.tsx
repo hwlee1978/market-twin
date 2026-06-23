@@ -169,7 +169,7 @@ curl -X POST .../api/challenge/recommend ... -d @input.json
       {/* Evaluation harness */}
       <Section icon={Terminal} title="평가 harness (선택)">
         <p>
-          심사기관이 자체 테스트셋으로 정확도 측정 시 <code>dataset_split: "test"</code> 표시 →
+          심사기관이 자체 테스트셋으로 정확도 측정 시 <code>dataset_split: &quot;test&quot;</code> 표시 →
           ch_recommendations 테이블에 분리 저장. 결과 export:
         </p>
         <pre className="bg-slate-900 text-slate-100 text-xs p-4 rounded-lg overflow-x-auto mt-2">

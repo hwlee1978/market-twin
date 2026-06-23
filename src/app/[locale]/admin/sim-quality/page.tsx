@@ -54,6 +54,7 @@ export default async function AdminSimQualityPage({
   const isKo = locale === "ko";
   const admin = createServiceClient();
 
+  // eslint-disable-next-line react-hooks/purity -- server component: Date.now() is safe in async data-fetch, not a client render
   const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
   const { data: rawQuality } = await admin
@@ -163,12 +164,10 @@ export default async function AdminSimQualityPage({
   let objTotalEmits = 0;
   let trustTotalEmits = 0;
   let objEnsemblesWithData = 0;
-  let trustEnsemblesWithData = 0;
   for (const row of rawEnsembles ?? []) {
     const agg = (row as { aggregate_result?: AggregateShape }).aggregate_result;
     if (!agg?.countryStats) continue;
     let objHadAny = false;
-    let trustHadAny = false;
     for (const c of agg.countryStats) {
       for (const e of c.detail?.objectionCategoryDistribution ?? []) {
         objCategoryCounts.set(
@@ -184,11 +183,9 @@ export default async function AdminSimQualityPage({
           (trustCategoryCounts.get(e.category) ?? 0) + e.count,
         );
         trustTotalEmits += e.count;
-        trustHadAny = true;
       }
     }
     if (objHadAny) objEnsemblesWithData++;
-    if (trustHadAny) trustEnsemblesWithData++;
   }
   const taxonomyDist = (counts: Map<string, number>, total: number) =>
     [...counts.entries()]
@@ -214,6 +211,7 @@ export default async function AdminSimQualityPage({
   // generic-price / generic-trust rates by income bracket. Sampled
   // (not all 30d) because each sim has 200 personas — 50 sims × 200
   // = 10K rows is fast; 2K sims × 200 = 400K is not.
+  // eslint-disable-next-line react-hooks/purity -- server component: Date.now() is safe in async data-fetch, not a client render
   const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const { data: recentSims } = await admin
     .from("simulations")

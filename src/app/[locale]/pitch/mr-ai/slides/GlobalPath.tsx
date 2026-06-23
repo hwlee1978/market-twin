@@ -76,7 +76,7 @@ export function GlobalPath({ pageNumber, totalPages }: { pageNumber: number; tot
           <div className="mrai-card" style={{ background: "rgba(34,211,238,0.06)", borderColor: "var(--mrai-cool)" }}>
             <div className="mrai-card__label" style={{ color: "var(--mrai-cool)" }}>Market Twin 곱하기 효과</div>
             <p style={{ fontSize: 13, lineHeight: 1.55, margin: "8px 0 0" }}>
-              각 동남아 시장 진출 시 Market Twin이 "어느 segment? 어느 가격? 어느 채널?" 답.
+              각 동남아 시장 진출 시 Market Twin이 &ldquo;어느 segment? 어느 가격? 어느 채널?&rdquo; 답.
               FSN advertiser에게는 단순 SaaS가 아닌 <strong>전략 컨설팅 포함 product</strong>로 sell.
             </p>
           </div>

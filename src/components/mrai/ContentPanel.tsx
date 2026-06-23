@@ -39,7 +39,6 @@ const STATUS_BADGE: Record<Brief["status"], string> = {
 
 export function ContentPanel({ locale }: { locale: "ko" | "en" }) {
   const t = useTranslations("mrai.content");
-  const tForm = useTranslations("mrai.content.form");
   const tStrat = useTranslations("mrai.content.strategy");
 
   const [briefs, setBriefs] = useState<Brief[]>([]);

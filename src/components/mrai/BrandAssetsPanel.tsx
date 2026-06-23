@@ -47,6 +47,7 @@ export function BrandAssetsPanel() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -129,6 +130,7 @@ export function BrandAssetsPanel() {
             {filtered.map((a) => (
               <div key={a.id} className="group relative">
                 <div className="aspect-square overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- dynamic user-uploaded asset URL, next/image would break layout */}
                   <img
                     src={a.image_url}
                     alt={a.label ?? ""}
@@ -273,6 +275,7 @@ function UploadModal({
               className="hidden"
             />
             {preview ? (
+              // eslint-disable-next-line @next/next/no-img-element -- local blob/preview URL, not suitable for next/image
               <img src={preview} alt="preview" className="max-h-48 mx-auto rounded" />
             ) : (
               <div>

@@ -142,7 +142,8 @@ export function AdminSimulationsTable({
   const isZombie = (sim: Row): boolean => {
     if (sim.status !== "running" && sim.status !== "pending") return false;
     if (!sim.started_at) return false;
-    const ageMin = (Date.now() - new Date(sim.started_at).getTime()) / 60000;
+    // eslint-disable-next-line react-hooks/purity
+    const ageMin = (Date.now() - new Date(sim.started_at).getTime()) / 60000; // intentional: zombie check needs current time
     return ageMin > ZOMBIE_THRESHOLD_MINUTES;
   };
 

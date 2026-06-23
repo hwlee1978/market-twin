@@ -31,7 +31,9 @@ export default async function AdminHealthPage({
 
   const admin = createServiceClient();
 
+  // eslint-disable-next-line react-hooks/purity -- server component: Date.now() is safe in async data-fetch, not a client render
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  // eslint-disable-next-line react-hooks/purity -- server component: Date.now() is safe in async data-fetch, not a client render
   const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   // Pull a window of recent simulations once, derive every metric in memory.
@@ -72,6 +74,7 @@ export default async function AdminHealthPage({
 
   // Stuck = still in 'running' but started long enough ago that the serverless
   // function must have been killed. These are operator-actionable (cancel/retry).
+  // eslint-disable-next-line react-hooks/purity -- server component: Date.now() used for stuck-sim detection, not client render
   const now = Date.now();
   const stuck = sims.filter(
     (s) =>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Brain, Loader2, Send, Trash2, MessageSquarePlus, Paperclip, FileText, X, MessagesSquare } from "lucide-react";
+import { Brain, Loader2, Send, Trash2, MessageSquarePlus, Paperclip, MessagesSquare } from "lucide-react";
 import { AgentTrace, type AgentTraceData } from "./AgentTrace";
 import { FeedbackButtons } from "./FeedbackButtons";
 import { SimulationProposalCard, type SimulationProposalPayload } from "./SimulationProposalCard";

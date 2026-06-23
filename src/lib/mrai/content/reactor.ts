@@ -392,19 +392,8 @@ export function aggregateReactions(
     dislike: 0,
     ignore: 0,
   };
-  let likeIntentSum = 0;
-  let clickIntentSum = 0;
-  let shareIntentSum = 0;
-  let saveIntentSum = 0;
-  let commentIntentSum = 0;
-
   for (const r of reactions) {
     dist[r.reaction] = (dist[r.reaction] ?? 0) + 1;
-    likeIntentSum += r.like_intent;
-    clickIntentSum += r.click_intent;
-    shareIntentSum += r.share_intent;
-    saveIntentSum += r.save_intent;
-    commentIntentSum += r.comment_intent;
   }
 
   // Rates as % of personas with intent >= 0.5 (would actually take action)

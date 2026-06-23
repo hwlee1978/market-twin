@@ -20,7 +20,8 @@ export function CookieConsent() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (getConsent() === "unset") setVisible(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (getConsent() === "unset") setVisible(true); // SSR-safe localStorage init
   }, []);
 
   if (!visible) return null;

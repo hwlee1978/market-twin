@@ -41,7 +41,8 @@ export function DashboardGuideButton({
     if (hasProjects) return;
     if (typeof window === "undefined") return;
     if (window.localStorage.getItem(SEEN_KEY)) return;
-    setOpen(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOpen(true); // SSR-safe localStorage gate — intentional mount-time init
   }, [hasProjects]);
 
   const close = () => {

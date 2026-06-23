@@ -98,7 +98,8 @@ export function PersonasTab({
 
   // Collapse expanded card whenever filters change.
   useEffect(() => {
-    setExpandedId(null);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setExpandedId(null); // intentional UI reset on filter change
   }, [country, intent, sort, query]);
 
   return (

@@ -73,6 +73,7 @@ export function GenericPreview({
       <div className="px-6 py-5 border-b border-slate-100">
         <div className="flex items-center gap-4">
           {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-provided avatar URL; next/image would break dynamic preview layout
             <img
               src={avatarUrl}
               alt={channel.handle}
@@ -142,6 +143,7 @@ export function GenericPreview({
                   </div>
                 )}
                 {d.image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element -- dynamic AI-generated image URL; next/image would break preview layout
                   <img
                     src={d.image_url}
                     alt=""

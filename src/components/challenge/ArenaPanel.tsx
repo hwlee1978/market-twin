@@ -81,7 +81,8 @@ export function ArenaPanel() {
   }, []);
 
   useEffect(() => {
-    void loadLeaderboard();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadLeaderboard(); // fetch-on-mount: setState inside async callback is intentional
   }, [loadLeaderboard]);
 
   const start = async () => {

@@ -21,6 +21,44 @@ interface Props {
   sources?: string[];
 }
 
+function SortHeader({
+  k,
+  label,
+  align,
+  tooltip,
+  sortKey,
+  sortDir,
+  onSort,
+}: {
+  k: SortKey;
+  label: string;
+  align: "left" | "right";
+  tooltip?: string;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (key: SortKey) => void;
+}) {
+  const active = sortKey === k;
+  const Icon = active ? (sortDir === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+  return (
+    <th className={clsx("px-6 py-3 font-medium", align === "right" ? "text-right" : "text-left")}>
+      <span className="inline-flex items-center gap-1.5">
+        <button
+          onClick={() => onSort(k)}
+          className={clsx(
+            "inline-flex items-center gap-1 hover:text-brand transition-colors",
+            active && "text-brand",
+          )}
+        >
+          <span>{label}</span>
+          <Icon size={12} className={clsx(!active && "opacity-40")} />
+        </button>
+        {tooltip && <HelpTooltip text={tooltip} />}
+      </span>
+    </th>
+  );
+}
+
 export function CountriesTab({ countries, personas = [], regulatory, sources = [] }: Props) {
   const t = useTranslations("results.country");
   const tDrill = useTranslations("results.country.drill");
@@ -49,69 +87,49 @@ export function CountriesTab({ countries, personas = [], regulatory, sources = [
     }
   };
 
-  const SortHeader = ({
-    k,
-    label,
-    align,
-    tooltip,
-  }: {
-    k: SortKey;
-    label: string;
-    align: "left" | "right";
-    tooltip?: string;
-  }) => {
-    const active = sortKey === k;
-    const Icon = active ? (sortDir === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
-    return (
-      <th className={clsx("px-6 py-3 font-medium", align === "right" ? "text-right" : "text-left")}>
-        <span className="inline-flex items-center gap-1.5">
-          <button
-            onClick={() => onSort(k)}
-            className={clsx(
-              "inline-flex items-center gap-1 hover:text-brand transition-colors",
-              active && "text-brand",
-            )}
-          >
-            <span>{label}</span>
-            <Icon size={12} className={clsx(!active && "opacity-40")} />
-          </button>
-          {tooltip && <HelpTooltip text={tooltip} />}
-        </span>
-      </th>
-    );
-  };
-
   return (
     <div className="card p-0 overflow-x-auto">
       <table className="w-full text-sm min-w-[680px]">
         <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
           <tr>
             <th className="w-8 px-3 py-3" />
-            <SortHeader k="rank" label="#" align="left" tooltip={t("help.rank")} />
+            <SortHeader k="rank" label="#" align="left" tooltip={t("help.rank")} sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
             <th className="text-left px-6 py-3 font-medium">{t("header")}</th>
             <SortHeader
               k="demandScore"
               label={t("demand")}
               align="right"
               tooltip={t("help.demand")}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={onSort}
             />
             <SortHeader
               k="cacEstimateUsd"
               label={t("cac")}
               align="right"
               tooltip={t("help.cac")}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={onSort}
             />
             <SortHeader
               k="competitionScore"
               label={t("competition")}
               align="right"
               tooltip={t("help.competition")}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={onSort}
             />
             <SortHeader
               k="finalScore"
               label={t("score")}
               align="right"
               tooltip={t("help.score")}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={onSort}
             />
             <th className="text-left px-6 py-3 font-medium">
               <span className="inline-flex items-center gap-1.5">

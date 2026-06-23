@@ -198,7 +198,6 @@ export function renderKotraNationalBlock(
   const sections: string[] = [];
   for (const bundle of filtered) {
     let comps = bundle.koreanCompanies.slice();
-    const totalRaw = comps.length;
     if (kws.length > 0) {
       // Stricter: keep ONLY entries whose category/industry/parent matches a
       // keyword. hits=0 rows are noise that pushed sim toward irrelevant

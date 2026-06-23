@@ -74,7 +74,7 @@ export function OnboardingPanel({ initialState }: Props) {
     if (state.currentStep) {
       textareaRef.current?.focus();
     }
-  }, [history.length, state.currentStep?.id]);
+  }, [history.length, state.currentStep, state.currentStep?.id]);
 
   const submit = (skip: boolean) => {
     if (!state.currentStep) return;

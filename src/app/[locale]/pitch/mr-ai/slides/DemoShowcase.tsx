@@ -67,7 +67,7 @@ export function DemoShowcase({ pageNumber, totalPages }: { pageNumber: number; t
           title="Market Twin 전략 답 (링티 실데이터)"
           body={
             <div style={{ fontSize: 12, lineHeight: 1.6 }}>
-              <div style={{ marginBottom: 6, color: "var(--mrai-ink-muted-light)" }}>"링티 어느 시장 1순위?"</div>
+              <div style={{ marginBottom: 6, color: "var(--mrai-ink-muted-light)" }}>&ldquo;링티 어느 시장 1순위?&rdquo;</div>
               <div style={{ padding: 12, background: "var(--mrai-bg-dark)", color: "var(--mrai-ink-on-dark)", borderRadius: 8, fontSize: 11, lineHeight: 1.5 }}>
                 <div style={{ marginBottom: 8, fontSize: 12, color: "var(--mrai-accent)", fontWeight: 700 }}>🥇 US · 🥈 SG  동등 후보</div>
                 <div style={{ marginBottom: 4 }}>mean: US 64.8 · SG 63.7 · <span style={{ color: "var(--mrai-ink-muted-dark)" }}>gap 1.1pt</span></div>
@@ -77,7 +77,7 @@ export function DemoShowcase({ pageNumber, totalPages }: { pageNumber: number; t
                 <div style={{ fontSize: 10, color: "var(--mrai-ink-muted-dark)" }}>
                   Top 6 cluster: US · SG · AU · VN · TH · JP (5pt 안)
                   <br />
-                  "단독 winner 단정 불가 — 내부 capability로 결정"
+                  &ldquo;단독 winner 단정 불가 — 내부 capability로 결정&rdquo;
                 </div>
               </div>
               <div style={{ marginTop: 8, fontSize: 10, color: "var(--mrai-ink-muted-light)" }}>
@@ -90,7 +90,7 @@ export function DemoShowcase({ pageNumber, totalPages }: { pageNumber: number; t
 
       <div style={{ marginTop: "auto", paddingTop: 24, padding: "16px 24px", background: "rgba(10,14,26,0.04)", borderRadius: 10, fontSize: 13, lineHeight: 1.55 }}>
         <span style={{ color: "var(--mrai-accent)", fontWeight: 700, marginRight: 12 }}>핵심 흐름</span>
-        Voice 선택 → 모듈 호출 → 결과가 founder 톤으로 → 모든 action에 attribution tag → 며칠 후 "이 글이 ₩X 매출 만듦" closed-loop report.
+        Voice 선택 → 모듈 호출 → 결과가 founder 톤으로 → 모든 action에 attribution tag → 며칠 후 &ldquo;이 글이 ₩X 매출 만듦&rdquo; closed-loop report.
       </div>
     </Slide>
   );

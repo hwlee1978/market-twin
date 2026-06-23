@@ -54,6 +54,7 @@ export default function RootLayout({
          */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font -- Noto CJK loaded here intentionally: next/font has no Noto SC/TC variable-weight support and this root layout covers all routes */}
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&family=Noto+Sans+TC:wght@400;700&display=swap"

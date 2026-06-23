@@ -76,7 +76,7 @@ export function ExternalPipeline({ pageNumber, totalPages }: { pageNumber: numbe
             <div className="mrai-card__label" style={{ color: "var(--mrai-cool)" }}>White-label · resell 옵션</div>
             <p style={{ fontSize: 13, lineHeight: 1.55, margin: "8px 0 0" }}>
               Mr. AI를 FSN 자체 서비스 offering에 white-label 임베드 →{" "}
-              <strong>"FSN AI 마케팅 솔루션"</strong> 으로 advertiser에게 sell. SaaS 구독료 + 마케팅 운영 fee 양쪽 수익.
+              <strong>&ldquo;FSN AI 마케팅 솔루션&rdquo;</strong> 으로 advertiser에게 sell. SaaS 구독료 + 마케팅 운영 fee 양쪽 수익.
             </p>
           </div>
           <div className="mrai-card" style={{ background: "rgba(245,158,11,0.06)", borderColor: "var(--mrai-accent)" }}>

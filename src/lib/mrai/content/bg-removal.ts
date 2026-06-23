@@ -95,7 +95,6 @@ async function pollPrediction(
   token: string,
 ): Promise<ReplicatePrediction> {
   const t0 = Date.now();
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     if (Date.now() - t0 > 60_000) throw new Error("Replicate timeout (60s)");
     await new Promise((r) => setTimeout(r, 1500));
@@ -124,7 +123,6 @@ async function callReplicate(
 
   modelLoop: for (const m of MODEL_CANDIDATES) {
     let throttleRetries = 0;
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const t0 = Date.now();
       const create = await createPrediction(m.owner, m.name, imageUrl, token);

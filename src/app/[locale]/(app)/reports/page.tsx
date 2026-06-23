@@ -264,7 +264,7 @@ function ProjectGroupCard({
     items.push({ kind: "ensemble", row: e, at });
   }
   for (const s of standaloneSims) {
-    const at = new Date(s.completed_at ?? s.started_at ?? Date.now());
+    const at = new Date(s.completed_at ?? s.started_at ?? 0);
     items.push({ kind: "sim", row: s, at });
   }
   items.sort((a, b) => b.at.getTime() - a.at.getTime());

@@ -23,7 +23,6 @@ import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { categoryLabel } from "@/lib/simulation/taxonomy";
 import {
   computePricingSensitivity,
-  computeCurveRevenueMaxCents,
   getDisplayPriceCents,
 } from "@/lib/simulation/pricing-sensitivity";
 import { analyzeIncomeIntent } from "@/lib/simulation/segment-analysis";
@@ -32,7 +31,6 @@ import { getCountryLabel } from "@/lib/countries";
 import { formatPrice } from "@/lib/format/price";
 import { normalizeLLMText } from "@/lib/format/normalize";
 import {
-  tokenize,
   tokenizeStripGeo,
   overlapCoefficient,
   isPersonaMismatchNoise,
@@ -3789,10 +3787,6 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     );
     const headlinePriceCents = display.displayCents;
     const wasCorrected = display.wasCorrected;
-    // Used by the "auto-corrected" annotation copy below — what the
-    // recomputed envelope-revenue argmax was, regardless of whether
-    // it passed the trust/conversion gates.
-    const recomputedCurveMax = display.curveRevenueMaxCents;
     // Negative quote for the pricing callout — must actually mention
     // price/cost vocabulary. pickQuote returns null if no price-content
     // match exists (rather than surfacing an unrelated low-intent voice
@@ -5315,7 +5309,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * Answers "how confident should I be in this pick?" with concrete
    * numbers, not just the headline confidence label.
    */
-  const renderSensitivityAnalysisPage = () => {
+  const _renderSensitivityAnalysisPage = () => {
     if (!tierBudget.showSensitivityAnalysis) return null;
     const stats = aggregate.countryStats;
     if (stats.length < 2) return null;
@@ -5778,7 +5772,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * stacked side-by-side. Lets the user spot "Vietnam ad-curiosity high
    * but click rate low" type patterns where the leak differs by market.
    */
-  const renderCountryFunnelComparisonPage = () => {
+  const _renderCountryFunnelComparisonPage = () => {
     if (!tierBudget.showFunnelComparison) return null;
     const rows = aggregate.countryStats
       .filter((c) => !!c.detail?.funnel)
@@ -6241,7 +6235,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * directly to "who's our 1st customer" and "who's the bar to
    * convert".
    */
-  const renderChampionVsSkepticPage = () => {
+  const _renderChampionVsSkepticPage = () => {
     if (!tierBudget.showChampionVsSkeptic) return null;
     const champion = aggregate.personas?.topPositiveVoices?.[0];
     const skeptic = aggregate.personas?.topNegativeVoices?.[0];
@@ -6470,7 +6464,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * blocks" buyers in the priority market — direct input for messaging
    * and FAQ.
    */
-  const renderTrustVsObjectionPage = () => {
+  const _renderTrustVsObjectionPage = () => {
     if (!tierBudget.showTrustVsObjection) return null;
     const rec = aggregate.recommendation.country;
     if (!rec) return null;
@@ -6737,7 +6731,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
    * when ≥2 providers AND the providers picked different bestCountries.
    * Quietly skips otherwise — no-disagreement pages are filler.
    */
-  const renderProviderDisagreementPage = () => {
+  const _renderProviderDisagreementPage = () => {
     if (!tierBudget.showProviderDisagreement) return null;
     if (!aggregate.providerBreakdown || aggregate.providerBreakdown.length < 2) return null;
     // Each provider's top pick. If all top picks are the same, skip.
@@ -6941,7 +6935,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     );
   };
 
-  const renderVariancePage = () => (
+  const _renderVariancePage = () => (
     <Page size="A4" style={styles.page}>
       {pageHeader}
       <MText style={styles.pageTitle}>{isKo ? "결과 신뢰성 진단" : "Result reliability"}</MText>
@@ -7051,6 +7045,9 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 return (
                   <View key={i} style={{ width: 158, marginBottom: 8 }}>
                     {isImage ? (
+                      // This is @react-pdf/renderer's <Image>, not an HTML <img> —
+                      // it has no `alt` prop, so the jsx-a11y rule is a false positive here.
+                      // eslint-disable-next-line jsx-a11y/alt-text
                       <Image src={url} style={{ width: 158, height: 110, objectFit: "cover", backgroundColor: C.card }} />
                     ) : (
                       <View style={{ width: 158, height: 40, backgroundColor: C.card, padding: 4, justifyContent: "center" }}>
@@ -7580,7 +7577,6 @@ function renderEnsembleSecondaryPages(opts: {
     return { marketPage: null, actionsPage: null, risksPage: null, pricingPage: null };
   }
 
-  const countryLabel = getCountryLabel(secondaryCountry, isKo ? "ko" : "en");
   let marketPage: React.ReactElement | null = null;
   let actionsPage: React.ReactElement | null = null;
   let risksPage: React.ReactElement | null = null;
