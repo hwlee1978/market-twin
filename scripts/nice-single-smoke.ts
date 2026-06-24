@@ -20,7 +20,7 @@ const TEST_SECRET_KEY = "test_secret_key_0123456789abcdef"; // 32자(AES-128 key
 process.env.NICE_CLIENT_ID = TEST_CLIENT_ID;
 process.env.NICE_SECRET_KEY = TEST_SECRET_KEY;
 
-import { verifyAuthSignature, nicePriceKrw } from "../src/lib/billing/nice";
+import { verifyAuthSignature, nicePriceKrw, niceSupplyKrw } from "../src/lib/billing/nice";
 
 let passed = 0;
 let failed = 0;
@@ -86,12 +86,20 @@ console.log("checkout/return 금액 무결성 게이트:");
   check("숫자 아닌 amount 거부", returnGate("abc", goodSig, authToken) === "reject");
 }
 
-console.log("nicePriceKrw:");
+console.log("niceSupplyKrw (공급가, 부가세 별도):");
 {
-  check("starter monthly = 500,000", nicePriceKrw("starter", "monthly") === 500000);
-  check("starter annual = ×10 (5,000,000)", nicePriceKrw("starter", "annual") === 5000000);
-  check("validator monthly = 1,500,000", nicePriceKrw("validator", "monthly") === 1500000);
-  check("growth annual = 35,000,000", nicePriceKrw("growth", "annual") === 35000000);
+  check("starter monthly 공급가 = 500,000", niceSupplyKrw("starter", "monthly") === 500000);
+  check("starter annual 공급가 = ×10 (5,000,000)", niceSupplyKrw("starter", "annual") === 5000000);
+  check("validator monthly 공급가 = 1,500,000", niceSupplyKrw("validator", "monthly") === 1500000);
+}
+
+console.log("nicePriceKrw (청구가, 부가세 10% 포함):");
+{
+  check("starter monthly 청구 = 550,000", nicePriceKrw("starter", "monthly") === 550000);
+  check("starter annual 청구 = 5,500,000", nicePriceKrw("starter", "annual") === 5500000);
+  check("validator monthly 청구 = 1,650,000", nicePriceKrw("validator", "monthly") === 1650000);
+  check("growth annual 청구 = 38,500,000", nicePriceKrw("growth", "annual") === 38500000);
+  check("청구 = 공급가 × 1.1", nicePriceKrw("growth", "monthly") === Math.round((niceSupplyKrw("growth", "monthly") as number) * 1.1));
   check("free_trial = null(가격 없음)", nicePriceKrw("free_trial", "monthly") === null);
   check("enterprise = null(별도 견적)", nicePriceKrw("enterprise", "monthly") === null);
 }

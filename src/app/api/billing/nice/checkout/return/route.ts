@@ -143,7 +143,7 @@ export async function POST(req: Request) {
     event: "payment_succeeded",
     to_plan: planSlug,
     to_status: "active",
-    amount_cents: amount * 100, // KRW × 100 (plans.ts 컨벤션)
+    amount_cents: amount * 100, // 부가세 포함 총액 KRW × 100 (plans.ts 컨벤션)
     currency: "KRW",
     metadata: {
       tid,
@@ -151,6 +151,10 @@ export async function POST(req: Request) {
       cycle,
       provider: "nicepay",
       mode: "single", // 단건(빌키 없음) 구분
+      // 세금계산서 분리발행용 — amount는 부가세 포함 총액, 공급가/부가세로 분해.
+      vat_included: true,
+      supply_krw: Math.round(amount / 1.1),
+      vat_krw: amount - Math.round(amount / 1.1),
     },
   });
 

@@ -66,7 +66,7 @@ export async function POST(req: Request) {
   }
 
   const origin = new URL(req.url).origin;
-  const goodsName = `Market Twin ${plan.name} (${cycle === "annual" ? "Annual" : "Monthly"})`;
+  const goodsName = `Market Twin ${plan.name} (${cycle === "annual" ? "Annual" : "Monthly"}) · 부가세 포함`;
 
   return NextResponse.json({
     clientId: nicePublicClientId(),

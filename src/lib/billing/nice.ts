@@ -305,7 +305,11 @@ export async function cancelPayment(opts: {
  * KRW price for a given plan/cycle. plans.ts는 KRW×100 저장이므로 ÷100.
  * annual = monthly × 10.
  */
-export function nicePriceKrw(plan: PlanSlug, cycle: "monthly" | "annual"): number | null {
+/** 국내(KRW) 부가가치세율 10%. 표시가는 부가세 별도(공급가액)다. */
+export const KRW_VAT_RATE = 0.1;
+
+/** plan/cycle의 공급가액(부가세 별도). plans 표기·플랜페이지와 동일 기준. */
+export function niceSupplyKrw(plan: PlanSlug, cycle: "monthly" | "annual"): number | null {
   const monthly: Record<PlanSlug, number | null> = {
     free_trial: null,
     starter: 500000,
@@ -316,6 +320,17 @@ export function nicePriceKrw(plan: PlanSlug, cycle: "monthly" | "annual"): numbe
   const m = monthly[plan];
   if (m == null) return null;
   return cycle === "annual" ? m * 10 : m;
+}
+
+/**
+ * 실제 청구 금액(부가세 포함). 국내 카드결제는 공급가액 × 1.1로 청구하고
+ * 세금계산서로 공급가/부가세를 분리 발행한다. NICE amount는 정수 KRW라
+ * 반올림(현재 가격은 ×1.1이 모두 정수로 떨어진다).
+ */
+export function nicePriceKrw(plan: PlanSlug, cycle: "monthly" | "annual"): number | null {
+  const supply = niceSupplyKrw(plan, cycle);
+  if (supply == null) return null;
+  return Math.round(supply * (1 + KRW_VAT_RATE));
 }
 
 export { NiceError };
