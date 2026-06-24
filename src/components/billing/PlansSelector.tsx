@@ -57,7 +57,7 @@ export function PlansSelector({
             currency={currency}
             cycle={cycle}
             isKo={isKo}
-            highlight={plan.slug === "growth"}
+            highlight={plan.slug === "validator"}
             isLoggedIn={!!isLoggedIn}
           />
         ))}
@@ -257,6 +257,11 @@ function PlanCard({
             {plan.slug === "free_trial" && (
               <div className="text-xs text-slate-500 mt-1">
                 {isKo ? "7일 또는 초기검증 2회" : "7 days or 2 sims"}
+              </div>
+            )}
+            {plan.slug !== "free_trial" && currency === "krw" && (
+              <div className="text-[11px] text-slate-400 mt-1">
+                {isKo ? "부가세 별도 · 결제 시 10% 포함" : "Excl. VAT · +10% at checkout"}
               </div>
             )}
           </div>
