@@ -18,7 +18,17 @@
 import crypto from "crypto";
 import type { PlanSlug } from "./plans";
 
-const NICE_API_BASE = process.env.NICE_API_BASE ?? "https://api.nicepay.co.kr";
+/**
+ * NICE API base. env로 덮어쓸 수 있으나, 스킴(https://) 없이 호스트만 넣는
+ * 흔한 실수("api.nicepay.co.kr")가 들어오면 fetch가 URL 파싱에 실패해 결제가
+ * 통째로 깨진다 → 스킴 누락 시 https://를 보정하고 끝의 슬래시를 제거한다.
+ */
+function resolveNiceApiBase(): string {
+  const raw = (process.env.NICE_API_BASE ?? "https://api.nicepay.co.kr").trim();
+  const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  return withScheme.replace(/\/+$/, "");
+}
+const NICE_API_BASE = resolveNiceApiBase();
 
 interface NiceErrorBody {
   resultCode?: string;
