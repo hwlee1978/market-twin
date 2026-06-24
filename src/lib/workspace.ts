@@ -6,6 +6,7 @@ import {
   recordSignupAttempt,
   clientIp,
 } from "@/lib/billing/trial-abuse";
+import { notifyNewSignup } from "@/lib/email/billing-notify";
 
 export type WorkspaceStatus = "active" | "suspended" | "archived";
 export const ACTIVE_WORKSPACE_COOKIE = "aw_id";
@@ -168,6 +169,10 @@ export const getOrCreatePrimaryWorkspace = cache(
     } catch (err) {
       console.warn(`[workspace] signup-attempt logging failed:`, err);
     }
+
+    // 새 회원가입(첫 워크스페이스 생성) 운영 알림 — best-effort, 가입 흐름을
+    // 막지 않게 fire-and-forget.
+    void notifyNewSignup({ userEmail: user.email ?? "", workspaceId: ws.id });
 
     return {
       workspaceId: ws.id,

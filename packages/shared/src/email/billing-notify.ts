@@ -377,6 +377,35 @@ export async function notifySinglePaymentExpiring(args: SinglePaymentExpiringArg
   }
 }
 
+/**
+ * 운영 알림 — 새 회원가입(첫 워크스페이스 생성) 시 내부 담당자에게 통지.
+ * 수신자는 SIGNUP_NOTIFY_EMAIL(기본 chris@markettwin.ai). best-effort.
+ */
+export async function notifyNewSignup(args: { userEmail: string; workspaceId: string }): Promise<void> {
+  const resend = getResend();
+  if (!resend) return;
+  const to = process.env.SIGNUP_NOTIFY_EMAIL ?? "chris@markettwin.ai";
+  try {
+    await resend.emails.send({
+      from: getFromAddress(),
+      to: [to],
+      subject: `[Market Twin] 새 회원가입 — ${args.userEmail}`,
+      html: shellHtml({
+        eyebrow: "New Signup",
+        title: "새 회원가입",
+        bodyHtml:
+          `<p>새 사용자가 가입했습니다.</p>` +
+          `<p>이메일: <strong>${args.userEmail}</strong></p>` +
+          `<p style="color:#64748b;font-size:13px">워크스페이스 ID: ${args.workspaceId}</p>`,
+        footnote: "Market Twin · Ops",
+      }),
+      text: `새 회원가입: ${args.userEmail}\n워크스페이스: ${args.workspaceId}\n`,
+    });
+  } catch (err) {
+    console.warn("[billing-notify] new_signup email failed", err);
+  }
+}
+
 /** Plans-page URL helper exposed for callers that don't already have one. */
 export function defaultUpgradeUrl(locale: Locale): string {
   return plansUrl(locale);
