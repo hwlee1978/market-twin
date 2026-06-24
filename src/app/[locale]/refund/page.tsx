@@ -1,57 +1,11 @@
-import { getTranslations, setRequestLocale } from "next-intl/server";
-import { LegalLayout, LegalSection } from "@/components/legal/LegalLayout";
+import { redirect } from "next/navigation";
 
-export default async function RefundPage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
-  const { locale } = await params;
-  setRequestLocale(locale);
-  const t = await getTranslations("legal.refund");
-
-  return (
-    <LegalLayout title={t("title")} lastUpdated={t("lastUpdated")}>
-      <p className="mb-6 text-slate-700 leading-[1.75] text-justify">
-        {t("intro")}
-      </p>
-
-      <LegalSection num={1} title={t("scope.title")}>
-        <p>{t("scope.body")}</p>
-      </LegalSection>
-
-      <LegalSection num={2} title={t("trial.title")}>
-        <p>{t("trial.body")}</p>
-      </LegalSection>
-
-      <LegalSection num={3} title={t("monthly.title")}>
-        <p>{t("monthly.body")}</p>
-        <ul className="list-disc pl-5 space-y-1.5">
-          <li>{t("monthly.item1")}</li>
-          <li>{t("monthly.item2")}</li>
-          <li>{t("monthly.item3")}</li>
-        </ul>
-      </LegalSection>
-
-      <LegalSection num={4} title={t("annual.title")}>
-        <p>{t("annual.body")}</p>
-      </LegalSection>
-
-      <LegalSection num={5} title={t("withdrawal.title")}>
-        <p>{t("withdrawal.body")}</p>
-      </LegalSection>
-
-      <LegalSection num={6} title={t("cancel.title")}>
-        <p>{t("cancel.body")}</p>
-      </LegalSection>
-
-      <LegalSection num={7} title={t("autopay.title")}>
-        <p>{t("autopay.body")}</p>
-      </LegalSection>
-
-      <LegalSection num={8} title={t("contact.title")}>
-        <p>{t("contact.body")}</p>
-      </LegalSection>
-    </LegalLayout>
-  );
+/**
+ * 환불정책 정본도 마케팅 사이트(markettwin.ai)에 단일 유지한다. 앱 내부
+ * (i18n) 별도본과의 불일치를 없애기 위해 앱 /refund를 마케팅 정본으로
+ * 리다이렉트한다. 환불정책은 국내 KRW 결제 기준 단일 문서라 영문 전용
+ * 페이지가 없어 ko/en 모두 refund.html로 보낸다.
+ */
+export default async function RefundPage() {
+  redirect("https://markettwin.ai/refund.html");
 }
