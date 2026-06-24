@@ -7,13 +7,11 @@ import { clsx } from "clsx";
 import {
   ALL_PLANS,
   formatPlanPrice,
-  annualPrice,
   type PlanDefinition,
 } from "@/lib/billing/plans";
 import { BillingComplianceNotice } from "./BillingComplianceNotice";
 
 type Currency = "usd" | "krw";
-type Cycle = "monthly" | "annual";
 
 /**
  * Tier-selection grid for the pre-signup /plans page. Server component
@@ -40,12 +38,10 @@ export function PlansSelector({
 }) {
   const isKo = locale === "ko";
   const [currency, setCurrency] = useState<Currency>(isKo ? "krw" : "usd");
-  const [cycle, setCycle] = useState<Cycle>("monthly");
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-center gap-4 mb-8">
-        <CycleToggle value={cycle} onChange={setCycle} isKo={isKo} />
+      <div className="flex items-center justify-center mb-8">
         <CurrencyToggle value={currency} onChange={setCurrency} />
       </div>
 
@@ -55,7 +51,6 @@ export function PlansSelector({
             key={plan.slug}
             plan={plan}
             currency={currency}
-            cycle={cycle}
             isKo={isKo}
             highlight={plan.slug === "validator"}
             isLoggedIn={!!isLoggedIn}
@@ -69,55 +64,6 @@ export function PlansSelector({
           : "* The beta free trial ends after 7 days or 2 sims, whichever comes first. No credit card required."}
       </div>
       <BillingComplianceNotice locale={isKo ? "ko" : "en"} />
-    </div>
-  );
-}
-
-function CycleToggle({
-  value,
-  onChange,
-  isKo,
-}: {
-  value: Cycle;
-  onChange: (c: Cycle) => void;
-  isKo: boolean;
-}) {
-  return (
-    <div className="inline-flex rounded-full bg-white border border-slate-200 p-1 mx-auto sm:mx-0">
-      <button
-        type="button"
-        onClick={() => onChange("monthly")}
-        className={clsx(
-          "px-4 py-1.5 text-sm rounded-full transition-colors",
-          value === "monthly"
-            ? "bg-slate-900 text-white"
-            : "text-slate-600 hover:text-slate-900",
-        )}
-      >
-        {isKo ? "월간" : "Monthly"}
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange("annual")}
-        className={clsx(
-          "px-4 py-1.5 text-sm rounded-full transition-colors inline-flex items-center gap-1.5",
-          value === "annual"
-            ? "bg-slate-900 text-white"
-            : "text-slate-600 hover:text-slate-900",
-        )}
-      >
-        {isKo ? "연간" : "Annual"}
-        <span
-          className={clsx(
-            "text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
-            value === "annual"
-              ? "bg-white/20 text-white"
-              : "bg-success-soft text-success",
-          )}
-        >
-          {isKo ? "2개월 무료" : "2 mo free"}
-        </span>
-      </button>
     </div>
   );
 }
@@ -158,27 +104,18 @@ function CurrencyToggle({
 function PlanCard({
   plan,
   currency,
-  cycle,
   isKo,
   highlight,
   isLoggedIn,
 }: {
   plan: PlanDefinition;
   currency: Currency;
-  cycle: Cycle;
   isKo: boolean;
   highlight: boolean;
   isLoggedIn: boolean;
 }) {
-  const monthlyCents = plan.priceMonthly[currency];
-  const annualTotal = annualPrice(plan, currency);
-  // Display price = effective monthly when annual billing (annualTotal/12).
-  // Cleaner than showing the lump sum on a tier card; we still surface
-  // the annual total in the small "billed annually" line below.
-  const effectiveMonthlyCents =
-    cycle === "annual" && annualTotal != null ? Math.round(annualTotal / 12) : monthlyCents;
-  const priceLabel = formatPlanPrice(effectiveMonthlyCents, currency);
-  const annualLabel = formatPlanPrice(annualTotal, currency);
+  // 월간 결제만 제공 (연간 상품 제거 2026-06-24).
+  const priceLabel = formatPlanPrice(plan.priceMonthly[currency], currency);
 
   // CTA routing matrix:
   //   - Enterprise → always mailto sales
@@ -195,12 +132,12 @@ function PlanCard({
       )}`;
     }
     if (plan.slug === "free_trial") {
-      return `/signup?plan=${plan.slug}&cycle=${cycle}`;
+      return `/signup?plan=${plan.slug}&cycle=monthly`;
     }
     if (isLoggedIn) {
-      return `/billing/upgrade?plan=${plan.slug}&cycle=${cycle}&currency=${currency}`;
+      return `/billing/upgrade?plan=${plan.slug}&cycle=monthly&currency=${currency}`;
     }
-    return `/signup?plan=${plan.slug}&cycle=${cycle}`;
+    return `/signup?plan=${plan.slug}&cycle=monthly`;
   })();
 
   const ctaLabel = (() => {
@@ -247,13 +184,6 @@ function PlanCard({
               <span className="text-3xl font-bold text-slate-900 tabular-nums">{priceLabel}</span>
               <span className="text-sm text-slate-500">/{isKo ? "월" : "mo"}</span>
             </div>
-            {plan.slug !== "free_trial" && cycle === "annual" && annualLabel && (
-              <div className="text-xs text-slate-500 mt-1">
-                {isKo
-                  ? `연 ${annualLabel} (월 환산)`
-                  : `${annualLabel}/yr billed annually`}
-              </div>
-            )}
             {plan.slug === "free_trial" && (
               <div className="text-xs text-slate-500 mt-1">
                 {isKo ? "7일 또는 초기검증 2회" : "7 days or 2 sims"}

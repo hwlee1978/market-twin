@@ -100,13 +100,13 @@ export default async function PlansPage({
         <div className="mt-12 text-center text-xs text-slate-500 leading-relaxed">
           {isKo ? (
             <>
-              연간 결제 시 <strong className="text-slate-700">2개월 무료</strong> (16.7% 할인). 모든 플랜은 언제든 업그레이드·다운그레이드 가능합니다.
+              모든 플랜은 언제든 업그레이드·다운그레이드 가능합니다.
               <br />
               가격은 부가세 별도. 결제는 Stripe (해외카드) 및 {krwPgLabel} 지원.
             </>
           ) : (
             <>
-              Annual billing saves <strong className="text-slate-700">2 months</strong> (16.7% off). Upgrade or downgrade any time.
+              Upgrade or downgrade any time.
               <br />
               Prices exclude tax. Payment via Stripe (international cards) and {krwPgLabel}.
             </>

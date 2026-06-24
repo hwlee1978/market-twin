@@ -35,7 +35,8 @@ export default async function UpgradePage({
 
   const planSlug = (search.plan ?? "starter") as PlanSlug;
   const plan = getPlan(planSlug);
-  const cycle = (search.cycle === "annual" ? "annual" : "monthly") as "monthly" | "annual";
+  // 연간 상품 제거(2026-06-24) — 결제는 월간만. ?cycle=annual URL 우회도 차단.
+  const cycle = "monthly" as const;
   const currency = (search.currency ??
     (locale === "ko" ? "krw" : "usd")) as "usd" | "krw";
 
