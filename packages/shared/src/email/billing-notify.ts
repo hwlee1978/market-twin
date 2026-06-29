@@ -406,6 +406,45 @@ export async function notifyNewSignup(args: { userEmail: string; workspaceId: st
   }
 }
 
+/**
+ * 운영 알림 — 시스템 헬스체크에서 warn/fail이 잡히면 담당자에게 통지.
+ * 수신자 OPS_ALERT_EMAIL(기본 chris@markettwin.ai). best-effort.
+ */
+export async function notifySystemHealthAlert(args: {
+  overallStatus: string;
+  failing: Array<{ label: string; status: string; detail: string }>;
+}): Promise<void> {
+  const resend = getResend();
+  if (!resend) return;
+  const to = process.env.OPS_ALERT_EMAIL ?? "chris@markettwin.ai";
+  try {
+    const rows = args.failing
+      .map((c) => {
+        const dot = c.status === "fail" ? "🔴" : "🟡";
+        return `<tr><td style="padding:6px 10px;border-bottom:1px solid #eef2f7">${dot} <strong>${c.label}</strong></td><td style="padding:6px 10px;border-bottom:1px solid #eef2f7;color:#475569">${c.detail}</td></tr>`;
+      })
+      .join("");
+    const text = args.failing.map((c) => `[${c.status}] ${c.label}: ${c.detail}`).join("\n");
+    await resend.emails.send({
+      from: getFromAddress(),
+      to: [to],
+      subject: `[Market Twin] ⚠️ 시스템 점검 알림 — ${args.failing.length}건 (${args.overallStatus.toUpperCase()})`,
+      html: shellHtml({
+        eyebrow: "System Health",
+        title: `점검에서 ${args.failing.length}건 이상 감지`,
+        bodyHtml:
+          `<p>아래 항목을 확인해주세요. (🔴 고장 · 🟡 주의)</p>` +
+          `<table style="border-collapse:collapse;width:100%;font-size:13px;margin-top:8px">${rows}</table>` +
+          `<p style="color:#94a3b8;font-size:12px;margin-top:14px">정상 복구되면 다음 점검부터 이 메일은 발송되지 않습니다.</p>`,
+        footnote: "Market Twin · Monitoring",
+      }),
+      text,
+    });
+  } catch (err) {
+    console.warn("[billing-notify] system_health_alert email failed", err);
+  }
+}
+
 /** Plans-page URL helper exposed for callers that don't already have one. */
 export function defaultUpgradeUrl(locale: Locale): string {
   return plansUrl(locale);

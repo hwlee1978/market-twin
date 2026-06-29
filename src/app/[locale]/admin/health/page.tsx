@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { KpiCard } from "@/components/ui/KpiCard";
+import { checkSystemHealth } from "@/lib/monitoring/system-health";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { createServiceClient } from "@/lib/supabase/server";
 
@@ -134,11 +135,40 @@ export default async function AdminHealthPage({
     .filter((s) => s.status === "failed")
     .slice(0, 10);
 
+  // 전 기능 통합 헬스(DB·시뮬·크롤러·결제). 이상 시 monitoring 크론이 이메일.
+  const sysHealth = await checkSystemHealth();
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">{t("title")}</h1>
         <p className="text-sm text-slate-500 mt-1">{t("subtitle")}</p>
+      </div>
+
+      <div className="card">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-semibold">시스템 상태</h2>
+          <span
+            className={`text-[11px] font-bold uppercase px-2 py-0.5 rounded-full ${
+              sysHealth.status === "fail"
+                ? "bg-red-100 text-red-700"
+                : sysHealth.status === "warn"
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-emerald-100 text-emerald-700"
+            }`}
+          >
+            {sysHealth.status === "fail" ? "이상" : sysHealth.status === "warn" ? "주의" : "정상"}
+          </span>
+        </div>
+        <div className="space-y-1.5">
+          {sysHealth.checks.map((c) => (
+            <div key={c.key} className="flex items-start gap-2.5 text-sm">
+              <span className="mt-0.5">{c.status === "fail" ? "🔴" : c.status === "warn" ? "🟡" : "🟢"}</span>
+              <span className="font-medium text-slate-800 w-24 shrink-0">{c.label}</span>
+              <span className="text-slate-500 break-keep">{c.detail}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
