@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { generateBriefing } from "@/lib/mrai/daily-briefing";
 import type { Locale } from "@/lib/mrai/types";
 import { withLLMContext } from "@/lib/llm-context";
-import { MRAI_ENABLED } from "@/lib/mrai/config/enabled";
+import { MRAI_CRON_ENABLED } from "@/lib/mrai/config/enabled";
 import { assertCronAuth } from "@/lib/auth/cron-gate";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +38,7 @@ export async function GET(req: Request) {
   // cron fires from BOTH projects each day, generating two briefings
   // ~13s apart for every workspace. Gate at the cron handler so only
   // the Mr.AI deployment actually runs the sweep.
-  if (!MRAI_ENABLED) {
+  if (!MRAI_CRON_ENABLED) {
     return NextResponse.json({ skipped: "mrai_not_enabled_on_this_deployment" });
   }
 

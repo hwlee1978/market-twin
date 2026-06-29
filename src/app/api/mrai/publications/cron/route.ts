@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { computeTickDelta, daysSince, type TickDelta } from "@/lib/mrai/content/engagement-engine";
-import { MRAI_ENABLED } from "@/lib/mrai/config/enabled";
+import { MRAI_CRON_ENABLED } from "@/lib/mrai/config/enabled";
 import { assertCronAuth } from "@/lib/auth/cron-gate";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export async function GET(req: Request) {
 
   // Skip if this deployment doesn't own Mr.AI (avoids the double-fire
   // between market-twin prod and market-twin-mrai beta).
-  if (!MRAI_ENABLED) {
+  if (!MRAI_CRON_ENABLED) {
     return NextResponse.json({ skipped: "mrai_not_enabled_on_this_deployment" });
   }
 

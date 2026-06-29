@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { MRAI_ENABLED } from "@/lib/mrai/config/enabled";
+import { MRAI_CRON_ENABLED } from "@/lib/mrai/config/enabled";
 import { assertCronAuth } from "@/lib/auth/cron-gate";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export async function GET(req: Request) {
 
   // Skip on non-Mr.AI deployments (prevents double-fire between the
   // market-twin prod and market-twin-mrai beta Vercel projects).
-  if (!MRAI_ENABLED) {
+  if (!MRAI_CRON_ENABLED) {
     return NextResponse.json({ skipped: "mrai_not_enabled_on_this_deployment" });
   }
 

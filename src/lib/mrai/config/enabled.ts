@@ -23,6 +23,22 @@
 export const MRAI_ENABLED = process.env.NEXT_PUBLIC_MRAI_ENABLED === "true";
 
 /**
+ * Server-side gate for Mr.AI background CRON jobs (crawl / briefings /
+ * publications / content-drafts / seo).
+ *
+ * Decoupled from the NEXT_PUBLIC UI flag above. After the 2026-06
+ * host-based consolidation there is a single Vercel deployment where
+ * NEXT_PUBLIC_MRAI_ENABLED is OFF (so Mr.AI UI stays hidden on
+ * markettwin.ai and shows only on mrai.*). But the crons still need to
+ * run on that deployment — gating them on the UI flag silently disabled
+ * every Mr.AI cron (the crawler stopped 2026-06-17). Set
+ * MRAI_CRON_ENABLED=true on the deployment that should run the jobs.
+ * OR-ed with the build flag so local dev (MRAI on) keeps working.
+ */
+export const MRAI_CRON_ENABLED =
+  process.env.MRAI_CRON_ENABLED === "true" || MRAI_ENABLED;
+
+/**
  * Is the request host the Mr.AI subdomain? Accepts either a server
  * `Host` header (e.g. "mrai.markettwin.ai:443") or a browser
  * `window.location.hostname`. Port and case are normalized.

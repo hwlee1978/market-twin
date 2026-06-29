@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { runCrawlSource } from "@/lib/mrai/crawl/runner";
-import { MRAI_ENABLED } from "@/lib/mrai/config/enabled";
+import { MRAI_CRON_ENABLED } from "@/lib/mrai/config/enabled";
 import { assertCronAuth } from "@/lib/auth/cron-gate";
 
 export const dynamic = "force-dynamic";
@@ -22,10 +22,11 @@ export async function GET(req: Request) {
   const gate = assertCronAuth(req);
   if (gate) return gate;
 
-  // Skip on non-Mr.AI deployments (prevents double-fire between the
-  // market-twin prod and market-twin-mrai beta Vercel projects).
-  if (!MRAI_ENABLED) {
-    return NextResponse.json({ skipped: "mrai_not_enabled_on_this_deployment" });
+  // Run only where Mr.AI background jobs are enabled (MRAI_CRON_ENABLED).
+  // Decoupled from the UI flag so markettwin.ai can run the crons while
+  // keeping the Mr.AI UI hidden. See config/enabled.ts.
+  if (!MRAI_CRON_ENABLED) {
+    return NextResponse.json({ skipped: "mrai_crons_not_enabled_on_this_deployment" });
   }
 
   const svc = createServiceClient();

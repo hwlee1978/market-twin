@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { syncGSCForWorkspace } from "@/lib/mrai/seo/gsc-sync";
 import { syncGA4ForWorkspace } from "@/lib/mrai/seo/ga4-sync";
-import { MRAI_ENABLED } from "@/lib/mrai/config/enabled";
+import { MRAI_CRON_ENABLED } from "@/lib/mrai/config/enabled";
 import { assertCronAuth } from "@/lib/auth/cron-gate";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +22,7 @@ export const maxDuration = 800;
 export async function GET(req: Request) {
   const gate = assertCronAuth(req);
   if (gate) return gate;
-  if (!MRAI_ENABLED) {
+  if (!MRAI_CRON_ENABLED) {
     return NextResponse.json({ skipped: "mrai_not_enabled_on_this_deployment" });
   }
 
