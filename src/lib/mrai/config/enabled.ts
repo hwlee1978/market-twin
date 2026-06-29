@@ -36,7 +36,9 @@ export const MRAI_ENABLED = process.env.NEXT_PUBLIC_MRAI_ENABLED === "true";
  * OR-ed with the build flag so local dev (MRAI on) keeps working.
  */
 export const MRAI_CRON_ENABLED =
-  process.env.MRAI_CRON_ENABLED === "true" || MRAI_ENABLED;
+  // trim+lowercase: Vercel 값 입력칸이 multi-line이라 "true\n"/" true "/"True"
+  // 같이 들어와도 동작하게 관대하게 비교(정확 일치 강제 시 조용히 false).
+  process.env.MRAI_CRON_ENABLED?.trim().toLowerCase() === "true" || MRAI_ENABLED;
 
 /**
  * Is the request host the Mr.AI subdomain? Accepts either a server
