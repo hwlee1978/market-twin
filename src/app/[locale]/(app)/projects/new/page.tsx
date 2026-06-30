@@ -3,6 +3,7 @@ import { ProjectWizard } from "@/components/ProjectWizard";
 import { BetaTrialComplete } from "@/components/BetaTrialComplete";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { getSubscription } from "@/lib/billing/usage";
+import { getAdminContext } from "@/lib/admin";
 
 export default async function NewProjectPage({
   params,
@@ -14,12 +15,20 @@ export default async function NewProjectPage({
 
   const ctx = await getOrCreatePrimaryWorkspace();
   const sub = ctx ? await getSubscription(ctx.workspaceId) : null;
-  const betaTrialOnly = sub?.plan.slug === "free_trial";
+
+  // Super-admins (internal/ops/founder) get no restrictions — bypass the
+  // trial wall and the tier lock. The run-ensemble gate already bypasses
+  // canStartSim for super-admins; this aligns the UI with that.
+  const adminCtx = await getAdminContext();
+  const isSuperAdmin = adminCtx?.role === "super";
+
+  const betaTrialOnly = sub?.plan.slug === "free_trial" && !isSuperAdmin;
 
   // Beta (free_trial) trial exhausted → show the "beta complete" notice
   // instead of the wizard, right at the '새 프로젝트' step. Exhausted =
   // used up the free simulations OR the 7-day trial window has passed.
   if (
+    !isSuperAdmin &&
     sub &&
     sub.plan.slug === "free_trial" &&
     (sub.trialSimsUsed >= sub.trialSimsLimit || !sub.trialActive)
