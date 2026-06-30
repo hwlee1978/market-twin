@@ -8,6 +8,7 @@ import { RunEnsembleButton } from "@/components/RunEnsembleButton";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { getSubscription } from "@/lib/billing/usage";
+import { getAdminContext } from "@/lib/admin";
 
 export default async function ProjectDetailPage({
   params,
@@ -22,8 +23,12 @@ export default async function ProjectDetailPage({
 
   // Beta (free_trial) workspaces can only run Hypothesis — lock higher tiers
   // in the re-run control too, matching the project-creation wizard.
+  // Super-admins (founder/ops) get no restrictions — run-ensemble already
+  // bypasses canStartSim for them, so align the UI tier lock as well.
   const sub = await getSubscription(ctx.workspaceId);
-  const betaTrialOnly = sub.plan.slug === "free_trial";
+  const adminCtx = await getAdminContext();
+  const isSuperAdmin = adminCtx?.role === "super";
+  const betaTrialOnly = sub.plan.slug === "free_trial" && !isSuperAdmin;
 
   const supabase = await createClient();
   const { data: project } = await supabase
