@@ -291,6 +291,56 @@ export async function prefetchSimulationContext(
     }
   }
 
+  // National data providers — non-KR origins get their national-agency
+  // equivalents of DART/MFDS (e.g. US → SEC EDGAR + openFDA). KR keeps the
+  // inline anchors above; it will migrate into the registry later.
+  if (origin !== "KR") {
+    try {
+      const { getNationalProvider } = await import(
+        "@/lib/market-research/national-providers"
+      );
+      const provider = getNationalProvider(origin);
+      if (provider) {
+        const nInput = {
+          category: projectInput.category,
+          productName: projectInput.productName,
+          candidateCountries: projectInput.candidateCountries,
+          locale,
+          asOfYear,
+        };
+        for (const [name, build] of [
+          ["financials", provider.financials],
+          ["regulatory", provider.regulatory],
+        ] as const) {
+          if (!build) continue;
+          try {
+            const { block } = await build(nInput);
+            if (block) {
+              console.log(
+                `${log}National provider (${origin}/${name}): +${block.split("\n").length} lines`,
+              );
+              tradeAnchorBlock = tradeAnchorBlock
+                ? `${tradeAnchorBlock}\n\n${block}`
+                : block;
+            } else {
+              console.log(`${log}National provider (${origin}/${name}): empty`);
+            }
+          } catch (err) {
+            console.warn(
+              `${log}National provider (${origin}/${name}) failed: ${(err as Error).message}`,
+            );
+          }
+        }
+      } else {
+        console.log(`${log}National provider: none registered for ${origin}`);
+      }
+    } catch (err) {
+      console.warn(
+        `${log}National providers load failed: ${(err as Error).message}`,
+      );
+    }
+  }
+
   // Tavily grounding — trend (global) + margin (origin) + per-country KOL.
   // Sonar Pro joins trend when PERPLEXITY_API_KEY is set.
   let trendSnippets: TavilyResult[] = [];
