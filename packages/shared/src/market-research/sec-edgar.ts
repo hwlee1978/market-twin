@@ -134,6 +134,8 @@ async function fetchSecFinancials(
             units?: {
               USD?: Array<{
                 val: number;
+                start?: string;
+                end?: string;
                 fy?: number;
                 fp?: string;
                 form?: string;
@@ -149,23 +151,29 @@ async function fetchSecFinancials(
     for (const concept of REVENUE_CONCEPTS) {
       const usd = gaap[concept]?.units?.USD;
       if (!usd?.length) continue;
-      // Annual figures: 10-K, full-year period (fp=FY), with a CY/FY frame.
-      const annual = usd.filter(
-        (e) =>
-          e.form === "10-K" &&
-          e.fp === "FY" &&
-          typeof e.fy === "number" &&
-          typeof e.frame === "string" &&
-          (asOfYear == null || (e.fy ?? 0) <= asOfYear),
-      );
+      // Pick the latest FULL-YEAR figure. companyfacts repeats the same value
+      // across multiple filings under different `fy` tags (e.g. a FY2023 value
+      // reappears as a comparative in the FY2025 10-K), so `fy` is unreliable.
+      // Instead: require an annual reporting period (start→end ≈ 365 days) from
+      // a 10-K, then take the one with the latest period-END date.
+      const annual = usd
+        .filter((e) => {
+          if (!e.form || !e.form.startsWith("10-K")) return false;
+          if (!e.start || !e.end) return false;
+          const days =
+            (Date.parse(e.end) - Date.parse(e.start)) / 86_400_000;
+          if (days < 340 || days > 380) return false; // full fiscal year
+          const endYear = Number(e.end.slice(0, 4));
+          return asOfYear == null || endYear <= asOfYear;
+        })
+        .sort((a, b) => Date.parse(b.end as string) - Date.parse(a.end as string));
       if (!annual.length) continue;
-      annual.sort((a, b) => (b.fy ?? 0) - (a.fy ?? 0));
       const best = annual[0];
       return {
         ticker,
         cik: entry.cik,
         companyName: entry.title,
-        fiscalYear: best.fy as number,
+        fiscalYear: Number((best.end as string).slice(0, 4)),
         revenueUsd: best.val,
       };
     }
