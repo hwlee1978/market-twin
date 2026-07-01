@@ -94,8 +94,14 @@ export async function prefetchSimulationContext(
     );
   }
 
+  // Origin (home / exporting country). Defaults to KR. Trade-flow grounding
+  // (Comtrade) is origin-agnostic; the Korea-specific national anchors below
+  // (Customs / DART / MFDS / KOTRA) only fire when origin === KR so a non-KR
+  // origin never gets Korea data mislabeled as its own.
+  const origin = (projectInput.originatingCountry ?? "KR").toUpperCase();
+
   let tradeAnchorBlock = "";
-  // UN Comtrade — Phase E Week 4-5 (2026-05-16)
+  // UN Comtrade — Phase E Week 4-5 (2026-05-16). Origin-dynamic reporter.
   try {
     const { buildComtradeAnchor } = await import(
       "@/lib/market-research/comtrade"
@@ -103,7 +109,12 @@ export async function prefetchSimulationContext(
     const { block } = await buildComtradeAnchor(
       projectInput.category,
       projectInput.candidateCountries,
-      { apiKey: process.env.COMTRADE_API_KEY, locale, period: asOfYear },
+      {
+        apiKey: process.env.COMTRADE_API_KEY,
+        locale,
+        period: asOfYear,
+        originIso: origin,
+      },
     );
     tradeAnchorBlock = block;
     if (block) {
@@ -142,8 +153,8 @@ export async function prefetchSimulationContext(
     );
   }
 
-  // Korea Customs — Phase F.1-1 (appended to tradeAnchorBlock)
-  try {
+  // Korea Customs — Phase F.1-1 (appended to tradeAnchorBlock). KR-origin only.
+  if (origin === "KR") try {
     const { buildKoreaCustomsAnchor } = await import(
       "@/lib/market-research/korea-customs"
     );
@@ -173,8 +184,8 @@ export async function prefetchSimulationContext(
     );
   }
 
-  // DART — Phase F.1-A + F.1-B (2026-05-17)
-  try {
+  // DART — Phase F.1-A + F.1-B (2026-05-17). Korean listed co's — KR-origin only.
+  if (origin === "KR") try {
     const { buildDartFullAnchor, inferSlugFromProductName } = await import(
       "@/lib/market-research/dart"
     );
@@ -207,8 +218,8 @@ export async function prefetchSimulationContext(
     console.warn(`${log}DART anchor failed: ${(err as Error).message}`);
   }
 
-  // MFDS — Phase F.3 (2026-05-18, sunscreen-only)
-  try {
+  // MFDS — Phase F.3 (2026-05-18, sunscreen-only). Korean regulator — KR-origin only.
+  if (origin === "KR") try {
     const { buildMfdsAnchor } = await import(
       "@/lib/market-research/mfds"
     );
@@ -231,8 +242,11 @@ export async function prefetchSimulationContext(
     console.warn(`${log}MFDS anchor failed: ${(err as Error).message}`);
   }
 
-  // KOTRA — Phase F.1-C (2026-05-17). KOTRA_ANCHOR_ENABLED=false disables.
-  if (process.env.KOTRA_ANCHOR_ENABLED === "false") {
+  // KOTRA — Phase F.1-C (2026-05-17). Korean trade agency K-export cases —
+  // KR-origin only. KOTRA_ANCHOR_ENABLED=false also disables.
+  if (origin !== "KR") {
+    // non-KR origin: KOTRA (a Korean agency) is not applicable — skip silently.
+  } else if (process.env.KOTRA_ANCHOR_ENABLED === "false") {
     console.log(`${log}KOTRA anchor: disabled via env`);
   } else {
     try {

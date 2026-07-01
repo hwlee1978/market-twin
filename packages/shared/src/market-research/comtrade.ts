@@ -78,24 +78,40 @@ const KOREA_REPORTER_CODE = 410; // ISO numeric for Republic of Korea
 export interface ComtradeFlow {
   partnerIso: string;
   partnerName: string;
-  /** Total USD value of Korea→partner exports for the requested HSCode group. */
+  /** Total USD value of origin→partner exports for the requested HSCode group. */
   tradeValueUsd: number;
   period: number;
 }
 
 export interface ComtradeFetchOpts {
-  /** ISO alpha-2 codes (US, JP, ...). Filtered to non-Korea. */
+  /** ISO alpha-2 codes (US, JP, ...). The origin is filtered out. */
   partnerCountries: string[];
   /** HSCode 2-4 digit strings to aggregate. */
   hsCodes: string[];
+  /**
+   * ISO alpha-2 of the exporting (origin / home) country. Defaults to "KR"
+   * for backward compatibility. Comtrade publishes every reporter, so this
+   * makes trade-flow grounding origin-agnostic across all supported markets.
+   */
+  originIso?: string;
   /** Period as YYYY (annual). */
   period?: number;
   /** Optional API key for higher rate limits (free tier works without). */
   apiKey?: string;
 }
 
+/** ISO alpha-2 → Korean country name, for the ko-locale anchor header. */
+const COUNTRY_NAME_KO: Record<string, string> = {
+  KR: "한국", US: "미국", JP: "일본", CN: "중국", GB: "영국", DE: "독일",
+  FR: "프랑스", IT: "이탈리아", ES: "스페인", CA: "캐나다", AU: "호주",
+  NZ: "뉴질랜드", IN: "인도", ID: "인도네시아", VN: "베트남", TH: "태국",
+  MY: "말레이시아", SG: "싱가포르", PH: "필리핀", TW: "대만", HK: "홍콩",
+  MX: "멕시코", BR: "브라질", AE: "UAE", SA: "사우디",
+};
+
 /** Map ISO alpha-2 → Comtrade numeric reporter codes (subset used by sim). */
 const ISO2_TO_NUMERIC: Record<string, number> = {
+  KR: 410,
   US: 842,
   JP: 392,
   CN: 156,
@@ -131,7 +147,7 @@ const ISO2_TO_NUMERIC: Record<string, number> = {
  * "$0"). On any API error the function returns [] and logs — sim runs
  * without the anchor.
  */
-export async function fetchKoreaExportFlows(
+export async function fetchExportFlows(
   opts: ComtradeFetchOpts,
 ): Promise<ComtradeFlow[]> {
   // UN Comtrade publishes annual aggregates with a 1-2 month lag, so the
@@ -139,15 +155,19 @@ export async function fetchKoreaExportFlows(
   // current year. Y-2 is always fully populated. Caller can override
   // explicitly when they know Y-1 is available.
   const period = opts.period ?? new Date().getUTCFullYear() - 2;
+  const originIso = (opts.originIso ?? "KR").toUpperCase();
+  const reporterCode = ISO2_TO_NUMERIC[originIso] ?? KOREA_REPORTER_CODE;
   const partnerCodes = opts.partnerCountries
-    .map((iso) => ISO2_TO_NUMERIC[iso.toUpperCase()])
+    .map((iso) => iso.toUpperCase())
+    .filter((iso) => iso !== originIso) // can't export to self
+    .map((iso) => ISO2_TO_NUMERIC[iso])
     .filter((n): n is number => typeof n === "number");
   if (partnerCodes.length === 0 || opts.hsCodes.length === 0) return [];
 
-  // Comtrade API: GET /data/v1/get/C/A/HS?reporterCode=410&partnerCode=...&period=YYYY&cmdCode=...
+  // Comtrade API: GET /data/v1/get/C/A/HS?reporterCode=NNN&partnerCode=...&period=YYYY&cmdCode=...
   // Path segments: typeCode=C (commodities), freqCode=A (annual), classifierCode=HS.
   const url = new URL(`${COMTRADE_BASE}/C/A/HS`);
-  url.searchParams.set("reporterCode", String(KOREA_REPORTER_CODE));
+  url.searchParams.set("reporterCode", String(reporterCode));
   url.searchParams.set("flowCode", "X"); // X = exports
   url.searchParams.set("period", String(period));
   url.searchParams.set("partnerCode", partnerCodes.join(","));
@@ -195,6 +215,13 @@ export async function fetchKoreaExportFlows(
   }
 }
 
+/**
+ * Backward-compatible alias. Historically the only reporter was Korea, so
+ * callers imported `fetchKoreaExportFlows`. It now delegates to the
+ * origin-aware `fetchExportFlows` (defaults to originIso="KR").
+ */
+export const fetchKoreaExportFlows = fetchExportFlows;
+
 /* ────────────────────────────────── Prompt block renderer ─── */
 
 /**
@@ -205,20 +232,28 @@ export async function fetchKoreaExportFlows(
  */
 export function renderComtradeAnchorBlock(
   flows: ComtradeFlow[],
-  opts: { categoryLabel: string; period: number; locale?: "ko" | "en" },
+  opts: {
+    categoryLabel: string;
+    period: number;
+    locale?: "ko" | "en";
+    /** ISO alpha-2 of the exporting origin (default "KR"). */
+    originIso?: string;
+  },
 ): string {
   if (flows.length === 0) return "";
   const isKo = opts.locale !== "en";
+  const origin = (opts.originIso ?? "KR").toUpperCase();
+  const originKo = COUNTRY_NAME_KO[origin] ?? origin;
   const header = isKo
-    ? `═══ UN Comtrade ${opts.period}년 한국→파트너 수출 실적 (${opts.categoryLabel}, HSCode 합산) ═══`
-    : `═══ UN Comtrade ${opts.period} Korea→partner export evidence (${opts.categoryLabel}, HSCode aggregate) ═══`;
+    ? `═══ UN Comtrade ${opts.period}년 ${originKo}→파트너 수출 실적 (${opts.categoryLabel}, HSCode 합산) ═══`
+    : `═══ UN Comtrade ${opts.period} ${origin}→partner export evidence (${opts.categoryLabel}, HSCode aggregate) ═══`;
   const lines = flows.map((f) => {
     const millions = (f.tradeValueUsd / 1e6).toFixed(1);
     return `  ${f.partnerIso.padEnd(3)} ${f.partnerName.padEnd(20)} $${millions}M`;
   });
   const note = isKo
-    ? "주의: 위 수치는 HSCode 단위 무역 통계 (제품군 합산)로, 본 제품 단일 매출이 아닙니다. 다만 \"한국 수출이 큰 시장 = K-product 유통 인프라가 이미 존재하는 시장\"이라는 강한 prior로 활용하세요. 위 데이터를 무시하고 다른 후보국을 1위로 선정할 경우 rationale에 명확한 근거를 적으세요."
-    : "Note: Values are HSCode-aggregate trade (category-wide), not single-product revenue. But strong Korea→country flow is a high-confidence prior that K-product distribution infrastructure already exists. If you rank a country higher than what Comtrade suggests, explain why in rationale.";
+    ? `주의: 위 수치는 HSCode 단위 무역 통계 (제품군 합산)로, 본 제품 단일 매출이 아닙니다. 다만 "${originKo} 수출이 큰 시장 = 해당 원산지 제품 유통 인프라가 이미 존재하는 시장"이라는 강한 prior로 활용하세요. 위 데이터를 무시하고 다른 후보국을 1위로 선정할 경우 rationale에 명확한 근거를 적으세요.`
+    : `Note: Values are HSCode-aggregate trade (category-wide), not single-product revenue. But strong ${origin}→country flow is a high-confidence prior that ${origin}-origin distribution infrastructure already exists. If you rank a country higher than what Comtrade suggests, explain why in rationale.`;
   return `${header}\n${lines.join("\n")}\n\n${note}`;
 }
 
@@ -227,7 +262,13 @@ export function renderComtradeAnchorBlock(
 export async function buildComtradeAnchor(
   category: string,
   candidateCountries: string[],
-  opts: { period?: number; apiKey?: string; locale?: "ko" | "en" } = {},
+  opts: {
+    period?: number;
+    apiKey?: string;
+    locale?: "ko" | "en";
+    /** ISO alpha-2 of the exporting origin (default "KR"). */
+    originIso?: string;
+  } = {},
 ): Promise<{ block: string; flows: ComtradeFlow[] }> {
   const hsCodes = hsCodesForCategory(category);
   if (hsCodes.length === 0) return { block: "", flows: [] };
@@ -236,16 +277,18 @@ export async function buildComtradeAnchor(
   // current year. Y-2 is always fully populated. Caller can override
   // explicitly when they know Y-1 is available.
   const period = opts.period ?? new Date().getUTCFullYear() - 2;
-  const flows = await fetchKoreaExportFlows({
+  const flows = await fetchExportFlows({
     partnerCountries: candidateCountries,
     hsCodes,
     period,
     apiKey: opts.apiKey,
+    originIso: opts.originIso,
   });
   const block = renderComtradeAnchorBlock(flows, {
     categoryLabel: category,
     period,
     locale: opts.locale,
+    originIso: opts.originIso,
   });
   return { block, flows };
 }
