@@ -19,6 +19,7 @@
 
 import { buildSecEdgarAnchor } from "./sec-edgar";
 import { buildOpenFdaAnchor } from "./openfda";
+import { buildEdinetAnchor } from "./edinet";
 
 export interface NationalAnchorInput {
   category: string;
@@ -48,7 +49,13 @@ export const NATIONAL_PROVIDERS: Record<string, NationalProvider> = {
         asOfYear: i.asOfYear,
       }),
   },
-  // JP: { financials: EDINET, ... }  — next.
+  JP: {
+    financials: (i) =>
+      buildEdinetAnchor(i.productName ?? "", {
+        locale: i.locale,
+        asOfYear: i.asOfYear,
+      }),
+  },
   // GB: { financials: Companies House, ... }
   // EU: { regulatory: EFSA / CosIng, ... }
 };
