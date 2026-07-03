@@ -177,6 +177,7 @@ export async function runEnsembleOrchestration(
     marginSnippets,
     kolEcosystemByCountry,
     competitorPrices,
+    groundingCoverage,
   } = await prefetchSimulationContext({
     projectInput,
     locale,
@@ -301,6 +302,7 @@ export async function runEnsembleOrchestration(
       wantMarketProfile: preset.marketProfile,
       expectedSimCount: preset.parallelSims,
       tier,
+      groundingCoverage,
     });
     if (aggregate) {
       await notifyEnsembleComplete({
@@ -348,6 +350,8 @@ export async function aggregateAndPersist(opts: {
   wantMarketProfile?: boolean;
   expectedSimCount?: number;
   tier?: string;
+  /** Prefetch grounding coverage (0-1) — caps confidence when evidence thin. */
+  groundingCoverage?: number;
 }) {
   const {
     ensembleId,
@@ -357,6 +361,7 @@ export async function aggregateAndPersist(opts: {
     wantMarketProfile,
     expectedSimCount,
     tier,
+    groundingCoverage = 1,
   } = opts;
   const admin = createServiceClient();
 
@@ -509,9 +514,40 @@ export async function aggregateAndPersist(opts: {
     ];
   });
 
+  // #1 Quality-aware aggregation — collect quarantined sim IDs so the
+  // aggregator can drop them from the winner vote & mean (a flagged sim, e.g.
+  // truncated output, shouldn't inflate the recommendation or its confidence).
+  let quarantinedIds: string[] = [];
+  if (snapshots.length > 1) {
+    try {
+      const { data: qRows } = await admin
+        .from("simulation_quality")
+        .select("simulation_id, quarantined")
+        .in(
+          "simulation_id",
+          snapshots.map((s) => s.simulationId),
+        );
+      quarantinedIds = (qRows ?? [])
+        .filter((r) => (r as { quarantined?: boolean }).quarantined)
+        .map((r) => (r as { simulation_id: string }).simulation_id);
+      if (quarantinedIds.length > 0) {
+        console.warn(
+          `[ensemble ${ensembleId}] ${quarantinedIds.length} quarantined sim(s) excluded from aggregation`,
+        );
+      }
+    } catch (err) {
+      console.warn(
+        `[ensemble ${ensembleId}] quarantine fetch failed (non-fatal):`,
+        err,
+      );
+    }
+  }
+
   const aggregate = aggregateEnsemble(snapshots, {
     category: projectInput?.category ?? null,
     originatingCountry: projectInput?.originatingCountry ?? "KR",
+    groundingCoverage,
+    excludeSimIds: quarantinedIds,
   });
 
   let finalStatus: "completed" | "failed";
@@ -539,6 +575,13 @@ export async function aggregateAndPersist(opts: {
       );
       aggregate.recommendation.confidence = "WEAK";
     }
+  }
+
+  // Surface grounding coverage on the aggregate for display (the confidence
+  // cap itself is applied inside aggregateEnsemble via opts.groundingCoverage).
+  if (finalStatus === "completed") {
+    (aggregate as unknown as Record<string, unknown>).groundingCoverage =
+      Math.round(groundingCoverage * 100);
   }
 
   if (snapshots.length > 0) {

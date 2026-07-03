@@ -50,6 +50,15 @@ export interface PrefetchedContext {
   marginSnippets: TavilyResult[];
   kolEcosystemByCountry: Record<string, TavilyResult[]>;
   competitorPrices: CompetitorPriceResult[];
+  /**
+   * Fraction (0-1) of grounding sources that produced content this run.
+   * Anchors are best-effort — a run can proceed with thin grounding — so the
+   * aggregator uses this to auto-lower recommendation confidence when the
+   * evidence base is sparse (e.g. Tavily off, or a non-KR origin with only
+   * baseline anchors). Six universal signals: trade, World Bank, trend,
+   * margin, KOL ecosystem, competitor prices.
+   */
+  groundingCoverage: number;
 }
 
 export interface PrefetchOpts {
@@ -489,6 +498,22 @@ export async function prefetchSimulationContext(
     }
   }
 
+  // Grounding coverage — fraction of the 6 universal signals with content.
+  // Feeds the aggregator's confidence cap (thin grounding → lower confidence).
+  const coverageSignals = [
+    tradeAnchorBlock.length > 0,
+    worldBankBlock.length > 0,
+    trendSnippets.length > 0,
+    marginSnippets.length > 0,
+    Object.keys(kolEcosystemByCountry).length > 0,
+    competitorPrices.length > 0,
+  ];
+  const groundingCoverage =
+    coverageSignals.filter(Boolean).length / coverageSignals.length;
+  console.log(
+    `${log}grounding coverage: ${coverageSignals.filter(Boolean).length}/6 (${Math.round(groundingCoverage * 100)}%)`,
+  );
+
   return {
     tradeAnchorBlock,
     worldBankBlock,
@@ -496,5 +521,6 @@ export async function prefetchSimulationContext(
     marginSnippets,
     kolEcosystemByCountry,
     competitorPrices,
+    groundingCoverage,
   };
 }

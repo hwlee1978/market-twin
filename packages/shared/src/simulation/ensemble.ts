@@ -935,12 +935,32 @@ export interface AggregateEnsembleOptions {
    *  categories into JP/SE Asia get lower multiplier than premium
    *  into low-context Western markets). */
   originatingCountry?: string;
+  /**
+   * Fraction (0-1) of grounding sources that produced content this run (from
+   * prefetch). When low, the final confidence is capped — a thin evidence base
+   * shouldn't carry a high-confidence label. <0.5 downgrades one tier; <0.34
+   * forces WEAK. Undefined = no cap applied.
+   */
+  groundingCoverage?: number;
+  /**
+   * Simulation IDs to EXCLUDE from the winner vote & mean (quality-aware
+   * aggregation) — e.g. sims quarantined for truncated/garbled output. Ignored
+   * if excluding them would leave zero sims to aggregate.
+   */
+  excludeSimIds?: string[];
 }
 
 export function aggregateEnsemble(
   sims: EnsembleSimSnapshot[],
   opts: AggregateEnsembleOptions = {},
 ): EnsembleAggregate {
+  // #1 Quality-aware aggregation — drop quarantined sims so a flagged sim
+  // can't inflate the winner or confidence (unless that leaves nothing).
+  if (opts.excludeSimIds && opts.excludeSimIds.length > 0) {
+    const exclude = new Set(opts.excludeSimIds);
+    const kept = sims.filter((s) => !exclude.has(s.simulationId));
+    if (kept.length > 0 && kept.length < sims.length) sims = kept;
+  }
   const simCount = sims.length;
   if (simCount === 0) {
     return emptyAggregate();
@@ -1091,8 +1111,15 @@ export function aggregateEnsemble(
   const consensusPercent = winner ? Math.round((winner.count / simCount) * 100) : 0;
   // Threshold change: 80/50 (top3-hit era) → 66/40 (top-1 agreement era).
   // 3-sim: 2/3 (67%) = STRONG, 1/3 (33%) = WEAK. 6-sim: 4/6 ≥ 66%.
-  const confidence: "STRONG" | "MODERATE" | "WEAK" =
+  let confidence: "STRONG" | "MODERATE" | "WEAK" =
     consensusPercent >= 66 ? "STRONG" : consensusPercent >= 40 ? "MODERATE" : "WEAK";
+  // #4 Grounding-coverage cap — thin evidence base can't carry high confidence.
+  if (typeof opts.groundingCoverage === "number") {
+    if (opts.groundingCoverage < 0.34) confidence = "WEAK";
+    else if (opts.groundingCoverage < 0.5)
+      confidence =
+        confidence === "STRONG" ? "MODERATE" : "WEAK";
+  }
 
   // ── Top-2 vs single-winner dominance check (2026-05-20) ──
   // User feedback (Lingtea Deep × 2 runs): single-winner framing was misleading

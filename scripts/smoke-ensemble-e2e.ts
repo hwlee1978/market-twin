@@ -264,6 +264,7 @@ async function main() {
     trendSnippets,
     marginSnippets,
     kolEcosystemByCountry,
+    groundingCoverage,
   } = await prefetchSimulationContext({
     projectInput,
     locale: "ko",
@@ -419,9 +420,31 @@ async function main() {
       },
     ];
   });
+  // #1 quality-aware aggregation: exclude quarantined sims. #4 grounding
+  // coverage: cap confidence when the evidence base is thin. Mirrors the
+  // production orchestrator so backtests measure the same behaviour.
+  let excludeSimIds: string[] = [];
+  if (snapshots.length > 1) {
+    const { data: qRows } = await sb
+      .from("simulation_quality")
+      .select("simulation_id, quarantined")
+      .in(
+        "simulation_id",
+        snapshots.map((s) => s.simulationId),
+      );
+    excludeSimIds = (qRows ?? [])
+      .filter((r) => (r as { quarantined?: boolean }).quarantined)
+      .map((r) => (r as { simulation_id: string }).simulation_id);
+    if (excludeSimIds.length > 0) {
+      console.log(`Excluding ${excludeSimIds.length} quarantined sim(s) from aggregation`);
+    }
+  }
+  console.log(`Grounding coverage: ${Math.round(groundingCoverage * 100)}%`);
   const aggregate = aggregateEnsemble(snapshots, {
     category: projectInput.category,
     originatingCountry: projectInput.originatingCountry,
+    groundingCoverage,
+    excludeSimIds,
   });
   const finalStatus = snapshots.length === 0 ? "failed" : "completed";
 
