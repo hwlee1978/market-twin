@@ -105,3 +105,30 @@ Fixtures + run harness:
 
 Each fixture carries decision-point, vintage description, candidate set, and
 verified `actual` outcome (ground truth, never fed to the sim).
+
+## 6. Bias-correction A/B experiment (negative result, informative)
+
+The proximate-market bias (§3b) traced to `FINAL_SCORE_WEIGHTS.marketSize =
+0.30` (2× any other component). Hypothesis: down-weighting size/proximity and
+up-weighting brand-specific fit would surface non-obvious winners.
+
+Variant tested on all 20 brands: marketSize 0.30→0.20, culturalFit 0.15→0.10,
+channelMatch 0.15→0.25, priceCompat 0.10→0.15.
+
+| | Baseline | Variant | Δ |
+|---|---|---|---|
+| Top-1 | 45% (9/20) | 25% (5/20) | **−4** |
+| Top-3 | 75% (15/20) | 45% (9/20) | **−6** |
+
+**Result: the variant is decisively worse — reverted.** Every changed pick
+degraded. Conclusion: the current calibration (marketSize 0.30, from the
+Buldak validation) is near-optimal; the market-size / cultural-fit signals are
+genuinely more predictive than the noisier channel/price-fit components.
+
+**Implication:** the proximate-market bias is NOT a re-weighting problem —
+top-1 45% / top-3 75% is close to the ceiling of what the current signal set
+can achieve. Predicting non-obvious, brand-specific wins (Shake Shack→UAE,
+Oishi→China) requires **new brand-specific GTM signals** (founder network,
+distribution deals, diaspora, category-KOL depth), not re-tuned weights. That
+is the real accuracy roadmap — consistent with the "anchor blind spot"
+identified in the earlier K-Beauty postmortem.
