@@ -39,6 +39,10 @@ import {
   sonarSearch,
 } from "@/lib/market-research/sonar";
 import {
+  fetchSocialBuzzByCountry,
+  type SocialBuzzResult,
+} from "@/lib/market-research/social-buzz";
+import {
   extractCompetitorPrices,
   type CompetitorPriceResult,
 } from "@/lib/simulation/competitor-prices";
@@ -59,6 +63,15 @@ export interface PrefetchedContext {
    * margin, KOL ecosystem, competitor prices.
    */
   groundingCoverage: number;
+  /**
+   * Per-country social / search demand index (TikTok, YouTube, Naver/Reddit,
+   * and DataForSEO search volume when creds are set). LIVE-ONLY: reflects the
+   * present, so it is skipped for historical `--as-of` backtest runs to avoid
+   * hindsight contamination (an inactive result is returned there). Kept out
+   * of `groundingCoverage` so the confidence cap's calibrated /6 denominator
+   * is unaffected.
+   */
+  socialBuzz: SocialBuzzResult;
 }
 
 export interface PrefetchOpts {
@@ -498,6 +511,32 @@ export async function prefetchSimulationContext(
     }
   }
 
+  // Per-country social / search demand (live-only). Skipped for historical
+  // backtest runs (asOfDate set) so present-day buzz never leaks hindsight
+  // into a reconstructed decision point. Best-effort: never fails the sim.
+  let socialBuzz: SocialBuzzResult = {
+    byCountry: [],
+    active: false,
+    primarySignal: "none",
+  };
+  if (!projectInput.asOfDate) {
+    try {
+      socialBuzz = await fetchSocialBuzzByCountry({
+        brand: projectInput.productName,
+        category: projectInput.category,
+        candidateCountries: projectInput.candidateCountries,
+      });
+      if (socialBuzz.active) {
+        const withSignal = socialBuzz.byCountry.filter((c) => c.raw > 0).length;
+        console.log(
+          `${log}social buzz: ${withSignal} countries with signal (primary=${socialBuzz.primarySignal})`,
+        );
+      }
+    } catch (err) {
+      console.warn(`${log}social buzz failed: ${(err as Error).message}`);
+    }
+  }
+
   // Grounding coverage — fraction of the 6 universal signals with content.
   // Feeds the aggregator's confidence cap (thin grounding → lower confidence).
   const coverageSignals = [
@@ -522,5 +561,6 @@ export async function prefetchSimulationContext(
     kolEcosystemByCountry,
     competitorPrices,
     groundingCoverage,
+    socialBuzz,
   };
 }

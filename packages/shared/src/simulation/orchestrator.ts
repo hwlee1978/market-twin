@@ -178,6 +178,7 @@ export async function runEnsembleOrchestration(
     kolEcosystemByCountry,
     competitorPrices,
     groundingCoverage,
+    socialBuzz,
   } = await prefetchSimulationContext({
     projectInput,
     locale,
@@ -224,6 +225,7 @@ export async function runEnsembleOrchestration(
         competitorPrices,
         tradeAnchorBlock,
         worldBankBlock,
+        socialBuzz,
       });
     } catch (err) {
       console.error(`[ensemble ${ensembleId}] sim ${sim.id} failed:`, err);

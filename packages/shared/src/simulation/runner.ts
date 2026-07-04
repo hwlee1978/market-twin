@@ -13,6 +13,10 @@ import {
   formatMarginBenchmarkBlock,
   formatKolEcosystemBlock,
 } from "@/lib/market-research/tavily";
+import {
+  formatSocialBuzzBlock,
+  type SocialBuzzResult,
+} from "@/lib/market-research/social-buzz";
 import { createServiceClient } from "@/lib/supabase/admin";
 import {
   countryPrompt,
@@ -167,6 +171,13 @@ interface RunOptions {
     string,
     Array<{ url: string; title: string; content: string; score: number }>
   >;
+  /**
+   * Per-country social / search demand index (live-only; see prefetch.ts).
+   * Injected alongside the KOL ecosystem block as a separate demand axis so
+   * the country ranker can surface markets already trending even when they
+   * are small or non-proximate. Inactive/undefined on backtest runs.
+   */
+  socialBuzz?: SocialBuzzResult;
 }
 
 // Smaller batches are more reliably completed by the LLM.
@@ -1632,13 +1643,23 @@ ${entries}
           locale === "ko",
         )
       : "";
+    // Social/search demand rides in on the same injection point as the KOL
+    // block — both are per-country supplementary demand signals the country
+    // ranker weighs against the macro anchors. Concatenated to avoid churning
+    // the countryPrompt() signature and every other call site.
+    const socialBuzzBlock = opts.socialBuzz
+      ? formatSocialBuzzBlock(opts.socialBuzz, locale === "ko")
+      : "";
+    const demandBlock = [kolEcosystemBlock, socialBuzzBlock]
+      .filter(Boolean)
+      .join("\n\n");
     const countryPromptText = countryPrompt(
       projectInput,
       aggregate,
       locale,
       opts.tradeAnchorBlock,
       opts.worldBankBlock,
-      kolEcosystemBlock,
+      demandBlock,
     );
     const runCountryRound = async (sampleCount: number, attemptTag: string) =>
       Promise.all(
