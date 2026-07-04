@@ -199,6 +199,27 @@ export async function prefetchSimulationContext(
     );
   }
 
+  // Governance (World Bank WGI) — regulatory / operational-risk grounding.
+  // Appended to the World Bank block (both are WB macro anchors). Universal,
+  // outcome-independent → not gated on asOf.
+  try {
+    const { buildGovernanceAnchor } = await import(
+      "@/lib/market-research/governance"
+    );
+    const { block, rows } = await buildGovernanceAnchor(
+      projectInput.candidateCountries,
+      locale,
+    );
+    if (block) {
+      worldBankBlock = worldBankBlock ? `${worldBankBlock}\n\n${block}` : block;
+      console.log(`${log}Governance (WGI) anchor: ${rows.length} countries`);
+    } else {
+      console.log(`${log}Governance (WGI) anchor: empty`);
+    }
+  } catch (err) {
+    console.warn(`${log}Governance anchor failed: ${(err as Error).message}`);
+  }
+
   // Korea Customs — Phase F.1-1 (appended to tradeAnchorBlock). KR-origin only.
   if (origin === "KR") try {
     const { buildKoreaCustomsAnchor } = await import(

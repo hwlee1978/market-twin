@@ -28,7 +28,7 @@
 
 // ISO 3166-1 alpha-2 → alpha-3 mapping for World Bank country codes.
 // World Bank uses alpha-3 (or 3-letter codes like "USA", "KOR").
-const ISO2_TO_ISO3: Record<string, string> = {
+export const ISO2_TO_ISO3: Record<string, string> = {
   US: "USA",
   JP: "JPN",
   CN: "CHN",
