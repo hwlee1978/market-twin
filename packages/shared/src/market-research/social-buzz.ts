@@ -27,8 +27,12 @@
  *      creator distribution. Nailed US #1 on Medicube+Anker (the macro-miss
  *      cases). Structural blind spots: CN (TikTok banned→Douyin), JP (weak),
  *      small markets underrepresented; US-over-indexed. Deemphasized alone.
- *   ④ YouTube regionCode search — SECONDARY (global view counts leak across
- *      regions, so weak per-country discrimination; kept as a tiebreaker).
+ *   ④ YouTube regionCode search — SECONDARY and OFF BY DEFAULT. Global view
+ *      counts leak across regions (weak per-country discrimination), and
+ *      search.list costs 100 quota units/country against a 10k/day free cap
+ *      (~4 brands/day for a 24-market run) — the worst value/quota ratio in
+ *      the stack. Opt in with SOCIAL_BUZZ_YOUTUBE=1 only if the quota is
+ *      raised; TikTok (500k/mo headroom) + DataForSEO cover this better.
  *   ⑤ Naver (KR) / Reddit (country subs) — local community deepeners.
  *
  * Best-effort contract, same as every other anchor: never throw, return an
@@ -438,7 +442,13 @@ function composite(b: CountryBuzz): number {
 export async function fetchSocialBuzzByCountry(
   input: SocialBuzzInput,
 ): Promise<SocialBuzzResult> {
-  const ytKey = process.env.YOUTUBE_API_KEY;
+  // YouTube is OFF by default: 100 quota units/country against a 10k/day free
+  // cap makes it the stack's worst value/quota ratio, and it only acts as a
+  // weak tiebreaker. Opt in with SOCIAL_BUZZ_YOUTUBE=1 (and a raised quota).
+  const ytKey =
+    process.env.SOCIAL_BUZZ_YOUTUBE === "1"
+      ? process.env.YOUTUBE_API_KEY
+      : undefined;
   const hasRapid = !!process.env.RAPIDAPI_KEY;
   const hasDfs = !!(process.env.DATAFORSEO_LOGIN && process.env.DATAFORSEO_PASSWORD);
   if (!ytKey && !hasRapid && !hasDfs) {
