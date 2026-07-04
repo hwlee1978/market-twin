@@ -626,3 +626,57 @@ export function formatMarginBenchmarkBlock(
     : "═══ MARGIN BENCHMARK (real-world grounding) ═══\nCategory gross-margin reference data. Use as anchor for marginEstimatePct + marginEstimate. In the marginEstimate text, cite which source you weighted most by [1] / [2] / etc. so the user can trace the figure.";
   return `${header}\n${lines.join("\n")}`;
 }
+
+const DIASPORA_COUNTRY_NAMES: Record<string, string> = {
+  KR: "South Korean", JP: "Japanese", CN: "Chinese", TW: "Taiwanese",
+  HK: "Hong Kong", SG: "Singaporean", TH: "Thai", VN: "Vietnamese",
+  ID: "Indonesian", MY: "Malaysian", PH: "Filipino", IN: "Indian",
+  US: "American", CA: "Canadian", GB: "British", DE: "German", FR: "French",
+  IT: "Italian", ES: "Spanish", NL: "Dutch", AU: "Australian",
+  NZ: "New Zealand", AE: "Emirati", SA: "Saudi", BR: "Brazilian", MX: "Mexican",
+};
+
+/**
+ * Diaspora-affinity query — one Tavily call per ORIGIN. The origin's overseas
+ * communities predict early demand for origin-brand products (Korean diaspora
+ * → K-beauty, Indian diaspora → Indian FMCG). There is no clean bilateral-
+ * migration API (UN/WB publish only static matrices), so this grounds the
+ * signal in current web sources instead — a fuzzy ESTIMATE, not hard stats.
+ */
+export function buildDiasporaQuery(opts: { originCountry: string }): string {
+  const demonym =
+    DIASPORA_COUNTRY_NAMES[opts.originCountry.toUpperCase()] ??
+    opts.originCountry;
+  const year = new Date().getFullYear();
+  return `${demonym} diaspora population overseas largest communities by country ${year} ${demonym} nationals abroad expatriate`;
+}
+
+/**
+ * Format diaspora snippets into a per-origin affinity block. Frames the signal
+ * as "which candidate markets host a large origin diaspora → early-adopter
+ * demand for origin-brand products", explicitly flagged as an estimate.
+ */
+export function formatDiasporaBlock(
+  results: TavilyResult[],
+  originCountry: string,
+  isKo: boolean,
+  maxLines: number = 4,
+): string {
+  if (results.length === 0) return "";
+  const demonym =
+    DIASPORA_COUNTRY_NAMES[originCountry.toUpperCase()] ?? originCountry;
+  const top = [...results]
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    .slice(0, maxLines);
+  const lines = top.map((r, i) => {
+    const sentence =
+      r.content.replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s/)[0] ?? "";
+    const trimmed =
+      sentence.length > 160 ? sentence.slice(0, 157) + "..." : sentence;
+    return `${i + 1}. ${trimmed}`;
+  });
+  const header = isKo
+    ? `═══ ${demonym} 디아스포라 친연도 (웹 grounding · 추정) ═══\n원산지(${demonym})의 해외 커뮤니티가 큰 후보 시장은 origin-브랜드 조기수요·문화친연도가 높음 — country score의 별도 축. 하드 통계 아닌 추정이니 정성적으로만 가중:`
+    : `═══ ${demonym} DIASPORA AFFINITY (web grounding · estimate) ═══\nCandidate markets hosting a large ${demonym} diaspora tend to have early-adopter demand and cultural affinity for origin-brand products — a separate axis in the country score. This is an estimate, not hard stats; weigh qualitatively:`;
+  return `${header}\n${lines.join("\n")}`;
+}

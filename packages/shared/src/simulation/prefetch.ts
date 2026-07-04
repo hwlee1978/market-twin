@@ -31,6 +31,8 @@ import {
   buildKolEcosystemQuery,
   buildKolEcosystemQueryNative,
   buildMarginBenchmarkQuery,
+  buildDiasporaQuery,
+  formatDiasporaBlock,
   tavilySearch,
   type TavilyResult,
 } from "@/lib/market-research/tavily";
@@ -218,6 +220,36 @@ export async function prefetchSimulationContext(
     }
   } catch (err) {
     console.warn(`${log}Governance anchor failed: ${(err as Error).message}`);
+  }
+
+  // Diaspora affinity — the origin's overseas communities predict early demand
+  // for origin-brand products (K-diaspora → K-beauty). No clean bilateral-
+  // migration API exists, so this is a Tavily-grounded ESTIMATE (1 call per
+  // origin), appended to the WB block. Best-effort; gated on TAVILY_API_KEY.
+  if (process.env.TAVILY_API_KEY) {
+    try {
+      const diasporaResult = await tavilySearch({
+        query: buildDiasporaQuery({ originCountry: origin }),
+        searchDepth: "advanced",
+        maxResults: 5,
+        includeAnswer: false,
+      });
+      const block = formatDiasporaBlock(
+        diasporaResult?.results ?? [],
+        origin,
+        locale === "ko",
+      );
+      if (block) {
+        worldBankBlock = worldBankBlock
+          ? `${worldBankBlock}\n\n${block}`
+          : block;
+        console.log(
+          `${log}Diaspora anchor: ${(diasporaResult?.results ?? []).length} snippets`,
+        );
+      }
+    } catch (err) {
+      console.warn(`${log}Diaspora anchor failed: ${(err as Error).message}`);
+    }
   }
 
   // Korea Customs — Phase F.1-1 (appended to tradeAnchorBlock). KR-origin only.
