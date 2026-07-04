@@ -20,6 +20,7 @@
 import { buildSecEdgarAnchor } from "./sec-edgar";
 import { buildOpenFdaAnchor } from "./openfda";
 import { buildEdinetAnchor } from "./edinet";
+import { buildCompaniesHouseAnchor } from "./companies-house";
 
 export interface NationalAnchorInput {
   category: string;
@@ -56,8 +57,11 @@ export const NATIONAL_PROVIDERS: Record<string, NationalProvider> = {
         asOfYear: i.asOfYear,
       }),
   },
-  // GB: { financials: Companies House, ... }
-  // EU: { regulatory: EFSA / CosIng, ... }
+  GB: {
+    financials: (i) =>
+      buildCompaniesHouseAnchor(i.productName ?? "", { locale: i.locale }),
+  },
+  // EU: { regulatory: EFSA / RASFF, ... }
 };
 
 export function getNationalProvider(originIso: string): NationalProvider | null {
