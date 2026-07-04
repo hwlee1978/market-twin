@@ -132,3 +132,36 @@ Oishi→China) requires **new brand-specific GTM signals** (founder network,
 distribution deals, diaspora, category-KOL depth), not re-tuned weights. That
 is the real accuracy roadmap — consistent with the "anchor blind spot"
 identified in the earlier K-Beauty postmortem.
+
+## 7. Shipped fix — live per-country demand signal (forward-looking)
+
+The §3b proximate-market bias — the primary top-1 suppressor — now has a
+shipped countermeasure: a **live per-country social / search demand anchor**
+(DataForSEO absolute Google search volume + TikTok hashtag views / creator-
+region distribution), injected into the country ranker as a demand axis
+separate from market size.
+
+It is **live-only by design**: present-day demand reflects the present, so it
+is gated OFF for this hindsight-controlled backtest (enabling it would leak the
+outcome). The N=20 numbers above are the macro-engine baseline and are
+**unchanged** by this feature.
+
+To gauge the fix's *direction* we ran the live signal over the 5 full misses
+(actual outside the macro top-3) and asked whether present demand points at the
+true winner. This is **forward-signal validation, not a re-scored backtest** —
+it is circular by construction (a brand searches high where it later won), so
+read it as "does the live signal align with real winners," not as an accuracy
+number.
+
+| Miss | Actual | Live-signal rank | Recovered? |
+|---|---|---|---|
+| Medicube | US | #1 (search 301K/mo) | ✅ |
+| Krating Daeng | SG | #1 (social) | ✅ |
+| IRVINS | HK | #1 (social) | ✅ |
+| Oishi | CN | — | ❌ China invisible to Western social + generic name |
+| Shake Shack | AE | — | ❌ Gulf demand sparse vs large markets |
+
+**3 of 5 misses recover the true winner to top-1.** The two residuals are the
+known hard cases — China (needs Douyin / Baidu domestic data, not TikTok /
+Google) and small Gulf markets (needs local sources). This confirms §6: the new
+signal, not re-weighting, is the lever against the proximate-market bias.

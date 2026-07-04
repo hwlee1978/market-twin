@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Market Twin — 투자 제안서 (한글본)</title>
+<style>
+  :root{
+    --navy:#0A1F4D; --blue:#2563EB; --blue2:#1D4ED8; --ink:#0f172a;
+    --muted:#64748B; --line:#E6E9F0; --cream:#FBFAF5; --card:#F4F6FB;
+    --ok:#16A34A; --warn:#EA580C; --soft:#EEF3FF;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{background:#e9eaee; font-family:'Pretendard','Inter',system-ui,-apple-system,sans-serif; color:var(--ink); -webkit-font-smoothing:antialiased;}
+  .deck{display:flex; flex-direction:column; align-items:center; gap:18px; padding:24px 0;}
+  .slide{
+    position:relative; width:1280px; height:720px; background:var(--cream);
+    border-radius:14px; overflow:hidden; box-shadow:0 8px 40px rgba(10,31,77,.12);
+    padding:64px 76px; display:flex; flex-direction:column;
+  }
+  .eyebrow{font-size:13px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--blue); margin-bottom:14px;}
+  h1{font-size:54px; line-height:1.12; letter-spacing:-.02em; color:var(--navy); font-weight:850;}
+  h2{font-size:40px; line-height:1.2; letter-spacing:-.02em; color:var(--navy); font-weight:800;}
+  h3{font-size:21px; color:var(--navy); font-weight:800;}
+  p{font-size:18px; line-height:1.7; color:#334155;}
+  .lead{font-size:23px; line-height:1.6; color:#1e293b;}
+  .muted{color:var(--muted);}
+  .foot{position:absolute; left:76px; right:76px; bottom:30px; display:flex; justify-content:space-between; font-size:12.5px; color:#94a3b8; border-top:1px solid var(--line); padding-top:12px;}
+  .foot b{color:var(--navy); font-weight:800;}
+  .fill{background:#FEF08A; color:#713f12; padding:1px 7px; border-radius:5px; font-weight:700;}
+  .pill{display:inline-block; font-size:13px; font-weight:700; padding:5px 12px; border-radius:999px; background:var(--soft); color:var(--blue2);}
+  .grid{display:grid; gap:18px;}
+  .g2{grid-template-columns:1fr 1fr;} .g3{grid-template-columns:1fr 1fr 1fr;} .g4{grid-template-columns:repeat(4,1fr);}
+  .card{background:#fff; border:1px solid var(--line); border-radius:14px; padding:24px 26px;}
+  .card.accent{border-color:#c7d6ff; background:linear-gradient(180deg,#fff, #f7faff);}
+  .num{font-size:46px; font-weight:850; color:var(--blue); letter-spacing:-.02em; line-height:1;}
+  .kicker{font-size:14px; color:var(--muted); margin-top:6px;}
+  ul.clean{list-style:none;} ul.clean li{font-size:18px; line-height:1.9; color:#334155; padding-left:26px; position:relative;}
+  ul.clean li::before{content:"›"; position:absolute; left:4px; color:var(--blue); font-weight:800;}
+  ul.clean.compact li{font-size:15.5px; line-height:1.55; margin:9px 0;}
+  .row{display:flex; gap:14px; align-items:center;}
+  .step{flex:1; background:#fff; border:1px solid var(--line); border-radius:14px; padding:20px; position:relative;}
+  .step .n{font-size:13px; font-weight:800; color:var(--blue);}
+  .arrow{color:#cbd5e1; font-size:26px; font-weight:800;}
+  table{width:100%; border-collapse:collapse; font-size:16.5px;}
+  th,td{text-align:left; padding:13px 14px; border-bottom:1px solid var(--line);}
+  thead th{background:var(--navy); color:#fff; font-weight:800;}
+  thead th:first-child{border-radius:10px 0 0 0;} thead th:last-child{border-radius:0 10px 0 0;}
+  td.us{color:var(--navy); font-weight:800;} .chk{color:var(--ok); font-weight:800;}
+  .bar{height:30px; border-radius:8px; background:linear-gradient(90deg,var(--blue),#60a5fa); display:flex; align-items:center; color:#fff; font-weight:800; padding:0 14px;}
+  .bar.alt{background:linear-gradient(90deg,#7c3aed,#a78bfa);}
+  .tagrow{display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;}
+  .tag{font-size:13px; font-weight:700; color:#475569; background:#fff; border:1px solid var(--line); border-radius:8px; padding:6px 11px;}
+  .cover{background:linear-gradient(135deg,#0A1F4D 0%, #15347a 100%); color:#fff; justify-content:center;}
+  .cover h1{color:#fff; font-size:72px;} .cover .eyebrow{color:#93c5fd;}
+  .cover p{color:#c7d2fe;}
+  .center{justify-content:center;}
+  .archband{background:#fff; border:1px solid var(--line); border-radius:12px; padding:13px 20px; display:flex; align-items:center; gap:18px;}
+  .archband .al{flex:0 0 190px; font-weight:800; color:var(--navy); font-size:16px;}
+  .archband .ar{color:#475569; font-size:15.5px;}
+  .archband.core{border-color:#c7d6ff; background:linear-gradient(90deg,#eaf0ff,#f7faff); box-shadow:0 2px 12px rgba(37,99,235,.10);}
+  .archband.core .al,.archband.core .ar{color:#0A1F4D;}
+  @media print{
+    html,body{background:#fff;}
+    .deck{gap:0; padding:0;}
+    .slide{border-radius:0; box-shadow:none; page-break-after:always; width:1280px; height:720px;}
+    @page{size:1280px 720px; margin:0;}
+  }
+</style>
+</head>
+<body>
+<div class="deck">
+
+<!-- 1 COVER -->
+<section class="slide cover">
+  <div class="eyebrow">출시 전 시장 검증 · AI 페르소나 시뮬레이션</div>
+  <h1>Market Twin</h1>
+  <p class="lead" style="color:#dbeafe; margin-top:18px; max-width:820px;">출시 전에, 어느 시장에서 이길지 검증하세요.<br>AI 페르소나가 24개국에서 제품을 몇 달이 아닌 며칠 만에 테스트합니다.</p>
+  <div style="margin-top:46px; color:#93c5fd; font-size:15px;">투자 제안서 · 2026 · 주식회사 미스터에이아이</div>
+</section>
+
+<!-- 2 PROBLEM -->
+<section class="slide">
+  <div class="eyebrow">문제</div>
+  <h2>해외 진출은 눈 감고 하는 값비싼 도박입니다</h2>
+  <p class="lead" style="margin:18px 0 30px; max-width:940px;">어느 나라에 실제 수요가 있나? 가격은 얼마? 진짜 사는 사람은 누구? 새 시장 출시는 눈을 감은 베팅이라, 창업자는 예산을 <b>다 쓴 뒤에야</b> 결과를 압니다. 실패율은 냉혹합니다: 신규 수출기업 <b>6곳 중 1곳</b>만 5년을 버팁니다.</p>
+  <div class="grid g3" style="margin-top:6px;">
+    <div class="card"><div class="num">16.3%</div><div class="kicker">신규 수출기업 5년 생존율 — <b>6곳 중 1곳</b> (1년: 49.2%)<br><span style="font-size:12px; color:#94a3b8;">관세청 · 통계청(KOSIS), 2024</span></div></div>
+    <div class="card"><div class="num">6–12<span style="font-size:24px">개월</span></div><div class="kicker">컨설팅 + 다국가 조사 + 컨셉 테스트</div></div>
+    <div class="card"><div class="num">최대 $1M</div><div class="kicker">그 검증에 드는 비용<br><span style="font-size:12px; color:#94a3b8;">MBB 프로젝트 단가 (Slideworks, 2026)</span></div></div>
+  </div>
+  <div class="foot"><span><b>Market Twin</b></span><span>02</span></div>
+</section>
+
+<!-- 3 SOLUTION -->
+<section class="slide">
+  <div class="eyebrow">솔루션</div>
+  <h2>출시 전에 시장 반응을 시뮬레이션합니다</h2>
+  <p class="lead" style="margin:18px 0 28px; max-width:940px;">분석 1회당 <b>24개국</b>에서 <b>600~5,000명의 AI 페르소나</b>를 돌려 수요·가격·경쟁·구매의향을 <b>출시 전에</b> 예측합니다. 본국(원산지)은 <b>24개국 중 어디든</b> 될 수 있고, 나머지 23개국의 수요를 모델링합니다. 6개월치 리서치를 며칠 만에.</p>
+  <div class="grid g4">
+    <div class="card accent"><h3>수요</h3><p class="kicker" style="margin-top:8px;">진출 우선순위, 24개국</p></div>
+    <div class="card accent"><h3>가격</h3><p class="kicker" style="margin-top:8px;">시장별 가격민감도 곡선</p></div>
+    <div class="card accent"><h3>경쟁</h3><p class="kicker" style="margin-top:8px;">실제 경쟁사 가격에 기반</p></div>
+    <div class="card accent"><h3>구매의향</h3><p class="kicker" style="margin-top:8px;">페르소나별 반응 · CAC</p></div>
+  </div>
+  <p style="margin-top:26px;" class="lead">→ 3종 PDF 리포트로 제공 — <b>경영진 요약본</b>, <b>상세 리포트</b>, <b>교차검증 리포트</b>. 비전문가 창업자도 입력만 채우면 됩니다.</p>
+  <div class="foot"><span><b>Market Twin</b></span><span>03</span></div>
+</section>
+
+<!-- 4 HOW IT WORKS -->
+<section class="slide">
+  <div class="eyebrow">작동 방식</div>
+  <h2>입력에서 의사결정까지, 며칠 만에</h2>
+  <div class="row" style="margin-top:40px;">
+    <div class="step"><div class="n">01 · 입력</div><h3 style="margin:8px 0;">제품 · 가격 · 타깃</h3><p class="kicker">6단계 위저드, 기술 지식 불필요</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">02 · 시뮬레이션</div><h3 style="margin:8px 0;">600~5,000 페르소나 × 24개 시장</h3><p class="kicker">멀티-LLM 앙상블, 현지화</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">03 · 그라운딩</div><h3 style="margin:8px 0;">정부 · 무역 데이터</h3><p class="kicker">KOTRA · UN Comtrade · World Bank</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">04 · 결정</div><h3 style="margin:8px 0;">리포트 + 추천</h3><p class="kicker">시장 · 가격 · 리스크 · 로드맵</p></div>
+  </div>
+  <div style="margin-top:24px;">
+    <div class="kicker" style="margin-bottom:8px; font-weight:700; color:#475569;">24개 전 시장을 각국 공식 통계로 그라운딩 — 예:</div>
+    <div class="tagrow">
+      <span class="tag">KR · KOSIS / 관세청</span>
+      <span class="tag">JP · e-Stat</span>
+      <span class="tag">US · Census · BEA</span>
+      <span class="tag">EU · Eurostat</span>
+      <span class="tag">TW · DGBAS</span>
+      <span class="tag">ID · BPS</span>
+      <span class="tag">+ 18개국</span>
+    </div>
+  </div>
+  <div class="card" style="margin-top:22px; background:var(--soft); border-color:#c7d6ff;">
+    <p class="lead" style="color:var(--navy);">핵심: 환각이 아니라 <b>실제 통계</b>에 기반합니다. 멀티-LLM 앙상블을 <b>여러 번(티어별 3~25회 이상)</b> 독립 실행해 <b>중앙값·득표율</b>로 집계하여 특정 모델의 편향을 제거하고, 실제 결과 대비 <b>백테스트</b>로 정확도를 검증합니다.</p>
+  </div>
+  <div class="foot"><span><b>Market Twin</b></span><span>04</span></div>
+</section>
+
+<!-- 5 PRODUCT IS REAL -->
+<section class="slide">
+  <div class="eyebrow">제품 · 이미 라이브</div>
+  <h2>프로토타입이 아닌, 상용 수준의 제품</h2>
+  <div class="grid g2" style="margin-top:26px; align-items:start;">
+    <div>
+      <ul class="clean">
+        <li>풀스택 라이브: 시뮬레이션 엔진 · 데이터 파이프라인 · 결제 · 웹</li>
+        <li>멀티-LLM 오케스트레이션 (Claude · GPT · Gemini · 외)</li>
+        <li>24개국 정부 · 무역 데이터 그라운딩 파이프라인</li>
+        <li>내장 정확도 <b>백테스트 엔진</b></li>
+        <li>복리형 <b>페르소나 풀</b> — 돌릴수록 똑똑해짐 (해자)</li>
+        <li>현재 <b>라이브 베타</b> · 결제 연동 완료 (NICE / Stripe)</li>
+      </ul>
+      <div class="tagrow" style="margin-top:18px;">
+        <span class="tag">Next.js 15</span><span class="tag">Supabase / Postgres</span><span class="tag">Multi-LLM</span><span class="tag">React-PDF</span><span class="tag">RLS 보안</span>
+      </div>
+    </div>
+    <div class="card accent" style="height:340px; padding:0; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#fff;">
+      <img src="assets/screenshot-pricing.png" alt="Market Twin — 앙상블 가격 분석 (Seoul Bloom · 미국 수요·수익 곡선)" style="width:100%; height:100%; object-fit:contain;">
+    </div>
+  </div>
+  <div class="foot"><span><b>Market Twin</b></span><span>05</span></div>
+</section>
+
+<!-- 6 MOAT -->
+<section class="slide">
+  <div class="eyebrow">우리가 이기는 이유</div>
+  <h2>무엇이 다른가</h2>
+  <div class="grid g2" style="margin-top:26px;">
+    <div class="card"><h3>① 환각이 아닌 그라운딩</h3><p style="margin-top:8px;">실제 정부 · 무역 데이터로 만든 페르소나 — 각국의 실제 소득·문화·유통채널을 반영합니다. 범용 AI나 단일시장 설문 도구와는 근본적으로 다릅니다.</p><p class="kicker" style="margin-top:8px;">예: 베트남 페르소나는 현지 소득·K-콘텐츠 영향·정식수입 신뢰를 따집니다 — 미국식 고정관념이 아니라.</p></div>
+    <div class="card"><h3>② 신뢰성 엔지니어링</h3><p style="margin-top:8px;">멀티-LLM 앙상블 + 중앙값 집계 + 실제 결과 대비 백테스트. 단일 블랙박스의 추측이 아닙니다.</p><p class="kicker" style="margin-top:8px;">모든 발언은 인용 통계로 추적 가능하고, 신뢰도는 STRONG / MODERATE / WEAK로 정직하게 표기.</p></div>
+    <div class="card"><h3>③ 복리형 해자</h3><p style="margin-top:8px;">모든 시뮬레이션이 공용 페르소나 풀을 키웁니다 — 쓸수록 더 정확해지고 실행 비용은 낮아집니다.</p><p class="kicker" style="margin-top:8px;">1회당 600~5,000 페르소나가 프로젝트·고객 전반에서 재사용되는 풀을 정제 — 경쟁사가 복제 불가한 데이터 자산.</p></div>
+    <div class="card"><h3>④ 의사결정 레이어 (상류)</h3><p style="margin-top:8px;"><b>어디에, 얼마에, 누구에게</b>를 먼저 결정 — 수출/마케팅 도구의 <b>상류</b>에 위치합니다. 경쟁이 아닌 보완재.</p><p class="kicker" style="margin-top:8px;">이제 origin-agnostic: 24개국 어디든 본국이 될 수 있고 각국 공식 데이터로 그라운딩.</p></div>
+  </div>
+  <div class="foot"><span><b>Market Twin</b></span><span>06</span></div>
+</section>
+
+<!-- 7 ARCHITECTURE -->
+<section class="slide">
+  <div class="eyebrow">내부 구조 · 아키텍처</div>
+  <h2>플랫폼 아키텍처</h2>
+  <p class="lead" style="margin:14px 0 20px; max-width:940px;">단독 구축한 상용 스택 — 얇은 GPT 래퍼가 아니라 <b>실통계에 그라운딩된 멀티-LLM 엔진</b>.</p>
+  <div style="display:flex; flex-direction:column; gap:12px;">
+    <div class="archband"><span class="al">웹 앱</span><span class="ar">Next.js 15 · React · 6단계 위저드 · 대시보드 · 3종 PDF 리포트</span></div>
+    <div class="archband"><span class="al">API · 오케스트레이션</span><span class="ar">시뮬레이션 러너 · 사용량/결제(NICE / Stripe) · RLS 보안 라우트</span></div>
+    <div class="archband core"><span class="al">코어 시뮬레이션 엔진</span><span class="ar"><b>멀티-LLM 앙상블(3~25 sim)</b> · 집계기(중앙값 + 득표율) · 신뢰도 티어링</span></div>
+    <div class="archband"><span class="al">데이터 그라운딩</span><span class="ar">UN Comtrade · World Bank · Hofstede · KOTRA · DART / SEC EDGAR · MFDS / openFDA · Tavily · <b>국가별 라이브 수요(Google 검색량 · TikTok)</b></span></div>
+    <div class="archband"><span class="al">LLM 제공자</span><span class="ar">Claude · GPT · Gemini · DeepSeek (라운드로빈)</span></div>
+    <div class="archband"><span class="al">데이터 자산</span><span class="ar">Supabase / Postgres · 복리형 <b>페르소나 풀</b> · <b>outcome corpus</b>(실제 출시 결과 피드백 루프)</span></div>
+  </div>
+  <div class="foot"><span><b>Market Twin</b></span><span>07</span></div>
+</section>
+
+<!-- 8 ENGINE FLOW -->
+<section class="slide">
+  <div class="eyebrow">내부 구조 · 코어 엔진</div>
+  <h2>코어 엔진 — 시뮬레이션 플로우</h2>
+  <div class="row" style="margin-top:26px;">
+    <div class="step"><div class="n">01 · 입력</div><h3 style="margin:6px 0; font-size:18px;">제품 · 가격 · 시장</h3><p class="kicker">원산지 + 후보국</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">02 · 그라운딩</div><h3 style="margin:6px 0; font-size:18px;">Anchor 프리페치</h3><p class="kicker">국가별 정부·무역 데이터</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">03 · 페르소나</div><h3 style="margin:6px 0; font-size:18px;">600~5,000 페르소나</h3><p class="kicker">24개국, 현지화</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">04 · 앙상블</div><h3 style="margin:6px 0; font-size:18px;">3~25 멀티-LLM sim</h3><p class="kicker">제공자 라운드로빈</p></div>
+  </div>
+  <div class="row" style="margin-top:16px;">
+    <div class="step"><div class="n">05 · 스코어</div><h3 style="margin:6px 0; font-size:18px;">국가별 점수화</h3><p class="kicker">수요 · 가격 · 의향</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">06 · 집계</div><h3 style="margin:6px 0; font-size:18px;">중앙값 + 득표율</h3><p class="kicker">모델 편향 제거</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">07 · 신뢰도</div><h3 style="margin:6px 0; font-size:18px;">STRONG / MOD / WEAK</h3><p class="kicker">정직한 캘리브레이션</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="n">08 · 리포트</div><h3 style="margin:6px 0; font-size:18px;">3종 PDF 리포트</h3><p class="kicker">경영진 · 상세 · 교차검증</p></div>
+  </div>
+  <div class="card" style="margin-top:22px; background:var(--soft); border-color:#c7d6ff;">
+    <p style="color:var(--navy);"><b>폐루프:</b> 실제 출시 결과가 <b>outcome corpus</b>로 유입돼 공용 페르소나 풀과 신뢰도 캘리브레이션을 지속 개선 — 돌릴수록 제품이 복리로 강해집니다.</p>
+  </div>
+  <div class="foot"><span><b>Market Twin</b></span><span>08</span></div>
+</section>
+
+<!-- 9 COMPUTE -->
+<section class="slide">
+  <div class="eyebrow">내부 구조 · 컴퓨팅</div>
+  <h2>AI 인프라 — 가속 컴퓨팅으로 확장 설계</h2>
+  <p class="lead" style="margin:14px 0 18px; max-width:960px;">분석 1회는 추론 부하가 큽니다: <b>200 페르소나 × 3~25 시뮬 × 다중 LLM = 600~5,000 페르소나-런</b>. 이를 경제적으로 확장하는 건 컴퓨팅 문제이며, 우리 로드맵은 NVIDIA 위에서 돕니다.</p>
+  <div class="grid g2" style="align-items:start;">
+    <div class="card">
+      <span class="pill">현재</span>
+      <h3 style="margin:12px 0 8px;">호스팅 API 기반 멀티-LLM 앙상블</h3>
+      <ul class="clean compact">
+        <li>Claude · GPT · Gemini · DeepSeek, 단계별 비용 최적화</li>
+        <li>제공자 다양성 — 단일 모델 편향 상쇄</li>
+        <li>빠른 출시; 이미 프로덕션 라이브</li>
+      </ul>
+    </div>
+    <div class="card accent">
+      <span class="pill" style="background:#dbeafe;">로드맵 · NVIDIA 위에서</span>
+      <h3 style="margin:12px 0 8px;">자체 호스팅 · 가속 추론</h3>
+      <ul class="clean compact">
+        <li><b>오픈모델 자체 호스팅</b>으로 페르소나 시뮬 → 대규모 시 비용↓ + 데이터 프라이버시</li>
+        <li>누적 <b>outcome corpus로 전용 페르소나/시장 모델 파인튜닝</b></li>
+        <li><b>NIM · TensorRT-LLM · DGX Cloud</b>로 추론 가속</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px; background:var(--soft); border-color:#c7d6ff;">
+    <p style="color:var(--navy);"><b>데이터가 해자입니다.</b> 모든 실행이 <b>페르소나 풀 + outcome corpus</b>를 복리로 키우고 — NVIDIA GPU로 이를 비용·모델 우위로 전환합니다(확장 시).</p>
+  </div>
+  <div class="foot"><span><b>Market Twin</b></span><span>09</span></div>
+</section>
+
+<!-- 10 NVIDIA FIT -->
+<section class="slide">
+  <div class="eyebrow">Why NVIDIA · 타이밍</div>
+  <h2>우리 로드맵에 완벽한 타이밍의 순풍</h2>
+  <p class="lead" style="margin:14px 0 20px; max-width:960px;">NVIDIA가 방금 <b>스타트업 컴퓨팅 이니셔티브</b>를 시작했습니다 — <b>크레딧/수익공유 방식</b>으로 고성능 GPU 인프라에 접근해 AI 스타트업의 자본 부담을 완화합니다.</p>
+  <div class="grid g3">
+    <div class="card"><span class="pill">접근 방식</span><h3 style="margin:10px 0 6px;">자본 없이 컴퓨팅</h3><p class="kicker">하드웨어 구매가 아니라 <b>DGX · DSX</b> 용량에 크레딧/수익공유로 접근.</p></div>
+    <div class="card"><span class="pill">지역 용량</span><h3 style="margin:10px 0 6px;">동남아 AI 팩토리</h3><p class="kicker"><b>인도네시아 Batam</b>의 신규 DSX AI 팩토리 — 우리 <b>싱가포르</b> beachhead에서 약 30분.</p></div>
+    <div class="card accent"><span class="pill" style="background:#dbeafe;">우리의 적합성</span><h3 style="margin:10px 0 6px;">이 워크로드를 위한 것</h3><p class="kicker">추론 부하 큰 페르소나 시뮬 + 파인튜닝 로드맵이 정확히 이 용도 — <b>NVIDIA Inception</b>으로 컴퓨팅 + VC 네트워크에 연결.</p></div>
+  </div>
+  <div class="card" style="margin-top:20px; background:var(--soft); border-color:#c7d6ff;">
+    <p style="color:var(--navy);">이는 <b>"자체 GPU 추론" 로드맵의 리스크를 해소</b> — 컴퓨팅 해자가 감당 가능해지고, 지리적으로 <b>ASEAN/싱가포르 확장과 맞물립니다</b>.</p>
+  </div>
+  <div class="foot"><span><b>Market Twin</b></span><span>10</span></div>
+</section>
+
+<!-- 7 ACCURACY -->
+<section class="slide">
+  <div class="eyebrow">검증 · 정직한 백테스트</div>
+  <h2>실제 결과로 백테스트했습니다</h2>
+  <p class="lead" style="margin:16px 0 24px; max-width:960px;"><b>20개 브랜드를 11개 origin 국가·5개 카테고리</b>에서 실제 수출 결정 시점으로 되돌려 — 그 <i>당시</i> 공개된 정보만 입력하고 — "어느 시장에 진출해야 하는가"를 물었습니다.</p>
+  <div class="grid g3">
+    <div class="card" style="border-color:#bbf7d0;"><span class="pill" style="background:#dcfce7; color:#15803d;">Top-3 shortlist</span><div class="num" style="margin-top:14px;">75%</div><div class="kicker">실제 승리 시장이 우리 <b>top-3</b> 안에 — 24개 시장을 3개로 압축</div></div>
+    <div class="card" style="border-color:#bfdbfe;"><span class="pill">Top-1 추천</span><div class="num" style="margin-top:14px;">45%</div><div class="kicker">헤드라인 추천 적중 ~45% — <b>랜덤(후보 1/10)의 ≈4.5배</b></div></div>
+    <div class="card" style="border-color:#fde68a;"><span class="pill" style="background:#fef3c7; color:#b45309;">설계된 정직성</span><div class="num" style="margin-top:14px;">100%</div><div class="kicker">미스·신뢰도 캘리브레이션 <b>전부 공개</b> — 유리한 코호트 선별 없음; WEAK는 "이것만 믿지 말라"는 신호</div></div>
+  </div>
+  <p class="kicker" style="margin-top:22px; max-width:960px;">Hindsight-controlled, 24개 지원시장 내, 정답 = 첫 <i>지속</i> 해외시장. 미스와 알려진 편향까지 공개하며, 라이브 <b>outcome corpus</b>로 실측 정확도를 지속 측정합니다.</p>
+  <div class="card" style="margin-top:18px; border-color:#c7d2fe; background:#eef2ff;">
+    <span class="pill" style="background:#e0e7ff; color:#4338ca;">Shipped fix · 개선 진행중</span>
+    <p class="kicker" style="margin-top:10px; max-width:960px;">최대 정확도 누수를 진단했습니다 — <b>근접시장 편향</b>(거시 앵커가 크고 가까운 시장을 과보상). 대응책을 배포: <b>국가별 라이브 검색·소셜 수요 신호</b>(Google 검색량·TikTok). 라이브 검증에서 <b>백테스트 5개 미스 중 3개</b>의 실제 승자를 복구합니다(예: Medicube→US, IRVINS→HK). 설계상 라이브 전용이라 위 hindsight 백테스트가 아니라 <b>실제 출시</b>를 끌어올립니다.</p>
+  </div>
+  <div class="foot"><span><b>Market Twin</b></span><span>11</span></div>
+</section>
+
+<!-- 8 MARKET -->
+<section class="slide">
+  <div class="eyebrow">시장</div>
+  <h2>시장 기회</h2>
+  <p class="lead" style="margin:16px 0 28px; max-width:940px;">AI가 시장조사 비용을 붕괴시키고 있습니다 — <b>$153B+</b> 글로벌 인사이트 산업 안의 <b>$56B</b> 시장조사 부문. 타깃: 여러 나라에 신제품을 자주 출시하는 소비재 / D2C / SaaS 기업.</p>
+  <div style="max-width:780px;">
+    <div class="kicker" style="margin-bottom:6px;">직접 타깃 — 글로벌 <b>시장조사</b> 부문</div>
+    <div class="bar" style="width:34%;"><span style="color:#fff;">$56B</span></div>
+    <div class="kicker" style="margin:18px 0 6px;">전체 <b>데이터 · 분석 · 인사이트</b> 산업</div>
+    <div class="bar alt" style="width:90%;"><span style="color:#fff;">$153B</span></div>
+  </div>
+  <p class="muted" style="margin-top:24px; font-size:14px;">출처: ESOMAR / Research World, 2024 (인사이트 산업 $142B → $153B YoY). Beachhead(SAM): <b>국경을 넘어 확장하는 소비재 / D2C 브랜드</b> — 출시 예산을 쓰기 전 빠른 다국가 검증이 가장 필요한 세그먼트.</p>
+  <div class="foot"><span><b>Market Twin</b></span><span>12</span></div>
+</section>
+
+<!-- 9 BUSINESS MODEL -->
+<section class="slide">
+  <div class="eyebrow">비즈니스 모델</div>
+  <h2>SaaS 구독 (사용량 × 팀 규모)</h2>
+  <div class="grid g4" style="margin-top:26px;">
+    <div class="card"><div class="pill">Free</div><h3 style="margin:14px 0 6px;">베타 체험</h3><p class="kicker">Hypothesis 2회 / 7일 · 카드 불필요</p></div>
+    <div class="card"><div class="pill">Starter</div><h3 style="margin:14px 0 6px;">₩500,000<span style="font-size:14px; color:#64748b;">/월</span></h3><p class="kicker">월 5회 Consensus · 1인<br><span style="color:#94a3b8;">$399</span></p></div>
+    <div class="card accent"><div class="pill" style="background:#dbeafe;">Validator · 인기</div><h3 style="margin:14px 0 6px;">₩1,500,000<span style="font-size:14px; color:#64748b;">/월</span></h3><p class="kicker">월 10회 · Consensus Plus 3회 포함 · 1인<br><span style="color:#94a3b8;">$999</span></p></div>
+    <div class="card"><div class="pill">Growth</div><h3 style="margin:14px 0 6px;">₩3,500,000<span style="font-size:14px; color:#64748b;">/월</span></h3><p class="kicker">월 20회 · Triangulated 3 + Consensus Plus 5 · 3인<br><span style="color:#94a3b8;">$2,299</span></p></div>
+  </div>
+  <p style="margin-top:24px;" class="lead">확장: <b>엔터프라이즈 컨설팅</b> · <b>API 라이선싱</b>(ERP 연동). <span class="muted" style="font-size:16px;">국내 KRW / 글로벌 USD.</span></p>
+  <p class="muted" style="margin-top:12px; font-size:14px;">※ 가격은 베타 검증 후 확정 (현재 라이브 요율 기준, USD는 근사치).</p>
+  <div class="foot"><span><b>Market Twin</b></span><span>13</span></div>
+</section>
+
+<!-- 10 STATUS -->
+<section class="slide">
+  <div class="eyebrow">현재 위치</div>
+  <h2>만들고, 출시하고, 검증했다 — 매출 이전 단계</h2>
+  <p class="lead" style="margin:14px 0 22px; max-width:940px;">아직 허수 지표는 없습니다 — 파일럿 이전 단계이며, 그렇게 밝힙니다. 하지만 제품은 <b>오픈 베타로 라이브</b>(프로토타입 아님)이고, 정확도는 이미 백테스트됐습니다.</p>
+  <div class="grid g4" style="margin-top:6px;">
+    <div class="card"><div class="num">Live</div><div class="kicker">오픈 베타 상용 제품 — 풀스택 (AI 엔진 · 데이터 · 결제 · 웹)</div></div>
+    <div class="card"><div class="num">24</div><div class="kicker">지원 시장, 각국 공식 통계로 그라운딩</div></div>
+    <div class="card"><div class="num">75%</div><div class="kicker">top-3 백테스트 적중 · N=20, 11개 origin (7페이지)</div></div>
+    <div class="card"><div class="num">Open</div><div class="kicker">공개 베타 가입 진행 · outcome corpus가 실제 출시 수집 중</div></div>
+  </div>
+  <div class="card accent" style="margin-top:22px;">
+    <h3>Go-to-market 진입점 — 공공 수출지원 기관</h3>
+    <p style="margin-top:8px;">모든 나라가 공공 수출지원 기관을 운영합니다(<b>KOTRA · JETRO · Enterprise Singapore · GTAI</b> …). Market Twin은 이들 기관의 중소 수출기업에 바이어 매칭에 앞서 "어디에 / 어떤 가격에 / 누구에게"라는 의사결정 레이어를 제공 — <b>글로벌 채널</b>이며 한국을 첫 beachhead로 시작합니다. <span style="color:var(--muted);">아웃리치 예정 — 아직 접촉 전.</span></p>
+  </div>
+  <div class="foot"><span><b>Market Twin</b></span><span>14</span></div>
+</section>
+
+<!-- 11 GTM -->
+<section class="slide">
+  <div class="eyebrow">시장 진입 전략</div>
+  <h2>K-product로 시작해 글로벌로 확장</h2>
+  <div class="grid g3" style="margin-top:26px;">
+    <div class="card"><span class="pill" style="background:#dcfce7;color:#15803d;">Phase 1 · 현재</span><h3 style="margin:12px 0 6px;">한국 집중</h3><p class="kicker">K-product B2B + 공공 수출채널. 파일럿 · 사례 구축.</p></div>
+    <div class="card"><span class="pill">Phase 2</span><h3 style="margin:12px 0 6px;">일본 · 아시아</h3><p class="kicker">시장 · 페르소나 확장, 현지 PR / 컨퍼런스.</p></div>
+    <div class="card"><span class="pill" style="background:#fef3c7;color:#b45309;">Phase 3</span><h3 style="margin:12px 0 6px;">글로벌</h3><p class="kicker">북미 · 유럽, 24개국 커버리지, 버티컬 모델.</p></div>
+  </div>
+  <p style="margin-top:26px;" class="lead">채널: <b>B2B 직접 영업</b> · <b>공공 수출기관 제휴</b> · <b>사례 / 콘텐츠</b>.</p>
+  <div class="foot"><span><b>Market Twin</b></span><span>15</span></div>
+</section>
+
+<!-- 12 COMPETITION -->
+<section class="slide">
+  <div class="eyebrow">경쟁</div>
+  <h2>경쟁 지형</h2>
+  <table style="margin-top:22px;">
+    <thead><tr><th>항목</th><th>Market Twin</th><th>전통 리서치 회사</th><th>AI 설문 / 합성 사용자</th></tr></thead>
+    <tbody>
+      <tr><td>속도</td><td class="us"><span class="chk">✓</span> 며칠</td><td>6~12개월</td><td>단일 시장 위주</td></tr>
+      <tr><td>비용</td><td class="us"><span class="chk">✓</span> 수백~수천 달러</td><td>$500K+</td><td>중간</td></tr>
+      <tr><td>다국가</td><td class="us"><span class="chk">✓</span> 24개국, 현지화</td><td>프로젝트별, 고비용</td><td>제한적</td></tr>
+      <tr><td>데이터 그라운딩</td><td class="us"><span class="chk">✓</span> 정부 · 무역 데이터</td><td>패널</td><td>약함 (환각 위험)</td></tr>
+      <tr><td>가격 / CAC 추천</td><td class="us"><span class="chk">✓</span> AI 기반</td><td>수작업</td><td>없음</td></tr>
+      <tr><td>신뢰성 검증</td><td class="us"><span class="chk">✓</span> 백테스트</td><td>방법론</td><td>없음</td></tr>
+    </tbody>
+  </table>
+  <div class="foot"><span><b>Market Twin</b></span><span>16</span></div>
+</section>
+
+<!-- 13 TEAM -->
+<section class="slide">
+  <div class="eyebrow">팀</div>
+  <h2>1인 창조기업 — 의도된 선택</h2>
+  <p class="lead" style="margin:14px 0 22px; max-width:940px;">혼자서 <b>상용 수준 제품을 처음부터 끝까지 만들어 출시</b>한 솔로 파운더. 린하고 AI를 지렛대 삼은 실행 — 작동하는 제품이 가장 강한 증거입니다.</p>
+  <div class="grid g2">
+    <div class="card accent">
+      <h3>이현우 (Chris Lee) — 창업자 &amp; CEO, 주식회사 미스터에이아이</h3>
+      <ul class="clean compact" style="margin-top:12px;">
+        <li><b>글로벌 사업개발 · GTM 20년+</b> — 암호화폐 거래소(Huobi · LATOKEN · Bithumb) · 소비재 테크, 다국가(동남아 · 유럽 · 미국 · 터키 · 중남미)</li>
+        <li><b>실전 시장조사 경험</b> — Canadean 컨설턴트(한국 음료시장) 등, Market Twin이 자동화하는 바로 그 문제</li>
+        <li>경영자 · 창업자 — CNK Management CEO(약 10년), 싱가포르 · 맨섬 법인 설립 · 연세대(경영) · Cal State East Bay · UWC(United World College)</li>
+        <li>Market Twin 상용 풀스택을 <b>AI 보조 개발로 단독 구축</b></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>자문 &amp; 린한 구조</h3>
+      <ul class="clean compact" style="margin-top:12px;">
+        <li><b>기술 자문 — 유동영:</b> 25년+ 풀스택 엔지니어링; 아키텍처 · 확장성 · AI 인프라 자문.</li>
+        <li><b>현재 솔로 파운더</b> — 전체 제품을 팀 없이 구축 · 출시: 자본효율적, 빠른 반복.</li>
+        <li><b>첫 채용(투자 후):</b> AI / 데이터 엔지니어 · B2B 영업 · 제휴.</li>
+      </ul>
+      <p class="muted" style="margin-top:14px; font-size:14px;">이 덱의 모든 수치는 실제이거나 미검증으로 명시 — 날조된 팀 · 트랙션 · 이력 없음.</p>
+    </div>
+  </div>
+  <div class="foot"><span><b>Market Twin</b></span><span>17</span></div>
+</section>
+
+<!-- 14 ASK -->
+<section class="slide">
+  <div class="eyebrow">투자 요청</div>
+  <h2>$500K Seed 투자 유치</h2>
+  <div class="grid g2" style="margin-top:18px; align-items:start;">
+    <div>
+      <div class="num" style="font-size:54px;">$500K</div>
+      <p class="lead" style="margin-top:8px; font-size:21px;"><b>Seed</b> · 약 18개월 런웨이 — 라이브 제품에서 <b>첫 매출과 반복 가능한 세일즈</b>까지.</p>
+      <h3 style="margin-top:20px;">마일스톤</h3>
+      <ul class="clean" style="margin-top:6px;">
+        <li>M6 · 유료 파일럿 5~8곳 · 첫 MRR · 핵심 채용 2명(AI/데이터 엔지니어 · BD)</li>
+        <li>M12 · 고객 ~20곳 · MRR ~$15K · 첫 공공부문 파트너</li>
+        <li>M18 · 고객 ~40곳 · MRR ~$35K · <b>Pre-A 준비</b> · 일본 진출</li>
+      </ul>
+      <p class="kicker" style="margin-top:14px; line-height:1.5;">가정: 고객당 월 매출(ARPA) ~$600~2,000 · 무료 베타 → 유료 전환 · 공공 수출지원 채널로 낮은 CAC. 상향식 — 하키스틱 아님.</p>
+    </div>
+    <div>
+      <div class="card">
+        <h3>자금 사용처</h3>
+        <div style="margin-top:12px;">
+          <div style="font-size:15px; font-weight:700; color:#334155;">제품 / AI — 40% · $200K</div>
+          <div class="bar" style="width:40%; height:22px; margin:5px 0 2px;"></div>
+          <div class="kicker">AI 엔지니어 · 모델 &amp; 인프라 · origin-agnostic 그라운딩 확장</div>
+          <div style="font-size:15px; font-weight:700; color:#334155; margin-top:12px;">영업 / 마케팅 — 35% · $175K</div>
+          <div class="bar" style="width:35%; height:22px; margin:5px 0 2px;"></div>
+          <div class="kicker">BD 채용 · 파일럿 · 사례 · 콘텐츠</div>
+          <div style="font-size:15px; font-weight:700; color:#334155; margin-top:12px;">인프라 / 운영 — 25% · $125K</div>
+          <div class="bar" style="width:25%; height:22px; margin:5px 0 2px;"></div>
+          <div class="kicker">클라우드 / LLM 추론 · 컴플라이언스 · APAC 셋업</div>
+        </div>
+      </div>
+      <div class="card accent" style="margin-top:14px;">
+        <p style="font-size:15px;"><b>구조적으로 자본효율적:</b> 제품은 이미 구축 · 라이브 — 자금은 <b>재구축이 아니라 GTM과 첫 2명 채용</b>에. 이 계획으로 18개월 내 MRR ~$35K · Pre-A 준비 도달.</p>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span><b>Market Twin</b></span><span>18</span></div>
+</section>
+
+<!-- 15 VISION -->
+<section class="slide">
+  <div class="eyebrow">비전</div>
+  <h2>제품 → 플랫폼 생태계</h2>
+  <div class="grid g3" style="margin-top:26px;">
+    <div class="card accent"><h3>Market Twin Core</h3><p style="margin-top:8px;">출시 검증 시뮬레이션의 표준 — 모든 국경 넘는 제품 결정 전 기본 점검.</p></div>
+    <div class="card"><h3>Twin Analytics</h3><p style="margin-top:8px;">경쟁사 가격·출시·카테고리 변화를 상시 추적하는 AI 애널리스트.</p></div>
+    <div class="card"><h3>Twin API</h3><p style="margin-top:8px;">ERP · PLM · 마케팅 워크플로에 Market Twin 스코어링 임베드 (SAP · Salesforce).</p></div>
+  </div>
+  <div class="card" style="margin-top:28px; background:var(--soft); border-color:#c7d6ff; text-align:center;">
+    <p class="lead" style="color:var(--navy);">우리의 목표 — <b>모든 기업이 데이터 기반으로 글로벌 확장을 결정하는 세상.</b></p>
+  </div>
+  <div class="foot"><span><b>Market Twin</b></span><span>19</span></div>
+</section>
+
+<!-- 16 CONTACT -->
+<section class="slide cover center">
+  <div class="eyebrow">제품 출시의 미래를 함께 만듭시다</div>
+  <h1 style="font-size:56px;">이야기 나눠요</h1>
+  <div style="margin-top:36px; color:#dbeafe; font-size:18px; line-height:2;">
+    <div>투자 · <b style="color:#fff;">invest@markettwin.ai</b></div>
+    <div>웹 · <b style="color:#fff;">markettwin.ai</b></div>
+    <div>주식회사 미스터에이아이 · CEO 이현우 (Chris Lee)</div>
+  </div>
+</section>
+
+</div>
+</body>
+</html>
