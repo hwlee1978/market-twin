@@ -97,6 +97,8 @@ export interface CountryBuzz {
   country: string;
   /** DataForSEO absolute monthly search volume (undefined when no creds). */
   searchVolume?: number;
+  /** Recent 3-mo vs prior 3-mo % change in search volume (demand direction). */
+  searchTrendPct?: number | null;
   /** TikTok videos in the brand's top search attributed to this region. */
   tiktokVideos?: number;
   youtube?: { videoCount: number; viewSum: number };
@@ -161,67 +163,93 @@ function deepNum(obj: unknown, keys: string[], depth = 0): number | null {
 
 /* ─────────────────────────  ① DataForSEO  ───────────────────────── */
 
+export interface CountryDemand {
+  /** Absolute monthly Google search volume. */
+  volume: number;
+  /** Recent 3-mo vs prior 3-mo % change in monthly search volume (trajectory),
+   *  or null when < 6 months of data. Positive = rising demand. */
+  trendPct: number | null;
+}
+
+/** Recent-3-month vs prior-3-month % change from DataForSEO monthly_searches
+ *  (which arrives newest→oldest). Grounds demand DIRECTION, not just level. */
+function trajectory(
+  monthly?: Array<{ search_volume?: number | null }>,
+): number | null {
+  if (!monthly || monthly.length < 6) return null;
+  const v = monthly.map((m) =>
+    typeof m.search_volume === "number" ? m.search_volume : 0,
+  );
+  const recent = (v[0] + v[1] + v[2]) / 3;
+  const prior = (v[3] + v[4] + v[5]) / 3;
+  if (prior <= 0) return null;
+  return Math.round(((recent - prior) / prior) * 100);
+}
+
 /**
- * Absolute monthly Google search volume per candidate country. One task per
- * country in a single POST (DataForSEO batches). Returns a country→volume
- * map; empty when DATAFORSEO_LOGIN/PASSWORD are unset (graceful degrade to
- * the social-only signals). This is the clean per-country backbone: absolute
- * volume is directly comparable across markets and has no platform blind spot.
+ * Absolute monthly Google search volume + trajectory per candidate country.
+ * The clean per-country backbone: absolute volume compares directly across
+ * markets with no platform blind spot. Sends ONE task per request (the plan
+ * rejects multi-task arrays with "one task at a time" — 40000), concurrently.
+ * Empty when DATAFORSEO_LOGIN/PASSWORD are unset (graceful degrade to social).
  */
-async function dataForSeoVolumeByCountry(
+async function dataForSeoDemandByCountry(
   brand: string,
   countries: string[],
-): Promise<Record<string, number>> {
+): Promise<Record<string, CountryDemand>> {
   const login = process.env.DATAFORSEO_LOGIN;
   const pass = process.env.DATAFORSEO_PASSWORD;
   if (!login || !pass) return {};
-  const tasks = countries
+  const auth = Buffer.from(`${login}:${pass}`).toString("base64");
+  const targets = countries
     .map((c) => ({ iso: c.toUpperCase(), src: COUNTRY_SOURCES[c.toUpperCase()] }))
-    .filter((t) => t.src)
-    // language_code is intentionally omitted: it does not affect Google-Ads
-    // search volume for a brand keyword (verified — JP "tirtir" returns 22,200
-    // under ja/en/none alike) and some ISO-639 codes are invalid location-
-    // language pairs that would 40000-error that single country. Location
-    // alone is the signal we want.
-    .map((t) => ({
-      keywords: [brand],
-      location_code: t.src!.dfsLoc,
-      _iso: t.iso,
-    }));
-  if (tasks.length === 0) return {};
+    .filter((t): t is { iso: string; src: CountrySource } => Boolean(t.src));
 
-  const { signal, clear } = withTimeout();
-  try {
-    const auth = Buffer.from(`${login}:${pass}`).toString("base64");
-    const res = await fetch(DFS_ENDPOINT, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${auth}`,
-        "Content-Type": "application/json",
+  const entries = await Promise.all(
+    targets.map(
+      async ({ iso, src }): Promise<[string, CountryDemand] | null> => {
+        const { signal, clear } = withTimeout();
+        try {
+          // Single-task array — plan allows only one task per request.
+          // language_code omitted: it doesn't change brand-keyword volume and
+          // some ISO-639 pairs 40000-error the request.
+          const res = await fetch(DFS_ENDPOINT, {
+            method: "POST",
+            headers: {
+              Authorization: `Basic ${auth}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify([
+              { keywords: [brand], location_code: src.dfsLoc },
+            ]),
+            signal,
+          });
+          if (!res.ok) return null;
+          const json = (await res.json()) as {
+            tasks?: Array<{
+              result?: Array<{
+                search_volume?: number | null;
+                monthly_searches?: Array<{ search_volume?: number | null }>;
+              }>;
+            }>;
+          };
+          const r = json.tasks?.[0]?.result?.[0];
+          if (typeof r?.search_volume !== "number") return null;
+          return [
+            iso,
+            { volume: r.search_volume, trendPct: trajectory(r.monthly_searches) },
+          ];
+        } catch {
+          return null;
+        } finally {
+          clear();
+        }
       },
-      body: JSON.stringify(tasks.map(({ _iso, ...rest }) => rest)),
-      signal,
-    });
-    if (!res.ok) return {};
-    const json = (await res.json()) as {
-      tasks?: {
-        data?: { location_code?: number };
-        result?: { keyword?: string; search_volume?: number | null }[];
-      }[];
-    };
-    const out: Record<string, number> = {};
-    for (const task of json.tasks ?? []) {
-      const loc = task.data?.location_code;
-      const iso = tasks.find((t) => t.location_code === loc)?._iso;
-      const vol = task.result?.[0]?.search_volume;
-      if (iso && typeof vol === "number") out[iso] = vol;
-    }
-    return out;
-  } catch {
-    return {};
-  } finally {
-    clear();
-  }
+    ),
+  );
+  const out: Record<string, CountryDemand> = {};
+  for (const e of entries) if (e) out[e[0]] = e[1];
+  return out;
 }
 
 /* ─────────────────────────  ②③ TikTok  ───────────────────────── */
@@ -465,9 +493,9 @@ export async function fetchSocialBuzzByCountry(
   const windowEnd = input.asOfDate ? Date.parse(input.asOfDate) : Date.now();
   const publishedAfter = new Date(windowEnd - windowMs).toISOString();
 
-  // Brand-level (once): DataForSEO batch, TikTok hashtag + region tally.
-  const [volByCountry, hashtagViews, ttTally] = await Promise.all([
-    dataForSeoVolumeByCountry(input.brand, countries),
+  // Brand-level (once): DataForSEO per-country demand, TikTok hashtag + region.
+  const [demandByCountry, hashtagViews, ttTally] = await Promise.all([
+    dataForSeoDemandByCountry(input.brand, countries),
     tiktokHashtagViews(input.brand),
     tiktokRegionTally(input.brand),
   ]);
@@ -483,7 +511,8 @@ export async function fetchSocialBuzzByCountry(
       ]);
       const cb: CountryBuzz = {
         country,
-        searchVolume: volByCountry[country],
+        searchVolume: demandByCountry[country]?.volume,
+        searchTrendPct: demandByCountry[country]?.trendPct,
         tiktokVideos: ttTally?.[country],
         youtube,
         naver,
@@ -541,7 +570,13 @@ export function formatSocialBuzzBlock(
     : `═══ PER-COUNTRY SOCIAL / SEARCH DEMAND INDEX (measured)${viral} ═══\nRelative index (0-100, max in candidate set = 100) of organic demand for the brand per country. ${primaryNote}. A SEPARATE axis from market size — surfaces markets already trending even if small. Weight into the country score when the brand-strategy is KOL/social/search-led:`;
   const lines = withSignal.map((c) => {
     const bits: string[] = [];
-    if (c.searchVolume != null) bits.push(`search ${formatViews(c.searchVolume)}/mo`);
+    if (c.searchVolume != null) {
+      const tr =
+        c.searchTrendPct == null
+          ? ""
+          : ` ${c.searchTrendPct >= 0 ? "↑" : "↓"}${Math.abs(c.searchTrendPct)}%`;
+      bits.push(`search ${formatViews(c.searchVolume)}/mo${tr}`);
+    }
     if (c.tiktokVideos) bits.push(`TikTok ${c.tiktokVideos} vids`);
     if (c.youtube && c.youtube.viewSum > 0)
       bits.push(`YT ${formatViews(c.youtube.viewSum)}`);
