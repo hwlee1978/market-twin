@@ -101,6 +101,10 @@ export interface CountryBuzz {
   searchTrendPct?: number | null;
   /** TikTok videos in the brand's top search attributed to this region. */
   tiktokVideos?: number;
+  /** China-only: count of top Baidu organic results from Chinese commerce /
+   *  official / encyclopedia sources — establishes CN presence where TikTok
+   *  (banned) and Google (blocked) are blind. */
+  baiduPresence?: number;
   youtube?: { videoCount: number; viewSum: number };
   naver?: { mentions: number };
   reddit?: { posts: number };
@@ -307,6 +311,74 @@ async function tiktokRegionTally(
   }
 }
 
+/* ─────────────────────────  ④ China (Baidu)  ───────────────────────── */
+
+// Chinese commerce / official / encyclopedia signals — an organic Baidu result
+// from these means the brand is really established in China, versus generic /
+// dictionary noise (e.g. "oishi" = 美味しい). Domains + title markers.
+const CN_PRESENCE_DOMAINS = [
+  "tmall.com", "taobao.com", "jd.com", "1688.com", "baike.baidu.com",
+  "xiaohongshu.com", "douyin.com", "weibo.com", "zhihu.com",
+];
+const CN_PRESENCE_TITLE = ["官网", "官方", "旗舰店", "百科", "天猫", "淘宝"];
+
+/**
+ * China presence via Baidu SERP — the CN blind-spot fix (TikTok is banned,
+ * Google is blocked, so the other signals can't see China). Scores how
+ * established the brand is by counting top Baidu organic results from Chinese
+ * commerce/official/encyclopedia sources. DataForSEO Baidu SERP (~$0.002).
+ * se_results_count is unreliable (always 0), so we score by result content.
+ */
+async function baiduChinaPresence(brand: string): Promise<number | undefined> {
+  const login = process.env.DATAFORSEO_LOGIN;
+  const pass = process.env.DATAFORSEO_PASSWORD;
+  if (!login || !pass) return undefined;
+  const auth = Buffer.from(`${login}:${pass}`).toString("base64");
+  const { signal, clear } = withTimeout();
+  try {
+    const res = await fetch(
+      "https://api.dataforseo.com/v3/serp/baidu/organic/live/advanced",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify([
+          { keyword: brand, location_code: 2156, language_code: "zh_CN", depth: 20 },
+        ]),
+        signal,
+      },
+    );
+    if (!res.ok) return undefined;
+    const json = (await res.json()) as {
+      tasks?: Array<{
+        result?: Array<{
+          items?: Array<{ type?: string; url?: string; title?: string }>;
+        }>;
+      }>;
+    };
+    const items = json.tasks?.[0]?.result?.[0]?.items ?? [];
+    let score = 0;
+    for (const it of items) {
+      if (it.type !== "organic") continue;
+      const url = (it.url ?? "").toLowerCase();
+      const title = it.title ?? "";
+      if (
+        CN_PRESENCE_DOMAINS.some((d) => url.includes(d)) ||
+        CN_PRESENCE_TITLE.some((t) => title.includes(t))
+      ) {
+        score++;
+      }
+    }
+    return score;
+  } catch {
+    return undefined;
+  } finally {
+    clear();
+  }
+}
+
 /* ─────────────────────────  ④⑤ YouTube / community  ───────────────────────── */
 
 async function youtubeBuzz(
@@ -459,7 +531,8 @@ function composite(b: CountryBuzz): number {
   let raw = 0;
   if (b.searchVolume != null) raw += 3 * log10(b.searchVolume); // ① primary
   if (b.tiktokVideos != null) raw += 0.8 * b.tiktokVideos; // ③ per-country social
-  if (b.youtube) raw += 0.4 * log10(b.youtube.viewSum); // ④ weak tiebreaker
+  if (b.baiduPresence != null) raw += 1.2 * b.baiduPresence; // ④ China (Baidu)
+  if (b.youtube) raw += 0.4 * log10(b.youtube.viewSum); // weak tiebreaker
   if (b.naver) raw += 1.0 * log10(b.naver.mentions); // ⑤ deweighted
   if (b.reddit) raw += 1.0 * log10(b.reddit.posts); // ⑤
   return raw;
@@ -493,11 +566,14 @@ export async function fetchSocialBuzzByCountry(
   const windowEnd = input.asOfDate ? Date.parse(input.asOfDate) : Date.now();
   const publishedAfter = new Date(windowEnd - windowMs).toISOString();
 
-  // Brand-level (once): DataForSEO per-country demand, TikTok hashtag + region.
-  const [demandByCountry, hashtagViews, ttTally] = await Promise.all([
+  // Brand-level (once): DataForSEO per-country demand, TikTok hashtag + region,
+  // and Baidu China presence (only when CN is a candidate — TikTok/Google blind).
+  const hasCN = countries.includes("CN");
+  const [demandByCountry, hashtagViews, ttTally, baiduCN] = await Promise.all([
     dataForSeoDemandByCountry(input.brand, countries),
     tiktokHashtagViews(input.brand),
     tiktokRegionTally(input.brand),
+    hasCN ? baiduChinaPresence(input.brand) : Promise.resolve(undefined),
   ]);
 
   const results = await Promise.all(
@@ -514,6 +590,7 @@ export async function fetchSocialBuzzByCountry(
         searchVolume: demandByCountry[country]?.volume,
         searchTrendPct: demandByCountry[country]?.trendPct,
         tiktokVideos: ttTally?.[country],
+        baiduPresence: country === "CN" ? baiduCN : undefined,
         youtube,
         naver,
         reddit,
@@ -578,6 +655,7 @@ export function formatSocialBuzzBlock(
       bits.push(`search ${formatViews(c.searchVolume)}/mo${tr}`);
     }
     if (c.tiktokVideos) bits.push(`TikTok ${c.tiktokVideos} vids`);
+    if (c.baiduPresence != null) bits.push(`Baidu-CN ${c.baiduPresence}`);
     if (c.youtube && c.youtube.viewSum > 0)
       bits.push(`YT ${formatViews(c.youtube.viewSum)}`);
     if (c.naver && c.naver.mentions > 0) bits.push(`Naver ${c.naver.mentions}`);
