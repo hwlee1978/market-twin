@@ -152,6 +152,30 @@ export async function prefetchSimulationContext(
     );
   }
 
+  // Import tariffs — WITS / UNCTAD-TRAINS MFN applied rates (2026-07).
+  // Appended to the trade anchor block (both are trade/customs signals) so it
+  // reaches the country-ranking prompt without a new param. NOT gated on
+  // asOfDate: tariffs are stable and outcome-independent, so historical use is
+  // sound grounding, not a hindsight leak.
+  try {
+    const { buildTariffAnchor } = await import("@/lib/market-research/tariffs");
+    const { block, rows } = await buildTariffAnchor(
+      projectInput.candidateCountries,
+      projectInput.category,
+      locale,
+    );
+    if (block) {
+      tradeAnchorBlock = tradeAnchorBlock
+        ? `${tradeAnchorBlock}\n\n${block}`
+        : block;
+      console.log(`${log}Tariff anchor: ${rows.length} markets`);
+    } else {
+      console.log(`${log}Tariff anchor: empty`);
+    }
+  } catch (err) {
+    console.warn(`${log}Tariff anchor failed: ${(err as Error).message}`);
+  }
+
   // World Bank — Phase F.0-2 (2026-05-17)
   let worldBankBlock = "";
   try {
