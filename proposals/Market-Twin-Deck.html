@@ -167,7 +167,7 @@
 <section class="slide">
   <div class="eyebrow">Why we win</div>
   <h2>What makes us different</h2>
-  <div class="grid g2" style="margin-top:26px;">
+  <div class="grid g2" style="margin-top:16px;">
     <div class="card"><h3>① Grounded, not hallucinated</h3><p style="margin-top:8px;">Personas built on real government &amp; trade data — reflecting each country's actual income, culture, and channels. Fundamentally different from generic AI or single-market survey tools.</p><p class="kicker" style="margin-top:8px;">e.g. a Vietnamese persona weighs local income, K-content influence, and official-import trust — not a US stereotype.</p></div>
     <div class="card"><h3>② Reliability-engineered</h3><p style="margin-top:8px;">Multi-LLM ensemble + median aggregation + accuracy back-tested vs ground truth. Not a single black-box guess.</p><p class="kicker" style="margin-top:8px;">Every statement is traceable to a cited statistic; confidence is shown honestly as STRONG / MODERATE / WEAK.</p></div>
     <div class="card"><h3>③ Compounding moat</h3><p style="margin-top:8px;">Every simulation grows a shared persona pool — the product gets more accurate and cheaper to run over time.</p><p class="kicker" style="margin-top:8px;">600–5,000 personas per run refine a pool reused across projects and customers — a data asset competitors can't copy.</p></div>
@@ -185,7 +185,7 @@
     <div class="archband"><span class="al">Web app</span><span class="ar">Next.js 15 · React · 6-step wizard · dashboard · 3&times; PDF reports</span></div>
     <div class="archband"><span class="al">API &amp; orchestration</span><span class="ar">simulation runner · usage &amp; billing (NICE / Stripe) · RLS-secured routes</span></div>
     <div class="archband core"><span class="al">Core simulation engine</span><span class="ar"><b>Multi-LLM ensemble (3&ndash;25 sims)</b> · aggregator (median + vote-share) · confidence tiering</span></div>
-    <div class="archband"><span class="al">Data grounding</span><span class="ar">UN Comtrade · World Bank · Hofstede · KOTRA · DART / SEC EDGAR · MFDS / openFDA · Tavily · <b>live per-country demand (Google search volume · TikTok)</b></span></div>
+    <div class="archband"><span class="al">Data grounding</span><span class="ar">UN Comtrade · <b>import tariffs (WITS)</b> · World Bank (macro · logistics · digital) · Hofstede · DART / SEC EDGAR / EDINET / <b>Companies House</b> · MFDS / openFDA · KOTRA · Tavily · <b>live demand: search volume + trajectory · TikTok · Baidu-CN</b></span></div>
     <div class="archband"><span class="al">LLM providers</span><span class="ar">Claude · GPT · Gemini · DeepSeek (provider round-robin)</span></div>
     <div class="archband"><span class="al">Data assets</span><span class="ar">Supabase / Postgres · compounding <b>persona pool</b> · <b>outcome corpus</b> (real-launch feedback loop)</span></div>
   </div>
@@ -224,7 +224,7 @@
 <section class="slide">
   <div class="eyebrow">Under the hood · compute</div>
   <h2>AI infrastructure &mdash; built to scale on accelerated compute</h2>
-  <p class="lead" style="margin:14px 0 18px; max-width:960px;">Each analysis is inference-heavy: <b>200 personas &times; 3&ndash;25 simulations (across multiple LLMs) = 600&ndash;5,000 persona-runs</b>. Scaling that economically is a compute problem &mdash; and our roadmap runs on NVIDIA.</p>
+  <p class="lead" style="margin:10px 0 12px; max-width:960px;">Each analysis is inference-heavy: <b>200 personas &times; 3&ndash;25 simulations (across multiple LLMs) = 600&ndash;5,000 persona-runs</b>. Scaling that economically is a compute problem &mdash; and our roadmap runs on NVIDIA.</p>
   <div class="grid g2" style="align-items:start;">
     <div class="card">
       <span class="pill">Today</span>
