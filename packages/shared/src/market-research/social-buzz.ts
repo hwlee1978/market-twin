@@ -178,10 +178,14 @@ async function dataForSeoVolumeByCountry(
   const tasks = countries
     .map((c) => ({ iso: c.toUpperCase(), src: COUNTRY_SOURCES[c.toUpperCase()] }))
     .filter((t) => t.src)
+    // language_code is intentionally omitted: it does not affect Google-Ads
+    // search volume for a brand keyword (verified — JP "tirtir" returns 22,200
+    // under ja/en/none alike) and some ISO-639 codes are invalid location-
+    // language pairs that would 40000-error that single country. Location
+    // alone is the signal we want.
     .map((t) => ({
       keywords: [brand],
       location_code: t.src!.dfsLoc,
-      language_code: t.src!.lang === "zh" ? "zh_TW" : t.src!.lang,
       _iso: t.iso,
     }));
   if (tasks.length === 0) return {};
