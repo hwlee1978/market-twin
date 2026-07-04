@@ -156,12 +156,25 @@ number.
 | Miss | Actual | Live-signal rank | Recovered? |
 |---|---|---|---|
 | Medicube | US | #1 (search 301K/mo) | ✅ |
-| Krating Daeng | SG | #1 (social) | ✅ |
-| IRVINS | HK | #1 (social) | ✅ |
-| Oishi | CN | — | ❌ China invisible to Western social + generic name |
-| Shake Shack | AE | — | ❌ Gulf demand sparse vs large markets |
+| Krating Daeng | SG | #5 (ID leads, 33K/mo) | ❌ |
+| IRVINS | HK | outside top-3 (SG/ID lead) | ❌ |
+| Oishi | CN | — (China invisible; generic name) | ❌ |
+| Shake Shack | AE | #5 (GB/JP lead) | ❌ |
 
-**3 of 5 misses recover the true winner to top-1.** The two residuals are the
-known hard cases — China (needs Douyin / Baidu domestic data, not TikTok /
-Google) and small Gulf markets (needs local sources). This confirms §6: the new
-signal, not re-weighting, is the lever against the proximate-market bias.
+**Only 1 of 5 misses recovers the true winner (Medicube→US).** This is a
+*correction*: an earlier draft reported 3/5, but that was an artifact of a
+DataForSEO batching bug (multi-task requests silently returned only the first
+country's search volume, so the other markets fell back to social signals and
+appeared to "recover"). With correct per-country absolute search volume, the
+signal points at whichever market is **largest by current search**, which for
+globally-viral brands is a big present-day market (US/ID/GB), **not** the small
+historical first-win market (HK/AE/SG). Absolute search volume carries its own
+size/circularity bias.
+
+**Honest conclusion:** the live per-country demand signal (search volume +
+trajectory + TikTok) is a genuine **new grounding axis for live launch
+decisions** — "where is demand now, and is it rising" — but it is **not a
+reliable back-test-miss fixer**. It recovers a miss only when the true winner
+is also the largest current-search market. The remaining misses need
+market-specific GTM signals (§6) and China-domestic data (§ below), not search
+volume alone.
