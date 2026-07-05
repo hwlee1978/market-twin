@@ -1174,6 +1174,24 @@ export function aggregateEnsemble(
     (crossLLMAgree ? 1 : 0);
   const displayMode: "single" | "top2" = passCount >= 2 ? "single" : "top2";
 
+  // ── Confidence calibration via dominance (2026-07) ──
+  // The N=20 cross-origin backtest found STRONG labels were only ~55% accurate
+  // (over-confident) — barely monotonic with actual top-1 accuracy. Root cause:
+  // the label keyed off the winner's ABSOLUTE vote share alone, ignoring the
+  // dominance signals already computed here. A STRONG call now additionally
+  // requires the winner to actually DOMINATE: cross-provider agreement AND a
+  // clear vote-share margin over #2. This directly addresses the documented
+  // single-provider over-confidence (a 2-of-3 plurality where one provider
+  // disagrees is no longer STRONG), tying the label to the same evidence the
+  // single-vs-top2 display already trusts.
+  const voteMargin = voteShareTop1Pct - voteShareTop2Pct;
+  if (confidence === "STRONG" && (!crossLLMAgree || voteMargin < 25)) {
+    confidence = "MODERATE";
+  }
+  if (confidence === "MODERATE" && voteMargin < 10 && !crossLLMAgree) {
+    confidence = "WEAK";
+  }
+
   const secondary = top2Country
     ? {
         country: top2Country,
