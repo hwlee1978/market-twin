@@ -41,20 +41,31 @@ Predictions are filled from each brand's live ensemble (sim date 2026-07-06).
 
 | Brand | Origin | Category | Candidate markets | **Pred top-1** | Pred top-3 | Conf | Actual (entry) | Actual (sustained) | Hit |
 |---|---|---|---|---|---|---|---|---|---|
-| FRONT2LINE | KR | Fashion | JP·TW·US·DE·FR·SG·TH | _TBD_ | | | | | |
-| Le Mouton | KR | Fashion (shoes) | JP·TW·DE·FR·US·SG | _TBD_ | | | | | |
-| Torriden | KR | Beauty | US·JP·CN·TW·SG·TH·VN·ID | _TBD_ | | | | | |
-| Srichand | TH | Beauty | ID·MY·SG·PH·VN·CN·JP·AE | _TBD_ | | | | | |
-| Y.O.U Beauty | ID | Beauty | MY·PH·SG·TH·VN·SA·AE·IN | _TBD_ | | | | | |
-| Kopi Kenangan | ID | Beverage | MY·SG·PH·TH·TW·AE·SA·IN | _TBD_ | | | | | |
-| Buttonscarves | ID | Fashion | MY·SG·SA·AE·GB·US·BR | _TBD_ | | | | | |
-| Cocoon | VN | Beauty | JP·KR·US·FR·DE·SG·TH·GB | _TBD_ | | | | | |
-| Cong Caphe | VN | Beverage | KR·JP·US·SG·MY·AU·CA·TW | _TBD_ | | | | | |
-| Little Ears | TW | Consumer | SG·MY·JP·US·CN·TH·VN·AU | _TBD_ | | | | | |
-| Mosaic Wellness | IN | Health | US·GB·AE·SA·SG·AU·CA·MY | _TBD_ | | | | | |
-| Atomgrid | IN | Beauty | US·GB·AE·SG·MY·AU·SA·DE | _TBD_ | | | | | |
-| YSE Beauty | US | Beauty | GB·CA·AU·JP·KR·SG·DE·FR | _TBD_ | | | | | |
-| SISI | JP | Beauty | US·CN·TW·KR·SG·TH·VN·GB | _TBD_ | | | | | |
-| Ieva Group | FR | Beauty | US·GB·DE·IT·ES·JP·CN·AE | _TBD_ | | | | | |
+| FRONT2LINE | KR | Fashion | JP·TW·US·DE·FR·SG·TH | **TW** | SG·TW·JP | WEAK | | | |
+| Le Mouton | KR | Fashion (shoes) | JP·TW·DE·FR·US·SG | **JP** | TW·SG·JP | MODERATE | | | |
+| Torriden | KR | Beauty | US·JP·CN·TW·SG·TH·VN·ID | **JP** | US·JP·CN | WEAK | | | |
+| Srichand | TH | Beauty | ID·MY·SG·PH·VN·CN·JP·AE | **ID** | ID·MY·VN | MODERATE | | | |
+| Y.O.U Beauty | ID | Beauty | MY·PH·SG·TH·VN·SA·AE·IN | **MY** | MY·PH·VN | MODERATE | | | |
+| Kopi Kenangan | ID | Beverage | MY·SG·PH·TH·TW·AE·SA·IN | **MY** | SG·MY·PH | WEAK | | | |
+| Buttonscarves | ID | Fashion | MY·SG·SA·AE·GB·US·BR | **MY** | MY·AE·SG | MODERATE | | | |
+| Cocoon | VN | Beauty | JP·KR·US·FR·DE·SG·TH·GB | **FR** | FR·SG·US | WEAK | | | |
+| Cong Caphe | VN | Beverage | KR·JP·US·SG·MY·AU·CA·TW | **US** | US·KR·SG | **STRONG** | | | |
+| Little Ears | TW | Consumer | SG·MY·JP·US·CN·TH·VN·AU | **US** | US·SG·AU | WEAK | | | |
+| Mosaic Wellness | IN | Health | US·GB·AE·SA·SG·AU·CA·MY | **SG** | SG·US·AE | MODERATE | | | |
+| Atomgrid | IN | Beauty | US·GB·AE·SG·MY·AU·SA·DE | **US** | SG·US·AU | WEAK | | | |
+| YSE Beauty | US | Beauty | GB·CA·AU·JP·KR·SG·DE·FR | **GB** | CA·GB·AU | WEAK | | | |
+| SISI | JP | Beauty | US·CN·TW·KR·SG·TH·VN·GB | **TW** | TW·SG·US | WEAK | | | |
+| Ieva Group | FR | Beauty | US·GB·DE·IT·ES·JP·CN·AE | **US** | US·GB | **STRONG** | | | |
+
+**Frozen 2026-07-06.** Confidence spread: **STRONG 2** (Cong Caphe→US, Ieva→US
+— both 100% cross-provider agreement) · **MODERATE 5** · **WEAK 8**. The
+dominance-calibrated rule makes STRONG deliberately rare (only unanimous, high-
+margin calls) — an honest spread for genuinely-uncertain expansion decisions.
+Predictions are also frozen in the `ensembles` table and snapshotted into
+`outcome_feedback` (planning rows, workspace `0c8e774f…`), so
+`scripts/outcome-calibration.ts` will score them automatically once the actual
+markets are recorded. Note: top-3 is score-ranked (may momentarily include the
+origin, e.g. Ieva's FR, which is excluded); the top-1 recommendation is origin-
+filtered and is the primary frozen prediction.
 
 Seed: `scripts/prospective-cohort-seed.ts`. Run: `scripts/smoke-ensemble-e2e.ts -- <prefix> hypothesis`.
