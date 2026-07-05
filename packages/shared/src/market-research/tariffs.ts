@@ -19,10 +19,23 @@
  * pasta/noodles (190230) into Japan = 22.1%, cosmetics (330499) into US = 0%.
  */
 
+import tariffSnapshot from "./tariff-snapshot.json";
+
+/** Baked 24-market × category tariff grid (annual refresh via
+ *  scripts/build-tariff-snapshot.ts). WITS is ~33s/query, so the runtime reads
+ *  this instantly and only hits live WITS on a snapshot miss. */
+const SNAPSHOT = tariffSnapshot as Record<
+  string,
+  Record<string, { ratePct: number; year: number }>
+>;
+
 const WITS_BASE = "https://wits.worldbank.org/API/V1/SDMX/V21/datasource/TRN";
-// WITS SDMX is slow (a multi-reporter query can take ~30s) — generous timeout,
-// but it is ONE call for all candidate markets, run once per ensemble.
-const WITS_TIMEOUT_MS = 40_000;
+/** M49 codes WITS/TRAINS has no reporter schedule for (would 400/404 the whole
+ *  batch). Those markets get no tariff grounding — an honest gap. */
+const WITS_EXCLUDE = new Set<number>([490, 682, 484]); // TW, SA, MX
+// WITS SDMX is slow (~33s for a few reporters, more for 24) — generous timeout.
+// Live path is a rare snapshot-miss fallback; the snapshot builder also uses it.
+const WITS_TIMEOUT_MS = 60_000;
 /** Years tried newest→oldest until TRAINS has data (publication lags ~2-3y). */
 const WITS_YEARS = [2021, 2020, 2022, 2019];
 
@@ -77,32 +90,55 @@ const M49_TO_ISO2: Record<number, string> = Object.fromEntries(
  * REPORTER dimension position in each series key, so the reporter→rate
  * mapping is robust to dimension ordering.
  */
+type WitsTariffResponse = {
+  structure?: {
+    dimensions?: {
+      series?: Array<{ id?: string; values?: Array<{ id?: string }> }>;
+    };
+  };
+  dataSets?: Array<{
+    series?: Record<string, { observations?: Record<string, number[]> }>;
+  }>;
+};
+
 async function fetchTariffsForYear(
   m49List: number[],
   hs6: string,
   year: number,
 ): Promise<Map<string, number>> {
   const out = new Map<string, number>();
-  const url = `${WITS_BASE}/reporter/${m49List.join(";")}/partner/000/product/${hs6}/year/${year}/datatype/reported?format=JSON`;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), WITS_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, {
-      headers: { Accept: "application/json" },
-      signal: ctrl.signal,
-    });
-    clearTimeout(timer);
-    if (!res.ok) return out;
-    const json = (await res.json()) as {
-      structure?: {
-        dimensions?: {
-          series?: Array<{ id?: string; values?: Array<{ id?: string }> }>;
-        };
-      };
-      dataSets?: Array<{
-        series?: Record<string, { observations?: Record<string, number[]> }>;
-      }>;
-    };
+  // WITS/TRAINS doesn't recognize these as reporters (490 = "Other Asia nes"
+  // for Taiwan; 682 Saudi has no TRAINS schedule) — a single unrecognized code
+  // 400s the WHOLE multi-reporter batch, so they're dropped (those markets get
+  // no tariff grounding, an honest gap).
+  const usable = m49List.filter((m) => !WITS_EXCLUDE.has(m));
+  if (usable.length === 0) return out;
+  // M49 codes must be zero-padded to 3 digits — WITS 400s on "36" but accepts
+  // "036" (Australia, Brazil). Then retry transient 5xx/429 (WITS is flaky).
+  const reporters = usable.map((m) => String(m).padStart(3, "0")).join(";");
+  const url = `${WITS_BASE}/reporter/${reporters}/partner/000/product/${hs6}/year/${year}/datatype/reported?format=JSON`;
+  let json: WitsTariffResponse | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), WITS_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, {
+        headers: { Accept: "application/json" },
+        signal: ctrl.signal,
+      });
+      clearTimeout(timer);
+      if (res.ok) {
+        json = (await res.json()) as WitsTariffResponse;
+        break;
+      }
+      if (res.status < 500 && res.status !== 429) return out; // permanent
+    } catch {
+      clearTimeout(timer);
+    }
+    await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+  }
+  if (!json) return out;
+  {
     const dims = json.structure?.dimensions?.series ?? [];
     const reporterDim = dims.find((d) => d.id === "REPORTER");
     const reporterValues = (reporterDim?.values ?? []).map((v) => v.id);
@@ -125,17 +161,14 @@ async function fetchTariffsForYear(
       }
     }
     return out;
-  } catch {
-    clearTimeout(timer);
-    return out;
   }
 }
 
 /**
- * Fetch per-country import tariffs for a category. One multi-reporter WITS
- * call per year, trying recent years until data comes back. Empty result
- * when the category has no HS-6 mapping (e.g. SaaS/services) or WITS has no
- * data. Best-effort — never throws.
+ * Fetch per-country import tariffs for a category. Reads the baked snapshot
+ * first (instant) and only hits live WITS (~33s) for markets missing from it.
+ * Empty result when the category has no HS-6 mapping (e.g. SaaS/services).
+ * Best-effort — never throws.
  */
 export async function fetchTariffs(
   candidateCountries: string[],
@@ -143,22 +176,42 @@ export async function fetchTariffs(
 ): Promise<CountryTariff[]> {
   const hs6 = hs6ForCategory(category);
   if (!hs6) return [];
+  const catSnap = SNAPSHOT[category.toLowerCase()] ?? {};
+  const fromSnap: CountryTariff[] = [];
+  const missing: string[] = [];
+  for (const raw of candidateCountries) {
+    const c = raw.toUpperCase();
+    if (!ISO2_TO_M49[c]) continue;
+    const s = catSnap[c];
+    if (s) fromSnap.push({ country: c, ratePct: s.ratePct, year: s.year });
+    else missing.push(c);
+  }
+  // Common case — every candidate is in the snapshot → no WITS call at all.
+  if (missing.length === 0) return fromSnap;
+  const live = await fetchTariffsLive(missing, hs6);
+  return [...fromSnap, ...live];
+}
+
+/** Live WITS path — one multi-reporter call per year, merged newest-first for
+ *  coverage. Only invoked for snapshot misses (or by the snapshot builder). */
+async function fetchTariffsLive(
+  candidateCountries: string[],
+  hs6: string,
+): Promise<CountryTariff[]> {
   const pairs = candidateCountries
     .map((c) => ({ iso2: c.toUpperCase(), m49: ISO2_TO_M49[c.toUpperCase()] }))
     .filter((p): p is { iso2: string; m49: number } => Boolean(p.m49));
   if (pairs.length === 0) return [];
   const m49List = pairs.map((p) => p.m49);
 
-  // TRAINS coverage varies by year — query several years in parallel and, per
-  // country, keep the rate from the most recent year that reported it. This
-  // maximizes coverage (one year alone often has only a few reporters).
-  const yearMaps = await Promise.all(
-    WITS_YEARS.map((year) =>
-      fetchTariffsForYear(m49List, hs6, year).then((map) => ({ year, map })),
-    ),
-  );
+  // Query years SEQUENTIALLY (not parallel) with early-exit — WITS chokes on
+  // several concurrent multi-reporter requests (26 reporters × 4 years timed
+  // out entirely). 2021 alone usually covers all reporters; older years only
+  // fill gaps. First-hit per country wins (WITS_YEARS is in priority order).
   const best = new Map<string, { ratePct: number; year: number }>();
-  for (const { year, map } of [...yearMaps].sort((a, b) => b.year - a.year)) {
+  for (const year of WITS_YEARS) {
+    if (best.size >= pairs.length) break; // all covered — stop
+    const map = await fetchTariffsForYear(m49List, hs6, year);
     for (const [iso, rate] of map) {
       if (!best.has(iso)) best.set(iso, { ratePct: rate, year });
     }

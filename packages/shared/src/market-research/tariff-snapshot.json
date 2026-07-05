@@ -1,0 +1,848 @@
+{
+  "food": {
+    "KR": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "US": {
+      "ratePct": 6.40000009536743,
+      "year": 2021
+    },
+    "JP": {
+      "ratePct": 22.1333293914795,
+      "year": 2021
+    },
+    "CN": {
+      "ratePct": 10,
+      "year": 2021
+    },
+    "HK": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "SG": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "TH": {
+      "ratePct": 30,
+      "year": 2021
+    },
+    "VN": {
+      "ratePct": 33.75,
+      "year": 2021
+    },
+    "ID": {
+      "ratePct": 20,
+      "year": 2021
+    },
+    "MY": {
+      "ratePct": 6.75,
+      "year": 2021
+    },
+    "PH": {
+      "ratePct": 15,
+      "year": 2021
+    },
+    "IN": {
+      "ratePct": 30,
+      "year": 2021
+    },
+    "CA": {
+      "ratePct": 3.57142853736877,
+      "year": 2021
+    },
+    "GB": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "DE": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "FR": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "IT": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "ES": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "NL": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "AU": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "NZ": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "AE": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "BR": {
+      "ratePct": 16,
+      "year": 2021
+    }
+  },
+  "beauty": {
+    "KR": {
+      "ratePct": 6.5,
+      "year": 2021
+    },
+    "US": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "JP": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "CN": {
+      "ratePct": 1,
+      "year": 2021
+    },
+    "HK": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "SG": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "TH": {
+      "ratePct": 30,
+      "year": 2021
+    },
+    "VN": {
+      "ratePct": 15.3333330154419,
+      "year": 2021
+    },
+    "ID": {
+      "ratePct": 15,
+      "year": 2021
+    },
+    "MY": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "PH": {
+      "ratePct": 7,
+      "year": 2021
+    },
+    "IN": {
+      "ratePct": 20,
+      "year": 2021
+    },
+    "CA": {
+      "ratePct": 3.25,
+      "year": 2021
+    },
+    "GB": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "DE": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "FR": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "IT": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "ES": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "NL": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "AU": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "NZ": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "AE": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "BR": {
+      "ratePct": 18,
+      "year": 2021
+    }
+  },
+  "health": {
+    "KR": {
+      "ratePct": 83.7299957275391,
+      "year": 2021
+    },
+    "US": {
+      "ratePct": 8.39999961853027,
+      "year": 2021
+    },
+    "JP": {
+      "ratePct": 13.1363639831543,
+      "year": 2021
+    },
+    "CN": {
+      "ratePct": 9.38461494445801,
+      "year": 2021
+    },
+    "HK": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "SG": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "TH": {
+      "ratePct": 19.533332824707,
+      "year": 2021
+    },
+    "VN": {
+      "ratePct": 15.3666667938232,
+      "year": 2021
+    },
+    "ID": {
+      "ratePct": 44,
+      "year": 2021
+    },
+    "MY": {
+      "ratePct": 12.6666669845581,
+      "year": 2021
+    },
+    "PH": {
+      "ratePct": 6.13333320617676,
+      "year": 2021
+    },
+    "IN": {
+      "ratePct": 150,
+      "year": 2021
+    },
+    "CA": {
+      "ratePct": 4.44117641448975,
+      "year": 2021
+    },
+    "GB": {
+      "ratePct": 9.5238094329834,
+      "year": 2021
+    },
+    "DE": {
+      "ratePct": 12.8000001907349,
+      "year": 2021
+    },
+    "FR": {
+      "ratePct": 12.8000001907349,
+      "year": 2021
+    },
+    "IT": {
+      "ratePct": 12.8000001907349,
+      "year": 2021
+    },
+    "ES": {
+      "ratePct": 12.8000001907349,
+      "year": 2021
+    },
+    "NL": {
+      "ratePct": 12.8000001907349,
+      "year": 2021
+    },
+    "AU": {
+      "ratePct": 3,
+      "year": 2021
+    },
+    "NZ": {
+      "ratePct": 2.04545450210571,
+      "year": 2021
+    },
+    "AE": {
+      "ratePct": 4.66666650772095,
+      "year": 2021
+    },
+    "BR": {
+      "ratePct": 15.75,
+      "year": 2021
+    }
+  },
+  "alcohol": {
+    "KR": {
+      "ratePct": 26,
+      "year": 2021
+    },
+    "US": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "JP": {
+      "ratePct": 4,
+      "year": 2021
+    },
+    "CN": {
+      "ratePct": 10,
+      "year": 2021
+    },
+    "HK": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "SG": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "TH": {
+      "ratePct": 60,
+      "year": 2021
+    },
+    "VN": {
+      "ratePct": 45,
+      "year": 2021
+    },
+    "ID": {
+      "ratePct": 150,
+      "year": 2021
+    },
+    "MY": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "PH": {
+      "ratePct": 15,
+      "year": 2021
+    },
+    "IN": {
+      "ratePct": 150,
+      "year": 2021
+    },
+    "CA": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "GB": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "DE": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "FR": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "IT": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "ES": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "NL": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "AU": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "NZ": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "AE": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "BR": {
+      "ratePct": 20,
+      "year": 2021
+    }
+  },
+  "beverage": {
+    "KR": {
+      "ratePct": 8,
+      "year": 2021
+    },
+    "US": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "JP": {
+      "ratePct": 11.5,
+      "year": 2021
+    },
+    "CN": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "HK": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "SG": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "TH": {
+      "ratePct": 30,
+      "year": 2021
+    },
+    "VN": {
+      "ratePct": 35,
+      "year": 2021
+    },
+    "ID": {
+      "ratePct": 10,
+      "year": 2021
+    },
+    "MY": {
+      "ratePct": 20,
+      "year": 2021
+    },
+    "PH": {
+      "ratePct": 10,
+      "year": 2021
+    },
+    "IN": {
+      "ratePct": 30,
+      "year": 2021
+    },
+    "CA": {
+      "ratePct": 11,
+      "year": 2021
+    },
+    "GB": {
+      "ratePct": 8,
+      "year": 2021
+    },
+    "DE": {
+      "ratePct": 9.60000038146973,
+      "year": 2021
+    },
+    "FR": {
+      "ratePct": 9.60000038146973,
+      "year": 2021
+    },
+    "IT": {
+      "ratePct": 9.60000038146973,
+      "year": 2021
+    },
+    "ES": {
+      "ratePct": 9.60000038146973,
+      "year": 2021
+    },
+    "NL": {
+      "ratePct": 9.60000038146973,
+      "year": 2021
+    },
+    "AU": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "NZ": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "AE": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "BR": {
+      "ratePct": 20,
+      "year": 2021
+    }
+  },
+  "fashion": {
+    "KR": {
+      "ratePct": 13,
+      "year": 2021
+    },
+    "US": {
+      "ratePct": 16.5,
+      "year": 2021
+    },
+    "JP": {
+      "ratePct": 9.14999961853027,
+      "year": 2021
+    },
+    "CN": {
+      "ratePct": 6,
+      "year": 2021
+    },
+    "HK": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "SG": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "TH": {
+      "ratePct": 30,
+      "year": 2021
+    },
+    "VN": {
+      "ratePct": 20,
+      "year": 2021
+    },
+    "ID": {
+      "ratePct": 25,
+      "year": 2021
+    },
+    "MY": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "PH": {
+      "ratePct": 15,
+      "year": 2021
+    },
+    "IN": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "CA": {
+      "ratePct": 18,
+      "year": 2021
+    },
+    "GB": {
+      "ratePct": 12,
+      "year": 2021
+    },
+    "DE": {
+      "ratePct": 12,
+      "year": 2021
+    },
+    "FR": {
+      "ratePct": 12,
+      "year": 2021
+    },
+    "IT": {
+      "ratePct": 12,
+      "year": 2021
+    },
+    "ES": {
+      "ratePct": 12,
+      "year": 2021
+    },
+    "NL": {
+      "ratePct": 12,
+      "year": 2021
+    },
+    "AU": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "NZ": {
+      "ratePct": 10,
+      "year": 2021
+    },
+    "AE": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "BR": {
+      "ratePct": 35,
+      "year": 2021
+    }
+  },
+  "electronics": {
+    "KR": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "US": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "JP": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "CN": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "HK": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "SG": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "TH": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "VN": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "ID": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "MY": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "PH": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "IN": {
+      "ratePct": 20,
+      "year": 2021
+    },
+    "CA": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "GB": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "DE": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "FR": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "IT": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "ES": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "NL": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "AU": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "NZ": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "AE": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "BR": {
+      "ratePct": 10.6666669845581,
+      "year": 2021
+    }
+  },
+  "home": {
+    "KR": {
+      "ratePct": 6.5,
+      "year": 2021
+    },
+    "US": {
+      "ratePct": 3.29999995231628,
+      "year": 2021
+    },
+    "JP": {
+      "ratePct": 3.90000009536743,
+      "year": 2021
+    },
+    "CN": {
+      "ratePct": 6.5,
+      "year": 2021
+    },
+    "HK": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "SG": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "TH": {
+      "ratePct": 30,
+      "year": 2021
+    },
+    "VN": {
+      "ratePct": 22,
+      "year": 2021
+    },
+    "ID": {
+      "ratePct": 20,
+      "year": 2021
+    },
+    "MY": {
+      "ratePct": 4,
+      "year": 2021
+    },
+    "PH": {
+      "ratePct": 15,
+      "year": 2021
+    },
+    "IN": {
+      "ratePct": 15,
+      "year": 2021
+    },
+    "CA": {
+      "ratePct": 6.5,
+      "year": 2021
+    },
+    "GB": {
+      "ratePct": 6.25,
+      "year": 2021
+    },
+    "DE": {
+      "ratePct": 6.5,
+      "year": 2021
+    },
+    "FR": {
+      "ratePct": 6.5,
+      "year": 2021
+    },
+    "IT": {
+      "ratePct": 6.5,
+      "year": 2021
+    },
+    "ES": {
+      "ratePct": 6.5,
+      "year": 2021
+    },
+    "NL": {
+      "ratePct": 6.5,
+      "year": 2021
+    },
+    "AU": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "NZ": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "AE": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "BR": {
+      "ratePct": 18,
+      "year": 2021
+    }
+  },
+  "ip": {
+    "KR": {
+      "ratePct": 3.33333325386047,
+      "year": 2021
+    },
+    "US": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "JP": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "CN": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "HK": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "SG": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "TH": {
+      "ratePct": 10,
+      "year": 2021
+    },
+    "VN": {
+      "ratePct": 15,
+      "year": 2021
+    },
+    "ID": {
+      "ratePct": 15,
+      "year": 2021
+    },
+    "MY": {
+      "ratePct": 0,
+      "year": 2021
+    },
+    "PH": {
+      "ratePct": 8.7142858505249,
+      "year": 2021
+    },
+    "IN": {
+      "ratePct": 60,
+      "year": 2021
+    },
+    "CA": {
+      "ratePct": 4,
+      "year": 2021
+    },
+    "GB": {
+      "ratePct": 1.57142853736877,
+      "year": 2021
+    },
+    "DE": {
+      "ratePct": 1.84642863273621,
+      "year": 2021
+    },
+    "FR": {
+      "ratePct": 1.84642863273621,
+      "year": 2021
+    },
+    "IT": {
+      "ratePct": 1.84642863273621,
+      "year": 2021
+    },
+    "ES": {
+      "ratePct": 1.84642863273621,
+      "year": 2021
+    },
+    "NL": {
+      "ratePct": 1.84642863273621,
+      "year": 2021
+    },
+    "AU": {
+      "ratePct": 3.5,
+      "year": 2021
+    },
+    "NZ": {
+      "ratePct": 1.25,
+      "year": 2021
+    },
+    "AE": {
+      "ratePct": 5,
+      "year": 2021
+    },
+    "BR": {
+      "ratePct": 32.7999992370605,
+      "year": 2021
+    }
+  }
+}
