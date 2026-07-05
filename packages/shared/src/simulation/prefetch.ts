@@ -179,104 +179,105 @@ export async function prefetchSimulationContext(
   }
 
   // World Bank — Phase F.0-2 (2026-05-17)
+  // World Bank macro + WGI governance + diaspora + GTM discovery all feed the
+  // worldBankBlock and are mutually independent — compute the four in parallel
+  // (was ~14s sequential) and assemble in the original fixed order. Each lane
+  // is self-contained best-effort (returns "" on gate-off / miss / failure);
+  // filter+join reproduces the previous `? a\n\nb : b` append semantics.
   let worldBankBlock = "";
-  try {
-    const { buildWorldBankAnchor } = await import(
-      "@/lib/market-research/world-bank"
-    );
-    const { block, rows } = await buildWorldBankAnchor(
-      projectInput.candidateCountries,
-      locale,
-      asOfYear,
-    );
-    worldBankBlock = block;
-    if (block) {
-      console.log(`${log}World Bank anchor: ${rows.length} countries`);
-    } else {
-      console.log(`${log}World Bank anchor: empty`);
-    }
-  } catch (err) {
-    console.warn(
-      `${log}World Bank anchor failed: ${(err as Error).message}`,
-    );
-  }
-
-  // Governance (World Bank WGI) — regulatory / operational-risk grounding.
-  // Appended to the World Bank block (both are WB macro anchors). Universal,
-  // outcome-independent → not gated on asOf.
-  try {
-    const { buildGovernanceAnchor } = await import(
-      "@/lib/market-research/governance"
-    );
-    const { block, rows } = await buildGovernanceAnchor(
-      projectInput.candidateCountries,
-      locale,
-    );
-    if (block) {
-      worldBankBlock = worldBankBlock ? `${worldBankBlock}\n\n${block}` : block;
-      console.log(`${log}Governance (WGI) anchor: ${rows.length} countries`);
-    } else {
-      console.log(`${log}Governance (WGI) anchor: empty`);
-    }
-  } catch (err) {
-    console.warn(`${log}Governance anchor failed: ${(err as Error).message}`);
-  }
-
-  // Diaspora affinity — the origin's overseas communities predict early demand
-  // for origin-brand products (K-diaspora → K-beauty). No clean bilateral-
-  // migration API exists, so this is a Tavily-grounded ESTIMATE (1 call per
-  // origin), appended to the WB block. Best-effort; gated on TAVILY_API_KEY.
-  if (process.env.TAVILY_API_KEY) {
-    try {
-      const diasporaResult = await tavilySearch({
-        query: buildDiasporaQuery({ originCountry: origin }),
-        searchDepth: "advanced",
-        maxResults: 5,
-        includeAnswer: false,
-      });
-      const block = formatDiasporaBlock(
-        diasporaResult?.results ?? [],
-        origin,
-        locale === "ko",
-      );
-      if (block) {
-        worldBankBlock = worldBankBlock
-          ? `${worldBankBlock}\n\n${block}`
-          : block;
-        console.log(
-          `${log}Diaspora anchor: ${(diasporaResult?.results ?? []).length} snippets`,
+  {
+    const wbLane = (async (): Promise<string> => {
+      try {
+        const { buildWorldBankAnchor } = await import(
+          "@/lib/market-research/world-bank"
         );
+        const { block, rows } = await buildWorldBankAnchor(
+          projectInput.candidateCountries,
+          locale,
+          asOfYear,
+        );
+        console.log(
+          `${log}World Bank anchor: ${block ? `${rows.length} countries` : "empty"}`,
+        );
+        return block;
+      } catch (err) {
+        console.warn(`${log}World Bank anchor failed: ${(err as Error).message}`);
+        return "";
       }
-    } catch (err) {
-      console.warn(`${log}Diaspora anchor failed: ${(err as Error).message}`);
-    }
-  }
-
-  // Brand-specific GTM discovery — existing footprint + per-market entry-
-  // partner ecosystem (the accuracy lever the macro anchors miss: e.g. an
-  // existing UAE distributor or a Gulf licensing group). LIVE-only (present
-  // footprint reflects the present) → skipped for historical back-tests.
-  // Tavily-grounded estimate. Appended to the WB block; best-effort.
-  if (!projectInput.asOfDate && process.env.TAVILY_API_KEY) {
-    try {
-      const { buildGtmDiscoveryBlock } = await import(
-        "@/lib/market-research/gtm-discovery"
-      );
-      const { block } = await buildGtmDiscoveryBlock({
-        brand: projectInput.productName,
-        category: projectInput.category,
-        candidateCountries: projectInput.candidateCountries,
-        locale,
-      });
-      if (block) {
-        worldBankBlock = worldBankBlock
-          ? `${worldBankBlock}\n\n${block}`
-          : block;
-        console.log(`${log}GTM discovery anchor: attached`);
+    })();
+    const govLane = (async (): Promise<string> => {
+      try {
+        const { buildGovernanceAnchor } = await import(
+          "@/lib/market-research/governance"
+        );
+        const { block, rows } = await buildGovernanceAnchor(
+          projectInput.candidateCountries,
+          locale,
+        );
+        console.log(
+          `${log}Governance (WGI) anchor: ${block ? `${rows.length} countries` : "empty"}`,
+        );
+        return block;
+      } catch (err) {
+        console.warn(`${log}Governance anchor failed: ${(err as Error).message}`);
+        return "";
       }
-    } catch (err) {
-      console.warn(`${log}GTM discovery failed: ${(err as Error).message}`);
-    }
+    })();
+    // Diaspora — origin's overseas communities predict origin-brand early
+    // demand. Tavily-grounded estimate, 1 call per origin. Gated on TAVILY.
+    const diasporaLane = (async (): Promise<string> => {
+      if (!process.env.TAVILY_API_KEY) return "";
+      try {
+        const diasporaResult = await tavilySearch({
+          query: buildDiasporaQuery({ originCountry: origin }),
+          searchDepth: "advanced",
+          maxResults: 5,
+          includeAnswer: false,
+        });
+        const block = formatDiasporaBlock(
+          diasporaResult?.results ?? [],
+          origin,
+          locale === "ko",
+        );
+        if (block)
+          console.log(
+            `${log}Diaspora anchor: ${(diasporaResult?.results ?? []).length} snippets`,
+          );
+        return block;
+      } catch (err) {
+        console.warn(`${log}Diaspora anchor failed: ${(err as Error).message}`);
+        return "";
+      }
+    })();
+    // Brand-specific GTM discovery — existing footprint + per-market entry-
+    // partner ecosystem (the lever macro anchors miss). LIVE-only → skipped
+    // for historical back-tests. Tavily-grounded estimate.
+    const gtmLane = (async (): Promise<string> => {
+      if (projectInput.asOfDate || !process.env.TAVILY_API_KEY) return "";
+      try {
+        const { buildGtmDiscoveryBlock } = await import(
+          "@/lib/market-research/gtm-discovery"
+        );
+        const { block } = await buildGtmDiscoveryBlock({
+          brand: projectInput.productName,
+          category: projectInput.category,
+          candidateCountries: projectInput.candidateCountries,
+          locale,
+        });
+        if (block) console.log(`${log}GTM discovery anchor: attached`);
+        return block;
+      } catch (err) {
+        console.warn(`${log}GTM discovery failed: ${(err as Error).message}`);
+        return "";
+      }
+    })();
+    const [wb, gov, dia, gtm] = await Promise.all([
+      wbLane,
+      govLane,
+      diasporaLane,
+      gtmLane,
+    ]);
+    worldBankBlock = [wb, gov, dia, gtm].filter(Boolean).join("\n\n");
   }
 
   // Korea Customs — Phase F.1-1 (appended to tradeAnchorBlock). KR-origin only.
