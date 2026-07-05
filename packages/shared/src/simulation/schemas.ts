@@ -83,6 +83,18 @@ export const ProjectInputSchema = z.object({
         ])
         .optional(),
       kolRelationships: z.string().max(500).optional(),
+      /**
+       * Structured per-country GTM signals (ISO-2 codes) — the accuracy lever
+       * the macro anchors can't see (an existing footprint, a distribution
+       * deal). Each names markets where THIS brand has a concrete advantage;
+       * the country ranker boosts them explicitly. Bounded to the 24 markets.
+       */
+      /** Markets where the brand already sells / has traction / inbound orders. */
+      existingMarkets: z.array(z.string().length(2)).max(24).optional(),
+      /** Markets where the brand has a distributor / retail / licensing partner or LOI. */
+      partnerMarkets: z.array(z.string().length(2)).max(24).optional(),
+      /** Markets where the founder / team has a strong network or relationships. */
+      networkMarkets: z.array(z.string().length(2)).max(24).optional(),
     })
     .optional(),
 });

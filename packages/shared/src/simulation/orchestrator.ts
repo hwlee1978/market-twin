@@ -756,7 +756,8 @@ export async function loadOrchestrationContext(opts: {
       `id, workspace_id, product_name, category, description,
        base_price_cents, currency, objective, originating_country,
        candidate_countries, competitor_urls, asset_descriptions, asset_urls,
-       founder_background, channel_priority, kol_relationships`,
+       founder_background, channel_priority, kol_relationships,
+       existing_markets, partner_markets, network_markets`,
     )
     .eq("id", ensemble.project_id)
     .single();
@@ -764,18 +765,30 @@ export async function loadOrchestrationContext(opts: {
 
   // v0.2-A brand strategy hints — surface only when the user populated
   // at least one field in the wizard's collapsible section. Nullable
-  // columns (migration 0069), schema marks brandStrategy optional.
+  // columns (migration 0069 free-text + enum; 0079 per-country arrays),
+  // schema marks brandStrategy optional.
   const founderBg = (project as { founder_background?: string | null }).founder_background ?? null;
   const channelPriority = (project as { channel_priority?: string | null }).channel_priority ?? null;
   const kolRel = (project as { kol_relationships?: string | null }).kol_relationships ?? null;
+  const existingMarkets = (project as { existing_markets?: string[] | null }).existing_markets ?? null;
+  const partnerMarkets = (project as { partner_markets?: string[] | null }).partner_markets ?? null;
+  const networkMarkets = (project as { network_markets?: string[] | null }).network_markets ?? null;
   const brandStrategy =
-    founderBg || channelPriority || kolRel
+    founderBg ||
+    channelPriority ||
+    kolRel ||
+    existingMarkets?.length ||
+    partnerMarkets?.length ||
+    networkMarkets?.length
       ? {
           ...(founderBg ? { founderBackground: founderBg } : {}),
           ...(channelPriority
             ? { channelPriority: channelPriority as NonNullable<ProjectInput["brandStrategy"]>["channelPriority"] }
             : {}),
           ...(kolRel ? { kolRelationships: kolRel } : {}),
+          ...(existingMarkets?.length ? { existingMarkets } : {}),
+          ...(partnerMarkets?.length ? { partnerMarkets } : {}),
+          ...(networkMarkets?.length ? { networkMarkets } : {}),
         }
       : undefined;
 

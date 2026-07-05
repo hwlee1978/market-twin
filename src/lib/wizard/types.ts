@@ -68,4 +68,13 @@ export interface FormState {
     | "wholesale_first"
     | "omni";
   kolRelationships: string;
+  /**
+   * Structured per-country GTM signals (ISO-2 codes) — the accuracy lever the
+   * macro anchors miss. Each names markets where the brand has a concrete
+   * advantage; the country ranker boosts them explicitly. UI: multi-select of
+   * the candidate markets.
+   */
+  existingMarkets?: string[];
+  partnerMarkets?: string[];
+  networkMarkets?: string[];
 }

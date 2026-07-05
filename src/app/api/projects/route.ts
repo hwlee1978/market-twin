@@ -39,6 +39,10 @@ const CreateProjectSchema = z.object({
     ])
     .optional(),
   kolRelationships: z.string().max(500).optional(),
+  // Structured per-country GTM signals (ISO-2). Migration 0079 text[] columns.
+  existingMarkets: z.array(z.string().length(2)).max(24).optional(),
+  partnerMarkets: z.array(z.string().length(2)).max(24).optional(),
+  networkMarkets: z.array(z.string().length(2)).max(24).optional(),
 });
 
 export async function POST(req: Request) {
@@ -107,6 +111,9 @@ export async function POST(req: Request) {
       founder_background: input.founderBackground ?? null,
       channel_priority: input.channelPriority ?? null,
       kol_relationships: input.kolRelationships ?? null,
+      existing_markets: input.existingMarkets ?? null,
+      partner_markets: input.partnerMarkets ?? null,
+      network_markets: input.networkMarkets ?? null,
       status: "ready",
     })
     .select("id")

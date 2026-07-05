@@ -82,14 +82,21 @@ const CHANNEL_PRIORITY_LABEL: Record<string, { ko: string; en: string }> = {
   },
 };
 
-function brandStrategyBlock(
+export function brandStrategyBlock(
   input: ProjectInput,
   locale: PromptLocale,
 ): string {
   const bs = input.brandStrategy;
+  const hasMarkets =
+    (bs?.existingMarkets?.length ?? 0) > 0 ||
+    (bs?.partnerMarkets?.length ?? 0) > 0 ||
+    (bs?.networkMarkets?.length ?? 0) > 0;
   if (
     !bs ||
-    (!bs.founderBackground && !bs.channelPriority && !bs.kolRelationships)
+    (!bs.founderBackground &&
+      !bs.channelPriority &&
+      !bs.kolRelationships &&
+      !hasMarkets)
   ) {
     return "";
   }
@@ -121,10 +128,36 @@ function brandStrategyBlock(
         : `· KOL / influencer relationships: ${bs.kolRelationships}`,
     );
   }
+  // Structured per-country GTM advantages — the crisp, directly-weightable
+  // signal. These name exact markets where the brand has validated demand or a
+  // concrete entry path the macro anchors can't see.
+  const iso = (arr?: string[]) =>
+    (arr ?? []).map((c) => c.toUpperCase()).join(", ");
+  if (bs.existingMarkets?.length) {
+    lines.push(
+      locale === "ko"
+        ? `· 이미 판매 중 / 트랙션 (검증된 수요): ${iso(bs.existingMarkets)}`
+        : `· Already selling / traction (validated demand): ${iso(bs.existingMarkets)}`,
+    );
+  }
+  if (bs.partnerMarkets?.length) {
+    lines.push(
+      locale === "ko"
+        ? `· 유통·리테일·라이선싱 파트너 또는 LOI 보유: ${iso(bs.partnerMarkets)}`
+        : `· Distribution / retail / licensing partner or LOI in: ${iso(bs.partnerMarkets)}`,
+    );
+  }
+  if (bs.networkMarkets?.length) {
+    lines.push(
+      locale === "ko"
+        ? `· 창업자·팀 네트워크·관계: ${iso(bs.networkMarkets)}`
+        : `· Founder / team network / relationships in: ${iso(bs.networkMarkets)}`,
+    );
+  }
   lines.push(
     locale === "ko"
-      ? "사용 지침: 위 힌트는 사용자가 직접 제공한 brand-level 의도/자산입니다. 거시 anchor 데이터 (Comtrade 무역 흐름 · World Bank 거시 지표 등) 와 충돌하면 안 됩니다 — 거시 anchor는 산업 패턴, 위 힌트는 본 brand의 차별화된 전략. 충돌 시 brand-strategy 힌트를 더 중요한 신호로 가중하세요 (e.g. Tirtir-class case: 일본 면세점 활용 founder network → 한국→CN cushion trade flow 1위라도 일본 시장 우위 가능). countryScore에 반영하되 rationale에 출처 명시."
-      : "Usage: the above are user-provided brand-level intent / assets, NOT anchor-derived inference. When they conflict with macro anchors (Comtrade trade flow, World Bank macro indicators), macro anchors describe industry-wide patterns while these hints describe THIS brand's differentiated strategy. Weight brand-strategy hints higher in such conflicts (e.g. Tirtir-class case: duty-free founder network can override the macro 'Korea→CN cushion is #1' signal). Reflect in countryScore and cite the source in rationale.",
+      ? "사용 지침: 위 힌트는 사용자가 직접 제공한 brand-level 의도/자산입니다. 거시 anchor 데이터 (Comtrade 무역 흐름 · World Bank 거시 지표 등) 와 충돌하면 안 됩니다 — 거시 anchor는 산업 패턴, 위 힌트는 본 brand의 차별화된 전략. 충돌 시 brand-strategy 힌트를 더 중요한 신호로 가중하세요 (e.g. Tirtir-class case: 일본 면세점 활용 founder network → 한국→CN cushion trade flow 1위라도 일본 시장 우위 가능). **특히 위에 국가로 명시된 시장(이미 판매 중 · 파트너/LOI 보유 · 팀 네트워크)은 거시 데이터가 못 보는 검증된 수요·진입 실행가능성을 뜻하므로 해당 countryScore를 실질적으로 상향하세요 — 파트너/LOI가 있는 시장은 진입 경로가 입증된 것.** countryScore에 반영하되 rationale에 출처 명시."
+      : "Usage: the above are user-provided brand-level intent / assets, NOT anchor-derived inference. When they conflict with macro anchors (Comtrade trade flow, World Bank macro indicators), macro anchors describe industry-wide patterns while these hints describe THIS brand's differentiated strategy. Weight brand-strategy hints higher in such conflicts (e.g. Tirtir-class case: duty-free founder network can override the macro 'Korea→CN cushion is #1' signal). **In particular, any market named above (already-selling · partner/LOI · team network) reflects validated demand or a proven entry path the macro data can't see — materially raise its countryScore; a partner/LOI market has a demonstrated route to market.** Reflect in countryScore and cite the source in rationale.",
   );
   return lines.join("\n");
 }
