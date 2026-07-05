@@ -252,6 +252,33 @@ export async function prefetchSimulationContext(
     }
   }
 
+  // Brand-specific GTM discovery — existing footprint + per-market entry-
+  // partner ecosystem (the accuracy lever the macro anchors miss: e.g. an
+  // existing UAE distributor or a Gulf licensing group). LIVE-only (present
+  // footprint reflects the present) → skipped for historical back-tests.
+  // Tavily-grounded estimate. Appended to the WB block; best-effort.
+  if (!projectInput.asOfDate && process.env.TAVILY_API_KEY) {
+    try {
+      const { buildGtmDiscoveryBlock } = await import(
+        "@/lib/market-research/gtm-discovery"
+      );
+      const { block } = await buildGtmDiscoveryBlock({
+        brand: projectInput.productName,
+        category: projectInput.category,
+        candidateCountries: projectInput.candidateCountries,
+        locale,
+      });
+      if (block) {
+        worldBankBlock = worldBankBlock
+          ? `${worldBankBlock}\n\n${block}`
+          : block;
+        console.log(`${log}GTM discovery anchor: attached`);
+      }
+    } catch (err) {
+      console.warn(`${log}GTM discovery failed: ${(err as Error).message}`);
+    }
+  }
+
   // Korea Customs — Phase F.1-1 (appended to tradeAnchorBlock). KR-origin only.
   if (origin === "KR") try {
     const { buildKoreaCustomsAnchor } = await import(
