@@ -74,7 +74,7 @@ export interface FormState {
    * advantage; the country ranker boosts them explicitly. UI: multi-select of
    * the candidate markets.
    */
-  existingMarkets?: string[];
-  partnerMarkets?: string[];
-  networkMarkets?: string[];
+  existingMarkets: string[];
+  partnerMarkets: string[];
+  networkMarkets: string[];
 }

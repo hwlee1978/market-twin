@@ -108,10 +108,28 @@ export function ProjectWizard({
     founderBackground: "",
     channelPriority: "",
     kolRelationships: "",
+    existingMarkets: [],
+    partnerMarkets: [],
+    networkMarkets: [],
   });
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
+
+  // Toggle a candidate market in one of the structured GTM lists.
+  const toggleMarket = (
+    key: "existingMarkets" | "partnerMarkets" | "networkMarkets",
+    code: string,
+  ) =>
+    setForm((f) => {
+      const arr = f[key];
+      return {
+        ...f,
+        [key]: arr.includes(code)
+          ? arr.filter((c) => c !== code)
+          : [...arr, code],
+      };
+    });
 
   // Uploaded creative-asset images. Each item is the result of a POST
   // to /api/upload/creative-asset (or an in-flight upload). At submit
@@ -407,6 +425,15 @@ export function ProjectWizard({
           founderBackground: form.founderBackground.trim() || undefined,
           channelPriority: form.channelPriority || undefined,
           kolRelationships: form.kolRelationships.trim() || undefined,
+          existingMarkets: form.existingMarkets.length
+            ? form.existingMarkets
+            : undefined,
+          partnerMarkets: form.partnerMarkets.length
+            ? form.partnerMarkets
+            : undefined,
+          networkMarkets: form.networkMarkets.length
+            ? form.networkMarkets
+            : undefined,
         }),
       });
       if (!res.ok) throw new Error(await parseApiError(res));
@@ -596,6 +623,66 @@ export function ProjectWizard({
                   />
                   <CharCounter value={form.kolRelationships} min={0} />
                 </Field>
+                {(
+                  [
+                    {
+                      key: "existingMarkets",
+                      labelKo: "이미 판매 중인 시장",
+                      labelEn: "Markets you already sell in",
+                      hintKo: "검증된 수요·유통 인프라가 이미 있는 시장 (해당 시장 점수 상향)",
+                      hintEn: "Markets with validated demand / infrastructure already (boosts their score)",
+                    },
+                    {
+                      key: "partnerMarkets",
+                      labelKo: "유통·라이선싱 파트너 / LOI 보유 시장",
+                      labelEn: "Markets with a distribution / licensing partner or LOI",
+                      hintKo: "진입 경로가 입증된 시장 — 가장 강한 GTM 신호",
+                      hintEn: "Markets with a proven route to market — the strongest GTM signal",
+                    },
+                    {
+                      key: "networkMarkets",
+                      labelKo: "창업자·팀 네트워크 보유 시장",
+                      labelEn: "Markets where the founder / team has a network",
+                      hintKo: "관계·연줄이 있는 시장",
+                      hintEn: "Markets where you have relationships / connections",
+                    },
+                  ] as const
+                ).map((cfg) => (
+                  <Field
+                    key={cfg.key}
+                    label={locale === "ko" ? cfg.labelKo : cfg.labelEn}
+                    hint={locale === "ko" ? cfg.hintKo : cfg.hintEn}
+                  >
+                    <div className="flex flex-wrap gap-1.5">
+                      {form.countries.length === 0 ? (
+                        <span className="text-[11px] text-slate-400">
+                          {locale === "ko"
+                            ? "먼저 대상 국가를 선택하세요"
+                            : "Select your target countries first"}
+                        </span>
+                      ) : (
+                        form.countries.map((code) => {
+                          const on = form[cfg.key].includes(code);
+                          const c = COUNTRIES.find((x) => x.code === code);
+                          return (
+                            <button
+                              key={code}
+                              type="button"
+                              onClick={() => toggleMarket(cfg.key, code)}
+                              className={`px-2 py-0.5 rounded text-[11px] border transition-colors ${
+                                on
+                                  ? "bg-blue-600 text-white border-blue-600"
+                                  : "bg-white text-slate-600 border-slate-300 hover:border-slate-400"
+                              }`}
+                            >
+                              {(locale === "ko" ? c?.labelKo : c?.labelEn) ?? code}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </Field>
+                ))}
                 <details className="mt-1 border border-dashed border-slate-300 rounded-md bg-white open:bg-slate-50/40">
                   <summary className="cursor-pointer select-none px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:text-slate-900 flex items-center justify-between">
                     <span>{tw("brandStrategy.examples.title")}</span>
