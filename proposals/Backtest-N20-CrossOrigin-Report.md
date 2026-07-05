@@ -76,8 +76,17 @@ the two systematic weaknesses below rather than curating a favorable subset.
 ## 3. Honest findings (two systematic weaknesses)
 
 **(a) Overconfidence.** STRONG-labeled recommendations were right only
-**6/11 (55%)**. Confidence is not yet well-calibrated to accuracy — the system
-is confident on the "obvious" pick even when the real answer is non-obvious.
+**6/11 (55%)**, and the labels were barely monotonic with accuracy (MODERATE
+25%, WEAK 40%). Confidence keyed off the winner's absolute vote share alone.
+
+*Fix shipped (2026-07):* a STRONG label now additionally requires the winner
+to **dominate** — cross-provider agreement AND a ≥25pp vote-share margin over
+#2 — not just clear an absolute threshold (ensemble.ts). This ties confidence
+to the same dominance signals already trusted for the single-vs-top2 display,
+and directly removes the single-provider / thin-margin plurality cases that
+drove the 55%. By construction it makes STRONG more selective (higher
+precision); a full accuracy re-measure is pending the live outcome corpus, as
+the historical ensembles are not all retained for a clean re-score.
 
 **(b) Proximate-market bias.** Misses systematically pick a **geographically
 / culturally proximate or larger** market: Medicube→TW (not US), Meet
