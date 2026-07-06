@@ -30,6 +30,39 @@ const COUNTRY_LOOKUP: Record<string, { labelKo: string; labelEn: string }> = Obj
 );
 
 /**
+ * The set of markets we actually support — i.e. the ones we can ground in
+ * official statistics and therefore legitimately score. Countries outside this
+ * set (e.g. HK, RU, MM) must never enter candidate lists or results: we have no
+ * grounding for them, so ranking them would be an ungrounded guess.
+ */
+export const SUPPORTED_MARKET_CODES: ReadonlySet<string> = new Set(COUNTRIES.map((c) => c.code));
+
+/** True when `code` is one of our supported (groundable) markets. */
+export function isSupportedMarket(code: string | null | undefined): boolean {
+  return !!code && SUPPORTED_MARKET_CODES.has(code.toUpperCase());
+}
+
+/**
+ * Keep only supported markets from a candidate list, upper-casing and
+ * de-duplicating. Use this at every boundary where candidate countries enter
+ * the system (project creation) and again defensively before scoring, so an
+ * out-of-scope code can never be ranked or recommended.
+ */
+export function filterSupportedMarkets(codes: readonly string[] | null | undefined): string[] {
+  if (!codes) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const c of codes) {
+    const up = (c ?? "").toUpperCase();
+    if (SUPPORTED_MARKET_CODES.has(up) && !seen.has(up)) {
+      seen.add(up);
+      out.push(up);
+    }
+  }
+  return out;
+}
+
+/**
  * Display a country code as a localized human label (e.g. "KR" → "대한민국" / "South Korea").
  * Falls back to the raw code when the country isn't in our list (defensive — the LLM
  * occasionally returns codes outside the candidate list).

@@ -24,6 +24,7 @@ import {
   type EnsembleSimSnapshot,
 } from "@/lib/simulation/ensemble";
 import { mergeNarrative } from "@/lib/simulation/ensemble-narrative";
+import { filterSupportedMarkets } from "@/lib/countries";
 import { buildMarketProfile } from "@/lib/simulation/market-profile";
 import { notifyEnsembleComplete } from "@/lib/email/notify";
 
@@ -800,7 +801,10 @@ export async function loadOrchestrationContext(opts: {
     currency: project.currency ?? "USD",
     objective: project.objective as ProjectInput["objective"],
     originatingCountry: project.originating_country ?? "KR",
-    candidateCountries: project.candidate_countries ?? [],
+    // Defensive: only ever score markets we can ground. Legacy/API-seeded rows
+    // may contain out-of-scope codes (e.g. HK, RU, MM) that must never be ranked
+    // or recommended. Origin is filtered out separately downstream.
+    candidateCountries: filterSupportedMarkets(project.candidate_countries),
     competitorUrls: project.competitor_urls ?? [],
     assetDescriptions: project.asset_descriptions ?? [],
     assetUrls: project.asset_urls ?? [],

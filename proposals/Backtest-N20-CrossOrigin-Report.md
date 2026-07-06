@@ -21,6 +21,22 @@ out-of-scope and excluded).
 **Scope:** N=20 · **11 origin countries** · 5 categories (beauty / food /
 beverage / wellness / electronics) · decision points 1968–2021.
 
+> **Correction (2026-07-07) — canonical numbers: top-1 47% (9/19) · top-3 74% (14/19), N=19.**
+> Two scoring defects were found and fixed. (1) **HK out-of-scope not applied:** IRVINS'
+> actual market is Hong Kong, which is *not* one of the 24 supported markets — so by this
+> report's own scope rule (§ above; Sweden/Nigeria already excluded) it must be excluded
+> too. That drops N 20→19 and lifts top-3 to 14/19 = **74%** (IRVINS was a top-3 miss).
+> (2) **origin-inclusion in ranking:** an earlier re-score counted the origin country in a
+> few top-3 lists (e.g. Kopiko's ID), understating top-3; scoring with the origin correctly
+> removed gives top-1 **47%**, top-3 **74%** on the current gated engine. The headline table
+> below shows the original figures (45%/75%) for provenance; **47%/74% is canonical.**
+>
+> **Root-cause + guard.** `candidate_countries` was not constrained to the 24 supported
+> markets, so API/script callers could inject ungroundable codes (HK, RU, MM…) that the
+> engine would then score and could recommend. Fixed by `filterSupportedMarkets()` applied at
+> **project creation** (API zod) and defensively **before scoring** (orchestrator) — out-of-scope
+> markets can no longer enter candidate lists or results. See `packages/shared/src/countries.ts`.
+
 The honest read: Market Twin compresses 24 candidate markets to a **top-3
 that contains the eventual winner 75% of the time**, and its single headline
 pick is right **45%** (4.5× better than chance). We disclose the misses and

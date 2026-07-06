@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { resolveCompetitors } from "@/lib/simulation/competitor-resolver";
+import { filterSupportedMarkets } from "@/lib/countries";
 
 const CreateProjectSchema = z.object({
   name: z.string().min(1),
@@ -14,7 +15,16 @@ const CreateProjectSchema = z.object({
   objective: z.enum(["awareness", "conversion", "retention", "expansion"]),
   // Defaults to KR — covers older clients that don't send the field yet.
   originatingCountry: z.string().default("KR"),
-  candidateCountries: z.array(z.string()).min(1),
+  // Drop any code outside our 24 supported (groundable) markets — the wizard
+  // only offers those, but API/script callers could inject out-of-scope codes
+  // (e.g. HK, RU, MM) that we have no data to score. Must retain ≥1 after filtering.
+  candidateCountries: z
+    .array(z.string())
+    .min(1)
+    .transform((arr) => filterSupportedMarkets(arr))
+    .refine((arr) => arr.length > 0, {
+      message: "candidateCountries must include at least one supported market",
+    }),
   /** Free-text competitor names typed by the user (one per textarea
    *  line). The server runs an LLM resolution pass to find URLs and
    *  add 2-3 more competitors before storing. */
