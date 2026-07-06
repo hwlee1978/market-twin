@@ -155,11 +155,11 @@ export async function prefetchSimulationContext(
   }
 
   // Import tariffs — WITS / UNCTAD-TRAINS MFN applied rates (2026-07).
-  // Appended to the trade anchor block (both are trade/customs signals) so it
-  // reaches the country-ranking prompt without a new param. NOT gated on
-  // asOfDate: tariffs are stable and outcome-independent, so historical use is
-  // sound grounding, not a hindsight leak.
-  try {
+  // LIVE-ONLY (gated on !asOfDate): the snapshot carries CURRENT rates, and in
+  // historical back-tests it biased picks toward zero-tariff free ports (HK)
+  // that weren't the actual answer — a present-data anachronism. It grounds
+  // live launch decisions, not the hindsight back-test.
+  if (!projectInput.asOfDate) try {
     const { buildTariffAnchor } = await import("@/lib/market-research/tariffs");
     const { block, rows } = await buildTariffAnchor(
       projectInput.candidateCountries,
@@ -206,6 +206,9 @@ export async function prefetchSimulationContext(
       }
     })();
     const govLane = (async (): Promise<string> => {
+      // LIVE-ONLY: WGI scores are current-year; in back-tests they biased picks
+      // toward high-governance hubs (SG/HK) rather than the actual answer.
+      if (projectInput.asOfDate) return "";
       try {
         const { buildGovernanceAnchor } = await import(
           "@/lib/market-research/governance"
@@ -224,9 +227,12 @@ export async function prefetchSimulationContext(
       }
     })();
     // Diaspora — origin's overseas communities predict origin-brand early
-    // demand. Tavily-grounded estimate, 1 call per origin. Gated on TAVILY.
+    // demand. Tavily-grounded estimate reflecting the PRESENT, so it is
+    // LIVE-ONLY (gated on !asOfDate like social-buzz / GTM): in historical
+    // back-tests it injected present-day diaspora data that systematically
+    // biased picks toward large-diaspora markets (US), regressing accuracy.
     const diasporaLane = (async (): Promise<string> => {
-      if (!process.env.TAVILY_API_KEY) return "";
+      if (projectInput.asOfDate || !process.env.TAVILY_API_KEY) return "";
       try {
         const diasporaResult = await tavilySearch({
           query: buildDiasporaQuery({ originCountry: origin }),
