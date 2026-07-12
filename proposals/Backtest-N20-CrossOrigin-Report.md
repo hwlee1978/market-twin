@@ -21,7 +21,10 @@ out-of-scope and excluded).
 **Scope:** N=20 · **11 origin countries** · 5 categories (beauty / food /
 beverage / wellness / electronics) · decision points 1968–2021.
 
-> **Correction (2026-07-07) — canonical numbers: top-1 47% (9/19) · top-3 74% (14/19), N=19.**
+> **Correction (2026-07-07) — canonical numbers: top-2 68% (13/19) · top-3 74% (14/19), N=19 (single-pick top-1: 47%).**
+> Product-aligned headline is **top-2**: Market Twin does not commit to one market when top-1
+> is not dominant (STRONG) — it returns a 2-market recommendation shortlist, so the metric that
+> matches what users actually receive is top-2 (13/19 = 68%; ≈3.4× the 2-in-10 chance baseline).
 > Two scoring defects were found and fixed. (1) **HK out-of-scope not applied:** IRVINS'
 > actual market is Hong Kong, which is *not* one of the 24 supported markets — so by this
 > report's own scope rule (§ above; Sweden/Nigeria already excluded) it must be excluded
