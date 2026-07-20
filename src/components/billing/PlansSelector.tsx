@@ -6,8 +6,10 @@ import { Check, X, ArrowRight } from "lucide-react";
 import { clsx } from "clsx";
 import {
   ALL_PLANS,
+  SINGLE_PURCHASE_PACKS,
   formatPlanPrice,
   type PlanDefinition,
+  type SinglePurchasePack,
 } from "@/lib/billing/plans";
 import { BillingComplianceNotice } from "./BillingComplianceNotice";
 
@@ -63,6 +65,9 @@ export function PlansSelector({
           ? "* 베타 무료 체험은 7일 또는 초기검증 2회 (먼저 도래한 시점) 후 자동 종료. 신용카드 등록 불필요."
           : "* The beta free trial ends after 7 days or 2 sims, whichever comes first. No credit card required."}
       </div>
+
+      <SinglePurchaseSection currency={currency} isKo={isKo} />
+
       <BillingComplianceNotice locale={isKo ? "ko" : "en"} />
     </div>
   );
@@ -97,6 +102,94 @@ function CurrencyToggle({
       >
         KRW
       </button>
+    </div>
+  );
+}
+
+/**
+ * Pay-per-simulation "1회권" packs, shown below the monthly tier grid.
+ * During beta these are inquiry-only: the CTA opens a 사전 문의 mailto
+ * rather than live checkout (see plans.ts SINGLE_PURCHASE_PACKS). Shares
+ * the currency toggle with the plan grid above.
+ */
+function SinglePurchaseSection({
+  currency,
+  isKo,
+}: {
+  currency: Currency;
+  isKo: boolean;
+}) {
+  return (
+    <div className="mt-14 sm:mt-16">
+      <div className="text-center mb-6">
+        <div className="text-xs uppercase tracking-[0.15em] text-brand font-semibold mb-2">
+          {isKo ? "단건 이용권" : "Single-run packs"}
+        </div>
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2 break-keep">
+          {isKo ? "구독 없이 1회권으로" : "Pay per simulation, no subscription"}
+        </h2>
+        <p className="text-sm text-slate-600 leading-relaxed max-w-2xl mx-auto break-keep">
+          {isKo
+            ? "월 구독이 부담이라면 필요한 시뮬만 1건씩 결제하세요. 티어별 1회 실행 기준입니다."
+            : "Not ready for a monthly plan? Buy a single simulation at the tier you need."}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {SINGLE_PURCHASE_PACKS.map((pack) => (
+          <PackCard key={pack.slug} pack={pack} currency={currency} isKo={isKo} />
+        ))}
+      </div>
+
+      <p className="mt-4 text-xs text-slate-500 text-center break-keep">
+        {isKo
+          ? "* 베타 기간에는 단건 이용권을 사전 문의로만 제공합니다. 정식 오픈 시 즉시 결제로 전환됩니다."
+          : "* During beta, single-run packs are available by inquiry only. Instant checkout comes at launch."}
+      </p>
+    </div>
+  );
+}
+
+function PackCard({
+  pack,
+  currency,
+  isKo,
+}: {
+  pack: SinglePurchasePack;
+  currency: Currency;
+  isKo: boolean;
+}) {
+  const priceLabel = formatPlanPrice(pack.price[currency], currency);
+  const ctaHref = `mailto:contact@markettwin.ai?subject=${encodeURIComponent(
+    isKo ? `단건 이용권 문의 — ${pack.name.ko}` : `Single-run pack inquiry — ${pack.name.en}`,
+  )}`;
+
+  return (
+    <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4">
+      <h3 className="text-sm font-bold text-slate-900 mb-1 break-keep">
+        {pack.name[isKo ? "ko" : "en"]}
+      </h3>
+      <p className="text-[11px] text-slate-500 leading-relaxed min-h-[3em] break-keep mb-3">
+        {pack.tagline[isKo ? "ko" : "en"]}
+      </p>
+      <div className="mb-3">
+        <div className="flex items-baseline gap-1">
+          <span className="text-xl font-bold text-slate-900 tabular-nums">{priceLabel}</span>
+          <span className="text-[11px] text-slate-500">/{isKo ? "회" : "run"}</span>
+        </div>
+        {currency === "krw" && (
+          <div className="text-[10px] text-slate-400 mt-0.5">
+            {isKo ? "부가세 별도" : "Excl. VAT"}
+          </div>
+        )}
+      </div>
+      <a
+        href={ctaHref}
+        className="mt-auto w-full justify-center inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium border border-slate-300 text-slate-900 hover:border-slate-400 hover:bg-slate-50 transition-colors"
+      >
+        {isKo ? "사전 문의" : "Inquire"}
+        <ArrowRight size={13} />
+      </a>
     </div>
   );
 }

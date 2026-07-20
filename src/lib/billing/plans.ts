@@ -27,6 +27,14 @@ export type SubscriptionStatus =
   | "canceled"
   | "paused";
 
+/** Simulation depth tier — shared by canStartSim and single-purchase packs. */
+export type SimTier =
+  | "hypothesis"
+  | "decision"
+  | "decision_plus"
+  | "deep"
+  | "deep_pro";
+
 export interface PlanDefinition {
   slug: PlanSlug;
   /** Display name (locale-agnostic; fall back when i18n missing). */
@@ -279,6 +287,106 @@ export const SELF_SERVE_PLANS: PlanDefinition[] = ALL_PLANS.filter(
   (p) => p.selfServe,
 );
 
+/**
+ * Single-purchase packs — pay-per-simulation "1회권" for users who don't
+ * want a monthly subscription. One pack = one ensemble run at the given
+ * tier. Prices sit intentionally ABOVE the subscription per-sim rate so a
+ * heavy user is nudged to subscribe (e.g. decision 1회권 $99 vs Starter's
+ * $399/5 = $79.8/sim → +24%); hypothesis is a low-friction tripwire.
+ *
+ * Pricing (cost/run → 1회권, ~4× margin):
+ *   hypothesis     $3-5  → $49  / ₩69,000   (tripwire)
+ *   decision       $25   → $99  / ₩139,000
+ *   decision_plus  $45   → $199 / ₩279,000
+ *   deep           $60   → $249 / ₩349,000
+ *   deep_pro       $90   → $399 / ₩559,000
+ *
+ * BETA: inquiryOnly = true on every pack, so the UI routes the CTA to a
+ * 사전 문의(contact) mailto instead of live checkout. When beta ends, flip
+ * inquiryOnly to false and wire these to the NicePay 단건결제 path (which
+ * already exists at /api/billing/nice/checkout — currently plan-scoped;
+ * extend RequestSchema to accept a pack slug and grant a single sim
+ * entitlement rather than a monthly plan).
+ *
+ * Price convention matches PlanDefinition.priceMonthly: USD cents, KRW × 100.
+ */
+export interface SinglePurchasePack {
+  slug: string;
+  /** Which sim tier one purchase unlocks (a single ensemble run). */
+  tier: SimTier;
+  name: { ko: string; en: string };
+  tagline: { ko: string; en: string };
+  /** Listing order, ascending = cheaper/lower tier. */
+  order: number;
+  /** One-time price. cents in the indicated currency (KRW × 100). */
+  price: { usd: number; krw: number };
+  /** Beta: route CTA to 사전 문의 instead of self-serve checkout. */
+  inquiryOnly: boolean;
+}
+
+const SINGLE_PACK_HYPOTHESIS: SinglePurchasePack = {
+  slug: "pack_hypothesis",
+  tier: "hypothesis",
+  name: { ko: "초기검증 1회권", en: "Hypothesis single run" },
+  tagline: {
+    ko: "초기검증(Hypothesis) 시뮬 1회 — 빠른 방향 점검",
+    en: "One Hypothesis simulation — a fast directional check",
+  },
+  order: 1,
+  price: { usd: 4900, krw: 6900000 },
+  inquiryOnly: true,
+};
+
+const SINGLE_PACK_DECISION: SinglePurchasePack = {
+  slug: "pack_decision",
+  tier: "decision",
+  name: { ko: "검증분석 1회권", en: "Consensus single run" },
+  tagline: {
+    ko: "검증분석(Consensus) 시뮬 1회 — 멀티 LLM 합의",
+    en: "One Consensus simulation — multi-LLM consensus",
+  },
+  order: 2,
+  price: { usd: 9900, krw: 13900000 },
+  inquiryOnly: true,
+};
+
+const SINGLE_PACK_DECISION_PLUS: SinglePurchasePack = {
+  slug: "pack_decision_plus",
+  tier: "decision_plus",
+  name: { ko: "검증분석 Plus 1회권", en: "Consensus Plus single run" },
+  tagline: {
+    ko: "검증분석 Plus(Consensus Plus) 시뮬 1회 — 확장 표본",
+    en: "One Consensus Plus simulation — expanded sample",
+  },
+  order: 3,
+  price: { usd: 19900, krw: 27900000 },
+  inquiryOnly: true,
+};
+
+const SINGLE_PACK_DEEP: SinglePurchasePack = {
+  slug: "pack_deep",
+  tier: "deep",
+  name: { ko: "심층분석 1회권", en: "Triangulated single run" },
+  tagline: {
+    ko: "심층분석(Triangulated) 시뮬 1회 — 대규모 삼각검증",
+    en: "One Triangulated simulation — large-scale triangulation",
+  },
+  order: 4,
+  price: { usd: 24900, krw: 34900000 },
+  inquiryOnly: true,
+};
+
+// 심층분석 Pro(deep_pro)는 아직 미릴리즈 — 단건 이용권에서 제외.
+// 릴리즈 시 pack 정의를 추가하고 아래 배열에 넣으면 됨 (order: 5, $399 / ₩559,000).
+
+/** All single-purchase packs in ascending tier order. */
+export const SINGLE_PURCHASE_PACKS: SinglePurchasePack[] = [
+  SINGLE_PACK_HYPOTHESIS,
+  SINGLE_PACK_DECISION,
+  SINGLE_PACK_DECISION_PLUS,
+  SINGLE_PACK_DEEP,
+].sort((a, b) => a.order - b.order);
+
 export function getPlan(slug: string): PlanDefinition {
   if (slug in PLANS) return PLANS[slug as PlanSlug];
   // Unknown slug from a corrupted DB row — treat as free_trial so the
@@ -308,7 +416,7 @@ export function canStartSim(opts: {
   monthSimsUsed: number;
   monthDecisionPlusSimsUsed: number;
   monthDeepSimsUsed: number;
-  simTier: "hypothesis" | "decision" | "decision_plus" | "deep" | "deep_pro";
+  simTier: SimTier;
   /**
    * 단건결제(자동갱신 없음) 이용기간이 만료됐는지. trialActive처럼 시간 판정은
    * 호출부에서 계산해 넘긴다. true면 일일 만료 cron이 아직 강등하지 않았더라도
