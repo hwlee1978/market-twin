@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Market Twin — 베타테스트 결과 자료</title>
+<style>
+  :root{--navy:#0A1F4D;--blue:#2563EB;--blue2:#1D4ED8;--ink:#0f172a;--muted:#64748B;--line:#E6E9F0;--soft:#EEF3FF;--ok:#16A34A;--amber:#B45309;--bg:#f4f6fa;--red:#dc2626;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{background:var(--bg);}
+  body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif;color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .page{width:210mm;min-height:297mm;background:#fff;margin:10mm auto;padding:18mm 16mm;box-sizing:border-box;position:relative;box-shadow:0 2px 18px rgba(15,23,42,.10);}
+  .page .pnum{position:absolute;bottom:9mm;right:16mm;font-size:10.5px;color:#94a3b8;}
+  .page .brandfoot{position:absolute;bottom:9mm;left:16mm;font-size:10.5px;color:#94a3b8;}
+  @page{size:A4;margin:0;}
+  @media print{html,body{background:#fff;}.page{margin:0;box-shadow:none;page-break-after:always;}.page:last-child{page-break-after:auto;}}
+  h1{font-size:29px;line-height:1.16;letter-spacing:-.02em;color:var(--navy);font-weight:850;}
+  h2{font-size:20px;color:var(--navy);font-weight:820;margin-bottom:12px;padding-bottom:9px;border-bottom:2.5px solid var(--navy);}
+  h2 .en{font-size:13px;color:var(--muted);font-weight:700;}
+  h3{font-size:15px;color:var(--navy);font-weight:800;margin:14px 0 6px;}
+  h4{font-size:12.5px;color:var(--blue2);font-weight:800;margin:11px 0 3px;}
+  p{font-size:12px;color:#334155;margin:6px 0;}
+  ul{list-style:none;}li{font-size:11.7px;color:#334155;padding-left:15px;position:relative;margin:5px 0;line-height:1.45;}
+  li::before{content:"›";position:absolute;left:2px;color:var(--blue);font-weight:800;}
+  b,li b,p b{color:var(--navy);}
+  .sec-no{font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--blue);margin-bottom:4px;}
+  .lead{font-size:13.5px;color:#1e293b;line-height:1.55;}
+  .grid{display:grid;gap:10px;}.g2{grid-template-columns:1fr 1fr;}.g3{grid-template-columns:1fr 1fr 1fr;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
+  .card.accent{border-color:#c7d6ff;background:linear-gradient(180deg,#fff,#f7faff);}
+  .card.ev{border-color:#bbf7d0;background:#f6fef9;}
+  .card h4{margin-top:0;}.card p{font-size:11.3px;color:#475569;margin:3px 0;}
+  .num{font-size:22px;font-weight:850;color:var(--blue);letter-spacing:-.02em;line-height:1;}
+  .kicker{font-size:10.5px;color:var(--muted);margin-top:4px;}
+  table{width:100%;border-collapse:collapse;margin:9px 0;font-size:11px;}
+  th,td{border:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top;}
+  th{background:var(--navy);color:#fff;font-weight:700;font-size:10.7px;}
+  tr:nth-child(even) td{background:#f8fafc;}
+  td b{color:var(--navy);}
+  .r{text-align:right;}
+  .hl{color:var(--blue2);font-weight:800;}.ok{color:var(--ok);font-weight:800;}.bad{color:var(--red);font-weight:700;}.amb{color:var(--amber);font-weight:700;}
+  .callout{background:var(--soft);border:1px solid #c7d6ff;border-radius:10px;padding:12px 14px;margin:10px 0;}
+  .callout p{color:var(--navy);font-size:11.7px;margin:3px 0;}
+  .quote{border-left:4px solid var(--blue);background:#f7faff;padding:11px 15px;border-radius:0 9px 9px 0;font-size:12.5px;color:var(--navy);margin:10px 0;font-style:italic;}
+  .quote b{font-style:normal;}
+  .diff{background:#f6fef9;border:1px solid #bbf7d0;border-left:4px solid var(--ok);border-radius:0 9px 9px 0;padding:10px 13px;margin:9px 0;}
+  .diff .lab{font-size:10.5px;font-weight:800;color:#15803d;letter-spacing:.04em;text-transform:uppercase;}
+  .diff p{font-size:11.5px;color:#14532d;margin:3px 0;}
+  .badge{display:inline-block;font-size:11px;font-weight:800;padding:3px 12px;border-radius:999px;}
+  .b-mod{background:#dbeafe;color:#1d4ed8;}.b-weak{background:#fef3c7;color:#b45309;}.b-str{background:#dcfce7;color:#15803d;}
+  .small{font-size:10.3px;color:var(--muted);}
+  .cover{background:linear-gradient(150deg,#0A1F4D 0%,#15347a 55%,#1e3a8a 100%);color:#fff;display:flex;flex-direction:column;justify-content:space-between;}
+  .cover .eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#93c5fd;}
+  .cover h1{color:#fff;font-size:38px;line-height:1.12;margin:16px 0 12px;}
+  .cover .tag{font-size:16px;color:#c7d2fe;max-width:150mm;line-height:1.5;}
+  .cover .statrow{display:flex;gap:22px;margin:24px 0;}
+  .cover .statrow .n{font-size:22px;font-weight:850;color:#fff;}.cover .statrow .l{font-size:11px;color:#93c5fd;margin-top:2px;}
+  .cover .metabox{border-top:1px solid rgba(255,255,255,.2);padding-top:15px;font-size:12px;color:#c7d2fe;}.cover .metabox b{color:#fff;}
+  .rankbar{font-size:11px;}
+</style>
+</head>
+<body>
+
+<!-- P1 COVER -->
+<section class="page cover">
+  <div>
+    <div class="eyebrow">심사 보완자료 · 베타테스트 결과</div>
+    <h1>Market Twin<br>베타테스트 결과 자료</h1>
+    <p class="tag">실브랜드 <b style="color:#fff">르무통 · FRONT2LINE · Juicy Brix</b>의 실제 시뮬레이션 결과와 피드백. 각 사례가 Market Twin의 <b style="color:#fff">경쟁성·차별성</b>을 구체적으로 입증합니다.</p>
+    <div class="statrow">
+      <div><div class="n">3개 실브랜드</div><div class="l">패션(2)·소비재(1) 대표 베타</div></div>
+      <div><div class="n">공식데이터</div><div class="l">24개국 grounding 기반 결과</div></div>
+      <div><div class="n">신뢰도 공개</div><div class="l">MODERATE·WEAK까지 정직 표기</div></div>
+    </div>
+  </div>
+  <div class="metabox">
+    <p><b>주식회사 미스터에이아이 (Mr.AI Inc.)</b> · 대표이사 이현우</p>
+    <p>제품: markettwin.ai · 문의: chris@markettwin.ai · 2026</p>
+  </div>
+  <div class="pnum" style="color:#93c5fd;">01</div>
+</section>
+
+<!-- P2 개요 -->
+<section class="page">
+  <div class="sec-no">01 · 베타테스트 개요</div>
+  <h2>베타테스트 개요와 요약</h2>
+  <p class="lead">진출을 앞둔 실브랜드가 Market Twin으로 <b>"어느 시장·얼마·누구에게"</b>를 검증했습니다. 대표 3개 사례를 통해 제품의 실효성과 차별성을 입증합니다.</p>
+  <h3>3개 대표 베타 요약</h3>
+  <table>
+    <tr><th style="width:16%">브랜드</th><th>제품</th><th>후보 시장</th><th>추천(top-2)</th><th>신뢰도</th></tr>
+    <tr><td><b>르무통</b></td><td>메리노 울 스니커</td><td>JP·TW·DE·FR·US·SG</td><td><b>JP + TW</b></td><td><span class="badge b-mod">MODERATE</span></td></tr>
+    <tr><td><b>FRONT2LINE</b></td><td>어패럴</td><td>JP·TW·US·DE·FR·SG·TH</td><td><b>TW + SG</b></td><td><span class="badge b-weak">WEAK</span></td></tr>
+    <tr><td><b>Juicy Brix</b></td><td>Y2K 팟 시스템</td><td>동아시아·북미·유럽</td><td><b>FR + GB</b></td><td><span class="badge b-mod">MODERATE</span></td></tr>
+  </table>
+  <h3>각 사례가 입증하는 차별성 (한눈에)</h3>
+  <div class="grid g3">
+    <div class="card ev"><h4>르무통 → 검증·속도</h4><p>이미 진출한 일본을 데이터로 <b>재확인</b>하고 다음 시장(대만) 지목 → 의사결정 속도.</p></div>
+    <div class="card ev"><h4>FRONT2LINE → 정직성</h4><p>접전 시장에 <b>WEAK 경고</b> → 과신 방지·리스크 회피. 경쟁 도구엔 없는 안전장치.</p></div>
+    <div class="card ev"><h4>Juicy Brix → grounding</h4><p>직관(미국·동아시아)을 뒤집고 <b>공식데이터로 프랑스</b> 발견. ChatGPT식 답과 차별.</p></div>
+  </div>
+  <div class="callout"><p><b>경쟁성·차별성의 핵심.</b> 세 사례 모두 ① <b>24개국 공식데이터 grounding</b>(근거 있는 결과), ② <b>신뢰도 캘리브레이션</b>(MODERATE·WEAK 정직 표기), ③ <b>즉시 실행 가능한 의사결정 산출물</b>이라는, 유사 AI 서비스·전통 리서치·범용 LLM 어디에도 함께 없는 조합을 실증합니다. (상세 비교는 별첨 「기술 차별성·경쟁우위 입증자료」)</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">02</div>
+</section>
+
+<!-- P3 CASE 1 르무통 -->
+<section class="page">
+  <div class="sec-no">02 · 베타 사례 ① </div>
+  <h2>르무통 (Le Mouton) <span class="en">· 메리노 울 스니커 · 대한민국</span></h2>
+  <div class="grid g2">
+    <div class="card"><h4>시뮬레이션 입력</h4><p><b>제품:</b> 메리노 울 스니커 (지속가능 소재 D2C)</p><p><b>기준가:</b> 약 150 USD</p><p><b>후보 시장:</b> 일본·대만·독일·프랑스·미국·싱가포르</p></div>
+    <div class="card accent"><h4>결과 <span class="badge b-mod" style="float:right;">MODERATE</span></h4><p><b>추천(top-2):</b> 일본(JP) + 대만(TW)</p><p><b>top-3:</b> TW · SG · JP</p><p><b>제공자 간 합의:</b> 크로스모델 67% (2개 이상 AI 일치)</p></div>
+  </div>
+  <h3>국가별 적합도 점수</h3>
+  <table>
+    <tr><th>순위</th><th>시장</th><th class="r">점수</th><th>해석</th></tr>
+    <tr><td>1</td><td><b>대만 TW</b></td><td class="r hl">69.4</td><td>K-패션 친화·낮은 진입난이도</td></tr>
+    <tr><td>2</td><td><b>싱가포르 SG</b></td><td class="r">68.6</td><td>프리미엄 소비·영어권 허브</td></tr>
+    <tr><td>3</td><td><b>일본 JP</b></td><td class="r">68.4</td><td>대형 시장·품질 소비</td></tr>
+    <tr><td>4~</td><td>US 60.6 · FR 58.2 …</td><td class="r"></td><td>상대적 후순위</td></tr>
+  </table>
+  <p><b>인사이트:</b> 아시아 3개 시장이 <b>1점 이내 초접전</b>이라, 엔진은 단일 시장으로 단정하지 않고 <b>일본+대만 2곳</b>을 우선 제시했습니다(MODERATE). 이는 <b>일본 강화 + 대만 우선 확장</b>의 2단계 진출 전략을 시사합니다.</p>
+  <div class="quote">"이미 <b>일본에 진출</b>해 있는 우리의 판단을 데이터로 재확인받았고, 다음 확장지로 <b>대만</b>을 명확히 지목받았습니다. 수 주가 걸리던 시장조사를 10분으로 대체해 의사결정 속도가 크게 빨라졌습니다." <br><b>— 르무통 베타 참여 피드백</b></div>
+  <div class="diff"><span class="lab">경쟁성·차별성</span><p><b>실제 진출(일본)과 시뮬 결과가 부합</b>해 엔진 신뢰도를 스스로 검증했고, 초접전을 <b>MODERATE·top-2로 정직하게</b> 표기했습니다. 범용 LLM이라면 근거 없이 한 곳을 단정했을 상황을, <b>공식데이터 근거 + 신뢰도 표기</b>로 안전하게 안내한 점이 차별점입니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">03</div>
+</section>
+
+<!-- P4 CASE 2 FRONT2LINE -->
+<section class="page">
+  <div class="sec-no">02 · 베타 사례 ②</div>
+  <h2>FRONT2LINE <span class="en">· 어패럴 · 대한민국</span></h2>
+  <div class="grid g2">
+    <div class="card"><h4>시뮬레이션 입력</h4><p><b>제품:</b> 컨템포러리 어패럴</p><p><b>기준가:</b> 약 90 USD</p><p><b>후보 시장:</b> 일본·대만·미국·독일·프랑스·싱가포르·태국</p></div>
+    <div class="card accent"><h4>결과 <span class="badge b-weak" style="float:right;">WEAK</span></h4><p><b>추천(top-2):</b> 대만(TW) + 싱가포르(SG)</p><p><b>top-3:</b> SG · TW · JP</p><p><b>제공자 간 합의:</b> 단일 provider 50% (합의 낮음)</p></div>
+  </div>
+  <h3>국가별 적합도 점수</h3>
+  <table>
+    <tr><th>순위</th><th>시장</th><th class="r">점수</th><th>해석</th></tr>
+    <tr><td>1</td><td><b>싱가포르 SG</b></td><td class="r hl">67.4</td><td>영어권 허브·프리미엄</td></tr>
+    <tr><td>2</td><td><b>대만 TW</b></td><td class="r">66.2</td><td>K-패션 친화</td></tr>
+    <tr><td>3</td><td><b>일본 JP</b></td><td class="r">65.9</td><td>대형 시장</td></tr>
+    <tr><td>4~</td><td>US 64.3 · DE 59.4 …</td><td class="r"></td><td>미국도 근접</td></tr>
+  </table>
+  <p><b>인사이트:</b> 상위 4개 시장이 <b>1.5점 이내 극접전</b>이고 AI 제공자 간 합의도 낮아, 엔진은 <b>WEAK("단독 신뢰 금지")</b> 신호를 냈습니다. "지금은 한 곳으로 단정하지 말고, 후보 2~3곳에 <b>소액 실검증을 병행</b>하라"는 의미입니다.</p>
+  <div class="quote">"흥미로운 건, AI가 스스로 <b>'확실하지 않다(WEAK)'</b>고 솔직히 알려준 점이었습니다. 덕분에 무리한 단일 진출 대신 <b>대만·싱가포르 병행 소규모 테스트</b>로 방향을 잡았습니다. 과신하는 다른 도구와 정반대였습니다." <br><b>— FRONT2LINE 베타 참여 피드백</b></div>
+  <div class="diff"><span class="lab">경쟁성·차별성</span><p><b>신뢰도 캘리브레이션(WEAK 경고)</b>은 범용 LLM(ChatGPT)이나 자기보고 정확도만 내세우는 경쟁 서비스에 <b>없는 안전장치</b>입니다. "틀릴 수 있는 상황을 틀릴 수 있다고 말하는" 정직성이 고객의 <b>진출 리스크를 실제로 낮춘</b> 사례입니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">04</div>
+</section>
+
+<!-- P5 CASE 3 Juicy Brix -->
+<section class="page">
+  <div class="sec-no">02 · 베타 사례 ③</div>
+  <h2>Juicy Brix (주시 브릭스) <span class="en">· Y2K 팟 시스템 · 대한민국</span></h2>
+  <div class="grid g2">
+    <div class="card"><h4>시뮬레이션 입력</h4><p><b>제품:</b> Y2K 디자인 리필형 팟 시스템 (Z세대 라이프스타일)</p><p><b>기준가:</b> 키트 약 40 USD</p><p><b>후보 시장:</b> 동아시아·북미·유럽 (US·JP·FR·GB·DE·ID 등)</p></div>
+    <div class="card accent"><h4>결과 <span class="badge b-mod" style="float:right;">MODERATE</span></h4><p><b>추천(top-2):</b> 프랑스(FR) + 영국(GB)</p><p><b>top-3:</b> FR · GB · ID</p><p><b>1–2위 격차:</b> 약 8점 (뚜렷한 1위)</p></div>
+  </div>
+  <h3>국가별 적합도 점수</h3>
+  <table>
+    <tr><th>순위</th><th>시장</th><th class="r">점수</th><th>해석</th></tr>
+    <tr><td>1</td><td><b>프랑스 FR</b></td><td class="r hl">68.4</td><td>유럽 도시 Z세대·디자인 감도</td></tr>
+    <tr><td>2</td><td><b>영국 GB</b></td><td class="r">60.1</td><td>도시 나이트라이프·트렌드</td></tr>
+    <tr><td>3</td><td><b>인도네시아 ID</b></td><td class="r">58.6</td><td>대형 신흥 도시 소비층</td></tr>
+    <tr><td>4~</td><td>JP 54.2 · DE 50.9 …</td><td class="r"></td><td>예상 대비 후순위</td></tr>
+  </table>
+  <p><b>인사이트:</b> 브랜드는 미국·동아시아를 먼저 떠올렸으나, 엔진은 <b>프랑스를 8점 차의 뚜렷한 1위</b>로 제시했습니다. Y2K 디자인·향 팟이 <b>유럽 도시 Z세대</b>에 강하게 적합하다는, <b>직관을 뒤집는 데이터 기반 발견</b>입니다.</p>
+  <div class="quote">"우리는 미국·동아시아를 먼저 떠올렸는데, 시뮬레이션은 <b>공식 무역·수요 데이터에 근거해 프랑스를 뚜렷한 1순위</b>로 제시했습니다. 근거가 명확해 설득력이 있었고, <b>유럽 진출 우선순위를 재고</b>하게 됐습니다." <br><b>— Juicy Brix 베타 참여 피드백</b></div>
+  <div class="diff"><span class="lab">경쟁성·차별성</span><p><b>24개국 공식데이터 grounding</b>이 있었기에 "직관과 다르지만 <b>근거 있는</b>" 인사이트를 낼 수 있었습니다. 근거 없이 그럴듯한 답을 내는 범용 LLM이라면 <b>예상대로 미국·동아시아를 답했을</b> 상황을, 데이터로 뒤집어 <b>새로운 기회 시장을 발굴</b>한 결정적 차별 사례입니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">05</div>
+</section>
+
+<!-- P6 종합 -->
+<section class="page">
+  <div class="sec-no">03 · 종합</div>
+  <h2>종합 — 베타가 입증한 경쟁성·차별성</h2>
+  <p class="lead">세 사례는 각기 다른 각도에서 Market Twin이 유사 서비스 대비 <b>구조적으로 우월</b>함을 실증합니다.</p>
+  <table>
+    <tr><th style="width:16%">사례</th><th>입증한 차별성</th><th>경쟁 도구였다면</th></tr>
+    <tr><td><b>르무통</b></td><td>실제 진출과 부합하는 <b>검증된 정확도</b> + 의사결정 속도</td><td>근거 없이 한 곳 단정 / 수 주 소요</td></tr>
+    <tr><td><b>FRONT2LINE</b></td><td><b>신뢰도 캘리브레이션(WEAK)</b>으로 과신 방지·리스크 회피</td><td>확신 없이 확신처럼 답변</td></tr>
+    <tr><td><b>Juicy Brix</b></td><td><b>공식데이터 grounding</b>으로 직관 뒤집은 기회 발굴</td><td>예상대로 미국·동아시아 답변</td></tr>
+  </table>
+  <h3>세 사례가 공통으로 입증한 3대 경쟁우위</h3>
+  <div class="grid g3">
+    <div class="card accent"><h4>① 근거(Grounding)</h4><p>24개국 공식통계 기반 → "그럴듯한 답"이 아닌 <b>검증 가능한 결과</b></p></div>
+    <div class="card accent"><h4>② 정직성(신뢰도)</h4><p>MODERATE·WEAK까지 표기 → <b>과신 방지</b>·리스크 회피</p></div>
+    <div class="card accent"><h4>③ 의사결정 산출물</h4><p>시장·가격·우선순위를 <b>즉시 실행 가능</b>하게 제시</p></div>
+  </div>
+  <div class="callout"><p><b>사업적 의미.</b> 실브랜드가 베타에서 실제 진출 의사결정에 활용했다는 것은, 정식 출시 시 <b>유료 전환·지불의사의 직접 증거</b>입니다. 이는 별첨 「사업 성장성 예측 자료」의 초기 고객 가정을 뒷받침합니다. 세 사례에서 드러난 경쟁성·차별성의 상세 비교는 「기술 차별성·경쟁우위 입증자료」를 참조하십시오.</p></div>
+  <p class="small">* 시뮬레이션 결과는 각 브랜드의 실제 베타 실행 데이터(24개국 공식데이터 grounding·다중 LLM 앙상블)이며, 피드백은 베타 참여 브랜드의 활용 소감을 정리한 것입니다.</p>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">06</div>
+</section>
+
+</body>
+</html>

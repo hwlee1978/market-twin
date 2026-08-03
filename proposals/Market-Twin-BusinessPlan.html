@@ -124,6 +124,7 @@
     <li><span class="n">13</span> 재무 계획 &amp; 투자 요청</li>
     <li><span class="n">14</span> 발전 가능성 &amp; 비전 <span class="small">· 발표평가: 발전가능성</span></li>
     <li><span class="n">15</span> 심사기준 매핑 요약</li>
+    <li><span class="n" style="width:auto;">부록</span> &nbsp;A. 샘플 리포트 · B. 백테스트 상세표 · C. 페르소나 예시 · D. 가격·카피 테스트</li>
   </ul>
   <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">02</div>
 </section>
@@ -543,7 +544,133 @@
   <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">16</div>
 </section>
 
-<!-- ============ P17 · 심사기준 매핑 + 클로징 ============ -->
+<!-- ============ P17 · 부록 A 샘플 리포트 ============ -->
+<section class="page">
+  <div class="sec-no">부록 A · 샘플 산출물</div>
+  <h2>샘플 리포트 — 시장 선택</h2>
+  <p class="lead">한국 뷰티 브랜드가 <b>JP·TW·SG·US·TH·VN</b> 중 첫 진출국을 고르는 상황의 <b>예시 출력</b>입니다. (설명용 illustrative sample)</p>
+
+  <div class="callout" style="margin:10px 0;">
+    <p><b>추천 (Top-2 shortlist) · 신뢰도 MODERATE</b> — top-1이 지배적이지 않아 2곳을 우선 후보로 제시.</p>
+    <p style="font-size:15px; color:var(--navy); font-weight:800; margin-top:6px;">① 일본(JP) &nbsp;·&nbsp; ② 대만(TW)</p>
+  </div>
+
+  <h3>국가별 점수 (예시)</h3>
+  <table>
+    <tr><th>순위</th><th>시장</th><th>종합점수</th><th>수요 신호</th><th>가격 적합</th><th>진입 난이도</th></tr>
+    <tr><td>1</td><td><b>일본 JP</b></td><td class="hl">82</td><td>높음(검색량↑·K뷰티 트렌드)</td><td>중상 가격 수용</td><td>중(경쟁 치열)</td></tr>
+    <tr><td>2</td><td><b>대만 TW</b></td><td class="hl">78</td><td>높음(K뷰티 친화)</td><td>중가 최적</td><td>낮음</td></tr>
+    <tr><td>3</td><td>싱가포르 SG</td><td>71</td><td>중(프리미엄 소비)</td><td>고가 수용</td><td>낮음</td></tr>
+    <tr><td>4</td><td>태국 TH</td><td>64</td><td>중</td><td>가격 민감</td><td>중</td></tr>
+    <tr><td>5</td><td>베트남 VN</td><td>58</td><td>성장 초기</td><td>저가 지향</td><td>중</td></tr>
+  </table>
+
+  <h3>핵심 근거 &amp; 리스크 (예시)</h3>
+  <ul>
+    <li><b>JP:</b> 검색 수요·K뷰티 수용도 최상, 중상 가격대 수용. 리스크 — 로컬 경쟁·유통 진입장벽.</li>
+    <li><b>TW:</b> 문화 근접·낮은 진입난이도로 <b>초기 테스트 시장</b>으로 최적. 시장 규모는 JP보다 작음.</li>
+    <li><b>권고:</b> TW로 저위험 진입해 검증 후 JP 본격 확장하는 <b>2단계 전략</b>.</li>
+  </ul>
+  <p class="small">* 실제 리포트는 페르소나 반응·가격 민감도·카피 테스트(부록 C·D)를 포함합니다. 수치는 설명용 예시입니다.</p>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">17</div>
+</section>
+
+<!-- ============ P18 · 부록 B 백테스트 상세 ============ -->
+<section class="page">
+  <div class="sec-no">부록 B · 검증 상세</div>
+  <h2>백테스트 상세표 (N=19)</h2>
+  <p class="lead">각 브랜드를 실제 진출 결정 시점으로 되돌려 예측한 결과입니다. <b class="ok">O</b> = 실제 시장이 추천 top-2 안, <b class="hl">△</b> = top-3 안, <b class="bad">X</b> = 미스. 미스도 숨기지 않고 전부 공개합니다.</p>
+  <table>
+    <tr><th>브랜드</th><th>Origin</th><th>카테고리</th><th>실제 시장</th><th>모델 top-3</th><th>순위</th><th>판정</th></tr>
+    <tr><td>Medicube</td><td>KR</td><td>beauty</td><td><b>US</b></td><td>US · SG · TH</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>Kundal</td><td>KR</td><td>beauty</td><td><b>ID</b></td><td>US · SG · VN</td><td>4</td><td class="bad">X</td></tr>
+    <tr><td>Five Guys</td><td>US</td><td>food</td><td><b>GB</b></td><td>GB · AU · JP</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>shiro</td><td>JP</td><td>beauty</td><td><b>TW</b></td><td>US · TW · KR</td><td>2</td><td class="ok">O</td></tr>
+    <tr><td>Meet More</td><td>VN</td><td>beverage</td><td><b>KR</b></td><td>US · KR · SG</td><td>2</td><td class="ok">O</td></tr>
+    <tr><td>Wardah</td><td>ID</td><td>beauty</td><td><b>MY</b></td><td>MY · PH · TH</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>Yopokki</td><td>KR</td><td>food</td><td><b>JP</b></td><td>US · JP · SG</td><td>2</td><td class="ok">O</td></tr>
+    <tr><td>Jinro</td><td>KR</td><td>beverage</td><td><b>JP</b></td><td>JP · US · TW</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>Kleannara</td><td>KR</td><td>wellness</td><td><b>SG</b></td><td>SG · JP · US</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>Native</td><td>US</td><td>beauty</td><td><b>CA</b></td><td>CA · GB · AU</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>Glico Pocky</td><td>JP</td><td>food</td><td><b>TH</b></td><td>TW · US · SG</td><td>6</td><td class="bad">X</td></tr>
+    <tr><td>Bulk Homme</td><td>JP</td><td>beauty</td><td><b>TW</b></td><td>KR · TW · US</td><td>2</td><td class="ok">O</td></tr>
+    <tr><td>Krating Daeng</td><td>TH</td><td>beverage</td><td><b>SG</b></td><td>ID · PH · MY</td><td>5</td><td class="bad">X</td></tr>
+    <tr><td>Oishi</td><td>PH</td><td>food</td><td><b>CN</b></td><td>ID · VN · SG</td><td>8</td><td class="bad">X</td></tr>
+    <tr><td>OldTown</td><td>MY</td><td>beverage</td><td><b>SG</b></td><td>SG · TW · ID</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>Anker</td><td>CN</td><td>electronics</td><td><b>US</b></td><td>US · GB · DE</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>Tony's Chocolonely</td><td>NL</td><td>food</td><td><b>US</b></td><td>US · GB · DE</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>Shake Shack</td><td>US</td><td>food</td><td><b>AE</b></td><td>GB · AU · MX</td><td>7</td><td class="bad">X</td></tr>
+    <tr><td>Kopiko</td><td>ID</td><td>beverage</td><td><b>PH</b></td><td>MY · TH · PH</td><td>3</td><td class="hl">△</td></tr>
+  </table>
+  <p class="small">집계: <b>Top-2 13/19 = 68%</b> · Top-3 14/19 = 74% · 단일확정(top-1) 9/19 = 47%. 지원 24개국 밖 실제시장(SE·NG·HK)은 out-of-scope로 제외. origin 국가는 랭킹에서 제외.</p>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">18</div>
+</section>
+
+<!-- ============ P19 · 부록 C 페르소나 예시 ============ -->
+<section class="page">
+  <div class="sec-no">부록 C · 샘플 산출물</div>
+  <h2>페르소나 반응 예시</h2>
+  <p class="lead">시뮬레이션에 참여하는 AI 소비자는 인구통계·행동·심리(OCEAN 성격모델)로 구성됩니다. 아래는 <b>예시 페르소나 1인</b>과 그 반응입니다.</p>
+
+  <div class="grid g2" style="margin:12px 0;">
+    <div class="card accent">
+      <h4>프로필 (예시)</h4>
+      <ul>
+        <li><b>34세 여성</b> · 대만 타이베이 거주</li>
+        <li>소득 중상 · 사무직 · 뷰티 관심 상</li>
+        <li>구매 채널: <b>온라인(Shopee·모모)</b> 선호, 리뷰 중시</li>
+        <li>성격(OCEAN): 개방성↑·성실성 중·외향성 중</li>
+        <li>가격 태도: <b>중가 프리미엄 수용</b>, 성분·후기 민감</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>제품 제시 → 반응 (예시)</h4>
+      <p><b>구매 의향:</b> <span class="ok">7 / 10</span></p>
+      <p><b>구매 이유:</b> "성분이 순하고 K뷰티라 신뢰가 감. 29,900원이면 후기 좋으면 시도."</p>
+      <p><b>거부 요인:</b> "브랜드 인지도가 낮아 첫 구매가 망설여짐 — 샘플·인플루언서 후기가 있으면 전환."</p>
+      <p><b>권장 채널:</b> "Shopee 공식몰 + 로컬 뷰티 KOL 협업."</p>
+    </div>
+  </div>
+
+  <h3>세그먼트별 반응 요약 (예시)</h3>
+  <table>
+    <tr><th>세그먼트</th><th>구매 의향</th><th>핵심 동인</th><th>핵심 장벽</th></tr>
+    <tr><td>20대 · 온라인 헤비</td><td class="ok">높음</td><td>트렌드·후기</td><td>가격</td></tr>
+    <tr><td>30대 · 중상 소득</td><td class="hl">중상</td><td>성분·신뢰</td><td>인지도</td></tr>
+    <tr><td>40대+ · 오프라인</td><td>중</td><td>매장 체험</td><td>유통 접근성</td></tr>
+  </table>
+  <p class="small">* 실제 시뮬레이션은 200명 페르소나 × 다중 시뮬레이션으로 분포를 만들며, 위는 이해를 돕는 예시입니다.</p>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">19</div>
+</section>
+
+<!-- ============ P20 · 부록 D 가격·카피 테스트 ============ -->
+<section class="page">
+  <div class="sec-no">부록 D · 샘플 산출물</div>
+  <h2>가격 민감도 · 카피 테스트 예시</h2>
+  <p class="lead">같은 시뮬레이션에서 <b>가격대별 구매 의향</b>과 <b>메시지 A/B/C 전환 가능성</b>을 함께 산출합니다. (설명용 예시)</p>
+
+  <h3>① 가격 민감도 (예시)</h3>
+  <table>
+    <tr><th>가격</th><th>구매 의향</th><th>예상 상대 전환</th><th>해석</th></tr>
+    <tr><td><b>19,900원</b></td><td class="ok">73%</td><td>높음</td><td>진입 매력 크나 마진 압박</td></tr>
+    <tr><td class="hl"><b>29,900원</b></td><td class="hl">61%</td><td class="hl">최적 (매출 기대값↑)</td><td>수용도·마진 균형점</td></tr>
+    <tr><td><b>39,900원</b></td><td>38%</td><td>중</td><td>프리미엄 인식 필요·거부 증가</td></tr>
+  </table>
+  <p class="small">권장 시작가: <b>29,900원</b> — 구매 의향과 단가의 곱(매출 기대값)이 최대인 지점.</p>
+
+  <h3>② 광고 카피 A/B/C (예시)</h3>
+  <table>
+    <tr><th>안</th><th>메시지</th><th>전환 가능성</th><th>반응 요지</th></tr>
+    <tr><td><b>A</b></td><td>"민감 피부를 위한 순한 K뷰티"</td><td class="ok">가장 높음</td><td>성분·신뢰 소구가 타깃에 적중</td></tr>
+    <tr><td><b>B</b></td><td>"지금 30% 런칭 할인"</td><td>중</td><td>가격 소구는 초기 인지도엔 약함</td></tr>
+    <tr><td><b>C</b></td><td>"대만 뷰티 인플루언서 PICK"</td><td class="hl">중상</td><td>사회적 증거 효과 — KOL 결합 시 상승</td></tr>
+  </table>
+  <div class="callout"><p><b>실행 권고 (예시):</b> 시작가 <b>29,900원</b> · 대표 카피 <b>A(성분·신뢰)</b> + <b>C(로컬 KOL)</b> 결합 · 채널 <b>Shopee 공식몰</b>. 이 셋을 <b>실제 광고 전에</b> 시뮬레이션으로 미리 걸러냅니다.</p></div>
+  <p class="small">* 모든 수치는 산출물 형태를 보여주기 위한 예시이며, 실제 값은 제품·국가·시점 데이터로 산출됩니다.</p>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">20</div>
+</section>
+
+<!-- ============ P21 · 심사기준 매핑 + 클로징 ============ -->
 <section class="page">
   <div class="sec-no">15 · 심사기준 매핑</div>
   <h2>심사기준 매핑 요약</h2>
@@ -568,7 +695,7 @@
     <p>대표이사 이현우 (Chris Lee) · 제품 markettwin.ai · 문의 invest@markettwin.ai</p>
     <p class="small" style="margin-top:8px;">본 문서의 백테스트 수치(추천 top-2 68% / top-3 74%, N=19)는 미스 공개를 포함한 정직한 hindsight-controlled 결과이며, 유리한 표본을 선별하지 않았습니다.</p>
   </div>
-  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">17</div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">21</div>
 </section>
 
 </body>

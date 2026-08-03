@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Market Twin — 사업 성장성 예측 자료</title>
+<style>
+  :root{--navy:#0A1F4D;--blue:#2563EB;--blue2:#1D4ED8;--ink:#0f172a;--muted:#64748B;--line:#E6E9F0;--soft:#EEF3FF;--ok:#16A34A;--amber:#B45309;--bg:#f4f6fa;--red:#dc2626;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{background:var(--bg);}
+  body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif;color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .page{width:210mm;min-height:297mm;background:#fff;margin:10mm auto;padding:18mm 16mm;box-sizing:border-box;position:relative;box-shadow:0 2px 18px rgba(15,23,42,.10);}
+  .page .pnum{position:absolute;bottom:9mm;right:16mm;font-size:10.5px;color:#94a3b8;}
+  .page .brandfoot{position:absolute;bottom:9mm;left:16mm;font-size:10.5px;color:#94a3b8;}
+  @page{size:A4;margin:0;}
+  @media print{html,body{background:#fff;}.page{margin:0;box-shadow:none;page-break-after:always;}.page:last-child{page-break-after:auto;}}
+  h1{font-size:29px;line-height:1.16;letter-spacing:-.02em;color:var(--navy);font-weight:850;}
+  h2{font-size:20px;color:var(--navy);font-weight:820;margin-bottom:12px;padding-bottom:9px;border-bottom:2.5px solid var(--navy);}
+  h3{font-size:15px;color:var(--navy);font-weight:800;margin:15px 0 6px;}
+  h4{font-size:12.5px;color:var(--blue2);font-weight:800;margin:11px 0 3px;}
+  p{font-size:12px;color:#334155;margin:6px 0;}
+  ul{list-style:none;}li{font-size:11.7px;color:#334155;padding-left:15px;position:relative;margin:5px 0;line-height:1.45;}
+  li::before{content:"›";position:absolute;left:2px;color:var(--blue);font-weight:800;}
+  b,li b,p b{color:var(--navy);}
+  .sec-no{font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--blue);margin-bottom:4px;}
+  .lead{font-size:13.5px;color:#1e293b;line-height:1.55;}
+  .grid{display:grid;gap:10px;}.g2{grid-template-columns:1fr 1fr;}.g3{grid-template-columns:1fr 1fr 1fr;}.g4{grid-template-columns:repeat(4,1fr);}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
+  .card.accent{border-color:#c7d6ff;background:linear-gradient(180deg,#fff,#f7faff);}
+  .card.ev{border-color:#bbf7d0;background:#f6fef9;}
+  .card h4{margin-top:0;}.card p{font-size:11.3px;color:#475569;margin:3px 0;}
+  .num{font-size:25px;font-weight:850;color:var(--blue);letter-spacing:-.02em;line-height:1;}
+  .kicker{font-size:10.8px;color:var(--muted);margin-top:4px;}
+  table{width:100%;border-collapse:collapse;margin:9px 0;font-size:11px;}
+  th,td{border:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top;}
+  th{background:var(--navy);color:#fff;font-weight:700;font-size:10.7px;}
+  tr:nth-child(even) td{background:#f8fafc;}
+  td b{color:var(--navy);}
+  .r{text-align:right;}
+  .hl{color:var(--blue2);font-weight:800;}.ok{color:var(--ok);font-weight:800;}.amb{color:var(--amber);font-weight:700;}
+  .callout{background:var(--soft);border:1px solid #c7d6ff;border-radius:10px;padding:12px 14px;margin:10px 0;}
+  .callout p{color:var(--navy);font-size:11.7px;margin:3px 0;}
+  .small{font-size:10.3px;color:var(--muted);}
+  .pill{display:inline-block;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--blue2);}
+  .cover{background:linear-gradient(150deg,#0A1F4D 0%,#15347a 55%,#1e3a8a 100%);color:#fff;display:flex;flex-direction:column;justify-content:space-between;}
+  .cover .eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#93c5fd;}
+  .cover h1{color:#fff;font-size:38px;line-height:1.12;margin:16px 0 12px;}
+  .cover .tag{font-size:16px;color:#c7d2fe;max-width:150mm;line-height:1.5;}
+  .cover .statrow{display:flex;gap:22px;margin:24px 0;}
+  .cover .statrow .n{font-size:24px;font-weight:850;color:#fff;}.cover .statrow .l{font-size:11px;color:#93c5fd;margin-top:2px;}
+  .cover .metabox{border-top:1px solid rgba(255,255,255,.2);padding-top:15px;font-size:12px;color:#c7d2fe;}.cover .metabox b{color:#fff;}
+  .bar{height:14px;background:var(--blue);border-radius:3px;display:inline-block;vertical-align:middle;}
+</style>
+</head>
+<body>
+
+<!-- P1 COVER -->
+<section class="page cover">
+  <div>
+    <div class="eyebrow">심사 보완자료 · 사업 성장성 예측</div>
+    <h1>Market Twin<br>사업 성장성 예측 자료</h1>
+    <p class="tag">2027년 상반기 정식 출시를 가정한 <b style="color:#fff">3개년 매출·구독자 성장 예측</b>과 그 근거. 베타 실증·상향식(bottom-up) 퍼널·SaaS 벤치마크에 기반합니다.</p>
+    <div class="statrow">
+      <div><div class="n">1.5억→29억</div><div class="l">매출 (2027→2029, 연간 인식)</div></div>
+      <div><div class="n">55→450</div><div class="l">유료 고객 (연말 기준)</div></div>
+      <div><div class="n">48억</div><div class="l">2029년말 ARR</div></div>
+    </div>
+  </div>
+  <div class="metabox">
+    <p><b>주식회사 미스터에이아이 (Mr.AI Inc.)</b> · 대표이사 이현우</p>
+    <p>제품: markettwin.ai · 문의: chris@markettwin.ai · 2026</p>
+  </div>
+  <div class="pnum" style="color:#93c5fd;">01</div>
+</section>
+
+<!-- P2 요약 -->
+<section class="page">
+  <div class="sec-no">01 · 요약</div>
+  <h2>성장성 예측 요약</h2>
+  <p class="lead">이미 오픈베타로 검증된 제품을 <b>2027년 상반기 정식 출시</b>한다는 가정 하에, 베타 실증과 상향식 고객 퍼널을 근거로 3개년 성장을 예측했습니다.</p>
+  <div class="grid g3" style="margin:12px 0;">
+    <div class="card accent"><div class="num">1.5 → 29억</div><div class="kicker">연간 매출 (2027 → 2029)</div></div>
+    <div class="card accent"><div class="num">≈300%</div><div class="kicker">매출 CAGR (3개년)</div></div>
+    <div class="card accent"><div class="num">55 → 450</div><div class="kicker">유료 고객 수 (연말)</div></div>
+  </div>
+  <h3>예측의 3대 근거 (자세히는 6장)</h3>
+  <table>
+    <tr><th style="width:22%">근거</th><th>내용</th></tr>
+    <tr><td><b>① 베타 실증</b></td><td>르무통·FRONT2LINE·Juicy Brix 등 실브랜드가 베타에서 진출 의사결정에 활용 → 유료 전환 가능성·지불의사 확인 (별첨 베타테스트 자료)</td></tr>
+    <tr><td><b>② 상향식 퍼널</b></td><td>인바운드(PLG)·파트너(대행사·수출지원기관·액셀러레이터)·엔터프라이즈 3개 채널의 월별 신규 유입 − 이탈로 고객 수 산출</td></tr>
+    <tr><td><b>③ 시장·벤치마크</b></td><td>K-브랜드 해외진출 수요 증가 + 합성 리서치 신흥 카테고리(Gartner) + B2B SaaS 표준 지표(전환율·이탈·NRR)</td></tr>
+  </table>
+  <div class="callout"><p><b>핵심.</b> 본 예측은 희망 수치가 아니라, <b>이미 작동하는 제품 + 실브랜드 베타 실증 + 검증된 SaaS 지표</b>에 근거한 상향식 모델입니다. 초기 침투율은 서비스 가능 시장(SAM)의 <b>1% 미만</b>으로, 상방 여력이 큽니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">02</div>
+</section>
+
+<!-- P3 시장기회 -->
+<section class="page">
+  <div class="sec-no">02 · 시장 기회 & 성장 동력</div>
+  <h2>시장 기회와 성장 동력</h2>
+  <p class="lead">성장은 세 가지 구조적 순풍 위에 서 있습니다 — 수요 증가, 카테고리 형성, 비용 압박.</p>
+  <div class="grid g3">
+    <div class="card"><h4>① K-브랜드 진출 수요</h4><p>K-뷰티·K-푸드·K-패션 확산으로 한국 소비재 브랜드의 <b>해외진출이 구조적으로 증가</b>. 진출 전 검증 수요가 상수화.</p></div>
+    <div class="card"><h4>② 신흥 카테고리</h4><p>Gartner(2025.05)가 '합성 리서치'를 신흥 카테고리로 규정 — <b>초기 형성 시장</b>에 선점 진입.</p></div>
+    <div class="card"><h4>③ 비용 압박</h4><p>경기 둔화로 기업이 <b>느리고 비싼 리서치의 저가·고속 대안</b>을 적극 탐색.</p></div>
+  </div>
+  <h3>시장 규모 (SAM·SOM)</h3>
+  <table>
+    <tr><th style="width:16%">구분</th><th>정의</th><th style="width:26%">규모(추정)</th></tr>
+    <tr><td><b>SAM</b></td><td>신제품·해외진출 의사결정 리서치 + 합성 리서치</td><td>수십억 달러·고성장</td></tr>
+    <tr><td><b>SOM(초기)</b></td><td>한국·아시아 소비재 브랜드 진출검증 + 스타트업 콘셉트테스트 + 대행사</td><td class="hl">국내만 수천 개 브랜드</td></tr>
+  </table>
+  <p class="small">국내 소비재·D2C·스타트업만 해도 진출·콘셉트 검증 수요 기업이 <b>수천 곳</b>에 이릅니다. 2029년 목표 유료고객 450곳은 이 중 <b>극히 일부(1% 미만)</b>로, 목표의 보수성을 뒷받침합니다.</p>
+  <div class="callout"><p><b>왜 지금(2027 상반기) 출시인가.</b> ① 제품이 이미 오픈베타로 검증 완료, ② origin-agnostic 엔진·커머스 데이터 결합 등 정식출시 기능이 2026 하반기~2027 상반기 완비, ③ 베타 파이프라인(코호트 15곳·명명 베타 3곳)이 초기 유료 전환 기반을 형성.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">03</div>
+</section>
+
+<!-- P4 수익모델 -->
+<section class="page">
+  <div class="sec-no">03 · 수익 모델 & 가격</div>
+  <h2>수익 모델과 ARPU 근거</h2>
+  <p class="lead">단건 리포트와 구독의 이중 구조로, 진입장벽은 낮추고 반복매출은 키웁니다. 가격 앵커는 인터뷰 단가가 아니라 <b>진출 컨설팅 리포트(수백만~수천만원)</b>입니다.</p>
+  <table>
+    <tr><th>모델</th><th>대상</th><th style="width:20%">가격(원)</th><th>비중 추이</th></tr>
+    <tr><td><b>리포트 단건</b></td><td>스타트업·중소 브랜드</td><td>건당 30만원대</td><td>초기 30% → 15%</td></tr>
+    <tr><td><b>Starter 구독</b></td><td>브랜드</td><td>월 39만원</td><td>구독의 다수</td></tr>
+    <tr><td><b>Growth 구독</b></td><td>성장 브랜드·대행사</td><td>월 99만원</td><td>확대</td></tr>
+    <tr><td><b>Enterprise</b></td><td>대기업·MNC 아시아HQ</td><td>월 300만원~</td><td>후기 매출 견인</td></tr>
+  </table>
+  <h3>블렌디드 ARPU 가정 (월, 원)</h3>
+  <table>
+    <tr><th>연도</th><th class="r">2027</th><th class="r">2028</th><th class="r">2029</th><th>근거</th></tr>
+    <tr><td><b>블렌디드 ARPU</b></td><td class="r">55만</td><td class="r">68만</td><td class="r">88만</td><td>구독 mix 상승 + Enterprise 편입 + 리포트 애드온</td></tr>
+  </table>
+  <div class="callout"><p><b>단위경제.</b> 변동비 핵심은 LLM 추론비로, 티어별 예산 상한을 코드에 내장해 <b>건별 원가를 통제</b>합니다. 중장기 자체 인퍼런스·파인튜닝(NVIDIA Inception)으로 추론 원가를 낮춰 마진을 개선합니다. → 고객이 늘수록 데이터·정확도가 쌓이는 <b>복리 구조</b>.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">04</div>
+</section>
+
+<!-- P5 구독자 성장 -->
+<section class="page">
+  <div class="sec-no">04 · 구독자(고객) 성장 예측</div>
+  <h2>유료 고객 성장 예측</h2>
+  <p class="lead">3개 획득 채널의 <b>월별 신규 유입 − 이탈</b>로 분기별 누적 유료 고객을 산출했습니다 (상향식).</p>
+  <h3>획득 채널 & 월 신규 가정</h3>
+  <table>
+    <tr><th>채널</th><th>방식</th><th class="r">'27</th><th class="r">'28</th><th class="r">'29</th></tr>
+    <tr><td><b>인바운드(PLG)</b></td><td>베타→유료·인바운드·리포트</td><td class="r">4→8</td><td class="r">10→16</td><td class="r">18→26</td></tr>
+    <tr><td><b>파트너</b></td><td>대행사·수출지원기관·액셀러레이터</td><td class="r">3→7</td><td class="r">8→15</td><td class="r">16→24</td></tr>
+    <tr><td><b>Enterprise 세일즈</b></td><td>대기업·MNC 직접영업</td><td class="r">1→2</td><td class="r">2→4</td><td class="r">4→7</td></tr>
+    <tr><td colspan="2"><b>월 신규 합계(분기 평균)</b></td><td class="r">8→17</td><td class="r">20→35</td><td class="r">38→57</td></tr>
+  </table>
+  <p class="small">이탈(월): 2027 3.5% → 2028 3.0% → 2029 2.5% 가정 (초기 B2B SaaS 평균 이내, 정확도·retention 개선 반영).</p>
+  <h3>분기별 누적 유료 고객</h3>
+  <table>
+    <tr><th></th><th class="r">Q1</th><th class="r">Q2</th><th class="r">Q3</th><th class="r">Q4</th></tr>
+    <tr><td><b>2027</b> (H1 출시)</td><td class="r">—</td><td class="r">15</td><td class="r">32</td><td class="r"><b>55</b></td></tr>
+    <tr><td><b>2028</b></td><td class="r">80</td><td class="r">110</td><td class="r">145</td><td class="r"><b>185</b></td></tr>
+    <tr><td><b>2029</b></td><td class="r">240</td><td class="r">300</td><td class="r">375</td><td class="r"><b>450</b></td></tr>
+  </table>
+  <div class="callout"><p><b>근거의 출발점 = 베타 실증.</b> 르무통·FRONT2LINE·Juicy Brix 등 실브랜드가 이미 베타에서 진출 의사결정에 활용했습니다(별첨). 이는 초기 유료 전환·지불의사의 <b>직접 증거</b>이며, 2027 Q2 초기 15곳 가정의 실질 근거입니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">05</div>
+</section>
+
+<!-- P6 매출 성장 -->
+<section class="page">
+  <div class="sec-no">05 · 매출 성장 예측</div>
+  <h2>매출 성장 예측</h2>
+  <p class="lead">분기별 평균 활성 고객 × 블렌디드 ARPU로 인식 매출을, 연말 고객 × ARPU × 12로 ARR을 산출했습니다.</p>
+  <table>
+    <tr><th>연도</th><th class="r">연말 유료고객</th><th class="r">ARPU(월)</th><th class="r">연간 인식매출</th><th class="r">연말 ARR</th><th class="r">YoY</th></tr>
+    <tr><td><b>2027</b> (H1 출시)</td><td class="r">55</td><td class="r">55만</td><td class="r"><b>1.5억</b></td><td class="r">3.6억</td><td class="r">—</td></tr>
+    <tr><td><b>2028</b></td><td class="r">185</td><td class="r">68만</td><td class="r"><b>8.5억</b></td><td class="r">15.1억</td><td class="r hl">+467%</td></tr>
+    <tr><td><b>2029</b></td><td class="r">450</td><td class="r">88만</td><td class="r"><b>29억</b></td><td class="r">47.5억</td><td class="r hl">+241%</td></tr>
+  </table>
+  <h3>매출 규모 시각화 (연간 인식매출, 억원)</h3>
+  <table style="border:none;">
+    <tr style="background:none;"><td style="border:none;width:12%;">2027</td><td style="border:none;"><span class="bar" style="width:5%;"></span> <b>1.5</b></td></tr>
+    <tr style="background:none;"><td style="border:none;">2028</td><td style="border:none;"><span class="bar" style="width:29%;"></span> <b>8.5</b></td></tr>
+    <tr style="background:none;"><td style="border:none;">2029</td><td style="border:none;"><span class="bar" style="width:100%;"></span> <b>29</b></td></tr>
+  </table>
+  <h3>매출 구성 추이 (구독 vs 리포트)</h3>
+  <table>
+    <tr><th></th><th class="r">2027</th><th class="r">2028</th><th class="r">2029</th></tr>
+    <tr><td>구독(반복) 매출</td><td class="r">70%</td><td class="r">80%</td><td class="r">85%</td></tr>
+    <tr><td>리포트(단건) 매출</td><td class="r">30%</td><td class="r">20%</td><td class="r">15%</td></tr>
+  </table>
+  <p class="small">구독(반복) 비중이 커질수록 매출 예측 가능성·기업가치가 상승합니다. NRR(순확장) 105%+ 가정(업셀·티어상향).</p>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">06</div>
+</section>
+
+<!-- P7 근거 & 시나리오 -->
+<section class="page">
+  <div class="sec-no">06 · 근거 & 시나리오</div>
+  <h2>예측 근거와 시나리오</h2>
+  <h3>핵심 가정과 근거</h3>
+  <table>
+    <tr><th style="width:26%">가정</th><th style="width:16%">값</th><th>근거</th></tr>
+    <tr><td>초기 유료 고객(2027 Q2)</td><td>15곳</td><td>베타 실증(명명 3곳 + 코호트 15곳) 기반 전환</td></tr>
+    <tr><td>월 신규(2028 평균)</td><td>20~35</td><td>3개 채널 상향식 합산·파트너십 확대</td></tr>
+    <tr><td>월 이탈</td><td>2.5~3.5%</td><td>초기 B2B SaaS 평균 이내, retention 개선</td></tr>
+    <tr><td>블렌디드 ARPU</td><td>55~88만</td><td>구독 티어 mix + Enterprise 편입 + 리포트</td></tr>
+    <tr><td>NRR</td><td>105%+</td><td>업셀·티어 상향·사용량 증가</td></tr>
+  </table>
+  <h3>시나리오 (2029 연간 매출)</h3>
+  <table>
+    <tr><th>시나리오</th><th class="r">유료고객</th><th class="r">매출</th><th>전제</th></tr>
+    <tr><td><b>보수(−30%)</b></td><td class="r">315</td><td class="r">17억</td><td>파트너십 지연·전환 하회</td></tr>
+    <tr><td class="hl"><b>기본(100%)</b></td><td class="r">450</td><td class="r">29억</td><td>본 예측</td></tr>
+    <tr><td><b>공격(+35%)</b></td><td class="r">610</td><td class="r">40억</td><td>아시아 허브·엔터프라이즈 조기 확보</td></tr>
+  </table>
+  <div class="callout"><p><b>성장의 지속성.</b> 정확도↑ → 유지율·업셀↑ → LTV↑ → 재투자 → 정확도↑의 <b>데이터 복리 선순환</b>과, 아시아 24개국으로의 <b>수평 확장</b>이 2029년 이후에도 성장을 지지합니다. 기술적 우위(별첨 「기술 차별성·경쟁우위 입증자료」)가 이 성장의 토대입니다.</p></div>
+  <p class="small">* 본 수치는 명시된 가정에 기반한 추정이며, 시장·파트너십 진행에 따라 갱신됩니다. 회계상 확정치가 아닌 계획 목표입니다.</p>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">07</div>
+</section>
+
+</body>
+</html>

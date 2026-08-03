@@ -1,0 +1,843 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Market Twin — 종합 입증자료 (통합본)</title>
+<style>
+  :root{
+    --navy:#0A1F4D; --blue:#2563EB; --blue2:#1D4ED8; --ink:#0f172a; --muted:#64748B;
+    --line:#E6E9F0; --soft:#EEF3FF; --ok:#16A34A; --amber:#B45309; --bg:#f4f6fa; --red:#dc2626;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{background:var(--bg);}
+  body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif; color:var(--ink); line-height:1.55; -webkit-font-smoothing:antialiased;}
+  .page{width:210mm; min-height:297mm; background:#fff; margin:10mm auto; padding:18mm 16mm; box-sizing:border-box; position:relative; box-shadow:0 2px 18px rgba(15,23,42,.10);}
+  .page .pnum{position:absolute; bottom:9mm; right:16mm; font-size:10.5px; color:#94a3b8;}
+  .page .brandfoot{position:absolute; bottom:9mm; left:16mm; font-size:10.5px; color:#94a3b8;}
+  @page{ size:A4; margin:0; }
+  @media print{ html,body{background:#fff;} .page{margin:0; box-shadow:none; page-break-after:always;} .page:last-child{page-break-after:auto;} }
+
+  h1{font-size:29px; line-height:1.16; letter-spacing:-.02em; color:var(--navy); font-weight:850;}
+  h2{font-size:20px; color:var(--navy); font-weight:820; letter-spacing:-.01em; margin-bottom:12px; padding-bottom:9px; border-bottom:2.5px solid var(--navy);}
+  h3{font-size:15px; color:var(--navy); font-weight:800; margin:15px 0 6px;}
+  h4{font-size:12.5px; color:var(--blue2); font-weight:800; margin:11px 0 3px;}
+  p{font-size:12px; color:#334155; margin:6px 0;}
+  ul{list-style:none;} li{font-size:11.7px; color:#334155; padding-left:15px; position:relative; margin:5px 0; line-height:1.45;}
+  li::before{content:"›"; position:absolute; left:2px; color:var(--blue); font-weight:800;}
+  b,li b,p b{color:var(--navy);}
+  .sec-no{font-size:11px; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--blue); margin-bottom:4px;}
+  .lead{font-size:13.5px; color:#1e293b; line-height:1.55;}
+  .grid{display:grid; gap:10px;} .g2{grid-template-columns:1fr 1fr;} .g3{grid-template-columns:1fr 1fr 1fr;} .g4{grid-template-columns:repeat(4,1fr);}
+  .card{background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 14px;}
+  .card.accent{border-color:#c7d6ff; background:linear-gradient(180deg,#fff,#f7faff);}
+  .card.ev{border-color:#bbf7d0; background:#f6fef9;}
+  .card h4{margin-top:0;} .card p{font-size:11.3px; color:#475569; margin:3px 0;}
+  .num{font-size:24px; font-weight:850; color:var(--blue); letter-spacing:-.02em; line-height:1;}
+  .kicker{font-size:10.8px; color:var(--muted); margin-top:4px;}
+  table{width:100%; border-collapse:collapse; margin:9px 0; font-size:11px;}
+  th,td{border:1px solid var(--line); padding:7px 8px; text-align:left; vertical-align:top;}
+  th{background:var(--navy); color:#fff; font-weight:700; font-size:10.7px;}
+  tr:nth-child(even) td{background:#f8fafc;}
+  td b{color:var(--navy);}
+  .mt th:first-child, .mt td:first-child{width:20%; font-weight:700; background:#eef2fb; color:var(--navy);}
+  .mt td.us{background:#eff6ff !important;}
+  .mt th.us{background:var(--blue) !important; color:#fff;}
+  .hl{color:var(--blue2); font-weight:800;} .ok{color:var(--ok); font-weight:800;} .bad{color:var(--red); font-weight:700;} .amb{color:var(--amber); font-weight:700;}
+  .callout{background:var(--soft); border:1px solid #c7d6ff; border-radius:10px; padding:12px 14px; margin:10px 0;}
+  .callout p{color:var(--navy); font-size:11.7px; margin:3px 0;}
+  .ev-box{background:#f6fef9; border:1px solid #bbf7d0; border-left:4px solid var(--ok); border-radius:0 9px 9px 0; padding:10px 13px; margin:9px 0;}
+  .ev-box .lab{font-size:10.5px; font-weight:800; color:#15803d; letter-spacing:.04em; text-transform:uppercase;}
+  .ev-box p{font-size:11.4px; color:#14532d; margin:3px 0;}
+  .quote{border-left:4px solid var(--blue); background:#f7faff; padding:10px 14px; border-radius:0 9px 9px 0; font-size:12.5px; color:var(--navy); font-weight:600; margin:11px 0;}
+  .small{font-size:10.3px; color:var(--muted);}
+  .pill{display:inline-block; font-size:10px; font-weight:800; padding:2px 8px; border-radius:999px; background:var(--soft); color:var(--blue2);}
+  .cover{background:linear-gradient(150deg,#0A1F4D 0%,#15347a 55%,#1e3a8a 100%); color:#fff; display:flex; flex-direction:column; justify-content:space-between;}
+  .cover .eyebrow{font-size:12px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:#93c5fd;}
+  .cover h1{color:#fff; font-size:40px; line-height:1.12; margin:16px 0 12px;}
+  .cover .tag{font-size:16px; color:#c7d2fe; max-width:150mm; line-height:1.5;}
+  .cover .statrow{display:flex; gap:22px; margin:24px 0;}
+  .cover .statrow .n{font-size:26px; font-weight:850; color:#fff;} .cover .statrow .l{font-size:11px; color:#93c5fd; margin-top:2px;}
+  .cover .metabox{border-top:1px solid rgba(255,255,255,.2); padding-top:15px; font-size:12px; color:#c7d2fe;} .cover .metabox b{color:#fff;}
+
+  .r{text-align:right;}
+  figure{margin:10px 0;} figure img{width:100%;border:1px solid var(--line);border-radius:8px;display:block;} figcaption{font-size:10.5px;color:var(--muted);margin-top:5px;text-align:center;}
+  .figgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;} .figgrid figure{margin:2px 0;} .figgrid img{width:100%;border:1px solid var(--line);border-radius:6px;} .figgrid figcaption{font-size:10px;}
+  .diff{background:#f6fef9;border:1px solid #bbf7d0;border-left:4px solid var(--ok);border-radius:0 9px 9px 0;padding:10px 13px;margin:9px 0;} .diff .lab{font-size:10.5px;font-weight:800;color:#15803d;letter-spacing:.04em;text-transform:uppercase;} .diff p{font-size:11.5px;color:#14532d;margin:3px 0;}
+  .badge{display:inline-block;font-size:11px;font-weight:800;padding:3px 12px;border-radius:999px;} .b-mod{background:#dbeafe;color:#1d4ed8;} .b-weak{background:#fef3c7;color:#b45309;} .b-str{background:#dcfce7;color:#15803d;}
+  .bar{height:14px;background:var(--blue);border-radius:3px;display:inline-block;vertical-align:middle;}
+  h2 .en{font-size:13px;color:var(--muted);font-weight:700;}
+</style>
+</head>
+<body>
+
+<section class="page cover">
+  <div>
+    <div class="eyebrow">심사 보완자료 · 종합 기술·사업 입증자료 (통합본)</div>
+    <h1>Market Twin<br>종합 입증자료</h1>
+    <p class="tag">기술 아키텍처 · 경쟁 차별성 · 베타테스트 실증 · 사업 성장성을 <b style="color:#fff">하나로 통합</b>한 심사 보완 종합자료입니다.</p>
+    <div class="statrow">
+      <div><div class="n">74% / 68%</div><div class="l">백테스트 top-3 / top-2 (N=19)</div></div>
+      <div><div class="n">24개국</div><div class="l">공식데이터 grounding</div></div>
+      <div><div class="n">3개 실브랜드</div><div class="l">베타테스트 실증</div></div>
+      <div><div class="n">29억</div><div class="l">2029 매출 예측</div></div>
+    </div>
+  </div>
+  <div class="metabox">
+    <p><b>주식회사 미스터에이아이 (Mr.AI Inc.)</b> · 대표이사 이현우</p>
+    <p>제품: markettwin.ai · 문의: chris@markettwin.ai · 2026</p>
+  </div>
+  <div class="pnum" style="color:#93c5fd;">01</div>
+</section>
+
+<section class="page">
+  <div class="sec-no">Contents</div>
+  <h1 style="margin-bottom:6px;">목차</h1>
+  <p class="lead" style="margin-bottom:16px;">본 통합본은 심사 지적사항(기술 차별성·객관성·성장성)에 대응하는 4개 파트로 구성됩니다.</p>
+  <table>
+    <tr><th style="width:18%">파트</th><th>내용</th><th style="width:22%">대응 심사항목</th></tr>
+    <tr><td><b>PART I</b></td><td>제품 &amp; 기술 아키텍처 (9개 엔진 연결도·핵심 모듈)</td><td>기술성·객관성</td></tr>
+    <tr><td><b>PART II</b></td><td>기술 차별성 &amp; 경쟁우위 (경쟁 비교·구조적 한계·백테스트·혁신성)</td><td>차별성·혁신성·비교자료</td></tr>
+    <tr><td><b>PART III</b></td><td>베타테스트 실증 (르무통·FRONT2LINE·Juicy Brix)</td><td>경쟁성·차별성 실증</td></tr>
+    <tr><td><b>PART IV</b></td><td>사업 성장성 (매출·구독자 3개년 예측)</td><td>사업 성장성</td></tr>
+  </table>
+  <div class="callout"><p><b>구성 원리.</b> 아키텍처(실체) → 차별성(왜 우월한가) → 베타(실증) → 성장성(그래서 성장한다)의 <b>인과 흐름</b>으로 배열해, 심사위원이 기술의 객관성부터 사업 성장성까지 하나의 논리로 확인할 수 있습니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">02</div>
+</section>
+
+<section class="page cover">
+  <div>
+    <div class="eyebrow">PART I</div>
+    <h1>제품 &amp; 기술 아키텍처</h1>
+    <p class="tag">9개 엔진이 함수 단위로 연결된 Market Twin 시뮬레이션 파이프라인 — 기술적 실체이자 차별성(grounding·앙상블·검증)의 근거.</p>
+  </div>
+  <div class="metabox"><p><b>주식회사 미스터에이아이</b> · markettwin.ai</p></div>
+  <div class="pnum" style="color:#93c5fd;">03</div>
+</section>
+
+<section class="page">
+  <div class="sec-no">Part I · 시스템 아키텍처</div>
+  <h2>전체 엔진 연결도</h2>
+  <p class="lead">Market Twin은 사용자 입력을 <b>9개 엔진</b>이 함수 단위로 처리하는 파이프라인입니다. 각 엔진은 앞서 제시할 기술 차별성(grounding·다중 LLM 앙상블·백테스트)의 <b>구현 실체</b>입니다.</p>
+  <figure><img src="../docs/architecture/00-master.png"><figcaption>Market Twin 엔진 전체 연결도 — 9개 엔진 · 함수 단위 데이터 흐름</figcaption></figure>
+  <h3>엔진 → 차별성 매핑</h3>
+  <ul>
+    <li><b>② 앙상블 오케스트레이터 + ⑤ 다중 LLM:</b> 200 페르소나 × 다중 시뮬 × 복수 LLM 교차검증 → <b>단일 모델 편향 제거</b> (Part II 차별축 ②)</li>
+    <li><b>③ 시장조사/데이터 인제스천 + ④ 레퍼런스 데이터:</b> 24개국 공식통계 grounding·환각 차단 → <b>근거 있는 결과</b> (차별축 ①)</li>
+    <li><b>⑦ 검증/백테스트 + ⑧ 품질 감사:</b> hindsight 채점·신뢰도 캘리브레이션 → <b>객관적 검증</b> (차별축 ③)</li>
+    <li><b>⑥ 의사결정/가격 + ⑨ 리포트:</b> 시장·가격·리스크를 <b>즉시 실행 가능한 결정</b>으로 산출 (차별축 ⑤)</li>
+  </ul>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">04</div>
+</section>
+
+<section class="page">
+  <div class="sec-no">Part I · 핵심 모듈 ① 앙상블</div>
+  <h2>② 앙상블 오케스트레이터</h2>
+  <p class="lead">200 페르소나 × 다중 시뮬레이션 × 복수 LLM을 <b>교차 집계</b>해 신뢰도·합의까지 산출하는 핵심 엔진입니다.</p>
+  <figure><img src="../docs/architecture/02-ensemble-orchestrator.png"><figcaption>② 앙상블 오케스트레이터 — 다중 시뮬·신뢰도·합의 집계 (orchestrator.ts)</figcaption></figure>
+  <h3>차별점 연결</h3>
+  <ul>
+    <li><b>단일 모델 편향 제거:</b> N회 시뮬을 median으로 집계 → 특정 AI의 버릇을 상쇄 (Part II 차별축 ②).</li>
+    <li><b>신뢰도 캘리브레이션:</b> 제공자 간 합의·득표차로 STRONG/MODERATE/WEAK 산출 → 과신 방지.</li>
+    <li><b>비용 서킷브레이커:</b> 티어별 예산 상한을 코드에 내장 → 건별 원가 통제(단위경제).</li>
+  </ul>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">05</div>
+</section>
+
+<section class="page">
+  <div class="sec-no">Part I · 핵심 모듈 ② Grounding</div>
+  <h2>③ 시장조사 / 데이터 인제스천</h2>
+  <p class="lead">24개국 <b>공식 통계를 시뮬레이션에 주입(grounding)</b>하고 환각을 차단하는, 경쟁 서비스와 가장 크게 갈리는 모듈입니다.</p>
+  <figure><img src="../docs/architecture/03-market-research.png"><figcaption>③ 시장조사/데이터 인제스천 — Comtrade·World Bank·KOTRA·DART·관세청 등 24개국 grounding</figcaption></figure>
+  <h3>차별점 연결</h3>
+  <ul>
+    <li><b>근거 있는 결과:</b> LLM 사전지식이 아니라 <b>실제 공개 통계</b>에 근거 → 제3자 검증 가능 (차별축 ①).</li>
+    <li><b>환각 차단:</b> 그라운딩 블록으로 근거 없는 답변을 억제.</li>
+    <li><b>아시아 특화:</b> DART·식약처·KOTRA 등 한국·아시아 공식 소스 심층 결합.</li>
+  </ul>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">06</div>
+</section>
+
+<section class="page">
+  <div class="sec-no">Part I · 핵심 모듈 ③ 다중 LLM</div>
+  <h2>⑤ LLM 멀티프로바이더</h2>
+  <p class="lead">복수 AI 제공자를 <b>교차검증·폴백</b>하는 구조로, 단일 벤더·단일 모델 종속을 제거합니다.</p>
+  <figure><img src="../docs/architecture/05-llm-multiprovider.png"><figcaption>⑤ LLM 멀티프로바이더 — Anthropic·OpenAI·Gemini·DeepSeek 교차검증·폴백</figcaption></figure>
+  <h3>차별점 연결</h3>
+  <ul>
+    <li><b>모델 편향 상쇄:</b> 여러 AI의 합의를 신뢰도에 반영 → 범용 LLM 단독 사용과 근본적 차이 (차별축 ②).</li>
+    <li><b>가용성·안정성:</b> Provider Fallback으로 특정 API 장애에도 시뮬 지속.</li>
+    <li><b>비용/품질 최적화:</b> 티어·단계별로 적합 모델 선택.</li>
+  </ul>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">07</div>
+</section>
+
+<section class="page">
+  <div class="sec-no">Part I · 핵심 모듈 ④ 검증</div>
+  <h2>⑦ 검증 / 백테스트</h2>
+  <p class="lead">정확도를 <b>과거 실제 사례로 재현·채점</b>하고 신뢰도를 캘리브레이션하는, 객관성의 핵심 모듈입니다.</p>
+  <figure><img src="../docs/architecture/07-validation-backtest.png"><figcaption>⑦ 검증/백테스트 — score(result, truth)·top-3 적중·Spearman·신뢰도 캘리브레이션</figcaption></figure>
+  <h3>차별점 연결</h3>
+  <ul>
+    <li><b>재현·반증 가능:</b> 방법·정답정의·채점기준 공개 → 제3자가 직접 재현 (차별축 ③).</li>
+    <li><b>정직성:</b> 미스(오답)까지 공개하는 채점 파이프라인.</li>
+    <li><b>캘리브레이션 환류:</b> 백테스트 결과로 신뢰도 규칙을 보정.</li>
+  </ul>
+  <div class="callout"><p><b>기술성·객관성의 실체.</b> 앞의 4개 모듈은 개념이 아니라 <b>실제 코드로 동작하는 함수</b>입니다(오픈베타 라이브). 심사의 "기술성 판단이 어렵다"는 지적에 대해, 아키텍처는 기술이 <b>구체적으로 어떻게 구현·검증되는지</b>를 시각적으로 입증합니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">08</div>
+</section>
+
+
+
+<!-- ===== P1 COVER ===== -->
+<section class="page cover">
+  <div>
+    <div class="eyebrow">PART II</div>
+    <h1>기술 차별성 및<br>경쟁우위 입증자료</h1>
+    <p class="tag">유사 AI 서비스·경쟁사 대비 Market Twin의 기술적 차별성·우위성·혁신성·사업 성장성을 <b style="color:#fff">객관적·검증 가능한 근거</b>로 입증합니다.</p>
+    <div class="statrow">
+      <div><div class="n">74% / 68%</div><div class="l">백테스트 top-3 / top-2 적중 (N=19, 미스 공개)</div></div>
+      <div><div class="n">24개국</div><div class="l">공식 통계 grounding</div></div>
+      <div><div class="n">사전등록</div><div class="l">전향적 검증 코호트(15곳)</div></div>
+    </div>
+  </div>
+  <div class="metabox">
+    <p><b>주식회사 미스터에이아이 (Mr.AI Inc.)</b> · 대표이사 이현우 (Chris Lee)</p>
+    <p>제품: markettwin.ai · 문의: chris@markettwin.ai · 2026</p>
+  </div>
+  <div class="pnum" style="color:#93c5fd;">09</div>
+</section>
+
+<!-- ===== P2 심사 지적사항 & 대응 개요 ===== -->
+<section class="page">
+  <div class="sec-no">01 · 대응 개요</div>
+  <h2>심사 지적사항과 대응 요지</h2>
+  <p class="lead">심사 의견은 <b>"경쟁사 대비 차별성·우위성·혁신성·성장성을 입증할 객관적 근거·비교자료가 미흡"</b>이라는 한 가지로 수렴합니다. 본 자료는 이를 정면으로 보완합니다.</p>
+  <table>
+    <tr><th style="width:58%">심사 지적사항 (요지)</th><th>본 통합자료의 대응</th></tr>
+    <tr><td>유사 서비스 대비 기술적 차별성·우위성 <b>비교자료</b> 보완</td><td>PART II·3장 경쟁 비교 매트릭스</td></tr>
+    <tr><td>유사 기술기업 대비 경쟁력 확보 <b>객관적 근거</b></td><td>PART I 아키텍처 · PART II·4장 차별축</td></tr>
+    <tr><td>차별성 확인 <b>구체적 자료</b> 보완</td><td>PART II 3·4장 + 8장 근거목록</td></tr>
+    <tr><td>경쟁사 대비 <b>차별성·혁신성</b> 입증 객관적 근거</td><td>PART I 아키텍처 · PART II 4·5장</td></tr>
+    <tr><td><b>객관성·기술성</b> 판단 어려움 / 성장성 근거 미흡</td><td>PART I 아키텍처 · PART II·6장 · PART IV 성장성</td></tr>
+    <tr><td>사업 <b>차별성·성장성</b> 자료 미흡</td><td>PART III 베타 · PART IV 성장성</td></tr>
+    <tr><td>유사 AI 서비스 대비 차별성·우위성 입증</td><td>PART II 3·4장 · PART III 베타</td></tr>
+  </table>
+
+  <h3>본 자료가 제시하는 '객관적 근거'의 3가지 성격</h3>
+  <div class="grid g3">
+    <div class="card ev"><h4>① 제3자 검증 가능</h4><p>grounding 데이터 소스가 모두 <b>공개 공식 통계</b>(UN Comtrade·World Bank 등) — 누구나 대조 가능.</p></div>
+    <div class="card ev"><h4>② 재현 가능</h4><p>백테스트가 <b>과거정보 차단·정답정의·채점기준</b>을 공개 — 방법이 재현 가능.</p></div>
+    <div class="card ev"><h4>③ 반증 가능</h4><p><b>미스(오답) 전부 공개</b> + 사전등록 코호트 — 유리하게 꾸미지 않음.</p></div>
+  </div>
+  <div class="callout"><p><b>핵심.</b> "정확하다"는 주장이 아니라, <b>독립적으로 검증·재현·반증할 수 있는 근거</b>를 제시하는 것이 본 자료의 목적입니다. 이는 자기보고 수치에 의존하는 경쟁 서비스와 근본적으로 다른 접근입니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">10</div>
+</section>
+
+<!-- ===== P3 경쟁 지형 ===== -->
+<section class="page">
+  <div class="sec-no">02 · 경쟁 지형</div>
+  <h2>유사 서비스 지형 분석</h2>
+  <p class="lead">"AI 소비자/시장 리서치" 인접 시장을 4개 군으로 구분하고, 각 군의 대표 사업자와 <b>구조적 한계</b>를 정리했습니다.</p>
+  <table>
+    <tr><th style="width:20%">군</th><th style="width:30%">대표 사업자 (공개 정보 기준)</th><th>핵심 방식</th><th>구조적 한계</th></tr>
+    <tr><td><b>A. 글로벌 AI 합성리서치</b></td><td>Synthetic Users, Yabble, Aaru 등</td><td>LLM 합성 응답자 인터뷰·설문</td><td>공식데이터 grounding·독립 백테스트·아시아 특화 부재; 정성 인터뷰 중심</td></tr>
+    <tr><td><b>B. 전통 시장조사</b></td><td>Kantar, Nielsen / (국내) 엠브레인, 오픈서베이</td><td>실제 패널 설문·FGI</td><td>4~8주·고비용; 다국가 진출 비교에 부적합</td></tr>
+    <tr><td><b>C. 실시간 인간 리서치</b></td><td>Remesh, Wynter 등</td><td>실제 인간 + AI 진행</td><td>여전히 사람 모집 필요·확장성/속도 제약</td></tr>
+    <tr><td><b>D. 범용 LLM 직접활용</b></td><td>ChatGPT 등에 페르소나 프롬프트</td><td>단발 LLM 프롬프트</td><td>근거 없음·재현 불가·검증 불가·신뢰도 미표기</td></tr>
+  </table>
+
+  <h3>포지셔닝 — 빈자리(white space)</h3>
+  <p>A군은 <b>범용·정성</b>에, B·C군은 <b>사람 모집</b>에, D군은 <b>근거 없음</b>에 묶여 있습니다. <b>「공식데이터로 grounding된, 검증 공개형, 아시아 진출 의사결정 엔진」</b>이라는 조합은 어느 군도 점유하지 않은 빈자리이며, Market Twin의 정의입니다.</p>
+  <div class="callout"><p><b>혁신성의 위치.</b> Gartner는 2025년 5월 "synthetic user research"를 신흥 카테고리로 규정했습니다. Market Twin은 이를 <b>정성 인터뷰 대체(A군)에서 → "go-to-market 의사결정 시뮬레이션"</b>으로 한 단계 끌어올린 최초 사례군에 속합니다. (5장 상술)</p></div>
+  <p class="small">* 경쟁사 특성은 각 사의 공개 웹사이트·자료(2026년 기준) 기반이며, 비교는 공개적으로 관찰 가능한 항목에 한정합니다.</p>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">11</div>
+</section>
+
+<!-- ===== P3B 구조적 한계 심층 (1/2) ===== -->
+<section class="page">
+  <div class="sec-no">02 · 경쟁 군별 구조적 한계 심층 (1/2)</div>
+  <h2>구조적 한계란 무엇인가</h2>
+  <p class="lead"><b>'구조적 한계'는 기능 하나가 빠진 것이 아니라, 그 서비스의 접근방식 자체에서 비롯되어 기능 추가로는 해소되지 않는 제약</b>을 뜻합니다. 아래는 4개 경쟁 군의 한계를 <b>왜 구조적인지</b>까지 분해한 것입니다.</p>
+
+  <h3>A. 글로벌 AI 합성리서치 <span class="small">(Synthetic Users · Yabble · Aaru 등)</span></h3>
+  <p class="small">정의: LLM으로 합성 응답자를 만들어 인터뷰·설문을 빠르게 수행하는 서비스군.</p>
+  <ul>
+    <li><b>① 근거(grounding) 부재:</b> 응답이 LLM의 사전학습 지식·확률분포에서 생성됩니다. 특정 국가의 실제 <b>무역량·검색수요·관세·규제</b>가 반영되지 않아, 그럴듯하지만 실측과 무관한 답이 나올 수 있고, 외부 공식데이터를 체계적으로 주입하는 파이프라인이 없습니다.</li>
+    <li><b>② 정성 산출물 → 의사결정 비약:</b> 결과가 인터뷰 인사이트라, "24개국 중 어디부터, 얼마에"라는 <b>정량·순위 결정으로 곧장 이어지지 않습니다.</b> 종합·판단은 고객 몫으로 남습니다.</li>
+    <li><b>③ 독립 검증(반증) 부재:</b> 정확도를 <b>자기보고 parity 수치</b>로 제시하는 경우가 많고, 과거 실제 사례를 hindsight로 재현해 <b>미스까지 공개하는 반증 가능한 검증</b>은 확인되지 않습니다.</li>
+    <li><b>④ 지역 특화 부재:</b> 글로벌 범용 설계라 한국→아시아 진출 특유의 <b>종교·할랄·기후·구매채널·가격 민감도</b> 같은 로컬 맥락이 얕습니다.</li>
+  </ul>
+  <p style="font-size:11.5px;"><b class="amb">왜 '구조적'인가:</b> 이들의 최적화 목표가 "정성 리서치를 빠르게 대체"이므로, 공식데이터 주입·정량 의사결정·지역 심화는 <b>아키텍처 우선순위에서 밀려</b> 있습니다. 기능 하나를 붙인다고 해소되지 않고 <b>설계 방향 자체의 전환</b>이 필요합니다.</p>
+  <p style="font-size:11.5px;"><b class="hl">→ Market Twin의 답:</b> 24개국 공식 데이터 grounding + 결정 산출물 + 백테스트·미스 공개 + 아시아 특화를 한 제품에 통합.</p>
+
+  <h3 style="margin-top:16px;">B. 전통 시장조사 <span class="small">(Kantar · Nielsen / 엠브레인 · 오픈서베이 등)</span></h3>
+  <p class="small">정의: 실제 소비자 패널을 모집해 설문·FGI로 조사하는 전통 리서치군.</p>
+  <ul>
+    <li><b>① 속도(4~8주):</b> 응답자 모집·필드워크·집계·리포팅에 수 주가 걸려, <b>진출 타이밍이나 빠른 가설 반복</b>을 따라가지 못합니다.</li>
+    <li><b>② 비용(수백만~수천만원):</b> 표본 확보 자체가 본질 원가라, 초기 스타트업엔 진입장벽이고 다국가 동시 조사엔 비현실적입니다.</li>
+    <li><b>③ 다국가 비교의 곱셈 비용:</b> 나라마다 별도 패널·별도 설계가 필요해, <b>24개국을 동일 잣대로 비교</b>하려면 시간·비용이 배수로 늘어 "어디부터?"를 한 번에 답하지 못합니다.</li>
+    <li><b>④ 정적 스냅샷:</b> 한 번 조사하면 고정되어, 가격·타깃 가정을 바꿔 재실행하는 <b>what-if 분석이 비쌉니다.</b></li>
+  </ul>
+  <p style="font-size:11.5px;"><b class="amb">왜 '구조적'인가:</b> 원가와 신뢰의 원천이 "실제 사람 모집"이라, <b>속도·비용·다국가 확장이 근본 제약</b>입니다. AI 보조를 얹어도 패널 의존은 남습니다.</p>
+  <p style="font-size:11.5px;"><b class="hl">→ Market Twin의 답:</b> 10분·수십만원으로 24개국을 동시 비교하고, 가정을 바꿔 즉시 재실행.</p>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">12</div>
+</section>
+
+<!-- ===== P3C 구조적 한계 심층 (2/2) ===== -->
+<section class="page">
+  <div class="sec-no">02 · 경쟁 군별 구조적 한계 심층 (2/2)</div>
+  <h2>구조적 한계 심층 (계속)</h2>
+
+  <h3>C. 실시간 인간 리서치 <span class="small">(Remesh · Wynter 등)</span></h3>
+  <p class="small">정의: 실제 인간 참여자를 AI가 실시간으로 진행·집계하는 하이브리드군.</p>
+  <ul>
+    <li><b>① 여전한 사람 모집 병목:</b> AI가 진행을 돕지만 <b>응답 주체는 인간</b>이라, 타깃 패널 섭외·비용·일정 제약이 그대로 남습니다.</li>
+    <li><b>② 확장성·즉시성 한계:</b> 다국가·대규모·즉시 실행에 약하고, 특정 시점에 원하는 세그먼트 패널을 충분히 확보하기 어렵습니다.</li>
+    <li><b>③ 사전(ex-ante) 검증 부적합:</b> 아직 시장에 없는 제품·컨셉을 <b>'가상으로' 미리 테스트하기 어렵습니다.</b> 실제 사람에게 물어야 하니 준비·모집이 선행돼야 합니다.</li>
+  </ul>
+  <p style="font-size:11.5px;"><b class="amb">왜 '구조적'인가:</b> 핵심 자산이 <b>인간 응답</b>이므로, 인간 패널의 확장성·속도·비용 제약을 그대로 물려받습니다.</p>
+  <p style="font-size:11.5px;"><b class="hl">→ Market Twin의 답:</b> 합성 소비자 200명 × 다중 시뮬로 <b>사람 모집 없이</b> 즉시·다국가·사전 검증.</p>
+
+  <h3 style="margin-top:16px;">D. 범용 LLM 직접활용 <span class="small">(ChatGPT 등에 페르소나 프롬프트)</span></h3>
+  <p class="small">정의: 범용 LLM에 "당신은 30대 소비자다"式 프롬프트로 직접 반응을 묻는 방식.</p>
+  <ul>
+    <li><b>① 근거 없음:</b> 공식데이터 주입 없이 프롬프트만 사용 → <b>환각·과도한 긍정 편향</b>, 특정 국가 실측과 무관한 답.</li>
+    <li><b>② 재현 불가:</b> 실행마다 답이 달라지고, <b>200명 분포·앙상블 집계가 없어</b> 통계적 안정성이 없습니다.</li>
+    <li><b>③ 검증 불가:</b> 정답 대비 채점·백테스트 프레임이 없어 <b>"얼마나 맞는지"를 알 수 없습니다.</b></li>
+    <li><b>④ 신뢰도 미표기:</b> STRONG/WEAK 같은 확신도가 없어 <b>언제 믿어야 할지 판단할 수 없습니다.</b></li>
+    <li><b>⑤ 단일 모델 편향:</b> 한 모델의 버릇이 그대로 반영되고 교차검증이 없습니다.</li>
+  </ul>
+  <p style="font-size:11.5px;"><b class="amb">왜 '구조적'인가:</b> 범용 도구라 '시장검증'에 필요한 <b>grounding·통계·검증·신뢰도 레이어가 설계에 아예 없습니다.</b> 사용자가 전부 직접 구축해야 하며, 그 순간 그것은 더 이상 'ChatGPT'가 아니라 Market Twin이 하는 일이 됩니다.</p>
+  <p style="font-size:11.5px;"><b class="hl">→ Market Twin의 답:</b> 이 레이어들(grounding·앙상블·백테스트·캘리브레이션)을 제품에 내장.</p>
+
+  <div class="callout"><p><b>종합.</b> A군은 <b>근거·검증</b>이, B·C군은 <b>사람 모집</b>이, D군은 <b>근거·검증·신뢰도</b>가 각각 '접근 방식 자체'에서 비어 있습니다. Market Twin은 이 빈자리들을 <b>하나의 아키텍처에 통합</b>했으며, 어느 한 경쟁군도 기능 추가만으로는 따라오기 어려운 이유가 여기에 있습니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">13</div>
+</section>
+
+<!-- ===== P4 비교 매트릭스 ===== -->
+<section class="page">
+  <div class="sec-no">03 · 경쟁 비교 매트릭스</div>
+  <h2>기능·기술 비교표</h2>
+  <p class="lead">공개적으로 관찰 가능한 10개 축에서 4개 경쟁 군과 비교합니다. Market Twin의 우위는 <b>개별 기능이 아니라 "조합"</b>에 있습니다.</p>
+  <table class="mt">
+    <tr><th>비교 축</th><th class="us">Market Twin</th><th>A. 글로벌 AI 합성</th><th>B. 전통 리서치</th><th>D. 범용 LLM</th></tr>
+    <tr><td>핵심 산출물</td><td class="us"><b>의사결정 리포트</b>(어디·얼마·누구)</td><td>인터뷰/설문 데이터</td><td>리포트(맞춤)</td><td>텍스트 답변</td></tr>
+    <tr><td>데이터 근거(grounding)</td><td class="us"><b>24개국 공식통계</b></td><td class="bad">LLM only</td><td>실제 표본</td><td class="bad">없음</td></tr>
+    <tr><td>추론 방법</td><td class="us"><b>다중 LLM 앙상블</b></td><td>단일 LLM(일반)</td><td>인간 응답</td><td>단일 LLM</td></tr>
+    <tr><td>신뢰도 표기</td><td class="us"><b>3등급 캘리브레이션</b></td><td class="bad">대체로 없음</td><td>신뢰구간</td><td class="bad">없음</td></tr>
+    <tr><td>검증 공개</td><td class="us"><b>hindsight 백테스트+미스공개</b></td><td class="amb">자기보고 수치</td><td>표본 통계</td><td class="bad">없음</td></tr>
+    <tr><td>과학적 통제</td><td class="us"><b>사전등록 코호트</b></td><td class="bad">미확인</td><td>표본설계</td><td class="bad">없음</td></tr>
+    <tr><td>지역 특화</td><td class="us"><b>한국→아시아 공식소스</b></td><td>글로벌 범용</td><td>지역별 상이</td><td>없음</td></tr>
+    <tr><td>속도</td><td class="us"><b>10분대</b></td><td>분 단위</td><td class="bad">2~8주</td><td>즉시</td></tr>
+    <tr><td>비용</td><td class="us"><b>수십만원대</b></td><td>중저가</td><td class="bad">수백만원+</td><td>저가</td></tr>
+    <tr><td>무결성 장치</td><td class="us"><b>범위밖 국가 채점차단 가드</b></td><td>미확인</td><td>—</td><td class="bad">없음</td></tr>
+  </table>
+  <div class="callout"><p><b>해석.</b> A·D군은 근거·검증·신뢰도에서, B군은 속도·비용·다국가 비교에서 구조적 약점이 있습니다. Market Twin은 <b>10개 축을 동시에 충족</b>하는 유일한 조합으로, 이 "조합의 희소성"이 곧 진입장벽입니다.</p></div>
+  <p class="small">bad(빨강)=해당 군의 구조적 부재, amb(주황)=제한적. 경쟁 군 셀은 공개 정보 기준 일반화이며, 개별 사업자별 차이가 있을 수 있습니다.</p>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">14</div>
+</section>
+
+<!-- ===== P5 차별축 1·2 ===== -->
+<section class="page">
+  <div class="sec-no">04 · 기술 차별성 (1/3)</div>
+  <h2>차별축 ① 공식데이터 Grounding</h2>
+  <p class="lead">경쟁 AI 합성리서치가 <b>LLM의 사전지식에만</b> 의존하는 반면, Market Twin은 <b>24개국의 실제 공식 통계</b>를 시뮬레이션에 주입합니다.</p>
+  <h4>주입되는 공개 공식 소스 (모두 제3자 검증 가능)</h4>
+  <table>
+    <tr><th>범주</th><th>소스</th><th>용도</th></tr>
+    <tr><td>무역</td><td>UN Comtrade (원산지 동적)</td><td>양국 교역 실적·수출 적합성</td></tr>
+    <tr><td>거시</td><td>World Bank (8개 지표)</td><td>소득·인터넷·도시화·물류 등</td></tr>
+    <tr><td>수요</td><td>국가별 검색량·소셜 버즈</td><td>실시간 관심·수요 신호</td></tr>
+    <tr><td>제도</td><td>WITS 관세 · WGI 거버넌스</td><td>진입비용·규제 리스크</td></tr>
+    <tr><td>국가공식</td><td>SEC EDGAR·openFDA·EDINET·Companies House·DART·식약처·KOTRA</td><td>기업·인증·산업 근거</td></tr>
+    <tr><td>문화</td><td>Hofstede 문화차원</td><td>소비 성향 보정</td></tr>
+  </table>
+  <div class="ev-box"><span class="lab">객관적 근거</span><p>위 소스는 전부 <b>공개 데이터</b>입니다. 심사위원이 임의 국가·품목으로 직접 대조해 grounding의 실재를 확인할 수 있습니다. "근거 있는 시뮬레이션"임을 <b>독립적으로 검증 가능</b>합니다.</p></div>
+
+  <h2 style="margin-top:18px;">차별축 ② 다중 LLM 앙상블 + 신뢰도 캘리브레이션</h2>
+  <p>단일 모델의 편향을 제거하기 위해 <b>200명 페르소나 × 다중 시뮬레이션 × 복수 LLM 제공자</b>(Anthropic·OpenAI·DeepSeek)를 교차 실행하고 중앙값으로 집계합니다.</p>
+  <table>
+    <tr><th>신뢰도</th><th>부여 조건(정량)</th><th>산출물 동작</th></tr>
+    <tr><td><b class="ok">STRONG</b></td><td>제공자 간 합의 <b>AND</b> 1–2위 득표차 ≥ 25%p</td><td>단일 시장 확정 추천</td></tr>
+    <tr><td><b class="hl">MODERATE</b></td><td>우세하나 마진 보통</td><td><b>top-2 후보</b> 제시</td></tr>
+    <tr><td><b class="bad">WEAK</b></td><td>접전·불확실</td><td>"단독 신뢰 금지" 경고</td></tr>
+  </table>
+  <div class="ev-box"><span class="lab">객관적 근거</span><p>신뢰도 규칙이 <b>정량 임계값</b>으로 정의돼 있어(감이 아님) 재현 가능합니다. 이 캘리브레이션은 과신(STRONG의 실제 적중률이 낮던 문제)을 백테스트로 발견해 도입한 것으로, <b>기술적 성숙도의 증거</b>입니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">15</div>
+</section>
+
+<!-- ===== P6 차별축 3 백테스트 ===== -->
+<section class="page">
+  <div class="sec-no">04 · 기술 차별성 (2/3) — 핵심 객관 근거</div>
+  <h2>차별축 ③ Hindsight 백테스트 + 미스 공개</h2>
+  <p class="lead">이것이 경쟁사와 가장 크게 갈리는 지점입니다. 경쟁사가 <b>자기보고 정확도</b>를 제시할 때, Market Twin은 <b>실제 과거 진출 결정을 재현한 성적표</b>를 미스까지 공개합니다.</p>
+  <div class="grid g3" style="margin:10px 0;">
+    <div class="card ev"><span class="pill">Top-2 추천</span><div class="num" style="margin-top:6px;">68%</div><div class="kicker">실제 승리 시장이 추천 2곳 안 (13/19)</div></div>
+    <div class="card ev"><span class="pill">Top-3 고려군</span><div class="num" style="margin-top:6px;">74%</div><div class="kicker">3곳 안 (14/19)</div></div>
+    <div class="card accent"><span class="pill">단일확정 top-1</span><div class="num" style="margin-top:6px;">47%</div><div class="kicker">랜덤(1/10)의 ≈4.7배</div></div>
+  </div>
+  <h4>방법론 — 왜 이 수치가 '객관적'인가 (기술성 판단 근거)</h4>
+  <ul>
+    <li><b>과거정보 차단(hindsight control):</b> 각 브랜드의 실제 결정 시점으로 되돌려, <b>그 당시 공개된 정보만</b> 입력. 미래 정보 유입을 차단.</li>
+    <li><b>정답 정의:</b> "첫 진입"이 아니라 <b>실제로 가장 오래·크게 성공한 시장</b>(지속 매출 기준)으로 고정.</li>
+    <li><b>채점 기준:</b> top-1/2/3 적중, origin(자국) 제외, 표본 N=19 · 11개 origin · 5개 카테고리.</li>
+    <li><b>범위 통제:</b> 지원 24개국 밖 결과(SE·NG·HK)는 out-of-scope로 제외 — <b>코드 가드로 자동 차단</b>.</li>
+    <li><b>반증 공개:</b> 5건의 오답(Kundal·Glico·Krating·Oishi·Shake Shack)을 브랜드명까지 명시.</li>
+  </ul>
+  <div class="ev-box"><span class="lab">객관적 근거</span><p>방법·표본·정답정의·채점·오답이 <b>모두 명시</b>되어 있어, 제3자가 동일 방법으로 <b>재현·반증</b>할 수 있습니다. 유리한 코호트를 선별하지 않았으며, 이는 자기보고 parity 수치와 질적으로 다른 <b>과학적 근거</b>입니다.</p></div>
+  <div class="quote">"100% 맞는다고 주장하는 도구가 아니라, <b>어디서 얼마나 틀리는지 공개</b>하는 도구가 신뢰의 대상입니다. 이 정직성 자체가 복제하기 어려운 경쟁우위입니다."</div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">16</div>
+</section>
+
+<!-- ===== P7 백테스트 상세표 ===== -->
+<section class="page">
+  <div class="sec-no">04 · 기술 차별성 — 백테스트 원자료</div>
+  <h2>백테스트 상세 (N=19, 전건 공개)</h2>
+  <p class="lead"><b class="ok">O</b>=실제 시장이 추천 top-2 / <b class="hl">△</b>=top-3 / <b class="bad">X</b>=미스. 오답을 포함해 <b>19건 전부</b>를 공개합니다.</p>
+  <table>
+    <tr><th>브랜드</th><th>Origin</th><th>카테고리</th><th>실제 시장</th><th>모델 top-3</th><th>순위</th><th>판정</th></tr>
+    <tr><td>Medicube</td><td>KR</td><td>beauty</td><td><b>US</b></td><td>US · SG · TH</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>Kundal</td><td>KR</td><td>beauty</td><td><b>ID</b></td><td>US · SG · VN</td><td>4</td><td class="bad">X</td></tr>
+    <tr><td>Five Guys</td><td>US</td><td>food</td><td><b>GB</b></td><td>GB · AU · JP</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>shiro</td><td>JP</td><td>beauty</td><td><b>TW</b></td><td>US · TW · KR</td><td>2</td><td class="ok">O</td></tr>
+    <tr><td>Meet More</td><td>VN</td><td>beverage</td><td><b>KR</b></td><td>US · KR · SG</td><td>2</td><td class="ok">O</td></tr>
+    <tr><td>Wardah</td><td>ID</td><td>beauty</td><td><b>MY</b></td><td>MY · PH · TH</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>Yopokki</td><td>KR</td><td>food</td><td><b>JP</b></td><td>US · JP · SG</td><td>2</td><td class="ok">O</td></tr>
+    <tr><td>Jinro</td><td>KR</td><td>beverage</td><td><b>JP</b></td><td>JP · US · TW</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>Kleannara</td><td>KR</td><td>wellness</td><td><b>SG</b></td><td>SG · JP · US</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>Native</td><td>US</td><td>beauty</td><td><b>CA</b></td><td>CA · GB · AU</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>Glico Pocky</td><td>JP</td><td>food</td><td><b>TH</b></td><td>TW · US · SG</td><td>6</td><td class="bad">X</td></tr>
+    <tr><td>Bulk Homme</td><td>JP</td><td>beauty</td><td><b>TW</b></td><td>KR · TW · US</td><td>2</td><td class="ok">O</td></tr>
+    <tr><td>Krating Daeng</td><td>TH</td><td>beverage</td><td><b>SG</b></td><td>ID · PH · MY</td><td>5</td><td class="bad">X</td></tr>
+    <tr><td>Oishi</td><td>PH</td><td>food</td><td><b>CN</b></td><td>ID · VN · SG</td><td>8</td><td class="bad">X</td></tr>
+    <tr><td>OldTown</td><td>MY</td><td>beverage</td><td><b>SG</b></td><td>SG · TW · ID</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>Anker</td><td>CN</td><td>electronics</td><td><b>US</b></td><td>US · GB · DE</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>Tony's Chocolonely</td><td>NL</td><td>food</td><td><b>US</b></td><td>US · GB · DE</td><td>1</td><td class="ok">O</td></tr>
+    <tr><td>Shake Shack</td><td>US</td><td>food</td><td><b>AE</b></td><td>GB · AU · MX</td><td>7</td><td class="bad">X</td></tr>
+    <tr><td>Kopiko</td><td>ID</td><td>beverage</td><td><b>PH</b></td><td>MY · TH · PH</td><td>3</td><td class="hl">△</td></tr>
+  </table>
+  <p class="small">집계: <b>Top-2 13/19 = 68%</b> · Top-3 14/19 = 74% · Top-1 9/19 = 47%. origin 국가는 랭킹 제외, 지원 24개국 밖 실제시장은 out-of-scope 제외.</p>
+  <div class="ev-box"><span class="lab">객관적 근거</span><p>이 표는 <b>브랜드·정답·예측·순위를 전건 노출</b>합니다. 각 브랜드의 실제 최대 해외시장은 공개 정보로 대조할 수 있으므로, 심사위원이 <b>직접 채점을 재현</b>할 수 있습니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">17</div>
+</section>
+
+<!-- ===== P8 차별축 4·5 ===== -->
+<section class="page">
+  <div class="sec-no">04 · 기술 차별성 (3/3)</div>
+  <h2>차별축 ④ 사전등록 전향적 검증 코호트</h2>
+  <p class="lead">백테스트(과거)만으로는 부족합니다. Market Twin은 <b>미래 결과로도 검증</b>하기 위해, 실제 진출을 앞둔 <b>브랜드 15곳의 예측을 사전에 동결</b>했습니다.</p>
+  <ul>
+    <li><b>사전등록(pre-registration):</b> 2026년 7월, 15개 실브랜드의 top-1·top-3·신뢰도 예측을 <b>git 커밋 + DB에 동결</b> — 결과가 나온 뒤 목표를 바꿀 수 없음.</li>
+    <li><b>정답 확정 시점:</b> 3~6개월 후 진입 시장 / 12개월 후 지속 시장을 실측해 채점.</li>
+    <li><b>과학적 의미:</b> 이는 임상시험식 <b>사전등록 설계</b>로, 사후 합리화를 원천 차단하는 <b>객관성 장치</b>입니다.</li>
+  </ul>
+  <div class="ev-box"><span class="lab">객관적 근거</span><p>예측이 <b>결과 발생 이전에 타임스탬프로 고정</b>되어 있어, 누구도 사후에 조작할 수 없는 <b>전향적 증거</b>가 됩니다. 경쟁 AI 서비스에서는 확인되지 않는 방법론입니다.</p></div>
+
+  <h2 style="margin-top:16px;">차별축 ⑤ '데이터'가 아니라 '의사결정'을 산출</h2>
+  <p>A군(글로벌 AI 합성)이 인터뷰 트랜스크립트를, B군(전통)이 설문 데이터를 주는 반면, Market Twin은 <b>"어느 시장에, 얼마에, 어떤 메시지로"</b>라는 실행 가능한 결정을 산출합니다.</p>
+  <div class="grid g2">
+    <div class="card"><h4>경쟁사 산출물</h4><p>인터뷰 요약·설문 응답 → <b>고객이 해석·결정해야 함</b></p></div>
+    <div class="card accent"><h4>Market Twin 산출물</h4><p>시장선택·가격·카피·리스크 <b>결정 리포트</b> → 바로 실행</p></div>
+  </div>
+  <div class="ev-box"><span class="lab">객관적 근거</span><p>산출물의 형태 차이는 제품 화면·리포트로 <b>직접 시연 가능</b>합니다(오픈 베타 라이브). "무엇을 파느냐"가 다르다는 것은 실물로 확인됩니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">18</div>
+</section>
+
+<!-- ===== P9 혁신성 ===== -->
+<section class="page">
+  <div class="sec-no">05 · 혁신성</div>
+  <h2>혁신성 입증 — 카테고리 최초성</h2>
+  <p class="lead">혁신성은 "더 나은 기능"이 아니라 <b>"새로운 카테고리를 정의했는가"</b>로 판단됩니다.</p>
+  <h3>① 카테고리 진화의 최전선</h3>
+  <ul>
+    <li>Gartner(2025.05)가 <b>"synthetic user research"</b>를 신흥 카테고리로 규정 — 시장이 이제 막 형성.</li>
+    <li>대다수 사업자는 <b>정성 UX 인터뷰 대체</b>에 머무름.</li>
+    <li>Market Twin은 이를 <b>"go-to-market 의사결정 시뮬레이션"</b>으로 확장 — <b>범용 리서치가 아닌 진출 결정 엔진</b>.</li>
+  </ul>
+  <h3>② 기술 조합의 신규성</h3>
+  <p>개별 요소가 아니라 <b>[공식데이터 grounding] × [다중 LLM 앙상블] × [신뢰도 캘리브레이션] × [백테스트 검증] × [아시아 특화]</b>의 결합이 신규합니다. 4장 매트릭스가 보여주듯 이 조합을 동시에 구현한 사업자는 확인되지 않습니다.</p>
+  <h3>③ 방법론적 혁신 — '정직성의 제품화'</h3>
+  <p>미스 공개·사전등록·범위밖 자동 차단 가드처럼, <b>검증 무결성을 제품과 코드에 내장</b>한 접근은 이 분야에서 드문 혁신입니다.</p>
+  <div class="ev-box"><span class="lab">객관적 근거</span><p>혁신성 주장은 ① 제3자 카테고리 정의(Gartner), ② 공개 비교표(4장)의 조합 희소성, ③ 라이브 제품에서 확인 가능한 무결성 장치로 뒷받침됩니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">19</div>
+</section>
+
+<!-- ===== P10 객관성 방법론 ===== -->
+<section class="page">
+  <div class="sec-no">06 · 객관성·기술성 판단 근거</div>
+  <h2>객관성 확보 방법론</h2>
+  <p class="lead">"기술성·객관성을 판단하기 어렵다"는 지적에, <b>판단 가능하도록 방법을 전부 공개</b>하는 것으로 답합니다.</p>
+  <table>
+    <tr><th style="width:26%">객관성 장치</th><th>내용</th><th>검증 방법</th></tr>
+    <tr><td><b>공개 데이터 grounding</b></td><td>24개국 공식 통계 주입</td><td>임의 국가·품목 직접 대조</td></tr>
+    <tr><td><b>Hindsight 통제</b></td><td>결정시점 이전 정보만 입력</td><td>방법론 명시 → 재현</td></tr>
+    <tr><td><b>정답 정의 고정</b></td><td>지속·최대 해외시장</td><td>공개 자료로 대조</td></tr>
+    <tr><td><b>미스 전건 공개</b></td><td>오답 5건 브랜드명 명시</td><td>7장 원자료</td></tr>
+    <tr><td><b>범위밖 자동 차단</b></td><td>지원 24개국만 채점(코드 가드)</td><td>제품 동작 시연</td></tr>
+    <tr><td><b>사전등록 코호트</b></td><td>예측을 결과 전 동결</td><td>타임스탬프 확인</td></tr>
+    <tr><td><b>정량 신뢰도 규칙</b></td><td>득표차 임계값 기반</td><td>규칙 재현</td></tr>
+  </table>
+  <div class="callout"><p><b>요지.</b> 우리는 "믿어달라"가 아니라 <b>"검증해 보라"</b>고 말합니다. 위 7개 장치는 모두 심사위원이 독립적으로 확인할 수 있으며, 이는 기술성·객관성을 <b>판단 가능하게 만드는</b> 근거 자체입니다.</p></div>
+  <p class="small">* 상세 재현 절차·데이터 소스 링크는 8장 근거 목록 및 별첨 백테스트 리포트 참조.</p>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">20</div>
+</section>
+
+<!-- ===== P11 사업 성장성 ===== -->
+<section class="page">
+  <div class="sec-no">07 · 사업 성장성</div>
+  <h2>기술 → 사업 성장성의 연결</h2>
+  <p class="lead">"해당 기술에 의한 사업 성장성" 지적에, 기술적 우위가 <b>어떻게 사업 성장으로 전환</b>되는지 인과로 제시합니다.</p>
+
+  <h3>① 복리로 강해지는 데이터 해자</h3>
+  <ul>
+    <li>실제 출시 결과를 축적하는 <b>outcome corpus</b> + 사전등록 코호트 → 시간이 갈수록 정확도·신뢰가 <b>복리로 상승</b>.</li>
+    <li>정확도↑ → 재구매·구독 유지율↑ → LTV↑ → 재투자 → 정확도↑ 의 <b>선순환</b>.</li>
+  </ul>
+  <h3>② 확장 가능한 원가 구조</h3>
+  <ul>
+    <li>origin-agnostic 엔진 → <b>어느 origin이든 24개국 대상</b>으로 확장, 시장 추가의 한계비용이 낮음.</li>
+    <li>중장기 <b>자체 인퍼런스·페르소나 전용모델 파인튜닝</b>(NVIDIA Inception 연계)으로 추론 원가↓ → 마진 개선.</li>
+  </ul>
+  <h3>③ 성장하는 상위 시장</h3>
+  <ul>
+    <li>글로벌 시장조사 + go-to-market SaaS를 AI가 대체하는 <b>신흥 고성장 카테고리</b>(Gartner 카테고리화).</li>
+    <li>K-뷰티·K-푸드 확산으로 <b>한국 브랜드의 아시아 진출 수요가 구조적으로 증가</b> — 초기 웨지의 순풍.</li>
+  </ul>
+  <div class="grid g3" style="margin:8px 0;">
+    <div class="card accent"><div class="num">해자</div><div class="kicker">데이터 복리 → 정확도·유지율</div></div>
+    <div class="card accent"><div class="num">원가</div><div class="kicker">확장성 + 자체 인퍼런스</div></div>
+    <div class="card accent"><div class="num">순풍</div><div class="kicker">카테고리 성장 + K-브랜드 진출</div></div>
+  </div>
+  <div class="ev-box"><span class="lab">객관적 근거</span><p>성장성의 출발점인 <b>기술 정확도(백테스트)·확장 구조(라이브 제품)·카테고리 성장(Gartner)</b>은 모두 앞 장에서 근거로 제시되었습니다. 성장 논리가 <b>검증된 사실 위에</b> 서 있습니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">21</div>
+</section>
+
+<!-- ===== P12 근거 목록 + 매핑 ===== -->
+<section class="page">
+  <div class="sec-no">08 · 검증 가능한 근거 목록 & 대응 매핑</div>
+  <h2>검증 가능한 근거 목록</h2>
+  <table>
+    <tr><th style="width:30%">근거</th><th>성격</th><th>확인 방법</th></tr>
+    <tr><td>백테스트 리포트(N=19)</td><td>재현·반증 가능</td><td>별첨 리포트 · 7장 원자료</td></tr>
+    <tr><td>24개국 공식 데이터 소스</td><td>제3자 검증</td><td>공개 통계 직접 대조</td></tr>
+    <tr><td>사전등록 코호트(15곳)</td><td>전향적 증거</td><td>타임스탬프(2026.07 동결)</td></tr>
+    <tr><td>라이브 제품(오픈 베타)</td><td>실물 시연</td><td>markettwin.ai 직접 사용</td></tr>
+    <tr><td>Gartner 카테고리(2025.05)</td><td>제3자 인정</td><td>공개 리포트</td></tr>
+    <tr><td>신뢰도 캘리브레이션 규칙</td><td>정량·재현</td><td>규칙 명세</td></tr>
+    <tr><td>범위밖 채점차단 가드</td><td>무결성</td><td>제품/코드 동작</td></tr>
+  </table>
+
+  <h2 style="margin-top:16px;">심사 지적사항별 최종 대응 매핑</h2>
+  <table>
+    <tr><th style="width:56%">지적사항</th><th>대응 근거 (통합본)</th></tr>
+    <tr><td>경쟁사 대비 기술 차별성·우위성 비교자료</td><td>PART II·3장 매트릭스 · PART I 아키텍처</td></tr>
+    <tr><td>객관적 근거 제시</td><td>각 축의 「객관적 근거」 박스 · PART II·8장 목록</td></tr>
+    <tr><td>차별성 확인 구체 자료</td><td>PART II·4장·백테스트 · PART III 베타</td></tr>
+    <tr><td>차별성·혁신성 입증</td><td>PART I 아키텍처 · PART II 4·5장</td></tr>
+    <tr><td>객관성·기술성 판단 근거</td><td>PART I 아키텍처 · PART II·6장 방법론</td></tr>
+    <tr><td>사업 성장성 근거</td><td>PART IV 사업 성장성 (매출·구독자 예측)</td></tr>
+    <tr><td>유사 AI 서비스 대비 우위</td><td>PART II 3·4장 · PART III 베타</td></tr>
+  </table>
+  <div class="quote">Market Twin의 차별성은 하나의 기능이 아니라, <b>「공식데이터 근거 × 다중 AI 앙상블 × 공개 검증 × 아시아 특화」의 조합</b>이며, 모든 주장은 <b>제3자가 검증·재현·반증할 수 있는 근거</b> 위에 있습니다.</div>
+  <div class="callout"><p><b>주식회사 미스터에이아이 (Mr.AI Inc.)</b> · 대표이사 이현우 · 제품 markettwin.ai · 문의 chris@markettwin.ai</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">22</div>
+</section>
+
+
+
+
+<!-- P1 COVER -->
+<section class="page cover">
+  <div>
+    <div class="eyebrow">PART III</div>
+    <h1>Market Twin<br>베타테스트 결과 자료</h1>
+    <p class="tag">실브랜드 <b style="color:#fff">르무통 · FRONT2LINE · Juicy Brix</b>의 실제 시뮬레이션 결과와 피드백. 각 사례가 Market Twin의 <b style="color:#fff">경쟁성·차별성</b>을 구체적으로 입증합니다.</p>
+    <div class="statrow">
+      <div><div class="n">3개 실브랜드</div><div class="l">패션(2)·소비재(1) 대표 베타</div></div>
+      <div><div class="n">공식데이터</div><div class="l">24개국 grounding 기반 결과</div></div>
+      <div><div class="n">신뢰도 공개</div><div class="l">MODERATE·WEAK까지 정직 표기</div></div>
+    </div>
+  </div>
+  <div class="metabox">
+    <p><b>주식회사 미스터에이아이 (Mr.AI Inc.)</b> · 대표이사 이현우</p>
+    <p>제품: markettwin.ai · 문의: chris@markettwin.ai · 2026</p>
+  </div>
+  <div class="pnum" style="color:#93c5fd;">23</div>
+</section>
+
+<!-- P2 개요 -->
+<section class="page">
+  <div class="sec-no">01 · 베타테스트 개요</div>
+  <h2>베타테스트 개요와 요약</h2>
+  <p class="lead">진출을 앞둔 실브랜드가 Market Twin으로 <b>"어느 시장·얼마·누구에게"</b>를 검증했습니다. 대표 3개 사례를 통해 제품의 실효성과 차별성을 입증합니다.</p>
+  <h3>3개 대표 베타 요약</h3>
+  <table>
+    <tr><th style="width:16%">브랜드</th><th>제품</th><th>후보 시장</th><th>추천(top-2)</th><th>신뢰도</th></tr>
+    <tr><td><b>르무통</b></td><td>메리노 울 스니커</td><td>JP·TW·DE·FR·US·SG</td><td><b>JP + TW</b></td><td><span class="badge b-mod">MODERATE</span></td></tr>
+    <tr><td><b>FRONT2LINE</b></td><td>어패럴</td><td>JP·TW·US·DE·FR·SG·TH</td><td><b>TW + SG</b></td><td><span class="badge b-weak">WEAK</span></td></tr>
+    <tr><td><b>Juicy Brix</b></td><td>Y2K 팟 시스템</td><td>동아시아·북미·유럽</td><td><b>FR + GB</b></td><td><span class="badge b-mod">MODERATE</span></td></tr>
+  </table>
+  <h3>각 사례가 입증하는 차별성 (한눈에)</h3>
+  <div class="grid g3">
+    <div class="card ev"><h4>르무통 → 검증·속도</h4><p>이미 진출한 일본을 데이터로 <b>재확인</b>하고 다음 시장(대만) 지목 → 의사결정 속도.</p></div>
+    <div class="card ev"><h4>FRONT2LINE → 정직성</h4><p>접전 시장에 <b>WEAK 경고</b> → 과신 방지·리스크 회피. 경쟁 도구엔 없는 안전장치.</p></div>
+    <div class="card ev"><h4>Juicy Brix → grounding</h4><p>직관(미국·동아시아)을 뒤집고 <b>공식데이터로 프랑스</b> 발견. ChatGPT식 답과 차별.</p></div>
+  </div>
+  <div class="callout"><p><b>경쟁성·차별성의 핵심.</b> 세 사례 모두 ① <b>24개국 공식데이터 grounding</b>(근거 있는 결과), ② <b>신뢰도 캘리브레이션</b>(MODERATE·WEAK 정직 표기), ③ <b>즉시 실행 가능한 의사결정 산출물</b>이라는, 유사 AI 서비스·전통 리서치·범용 LLM 어디에도 함께 없는 조합을 실증합니다. (상세 비교는 별첨 「기술 차별성·경쟁우위 입증자료」)</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">24</div>
+</section>
+
+<!-- P3 CASE 1 르무통 -->
+<section class="page">
+  <div class="sec-no">02 · 베타 사례 ① </div>
+  <h2>르무통 (Le Mouton) <span class="en">· 메리노 울 스니커 · 대한민국</span></h2>
+  <div class="grid g2">
+    <div class="card"><h4>시뮬레이션 입력</h4><p><b>제품:</b> 메리노 울 스니커 (지속가능 소재 D2C)</p><p><b>기준가:</b> 약 150 USD</p><p><b>후보 시장:</b> 일본·대만·독일·프랑스·미국·싱가포르</p></div>
+    <div class="card accent"><h4>결과 <span class="badge b-mod" style="float:right;">MODERATE</span></h4><p><b>추천(top-2):</b> 일본(JP) + 대만(TW)</p><p><b>top-3:</b> TW · SG · JP</p><p><b>제공자 간 합의:</b> 크로스모델 67% (2개 이상 AI 일치)</p></div>
+  </div>
+  <h3>국가별 적합도 점수</h3>
+  <table>
+    <tr><th>순위</th><th>시장</th><th class="r">점수</th><th>해석</th></tr>
+    <tr><td>1</td><td><b>대만 TW</b></td><td class="r hl">69.4</td><td>K-패션 친화·낮은 진입난이도</td></tr>
+    <tr><td>2</td><td><b>싱가포르 SG</b></td><td class="r">68.6</td><td>프리미엄 소비·영어권 허브</td></tr>
+    <tr><td>3</td><td><b>일본 JP</b></td><td class="r">68.4</td><td>대형 시장·품질 소비</td></tr>
+    <tr><td>4~</td><td>US 60.6 · FR 58.2 …</td><td class="r"></td><td>상대적 후순위</td></tr>
+  </table>
+  <p><b>인사이트:</b> 아시아 3개 시장이 <b>1점 이내 초접전</b>이라, 엔진은 단일 시장으로 단정하지 않고 <b>일본+대만 2곳</b>을 우선 제시했습니다(MODERATE). 이는 <b>일본 강화 + 대만 우선 확장</b>의 2단계 진출 전략을 시사합니다.</p>
+  <div class="quote">"이미 <b>일본에 진출</b>해 있는 우리의 판단을 데이터로 재확인받았고, 다음 확장지로 <b>대만</b>을 명확히 지목받았습니다. 수 주가 걸리던 시장조사를 10분으로 대체해 의사결정 속도가 크게 빨라졌습니다." <br><b>— 르무통 베타 참여 피드백</b></div>
+  <div class="diff"><span class="lab">경쟁성·차별성</span><p><b>실제 진출(일본)과 시뮬 결과가 부합</b>해 엔진 신뢰도를 스스로 검증했고, 초접전을 <b>MODERATE·top-2로 정직하게</b> 표기했습니다. 범용 LLM이라면 근거 없이 한 곳을 단정했을 상황을, <b>공식데이터 근거 + 신뢰도 표기</b>로 안전하게 안내한 점이 차별점입니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">25</div>
+</section>
+
+<!-- P4 CASE 2 FRONT2LINE -->
+<section class="page">
+  <div class="sec-no">02 · 베타 사례 ②</div>
+  <h2>FRONT2LINE <span class="en">· 어패럴 · 대한민국</span></h2>
+  <div class="grid g2">
+    <div class="card"><h4>시뮬레이션 입력</h4><p><b>제품:</b> 컨템포러리 어패럴</p><p><b>기준가:</b> 약 90 USD</p><p><b>후보 시장:</b> 일본·대만·미국·독일·프랑스·싱가포르·태국</p></div>
+    <div class="card accent"><h4>결과 <span class="badge b-weak" style="float:right;">WEAK</span></h4><p><b>추천(top-2):</b> 대만(TW) + 싱가포르(SG)</p><p><b>top-3:</b> SG · TW · JP</p><p><b>제공자 간 합의:</b> 단일 provider 50% (합의 낮음)</p></div>
+  </div>
+  <h3>국가별 적합도 점수</h3>
+  <table>
+    <tr><th>순위</th><th>시장</th><th class="r">점수</th><th>해석</th></tr>
+    <tr><td>1</td><td><b>싱가포르 SG</b></td><td class="r hl">67.4</td><td>영어권 허브·프리미엄</td></tr>
+    <tr><td>2</td><td><b>대만 TW</b></td><td class="r">66.2</td><td>K-패션 친화</td></tr>
+    <tr><td>3</td><td><b>일본 JP</b></td><td class="r">65.9</td><td>대형 시장</td></tr>
+    <tr><td>4~</td><td>US 64.3 · DE 59.4 …</td><td class="r"></td><td>미국도 근접</td></tr>
+  </table>
+  <p><b>인사이트:</b> 상위 4개 시장이 <b>1.5점 이내 극접전</b>이고 AI 제공자 간 합의도 낮아, 엔진은 <b>WEAK("단독 신뢰 금지")</b> 신호를 냈습니다. "지금은 한 곳으로 단정하지 말고, 후보 2~3곳에 <b>소액 실검증을 병행</b>하라"는 의미입니다.</p>
+  <div class="quote">"흥미로운 건, AI가 스스로 <b>'확실하지 않다(WEAK)'</b>고 솔직히 알려준 점이었습니다. 덕분에 무리한 단일 진출 대신 <b>대만·싱가포르 병행 소규모 테스트</b>로 방향을 잡았습니다. 과신하는 다른 도구와 정반대였습니다." <br><b>— FRONT2LINE 베타 참여 피드백</b></div>
+  <div class="diff"><span class="lab">경쟁성·차별성</span><p><b>신뢰도 캘리브레이션(WEAK 경고)</b>은 범용 LLM(ChatGPT)이나 자기보고 정확도만 내세우는 경쟁 서비스에 <b>없는 안전장치</b>입니다. "틀릴 수 있는 상황을 틀릴 수 있다고 말하는" 정직성이 고객의 <b>진출 리스크를 실제로 낮춘</b> 사례입니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">26</div>
+</section>
+
+<!-- P5 CASE 3 Juicy Brix -->
+<section class="page">
+  <div class="sec-no">02 · 베타 사례 ③</div>
+  <h2>Juicy Brix (주시 브릭스) <span class="en">· Y2K 팟 시스템 · 대한민국</span></h2>
+  <div class="grid g2">
+    <div class="card"><h4>시뮬레이션 입력</h4><p><b>제품:</b> Y2K 디자인 리필형 팟 시스템 (Z세대 라이프스타일)</p><p><b>기준가:</b> 키트 약 40 USD</p><p><b>후보 시장:</b> 동아시아·북미·유럽 (US·JP·FR·GB·DE·ID 등)</p></div>
+    <div class="card accent"><h4>결과 <span class="badge b-mod" style="float:right;">MODERATE</span></h4><p><b>추천(top-2):</b> 프랑스(FR) + 영국(GB)</p><p><b>top-3:</b> FR · GB · ID</p><p><b>1–2위 격차:</b> 약 8점 (뚜렷한 1위)</p></div>
+  </div>
+  <h3>국가별 적합도 점수</h3>
+  <table>
+    <tr><th>순위</th><th>시장</th><th class="r">점수</th><th>해석</th></tr>
+    <tr><td>1</td><td><b>프랑스 FR</b></td><td class="r hl">68.4</td><td>유럽 도시 Z세대·디자인 감도</td></tr>
+    <tr><td>2</td><td><b>영국 GB</b></td><td class="r">60.1</td><td>도시 나이트라이프·트렌드</td></tr>
+    <tr><td>3</td><td><b>인도네시아 ID</b></td><td class="r">58.6</td><td>대형 신흥 도시 소비층</td></tr>
+    <tr><td>4~</td><td>JP 54.2 · DE 50.9 …</td><td class="r"></td><td>예상 대비 후순위</td></tr>
+  </table>
+  <p><b>인사이트:</b> 브랜드는 미국·동아시아를 먼저 떠올렸으나, 엔진은 <b>프랑스를 8점 차의 뚜렷한 1위</b>로 제시했습니다. Y2K 디자인·향 팟이 <b>유럽 도시 Z세대</b>에 강하게 적합하다는, <b>직관을 뒤집는 데이터 기반 발견</b>입니다.</p>
+  <div class="quote">"우리는 미국·동아시아를 먼저 떠올렸는데, 시뮬레이션은 <b>공식 무역·수요 데이터에 근거해 프랑스를 뚜렷한 1순위</b>로 제시했습니다. 근거가 명확해 설득력이 있었고, <b>유럽 진출 우선순위를 재고</b>하게 됐습니다." <br><b>— Juicy Brix 베타 참여 피드백</b></div>
+  <div class="diff"><span class="lab">경쟁성·차별성</span><p><b>24개국 공식데이터 grounding</b>이 있었기에 "직관과 다르지만 <b>근거 있는</b>" 인사이트를 낼 수 있었습니다. 근거 없이 그럴듯한 답을 내는 범용 LLM이라면 <b>예상대로 미국·동아시아를 답했을</b> 상황을, 데이터로 뒤집어 <b>새로운 기회 시장을 발굴</b>한 결정적 차별 사례입니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">27</div>
+</section>
+
+<!-- P6 종합 -->
+<section class="page">
+  <div class="sec-no">03 · 종합</div>
+  <h2>종합 — 베타가 입증한 경쟁성·차별성</h2>
+  <p class="lead">세 사례는 각기 다른 각도에서 Market Twin이 유사 서비스 대비 <b>구조적으로 우월</b>함을 실증합니다.</p>
+  <table>
+    <tr><th style="width:16%">사례</th><th>입증한 차별성</th><th>경쟁 도구였다면</th></tr>
+    <tr><td><b>르무통</b></td><td>실제 진출과 부합하는 <b>검증된 정확도</b> + 의사결정 속도</td><td>근거 없이 한 곳 단정 / 수 주 소요</td></tr>
+    <tr><td><b>FRONT2LINE</b></td><td><b>신뢰도 캘리브레이션(WEAK)</b>으로 과신 방지·리스크 회피</td><td>확신 없이 확신처럼 답변</td></tr>
+    <tr><td><b>Juicy Brix</b></td><td><b>공식데이터 grounding</b>으로 직관 뒤집은 기회 발굴</td><td>예상대로 미국·동아시아 답변</td></tr>
+  </table>
+  <h3>세 사례가 공통으로 입증한 3대 경쟁우위</h3>
+  <div class="grid g3">
+    <div class="card accent"><h4>① 근거(Grounding)</h4><p>24개국 공식통계 기반 → "그럴듯한 답"이 아닌 <b>검증 가능한 결과</b></p></div>
+    <div class="card accent"><h4>② 정직성(신뢰도)</h4><p>MODERATE·WEAK까지 표기 → <b>과신 방지</b>·리스크 회피</p></div>
+    <div class="card accent"><h4>③ 의사결정 산출물</h4><p>시장·가격·우선순위를 <b>즉시 실행 가능</b>하게 제시</p></div>
+  </div>
+  <div class="callout"><p><b>사업적 의미.</b> 실브랜드가 베타에서 실제 진출 의사결정에 활용했다는 것은, 정식 출시 시 <b>유료 전환·지불의사의 직접 증거</b>입니다. 이는 별첨 「사업 성장성 예측 자료」의 초기 고객 가정을 뒷받침합니다. 세 사례에서 드러난 경쟁성·차별성의 상세 비교는 「기술 차별성·경쟁우위 입증자료」를 참조하십시오.</p></div>
+  <p class="small">* 시뮬레이션 결과는 각 브랜드의 실제 베타 실행 데이터(24개국 공식데이터 grounding·다중 LLM 앙상블)이며, 피드백은 베타 참여 브랜드의 활용 소감을 정리한 것입니다.</p>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">28</div>
+</section>
+
+
+
+
+<!-- P1 COVER -->
+<section class="page cover">
+  <div>
+    <div class="eyebrow">PART IV</div>
+    <h1>Market Twin<br>사업 성장성 예측 자료</h1>
+    <p class="tag">2027년 상반기 정식 출시를 가정한 <b style="color:#fff">3개년 매출·구독자 성장 예측</b>과 그 근거. 베타 실증·상향식(bottom-up) 퍼널·SaaS 벤치마크에 기반합니다.</p>
+    <div class="statrow">
+      <div><div class="n">1.5억→29억</div><div class="l">매출 (2027→2029, 연간 인식)</div></div>
+      <div><div class="n">55→450</div><div class="l">유료 고객 (연말 기준)</div></div>
+      <div><div class="n">48억</div><div class="l">2029년말 ARR</div></div>
+    </div>
+  </div>
+  <div class="metabox">
+    <p><b>주식회사 미스터에이아이 (Mr.AI Inc.)</b> · 대표이사 이현우</p>
+    <p>제품: markettwin.ai · 문의: chris@markettwin.ai · 2026</p>
+  </div>
+  <div class="pnum" style="color:#93c5fd;">29</div>
+</section>
+
+<!-- P2 요약 -->
+<section class="page">
+  <div class="sec-no">01 · 요약</div>
+  <h2>성장성 예측 요약</h2>
+  <p class="lead">이미 오픈베타로 검증된 제품을 <b>2027년 상반기 정식 출시</b>한다는 가정 하에, 베타 실증과 상향식 고객 퍼널을 근거로 3개년 성장을 예측했습니다.</p>
+  <div class="grid g3" style="margin:12px 0;">
+    <div class="card accent"><div class="num">1.5 → 29억</div><div class="kicker">연간 매출 (2027 → 2029)</div></div>
+    <div class="card accent"><div class="num">≈300%</div><div class="kicker">매출 CAGR (3개년)</div></div>
+    <div class="card accent"><div class="num">55 → 450</div><div class="kicker">유료 고객 수 (연말)</div></div>
+  </div>
+  <h3>예측의 3대 근거 (자세히는 6장)</h3>
+  <table>
+    <tr><th style="width:22%">근거</th><th>내용</th></tr>
+    <tr><td><b>① 베타 실증</b></td><td>르무통·FRONT2LINE·Juicy Brix 등 실브랜드가 베타에서 진출 의사결정에 활용 → 유료 전환 가능성·지불의사 확인 (별첨 베타테스트 자료)</td></tr>
+    <tr><td><b>② 상향식 퍼널</b></td><td>인바운드(PLG)·파트너(대행사·수출지원기관·액셀러레이터)·엔터프라이즈 3개 채널의 월별 신규 유입 − 이탈로 고객 수 산출</td></tr>
+    <tr><td><b>③ 시장·벤치마크</b></td><td>K-브랜드 해외진출 수요 증가 + 합성 리서치 신흥 카테고리(Gartner) + B2B SaaS 표준 지표(전환율·이탈·NRR)</td></tr>
+  </table>
+  <div class="callout"><p><b>핵심.</b> 본 예측은 희망 수치가 아니라, <b>이미 작동하는 제품 + 실브랜드 베타 실증 + 검증된 SaaS 지표</b>에 근거한 상향식 모델입니다. 초기 침투율은 서비스 가능 시장(SAM)의 <b>1% 미만</b>으로, 상방 여력이 큽니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">30</div>
+</section>
+
+<!-- P3 시장기회 -->
+<section class="page">
+  <div class="sec-no">02 · 시장 기회 & 성장 동력</div>
+  <h2>시장 기회와 성장 동력</h2>
+  <p class="lead">성장은 세 가지 구조적 순풍 위에 서 있습니다 — 수요 증가, 카테고리 형성, 비용 압박.</p>
+  <div class="grid g3">
+    <div class="card"><h4>① K-브랜드 진출 수요</h4><p>K-뷰티·K-푸드·K-패션 확산으로 한국 소비재 브랜드의 <b>해외진출이 구조적으로 증가</b>. 진출 전 검증 수요가 상수화.</p></div>
+    <div class="card"><h4>② 신흥 카테고리</h4><p>Gartner(2025.05)가 '합성 리서치'를 신흥 카테고리로 규정 — <b>초기 형성 시장</b>에 선점 진입.</p></div>
+    <div class="card"><h4>③ 비용 압박</h4><p>경기 둔화로 기업이 <b>느리고 비싼 리서치의 저가·고속 대안</b>을 적극 탐색.</p></div>
+  </div>
+  <h3>시장 규모 (SAM·SOM)</h3>
+  <table>
+    <tr><th style="width:16%">구분</th><th>정의</th><th style="width:26%">규모(추정)</th></tr>
+    <tr><td><b>SAM</b></td><td>신제품·해외진출 의사결정 리서치 + 합성 리서치</td><td>수십억 달러·고성장</td></tr>
+    <tr><td><b>SOM(초기)</b></td><td>한국·아시아 소비재 브랜드 진출검증 + 스타트업 콘셉트테스트 + 대행사</td><td class="hl">국내만 수천 개 브랜드</td></tr>
+  </table>
+  <p class="small">국내 소비재·D2C·스타트업만 해도 진출·콘셉트 검증 수요 기업이 <b>수천 곳</b>에 이릅니다. 2029년 목표 유료고객 450곳은 이 중 <b>극히 일부(1% 미만)</b>로, 목표의 보수성을 뒷받침합니다.</p>
+  <div class="callout"><p><b>왜 지금(2027 상반기) 출시인가.</b> ① 제품이 이미 오픈베타로 검증 완료, ② origin-agnostic 엔진·커머스 데이터 결합 등 정식출시 기능이 2026 하반기~2027 상반기 완비, ③ 베타 파이프라인(코호트 15곳·명명 베타 3곳)이 초기 유료 전환 기반을 형성.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">31</div>
+</section>
+
+<!-- P4 수익모델 -->
+<section class="page">
+  <div class="sec-no">03 · 수익 모델 & 가격</div>
+  <h2>수익 모델과 ARPU 근거</h2>
+  <p class="lead">단건 리포트와 구독의 이중 구조로, 진입장벽은 낮추고 반복매출은 키웁니다. 가격 앵커는 인터뷰 단가가 아니라 <b>진출 컨설팅 리포트(수백만~수천만원)</b>입니다.</p>
+  <table>
+    <tr><th>모델</th><th>대상</th><th style="width:20%">가격(원)</th><th>비중 추이</th></tr>
+    <tr><td><b>리포트 단건</b></td><td>스타트업·중소 브랜드</td><td>건당 30만원대</td><td>초기 30% → 15%</td></tr>
+    <tr><td><b>Starter 구독</b></td><td>브랜드</td><td>월 39만원</td><td>구독의 다수</td></tr>
+    <tr><td><b>Growth 구독</b></td><td>성장 브랜드·대행사</td><td>월 99만원</td><td>확대</td></tr>
+    <tr><td><b>Enterprise</b></td><td>대기업·MNC 아시아HQ</td><td>월 300만원~</td><td>후기 매출 견인</td></tr>
+  </table>
+  <h3>블렌디드 ARPU 가정 (월, 원)</h3>
+  <table>
+    <tr><th>연도</th><th class="r">2027</th><th class="r">2028</th><th class="r">2029</th><th>근거</th></tr>
+    <tr><td><b>블렌디드 ARPU</b></td><td class="r">55만</td><td class="r">68만</td><td class="r">88만</td><td>구독 mix 상승 + Enterprise 편입 + 리포트 애드온</td></tr>
+  </table>
+  <div class="callout"><p><b>단위경제.</b> 변동비 핵심은 LLM 추론비로, 티어별 예산 상한을 코드에 내장해 <b>건별 원가를 통제</b>합니다. 중장기 자체 인퍼런스·파인튜닝(NVIDIA Inception)으로 추론 원가를 낮춰 마진을 개선합니다. → 고객이 늘수록 데이터·정확도가 쌓이는 <b>복리 구조</b>.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">32</div>
+</section>
+
+<!-- P5 구독자 성장 -->
+<section class="page">
+  <div class="sec-no">04 · 구독자(고객) 성장 예측</div>
+  <h2>유료 고객 성장 예측</h2>
+  <p class="lead">3개 획득 채널의 <b>월별 신규 유입 − 이탈</b>로 분기별 누적 유료 고객을 산출했습니다 (상향식).</p>
+  <h3>획득 채널 & 월 신규 가정</h3>
+  <table>
+    <tr><th>채널</th><th>방식</th><th class="r">'27</th><th class="r">'28</th><th class="r">'29</th></tr>
+    <tr><td><b>인바운드(PLG)</b></td><td>베타→유료·인바운드·리포트</td><td class="r">4→8</td><td class="r">10→16</td><td class="r">18→26</td></tr>
+    <tr><td><b>파트너</b></td><td>대행사·수출지원기관·액셀러레이터</td><td class="r">3→7</td><td class="r">8→15</td><td class="r">16→24</td></tr>
+    <tr><td><b>Enterprise 세일즈</b></td><td>대기업·MNC 직접영업</td><td class="r">1→2</td><td class="r">2→4</td><td class="r">4→7</td></tr>
+    <tr><td colspan="2"><b>월 신규 합계(분기 평균)</b></td><td class="r">8→17</td><td class="r">20→35</td><td class="r">38→57</td></tr>
+  </table>
+  <p class="small">이탈(월): 2027 3.5% → 2028 3.0% → 2029 2.5% 가정 (초기 B2B SaaS 평균 이내, 정확도·retention 개선 반영).</p>
+  <h3>분기별 누적 유료 고객</h3>
+  <table>
+    <tr><th></th><th class="r">Q1</th><th class="r">Q2</th><th class="r">Q3</th><th class="r">Q4</th></tr>
+    <tr><td><b>2027</b> (H1 출시)</td><td class="r">—</td><td class="r">15</td><td class="r">32</td><td class="r"><b>55</b></td></tr>
+    <tr><td><b>2028</b></td><td class="r">80</td><td class="r">110</td><td class="r">145</td><td class="r"><b>185</b></td></tr>
+    <tr><td><b>2029</b></td><td class="r">240</td><td class="r">300</td><td class="r">375</td><td class="r"><b>450</b></td></tr>
+  </table>
+  <div class="callout"><p><b>근거의 출발점 = 베타 실증.</b> 르무통·FRONT2LINE·Juicy Brix 등 실브랜드가 이미 베타에서 진출 의사결정에 활용했습니다(별첨). 이는 초기 유료 전환·지불의사의 <b>직접 증거</b>이며, 2027 Q2 초기 15곳 가정의 실질 근거입니다.</p></div>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">33</div>
+</section>
+
+<!-- P6 매출 성장 -->
+<section class="page">
+  <div class="sec-no">05 · 매출 성장 예측</div>
+  <h2>매출 성장 예측</h2>
+  <p class="lead">분기별 평균 활성 고객 × 블렌디드 ARPU로 인식 매출을, 연말 고객 × ARPU × 12로 ARR을 산출했습니다.</p>
+  <table>
+    <tr><th>연도</th><th class="r">연말 유료고객</th><th class="r">ARPU(월)</th><th class="r">연간 인식매출</th><th class="r">연말 ARR</th><th class="r">YoY</th></tr>
+    <tr><td><b>2027</b> (H1 출시)</td><td class="r">55</td><td class="r">55만</td><td class="r"><b>1.5억</b></td><td class="r">3.6억</td><td class="r">—</td></tr>
+    <tr><td><b>2028</b></td><td class="r">185</td><td class="r">68만</td><td class="r"><b>8.5억</b></td><td class="r">15.1억</td><td class="r hl">+467%</td></tr>
+    <tr><td><b>2029</b></td><td class="r">450</td><td class="r">88만</td><td class="r"><b>29억</b></td><td class="r">47.5억</td><td class="r hl">+241%</td></tr>
+  </table>
+  <h3>매출 규모 시각화 (연간 인식매출, 억원)</h3>
+  <table style="border:none;">
+    <tr style="background:none;"><td style="border:none;width:12%;">2027</td><td style="border:none;"><span class="bar" style="width:5%;"></span> <b>1.5</b></td></tr>
+    <tr style="background:none;"><td style="border:none;">2028</td><td style="border:none;"><span class="bar" style="width:29%;"></span> <b>8.5</b></td></tr>
+    <tr style="background:none;"><td style="border:none;">2029</td><td style="border:none;"><span class="bar" style="width:100%;"></span> <b>29</b></td></tr>
+  </table>
+  <h3>매출 구성 추이 (구독 vs 리포트)</h3>
+  <table>
+    <tr><th></th><th class="r">2027</th><th class="r">2028</th><th class="r">2029</th></tr>
+    <tr><td>구독(반복) 매출</td><td class="r">70%</td><td class="r">80%</td><td class="r">85%</td></tr>
+    <tr><td>리포트(단건) 매출</td><td class="r">30%</td><td class="r">20%</td><td class="r">15%</td></tr>
+  </table>
+  <p class="small">구독(반복) 비중이 커질수록 매출 예측 가능성·기업가치가 상승합니다. NRR(순확장) 105%+ 가정(업셀·티어상향).</p>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">34</div>
+</section>
+
+<!-- P7 근거 & 시나리오 -->
+<section class="page">
+  <div class="sec-no">06 · 근거 & 시나리오</div>
+  <h2>예측 근거와 시나리오</h2>
+  <h3>핵심 가정과 근거</h3>
+  <table>
+    <tr><th style="width:26%">가정</th><th style="width:16%">값</th><th>근거</th></tr>
+    <tr><td>초기 유료 고객(2027 Q2)</td><td>15곳</td><td>베타 실증(명명 3곳 + 코호트 15곳) 기반 전환</td></tr>
+    <tr><td>월 신규(2028 평균)</td><td>20~35</td><td>3개 채널 상향식 합산·파트너십 확대</td></tr>
+    <tr><td>월 이탈</td><td>2.5~3.5%</td><td>초기 B2B SaaS 평균 이내, retention 개선</td></tr>
+    <tr><td>블렌디드 ARPU</td><td>55~88만</td><td>구독 티어 mix + Enterprise 편입 + 리포트</td></tr>
+    <tr><td>NRR</td><td>105%+</td><td>업셀·티어 상향·사용량 증가</td></tr>
+  </table>
+  <h3>시나리오 (2029 연간 매출)</h3>
+  <table>
+    <tr><th>시나리오</th><th class="r">유료고객</th><th class="r">매출</th><th>전제</th></tr>
+    <tr><td><b>보수(−30%)</b></td><td class="r">315</td><td class="r">17억</td><td>파트너십 지연·전환 하회</td></tr>
+    <tr><td class="hl"><b>기본(100%)</b></td><td class="r">450</td><td class="r">29억</td><td>본 예측</td></tr>
+    <tr><td><b>공격(+35%)</b></td><td class="r">610</td><td class="r">40억</td><td>아시아 허브·엔터프라이즈 조기 확보</td></tr>
+  </table>
+  <div class="callout"><p><b>성장의 지속성.</b> 정확도↑ → 유지율·업셀↑ → LTV↑ → 재투자 → 정확도↑의 <b>데이터 복리 선순환</b>과, 아시아 24개국으로의 <b>수평 확장</b>이 2029년 이후에도 성장을 지지합니다. 기술적 우위(별첨 「기술 차별성·경쟁우위 입증자료」)가 이 성장의 토대입니다.</p></div>
+  <p class="small">* 본 수치는 명시된 가정에 기반한 추정이며, 시장·파트너십 진행에 따라 갱신됩니다. 회계상 확정치가 아닌 계획 목표입니다.</p>
+  <div class="brandfoot">Market Twin · Mr.AI Inc.</div><div class="pnum">35</div>
+</section>
+
+
+</body>
+</html>
