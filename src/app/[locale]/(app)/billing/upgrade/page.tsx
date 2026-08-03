@@ -1,7 +1,7 @@
 import { setRequestLocale } from "next-intl/server";
 import { redirect } from "next/navigation";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
-import { getPlan, type PlanSlug } from "@/lib/billing/plans";
+import { getPlan, getSinglePack, type PlanSlug } from "@/lib/billing/plans";
 import { UpgradeDispatcher } from "@/components/billing/UpgradeDispatcher";
 import { NiceCheckout } from "@/components/billing/NiceCheckout";
 
@@ -25,13 +25,27 @@ export default async function UpgradePage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ plan?: string; cycle?: string; currency?: string }>;
+  searchParams: Promise<{ plan?: string; cycle?: string; currency?: string; pack?: string }>;
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const search = await searchParams;
   const ctx = await getOrCreatePrimaryWorkspace();
   if (!ctx) redirect(`/${locale}/login?next=/billing/upgrade`);
+
+  const krwProviderEnv = process.env.NEXT_PUBLIC_KRW_PROVIDER === "nicepay" ? "nicepay" : "toss";
+
+  // 단건 이용권(1회권) 결제 — NICE 결제창(KRW) 단건결제로만 제공(바로오픈 범위).
+  // 유효한 pack + nicepay 공급자일 때만 결제창을 띄우고, 아니면 /billing로 복귀.
+  if (search.pack) {
+    const pack = getSinglePack(search.pack);
+    if (pack && krwProviderEnv === "nicepay") {
+      return (
+        <NiceCheckout locale={locale} planName={pack.name[locale === "ko" ? "ko" : "en"]} pack={pack.slug} />
+      );
+    }
+    redirect(`/${locale}/billing`);
+  }
 
   const planSlug = (search.plan ?? "starter") as PlanSlug;
   const plan = getPlan(planSlug);

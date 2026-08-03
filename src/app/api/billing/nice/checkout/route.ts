@@ -3,16 +3,20 @@ import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
-import { nicePriceKrw, nicePublicClientId } from "@/lib/billing/nice";
-import { getPlan } from "@/lib/billing/plans";
+import { nicePriceKrw, nicePackPriceKrw, nicePublicClientId } from "@/lib/billing/nice";
+import { getPlan, getSinglePack } from "@/lib/billing/plans";
 
 export const dynamic = "force-dynamic";
 
-const RequestSchema = z.object({
-  plan: z.enum(["starter", "validator", "growth"]),
-  cycle: z.enum(["monthly", "annual"]).default("monthly"),
-  locale: z.enum(["ko", "en"]).default("ko"),
-});
+// 구독 플랜 결제이거나(pack 미지정), 단건 이용권(pack) 결제. 정확히 하나만 온다.
+const RequestSchema = z
+  .object({
+    plan: z.enum(["starter", "validator", "growth"]).optional(),
+    cycle: z.enum(["monthly", "annual"]).default("monthly"),
+    pack: z.string().optional(),
+    locale: z.enum(["ko", "en"]).default("ko"),
+  })
+  .refine((v) => !!v.plan !== !!v.pack, { message: "exactly one of plan|pack required" });
 
 /**
  * POST /api/billing/nice/checkout
@@ -40,22 +44,41 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "bad_request", detail: parsed.error.flatten() }, { status: 400 });
   }
-  const { plan: planSlug, cycle, locale } = parsed.data;
+  const { plan: planSlug, cycle, pack: packSlug, locale } = parsed.data;
 
-  const amountKrw = nicePriceKrw(planSlug, cycle);
+  // 단건 이용권(1회권) vs 구독 플랜 분기. 주문의 plan 컬럼에 pack slug(pack_*)를
+  // 넣고 cycle='single'로 적재해 return 라우트가 entitlement 부여로 분기한다.
+  let orderPlan: string;
+  let orderCycle: "monthly" | "annual" | "single";
+  let amountKrw: number | null;
+  let goodsName: string;
+
+  if (packSlug) {
+    const pack = getSinglePack(packSlug);
+    if (!pack) return NextResponse.json({ error: "unknown_pack" }, { status: 400 });
+    amountKrw = nicePackPriceKrw(packSlug);
+    orderPlan = packSlug;
+    orderCycle = "single";
+    goodsName = `Market Twin ${pack.name.ko} · 부가세 포함`;
+  } else {
+    amountKrw = nicePriceKrw(planSlug!, cycle);
+    const plan = getPlan(planSlug!);
+    orderPlan = planSlug!;
+    orderCycle = cycle;
+    goodsName = `Market Twin ${plan.name} (${cycle === "annual" ? "Annual" : "Monthly"}) · 부가세 포함`;
+  }
   if (amountKrw == null) {
     return NextResponse.json({ error: "no_price_for_plan" }, { status: 400 });
   }
 
-  const plan = getPlan(planSlug);
   const orderId = randomUUID();
   const admin = createServiceClient();
 
   const { error } = await admin.from("nice_pending_orders").insert({
     order_id: orderId,
     workspace_id: ctx.workspaceId,
-    plan: planSlug,
-    cycle,
+    plan: orderPlan,
+    cycle: orderCycle,
     amount_krw: amountKrw,
     locale,
     status: "pending",
@@ -66,7 +89,6 @@ export async function POST(req: Request) {
   }
 
   const origin = new URL(req.url).origin;
-  const goodsName = `Market Twin ${plan.name} (${cycle === "annual" ? "Annual" : "Monthly"}) · 부가세 포함`;
 
   return NextResponse.json({
     clientId: nicePublicClientId(),

@@ -48,11 +48,14 @@ export function NiceCheckout({
   planSlug,
   planName,
   cycle,
+  pack,
 }: {
   locale: string;
-  planSlug: "starter" | "growth";
+  planSlug?: "starter" | "growth";
   planName: string;
-  cycle: "monthly" | "annual";
+  cycle?: "monthly" | "annual";
+  /** 단건 이용권(1회권) slug. 설정되면 pack 결제(구독 아님). */
+  pack?: string;
 }) {
   const isKo = locale === "ko";
   const [stage, setStage] = useState<"loading" | "opening" | "error">("loading");
@@ -66,7 +69,7 @@ export function NiceCheckout({
       const res = await fetch("/api/billing/nice/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planSlug, cycle, locale }),
+        body: JSON.stringify(pack ? { pack, locale } : { plan: planSlug, cycle, locale }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -122,7 +125,7 @@ export function NiceCheckout({
         <h1 className="text-xl font-bold text-slate-900 mb-1">
           {planName}{" "}
           <span className="text-base font-normal text-slate-500">
-            ({cycle === "annual" ? (isKo ? "연간" : "Annual") : isKo ? "월간" : "Monthly"} · KRW)
+            ({pack ? (isKo ? "1회권" : "Single run") : cycle === "annual" ? (isKo ? "연간" : "Annual") : isKo ? "월간" : "Monthly"} · KRW)
           </span>
         </h1>
         <p className="text-sm text-slate-500 leading-relaxed mb-6">

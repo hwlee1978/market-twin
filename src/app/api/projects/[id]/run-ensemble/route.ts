@@ -144,6 +144,9 @@ export async function POST(
   const sub = await getSubscription(wsCtx.workspaceId);
   const adminCtx = await getAdminContext();
   const isSuperAdmin = adminCtx?.role === "super";
+  // 단건 이용권으로 실행하는 경우 소비할 권한 id. 게이트에서 설정, ensemble
+  // 생성 성공 후 원자적으로 consumed 처리한다.
+  let entitlementId: string | null = null;
   if (!isFreeRerun && !isSuperAdmin) {
     const usage = await getMonthlyUsage(wsCtx.workspaceId, sub);
     // 단건결제(자동갱신 없음) 이용기간 만료 여부 — 만료됐으면 일일 cron이
@@ -165,10 +168,26 @@ export async function POST(
       singlePaymentExpired,
     });
     if (!decision.allowed) {
-      return NextResponse.json(
-        { error: "plan_limit", reason: decision.reason, plan: sub.plan.slug },
-        { status: 402 },
-      );
+      // 단건 이용권(1회권) fallback: 플랜 게이트에 막혀도 같은 티어의 active
+      // 권한이 있으면 실행을 허용한다. 실제 소비는 ensemble 생성 성공 후.
+      const svc = createServiceClient();
+      const { data: ent } = await svc
+        .from("sim_entitlements")
+        .select("id")
+        .eq("workspace_id", wsCtx.workspaceId)
+        .eq("tier", tier)
+        .eq("status", "active")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (ent?.id) {
+        entitlementId = ent.id as string;
+      } else {
+        return NextResponse.json(
+          { error: "plan_limit", reason: decision.reason, plan: sub.plan.slug },
+          { status: 402 },
+        );
+      }
     }
   }
 
@@ -246,12 +265,27 @@ export async function POST(
     );
   }
 
+  // 단건 이용권 소비: 실행이 확정된(ensemble 생성 성공) 지금 원자적으로
+  // consumed 처리한다. status='active' 조건으로 동시요청 이중소비를 방지.
+  if (entitlementId) {
+    await admin
+      .from("sim_entitlements")
+      .update({
+        status: "consumed",
+        consumed_ensemble_id: ensemble.id,
+        consumed_at: new Date().toISOString(),
+      })
+      .eq("id", entitlementId)
+      .eq("status", "active");
+  }
+
   // Trial workspaces: increment trial_sims_used so the next /run-ensemble
   // request hits the quota. Counting at ensemble creation (not on
   // completion) means a deliberate cancel still consumes the quota slot
   // — matches Stripe-style "you used your free trial" semantics.
   // Free reruns skip this — the original sim already paid for the slot.
-  if (sub.plan.slug === "free_trial" && !isFreeRerun) {
+  // 단건 이용권으로 실행한 경우(entitlementId)는 무료체험 카운트를 쓰지 않는다.
+  if (sub.plan.slug === "free_trial" && !isFreeRerun && !entitlementId) {
     await admin
       .from("subscriptions")
       .update({ trial_sims_used: sub.trialSimsUsed + 1 })

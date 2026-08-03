@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { approvePayment, verifyAuthSignature, NiceError } from "@/lib/billing/nice";
-import { getPlan, type PlanSlug } from "@/lib/billing/plans";
+import { getPlan, getSinglePack, isPackSlug, type PlanSlug } from "@/lib/billing/plans";
 import { notifyPaymentSucceeded } from "@/lib/email/billing-notify";
 
 export const dynamic = "force-dynamic";
@@ -106,32 +106,49 @@ export async function POST(req: Request) {
     return redirectTo(locale, "failed");
   }
 
-  const planSlug = order.plan as PlanSlug;
-  const cycle = (order.cycle === "annual" ? "annual" : "monthly") as "monthly" | "annual";
-  const plan = getPlan(planSlug);
   const workspaceId = order.workspace_id as string;
+  const pack = isPackSlug(order.plan) ? getSinglePack(order.plan) : null;
 
-  const periodStart = new Date();
-  const periodEnd = new Date(periodStart);
-  if (cycle === "annual") periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-  else periodEnd.setMonth(periodEnd.getMonth() + 1);
-
-  // 단건결제: 빌키 없이 기간 접근만 부여. nice_bid는 null로 둬 갱신 cron이
-  // 자동과금하지 않게 하고, 만료는 cron의 단건 sweep이 처리한다.
-  await admin
-    .from("subscriptions")
-    .update({
-      plan: planSlug,
+  let productName: string;
+  if (pack) {
+    // 단건 이용권(1회권): 구독을 건드리지 않고 '1회 시뮬 실행 권한'만 부여한다.
+    // 구독 플랜/월 할당량과 독립적인 소비형 entitlement (run-ensemble가 소비).
+    productName = pack.name.ko;
+    const { error: entErr } = await admin.from("sim_entitlements").insert({
+      workspace_id: workspaceId,
+      tier: pack.tier,
+      order_id: orderId,
       status: "active",
-      payment_provider: "nicepay",
-      nice_bid: null,
-      current_period_start: periodStart.toISOString(),
-      current_period_end: periodEnd.toISOString(),
-      cancel_at_period_end: false,
-      billing_currency: "KRW",
-      billing_interval: cycle,
-    })
-    .eq("workspace_id", workspaceId);
+    });
+    if (entErr) {
+      // 승인은 됐는데 권한 부여 실패 → 환불이 안전. 로그 남기고 error 페이지로.
+      console.error(`[nice return] entitlement grant failed order=${orderId}:`, entErr.message);
+    }
+  } else {
+    // 구독 단건결제: 빌키 없이 기간 접근만 부여. nice_bid는 null로 둬 갱신 cron이
+    // 자동과금하지 않게 하고, 만료는 cron의 단건 sweep이 처리한다.
+    const planSlug = order.plan as PlanSlug;
+    const cycle = (order.cycle === "annual" ? "annual" : "monthly") as "monthly" | "annual";
+    productName = getPlan(planSlug).name;
+    const periodStart = new Date();
+    const periodEnd = new Date(periodStart);
+    if (cycle === "annual") periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+    else periodEnd.setMonth(periodEnd.getMonth() + 1);
+    await admin
+      .from("subscriptions")
+      .update({
+        plan: planSlug,
+        status: "active",
+        payment_provider: "nicepay",
+        nice_bid: null,
+        current_period_start: periodStart.toISOString(),
+        current_period_end: periodEnd.toISOString(),
+        cancel_at_period_end: false,
+        billing_currency: "KRW",
+        billing_interval: cycle,
+      })
+      .eq("workspace_id", workspaceId);
+  }
 
   await admin
     .from("nice_pending_orders")
@@ -141,16 +158,17 @@ export async function POST(req: Request) {
   await admin.from("subscription_events").insert({
     workspace_id: workspaceId,
     event: "payment_succeeded",
-    to_plan: planSlug,
+    to_plan: order.plan,
     to_status: "active",
     amount_cents: amount * 100, // 부가세 포함 총액 KRW × 100 (plans.ts 컨벤션)
     currency: "KRW",
     metadata: {
       tid,
       order_id: orderId,
-      cycle,
+      cycle: order.cycle,
       provider: "nicepay",
-      mode: "single", // 단건(빌키 없음) 구분
+      mode: pack ? "single_pack" : "single", // 단건 이용권 / 구독 단건결제 구분
+      ...(pack ? { pack_tier: pack.tier } : {}),
       // 세금계산서 분리발행용 — amount는 부가세 포함 총액, 공급가/부가세로 분해.
       vat_included: true,
       supply_krw: Math.round(amount / 1.1),
@@ -160,7 +178,7 @@ export async function POST(req: Request) {
 
   void notifyPaymentSucceeded({
     workspaceId,
-    planName: plan.name,
+    planName: productName,
     amountCents: amount * 100,
     currency: "KRW",
     isRenewal: false,

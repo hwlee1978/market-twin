@@ -66,7 +66,7 @@ export function PlansSelector({
           : "* The beta free trial ends after 7 days or 2 sims, whichever comes first. No credit card required."}
       </div>
 
-      <SinglePurchaseSection currency={currency} isKo={isKo} />
+      <SinglePurchaseSection currency={currency} isKo={isKo} isLoggedIn={!!isLoggedIn} />
 
       <BillingComplianceNotice locale={isKo ? "ko" : "en"} />
     </div>
@@ -115,9 +115,11 @@ function CurrencyToggle({
 function SinglePurchaseSection({
   currency,
   isKo,
+  isLoggedIn,
 }: {
   currency: Currency;
   isKo: boolean;
+  isLoggedIn: boolean;
 }) {
   return (
     <div className="mt-14 sm:mt-16">
@@ -137,14 +139,14 @@ function SinglePurchaseSection({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {SINGLE_PURCHASE_PACKS.map((pack) => (
-          <PackCard key={pack.slug} pack={pack} currency={currency} isKo={isKo} />
+          <PackCard key={pack.slug} pack={pack} currency={currency} isKo={isKo} isLoggedIn={isLoggedIn} />
         ))}
       </div>
 
       <p className="mt-4 text-xs text-slate-500 text-center break-keep">
         {isKo
-          ? "* 베타 기간에는 단건 이용권을 사전 문의로만 제공합니다. 정식 오픈 시 즉시 결제로 전환됩니다."
-          : "* During beta, single-run packs are available by inquiry only. Instant checkout comes at launch."}
+          ? "* 단건 이용권은 결제 즉시 해당 티어 시뮬레이션을 1회 실행할 수 있습니다. (원화 카드결제 · 부가세 별도)"
+          : "* Each single-run pack unlocks one simulation of that tier right after payment. (KRW card checkout; USD by inquiry)"}
       </p>
     </div>
   );
@@ -154,15 +156,26 @@ function PackCard({
   pack,
   currency,
   isKo,
+  isLoggedIn,
 }: {
   pack: SinglePurchasePack;
   currency: Currency;
   isKo: boolean;
+  isLoggedIn: boolean;
 }) {
   const priceLabel = formatPlanPrice(pack.price[currency], currency);
-  const ctaHref = `mailto:contact@markettwin.ai?subject=${encodeURIComponent(
-    isKo ? `단건 이용권 문의 — ${pack.name.ko}` : `Single-run pack inquiry — ${pack.name.en}`,
-  )}`;
+  const locale = isKo ? "ko" : "en";
+  // 단건 이용권 자체결제는 NICE 결제창(KRW)만 제공. USD는 아직 문의(Stripe 미연결).
+  const canBuy = !pack.inquiryOnly && currency === "krw";
+  // 로그인 상태면 바로 결제창(/billing/upgrade), 비로그인은 먼저 가입(/signup).
+  // 결제엔 워크스페이스가 필요하므로 계정 생성이 선행돼야 한다.
+  const ctaHref = canBuy
+    ? isLoggedIn
+      ? `/${locale}/billing/upgrade?pack=${pack.slug}`
+      : `/signup?pack=${pack.slug}`
+    : `mailto:contact@markettwin.ai?subject=${encodeURIComponent(
+        isKo ? `단건 이용권 문의 — ${pack.name.ko}` : `Single-run pack inquiry — ${pack.name.en}`,
+      )}`;
 
   return (
     <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4">
@@ -187,7 +200,7 @@ function PackCard({
         href={ctaHref}
         className="mt-auto w-full justify-center inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium border border-slate-300 text-slate-900 hover:border-slate-400 hover:bg-slate-50 transition-colors"
       >
-        {isKo ? "사전 문의" : "Inquire"}
+        {canBuy ? (isKo ? "결제하기" : "Buy") : isKo ? "사전 문의" : "Inquire"}
         <ArrowRight size={13} />
       </a>
     </div>

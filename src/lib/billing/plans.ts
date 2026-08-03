@@ -301,12 +301,11 @@ export const SELF_SERVE_PLANS: PlanDefinition[] = ALL_PLANS.filter(
  *   deep           $60   → $249 / ₩349,000
  *   deep_pro       $90   → $399 / ₩559,000
  *
- * BETA: inquiryOnly = true on every pack, so the UI routes the CTA to a
- * 사전 문의(contact) mailto instead of live checkout. When beta ends, flip
- * inquiryOnly to false and wire these to the NicePay 단건결제 path (which
- * already exists at /api/billing/nice/checkout — currently plan-scoped;
- * extend RequestSchema to accept a pack slug and grant a single sim
- * entitlement rather than a monthly plan).
+ * LIVE (KRW): inquiryOnly = false — the KRW CTA routes to the NicePay 단건결제
+ * checkout (/api/billing/nice/checkout accepts a `pack` slug), and a paid pack
+ * grants ONE sim_entitlements row of that tier, consumed on the next matching
+ * run-ensemble. USD packs stay inquiry-only until Stripe pack checkout lands.
+ * Set inquiryOnly = true again to fall back to the 사전 문의 mailto.
  *
  * Price convention matches PlanDefinition.priceMonthly: USD cents, KRW × 100.
  */
@@ -334,7 +333,7 @@ const SINGLE_PACK_HYPOTHESIS: SinglePurchasePack = {
   },
   order: 1,
   price: { usd: 4900, krw: 6900000 },
-  inquiryOnly: true,
+  inquiryOnly: false,
 };
 
 const SINGLE_PACK_DECISION: SinglePurchasePack = {
@@ -347,7 +346,7 @@ const SINGLE_PACK_DECISION: SinglePurchasePack = {
   },
   order: 2,
   price: { usd: 9900, krw: 13900000 },
-  inquiryOnly: true,
+  inquiryOnly: false,
 };
 
 const SINGLE_PACK_DECISION_PLUS: SinglePurchasePack = {
@@ -360,7 +359,7 @@ const SINGLE_PACK_DECISION_PLUS: SinglePurchasePack = {
   },
   order: 3,
   price: { usd: 19900, krw: 27900000 },
-  inquiryOnly: true,
+  inquiryOnly: false,
 };
 
 const SINGLE_PACK_DEEP: SinglePurchasePack = {
@@ -373,7 +372,7 @@ const SINGLE_PACK_DEEP: SinglePurchasePack = {
   },
   order: 4,
   price: { usd: 24900, krw: 34900000 },
-  inquiryOnly: true,
+  inquiryOnly: false,
 };
 
 // 심층분석 Pro(deep_pro)는 아직 미릴리즈 — 단건 이용권에서 제외.
@@ -386,6 +385,19 @@ export const SINGLE_PURCHASE_PACKS: SinglePurchasePack[] = [
   SINGLE_PACK_DECISION_PLUS,
   SINGLE_PACK_DEEP,
 ].sort((a, b) => a.order - b.order);
+
+/** Single-purchase packs keyed by slug (pack_hypothesis … pack_deep). */
+export const PACK_BY_SLUG: Record<string, SinglePurchasePack> = Object.fromEntries(
+  SINGLE_PURCHASE_PACKS.map((p) => [p.slug, p]),
+);
+/** Returns the pack for a slug, or null if it isn't a single-purchase pack. */
+export function getSinglePack(slug: string): SinglePurchasePack | null {
+  return PACK_BY_SLUG[slug] ?? null;
+}
+/** True when `slug` identifies a single-purchase pack (vs a subscription plan). */
+export function isPackSlug(slug: string): boolean {
+  return slug in PACK_BY_SLUG;
+}
 
 export function getPlan(slug: string): PlanDefinition {
   if (slug in PLANS) return PLANS[slug as PlanSlug];

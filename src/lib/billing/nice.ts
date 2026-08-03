@@ -17,6 +17,7 @@
 
 import crypto from "crypto";
 import type { PlanSlug } from "./plans";
+import { getSinglePack } from "./plans";
 
 /**
  * NICE API base. env로 덮어쓸 수 있으나, 스킴(https://) 없이 호스트만 넣는
@@ -330,6 +331,18 @@ export function niceSupplyKrw(plan: PlanSlug, cycle: "monthly" | "annual"): numb
 export function nicePriceKrw(plan: PlanSlug, cycle: "monthly" | "annual"): number | null {
   const supply = niceSupplyKrw(plan, cycle);
   if (supply == null) return null;
+  return Math.round(supply * (1 + KRW_VAT_RATE));
+}
+
+/**
+ * 단건 이용권(1회권)의 실결제 금액(부가세 포함, KRW). pack.price.krw는 plans.ts
+ * 컨벤션상 원화×100으로 저장되므로 /100 해서 공급가(원)로 환산 후 부가세를 더한다.
+ * 알 수 없는 slug면 null.
+ */
+export function nicePackPriceKrw(packSlug: string): number | null {
+  const pack = getSinglePack(packSlug);
+  if (!pack) return null;
+  const supply = Math.round(pack.price.krw / 100); // ×100 저장 → 실제 원(부가세 별도)
   return Math.round(supply * (1 + KRW_VAT_RATE));
 }
 

@@ -11,6 +11,9 @@ const PUBLIC_PATHS = [
   "/auth/oauth-callback",
   "/privacy",
   "/terms",
+  // 가입 전 플랜/가격 선택 — 인증 없이 공개(마케팅 CTA·프로스펙트 링크로 진입).
+  // 페이지가 로그인 여부를 모두 처리하고, 결제/시작 CTA만 /signup·/login으로 유도.
+  "/plans",
   // 챌린지 응모/심사용 독립 페이지 — 인증 없이 평가 가능. 비인증 호출은
   // CHALLENGE_DEMO_WORKSPACE_ID env로 fallback (lib/challenge/context.ts).
   "/sme-strategy",
