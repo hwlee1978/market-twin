@@ -12,22 +12,30 @@ const MONO = "'Cascadia Code','Consolas','D2Coding',monospace";
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 // ── primitives ────────────────────────────────────────────────────────────
+// Auto-fit box height to its line count so enlarged text never clips the border.
+function fitH(n) {
+  const L = (n.lines && n.lines.length) || 0;
+  const need = L > 0 ? 44 + (L - 1) * 17 + 14 : 36;
+  return Math.max(n.h || 0, need);
+}
 function node(n) {
-  const { x, y, w, h, color = "#2563eb", title, lines = [], soft = false } = n;
+  const { x, y, w, color = "#2563eb", title, lines = [], soft = false } = n;
+  const h = fitH(n);
   const fill = soft ? "#ffffff" : "#ffffff";
   let s = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="9" fill="${fill}" stroke="${color}" stroke-width="${soft ? 1.3 : 2}" ${soft ? 'stroke-dasharray="5 4"' : ""}/>`;
-  s += `<rect x="${x}" y="${y}" width="${w}" height="22" rx="9" fill="${color}"/>`;
-  s += `<rect x="${x}" y="${y + 11}" width="${w}" height="11" fill="${color}"/>`;
-  s += `<text x="${x + 10}" y="${y + 15.5}" font-family="${FONT}" font-size="11.5" font-weight="700" fill="#ffffff">${esc(title)}</text>`;
+  s += `<rect x="${x}" y="${y}" width="${w}" height="26" rx="9" fill="${color}"/>`;
+  s += `<rect x="${x}" y="${y + 13}" width="${w}" height="13" fill="${color}"/>`;
+  s += `<text x="${x + 11}" y="${y + 18.5}" font-family="${FONT}" font-size="14" font-weight="700" fill="#ffffff">${esc(title)}</text>`;
   lines.forEach((ln, i) => {
     const mono = ln.startsWith("ƒ") || /[(){}]/.test(ln) || ln.startsWith("•f");
     const txt = ln.replace(/^•f/, "");
-    s += `<text x="${x + 10}" y="${y + 38 + i * 14.5}" font-family="${mono ? MONO : FONT}" font-size="${mono ? 10 : 10.5}" fill="${mono ? "#1e293b" : "#475569"}">${esc(txt)}</text>`;
+    s += `<text x="${x + 11}" y="${y + 44 + i * 17}" font-family="${mono ? MONO : FONT}" font-size="${mono ? 12.5 : 13}" fill="${mono ? "#1e293b" : "#475569"}">${esc(txt)}</text>`;
   });
   return s;
 }
 function port(n, side) {
-  const { x, y, w, h } = n;
+  const { x, y, w } = n;
+  const h = fitH(n);
   if (side === "b") return [x + w / 2, y + h];
   if (side === "t") return [x + w / 2, y];
   if (side === "l") return [x, y + h / 2];
@@ -51,17 +59,17 @@ function edge(a, sa, b, sb, opts = {}) {
   let s = `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.6" ${dashed ? 'stroke-dasharray="5 4"' : ""} marker-end="url(#arrow)"/>`;
   if (label) {
     const lx = (x1 + x2) / 2, ly = (y1 + y2) / 2;
-    s += `<rect x="${lx - label.length * 3.0 - 4}" y="${ly - 8}" width="${label.length * 6.0 + 8}" height="15" rx="3" fill="#ffffff" opacity="0.92"/>`;
-    s += `<text x="${lx}" y="${ly + 3}" font-family="${FONT}" font-size="9.5" fill="#64748b" text-anchor="middle">${esc(label)}</text>`;
+    s += `<rect x="${lx - label.length * 3.8 - 5}" y="${ly - 10}" width="${label.length * 7.6 + 10}" height="19" rx="3" fill="#ffffff" opacity="0.92"/>`;
+    s += `<text x="${lx}" y="${ly + 4}" font-family="${FONT}" font-size="12" fill="#64748b" text-anchor="middle">${esc(label)}</text>`;
   }
   return s;
 }
 function note(x, y, w, text, color = "#f59e0b") {
   const lines = text.split("\n");
-  const h = 8 + lines.length * 13;
+  const h = 10 + lines.length * 16.5;
   let s = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${color}11" stroke="${color}" stroke-width="1" stroke-dasharray="3 3"/>`;
   lines.forEach((ln, i) => {
-    s += `<text x="${x + 9}" y="${y + 17 + i * 13}" font-family="${FONT}" font-size="9.8" fill="#7c5b09">${esc(ln)}</text>`;
+    s += `<text x="${x + 10}" y="${y + 20 + i * 16.5}" font-family="${FONT}" font-size="12" fill="#7c5b09">${esc(ln)}</text>`;
   });
   return s;
 }
@@ -69,10 +77,10 @@ function doc(w, h, title, subtitle, body) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs>
 <rect width="${w}" height="${h}" fill="#f8fafc"/>
-<rect x="0" y="0" width="${w}" height="52" fill="#0a1f4d"/>
-<text x="26" y="26" font-family="${FONT}" font-size="18" font-weight="800" fill="#ffffff">${esc(title)}</text>
-<text x="26" y="43" font-family="${FONT}" font-size="11" fill="#93c5fd">${esc(subtitle)}</text>
-<text x="${w - 20}" y="${h - 12}" font-family="${MONO}" font-size="9" fill="#cbd5e1" text-anchor="end">Market Twin · function-level architecture</text>
+<rect x="0" y="0" width="${w}" height="60" fill="#0a1f4d"/>
+<text x="26" y="30" font-family="${FONT}" font-size="23" font-weight="800" fill="#ffffff">${esc(title)}</text>
+<text x="26" y="49" font-family="${FONT}" font-size="13.5" fill="#93c5fd">${esc(subtitle)}</text>
+<text x="${w - 20}" y="${h - 12}" font-family="${MONO}" font-size="11" fill="#cbd5e1" text-anchor="end">Market Twin · function-level architecture</text>
 ${body}
 </svg>`;
 }
