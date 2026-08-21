@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { nicePriceKrw, nicePackPriceKrw, nicePublicClientId } from "@/lib/billing/nice";
-import { getPlan, getSinglePack } from "@/lib/billing/plans";
+import { getPlan, getSinglePack, isOpenBeta } from "@/lib/billing/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +33,10 @@ const RequestSchema = z
  * 단건결제라 빌키(bid)를 만들지 않는다 — 승인 성공 시 1개월/1년 접근만 부여.
  */
 export async function POST(req: Request) {
+  // 오픈 베타 동안은 결제 개시 자체를 차단(무료 개방). 정식 유료화 시 env로 해제.
+  if (isOpenBeta()) {
+    return NextResponse.json({ error: "open_beta" }, { status: 403 });
+  }
   const ctx = await getOrCreatePrimaryWorkspace();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (ctx.status !== "active") {

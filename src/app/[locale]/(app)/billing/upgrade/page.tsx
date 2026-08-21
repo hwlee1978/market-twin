@@ -1,7 +1,7 @@
 import { setRequestLocale } from "next-intl/server";
 import { redirect } from "next/navigation";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
-import { getPlan, getSinglePack, type PlanSlug } from "@/lib/billing/plans";
+import { getPlan, getSinglePack, isOpenBeta, type PlanSlug } from "@/lib/billing/plans";
 import { UpgradeDispatcher } from "@/components/billing/UpgradeDispatcher";
 import { NiceCheckout } from "@/components/billing/NiceCheckout";
 
@@ -32,6 +32,9 @@ export default async function UpgradePage({
   const search = await searchParams;
   const ctx = await getOrCreatePrimaryWorkspace();
   if (!ctx) redirect(`/${locale}/login?next=/billing/upgrade`);
+
+  // 오픈 베타: 결제 진입 자체를 차단 — 어떤 plan/pack 파라미터든 /billing로 복귀.
+  if (isOpenBeta()) redirect(`/${locale}/billing`);
 
   const krwProviderEnv = process.env.NEXT_PUBLIC_KRW_PROVIDER === "nicepay" ? "nicepay" : "toss";
 

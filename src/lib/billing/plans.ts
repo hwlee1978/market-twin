@@ -399,6 +399,15 @@ export function isPackSlug(slug: string): boolean {
   return slug in PACK_BY_SLUG;
 }
 
+/**
+ * 오픈 베타 여부. **기본 ON** — 결제를 켜려면 `NEXT_PUBLIC_OPEN_BETA=off`로 명시.
+ * ON이면 모든 결제 UI/CTA를 감추고 "베타 무료" 상태로 노출하며, checkout·upgrade
+ * 진입을 차단한다(실제 청구 없음). 시뮬 실행 한도(무료체험)는 그대로 유지된다.
+ */
+export function isOpenBeta(): boolean {
+  return process.env.NEXT_PUBLIC_OPEN_BETA !== "off";
+}
+
 export function getPlan(slug: string): PlanDefinition {
   if (slug in PLANS) return PLANS[slug as PlanSlug];
   // Unknown slug from a corrupted DB row — treat as free_trial so the

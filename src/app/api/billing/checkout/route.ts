@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
-import { getPlan } from "@/lib/billing/plans";
+import { getPlan, isOpenBeta } from "@/lib/billing/plans";
 import { stripe, stripePriceId, appOrigin } from "@/lib/billing/stripe";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +29,10 @@ const RequestSchema = z.object({
  * Returns: { url } — the client redirects window.location to it.
  */
 export async function POST(req: Request) {
+  // 오픈 베타: 결제 개시 차단(Stripe 포함). 정식 유료화 시 env로 해제.
+  if (isOpenBeta()) {
+    return NextResponse.json({ error: "open_beta" }, { status: 403 });
+  }
   const ctx = await getOrCreatePrimaryWorkspace();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (ctx.status !== "active") {

@@ -8,6 +8,7 @@ import {
   ALL_PLANS,
   SINGLE_PURCHASE_PACKS,
   formatPlanPrice,
+  isOpenBeta,
   type PlanDefinition,
   type SinglePurchasePack,
 } from "@/lib/billing/plans";
@@ -40,9 +41,25 @@ export function PlansSelector({
 }) {
   const isKo = locale === "ko";
   const [currency, setCurrency] = useState<Currency>(isKo ? "krw" : "usd");
+  const openBeta = isOpenBeta();
 
   return (
     <div>
+      {openBeta && (
+        <div className="mb-8 rounded-xl border border-brand/30 bg-brand/5 px-5 py-4 text-center">
+          <p className="text-sm font-semibold text-brand break-keep">
+            {isKo
+              ? "🎉 오픈 베타 진행 중 — 지금은 모든 기능을 무료로 이용하실 수 있습니다."
+              : "🎉 Open beta — everything is free right now."}
+          </p>
+          <p className="mt-1 text-xs text-slate-500 break-keep">
+            {isKo
+              ? "결제는 정식 출시 후 시작됩니다. 아래 요금은 참고용입니다."
+              : "Paid plans begin after launch. Prices below are for reference only."}
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center justify-center mb-8">
         <CurrencyToggle value={currency} onChange={setCurrency} />
       </div>
@@ -56,6 +73,7 @@ export function PlansSelector({
             isKo={isKo}
             highlight={plan.slug === "validator"}
             isLoggedIn={!!isLoggedIn}
+            openBeta={openBeta}
           />
         ))}
       </div>
@@ -66,7 +84,7 @@ export function PlansSelector({
           : "* The beta free trial ends after 7 days or 2 sims, whichever comes first. No credit card required."}
       </div>
 
-      <SinglePurchaseSection currency={currency} isKo={isKo} isLoggedIn={!!isLoggedIn} />
+      <SinglePurchaseSection currency={currency} isKo={isKo} isLoggedIn={!!isLoggedIn} openBeta={openBeta} />
 
       <BillingComplianceNotice locale={isKo ? "ko" : "en"} />
     </div>
@@ -116,10 +134,12 @@ function SinglePurchaseSection({
   currency,
   isKo,
   isLoggedIn,
+  openBeta,
 }: {
   currency: Currency;
   isKo: boolean;
   isLoggedIn: boolean;
+  openBeta: boolean;
 }) {
   return (
     <div className="mt-14 sm:mt-16">
@@ -139,14 +159,18 @@ function SinglePurchaseSection({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {SINGLE_PURCHASE_PACKS.map((pack) => (
-          <PackCard key={pack.slug} pack={pack} currency={currency} isKo={isKo} isLoggedIn={isLoggedIn} />
+          <PackCard key={pack.slug} pack={pack} currency={currency} isKo={isKo} isLoggedIn={isLoggedIn} openBeta={openBeta} />
         ))}
       </div>
 
       <p className="mt-4 text-xs text-slate-500 text-center break-keep">
         {isKo
-          ? "* 단건 이용권은 결제 즉시 해당 티어 시뮬레이션을 1회 실행할 수 있습니다. (원화 카드결제 · 부가세 별도)"
-          : "* Each single-run pack unlocks one simulation of that tier right after payment. (KRW card checkout; USD by inquiry)"}
+          ? openBeta
+            ? "* 오픈 베타 기간에는 결제 없이 무료로 이용하실 수 있습니다. 아래 요금은 정식 출시 후 기준(참고용)입니다."
+            : "* 단건 이용권은 결제 즉시 해당 티어 시뮬레이션을 1회 실행할 수 있습니다. (원화 카드결제 · 부가세 별도)"
+          : openBeta
+            ? "* Free during open beta — no payment required. Prices are for reference (post-launch)."
+            : "* Each single-run pack unlocks one simulation of that tier right after payment. (KRW card checkout; USD by inquiry)"}
       </p>
     </div>
   );
@@ -157,25 +181,30 @@ function PackCard({
   currency,
   isKo,
   isLoggedIn,
+  openBeta,
 }: {
   pack: SinglePurchasePack;
   currency: Currency;
   isKo: boolean;
   isLoggedIn: boolean;
+  openBeta: boolean;
 }) {
   const priceLabel = formatPlanPrice(pack.price[currency], currency);
   const locale = isKo ? "ko" : "en";
-  // 단건 이용권 자체결제는 NICE 결제창(KRW)만 제공. USD는 아직 문의(Stripe 미연결).
-  const canBuy = !pack.inquiryOnly && currency === "krw";
-  // 로그인 상태면 바로 결제창(/billing/upgrade), 비로그인은 먼저 가입(/signup).
-  // 결제엔 워크스페이스가 필요하므로 계정 생성이 선행돼야 한다.
-  const ctaHref = canBuy
+  // 오픈 베타: 결제 감추고 무료 시작으로 유도(로그인=대시보드, 비로그인=가입).
+  // 정식 유료화 시: NICE 결제창(KRW)만 제공, USD는 문의(Stripe 미연결).
+  const canBuy = !openBeta && !pack.inquiryOnly && currency === "krw";
+  const ctaHref = openBeta
     ? isLoggedIn
-      ? `/${locale}/billing/upgrade?pack=${pack.slug}`
-      : `/signup?pack=${pack.slug}`
-    : `mailto:contact@markettwin.ai?subject=${encodeURIComponent(
-        isKo ? `단건 이용권 문의 — ${pack.name.ko}` : `Single-run pack inquiry — ${pack.name.en}`,
-      )}`;
+      ? "/dashboard"
+      : "/signup"
+    : canBuy
+      ? isLoggedIn
+        ? `/${locale}/billing/upgrade?pack=${pack.slug}`
+        : `/signup?pack=${pack.slug}`
+      : `mailto:contact@markettwin.ai?subject=${encodeURIComponent(
+          isKo ? `단건 이용권 문의 — ${pack.name.ko}` : `Single-run pack inquiry — ${pack.name.en}`,
+        )}`;
 
   return (
     <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4">
@@ -200,7 +229,17 @@ function PackCard({
         href={ctaHref}
         className="mt-auto w-full justify-center inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium border border-slate-300 text-slate-900 hover:border-slate-400 hover:bg-slate-50 transition-colors"
       >
-        {canBuy ? (isKo ? "결제하기" : "Buy") : isKo ? "사전 문의" : "Inquire"}
+        {openBeta
+          ? isKo
+            ? "베타 무료 이용"
+            : "Free in beta"
+          : canBuy
+            ? isKo
+              ? "결제하기"
+              : "Buy"
+            : isKo
+              ? "사전 문의"
+              : "Inquire"}
         <ArrowRight size={13} />
       </a>
     </div>
@@ -213,12 +252,14 @@ function PlanCard({
   isKo,
   highlight,
   isLoggedIn,
+  openBeta,
 }: {
   plan: PlanDefinition;
   currency: Currency;
   isKo: boolean;
   highlight: boolean;
   isLoggedIn: boolean;
+  openBeta: boolean;
 }) {
   // 월간 결제만 제공 (연간 상품 제거 2026-06-24).
   const priceLabel = formatPlanPrice(plan.priceMonthly[currency], currency);
@@ -237,8 +278,9 @@ function PlanCard({
         isKo ? "Enterprise 플랜 문의" : "Enterprise plan inquiry",
       )}`;
     }
-    if (plan.slug === "free_trial") {
-      return `/signup?plan=${plan.slug}&cycle=monthly`;
+    // 오픈 베타: 유료 플랜도 결제 없이 무료 시작으로 유도.
+    if (openBeta || plan.slug === "free_trial") {
+      return isLoggedIn ? "/dashboard" : `/signup?plan=${plan.slug}&cycle=monthly`;
     }
     if (isLoggedIn) {
       return `/billing/upgrade?plan=${plan.slug}&cycle=monthly&currency=${currency}`;
@@ -248,6 +290,7 @@ function PlanCard({
 
   const ctaLabel = (() => {
     if (plan.slug === "enterprise") return isKo ? "Sales 문의" : "Contact sales";
+    if (openBeta) return isKo ? "무료로 시작" : "Start free (beta)";
     if (plan.slug === "free_trial") return isKo ? "무료로 시작" : "Start free trial";
     return isKo ? "이 플랜으로 시작" : "Start with this plan";
   })();
