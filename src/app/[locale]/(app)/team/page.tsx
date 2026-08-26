@@ -1,6 +1,8 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Mail, Users as UsersIcon, Sparkles, ShieldCheck } from "lucide-react";
+import { Mail, Users as UsersIcon, Sparkles, ShieldCheck, Building2 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionTitle } from "@/components/dashboard/SectionTitle";
+import { paletteColor } from "@/components/dashboard/CountryMark";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 
@@ -46,24 +48,26 @@ export default async function TeamPage({
     <>
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
 
+      <SectionTitle
+        icon={UsersIcon}
+        gradient="linear-gradient(135deg,#7c3aed,#a855f7)"
+        title={t("members.title")}
+        note={t("members.count", { n: memberRows.length })}
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="card lg:col-span-2 space-y-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-slate-900">
-              {t("members.title")}
-            </h2>
-            <span className="text-xs text-slate-500 tabular-nums">
-              {t("members.count", { n: memberRows.length })}
-            </span>
-          </div>
-
           <ul className="divide-y divide-slate-100">
             {memberRows.map((m) => {
               const email = emailById.get(m.user_id) ?? m.user_id;
               const initial = email[0]?.toUpperCase() ?? "?";
+              const avatarColor = paletteColor(email);
               return (
                 <li key={m.user_id} className="flex items-center gap-4 py-3.5">
-                  <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-brand-50 text-brand text-sm font-semibold shrink-0">
+                  <span
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-full text-white text-sm font-semibold shrink-0"
+                    style={{ background: `linear-gradient(150deg, ${avatarColor}, ${avatarColor}cc)` }}
+                  >
                     {initial}
                   </span>
                   <div className="flex-1 min-w-0">
@@ -102,9 +106,14 @@ export default async function TeamPage({
         </div>
 
         <div className="card space-y-4">
-          <h2 className="text-base font-semibold text-slate-900">
-            {t("workspace.title")}
-          </h2>
+          <div className="flex items-center gap-2.5">
+            <span className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0 bg-brand">
+              <Building2 size={14} strokeWidth={2.4} />
+            </span>
+            <h2 className="text-base font-semibold text-slate-900">
+              {t("workspace.title")}
+            </h2>
+          </div>
           <Field label={t("workspace.name")}>{workspace?.name ?? "—"}</Field>
           <Field label={t("workspace.companyName")}>
             {workspace?.company_name ?? "—"}

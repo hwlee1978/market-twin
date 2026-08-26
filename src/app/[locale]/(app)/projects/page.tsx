@@ -1,6 +1,7 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { Plus } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { DemoCard } from "@/components/onboarding/DemoCard";
 import { ProjectsTable } from "@/components/ProjectsTable";
 import { createClient } from "@/lib/supabase/server";
@@ -27,20 +28,22 @@ export default async function ProjectsPage({
   const hasProjects = !!projects && projects.length > 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{t("nav.projects")}</h1>
-        <Link href="/projects/new" className="btn-primary">
-          <Plus size={16} />
-          {t("dashboard.newProject")}
-        </Link>
-      </div>
+    <>
+      <PageHeader
+        title={t("nav.projects")}
+        actions={
+          <Link href="/projects/new" className="btn-primary">
+            <Plus size={16} />
+            {t("dashboard.newProject")}
+          </Link>
+        }
+      />
 
       {hasProjects ? (
         <ProjectsTable projects={projects} locale={locale} />
       ) : (
         <DemoCard />
       )}
-    </div>
+    </>
   );
 }

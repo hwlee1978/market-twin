@@ -5,7 +5,9 @@ import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { Search, Trash2, X, FolderPlus, Sparkles } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { formatDate } from "@/lib/format/date";
+import { CountryMark } from "@/components/dashboard/CountryMark";
+import { formatRelativeTime } from "@/components/dashboard/relativeTime";
+import { CATEGORY_META, DEFAULT_CATEGORY_META } from "@/components/dashboard/RecentProjectsCards";
 
 interface ProjectRow {
   id: string;
@@ -21,6 +23,8 @@ interface Props {
   projects: ProjectRow[];
   locale: string;
 }
+
+const MAX_COUNTRY_MARKS = 5;
 
 export function ProjectsTable({ projects, locale }: Props) {
   const t = useTranslations();
@@ -88,92 +92,121 @@ export function ProjectsTable({ projects, locale }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="relative max-w-md">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          className="input pl-9 pr-9"
-          placeholder={t("projectList.search")}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        {query && (
-          <button
-            onClick={() => setQuery("")}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
-            aria-label="clear"
-          >
-            <X size={14} />
-          </button>
-        )}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="relative max-w-md flex-1 min-w-[220px]">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            className="input pl-9 pr-9"
+            placeholder={t("projectList.search")}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {query && (
+            <button
+              onClick={() => setQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+              aria-label="clear"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+        <span className="text-[11.5px] font-semibold text-slate-400 tabular-nums">
+          {isKo ? `전체 ${projects.length}개` : `${projects.length} total`}
+        </span>
       </div>
 
-      <div className="card p-0 overflow-x-auto">
-        <table className="w-full text-sm min-w-[640px]">
-          <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
-            <tr>
-              <th className="text-left px-6 py-3 font-medium">{t("dashboard.table.project")}</th>
-              <th className="text-left px-6 py-3 font-medium">{t("dashboard.table.product")}</th>
-              <th className="text-left px-6 py-3 font-medium">{t("dashboard.table.category")}</th>
-              <th className="text-left px-6 py-3 font-medium">{t("dashboard.table.status")}</th>
-              <th className="text-left px-6 py-3 font-medium">{t("dashboard.table.countries")}</th>
-              <th className="text-left px-6 py-3 font-medium">{t("dashboard.table.updated")}</th>
-              <th className="px-2 py-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((p) => (
-              <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50 group">
-                <td className="px-6 py-3">
-                  <Link href={`/projects/${p.id}`} className="text-brand font-medium hover:underline">
-                    {p.name}
-                  </Link>
-                </td>
-                <td className="px-6 py-3 text-slate-700">{p.product_name}</td>
-                <td className="px-6 py-3 text-slate-600">
-                  {p.category
-                    ? // Fall back to the raw category string when the i18n key
-                      // is missing — DB may hold legacy enum values from older
-                      // benchmark fixtures (e.g. "beverage", "alcohol") that
-                      // were never added to ProjectWizard's dropdown.
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      t.has(`project.wizard.categories.${p.category}` as any)
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      ? t(`project.wizard.categories.${p.category}` as any)
-                      : p.category
-                    : "—"}
-                </td>
-                <td className="px-6 py-3">
-                  <StatusBadge status={p.status} label={t(`project.status.${p.status}`)} />
-                </td>
-                <td className="px-6 py-3 text-slate-600">
-                  {(p.candidate_countries ?? []).length}
-                </td>
-                <td className="px-6 py-3 text-slate-500">
-                  {formatDate(p.updated_at, locale === "ko") ?? "—"}
-                </td>
-                <td className="px-2 py-3">
-                  <button
-                    onClick={() => onDelete(p)}
-                    disabled={busyId === p.id}
-                    title={t("projectList.delete")}
-                    aria-label={t("projectList.delete")}
-                    className="p-1.5 rounded-md text-slate-400 hover:text-risk hover:bg-risk-soft transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-100 disabled:cursor-wait"
+      {filtered.length === 0 ? (
+        <div className="card text-center py-12 text-sm text-slate-500">
+          {query ? t("projectList.noResults") : t("dashboard.noProjects")}
+        </div>
+      ) : (
+        <div className="card p-2.5">
+          {filtered.map((p) => {
+            const meta = (p.category && CATEGORY_META[p.category]) || DEFAULT_CATEGORY_META;
+            const categoryLabel = p.category
+              ? // Fall back to the raw category string when the i18n key is
+                // missing — DB may hold legacy enum values from older
+                // benchmark fixtures (e.g. "beverage", "alcohol") that were
+                // never added to ProjectWizard's dropdown.
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                t.has(`project.wizard.categories.${p.category}` as any)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                ? t(`project.wizard.categories.${p.category}` as any)
+                : p.category
+              : null;
+            const countries = p.candidate_countries ?? [];
+            const shownCountries = countries.slice(0, MAX_COUNTRY_MARKS);
+            const extraCountries = countries.length - shownCountries.length;
+            const ago = formatRelativeTime(p.updated_at, locale);
+
+            return (
+              <div
+                key={p.id}
+                className="group flex items-center gap-1 rounded-[13px] border border-transparent hover:bg-slate-50 hover:border-slate-200 transition-colors"
+              >
+                <Link
+                  href={`/projects/${p.id}`}
+                  className="flex items-center gap-3.5 p-3.5 flex-1 min-w-0"
+                >
+                  <span
+                    className={`w-11 h-11 rounded-xl grid place-items-center shrink-0 ${meta.bg} ${meta.fg}`}
                   >
-                    <Trash2 size={14} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-6 py-12 text-center text-slate-500 text-sm">
-                  {query ? t("projectList.noResults") : t("dashboard.noProjects")}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                    <meta.icon size={20} />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[13.5px] font-bold text-slate-900 truncate">
+                        {p.name}
+                      </span>
+                      {categoryLabel && (
+                        <span className="badge bg-slate-100 text-slate-600 shrink-0">
+                          {categoryLabel}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11.5px] text-slate-400 font-medium mt-[3px] truncate">
+                      {p.product_name}
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                      {shownCountries.length > 0 && (
+                        <span className="inline-flex items-center gap-1">
+                          {shownCountries.map((c) => (
+                            <CountryMark key={c} code={c} size="sm" />
+                          ))}
+                          {extraCountries > 0 && (
+                            <span className="text-[10.5px] font-extrabold text-slate-400">
+                              +{extraCountries}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                      {ago && (
+                        <>
+                          {shownCountries.length > 0 && (
+                            <span className="w-[3px] h-[3px] rounded-full bg-slate-300" />
+                          )}
+                          <span className="text-[11.5px] text-slate-400 font-medium">{ago}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <StatusBadge status={p.status} label={t(`project.status.${p.status}`)} />
+                </Link>
+                <button
+                  onClick={() => onDelete(p)}
+                  disabled={busyId === p.id}
+                  title={t("projectList.delete")}
+                  aria-label={t("projectList.delete")}
+                  className="shrink-0 mr-2 p-1.5 rounded-md text-slate-400 hover:text-risk hover:bg-risk-soft transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-100 disabled:cursor-wait"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

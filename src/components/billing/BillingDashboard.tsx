@@ -2,10 +2,34 @@
 
 import { useState } from "react";
 import { Link } from "@/i18n/navigation";
-import { CheckCircle2, AlertCircle, ExternalLink, Loader2, Sparkles, Settings } from "lucide-react";
+import {
+  CheckCircle2,
+  AlertCircle,
+  ExternalLink,
+  Loader2,
+  Sparkles,
+  Settings,
+  CreditCard,
+  Gauge,
+  Wallet,
+} from "lucide-react";
 import { clsx } from "clsx";
 import type { PlanSlug, SubscriptionStatus } from "@/lib/billing/plans";
 import { formatDate } from "@/lib/format/date";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionTitle } from "@/components/dashboard/SectionTitle";
+
+// Plan-tier accent color — purely decorative categorical color so the plan
+// card / badge reads consistently with the rest of the app's colorful
+// (but tasteful) accent usage. Not tied to any design token because plan
+// slugs aren't part of the brand/accent/success/warn/risk token set.
+const PLAN_ACCENT: Record<PlanSlug, string> = {
+  free_trial: "#64748b",
+  starter: "#2563eb",
+  validator: "#0d9c72",
+  growth: "#7c3aed",
+  enterprise: "#d97706",
+};
 
 interface PlanShape {
   slug: PlanSlug;
@@ -163,18 +187,18 @@ export function BillingDashboard({
     }
   };
 
+  const planAccent = PLAN_ACCENT[plan.slug] ?? PLAN_ACCENT.free_trial;
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">
-          {isKo ? "결제 및 사용량" : "Billing & Usage"}
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          {isKo
+      <PageHeader
+        title={isKo ? "결제 및 사용량" : "Billing & Usage"}
+        subtitle={
+          isKo
             ? "현재 플랜, 이번 달 사용량, 결제 관리"
-            : "Your current plan, this month's usage, and billing controls"}
-        </p>
-      </div>
+            : "Your current plan, this month's usage, and billing controls"
+        }
+      />
 
       <StatusBanner
         plan={plan}
@@ -185,13 +209,25 @@ export function BillingDashboard({
         isKo={isKo}
       />
 
+      <SectionTitle
+        icon={Gauge}
+        gradient="linear-gradient(135deg,#0d9c72,#10b981)"
+        title={isKo ? "플랜 & 사용량" : "Plan & usage"}
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Plan card */}
         <div className="card p-5 lg:col-span-1 flex flex-col">
           <div className="text-xs uppercase tracking-wider text-slate-500 mb-1">
             {isKo ? "현재 플랜" : "Current plan"}
           </div>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2.5 mb-2">
+            <span
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0"
+              style={{ background: `linear-gradient(140deg, ${planAccent}, ${planAccent}cc)` }}
+            >
+              <CreditCard size={15} strokeWidth={2.4} />
+            </span>
             <span className="text-2xl font-bold text-slate-900">{plan.name}</span>
             <span
               className={clsx(
@@ -292,6 +328,7 @@ export function BillingDashboard({
               used={trial.active ? trial.simsUsed : usage.simsUsed}
               limit={trial.active ? trial.simsLimit : plan.limits.simsPerMonth}
               isKo={isKo}
+              color="#2563eb"
             />
             {plan.limits.decisionPlusSimsPerMonth > 0 && (
               <UsageRow
@@ -299,6 +336,7 @@ export function BillingDashboard({
                 used={usage.decisionPlusSimsUsed}
                 limit={plan.limits.decisionPlusSimsPerMonth}
                 isKo={isKo}
+                color="#7c3aed"
               />
             )}
             {plan.features.multiLLM && (
@@ -307,6 +345,7 @@ export function BillingDashboard({
                 used={usage.deepSimsUsed}
                 limit={plan.limits.deepSimsPerMonth}
                 isKo={isKo}
+                color="#0d9c72"
               />
             )}
             <UsageRow
@@ -314,6 +353,7 @@ export function BillingDashboard({
               used={usage.chatMessagesUsed}
               limit={plan.limits.chatMessagesPerMonth}
               isKo={isKo}
+              color="#d97706"
             />
           </div>
           <div className="mt-5 pt-4 border-t border-slate-100 text-xs text-slate-500">
@@ -331,7 +371,8 @@ export function BillingDashboard({
       </div>
 
       <div className="card p-5">
-        <div className="text-xs uppercase tracking-wider text-slate-500 mb-2">
+        <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-slate-500 mb-2">
+          <Wallet size={13} className="text-slate-400" />
           {isKo ? "결제 수단 안내" : "Payment methods"}
         </div>
         <p className="text-sm text-slate-600 leading-relaxed">
@@ -483,15 +524,21 @@ function UsageRow({
   used,
   limit,
   isKo,
+  color,
 }: {
   label: string;
   used: number;
   limit: number;
   isKo: boolean;
+  /** Categorical accent for the progress bar when usage isn't near its
+   * limit yet — falls back to brand blue when omitted. Danger/warn states
+   * always override this so the near-limit signal stays legible. */
+  color?: string;
 }) {
   const unlimited = limit < 0;
   const pct = unlimited ? 0 : limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
   const danger = !unlimited && pct >= 90;
+  const warn = !unlimited && !danger && pct >= 70;
   return (
     <div>
       <div className="flex items-baseline justify-between mb-1.5">
@@ -506,11 +553,8 @@ function UsageRow({
       {!unlimited && (
         <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
           <div
-            className={clsx(
-              "h-full transition-all",
-              danger ? "bg-risk" : pct >= 70 ? "bg-warn" : "bg-brand",
-            )}
-            style={{ width: `${pct}%` }}
+            className={clsx("h-full transition-all", danger && "bg-risk", warn && "bg-warn")}
+            style={{ width: `${pct}%`, background: !danger && !warn ? (color ?? "#0b2a5b") : undefined }}
           />
         </div>
       )}
