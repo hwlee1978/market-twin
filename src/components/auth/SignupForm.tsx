@@ -31,6 +31,14 @@ export function SignupForm() {
   const isKo = useLocale() === "ko";
   const router = useRouter();
   const search = useSearchParams();
+  // `?next=` carries a same-site destination through sign-up (the seat
+  // invitation link is the first caller). Anything not an absolute
+  // same-site path is discarded so this can't become an open redirect.
+  const rawNext = search.get("next");
+  const next =
+    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//")
+      ? rawNext
+      : null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
@@ -123,7 +131,7 @@ export function SignupForm() {
     if (data.session) {
       // Auto-logged in — keep loading=true through navigation so the
       // submit button stays disabled until the dashboard mounts.
-      router.replace("/dashboard");
+      router.replace(next ?? "/dashboard");
       router.refresh();
     } else {
       setLoading(false);
@@ -191,6 +199,7 @@ export function SignupForm() {
       cycle,
       consent: "1",
       mkt: agreeMarketing ? "1" : "0",
+      ...(next ? { next } : {}),
     });
     await supabase.auth.signInWithOAuth({
       provider: "google",

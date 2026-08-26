@@ -61,6 +61,18 @@ const COPY = {
     welcomeCtaSecondary: "방법론 보기",
     welcomeQuestions:
       "베타 기간 중 느낀 점이나 개선 아이디어가 있으시면 언제든 <a href=\"mailto:contact@markettwin.ai\" style=\"color:#0A1F4D;text-decoration:underline\">contact@markettwin.ai</a> 로 보내주세요. 여러분의 피드백을 제품에 적극 반영하겠습니다.",
+    inviteSubject: (w: string) => `[AI Market Twin] ${w} 워크스페이스에 초대되었습니다`,
+    inviteHello: "워크스페이스 초대",
+    inviteIntro: (inviter: string, ws: string) =>
+      `<strong>${inviter}</strong> 님이 <strong>${ws}</strong> 워크스페이스로 초대했습니다. 아래 버튼을 눌러 참여하세요.`,
+    inviteRoleLabel: "권한",
+    inviteExpiryNote: (d: string) => `이 초대는 ${d} 까지 유효합니다.`,
+    inviteEmailNote: (e: string) =>
+      `초대는 <strong>${e}</strong> 주소로 발송되었습니다. 같은 주소로 로그인해야 참여할 수 있습니다.`,
+    inviteCtaLabel: "워크스페이스 참여",
+    roleAdmin: "관리자 — 멤버 초대·설정 변경 가능",
+    roleAnalyst: "분석가 — 시뮬레이션 실행·결과 열람",
+    roleViewer: "뷰어 — 결과 열람만 가능",
   },
   en: {
     appName: "AI Market Twin",
@@ -96,6 +108,18 @@ const COPY = {
       "Have feedback or ideas during the beta? Email us anytime at <a href=\"mailto:contact@markettwin.ai\" style=\"color:#0A1F4D;text-decoration:underline\">contact@markettwin.ai</a> — we'll fold it straight into the product.",
     failedCtaLabel: "Retry from project",
     footer: "This email is a workspace activity notification.",
+    inviteSubject: (w: string) => `[AI Market Twin] You've been invited to ${w}`,
+    inviteHello: "Workspace invitation",
+    inviteIntro: (inviter: string, ws: string) =>
+      `<strong>${inviter}</strong> invited you to the <strong>${ws}</strong> workspace. Use the button below to join.`,
+    inviteRoleLabel: "Role",
+    inviteExpiryNote: (d: string) => `This invitation is valid until ${d}.`,
+    inviteEmailNote: (e: string) =>
+      `This invitation was sent to <strong>${e}</strong>. You must sign in with that address to join.`,
+    inviteCtaLabel: "Join workspace",
+    roleAdmin: "Admin — can invite members and change settings",
+    roleAnalyst: "Analyst — can run simulations and read results",
+    roleViewer: "Viewer — read-only access to results",
   },
 } as const;
 
@@ -259,6 +283,73 @@ function metricsBlock(
       ${rows}
     </table>
   `;
+}
+
+interface InviteInput {
+  locale: Locale;
+  workspaceName: string;
+  inviterEmail: string;
+  inviteeEmail: string;
+  role: "admin" | "analyst" | "viewer";
+  acceptUrl: string;
+  expiresAt: string;
+}
+
+/**
+ * Seat invitation. The invitee may not have an account yet, so the CTA
+ * lands on a page that routes them through sign-up when needed and then
+ * accepts on their behalf.
+ */
+export function renderInviteEmail(input: InviteInput) {
+  const c = COPY[input.locale];
+  const roleCopy =
+    input.role === "admin"
+      ? c.roleAdmin
+      : input.role === "viewer"
+        ? c.roleViewer
+        : c.roleAnalyst;
+  const expiry = new Date(input.expiresAt).toLocaleDateString(
+    input.locale === "ko" ? "ko-KR" : "en-US",
+    { year: "numeric", month: "long", day: "numeric" },
+  );
+
+  const subject = c.inviteSubject(input.workspaceName);
+  const text = [
+    c.inviteHello,
+    "",
+    c.inviteIntro(input.inviterEmail, input.workspaceName).replace(/<[^>]+>/g, ""),
+    "",
+    `${c.inviteRoleLabel}: ${roleCopy}`,
+    c.inviteEmailNote(input.inviteeEmail).replace(/<[^>]+>/g, ""),
+    c.inviteExpiryNote(expiry),
+    "",
+    `${c.inviteCtaLabel}: ${input.acceptUrl}`,
+  ].join("\n");
+
+  const html = layout(
+    `
+    <h1 style="margin:0 0 8px 0;font-size:20px;color:#0f172a;">${escape(c.inviteHello)}</h1>
+    <p style="margin:0 0 20px 0;font-size:14px;line-height:1.7;color:#475569;">
+      ${c.inviteIntro(escape(input.inviterEmail), escape(input.workspaceName))}
+    </p>
+    <table cellpadding="0" cellspacing="0" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:20px;">
+      ${row(c.inviteRoleLabel, roleCopy)}
+    </table>
+    <p style="margin:0 0 4px 0;font-size:13px;line-height:1.7;color:#475569;">
+      ${c.inviteEmailNote(escape(input.inviteeEmail))}
+    </p>
+    <p style="margin:0 0 24px 0;font-size:13px;line-height:1.7;color:#94a3b8;">
+      ${escape(c.inviteExpiryNote(expiry))}
+    </p>
+    <a href="${input.acceptUrl}" style="display:inline-block;background:#0b2a5b;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;">
+      ${escape(c.inviteCtaLabel)} →
+    </a>
+  `,
+    c.appName,
+    c.footer,
+  );
+
+  return { subject, html, text };
 }
 
 function row(label: string, value: string): string {

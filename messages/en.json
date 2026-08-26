@@ -1013,11 +1013,52 @@
   },
   "team": {
     "title": "Team",
-    "subtitle": "Workspace members and access info",
+    "subtitle": "Manage workspace members and seats",
     "members": {
       "title": "Members",
-      "count": "{n} total",
-      "joined": "joined {date}"
+      "count": "{n}",
+      "joined": "Joined {date}",
+      "you": "(you)",
+      "remove": "Remove member",
+      "leave": "Leave workspace",
+      "removeConfirm": "Remove this member from the workspace? They lose access immediately.",
+      "leaveConfirm": "Leave this workspace? You'll need a new invitation to return."
+    },
+    "seats": {
+      "title": "Seat usage",
+      "plan": "{plan} plan",
+      "unlimited": "Unlimited",
+      "note": "Each member and each pending invitation uses one seat. Revoking an invitation frees its seat immediately."
+    },
+    "invite": {
+      "title": "Invite a teammate",
+      "emailPlaceholder": "Email address",
+      "cta": "Send invite",
+      "sent": "Invitation sent.",
+      "sentNoEmail": "Invitation created, but the email could not be sent. Share the invite link directly.",
+      "seatsFull": "All seats are in use. Upgrade the plan or free a seat first."
+    },
+    "pending": {
+      "title": "Pending invitations ({n})",
+      "expiresOn": "Expires {date}",
+      "expired": "Expired",
+      "revoke": "Revoke invitation"
+    },
+    "roles": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "analyst": "Analyst",
+      "viewer": "Viewer"
+    },
+    "errors": {
+      "generic": "Something went wrong. Please try again.",
+      "seatLimit": "No seats available. Upgrade the plan or free a seat first.",
+      "alreadyMember": "That person is already a member of this workspace.",
+      "alreadyInvited": "That address already has a pending invitation.",
+      "invalidEmail": "Please check the email address.",
+      "lastOwner": "The last owner can't be removed or demoted. Promote another member to owner first.",
+      "insufficientRole": "You don't have permission to do that.",
+      "ownerOnly": "Only an owner can promote someone to owner."
     },
     "workspace": {
       "title": "Workspace",
@@ -1026,14 +1067,36 @@
       "plan": "Plan",
       "created": "Created"
     },
-    "inviteSoon": {
-      "title": "Team invites — coming in v0.2",
-      "description": "Inviting teammates by email and assigning analyst / viewer roles will land in v0.2. v0.1 runs as single-member workspaces."
-    },
     "benefits": {
-      "rls": "Data is isolated per workspace by row-level security (RLS).",
-      "singleMember": "v0.1: one workspace per user, owner role.",
-      "emailNotifications": "Simulation completion and failure notifications are sent to your email."
+      "rls": "Data is isolated per workspace (RLS).",
+      "roles": "Four permission levels: owner, admin, analyst, viewer.",
+      "emailNotifications": "You're notified by email when a simulation completes or fails."
+    }
+  },
+  "invite": {
+    "title": "Workspace invitation",
+    "acceptCta": "Join workspace",
+    "joining": "Joining…",
+    "loginCta": "Sign in and join",
+    "signupCta": "Sign up and join",
+    "goToApp": "Go to the app",
+    "signedOutNote": "This invitation was sent to {email}. Sign in or sign up with that address to join.",
+    "mismatch": "This invitation was sent to {invited}, but you're signed in as {current}. Sign in with the invited address to join.",
+    "expired": "This invitation has expired. Ask a workspace admin for a new one.",
+    "used": "This invitation has already been used.",
+    "notFound": "This invitation link isn't valid.",
+    "roles": {
+      "owner": "Owner",
+      "admin": "Admin — can invite members and change settings",
+      "analyst": "Analyst — can run simulations and read results",
+      "viewer": "Viewer — read-only access to results"
+    },
+    "errors": {
+      "generic": "Couldn't join. Please try again.",
+      "emailMismatch": "The invited address doesn't match the account you're signed in with.",
+      "expired": "This invitation has expired.",
+      "notFound": "This invitation link isn't valid.",
+      "seatLimit": "This workspace has no seats left. Contact an admin."
     }
   },
   "workspaceSwitcher": {

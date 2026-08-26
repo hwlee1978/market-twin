@@ -2,7 +2,8 @@
 
 import { useTranslations, useLocale } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { BarChart3, Globe2, ShieldCheck, Sparkles } from "lucide-react";
 import { LogoMark } from "@/components/ui/Logo";
 import { authErrorKey } from "@/lib/auth/error-messages";
@@ -16,11 +17,24 @@ const FEATURES = [
   { icon: ShieldCheck, key: "regulatory" as const },
 ];
 
-export default function LoginPage() {
+/**
+ * `?next=` lets a flow that requires auth bounce through login and come
+ * back — the seat-invitation link is the first caller. Only same-site
+ * absolute paths are honoured so the parameter can't be used as an open
+ * redirect.
+ */
+function safeNext(raw: string | null): string | null {
+  if (!raw) return null;
+  if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+  return raw;
+}
+
+function LoginPageInner() {
   const t = useTranslations();
   const locale = useLocale();
   const isKo = locale !== "en";
   const router = useRouter();
+  const next = safeNext(useSearchParams().get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -56,7 +70,7 @@ export default function LoginPage() {
     // ("로그인 중...") until the dashboard takes over and this component
     // unmounts. If we reset loading here, the button briefly snaps back
     // to active in the gap between auth resolving and the route swap.
-    router.replace("/dashboard");
+    router.replace(next ?? "/dashboard");
     router.refresh();
   };
 
@@ -66,7 +80,7 @@ export default function LoginPage() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/oauth-callback`,
+        redirectTo: `${window.location.origin}/auth/oauth-callback${next ? `?next=${encodeURIComponent(next)}` : ""}`,
       },
     });
   };
@@ -238,5 +252,17 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * useSearchParams needs a Suspense boundary for static rendering; the
+ * wrapper keeps the page prerenderable.
+ */
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
   );
 }
