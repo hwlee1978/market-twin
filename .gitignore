@@ -70,3 +70,9 @@ scripts/_check-draft-lang.ts
 .vercel
 
 scripts/_check-lunarcrush.ts
+
+# Local env backup — contains SUPABASE_SERVICE_ROLE_KEY
+.env.local.bak
+
+# Test-account provisioning (ships a default password for a real auth user)
+scripts/_create-starter-test-account.ts
