@@ -1,0 +1,677 @@
+<title>Mr.AI 확장 기능 — Market Twin에 추가된 것</title>
+<style>
+  :root {
+    --ground: #0B0E13;
+    --ground-2: #0E1218;
+    --panel: #151B24;
+    --panel-2: #1B222C;
+    --line: #263140;
+    --line-soft: #1E2732;
+    --ink: #EAECEF;
+    --ink-mute: #8B95A6;
+    --ink-dim: #5C6675;
+    --amber: #F5A623;
+    --amber-soft: rgba(245,166,35,0.10);
+    --amber-line: rgba(245,166,35,0.42);
+    --cyan: #2FD3E0;
+    --cyan-soft: rgba(47,211,224,0.09);
+    --cyan-line: rgba(47,211,224,0.40);
+    --good: #4ADE80;
+    --font-display: "Helvetica Neue", "Segoe UI", -apple-system, system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-display);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow: hidden;
+  }
+
+  .deck {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    padding: clamp(28px, 5.2vw, 84px);
+    padding-bottom: clamp(56px, 7vw, 96px);
+    overflow-y: auto;
+    background:
+      radial-gradient(120% 90% at 12% 0%, rgba(245,166,35,0.045), transparent 55%),
+      radial-gradient(110% 90% at 100% 100%, rgba(47,211,224,0.05), transparent 52%),
+      var(--ground);
+  }
+  .slide.active { display: flex; animation: fade .42s ease both; }
+  @media (prefers-reduced-motion: reduce) { .slide.active { animation: none; } }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: clamp(10px, 1.05vw, 13px);
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--amber);
+    font-weight: 600;
+    margin: 0 0 clamp(14px, 1.8vw, 22px);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .eyebrow::before {
+    content: "";
+    width: clamp(20px, 3vw, 40px);
+    height: 2px;
+    background: var(--amber);
+    display: inline-block;
+  }
+  .eyebrow.cy { color: var(--cyan); }
+  .eyebrow.cy::before { background: var(--cyan); }
+
+  h1.title {
+    font-size: clamp(30px, 4.6vw, 66px);
+    line-height: 1.02;
+    letter-spacing: -0.03em;
+    font-weight: 800;
+    margin: 0;
+    text-wrap: balance;
+    max-width: 20ch;
+  }
+  h2.title {
+    font-size: clamp(24px, 3.4vw, 46px);
+    line-height: 1.06;
+    letter-spacing: -0.028em;
+    font-weight: 800;
+    margin: 0 0 clamp(18px, 2.4vw, 30px);
+    text-wrap: balance;
+    max-width: 24ch;
+  }
+  .amber { color: var(--amber); }
+  .cyan { color: var(--cyan); }
+  .mute { color: var(--ink-mute); }
+
+  .lede {
+    font-size: clamp(15px, 1.7vw, 22px);
+    line-height: 1.55;
+    color: var(--ink-mute);
+    max-width: 62ch;
+    font-weight: 400;
+  }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  /* ---- Cover ---- */
+  .cover-wrap { max-width: 1100px; }
+  .cover-kicker {
+    font-family: var(--font-mono);
+    font-size: clamp(11px, 1.15vw, 14px);
+    letter-spacing: 0.2em;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    margin-bottom: clamp(22px, 3vw, 40px);
+  }
+  .cover-flow {
+    display: flex; align-items: center; gap: clamp(10px, 1.6vw, 20px);
+    font-family: var(--font-mono);
+    font-size: clamp(12px, 1.3vw, 16px);
+    color: var(--ink-mute);
+    margin-top: clamp(28px, 4vw, 48px);
+    flex-wrap: wrap;
+  }
+  .cover-flow .pill {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px 16px;
+    color: var(--ink);
+  }
+  .cover-flow .pill.on { border-color: var(--amber-line); background: var(--amber-soft); color: var(--amber); }
+  .cover-flow .arrow { color: var(--amber); font-size: 1.3em; }
+  .cover-meta {
+    margin-top: clamp(30px, 4.5vw, 56px);
+    font-family: var(--font-mono);
+    font-size: clamp(10px, 1vw, 13px);
+    letter-spacing: 0.05em;
+    color: var(--ink-dim);
+  }
+
+  /* ---- generic grids ---- */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(14px, 1.6vw, 22px); }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(12px, 1.3vw, 18px); }
+  .cols { display: grid; grid-template-columns: 1.05fr 1fr; gap: clamp(20px, 3vw, 46px); align-items: start; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line-soft);
+    border-radius: 14px;
+    padding: clamp(16px, 1.7vw, 24px);
+  }
+  .card.amber { border-color: var(--amber-line); background: linear-gradient(180deg, var(--amber-soft), transparent); }
+  .card.cyan { border-color: var(--cyan-line); background: linear-gradient(180deg, var(--cyan-soft), transparent); }
+  .card .k {
+    font-family: var(--font-mono);
+    font-size: clamp(10px, 0.95vw, 12px);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin: 0 0 10px;
+  }
+  .card.amber .k { color: var(--amber); }
+  .card.cyan .k { color: var(--cyan); }
+  .card h3 {
+    font-size: clamp(16px, 1.7vw, 22px);
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+  }
+  .card p {
+    margin: 0;
+    font-size: clamp(13px, 1.28vw, 16px);
+    line-height: 1.5;
+    color: var(--ink-mute);
+  }
+  .card p + p { margin-top: 8px; }
+  .card p strong { color: var(--ink); font-weight: 600; }
+
+  /* triple spec (기능/동작/기대효과) */
+  .spec { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(12px, 1.4vw, 20px); }
+  .spec .col .lbl {
+    font-family: var(--font-mono);
+    font-size: clamp(10px, 0.95vw, 12px);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+    display: block;
+  }
+  .spec .col.effect .lbl { color: var(--amber); border-color: var(--amber-line); }
+  .spec .col ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .spec .col li {
+    font-size: clamp(13px, 1.32vw, 16.5px);
+    line-height: 1.42;
+    color: var(--ink-mute);
+    padding-left: 16px;
+    position: relative;
+  }
+  .spec .col li::before { content: ""; position: absolute; left: 0; top: 0.62em; width: 6px; height: 6px; border-radius: 2px; background: var(--line); }
+  .spec .col.effect li { color: var(--ink); }
+  .spec .col.effect li::before { background: var(--amber); }
+  .spec .col li strong { color: var(--ink); font-weight: 600; }
+
+  /* module overview chips */
+  .mods { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(10px, 1.15vw, 16px); }
+  .mod {
+    background: var(--panel);
+    border: 1px solid var(--line-soft);
+    border-radius: 12px;
+    padding: clamp(13px, 1.4vw, 18px);
+    min-height: clamp(96px, 11vw, 130px);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .mod .num { font-family: var(--font-mono); font-size: 11px; color: var(--amber); letter-spacing: 0.1em; }
+  .mod .nm { font-size: clamp(14px, 1.42vw, 18px); font-weight: 700; letter-spacing: -0.01em; }
+  .mod .ds { font-size: clamp(11px, 1.12vw, 13.5px); line-height: 1.4; color: var(--ink-mute); }
+
+  /* architecture stack */
+  .stack { display: flex; flex-direction: column; gap: clamp(9px, 1vw, 13px); }
+  .bar {
+    border-radius: 12px;
+    padding: clamp(11px, 1.25vw, 17px) clamp(15px, 1.7vw, 22px);
+    display: flex; align-items: center; gap: clamp(12px, 1.5vw, 20px);
+  }
+  .bar .tag {
+    font-family: var(--font-mono);
+    font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
+    padding: 4px 10px; border-radius: 5px; flex-shrink: 0;
+  }
+  .bar .bt { font-size: clamp(14px, 1.5vw, 19px); font-weight: 700; }
+  .bar .bd { font-size: clamp(11px, 1.15vw, 14px); color: var(--ink-mute); margin-top: 2px; }
+  .bar.l1 { background: #10161E; border: 1px solid var(--line); }
+  .bar.l1 .tag { background: var(--amber); color: #0B0E13; }
+  .bar.voice { background: var(--amber-soft); border: 1px solid var(--amber-line); }
+  .bar.voice .tag { background: var(--amber); color: #0B0E13; }
+  .bar.memory { background: var(--cyan-soft); border: 1px solid var(--cyan-line); }
+  .bar.memory .tag { background: var(--cyan); color: #0B0E13; }
+  .bar.attr { background: #10161E; border: 1px solid var(--line); }
+  .bar.attr .tag { background: var(--cyan); color: #0B0E13; }
+
+  .modrow { display: grid; grid-template-columns: repeat(5, 1fr); gap: clamp(8px, 0.9vw, 12px); }
+  .modrow .m {
+    background: var(--panel); border: 1px solid var(--line-soft); border-radius: 10px;
+    padding: clamp(10px, 1.1vw, 15px); min-height: clamp(78px, 9vw, 108px);
+  }
+  .modrow .m.hl { border-color: var(--amber-line); background: var(--amber-soft); }
+  .modrow .m .mn { font-size: clamp(12px, 1.25vw, 16px); font-weight: 700; margin-bottom: 4px; }
+  .modrow .m .md { font-size: clamp(10px, 1vw, 12.5px); color: var(--ink-mute); line-height: 1.35; }
+  .modrow .m .ms { font-size: clamp(9px, 0.92vw, 11.5px); margin-top: 6px; color: var(--ink-dim); }
+  .modrow .m.hl .ms { color: var(--amber); font-weight: 600; }
+
+  /* comparison table */
+  .tbl-wrap { overflow-x: auto; }
+  table.cmp {
+    width: 100%; border-collapse: collapse;
+    font-size: clamp(13px, 1.4vw, 17.5px);
+  }
+  table.cmp th, table.cmp td {
+    text-align: left; padding: clamp(10px, 1.35vw, 17px) clamp(12px, 1.5vw, 20px);
+    border-bottom: 1px solid var(--line-soft); vertical-align: top; line-height: 1.4;
+  }
+  table.cmp thead th {
+    font-family: var(--font-mono); font-size: clamp(10px, 1.05vw, 13px);
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-mute);
+    border-bottom: 1px solid var(--line); font-weight: 600;
+  }
+  table.cmp thead th.now { color: var(--amber); }
+  table.cmp td.axis { color: var(--ink-mute); font-family: var(--font-mono); font-size: clamp(11px, 1.15vw, 14px); white-space: nowrap; }
+  table.cmp td.was { color: var(--ink-dim); }
+  table.cmp td.now { color: var(--ink); font-weight: 600; }
+  table.cmp tbody tr:last-child td { border-bottom: none; }
+
+  /* cron list */
+  .cron { display: flex; flex-direction: column; gap: 9px; }
+  .cron .row {
+    display: grid; grid-template-columns: minmax(180px, 0.5fr) 1fr; gap: 16px;
+    align-items: center; padding: clamp(9px, 1.1vw, 14px) clamp(13px, 1.4vw, 18px);
+    background: var(--panel); border: 1px solid var(--line-soft); border-radius: 10px;
+  }
+  .cron .row code {
+    font-family: var(--font-mono); font-size: clamp(11px, 1.1vw, 14px); color: var(--cyan);
+    white-space: nowrap;
+  }
+  .cron .row .d { font-size: clamp(12px, 1.25vw, 15.5px); color: var(--ink-mute); }
+
+  .callout {
+    margin-top: clamp(16px, 2vw, 26px);
+    border-left: 3px solid var(--amber);
+    background: var(--amber-soft);
+    padding: clamp(13px, 1.5vw, 19px) clamp(16px, 1.8vw, 24px);
+    border-radius: 0 10px 10px 0;
+    font-size: clamp(14px, 1.5vw, 19px);
+    line-height: 1.5;
+  }
+  .callout strong { color: var(--amber); font-weight: 700; }
+
+  .note { font-family: var(--font-mono); font-size: clamp(10px, 1vw, 12.5px); color: var(--ink-dim); margin-top: clamp(14px, 1.8vw, 22px); line-height: 1.5; }
+
+  /* closing status list */
+  .status { display: flex; flex-direction: column; gap: clamp(10px, 1.2vw, 15px); max-width: 60ch; }
+  .status .s { display: flex; gap: 14px; align-items: baseline; font-size: clamp(14px, 1.5vw, 18px); line-height: 1.45; }
+  .status .s .host { font-family: var(--font-mono); color: var(--amber); font-size: 0.86em; white-space: nowrap; }
+  .status .s .host.dim { color: var(--cyan); }
+  .status .s span.t { color: var(--ink-mute); }
+  .status .s span.t strong { color: var(--ink); font-weight: 600; }
+
+  /* chrome: progress + counter + nav */
+  .chrome {
+    position: fixed; left: 0; right: 0; bottom: 0; height: 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 clamp(20px, 4vw, 60px);
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em;
+    color: var(--ink-dim); pointer-events: none; z-index: 20;
+  }
+  .counter { font-variant-numeric: tabular-nums; }
+  .counter .cur { color: var(--amber); }
+  .hint { color: var(--ink-dim); }
+  .progress {
+    position: fixed; left: 0; bottom: 0; height: 3px; background: var(--amber);
+    transition: width .42s cubic-bezier(.4,0,.2,1); z-index: 21;
+  }
+  @media (prefers-reduced-motion: reduce) { .progress { transition: none; } }
+  .dots {
+    position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 7px; z-index: 22;
+  }
+  .dots button {
+    width: 7px; height: 7px; border-radius: 50%; border: none; padding: 0;
+    background: var(--line); cursor: pointer; transition: all .2s;
+  }
+  .dots button:hover { background: var(--ink-dim); }
+  .dots button.on { background: var(--amber); width: 20px; border-radius: 4px; }
+  .dots button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+
+  .nav-zone { position: fixed; top: 0; bottom: 40px; width: 18%; z-index: 15; cursor: pointer; }
+  .nav-zone.prev { left: 0; }
+  .nav-zone.next { right: 0; }
+
+  @media (max-width: 720px) {
+    .cols, .grid-2, .spec, .mods, .modrow, .grid-3, .cron .row { grid-template-columns: 1fr; }
+    .mods { grid-template-columns: 1fr 1fr; }
+    .hint { display: none; }
+  }
+</style>
+
+<div class="deck" id="deck">
+
+  <!-- 1 · COVER -->
+  <section class="slide active">
+    <div class="cover-wrap">
+      <div class="cover-kicker">Mr.AI Inc. · 제품 확장 브리핑</div>
+      <h1 class="title">Market Twin 위에<br><span class="amber">Mr.AI</span>로 더해진 것</h1>
+      <p class="lede" style="margin-top:clamp(20px,3vw,34px)">시장 검증 <strong>시뮬레이션 도구</strong>가, 마케팅·영업·IR·전략·운영을 위임받는 <strong>1인 CEO 운영 OS</strong>로 확장됐다. 이 덱은 그 <strong>추가분만</strong> 다룬다.</p>
+      <div class="cover-flow">
+        <span class="pill">Market Twin · 시뮬레이션</span>
+        <span class="arrow">→</span>
+        <span class="pill on">Mr.AI · CEO OS</span>
+      </div>
+      <div class="cover-meta">문서버전 v1.0 · 2026.07 · 포함 관계 Mr.AI ⊃ Market Twin</div>
+    </div>
+  </section>
+
+  <!-- 2 · 포함 관계 -->
+  <section class="slide">
+    <p class="eyebrow">한눈에</p>
+    <h2 class="title">시뮬레이션은 <span class="amber">5개 모듈 중 한 칸</span>이 됐다</h2>
+    <div class="cols">
+      <div>
+        <p class="lede">Mr.AI는 기존 Market Twin을 <strong>‘의사결정 지원’ 모듈 하나로 흡수</strong>하고, 그 위에 마케팅·영업·IR·일일 브리핑을 얹었다. 출시 전 단발성 검증이, 매일 굴러가는 상시 운영으로 바뀐다.</p>
+        <div class="callout"><strong>Mr.AI ⊃ Market Twin.</strong> 같은 코드베이스·같은 인프라. 호스트로만 노출을 분기한다.</div>
+      </div>
+      <div class="grid-2" style="grid-template-columns:1fr">
+        <div class="card cyan">
+          <p class="k">기반 · Market Twin</p>
+          <h3>출시 전 시장 검증</h3>
+          <p>제품·가격·페르소나·경쟁사 시뮬레이션 → PDF 리포트. 판단의 <strong>근거</strong>를 만든다.</p>
+        </div>
+        <div class="card amber">
+          <p class="k">확장 · Mr.AI</p>
+          <h3>판단을 실행으로</h3>
+          <p>그 근거를 매일의 <strong>브리핑·콘텐츠·발행·매출 추적</strong>까지 자동으로 이어붙인다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 · 카테고리 격상 -->
+  <section class="slide">
+    <p class="eyebrow">카테고리 격상</p>
+    <h2 class="title">‘도구’에서 <span class="amber">‘AI 임원’</span>으로</h2>
+    <div class="tbl-wrap">
+      <table class="cmp">
+        <thead>
+          <tr><th>관점</th><th class="was-h">Market Twin</th><th class="now">Mr.AI 확장 후</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="axis">정의</td><td class="was">AI 출시 시뮬레이션 <em>도구</em></td><td class="now">마케팅·영업·IR·전략·운영을 위임받는 <span class="amber">AI 임원(CEO OS)</span></td></tr>
+          <tr><td class="axis">사용 방식</td><td class="was">프로젝트 생성 → 실행 → 열람 (단발)</td><td class="now">대화 + 매일 자동 브리핑 + 자동 발행 (상시)</td></tr>
+          <tr><td class="axis">기억</td><td class="was">프로젝트 단위, 세션 종료 시 소멸</td><td class="now">영속 메모리 + 지식그래프 (평생 누적)</td></tr>
+          <tr><td class="axis">출력</td><td class="was">PDF 리포트</td><td class="now">리포트 + 콘텐츠 + 실제 SNS 발행 + Slack·이메일 브리핑</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout" style="margin-top:clamp(18px,2.4vw,30px)">“마케터 1명 자동화”가 아니라 <strong>“Founder 1명이 임원 5명처럼 운영”</strong>.</div>
+  </section>
+
+  <!-- 4 · 아키텍처 -->
+  <section class="slide">
+    <p class="eyebrow cy">아키텍처 · 신규</p>
+    <h2 class="title">5 모듈 + 3 레이어</h2>
+    <div class="stack">
+      <div class="bar l1">
+        <span class="tag">L1</span>
+        <div><div class="bt">CEO Mr.AI · Orchestrator</div><div class="bd">사용자 지시 → 모듈 라우팅 + plan 합성 + 결과 통합 narrative</div></div>
+      </div>
+      <div class="modrow">
+        <div class="m"><div class="mn">Marketing</div><div class="md">콘텐츠·SEO·다채널 발행</div></div>
+        <div class="m"><div class="mn">Sales</div><div class="md">outreach·답장·follow-up</div></div>
+        <div class="m"><div class="mn">IR</div><div class="md">투자자 업데이트·KPI</div></div>
+        <div class="m hl"><div class="mn">Decision</div><div class="md">시장·가격·채널 전략</div><div class="ms">🔄 Market Twin 엔진</div></div>
+        <div class="m"><div class="mn">Daily Briefing</div><div class="md">아침 5분 브리핑·액션</div></div>
+      </div>
+      <div class="bar voice"><span class="tag">VOICE</span><div><div class="bt">Voice DNA Layer</div><div class="bd">모든 모듈 출력의 최종 톤 변환 — 브랜드 일관성 유지</div></div></div>
+      <div class="bar memory"><span class="tag">MEMORY</span><div><div class="bt">Persistent Memory</div><div class="bd">프로필·회사 context graph·의사결정 log 평생 누적</div></div></div>
+      <div class="bar attr"><span class="tag">ATTR</span><div><div class="bt">Attribution Engine</div><div class="bd">모든 action에 tracking ID → “Mr.AI가 한 일 → 매출” 폐루프</div></div></div>
+    </div>
+    <p class="note">3-Layer Orchestrator: Strategist(계획) → Analyst(근거) → Synthesizer(합성). 기술 스택은 Market Twin 인프라를 그대로 확장.</p>
+  </section>
+
+  <!-- 5 · 추가 기능 개요 -->
+  <section class="slide">
+    <p class="eyebrow">추가된 기능 전체</p>
+    <h2 class="title">Mr.AI가 새로 얹은 <span class="amber">11개 모듈</span></h2>
+    <div class="mods">
+      <div class="mod"><span class="num">01</span><span class="nm">챗 · 오케스트레이터</span><span class="ds">3-레이어 전략 에이전트</span></div>
+      <div class="mod"><span class="num">02</span><span class="nm">영속 메모리 · KG</span><span class="ds">pgvector 의미검색·지식그래프</span></div>
+      <div class="mod"><span class="num">03</span><span class="nm">데일리 브리핑</span><span class="ds">매일 08시 자동 발송</span></div>
+      <div class="mod"><span class="num">04</span><span class="nm">콘텐츠 생성 엔진</span><span class="ds">카피·이미지·SEO·미리보기</span></div>
+      <div class="mod"><span class="num">05</span><span class="nm">채널 · 자동 발행</span><span class="ds">예약→무인 게시</span></div>
+      <div class="mod"><span class="num">06</span><span class="nm">통합 · 어트리뷰션</span><span class="ds">HubSpot·X·LinkedIn</span></div>
+      <div class="mod"><span class="num">07</span><span class="nm">SEO · LLM-SEO</span><span class="ds">GSC·GA4·LLM 가시성</span></div>
+      <div class="mod"><span class="num">08</span><span class="nm">시장 크롤링</span><span class="ds">웹·뉴스 실시간 시그널</span></div>
+      <div class="mod"><span class="num">09</span><span class="nm">온보딩 · 자동 시딩</span><span class="ds">PDF 메모리 자동 추출</span></div>
+      <div class="mod"><span class="num">10</span><span class="nm">피드백 · KPI 루프</span><span class="ds">Good/Bad → 품질 개선</span></div>
+      <div class="mod"><span class="num">11</span><span class="nm">시뮬 프로포저</span><span class="ds">대화 중 시뮬 재호출</span></div>
+    </div>
+    <p class="note">이후 슬라이드에서 각 모듈을 기능 · 동작 · 기대효과로 상세 전개.</p>
+  </section>
+
+  <!-- 6 · 지능 코어 -->
+  <section class="slide">
+    <p class="eyebrow cy">모듈 01·02 · 지능 코어</p>
+    <h2 class="title">회사 맥락에 고정된 <span class="cyan">답변</span>과 <span class="cyan">기억</span></h2>
+    <div class="spec">
+      <div class="col"><span class="lbl">기능</span><ul>
+        <li>자연어로 전략·마케팅·영업 질문</li>
+        <li>회사 프로필·KPI·경쟁사·의사결정 로그를 <strong>항목별 저장</strong></li>
+        <li>지식그래프로 엔티티·관계 관리</li>
+      </ul></div>
+      <div class="col"><span class="lbl">동작</span><ul>
+        <li>Strategist → Analyst → Synthesizer 3-레이어</li>
+        <li>메모리 50개 초과 시 <strong>pgvector 의미검색 자동 전환</strong></li>
+        <li>트레이스 저장(디버깅·품질학습)</li>
+      </ul></div>
+      <div class="col effect"><span class="lbl">기대효과</span><ul>
+        <li>일반 LLM 챗봇과 달리 <strong>일반론이 아닌 우리 회사 답</strong></li>
+        <li>임원 회의 자료·GO/NO-GO 근거 즉시 생성</li>
+        <li>쓸수록 똑똑해지는 누적 학습</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <!-- 7 · 데일리 브리핑 -->
+  <section class="slide">
+    <p class="eyebrow">모듈 03 · 데일리 브리핑</p>
+    <h2 class="title">출근길 5분에 끝나는 <span class="amber">회사 현황</span></h2>
+    <div class="spec">
+      <div class="col"><span class="lbl">기능</span><ul>
+        <li>매일 08:00 KST 자동 생성</li>
+        <li>“어제 요약 / 오늘 챙길 것 / 주의 신호” 3섹션</li>
+      </ul></div>
+      <div class="col"><span class="lbl">동작</span><ul>
+        <li>메모리 + KG + 최근 시뮬 + CRM 거래 + 크롤 시그널 합성</li>
+        <li>Slack(Block Kit)·이메일(HTML) 자동 발송</li>
+        <li>Vercel Cron <code style="font-family:var(--font-mono);color:var(--cyan)">0 23 * * *</code></li>
+      </ul></div>
+      <div class="col effect"><span class="lbl">기대효과</span><ul>
+        <li>대시보드에 안 들어가도 <strong>운영이 굴러감</strong></li>
+        <li>임원이 매일 회사 상태를 자동 파악</li>
+        <li>놓친 거래·경쟁사 동향 사전 포착</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <!-- 8 · 콘텐츠 엔진 -->
+  <section class="slide">
+    <p class="eyebrow">모듈 04 · 콘텐츠 생성 엔진</p>
+    <h2 class="title">카피부터 발행 미리보기까지 <span class="amber">한 사람이 완결</span></h2>
+    <div class="grid-3">
+      <div class="card"><p class="k">텍스트</p><p>채널별 초안 자동 작성 · 콘텐츠 전략가 · 브리프 · <strong>SEO 점수화</strong> · 키워드 리서치</p></div>
+      <div class="card"><p class="k">이미지</p><p>제품컷 생성·보정 · <strong>라이프스타일 컷</strong> · 배경 제거 · 로고 합성·배치</p></div>
+      <div class="card"><p class="k">미리보기</p><p>Instagram · X · TikTok · YouTube · <strong>네이버 블로그·스마트스토어</strong> 실제 렌더</p></div>
+    </div>
+    <div class="callout" style="margin-top:clamp(16px,2vw,26px)">콘텐츠 캘린더 + 예약 발행, 발행 전 <strong>가상 피드로 반응 사전 예측</strong>. → 디자이너·마케터 없이 완결.</div>
+  </section>
+
+  <!-- 9 · 채널 자동 발행 -->
+  <section class="slide">
+    <p class="eyebrow">모듈 05 · 마케팅 채널 & 자동 발행</p>
+    <h2 class="title">기획 → 제작 → 발행 <span class="amber">무인 파이프라인</span></h2>
+    <div class="spec">
+      <div class="col"><span class="lbl">기능</span><ul>
+        <li>채널 등록 → 주제 추천 → 초안 → 예약 → <strong>자동 발행</strong></li>
+        <li>플랫폼별 최적 톤·포맷 규칙 강제</li>
+      </ul></div>
+      <div class="col"><span class="lbl">동작</span><ul>
+        <li>발행 크론이 예약분을 자동 게시</li>
+        <li>초안을 시뮬로 <strong>사전 반응 예측</strong> (Market Twin 엔진 재활용)</li>
+      </ul></div>
+      <div class="col effect"><span class="lbl">기대효과</span><ul>
+        <li>“기획→제작→발행” 사이클 <strong>무인화</strong></li>
+        <li>발행 리스크를 사전 시뮬로 줄임</li>
+        <li>채널 확장에도 운영 인력 고정</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <!-- 10 · 통합 & 어트리뷰션 -->
+  <section class="slide">
+    <p class="eyebrow cy">모듈 06 · 통합 & 어트리뷰션</p>
+    <h2 class="title">마케팅을 <span class="cyan">매출에 귀속</span>시키는 폐루프</h2>
+    <div class="cols">
+      <div class="grid-2" style="grid-template-columns:1fr">
+        <div class="card"><p class="k">CRM</p><p><strong>HubSpot OAuth</strong> — Contact·Deal 자동 동기화 → “마감 임박 거래” 인식</p></div>
+        <div class="card"><p class="k">소셜</p><p><strong>X · LinkedIn OAuth</strong> 연결 · 다계정 지원 · Slack·이메일 디스패치</p></div>
+      </div>
+      <div class="card cyan" style="align-self:stretch">
+        <p class="k">어트리뷰션 엔진</p>
+        <h3>“한 일 → 매출”</h3>
+        <p>모든 action에 tracking ID를 부여하고 HubSpot·GA4와 연동. Mr.AI의 활동을 <strong>실제 매출로 귀속</strong>해 ROI를 수치화한다.</p>
+        <p>영업 파이프라인까지 하나로 연결 — 마케팅이 “비용”에서 “측정 가능한 투자”로.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 · SEO / LLM-SEO + 크롤 -->
+  <section class="slide">
+    <p class="eyebrow">모듈 07·08 · SEO & 시장 신호</p>
+    <h2 class="title">검색 시대 + <span class="amber">AI 검색 시대</span>를 동시에</h2>
+    <div class="grid-3">
+      <div class="card"><p class="k">검색 SEO</p><p>Google Search Console · GA4 동기화 · 브랜드 SEO 패널</p></div>
+      <div class="card amber"><p class="k">LLM 가시성 감사</p><p><strong>ChatGPT·Claude가 우리 브랜드를 어떻게 답하는지</strong> 감사 + 이력 추세</p></div>
+      <div class="card"><p class="k">시장 크롤링</p><p>웹사이트·뉴스 RSS 주기 크롤 → 브리핑·챗의 <strong>실시간 근거</strong></p></div>
+    </div>
+    <div class="callout" style="margin-top:clamp(16px,2vw,26px)">LLM-SEO는 <strong>경쟁 마케팅 OS에 없는 차별점</strong>. 정적 통계에 실시간 동향을 더해 답변 신선도를 확보한다.</div>
+  </section>
+
+  <!-- 12 · 자동화 & 데이터 -->
+  <section class="slide">
+    <p class="eyebrow cy">기반 · 자동화 & 데이터</p>
+    <h2 class="title">뒤에서 도는 <span class="cyan">5개 크론</span>과 격리된 데이터</h2>
+    <div class="cols">
+      <div class="cron">
+        <div class="row"><code>briefings/cron</code><span class="d">매일 08 KST 브리핑 생성·발송</span></div>
+        <div class="row"><code>crawl/cron</code><span class="d">시장·뉴스 시그널 크롤</span></div>
+        <div class="row"><code>content-drafts/auto-publish</code><span class="d">예약 콘텐츠 자동 발행</span></div>
+        <div class="row"><code>publications/cron</code><span class="d">발행 상태 tick·후속 처리</span></div>
+        <div class="row"><code>seo/google/cron</code><span class="d">GSC·GA4 지표 동기화</span></div>
+      </div>
+      <div>
+        <div class="card cyan">
+          <p class="k">데이터 추가분</p>
+          <h3>마이그레이션 0029 → 0073</h3>
+          <p>메모리·브리핑·임베딩·통합·에이전트 트레이스·지식그래프·피드백·채널·콘텐츠 브리프·온보딩·발행·다계정 통합.</p>
+          <p>전부 <strong>워크스페이스 단위 격리(RLS)</strong>.</p>
+        </div>
+        <p class="note">크론은 UI 노출과 분리 게이팅(<code style="font-family:var(--font-mono);color:var(--cyan)">MRAI_CRON_ENABLED</code>) — 한쪽 배포에서만 켜 double-fire 방지.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 13 · 기대효과 종합 -->
+  <section class="slide">
+    <p class="eyebrow">기대효과 종합</p>
+    <h2 class="title">단발 검증에서 <span class="amber">상시 운영</span>으로</h2>
+    <div class="tbl-wrap">
+      <table class="cmp">
+        <thead><tr><th>관점</th><th>Market Twin 단독</th><th class="now">Mr.AI 확장 후</th></tr></thead>
+        <tbody>
+          <tr><td class="axis">사용 빈도</td><td class="was">의사결정 시점 단발</td><td class="now">매일 브리핑·발행으로 상시</td></tr>
+          <tr><td class="axis">인력 대체</td><td class="was">시장조사 리서처</td><td class="now">마케터 + 제작자 + 영업 + IR + 전략 참모</td></tr>
+          <tr><td class="axis">산출물</td><td class="was">리포트(읽고 끝)</td><td class="now">리포트 + 실제 발행물 + CRM + 매출 귀속</td></tr>
+          <tr><td class="axis">학습</td><td class="was">없음 (세션 종료)</td><td class="now">메모리·KG·피드백 누적 향상</td></tr>
+          <tr><td class="axis">매출 연결</td><td class="was">간접 (참고자료)</td><td class="now">어트리뷰션으로 직접 귀속</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 14 · 클로징 -->
+  <section class="slide">
+    <p class="eyebrow">공개 상태 · 2026.07</p>
+    <h2 class="title">한 줄 요약</h2>
+    <div class="callout" style="font-size:clamp(17px,2vw,26px);border-left-width:4px;margin-top:0;margin-bottom:clamp(24px,3vw,40px)">
+      Market Twin이 <strong>“출시 전 판단”</strong>을 준다면, Mr.AI는 그 판단을 <strong>매일의 실행·발행·추적</strong>까지 자동으로 이어붙인다.
+    </div>
+    <div class="status">
+      <div class="s"><span class="host">markettwin.ai</span><span class="t"><strong>시뮬레이션 전용(베타)</strong> — Mr.AI 패널 숨김</span></div>
+      <div class="s"><span class="host dim">mrai.markettwin.ai</span><span class="t">Mr.AI <strong>전체 노출</strong> (개발 진행형)</span></div>
+      <div class="s"><span class="host" style="color:var(--ink-mute)">원칙</span><span class="t">사용자 화면에서 <strong>LLM 비용 비노출</strong></span></div>
+    </div>
+  </section>
+
+</div>
+
+<div class="nav-zone prev" id="navPrev" aria-label="이전 슬라이드"></div>
+<div class="nav-zone next" id="navNext" aria-label="다음 슬라이드"></div>
+<div class="progress" id="progress"></div>
+<div class="dots" id="dots"></div>
+<div class="chrome">
+  <span class="counter" id="counter"></span>
+  <span class="hint">← → 방향키 · 클릭으로 이동</span>
+</div>
+
+<script>
+  (function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    var total = slides.length;
+    var i = 0;
+    var progress = document.getElementById('progress');
+    var counter = document.getElementById('counter');
+    var dotsWrap = document.getElementById('dots');
+
+    var dots = slides.map(function (_, idx) {
+      var b = document.createElement('button');
+      b.setAttribute('aria-label', (idx + 1) + '번 슬라이드로');
+      b.addEventListener('click', function () { go(idx); });
+      dotsWrap.appendChild(b);
+      return b;
+    });
+
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+    function render() {
+      slides.forEach(function (s, idx) { s.classList.toggle('active', idx === i); });
+      dots.forEach(function (d, idx) { d.classList.toggle('on', idx === i); });
+      progress.style.width = ((i + 1) / total * 100) + '%';
+      counter.innerHTML = '<span class="cur">' + pad(i + 1) + '</span> / ' + pad(total);
+      slides[i].scrollTop = 0;
+    }
+
+    function go(n) { i = Math.max(0, Math.min(total - 1, n)); render(); }
+    function next() { go(i + 1); }
+    function prev() { go(i - 1); }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); next(); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prev(); }
+      else if (e.key === 'Home') { go(0); }
+      else if (e.key === 'End') { go(total - 1); }
+    });
+
+    document.getElementById('navNext').addEventListener('click', next);
+    document.getElementById('navPrev').addEventListener('click', prev);
+
+    render();
+  })();
+</script>

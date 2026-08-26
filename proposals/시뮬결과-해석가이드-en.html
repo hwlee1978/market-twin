@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Market Twin — Understanding Result Variance</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 16mm 16mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: "Segoe UI", "Malgun Gothic", -apple-system, sans-serif;
+    color: #1f2a37; font-size: 10.5pt; line-height: 1.65;
+  }
+  .muted { color:#64748b; }
+
+  .cover {
+    position: relative; height: 257mm;
+    background: linear-gradient(160deg,#0b1e3f 0%,#13294f 55%,#1b3a6b 100%);
+    color:#fff; padding: 40mm 22mm; page-break-after: always; display:flex; flex-direction:column;
+  }
+  .cover .brand { font-size: 12pt; letter-spacing:.32em; font-weight:700; color:#9db8e8; }
+  .cover h1 { font-size: 29pt; font-weight:800; line-height:1.2; margin-top:14mm; }
+  .cover .sub { font-size: 13pt; color:#bcd0f0; margin-top:7mm; font-weight:500; line-height:1.5; }
+  .cover .meta { margin-top:auto; font-size:10pt; color:#acc3ea; border-top:1px solid rgba(255,255,255,.22); padding-top:7mm; line-height:1.8;}
+  .cover .meta b { color:#fff; font-weight:600; }
+
+  section { margin-bottom: 8mm; }
+  h2 {
+    font-size: 14pt; color:#0b1e3f; font-weight:800; padding-bottom: 5px; margin-bottom: 9px;
+    border-bottom: 2.5px solid #1d4ed8; display:flex; align-items:center; gap:9px;
+  }
+  h2 .no { background:#1d4ed8; color:#fff; font-size:10pt; width:22px; height:22px; border-radius:5px;
+    display:inline-flex; align-items:center; justify-content:center; font-weight:700; flex:none; }
+  h3 { font-size:11pt; color:#0b1e3f; font-weight:700; margin:9px 0 4px; }
+  p { margin-bottom: 6px; }
+  ul, ol { margin: 4px 0 8px 20px; }
+  li { margin-bottom: 4px; }
+  b, strong { color:#0b1e3f; }
+
+  table { width:100%; border-collapse: collapse; margin: 7px 0; font-size:9.5pt; }
+  th, td { border:1px solid #d9dee8; padding: 7px 10px; text-align:left; vertical-align:top; }
+  th { background:#eef2fb; color:#0b1e3f; font-weight:700; }
+  tr:nth-child(even) td { background:#f8fafc; }
+
+  .callout { background:#eef2fb; border-left:4px solid #1d4ed8; padding:10px 14px; border-radius:0 6px 6px 0; margin:8px 0; }
+  .callout.warn { background:#fffbeb; border-left-color:#d97706; }
+  .callout.ok { background:#ecfdf5; border-left-color:#059669; }
+  .lead { font-size:11pt; color:#334155; }
+  .tag { display:inline-block; font-size:8.5pt; font-weight:700; padding:2px 8px; border-radius:20px; }
+  .tag.hi { background:#fee2e2; color:#b91c1c; }
+  .tag.mid { background:#fef3c7; color:#b45309; }
+  .tag.lo { background:#dcfce7; color:#15803d; }
+  .avoid-break { page-break-inside: avoid; }
+
+  footer { margin-top:6mm; padding-top:5mm; border-top:1px solid #d9dee8; font-size:8.5pt; color:#64748b; text-align:center; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="brand">MARKET&nbsp;TWIN</div>
+  <h1>Why Simulation Results<br>Can Vary Between Runs</h1>
+  <div class="sub">Understanding result variance<br>and using it correctly in your decisions</div>
+  <div class="meta">
+    <b>Market Twin — Result Interpretation Guide</b><br>
+    Mr.AI Inc. · 2026.06
+  </div>
+</div>
+
+<section class="avoid-break">
+  <h2><span class="no">!</span> At a glance</h2>
+  <div class="callout">
+    <b>Market Twin is a probabilistic simulation, not a deterministic calculator.</b>
+    Running the same product with the same inputs again can produce slightly different scores and rankings —
+    and occasionally a different recommended country altogether. This is <b>not a bug; it is the nature of simulation</b>.
+    The report never hides this variation — it surfaces it through a <b>variance grade, Top-2 tied candidates, and a consensus rate</b>.
+    So results should be read as a <b>ranking, range, and confidence level — not as a single fixed "answer."</b>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">1</span> Why does the same input give different results?</h2>
+  <p class="lead">There are five causes, and most of them have <b>nothing to do with language</b>.</p>
+
+  <h3>① The LLM's probabilistic generation (the biggest factor)</h3>
+  <p>The simulation uses a large language model (LLM) to reason about hundreds of virtual consumers. An LLM
+  generates answers probabilistically (temperature), so it produces a <b>slightly different response every time</b>,
+  even to the same prompt. These small differences accumulate from persona reactions up into country scores.</p>
+
+  <h3>② Persona sampling</h3>
+  <p>Each run <b>re-samples</b> the personas according to the profession / income / age distribution. Which
+  personas are drawn shifts how much weight favorable vs. critical voices carry for a given market.</p>
+
+  <h3>③ When candidate countries are closely matched</h3>
+  <p>If the true attractiveness of the candidate countries is <b>nearly equal</b>, even a tiny fluctuation can flip
+  the #1 and #2. Conversely, when one country dominates, you get the same result every time. <b>Result instability
+  is itself information — it tells you the candidates are neck-and-neck.</b></p>
+
+  <h3>④ The strength of the input signal</h3>
+  <p>If the product description doesn't carry enough cues pointing to a specific market (target, channel, cultural
+  codes), the model can't confidently distinguish markets and results swing more. <b>The more specific the input,
+  the more stable the result.</b></p>
+
+  <h3>⑤ (Secondary) the output language</h3>
+  <p>The output language (Korean, English, etc.) is only a <b>weak variable</b> that can slightly change wording and
+  nuance. Language itself does not determine the result — <b>factors ①–④ have a far larger effect.</b></p>
+</section>
+
+<section class="avoid-break">
+  <h2><span class="no">2</span> This is "by design," not a flaw</h2>
+  <p>Real-world market response is inherently uncertain. Declaring a single "answer" from one run would actually be
+  dangerous. That is why Market Twin deliberately:</p>
+  <ul>
+    <li>runs <b>multiple simulations (an ensemble)</b> and aggregates them,</li>
+    <li><b>measures and reports the variation</b> (variance) between them, and</li>
+    <li>does <b>not force a single winner</b> when the race is close (Top-2 tied candidates).</li>
+  </ul>
+  <div class="callout ok">
+    Key idea: variance is <b>not a flaw to hide — it is information you need</b>. It tells you "how much you can trust this call."
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">3</span> Four ways the report surfaces variation</h2>
+  <table>
+    <tr><th style="width:38mm">Device</th><th>Meaning / how to read it</th></tr>
+    <tr>
+      <td><b>Variance grade</b></td>
+      <td><span class="tag lo">LOW</span> stable · <span class="tag mid">MODERATE</span> normal · <span class="tag hi">HIGH</span> very volatile.
+      HIGH signals "don't trust a single result as-is."</td>
+    </tr>
+    <tr>
+      <td><b>Top-2 tied candidates</b></td>
+      <td>When the #1 / #2 score gap is small, the report presents <b>both countries</b> instead of forcing one winner. It means "evaluate both."</td>
+    </tr>
+    <tr>
+      <td><b>Consensus %</b></td>
+      <td>The share of sims / models that <b>agreed on the same conclusion</b>. Higher = more reliable. (e.g. 67% = 2 of 3 reached the same call.)</td>
+    </tr>
+    <tr>
+      <td><b>Confidence</b></td>
+      <td><b>STRONG / MODERATE / WEAK</b>. WEAK indicates a dispersed result — consider further validation or stronger inputs.</td>
+    </tr>
+  </table>
+</section>
+
+<section class="avoid-break">
+  <h2><span class="no">4</span> Interpretation guide by variance level</h2>
+  <table>
+    <tr><th>Symptom</th><th>Interpretation</th><th>What to do</th></tr>
+    <tr>
+      <td>Score moves a few points, <b>ranking holds</b></td>
+      <td>Normal variation</td>
+      <td>Trust it — safe to ignore</td>
+    </tr>
+    <tr>
+      <td>#1 / #2 <b>occasionally swap</b> / shown as Top-2</td>
+      <td>The two markets are effectively tied</td>
+      <td>Keep <b>both</b> and pilot them in parallel</td>
+    </tr>
+    <tr>
+      <td>Variance <span class="tag hi">HIGH</span> / a <b>different country</b> wins each run</td>
+      <td>Markets are hard to distinguish<br>(neck-and-neck or weak input signal)</td>
+      <td>Narrow the candidates · strengthen inputs · rerun at a higher tier</td>
+    </tr>
+  </table>
+</section>
+
+<section>
+  <h2><span class="no">5</span> A real example — same input, different #1</h2>
+  <p>Here is an actual result from validating a vape (pod-system) product at the Hypothesis tier (3 sims).
+  <b>With identical inputs, the three sims each picked a different country as #1.</b></p>
+  <table>
+    <tr><th>sim</th><th>Country picked as #1</th></tr>
+    <tr><td>sim 1</td><td>Japan (JP)</td></tr>
+    <tr><td>sim 2</td><td>United Kingdom (GB)</td></tr>
+    <tr><td>sim 3</td><td>Indonesia (ID)</td></tr>
+  </table>
+  <p>The vote split <b>JP 33% · GB 33% · ID 33%</b> — completely even. Variance was <span class="tag hi">HIGH</span> and
+  confidence was <b>WEAK</b>. At that point the report <b>warned on its own</b>:</p>
+  <div class="callout warn">
+    "The same fixture produces very different country scores per run. Trust the ensemble — a single sim alone would be unreliable."
+  </div>
+  <p>For this product, the nicotine regulation / Gen-Z / collectible traits play out <b>similarly across many countries</b>,
+  so the model could not confidently pick a #1. <b>This was not caused by language — the input itself failed to distinguish
+  markets.</b> Such a result should be read not as "this one country," but as <b>"several candidates are close — narrow them down and look again."</b></p>
+</section>
+
+<section class="avoid-break">
+  <h2><span class="no">6</span> How to improve reliability</h2>
+  <ol>
+    <li><b>Narrow the candidate countries.</b> Comparing too many at once makes them hard to distinguish. Compressing to 3–5 stabilizes the ranking.</li>
+    <li><b>Make the input specific.</b> Spell out target demographic, channels, and regional/cultural codes to strengthen the signal. (But don't over-assert one market, or you introduce bias.)</li>
+    <li><b>Run at a higher tier.</b> More sims means a more stable aggregate and lower variance.</li>
+    <li><b>Always read variance and consensus together.</b> Don't look at the score alone — check "how trustworthy is this."</li>
+    <li><b>If Top-2 appears, evaluate both.</b> Piloting two markets in parallel is safer than forcing one choice.</li>
+  </ol>
+</section>
+
+<section class="avoid-break">
+  <h2><span class="no">7</span> Decision checklist</h2>
+  <ul>
+    <li>☐ Did you check the <b>variance grade</b>, not just the recommended country?</li>
+    <li>☐ Did you read <b>consensus % and confidence</b> (STRONG/WEAK) together?</li>
+    <li>☐ If a <b>Top-2 tie</b> is shown, did you evaluate both markets?</li>
+    <li>☐ If variance is HIGH, did you <b>rerun</b> after narrowing candidates or strengthening inputs?</li>
+    <li>☐ Did you treat the result as a <b>hypothesis / priority</b>, not a verdict?</li>
+  </ul>
+  <div class="callout">
+    <b>In short:</b> the value of Market Twin is not "picking the answer for you" — it is <b>seeing the priority and
+    uncertainty of your market hypotheses, with data, before you launch.</b> If results wobble, that wobble itself is
+    an important signal to "tread carefully here."
+  </div>
+</section>
+
+<footer>
+  Market Twin · Result Interpretation Guide · Mr.AI Inc. · 2026.06
+</footer>
+
+</body>
+</html>

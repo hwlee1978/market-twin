@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>회사소개서 · 주식회사 미스터에이아이</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 16mm 16mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: "Malgun Gothic", "맑은 고딕", -apple-system, sans-serif;
+    color: #1f2a37; font-size: 10.5pt; line-height: 1.6;
+  }
+  :root { --navy:#0b1e3f; --blue:#1d4ed8; --soft:#eef2fb; --line:#d9dee8; --muted:#5b6470; }
+  .muted { color:#64748b; }
+
+  /* ---- Cover ---- */
+  .cover {
+    position: relative; height: 257mm;
+    background: linear-gradient(160deg,#0b1e3f 0%,#13294f 55%,#1b3a6b 100%);
+    color:#fff; padding: 40mm 22mm; page-break-after: always;
+    display:flex; flex-direction:column;
+  }
+  .cover .brand { font-size: 12pt; letter-spacing:.32em; font-weight:700; color:#9db8e8; }
+  .cover .badge { margin-top:auto; }
+  .cover h1 { font-size: 34pt; font-weight:800; line-height:1.15; margin-top:14mm; }
+  .cover .sub { font-size: 13pt; color:#bcd0f0; margin-top:6mm; font-weight:500; }
+  .cover .doctitle {
+    display:inline-block; margin-top:10mm; font-size: 15pt; font-weight:700;
+    border:1px solid rgba(255,255,255,.4); border-radius:6px; padding:7px 18px;
+  }
+  .cover .meta { margin-top:auto; font-size:10pt; color:#acc3ea; line-height:1.9; border-top:1px solid rgba(255,255,255,.22); padding-top:7mm;}
+  .cover .meta b { color:#fff; font-weight:600; }
+
+  /* ---- Sections ---- */
+  section { page-break-inside: avoid; margin-bottom: 9mm; }
+  h2 {
+    font-size: 14pt; color: var(--navy); font-weight:800;
+    padding-bottom: 5px; margin-bottom: 9px;
+    border-bottom: 2.5px solid var(--blue); display:flex; align-items:center; gap:9px;
+  }
+  h2 .no {
+    background:var(--blue); color:#fff; font-size:10pt; width:22px; height:22px;
+    border-radius:5px; display:inline-flex; align-items:center; justify-content:center; font-weight:700;
+  }
+  h3 { font-size:11pt; color:var(--navy); font-weight:700; margin:7px 0 4px; }
+  p { margin-bottom: 5px; }
+  ul { margin: 3px 0 6px 18px; }
+  li { margin-bottom: 3px; }
+
+  table { width:100%; border-collapse: collapse; margin: 6px 0 4px; font-size:10pt; }
+  th, td { border:1px solid var(--line); padding: 7px 10px; text-align:left; vertical-align:top; }
+  th { background: var(--soft); color:var(--navy); font-weight:700; white-space:nowrap; }
+  .keytable th { width: 32mm; }
+  .price th { background:var(--navy); color:#fff; text-align:center; }
+  .price td { text-align:center; }
+  .price td.plan { font-weight:700; color:var(--navy); text-align:left; }
+  .price tr:nth-child(even) td { background:#f8fafc; }
+  .price .amt { font-weight:700; }
+
+  .callout {
+    background:var(--soft); border-left:4px solid var(--blue);
+    padding:9px 13px; border-radius:0 6px 6px 0; margin:7px 0; font-size:10pt;
+  }
+  .lead { font-size:11pt; color:#334155; margin-bottom:7px; }
+  .pillrow { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0; }
+  .pill { background:#fff; border:1px solid var(--line); border-radius:20px; padding:4px 12px; font-size:9.5pt; color:var(--navy); }
+
+  footer { margin-top:6mm; padding-top:5mm; border-top:1px solid var(--line); font-size:8.5pt; color:#64748b; text-align:center; }
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<div class="cover">
+  <div class="brand">MARKET&nbsp;TWIN</div>
+  <h1>한국 제품의 해외 진출을<br>출시 전에 검증하는<br>AI 시장 시뮬레이션</h1>
+  <div class="sub">B2B SaaS · app.markettwin.ai</div>
+  <div class="doctitle">회 사 소 개 서</div>
+  <div class="meta">
+    <b>주식회사 미스터에이아이</b> (Mr.AI Inc.)<br>
+    대표이사 이현우 · 사업자등록번호 693-87-03907<br>
+    2026. 06.
+  </div>
+</div>
+
+<!-- ============ 1. 회사 개요 ============ -->
+<section>
+  <h2><span class="no">1</span> 회사 개요</h2>
+  <table class="keytable">
+    <tr><th>상호</th><td>주식회사 미스터에이아이 (Mr.AI Inc.)</td></tr>
+    <tr><th>대표이사</th><td>이현우 (Hyunwoo Lee)</td></tr>
+    <tr><th>사업자등록번호</th><td>693-87-03907</td></tr>
+    <tr><th>소재지</th><td>경기도 용인시 수지구 죽전로27번길 14-30, 604동 803호</td></tr>
+    <tr><th>법인등록번호</th><td>134511-0077587</td></tr>
+    <tr><th>업종 / 업태</th><td>정보통신업 · 소프트웨어 개발 및 공급업 (클라우드 SaaS)</td></tr>
+    <tr><th>주요 서비스</th><td>Market Twin — AI 시장 진출 시뮬레이션 (app.markettwin.ai)</td></tr>
+    <tr><th>홈페이지</th><td>https://app.markettwin.ai</td></tr>
+    <tr><th>연락처</th><td>contact@markettwin.ai</td></tr>
+  </table>
+</section>
+
+<!-- ============ 2. 사업 소개 ============ -->
+<section>
+  <h2><span class="no">2</span> 사업 및 서비스 소개</h2>
+  <p class="lead"><b>Market Twin</b>은 한국 제품(K-product)을 해외에 출시하기 <b>전에</b>, 진출 후보국의 현지 소비자를 모사한 AI 페르소나가 제품·가격에 어떻게 반응할지 <b>시뮬레이션으로 검증</b>하는 B2B SaaS입니다.</p>
+  <p>기업은 실제 광고비·재고를 투입하기 전에, 데이터 기반으로 "어느 나라에, 얼마에, 어떻게" 진출할지를 사전 검증할 수 있습니다.</p>
+  <h3>핵심 기능</h3>
+  <ul>
+    <li><b>출시 성공 점수</b> — 수요·획득비용(CAC)·경쟁 강도 기반 0~100점 평가</li>
+    <li><b>AI 페르소나 시뮬레이션</b> — 직업·소득대·구매 의향까지 정밀 분석 (1회 600~3,000명)</li>
+    <li><b>다국가 시장 비교</b> — KOSIS·e-Stat 등 정부·공공 통계로 grounding (24개국+)</li>
+    <li><b>규제 사전 검증</b> — 법적으로 판매가 불가능한 시장은 자동 제외</li>
+    <li><b>가격·채널·리스크 분석</b> — 권장 가격대, 진출 채널, 핵심 리스크와 실행 액션 도출</li>
+  </ul>
+  <div class="pillrow">
+    <span class="pill">멀티 LLM 앙상블</span>
+    <span class="pill">출시 성공 점수</span>
+    <span class="pill">시장·경쟁 분석</span>
+    <span class="pill">가격 최적화</span>
+    <span class="pill">PDF 검증 리포트</span>
+  </div>
+</section>
+
+<!-- ============ 3. 제공 방식 ============ -->
+<section>
+  <h2><span class="no">3</span> 서비스 제공 방식</h2>
+  <p>웹 기반 클라우드 SaaS로, 별도 설치 없이 브라우저에서 이용합니다. 이용 흐름은 다음과 같습니다.</p>
+  <table>
+    <tr>
+      <th>① 가입</th><th>② 구독</th><th>③ 검증 실행</th><th>④ 리포트</th>
+    </tr>
+    <tr>
+      <td>이메일 또는 Google 계정으로 회원가입</td>
+      <td>유료 플랜 구독 (신용카드 정기결제)</td>
+      <td>제품·가격·진출국 입력 후 AI 시뮬레이션 실행 (약 5~6분)</td>
+      <td>성공 점수·시장 분석·가격·리스크 리포트(PDF) 확인</td>
+    </tr>
+  </table>
+</section>
+
+<!-- ============ 4. 판매 상품 및 요금 ============ -->
+<section>
+  <h2><span class="no">4</span> 판매 상품 및 요금 (결제 대상)</h2>
+  <p>유료 구독(SaaS 이용권)을 신용카드 <b>정기결제(빌링)</b>로 판매합니다. 월 결제 및 연간 결제(2개월 무료, 약 16.7% 할인)를 제공하며, <b>표시 금액은 모두 VAT(부가가치세) 별도</b>입니다.</p>
+  <table class="price">
+    <tr>
+      <th>플랜</th><th>월 결제<br><span style="font-weight:400;font-size:8pt">(VAT 별도)</span></th><th>연간 결제<br><span style="font-weight:400;font-size:8pt">(VAT 별도)</span></th><th>주요 포함 내용</th>
+    </tr>
+    <tr>
+      <td class="plan">Starter</td>
+      <td class="amt">₩500,000</td>
+      <td>₩5,000,000</td>
+      <td>월 5건 검증분석 · 1 사용자 · PDF/CSV</td>
+    </tr>
+    <tr>
+      <td class="plan">Validator</td>
+      <td class="amt">₩1,500,000</td>
+      <td>₩15,000,000</td>
+      <td>월 10건 (정밀분석 3건 포함) · 1 사용자</td>
+    </tr>
+    <tr>
+      <td class="plan">Growth</td>
+      <td class="amt">₩3,500,000</td>
+      <td>₩35,000,000</td>
+      <td>월 20건 (심층 3건+정밀 5건 포함) · 3 사용자</td>
+    </tr>
+    <tr>
+      <td class="plan">Enterprise</td>
+      <td class="amt">별도 협의</td>
+      <td>별도 협의</td>
+      <td>무제한 시뮬 · SSO · 전담 CSM</td>
+    </tr>
+  </table>
+  <div class="callout">
+    <b>무료 체험:</b> 신용카드 등록 없이 7일 또는 초기검증 2회 무료 제공 — 과금이 발생하지 않으며, 유료 전환은 사용자가 명시적으로 결제한 경우에만 이루어집니다.
+  </div>
+</section>
+
+<!-- ============ 5. 결제·정산·환불 ============ -->
+<section>
+  <h2><span class="no">5</span> 결제 · 정산 · 환불 정책</h2>
+  <h3>결제 방식</h3>
+  <ul>
+    <li>신용카드 <b>정기결제(빌링)</b> — 카드 등록 후 결제 주기(월/연)마다 자동 청구·자동 갱신</li>
+    <li>다음 자동결제일 <b>7일 전</b>까지 결제 예정 금액·일자를 이메일로 사전 안내</li>
+    <li>구독 해지는 서비스 내 '결제 및 사용량' 페이지에서 직접 가능 (해지 시 다음 주기부터 미청구)</li>
+  </ul>
+  <h3>환불 정책 <span class="muted">(「전자상거래 등에서의 소비자보호에 관한 법률」 준수)</span></h3>
+  <ul>
+    <li>결제일로부터 <b>7일 이내 + 시뮬레이션 미사용</b>: 전액 환불</li>
+    <li>7일 이내 + 일부 사용: 실제 사용분(일할 + 사용 건수 기준)을 차감 후 부분 환불</li>
+    <li>회사 귀책(결제 오류·서비스 중단) 시: 전액 환불</li>
+    <li>환불 신청 및 기타 문의: <b>contact@markettwin.ai</b> — 확인 후 영업일 기준 3~7일 내 원결제수단으로 처리</li>
+  </ul>
+  <div class="callout">
+    본 서비스는 디지털 콘텐츠(무형 상품)이며, 디지털 콘텐츠 제공이 개시된 경우(시뮬레이션 1건 이상 실행) 단순 변심에 의한 청약철회가 제한될 수 있습니다(전자상거래법 제17조 제2항).
+  </div>
+</section>
+
+<!-- ============ 6. 타겟 고객 ============ -->
+<section>
+  <h2><span class="no">6</span> 타겟 고객 및 시장</h2>
+  <p>해외 진출을 준비하는 한국 브랜드와 수출 기업이 주요 고객입니다.</p>
+  <div class="pillrow">
+    <span class="pill">K-뷰티 · 화장품</span>
+    <span class="pill">식음료 (F&B)</span>
+    <span class="pill">패션 · 소비재</span>
+    <span class="pill">프리미엄 가전</span>
+    <span class="pill">건강기능식품</span>
+    <span class="pill">B2B SaaS</span>
+    <span class="pill">수출지원기관 · 액셀러레이터</span>
+  </div>
+  <p class="muted" style="margin-top:5px">실제 광고·유통 투자에 앞서 진출 의사결정을 데이터로 검증하려는 마케팅·해외사업·전략 담당자가 핵심 사용자입니다.</p>
+</section>
+
+<!-- ============ 7. 문의처 ============ -->
+<section>
+  <h2><span class="no">7</span> 문의처</h2>
+  <table class="keytable">
+    <tr><th>회사</th><td>주식회사 미스터에이아이 (Mr.AI Inc.)</td></tr>
+    <tr><th>환불 · 기타 문의</th><td>contact@markettwin.ai</td></tr>
+    <tr><th>서비스</th><td>https://app.markettwin.ai</td></tr>
+  </table>
+</section>
+
+<footer>
+  주식회사 미스터에이아이 (Mr.AI Inc.) · 사업자등록번호 693-87-03907 · Market Twin 회사소개서 · 2026.06
+</footer>
+
+</body>
+</html>
