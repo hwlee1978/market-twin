@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/admin";
 import { getFromAddress, getResend } from "./client";
+import { appOrigin } from "./app-url";
 
 /**
  * Billing-event email notifications. Best-effort — every helper
@@ -90,12 +91,7 @@ async function getRecipientContext(
 }
 
 function appUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.VERCEL_URL?.replace(/^https?:\/\//, "https://") ??
-    "https://app.markettwin.ai"
-  );
+  return appOrigin();
 }
 
 function billingUrl(locale: Locale): string {

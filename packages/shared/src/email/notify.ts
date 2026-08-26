@@ -1,5 +1,6 @@
 import { getCountryLabel } from "@/lib/countries";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { appOrigin } from "./app-url";
 import { getFromAddress, getResend } from "./client";
 import {
   type Locale,
@@ -68,12 +69,7 @@ interface FailedContext extends SimulationContext {
 }
 
 function appUrl(): string {
-  // Vercel surfaces the deployment URL via env. Fall back to the public site.
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.VERCEL_URL?.replace(/^https?:\/\//, "https://") ??
-    "https://app.markettwin.ai"
-  );
+  return appOrigin();
 }
 
 function resultsUrl(ctx: SimulationContext): string {

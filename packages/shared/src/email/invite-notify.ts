@@ -6,19 +6,12 @@
  * point, so the admin can always resend from the team page — losing the
  * email must not lose the invite.
  */
+import { appOrigin } from "./app-url";
 import { getFromAddress, getResend } from "./client";
 import { type Locale, renderInviteEmail } from "./templates";
 
-function appUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.VERCEL_URL?.replace(/^https?:\/\//, "https://") ??
-    "https://app.markettwin.ai"
-  );
-}
-
 export function inviteAcceptUrl(token: string, locale: Locale): string {
-  return `${appUrl()}/${locale}/invite/${encodeURIComponent(token)}`;
+  return `${appOrigin()}/${locale}/invite/${encodeURIComponent(token)}`;
 }
 
 export async function sendInviteEmail(args: {
