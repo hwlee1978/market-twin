@@ -14,6 +14,7 @@
     "sync:reference": "tsx --env-file=.env.local scripts/sync-reference-data.ts",
     "fetch:reference": "tsx --env-file=.env.local scripts/fetch-reference/index.ts",
     "apply:migration": "tsx --env-file=.env.local scripts/apply-migration.ts",
+    "migrate:all": "tsx scripts/migrate-all.ts",
     "ingest:challenge": "tsx --env-file=.env.local scripts/ingest-challenge-data.ts",
     "embed:challenge": "tsx --env-file=.env.local scripts/embed-challenge-data.ts",
     "fetch:bizinfo": "tsx --env-file=.env.local scripts/fetch-bizinfo-programs.ts",
