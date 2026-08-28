@@ -21,6 +21,10 @@ const PUBLIC_PATHS = [
   "/ai-humanize",
   // 베타 모집 랜딩 — 인증 없이 공개(모집 링크로 바로 진입).
   "/beta",
+  // 좌석 초대 수락 — 초대받은 사람은 아직 계정이 없을 수 있다. 페이지가
+  // 로그인 여부를 직접 처리하고(로그인/가입 CTA + ?next= 복귀), 수락 자체는
+  // 토큰+이메일 일치를 검사하는 API에서만 일어난다.
+  "/invite",
 ];
 
 function isPublic(pathname: string) {

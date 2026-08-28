@@ -32,12 +32,15 @@ export function SignupForm() {
   const router = useRouter();
   const search = useSearchParams();
   // `?next=` carries a same-site destination through sign-up (the seat
-  // invitation link is the first caller). Anything not an absolute
-  // same-site path is discarded so this can't become an open redirect.
-  const rawNext = search.get("next");
+  // invitation link is the first caller); `redirect` is what the auth proxy
+  // sets when it bounces a signed-out visitor. Anything that isn't a
+  // same-site absolute path is discarded so neither becomes an open
+  // redirect, and the locale prefix is stripped because next-intl's router
+  // adds one itself.
+  const rawNext = search.get("next") ?? search.get("redirect");
   const next =
     rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//")
-      ? rawNext
+      ? rawNext.replace(/^\/(ko|en)(?=\/|$)/, "") || "/"
       : null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

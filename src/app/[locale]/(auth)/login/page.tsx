@@ -18,15 +18,24 @@ const FEATURES = [
 ];
 
 /**
- * `?next=` lets a flow that requires auth bounce through login and come
- * back — the seat-invitation link is the first caller. Only same-site
- * absolute paths are honoured so the parameter can't be used as an open
- * redirect.
+ * Post-login destination.
+ *
+ * Two parameters feed this: `next`, which callers like the seat-invitation
+ * page set explicitly, and `redirect`, which the auth proxy has always set
+ * when bouncing a signed-out visitor off a protected route — and which
+ * nothing ever read, so every deep link landed on the dashboard instead.
+ *
+ * Only same-site absolute paths are honoured, so neither can be turned into
+ * an open redirect. The locale prefix is stripped because next-intl's router
+ * adds one itself; without this, /ko/invite/x becomes /ko/ko/invite/x.
  */
-function safeNext(raw: string | null): string | null {
-  if (!raw) return null;
-  if (!raw.startsWith("/") || raw.startsWith("//")) return null;
-  return raw;
+function safeNext(...candidates: (string | null)[]): string | null {
+  for (const raw of candidates) {
+    if (!raw) continue;
+    if (!raw.startsWith("/") || raw.startsWith("//")) continue;
+    return raw.replace(/^\/(ko|en)(?=\/|$)/, "") || "/";
+  }
+  return null;
 }
 
 function LoginPageInner() {
@@ -34,7 +43,8 @@ function LoginPageInner() {
   const locale = useLocale();
   const isKo = locale !== "en";
   const router = useRouter();
-  const next = safeNext(useSearchParams().get("next"));
+  const search = useSearchParams();
+  const next = safeNext(search.get("next"), search.get("redirect"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
