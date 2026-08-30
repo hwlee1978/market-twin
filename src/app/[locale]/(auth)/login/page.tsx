@@ -32,7 +32,21 @@ const FEATURES = [
 function safeNext(...candidates: (string | null)[]): string | null {
   for (const raw of candidates) {
     if (!raw) continue;
-    if (!raw.startsWith("/") || raw.startsWith("//")) continue;
+    // A backslash counts as a path separator in the URL parser, so "/\evil.com"
+    // survives the "//" test and still resolves to https://evil.com once the
+    // (as-needed) locale prefix is omitted for ko. Reject it outright.
+    //
+    // Control characters get the same treatment: the URL parser strips tab /
+    // newline / CR before resolving, so "/<TAB>/evil.com" also collapses to
+    // "//evil.com". A legitimate in-app path never carries one.
+    if (
+      !raw.startsWith("/") ||
+      raw.startsWith("//") ||
+      raw.includes("\\") ||
+      /[\u0000-\u001F\u007F]/.test(raw)
+    ) {
+      continue;
+    }
     return raw.replace(/^\/(ko|en)(?=\/|$)/, "") || "/";
   }
   return null;

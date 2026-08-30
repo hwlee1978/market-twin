@@ -39,7 +39,15 @@ export function SignupForm() {
   // adds one itself.
   const rawNext = search.get("next") ?? search.get("redirect");
   const next =
-    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//")
+    rawNext &&
+    rawNext.startsWith("/") &&
+    !rawNext.startsWith("//") &&
+    // A backslash is a path separator to the URL parser: "/\evil.com" passes the
+    // "//" test and still resolves off-site. Control characters (tab, newline)
+    // are stripped by the parser for the same effect. Same guard as the login
+    // page.
+    !rawNext.includes("\\") &&
+    !/[\u0000-\u001F\u007F]/.test(rawNext)
       ? rawNext.replace(/^\/(ko|en)(?=\/|$)/, "") || "/"
       : null;
   const [email, setEmail] = useState("");
