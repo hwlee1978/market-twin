@@ -64,7 +64,15 @@ export interface OpenFdaResult {
   examples: Array<{ classification: string; reason: string }>;
 }
 
-async function fetchJson(url: string): Promise<any | null> {
+/** Minimal shape of the openFDA JSON responses we read. */
+interface FdaJson {
+  /** Set by fetchJson itself when openFDA answers 404 (= zero matches). */
+  __zero?: boolean;
+  meta?: { results?: { total?: number } };
+  results?: EnforcementRow[];
+}
+
+async function fetchJson(url: string): Promise<FdaJson | null> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
@@ -74,7 +82,7 @@ async function fetchJson(url: string): Promise<any | null> {
     // "none" answer, signalled to the caller as an empty object.
     if (res.status === 404) return { __zero: true };
     if (!res.ok) return null;
-    return await res.json();
+    return (await res.json()) as FdaJson;
   } catch {
     clearTimeout(timer);
     return null;
