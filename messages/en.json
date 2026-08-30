@@ -485,14 +485,19 @@
         "assets": "Images / videos",
         "assetDescriptions": "Creative concepts",
         "assetUploads": "Upload mockup images (optional)",
-        "assetUrls": "Or paste image URLs (optional)"
+        "assetUrls": "Or paste image URLs (optional)",
+        "packaging": "Pack spec (size & count)"
       },
       "placeholders": {
         "projectName": "e.g. 2026 Global Launch — Wireless Earbuds",
         "productName": "e.g. AcousticPro Buds X1",
         "description": "e.g. Active noise-canceling wireless earbuds with 8h battery, IPX5 sweat resistance. Targeting commuters and remote workers. Available in matte black, sage, ivory.",
         "assetDescriptions": "Examples:\nHero video — morning routine concept\nInstagram carousel — minimalist still life\n3-min demo video — user testimonial interviews",
-        "competitorNames": "Examples:\nKosterina\nBrightland\nFrescobaldi Laudemio"
+        "competitorNames": "Examples:\nKosterina\nBrightland\nFrescobaldi Laudemio",
+        "netContent": "Net content (e.g. 100)",
+        "netContentUnit": "Unit",
+        "unitsPerPack": "Units per pack (e.g. 5)",
+        "packFormat": "Format (e.g. glass spray bottle)"
       },
       "hints": {
         "projectName": "Internal identifier. Shown on the simulation result page.",
@@ -507,7 +512,8 @@
         "competitorUrls": "Optional — only if you already have specific URLs you want analysed. Otherwise leave blank; the AI finds URLs from the names above.",
         "assetDescriptions": "What you'd run as ads (or are considering). One concept per line — rough descriptions are fine, finished visuals not required. Each gets a 0-100 fit score plus market-specific strengths and weaknesses in your results.",
         "assetUploads": "Drop mockup images here if you have them. Vision-AI inspects each visual to sharpen the analysis. Either this or URLs below — pick whichever is easier; both work equally.",
-        "assetUrls": "Already-hosted CDN / Imgur / Drive URLs (one per line). Identical effect to uploading the file directly. Skip if you uploaded above. URLs must be publicly accessible."
+        "assetUrls": "Already-hosted CDN / Imgur / Drive URLs (one per line). Identical effect to uploading the file directly. Skip if you uploaded above. URLs must be publicly accessible.",
+        "packaging": "Optional but strongly recommended — at the same price, 30ml and 100ml get judged completely differently. We compute a per-unit price from this and feed it to the personas and the competitor comparison. The base price above is the price of ONE retail pack."
       },
       "descriptionStrength": {
         "title": "Description quality",
@@ -682,6 +688,18 @@
           "supplement": "Health supplement",
           "saas": "B2B SaaS"
         }
+      },
+      "packagingUnits": {
+        "ml": "ml",
+        "L": "L",
+        "g": "g",
+        "kg": "kg",
+        "fl_oz": "fl oz",
+        "oz": "oz",
+        "lb": "lb",
+        "piece": "piece",
+        "sheet": "sheet",
+        "serving": "serving"
       }
     },
     "status": {

@@ -3,6 +3,8 @@ import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import type { ProjectInput } from "@/lib/simulation/schemas";
+import { parsePackaging } from "@/lib/format/packaging";
+import { brandStrategyFromRow } from "@/lib/simulation/project-row";
 import {
   runEnsembleOrchestration,
   TIER_PRESETS,
@@ -335,6 +337,14 @@ export async function POST(
 
   await admin.from("projects").update({ status: "running" }).eq("id", project.id);
 
+  // Brand-GTM hints + packaging spec. The worker path re-loads both through
+  // loadOrchestrationContext, but this INLINE path builds projectInput itself —
+  // and until now it dropped brandStrategy entirely, so wizard-entered founder
+  // background / partner markets never reached the prompts whenever the worker
+  // dispatch fell back to inline orchestration.
+  const brandStrategy = brandStrategyFromRow(project);
+  const packaging = parsePackaging((project as { packaging?: unknown }).packaging);
+
   const projectInput: ProjectInput = {
     productName: project.product_name,
     category: project.category ?? "other",
@@ -347,6 +357,8 @@ export async function POST(
     competitorUrls: project.competitor_urls ?? [],
     assetDescriptions: project.asset_descriptions ?? [],
     assetUrls: project.asset_urls ?? [],
+    ...(brandStrategy ? { brandStrategy } : {}),
+    ...(packaging ? { packaging } : {}),
   };
 
   // 3. Hand off to the orchestrator. Vercel's after() keeps the function

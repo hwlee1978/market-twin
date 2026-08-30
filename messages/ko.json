@@ -485,14 +485,19 @@
         "assets": "이미지/영상",
         "assetDescriptions": "크리에이티브 컨셉",
         "assetUploads": "시안 이미지 업로드 (선택)",
-        "assetUrls": "또는 이미지 URL 붙여넣기 (선택)"
+        "assetUrls": "또는 이미지 URL 붙여넣기 (선택)",
+        "packaging": "제품 규격 (용량 · 입수)"
       },
       "placeholders": {
         "projectName": "예: 2026 글로벌 출시 — 무선 이어버드",
         "productName": "예: AcousticPro Buds X1",
         "description": "예: 액티브 노이즈 캔슬링 무선 이어버드. 8시간 배터리, IPX5 방수, 통근자·재택근무자 타겟. 매트 블랙·세이지·아이보리 3색.",
         "assetDescriptions": "예시:\nHero 비디오 — 모닝 루틴 컨셉\n인스타 캐러셀 — 미니멀 정물\n3분 데모 영상 — 사용자 후기 인터뷰",
-        "competitorNames": "예시:\nKosterina\nBrightland\nFrescobaldi Laudemio"
+        "competitorNames": "예시:\nKosterina\nBrightland\nFrescobaldi Laudemio",
+        "netContent": "용량/중량 (예: 100)",
+        "netContentUnit": "단위",
+        "unitsPerPack": "팩당 개수 (예: 5)",
+        "packFormat": "형태 (예: 유리 스프레이 보틀)"
       },
       "hints": {
         "projectName": "내부 식별용 이름. 시뮬레이션 결과 페이지에 표시됩니다.",
@@ -507,7 +512,8 @@
         "competitorUrls": "선택 — 분석에 꼭 포함하고 싶은 특정 URL이 있을 때만. 비워두시면 위 이름에서 AI가 URL을 찾습니다.",
         "assetDescriptions": "광고로 집행할 (또는 고려 중인) 컨셉. 한 줄에 하나씩, 거친 설명으로 충분 — 완성된 시안 불필요. 결과 화면에서 각 컨셉별 0-100 점수 + 시장별 강점·약점이 출력됩니다.",
         "assetUploads": "시안 이미지가 있다면 여기에 업로드. vision-AI가 실제 시각 자료를 보고 분석을 더 정확하게 합니다. 아래 URL과 둘 중 편한 쪽 — 둘 다 동일한 효과.",
-        "assetUrls": "이미 호스팅된 CDN·Imgur·Drive URL (한 줄에 하나). 파일 업로드와 동일한 효과. 위에서 업로드했다면 여기는 비워두면 됩니다. URL은 공개 접근 가능해야 합니다."
+        "assetUrls": "이미 호스팅된 CDN·Imgur·Drive URL (한 줄에 하나). 파일 업로드와 동일한 효과. 위에서 업로드했다면 여기는 비워두면 됩니다. URL은 공개 접근 가능해야 합니다.",
+        "packaging": "선택이지만 강력 권장 — 같은 가격이라도 30ml인지 100ml인지에 따라 현지 소비자의 '비싸다/싸다' 판단이 완전히 달라집니다. 단위당 가격을 계산해 페르소나와 경쟁사 비교에 넣습니다. 위 기본 가격은 소비자가 실제로 구매하는 '팩 1개' 가격 기준입니다."
       },
       "descriptionStrength": {
         "title": "설명 품질",
@@ -682,6 +688,18 @@
           "supplement": "건강기능식품",
           "saas": "B2B SaaS"
         }
+      },
+      "packagingUnits": {
+        "ml": "ml",
+        "L": "L",
+        "g": "g",
+        "kg": "kg",
+        "fl_oz": "fl oz",
+        "oz": "oz",
+        "lb": "lb",
+        "piece": "개",
+        "sheet": "매",
+        "serving": "회분"
       }
     },
     "status": {

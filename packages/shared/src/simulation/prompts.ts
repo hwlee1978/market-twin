@@ -6,6 +6,7 @@ import { INCOME_BRACKET_USD_RANGES } from "./income-distribution";
 import { buildChannelCostsBlock } from "@/lib/reference/channel-costs";
 import { renderHofstedeTable } from "@/lib/reference/hofstede-dimensions";
 import { taxonomyPromptBlock } from "./taxonomy";
+import { formatPackSpec, formatUnitPrice } from "../format/packaging";
 import { COMPETITION_RUBRIC_BANDS } from "./calibration/competition-rubric";
 import {
   FINAL_SCORE_WEIGHTS,
@@ -81,6 +82,39 @@ const CHANNEL_PRIORITY_LABEL: Record<string, { ko: string; en: string }> = {
     en: "Omni (multi-channel parallel entry)",
   },
 };
+
+/**
+ * Pack spec + per-unit price lines, injected right under "Base price" in every
+ * product block. Without them a persona has no way to tell whether a price is
+ * cheap or dear — a 30ml and a 100ml bottle at the same price read identically,
+ * and every value-for-money judgement is unanchored. Returns "" when the user
+ * left the spec empty, so legacy projects render exactly as before.
+ */
+export function packagingBlock(
+  input: ProjectInput,
+  locale: PromptLocale,
+): string {
+  const spec = formatPackSpec(input.packaging, locale);
+  const unitPrice = formatUnitPrice(
+    input.packaging,
+    input.basePriceCents,
+    input.currency,
+    locale,
+  );
+  if (!spec && !unitPrice) return "";
+  const ko = locale === "ko";
+  const lines: string[] = [];
+  if (spec) lines.push(ko ? `규격(용량/입수): ${spec}` : `Pack spec: ${spec}`);
+  if (unitPrice) {
+    lines.push(ko ? `단위당 가격: ${unitPrice}` : `Unit price: ${unitPrice}`);
+  }
+  lines.push(
+    ko
+      ? "(가격이 비싼지 싼지는 팩 가격이 아니라 위의 단위당 가격을 같은 규격의 현지 제품 시세와 비교해 판단할 것. 규격이 다른 제품끼리 팩 가격만 비교하지 말 것.)"
+      : "(Judge value-for-money on the UNIT price above against local norms for the same size — pack prices are not comparable across different sizes.)",
+  );
+  return lines.join("\n") + "\n";
+}
 
 export function brandStrategyBlock(
   input: ProjectInput,
@@ -555,7 +589,7 @@ Product: ${input.productName}
 Category: ${input.category}
 Description: ${input.description}
 Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
-Launch objective: ${input.objective}
+${packagingBlock(input, locale)}Launch objective: ${input.objective}
 Origin (the company exporting this product, NOT a candidate market): ${input.originatingCountry}
 Candidate target markets (overseas, where personas live): ${input.candidateCountries.join(", ")}
 Competitor references: ${input.competitorUrls.length ? input.competitorUrls.join(", ") : "none"}
@@ -757,7 +791,7 @@ Product: ${input.productName}
 Category: ${input.category}
 Description: ${input.description}
 Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
-Launch objective: ${input.objective}
+${packagingBlock(input, locale)}Launch objective: ${input.objective}
 Origin (the company exporting this product): ${input.originatingCountry}
 Candidate target markets: ${input.candidateCountries.join(", ")}
 ${input.competitorUrls.length > 0 ? `Competitor references: ${input.competitorUrls.join(", ")}` : ""}
@@ -865,7 +899,7 @@ Origin (home market): ${input.originatingCountry}
 Product: ${input.productName} (${input.category})
 Description: ${input.description}
 Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
-Objective: ${input.objective}
+${packagingBlock(input, locale)}Objective: ${input.objective}
 Candidate target markets (ONLY these allowed): ${input.candidateCountries.join(", ")}
 
 ${brandStrategyBlock(input, locale)}
@@ -989,7 +1023,7 @@ ${rangeReason ? `Range rationale: ${rangeReason}` : ""}
 
 Product: ${input.productName} (${input.category})
 Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
-Persona price sensitivity (overall): ${JSON.stringify(aggregate.overall.priceSensitivity)}
+${packagingBlock(input, locale)}Persona price sensitivity (overall): ${JSON.stringify(aggregate.overall.priceSensitivity)}
 Per-country sensitivity:
 ${aggregate.byCountry
   .map(
@@ -1415,7 +1449,7 @@ ${dateContext}
 Origin (home market): ${input.originatingCountry}
 Product: ${input.productName} (${input.category}) — ${input.description}
 Base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}
-Objective: ${input.objective}
+${packagingBlock(input, locale)}Objective: ${input.objective}
 
 ${brandStrategyBlock(input, locale)}
 

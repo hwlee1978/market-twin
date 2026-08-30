@@ -25,6 +25,7 @@ import {
 } from "@/lib/simulation/ensemble";
 import { mergeNarrative } from "@/lib/simulation/ensemble-narrative";
 import { filterSupportedMarkets } from "@/lib/countries";
+import { parsePackaging } from "@/lib/format/packaging";
 import { buildMarketProfile } from "@/lib/simulation/market-profile";
 import { notifyEnsembleComplete } from "@/lib/email/notify";
 
@@ -758,7 +759,7 @@ export async function loadOrchestrationContext(opts: {
        base_price_cents, currency, objective, originating_country,
        candidate_countries, competitor_urls, asset_descriptions, asset_urls,
        founder_background, channel_priority, kol_relationships,
-       existing_markets, partner_markets, network_markets`,
+       existing_markets, partner_markets, network_markets, packaging`,
     )
     .eq("id", ensemble.project_id)
     .single();
@@ -793,6 +794,11 @@ export async function loadOrchestrationContext(opts: {
         }
       : undefined;
 
+  // Packaging spec (migration 0082). jsonb column — re-validate on read so a
+  // legacy or hand-edited row degrades to "no spec" instead of poisoning the
+  // prompt with a bogus unit.
+  const packaging = parsePackaging((project as { packaging?: unknown }).packaging);
+
   const projectInput: ProjectInput = {
     productName: project.product_name,
     category: project.category ?? "other",
@@ -809,6 +815,7 @@ export async function loadOrchestrationContext(opts: {
     assetDescriptions: project.asset_descriptions ?? [],
     assetUrls: project.asset_urls ?? [],
     ...(brandStrategy ? { brandStrategy } : {}),
+    ...(packaging ? { packaging } : {}),
   };
 
   const { data: simRowsRaw } = await admin

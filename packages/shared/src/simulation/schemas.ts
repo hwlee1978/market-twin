@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PACKAGING_UNITS } from "../format/packaging";
 import {
   OBJECTION_CATEGORIES,
   TRUST_FACTOR_CATEGORIES,
@@ -70,6 +71,24 @@ export const ProjectInputSchema = z.object({
    * Field length caps enforced both client-side and via DB CHECK constraint
    * (migration 0069).
    */
+  /**
+   * Product packaging spec (2026-08). Optional — legacy projects and API
+   * callers omit it. Without this the engine cannot tell a 30ml from a 100ml
+   * bottle at the same price, so every value-for-money judgement and
+   * competitor comparison is unanchored. `basePriceCents` is the price of ONE
+   * RETAIL PACK; netContent describes a SINGLE unit inside that pack.
+   * DB: migration 0082 (projects.packaging jsonb).
+   */
+  packaging: z
+    .object({
+      netContent: z.number().positive().max(1_000_000).optional(),
+      netContentUnit: z.enum(PACKAGING_UNITS).optional(),
+      unitsPerPack: z.number().int().positive().max(10_000).optional(),
+      packFormat: z.string().max(60).optional(),
+      caseQty: z.number().int().positive().max(100_000).optional(),
+    })
+    .optional(),
+
   brandStrategy: z
     .object({
       founderBackground: z.string().max(500).optional(),

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { resolveCompetitors } from "@/lib/simulation/competitor-resolver";
 import { filterSupportedMarkets } from "@/lib/countries";
+import { PACKAGING_UNITS } from "@/lib/format/packaging";
 
 const CreateProjectSchema = z.object({
   name: z.string().min(1),
@@ -49,6 +50,18 @@ const CreateProjectSchema = z.object({
     ])
     .optional(),
   kolRelationships: z.string().max(500).optional(),
+  // Product packaging spec (2026-08). Optional — a 30ml and a 100ml bottle at
+  // the same price are indistinguishable to the engine without it. Stored as
+  // jsonb (migration 0082); shape mirrors ProjectInputSchema.packaging.
+  packaging: z
+    .object({
+      netContent: z.number().positive().max(1_000_000).optional(),
+      netContentUnit: z.enum(PACKAGING_UNITS).optional(),
+      unitsPerPack: z.number().int().positive().max(10_000).optional(),
+      packFormat: z.string().max(60).optional(),
+      caseQty: z.number().int().positive().max(100_000).optional(),
+    })
+    .optional(),
   // Structured per-country GTM signals (ISO-2). Migration 0079 text[] columns.
   existingMarkets: z.array(z.string().length(2)).max(24).optional(),
   partnerMarkets: z.array(z.string().length(2)).max(24).optional(),
@@ -124,6 +137,10 @@ export async function POST(req: Request) {
       existing_markets: input.existingMarkets ?? null,
       partner_markets: input.partnerMarkets ?? null,
       network_markets: input.networkMarkets ?? null,
+      packaging:
+        input.packaging && Object.keys(input.packaging).length
+          ? input.packaging
+          : null,
       status: "ready",
     })
     .select("id")

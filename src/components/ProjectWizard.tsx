@@ -10,6 +10,12 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { CountryChipRow } from "@/components/ui/CountryChip";
 import { WIZARD_TEMPLATES } from "@/lib/wizard/templates";
 import type { FormState } from "@/lib/wizard/types";
+import {
+  PACKAGING_UNITS,
+  formatPackSpec,
+  formatUnitPrice,
+} from "@/lib/format/packaging";
+import { packagingPayload } from "@/lib/wizard/packaging";
 import { capture } from "@/lib/analytics/posthog";
 import { detectEchoBias, summarizeEchoBias } from "@/lib/validation/echo-bias-detector";
 import { DescriptionStrengthHint } from "@/components/DescriptionStrengthHint";
@@ -94,6 +100,11 @@ export function ProjectWizard({
       // stays at 3 candidates and showcases multi-region targeting.
       locale === "ko" ? [] : ["GB"],
     ),
+    netContent: "",
+    netContentUnit: "",
+    unitsPerPack: "",
+    packFormat: "",
+    caseQty: "",
     competitorNames: "",
     competitorUrls: "",
     assetDescriptions: "",
@@ -115,6 +126,28 @@ export function ProjectWizard({
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
+
+  // Live "규격 / 단위당 가격" echo under the spec inputs. Same formatter the
+  // prompts use, so what the user reads here is literally what the personas
+  // will be told — the fastest way to catch a wrong unit or a per-pack vs
+  // per-unit mix-up before spending a simulation on it.
+  const packagingPreview = useMemo(() => {
+    const packaging = packagingPayload(form);
+    if (!packaging) return null;
+    const promptLocale = locale === "ko" ? "ko" : "en";
+    const spec = formatPackSpec(packaging, promptLocale);
+    const price = parseFloat(form.basePrice);
+    const unitPrice =
+      Number.isFinite(price) && price > 0
+        ? formatUnitPrice(
+            packaging,
+            Math.round(price * 100),
+            form.currency,
+            promptLocale,
+          )
+        : null;
+    return [spec, unitPrice].filter(Boolean).join(" · ") || null;
+  }, [form, locale]);
 
   // Toggle a candidate market in one of the structured GTM lists.
   const toggleMarket = (
@@ -287,6 +320,15 @@ export function ProjectWizard({
         // KRW/JPY/VND prices (a $90 product is 121,900 KRW, well under
         // any reasonable typo threshold). Use a per-currency ceiling that
         // catches "one too many zeros" without rejecting normal pricing.
+        // A bare number with no unit tells the engine nothing — and would
+        // render "100" next to a price in the prompt. Force the pair.
+        if (form.netContent.trim() && !form.netContentUnit) {
+          return [
+            isKo
+              ? "용량/중량을 입력했다면 단위(ml·g 등)도 선택하세요."
+              : "Pick a unit (ml, g, ...) for the net content you entered.",
+          ];
+        }
         const ceiling = priceCeilingFor(form.currency);
         if (price > ceiling) {
           return [
@@ -413,6 +455,7 @@ export function ProjectWizard({
           currency: form.currency,
           objective: form.objective,
           originatingCountry: form.originatingCountry,
+          packaging: packagingPayload(form),
           candidateCountries: form.countries,
           competitorNames,
           competitorUrls,
@@ -794,6 +837,56 @@ export function ProjectWizard({
               </div>
             </Field>
             <Field
+              label={tw("fields.packaging")}
+              hint={tw("hints.packaging")}
+            >
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder={tw("placeholders.netContent")}
+                  className="input"
+                  value={form.netContent}
+                  onChange={(e) => update("netContent", e.target.value)}
+                />
+                <select
+                  className="input"
+                  value={form.netContentUnit}
+                  onChange={(e) => update("netContentUnit", e.target.value)}
+                >
+                  <option value="">{tw("placeholders.netContentUnit")}</option>
+                  {PACKAGING_UNITS.map((u) => (
+                    <option key={u} value={u}>
+                      {tw(`packagingUnits.${u}`)}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  step="1"
+                  min="1"
+                  placeholder={tw("placeholders.unitsPerPack")}
+                  className="input"
+                  value={form.unitsPerPack}
+                  onChange={(e) => update("unitsPerPack", e.target.value)}
+                />
+                <input
+                  type="text"
+                  maxLength={60}
+                  placeholder={tw("placeholders.packFormat")}
+                  className="input"
+                  value={form.packFormat}
+                  onChange={(e) => update("packFormat", e.target.value)}
+                />
+              </div>
+              {packagingPreview ? (
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  {packagingPreview}
+                </p>
+              ) : null}
+            </Field>
+            <Field
               label={tw("fields.objective")}
               hint={tw("hints.objective")}
             >
@@ -1065,6 +1158,12 @@ export function ProjectWizard({
               label={tw("fields.basePrice")}
               value={`${form.basePrice} ${form.currency}`}
             />
+            {packagingPreview ? (
+              <ReviewRow
+                label={tw("fields.packaging")}
+                value={packagingPreview}
+              />
+            ) : null}
             <ReviewRow
               label={tw("fields.objective")}
               value={tw(`objective.${form.objective}`)}

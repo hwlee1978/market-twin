@@ -5,6 +5,7 @@ import { buildSecondaryActions } from "@/lib/simulation/secondary-actions";
 import { withLLMContext } from "@/lib/llm-context";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import type { MarketProfile, ProjectInput } from "@/lib/simulation/schemas";
+import { parsePackaging } from "@/lib/format/packaging";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,7 +68,7 @@ export async function POST(
   const { data: project } = await supabase
     .from("projects")
     .select(
-      "name, product_name, category, description, base_price_cents, currency, objective, originating_country, candidate_countries, competitor_urls, asset_descriptions, asset_urls, founder_background, channel_priority, kol_relationships",
+      "name, product_name, category, description, base_price_cents, currency, objective, originating_country, candidate_countries, competitor_urls, asset_descriptions, asset_urls, founder_background, channel_priority, kol_relationships, packaging",
     )
     .eq("id", ensemble.project_id)
     .single();
@@ -89,6 +90,8 @@ export async function POST(
         }
       : undefined;
 
+  const packaging = parsePackaging((project as { packaging?: unknown }).packaging);
+
   const projectInput: ProjectInput = {
     productName: project.product_name,
     category: project.category ?? "other",
@@ -102,6 +105,7 @@ export async function POST(
     assetDescriptions: project.asset_descriptions ?? [],
     assetUrls: project.asset_urls ?? [],
     ...(brandStrategy ? { brandStrategy } : {}),
+    ...(packaging ? { packaging } : {}),
   };
 
   // Pull the secondary's market profile from the sibling map so the

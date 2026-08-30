@@ -40,6 +40,20 @@ export interface FormState {
    * falls back to text-only concept scoring.
    */
   assetUrls: string;
+  /**
+   * Retail pack spec (2026-08). All strings because they come straight off
+   * number inputs; the submit handler parses and drops the empties. Without
+   * these the engine sees only a price, so a 30ml and a 100ml bottle at the
+   * same number are identical to every persona.
+   *
+   * Convention shown in the wizard copy: basePrice is the price of ONE PACK,
+   * netContent describes ONE unit inside it (25ml per sheet × 5 sheets).
+   */
+  netContent: string;
+  netContentUnit: string;
+  unitsPerPack: string;
+  packFormat: string;
+  caseQty: string;
   personaCount: number;
   /**
    * Analysis depth tier — drives which `/run-ensemble` preset gets used.
