@@ -96,7 +96,8 @@ export async function buildSecondaryPricing(
       ? `You are a D2C pricing strategist. Given a SECONDARY (Top-2 tied) country's market profile and persona signal, produce a pricing analysis with the same shape as the primary country: recommended price, a conversion curve (8-15 price points), a margin estimate string, and a short rationale.
 
 == Rules ==
-- recommendedPriceCents: integer cents. Pick a single defensible point — psychological anchors are fine ($49.95 → 4995) but ground in competitor benchmarks when given.
+- CURRENCY (hard rule): every price you emit — recommendedPriceCents and every curve point — MUST be in ${currency}, the project's currency, expressed as integer minor units (value × 100). The market profile below quotes local retail benchmarks in the target country's own currency; CONVERT them to ${currency} before using them. Emitting a local-currency number is the single most damaging error here: it is displayed to the user as ${currency} and silently misprices the market by an order of magnitude.
+- recommendedPriceCents: integer minor units. Pick a single defensible point — psychological anchors are fine (49.95 → 4995) but ground in competitor benchmarks when given. It must land within 25%–400% of the base price given below; outside that band you have almost certainly slipped into another currency.
 - curve: 8-15 points spanning roughly 50% – 200% of the base price. Each point has priceCents (integer) and meanConversionProbability (0.0-1.0). The curve must be plausibly monotone-decreasing with some noise (not strictly monotonic).
 - marginEstimate: one short prose line, e.g. "Estimated 42-48% gross margin at recommended price, factoring import duty and 3PL".
 - marginEstimatePct: numeric gross margin percent at the recommended price (0-95).
@@ -107,7 +108,8 @@ Output VALID JSON only, no code fences:
       : `당신은 D2C 가격 전략 전문가입니다. SECONDARY (Top-2 동등 후보) 국가의 시장 분석과 페르소나 시그널을 바탕으로, primary 국가와 동일한 shape의 가격 분석을 작성하세요: 권장 가격, 전환 곡선 (8~15 포인트), 마진 추정 문자열, 짧은 근거.
 
 == 규칙 ==
-- recommendedPriceCents: 정수 cents. 단일 방어 가능한 포인트 — 심리적 anchor ($49.95 → 4995) 허용하되 competitor 벤치마크가 주어지면 거기에 ground.
+- 통화 (반드시 준수): 출력하는 모든 가격 — recommendedPriceCents와 curve의 모든 포인트 — 은 프로젝트 통화인 ${currency} 기준이며, 정수 minor unit(값 × 100)으로 적는다. 아래 시장 분석에는 현지 통화(예: A$, ¥)로 된 소매 벤치마크가 들어 있으니 반드시 ${currency}로 환산한 뒤 사용할 것. 현지 통화 숫자를 그대로 내보내면 사용자 화면에 ${currency}로 표시되어 시장 가격을 자릿수 단위로 왜곡한다 — 이 작업에서 가장 치명적인 오류다.
+- recommendedPriceCents: 정수 minor unit. 단일 방어 가능한 포인트 — 심리적 anchor (49.95 → 4995) 허용하되 competitor 벤치마크가 주어지면 거기에 ground. 아래 기본 가격의 25%~400% 안에 들어와야 하며, 벗어나면 통화를 잘못 쓴 것이다.
 - curve: 8~15 포인트, 기본가의 약 50% ~ 200% 범위. 각 포인트 = priceCents (정수) + meanConversionProbability (0.0~1.0). 곡선은 그럴듯하게 단조감소 + 약간의 노이즈 (엄격히 monotonic 금지).
 - marginEstimate: 짧은 한 줄 prose. 예: "권장 가격에서 예상 매출총이익률 42~48% (수입관세 + 3PL 비용 반영)".
 - marginEstimatePct: 권장 가격에서의 매출총이익률 % (0~95).
@@ -179,6 +181,35 @@ ${profileBlock}
 
     const { recommendedPriceCents, curve, marginEstimate, marginEstimatePct, rationale } =
       validated.data;
+
+    // Currency sanity gate. The model reads the target country's market
+    // profile, which quotes local retail prices (A$3.20, ¥480), and can
+    // answer in that currency instead of the project's. The result is then
+    // formatted as the project currency and shows up as "₩32" for a ₩32,000
+    // product — wrong by a factor of 1000 and impossible to spot as a bug.
+    // Anything outside 25%-400% of the base price is treated as that slip:
+    // fail loudly so the caller can re-generate, rather than persisting it.
+    const base = opts.input.basePriceCents;
+    if (base > 0) {
+      const low = base * 0.25;
+      const high = base * 4;
+      const curvePrices = curve.map((c) => c.priceCents).filter((n) => n > 0);
+      const curveMedian = curvePrices.length
+        ? [...curvePrices].sort((a, b) => a - b)[Math.floor(curvePrices.length / 2)]
+        : recommendedPriceCents;
+      if (
+        recommendedPriceCents < low ||
+        recommendedPriceCents > high ||
+        curveMedian < low ||
+        curveMedian > high
+      ) {
+        return {
+          error:
+            "price out of band vs base price — the model likely answered in the target market's local currency instead of " +
+            opts.input.currency,
+        };
+      }
+    }
 
     // Sort curve ascending by priceCents and de-dup near-identical
     // points (LLM occasionally emits two points within 1 cent).

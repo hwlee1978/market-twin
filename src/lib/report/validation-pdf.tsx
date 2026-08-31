@@ -632,7 +632,7 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
         sec3Sub: "Multi-LLM ensemble 시뮬레이션 결과",
         winnerLabel: "최종 추천국 (Winner)",
         voteDistTitle: "후보국 표 분포 (per-sim best country votes)",
-        scoreRankTitle: "FinalScore 평균 순위",
+        scoreRankTitle: "국가별 점수 — 평균 점수순 (평균 순위 병기)",
         keyFindingLabel: "핵심 발견",
         simExecLabel: "Simulation Executive Summary",
         sec4Eyebrow: "04",
@@ -719,7 +719,7 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
         sec3Sub: "Multi-LLM ensemble simulation outputs",
         winnerLabel: "Winner (top pick)",
         voteDistTitle: "Top-pick distribution (per-sim votes)",
-        scoreRankTitle: "Mean final-score ranking",
+        scoreRankTitle: "Country scores — sorted by mean (mean rank shown)",
         keyFindingLabel: "Key finding",
         simExecLabel: "Simulation executive summary",
         sec4Eyebrow: "04",
@@ -1169,6 +1169,9 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
           <MText style={[styles.th, { flex: 1.2 }]}>{isKo ? "국가" : "Country"}</MText>
           <MText style={[styles.th, { flex: 1, textAlign: "right" }]}>Mean</MText>
           <MText style={[styles.th, { flex: 1, textAlign: "right" }]}>σ</MText>
+          <MText style={[styles.th, { flex: 1.1, textAlign: "right" }]}>
+            {isKo ? "평균 순위" : "Mean rank"}
+          </MText>
         </View>
         {simResult.scoreRanking.slice(0, 7).map((row, idx, arr) => {
           const last = idx === arr.length - 1;
@@ -1188,10 +1191,18 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
               <MText style={[styles.tdMuted, { flex: 1, textAlign: "right" }]}>
                 {row.std.toFixed(1)}
               </MText>
+              <MText style={[styles.tdMuted, { flex: 1.1, textAlign: "right" }]}>
+                {row.meanRank != null ? row.meanRank.toFixed(2) : "—"}
+              </MText>
             </View>
           );
         })}
       </View>
+      <MText style={[styles.tdMuted, { marginTop: 4, fontSize: 7.5 }]}>
+        {isKo
+          ? "표는 평균 점수순 정렬. Top-2 추천은 '평균 순위'(값이 작을수록 매 시뮬에서 상위) 기준이라 이 순서와 다를 수 있다."
+          : "Sorted by mean score. The Top-2 recommendation ranks on mean rank (lower = placed higher in every sim), so the two orders can differ."}
+      </MText>
 
       {simResult.simExecutiveSummary && (
         <View style={[styles.calloutCard, styles.calloutBrandBg, { marginTop: 10 }]}>

@@ -148,6 +148,14 @@ export interface CountryStats {
      *  Falls back to across-sim std when within-sim data is absent. */
     combinedStd?: number;
   };
+  /**
+   * Mean position this market took across the sims (1 = best), weighted the
+   * same way the top-2 pick is. Exposed because the recommendation ranks on
+   * THIS, while the score table ranks on finalScore.mean — a market can be
+   * 2nd on rank and 4th on score, and without the number on screen that
+   * reads as a contradiction. Absent on aggregates persisted before 2026-08.
+   */
+  meanRank?: number;
   demandScore: { mean: number; median: number };
   cacEstimateUsd: { mean: number; median: number };
   /** First-emitted LLM cacRationale across sims for this country —
@@ -1298,6 +1306,7 @@ export function aggregateEnsemble(
     }
   }
 
+  const meanRankByCountry = new Map(meanRanking.map((m) => [m.country, m.meanRank]));
   const countryStats: CountryStats[] = [...buckets.entries()]
     .map(([country, b]) => {
       const inCountry = personasByCountry.get(country) ?? [];
@@ -1515,8 +1524,10 @@ export function aggregateEnsemble(
               mean(withinStds.map((s) => s * s)) + acrossStd * acrossStd,
             )
           : undefined;
+      const meanRank = meanRankByCountry.get(country);
       return {
         country,
+        ...(meanRank != null ? { meanRank: Math.round(meanRank * 100) / 100 } : {}),
         finalScore: {
           mean: round1(mean(b.final)),
           median: round1(median(b.final)),
@@ -1611,11 +1622,16 @@ export function aggregateEnsemble(
     .sort((a, b) => b.finalScore.median - a.finalScore.median);
 
   // ── per-segment best country ──
+  // These rank on the MEDIAN across sims (pickSegment), while the country
+  // table and the top-2 pick rank on the mean / mean-rank. At 3-6 sims the
+  // two orders genuinely differ — a market that is 2nd in every sim beats
+  // one that wins once and trails twice. The labels say "median" so the two
+  // tables stop looking like they contradict each other.
   const segments: SegmentRec[] = [
-    pickSegment(buckets, "volume", "속도 우선 (highest demand)", "demand", "high"),
-    pickSegment(buckets, "cac", "비용 효율 (lowest CAC)", "cac", "low"),
-    pickSegment(buckets, "competition", "경쟁 회피 (lowest competition)", "comp", "low"),
-    pickSegment(buckets, "overall", "종합 점수 (highest finalScore)", "final", "high"),
+    pickSegment(buckets, "volume", "속도 우선 · 수요 최고 (시뮬 중앙값)", "demand", "high"),
+    pickSegment(buckets, "cac", "비용 효율 · CAC 최저 (시뮬 중앙값)", "cac", "low"),
+    pickSegment(buckets, "competition", "경쟁 회피 · 경쟁강도 최저 (시뮬 중앙값)", "comp", "low"),
+    pickSegment(buckets, "overall", "종합 점수 최고 (시뮬 중앙값)", "final", "high"),
   ];
 
   // ── effective personas across all sims ──

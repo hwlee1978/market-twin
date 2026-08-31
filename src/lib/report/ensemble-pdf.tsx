@@ -3085,9 +3085,9 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 : seg.id === "cac"
                   ? "Cost efficient (LOWEST CAC)"
                   : seg.id === "competition"
-                    ? "Avoid competition (LOWEST COMPETITION)"
+                    ? "Avoid competition · lowest rivalry (median of sims)"
                     : seg.id === "overall"
-                      ? "Balanced (HIGHEST FINALSCORE)"
+                      ? "Best overall score (median of sims)"
                       : seg.labelKo;
             return (
               <View key={seg.id} style={styles.segCard} wrap={false}>

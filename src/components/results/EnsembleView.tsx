@@ -8708,13 +8708,13 @@ function TieWinnerOnlyBanner({
       <div className="flex-1 min-w-0">
         <h3 className="text-sm font-semibold text-warn mb-1">
           {isKo
-            ? `이 ${scopeLabel} 목록은 ${winner} 기준입니다 — ${secondary}도 동등 후보`
-            : `These ${scope} are scoped to ${winner} — ${secondary} is also a tied candidate`}
+            ? `${scopeLabel}는 후보 시장 전체 기준 — 상세 분석은 ${winner} 기준입니다`
+            : `${scopeLabel} cover every candidate market — the deep-dive below is scoped to ${winner}`}
         </h3>
         <p className="text-xs text-slate-700 leading-relaxed">
           {isKo
-            ? `Top 2 동등 케이스이므로 ${secondary} 시장의 ${scopeLabel}도 별도 검토가 필요합니다. ${secondary} 시장 분석을 '시장 분석' 탭에서 생성하시면 규제·인증·GTM 리스크/액션이 함께 표시됩니다.`
-            : `Since this is a Top 2 tie, ${secondary} ${scope} need separate review. Generate the ${secondary} market profile in the Market Profile tab to surface its regulatory / GTM ${scope}.`}
+            ? `아래 목록은 시뮬이 후보 시장 전체에서 뽑아낸 ${scopeLabel}이며, 각 항목 앞에 해당 시장 이름이 붙어 있습니다. 다만 규제·인증·채널처럼 시장별로 갈리는 항목은 1순위 ${winner} 기준으로 깊이 파고들었습니다. ${secondary}도 동등 후보이므로, '시장 분석' 탭에서 ${secondary} 분석을 생성하면 같은 깊이의 ${scopeLabel}가 추가됩니다.`
+            : `The list below is what the sims surfaced across all candidate markets — each item names its own market. The deep-dive detail, though, is scoped to the #1 pick ${winner}. ${secondary} is an equally ranked candidate: generate its market profile in the Market Profile tab to get ${scopeLabel.toLowerCase()} at the same depth.`}
         </p>
       </div>
     </div>
@@ -10223,26 +10223,26 @@ function segmentLabel(id: string, isKo: boolean): string {
   if (isKo) {
     switch (id) {
       case "volume":
-        return "속도 우선 (HIGHEST DEMAND)";
+        return "속도 우선 · 수요 최고 (시뮬 중앙값)";
       case "cac":
-        return "비용 효율 (LOWEST CAC)";
+        return "비용 효율 · CAC 최저 (시뮬 중앙값)";
       case "competition":
-        return "경쟁 회피 (LOWEST COMPETITION)";
+        return "경쟁 회피 · 경쟁강도 최저 (시뮬 중앙값)";
       case "overall":
-        return "종합 점수 (HIGHEST FINALSCORE)";
+        return "종합 점수 최고 (시뮬 중앙값)";
       default:
         return "";
     }
   }
   switch (id) {
     case "volume":
-      return "Speed first (HIGHEST DEMAND)";
+      return "Speed first · highest demand (median of sims)";
     case "cac":
-      return "Cost efficient (LOWEST CAC)";
+      return "Cost efficient · lowest CAC (median of sims)";
     case "competition":
-      return "Avoid competition (LOWEST COMPETITION)";
+      return "Avoid competition · lowest rivalry (median of sims)";
     case "overall":
-      return "Balanced (HIGHEST FINALSCORE)";
+      return "Best overall score (median of sims)";
     default:
       return "";
   }

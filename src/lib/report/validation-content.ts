@@ -85,7 +85,7 @@ export interface ValidationReportData {
     confidence: "STRONG" | "MODERATE" | "WEAK";
     consensusType?: string;
     voteDistribution: Array<{ country: string; count: number; percent: number }>;
-    scoreRanking: Array<{ country: string; mean: number; std: number }>;
+    scoreRanking: Array<{ country: string; mean: number; std: number; meanRank?: number }>;
     topCountriesTied: boolean;
     runnerUp?: string;
     simExecutiveSummary?: string;
@@ -370,11 +370,16 @@ function deriveSimData(agg: EnsembleAggregate): ValidationReportData["simResult"
     count: b.count,
     percent: b.percent,
   }));
+  // meanRank travels alongside the mean score: the top-2 recommendation is
+  // decided on rank, this table sorts on score, and a market can sit 2nd on
+  // one and 4th on the other. Showing only one of them made the report look
+  // like it contradicted its own headline.
   const ranking = (agg.countryStats ?? [])
     .map((c) => ({
       country: c.country,
       mean: c.finalScore?.mean ?? 0,
       std: c.finalScore?.std ?? 0,
+      ...(c.meanRank != null ? { meanRank: c.meanRank } : {}),
     }))
     .sort((a, b) => b.mean - a.mean);
   const topTied = ranking.length >= 2 && Math.abs(ranking[0].mean - ranking[1].mean) < 1;

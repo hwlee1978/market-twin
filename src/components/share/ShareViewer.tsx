@@ -291,8 +291,8 @@ export function ShareViewer({
                       switch (seg.id) {
                         case "volume": return "Speed first (HIGHEST DEMAND)";
                         case "cac": return "Cost efficient (LOWEST CAC)";
-                        case "competition": return "Avoid competition (LOWEST COMPETITION)";
-                        case "overall": return "Balanced (HIGHEST FINALSCORE)";
+                        case "competition": return "Avoid competition · lowest rivalry (median of sims)";
+                        case "overall": return "Best overall score (median of sims)";
                         default: return seg.labelKo;
                       }
                     })()}

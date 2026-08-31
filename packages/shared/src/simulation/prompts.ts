@@ -1187,11 +1187,27 @@ ${s.content.slice(0, 400)}${s.content.length > 400 ? "..." : ""}`,
 When emitting marketSize.estimateUsd, prefer specific figures ("$3.5–5B annually") over vague ranges, and pick numbers that the snippets above actually support. If the snippets are weak / off-topic for this category × country, fall back to a conservative estimate and flag it as such.
 `;
 
+  // Our own pack spec, so benchmark ranges can be quoted on the same basis.
+  // Without it the model quotes whatever pack size each competitor happens to
+  // sell (10-count here, 30-count there) and the three tiers stop being
+  // comparable to each other or to us.
+  const packSpec = formatPackSpec(input.packaging, "en");
+  const packUnitPrice = formatUnitPrice(
+    input.packaging,
+    input.basePriceCents,
+    input.currency,
+    "en",
+  );
+  const packSpecLine = packSpec
+    ? `Our pack spec: ${packSpec}${packUnitPrice ? ` (${packUnitPrice})` : ""}`
+    : "";
+
   return `Produce a structured market profile for the RECOMMENDED launch country. Be specific. Reference real brands, channels, and regulators where you have confidence; omit (empty array / blank string) where you don't.
 
 Product: ${input.productName} (${input.category})
 Description: ${input.description}
-User-input base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}${
+User-input base price: ${(input.basePriceCents / 100).toFixed(2)} ${input.currency}${packSpecLine ? `
+${packSpecLine}` : ""}${
   context.recommendedPriceCents != null
     ? `
 Pricing-stage recommended launch price: ${(context.recommendedPriceCents / 100).toFixed(2)} ${input.currency}
@@ -1266,6 +1282,7 @@ Required JSON shape (every field optional — fill what you have confidence abou
     "timeToCompliance": "realistic timeline — '3-6 months for primary cert + 6 weeks for labelling'"
   },
   "pricingBenchmarks": {
+    // ${packSpecLine ? "COMPARABILITY (hard rule): quote all three tiers on the SAME basis as our own pack spec above — give the pack price AND the per-unit equivalent, and name the competitor pack size you converted from (e.g. '18,000-28,000 KRW per 10-count pack (1,800-2,800 per stick) — converted from Liquid I.V. 16-count'). Ranges quoted at different pack sizes are not comparable and are worse than useless to the reader." : "Quote every tier on one consistent pack basis and say what that basis is."}
     "entryLevel": "${input.currency} range for budget products in this category in ${recommendedCountry}",
     "mid": "${input.currency} range for mid-tier",
     "premium": "${input.currency} range for premium",

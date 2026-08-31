@@ -148,8 +148,8 @@ export function ResultHero({
         <p className="mt-4 text-[12.5px] leading-relaxed text-white/70 max-w-3xl">
           {isTie
             ? isKo
-              ? `두 시장의 점수 차이가 ${gapToPrimary ?? "—"}pt로 노이즈 범위 안입니다. 순서를 우열로 읽지 말고, 내부 역량과 리스크 감내 수준으로 고르세요.`
-              : `The two markets sit ${gapToPrimary ?? "—"}pt apart — inside the noise margin. Don't read the order as a ranking; choose on internal capability and risk appetite.`
+              ? `두 시장의 점수 차이가 ${gapToPrimary ?? "—"}pt로 노이즈 범위 안입니다. 순서를 우열로 읽지 말고, 내부 역량과 리스크 감내 수준으로 고르세요. 이 두 시장은 시뮬 간 평균 순위로 뽑았습니다 — 매 시뮬 꾸준히 상위였다는 뜻이며, 평균 점수 순위와는 다를 수 있습니다.`
+              : `The two markets sit ${gapToPrimary ?? "—"}pt apart — inside the noise margin. Don't read the order as a ranking; choose on internal capability and risk appetite. These two were picked on mean rank across sims — consistently high placement — which can differ from the mean-score order.`
             : isKo
               ? `${simCount}개 독립 시뮬 중 ${consensusPercent}%가 ${primaryLabel}을(를) 1순위로 지목했습니다.`
               : `${consensusPercent}% of ${simCount} independent simulations put ${primaryLabel} first.`}
