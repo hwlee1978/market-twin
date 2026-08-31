@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Loader2, CheckCircle2, AlertCircle, TrendingUp, Download, ChevronDown, ChevronRight, HelpCircle, Lightbulb, MessageCircle, Send, X, RefreshCw, Gift, ArrowLeft } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Download, ChevronDown, ChevronRight, HelpCircle, Lightbulb, MessageCircle, Send, X, RefreshCw, Gift, ArrowLeft } from "lucide-react";
 import { useRouter, Link } from "@/i18n/navigation";
 import { capture } from "@/lib/analytics/posthog";
 import { clsx } from "clsx";
@@ -35,8 +35,11 @@ import { BackToTop } from "@/components/ui/BackToTop";
 import { HelpModal } from "@/components/ui/HelpModal";
 import { OutcomeFeedbackCTA } from "@/components/outcomes/OutcomeFeedbackCTA";
 import { ResultFeedback } from "./ResultFeedback";
+import { ResultHero } from "./summary/ResultHero";
+import { RunMetaTiles } from "./summary/RunMetaTiles";
+import { VoteConsensusCard } from "./summary/VoteConsensusCard";
+import { VarianceCard } from "./summary/VarianceCard";
 import {
-  BestCountryPieChart,
   CountryIntentChart,
   CountryScoreChart,
   IntentHistogramChart,
@@ -1254,7 +1257,6 @@ function EnsembleDashboard({
       {activeTab === "summary" && (
         <SummaryTab
           recommendation={recommendation}
-          confidenceColor={confidenceColor}
           bestCountryDistribution={bestCountryDistribution}
           simCount={simCount}
           effectivePersonas={effectivePersonas}
@@ -1594,7 +1596,6 @@ function TabsNav({
 
 function SummaryTab({
   recommendation,
-  confidenceColor,
   bestCountryDistribution,
   simCount,
   effectivePersonas,
@@ -1615,7 +1616,6 @@ function SummaryTab({
   childRerunId,
 }: {
   recommendation: EnsembleAggregate["recommendation"];
-  confidenceColor: string;
   bestCountryDistribution: EnsembleAggregate["bestCountryDistribution"];
   simCount: number;
   effectivePersonas: number;
@@ -1674,6 +1674,29 @@ function SummaryTab({
       })()
     : [];
 
+  // Markets the user actually asked about — the vote distribution only
+  // lists markets that won at least one sim, so it under-counts.
+  const marketCount =
+    project?.candidate_countries?.length ?? bestCountryDistribution.length;
+  const completedLabel = completedAt
+    ? new Date(completedAt).toLocaleString(locale, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "—";
+  // A co-leader that won zero sims is absent from the distribution; that
+  // is 0%, not unknown.
+  const primaryVotePercent =
+    bestCountryDistribution.find((d) => d.country === recommendation.country)?.percent ?? 0;
+  const secondaryVotePercent = recommendation.secondary
+    ? bestCountryDistribution.find(
+        (d) => d.country === recommendation.secondary?.country,
+      )?.percent ?? 0
+    : 0;
+
   return (
     <div className="space-y-6">
       {isFreeRerun && parentEnsembleId && (
@@ -1710,140 +1733,59 @@ function SummaryTab({
         <ProjectInfoCard project={project} locale={locale} isKo={isKo} />
       )}
 
-      <SimRunInfoCard
-        tier={tier}
+      <RunMetaTiles
+        isKo={isKo}
         simCount={simCount}
         parallelSims={parallelSims}
         effectivePersonas={effectivePersonas}
-        llmProviders={llmProviders}
-        completedAt={completedAt}
+        marketCount={marketCount}
+        confidenceScore={quality?.confidenceScore ?? null}
+        tierLabel={tierBadgeLabel(tier, isKo)}
+        providersLabel={llmProviders.map(providerLabel).join(" · ")}
+        completedLabel={completedLabel}
+      />
+
+      <ResultHero
+        isKo={isKo}
+        locale={locale}
+        productName={project?.product_name ?? null}
+        countryCode={recommendation.country}
+        secondaryCountryCode={
+          recommendation.displayMode === "top2" && recommendation.secondary
+            ? recommendation.secondary.country
+            : null
+        }
+        confidence={recommendation.confidence}
+        consensusPercent={recommendation.consensusPercent}
+        primaryVotePercent={primaryVotePercent}
+        secondaryVotePercent={secondaryVotePercent}
+        gapToPrimary={recommendation.secondary?.gapToPrimary}
+        simCount={simCount}
+        marketCount={marketCount}
+        providerNames={llmProviders.map(providerLabel)}
+        consensusBadge={
+          recommendation.displayMode === "top2" ? undefined : (
+            <ConsensusTypeBadge type={recommendation.consensusType} isKo={isKo} />
+          )
+        }
+      />
+
+      <VoteConsensusCard
+        rows={bestCountryDistribution}
+        winner={recommendation.country}
+        secondary={recommendation.secondary?.country ?? null}
+        simCount={simCount}
         isKo={isKo}
         locale={locale}
       />
 
-      <div className="card p-6 bg-gradient-to-br from-brand-50/40 to-white border-brand/20">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-              {recommendation.displayMode === "top2" && recommendation.secondary
-                ? (isKo ? "Top 2 동등 후보" : "Top 2 candidates")
-                : (isKo ? "추천 진출국" : "Recommended market")}
-            </div>
-            <div className="flex items-baseline gap-3 flex-wrap">
-              <div className="text-4xl font-bold text-slate-900">
-                {recommendation.displayMode === "top2" && recommendation.secondary
-                  ? `${recommendation.country} · ${recommendation.secondary.country}`
-                  : recommendation.country}
-              </div>
-              <div className="text-sm">
-                {recommendation.displayMode === "top2" && recommendation.secondary ? (
-                  // Tie: relabel as top-3 hit rate (Phase E semantics)
-                  // and show actual 1st-place vote shares for both
-                  // candidates so the reader sees the real split,
-                  // not the misleading "96% 합의".
-                  (() => {
-                    const pv = bestCountryDistribution.find(
-                      (d) => d.country === recommendation.country,
-                    )?.percent;
-                    const sv = bestCountryDistribution.find(
-                      (d) => d.country === recommendation.secondary!.country,
-                    )?.percent;
-                    return (
-                      <>
-                        <span className="font-semibold text-warn">
-                          {isKo
-                            ? `1순위 vote ${pv ?? "?"}% vs ${sv ?? "?"}%`
-                            : `1st-place vote ${pv ?? "?"}% vs ${sv ?? "?"}%`}
-                        </span>
-                        <span className="text-slate-500 ml-2">
-                          · {isKo ? "Top-3 출현률" : "top-3 hit rate"} {recommendation.consensusPercent}%
-                        </span>
-                        <span className="text-slate-500 ml-2">
-                          · {isKo ? "격차" : "gap"} {recommendation.secondary.gapToPrimary}pt
-                        </span>
-                      </>
-                    );
-                  })()
-                ) : (
-                  <>
-                    <span className={clsx("font-semibold", confidenceColor)}>
-                      {recommendation.consensusPercent}% {isKo ? "합의" : "consensus"}
-                    </span>
-                    <span className="text-slate-500 ml-2">({recommendation.confidence})</span>
-                    <ConsensusTypeBadge type={recommendation.consensusType} isKo={isKo} />
-                  </>
-                )}
-              </div>
-            </div>
-            {recommendation.displayMode === "top2" && recommendation.secondary && (
-              <div className="mt-2 text-xs text-slate-500 leading-snug">
-                {isKo
-                  ? `Top 1과 Top 2의 점수 차이가 작아 (${recommendation.secondary.gapToPrimary}pt) 단일 우승국을 단정할 수 없습니다. 두 시장을 동등 후보로 두고 내부 capability·리스크 기준으로 선택하세요.`
-                  : `Top 1 and Top 2 are within noise margin (${recommendation.secondary.gapToPrimary}pt). Treat both as equally viable; pick based on internal capability / risk appetite, not the listed order.`}
-              </div>
-            )}
-          </div>
-          <CheckCircle2 className={confidenceColor} size={32} />
-        </div>
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
-          <div className="sm:col-span-1">
-            <BestCountryPieChart
-              data={bestCountryDistribution}
-              winner={recommendation.country}
-            />
-          </div>
-          <div className="sm:col-span-2 space-y-2">
-            {bestCountryDistribution.map((b) => (
-              <div key={b.country} className="flex items-center gap-3 text-sm">
-                <div className="w-12 font-medium text-slate-700">{b.country}</div>
-                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className={clsx(
-                      "h-full",
-                      b.country === recommendation.country ? "bg-success" : "bg-slate-300",
-                    )}
-                    style={{ width: `${b.percent}%` }}
-                  />
-                </div>
-                <div className="w-20 text-right text-xs text-slate-500 tabular-nums">
-                  {b.count}/{simCount} ({b.percent}%)
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div
-        className={clsx(
-          "card p-4 flex gap-3 items-start",
-          varianceAssessment.label === "high" && "bg-warn-soft/40 border-warn-soft",
-          varianceAssessment.label === "moderate" && "bg-slate-50",
-        )}
-      >
-        <TrendingUp
-          className={clsx(
-            "shrink-0 mt-0.5",
-            varianceAssessment.label === "high"
-              ? "text-warn"
-              : varianceAssessment.label === "moderate"
-                ? "text-slate-500"
-                : "text-success",
-          )}
-          size={18}
-        />
-        <div className="flex-1 min-w-0">
-          <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-            {isKo ? "변동성 평가" : "Variance assessment"}
-          </div>
-          <p className="text-sm text-slate-700 leading-relaxed">
-            {varianceCopy(varianceAssessment.label, locale)}
-          </p>
-          <p className="text-xs text-slate-500 mt-1">
-            {isKo
-              ? `최대 점수 변동: ${varianceAssessment.maxFinalScoreRange}점 · 평균 변동: ${varianceAssessment.meanFinalScoreRange}점`
-              : `Max score range: ${varianceAssessment.maxFinalScoreRange}pt · Mean range: ${varianceAssessment.meanFinalScoreRange}pt`}
-          </p>
+      <VarianceCard
+        label={varianceAssessment.label}
+        copy={varianceCopy(varianceAssessment.label, locale)}
+        maxRange={varianceAssessment.maxFinalScoreRange}
+        meanRange={varianceAssessment.meanFinalScoreRange}
+        isKo={isKo}
+        guide={
           <ChartGuide isKo={isKo} label={isKo ? "변동성 평가가 뭔가요?" : "What is variance assessment?"}>
             <GuideSection title={isKo ? "왜 측정?" : "Why measure it"}>
               <p className="m-0">
@@ -1877,8 +1819,8 @@ function SummaryTab({
               </p>
             </GuideSection>
           </ChartGuide>
-        </div>
-      </div>
+        }
+      />
     </div>
   );
 }
@@ -1986,69 +1928,6 @@ function ProjectInfoCard({
  * Complements the project-info card by answering "what was the budget /
  * setup of THIS run" once the user has more than one ensemble per project.
  */
-function SimRunInfoCard({
-  tier,
-  simCount,
-  parallelSims,
-  effectivePersonas,
-  llmProviders,
-  completedAt,
-  isKo,
-  locale,
-}: {
-  tier: string;
-  simCount: number;
-  parallelSims: number;
-  effectivePersonas: number;
-  llmProviders: string[];
-  completedAt: string | null;
-  isKo: boolean;
-  locale: string;
-}) {
-  const completed = completedAt
-    ? new Date(completedAt).toLocaleString(locale, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "—";
-  const successRate = parallelSims > 0
-    ? Math.round((simCount / parallelSims) * 100)
-    : 0;
-  return (
-    <div className="card p-5">
-      <h2 className="text-base font-semibold text-slate-900 mb-4">
-        {isKo ? "실행 요약" : "Run summary"}
-      </h2>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard
-          label={isKo ? "분석 단계" : "Tier"}
-          value={tierBadgeLabel(tier, isKo)}
-        />
-        <KpiCard
-          label={isKo ? "완료 시뮬" : "Completed sims"}
-          value={`${simCount}/${parallelSims}`}
-          sub={`${successRate}%`}
-          accent={
-            successRate >= 90 ? "text-success" : successRate >= 60 ? "text-warn" : "text-risk"
-          }
-        />
-        <KpiCard
-          label={isKo ? "유효 페르소나" : "Effective personas"}
-          value={effectivePersonas.toLocaleString()}
-        />
-        <KpiCard
-          label="LLM"
-          value={llmProviders.map(providerLabel).join(" · ")}
-          sub={completed}
-        />
-      </div>
-    </div>
-  );
-}
-
 // Shared Top-2 secondary types — defined here so PricingTab,
 // DecisionAidTab, RisksTab, ActionsTab can all reference them
 // without TypeScript ordering issues. The shapes match what
@@ -2304,8 +2183,8 @@ function OverviewTab({
             </li>
           )}
           {/* Hide the legacy "X 진출이 합의 우위 (96%)" bullet when
-              isTie — the consensusPercent is Phase E top-3 hit rate
-              (not 1st-place vote share), so showing "US 합의 우위
+              isTie — consensusPercent is the winner's own 1st-place share,
+              so showing "US 합의 우위
               96%" directly under a "Top 2 동등" bullet that says
               "US vote 36% / TW vote 48%" is a direct contradiction
               to the reader. The Top-2 bullet above already covers
