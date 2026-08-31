@@ -2091,7 +2091,7 @@ function OverviewTab({
                     .map((c) => {
                       const dist = bestCountryDistribution.find((d) => d.country === c);
                       const stats = countryStats.find((s) => s.country === c);
-                      const vote = dist ? `vote ${dist.percent}%` : "vote n/a";
+                      const vote = `vote ${dist?.percent ?? 0}%`;
                       const mean = stats ? `평균 ${stats.finalScore.mean.toFixed(1)}` : "";
                       return `${c} (${vote}${mean ? `, ${mean}` : ""})`;
                     })
@@ -2100,7 +2100,7 @@ function OverviewTab({
                     .map((c) => {
                       const dist = bestCountryDistribution.find((d) => d.country === c);
                       const stats = countryStats.find((s) => s.country === c);
-                      const vote = dist ? `vote ${dist.percent}%` : "vote n/a";
+                      const vote = `vote ${dist?.percent ?? 0}%`;
                       const mean = stats ? `mean ${stats.finalScore.mean.toFixed(1)}` : "";
                       return `${c} (${vote}${mean ? `, ${mean}` : ""})`;
                     })
@@ -2873,8 +2873,8 @@ function NarrativeTieDisclaimer({
           className="text-[11px] font-semibold text-brand hover:text-brand-600 underline decoration-dotted underline-offset-2 disabled:opacity-60 shrink-0"
           title={
             isKo
-              ? "Top-2 인식 프롬프트로 narrative 재생성 (단일 LLM 호출, 약 30~60초)"
-              : "Regenerate narrative using the upgraded Top-2-aware prompt (single LLM call, 30-60s)"
+              ? "Top-2를 반영해 요약을 다시 씁니다 (약 30~60초)"
+              : "Rewrite the summary with both Top-2 markets in view (30-60s)"
           }
         >
           {busy
@@ -3809,7 +3809,7 @@ function MarketProfileTab({
         <p className="text-sm text-slate-500 leading-relaxed mb-6 max-w-md mx-auto">
           {isKo
             ? "추천 1위 진출국의 시장 규모, 경쟁자, 채널, 규제, 가격 벤치마크, GTM 전략을 한 번의 LLM 호출로 채워줍니다. 약 30초-1분 소요. (Top-2 동등이면 2위 시장은 생성 후 아래 섹션에서 추가할 수 있습니다.)"
-            : "Fill in market size, named competitors, channels, regulatory, pricing benchmarks, and GTM strategy for the #1 recommended market via a single LLM call. Takes about 30-60 seconds. (For a Top-2 tie, add the runner-up market from the section below after this generates.)"}
+            : "Fill in market size, named competitors, channels, regulatory, pricing benchmarks, and GTM strategy for the #1 recommended market. Takes about 30-60 seconds. (For a Top-2 tie, add the runner-up market from the section below after this generates.)"}
         </p>
         <button
           type="button"
@@ -3830,7 +3830,7 @@ function MarketProfileTab({
         <p className="text-[11px] text-slate-400 mt-6 leading-relaxed">
           {tier === "hypothesis"
             ? isKo
-              ? "Hypothesis tier는 비용 절감을 위해 시장 분석을 자동 생성하지 않습니다. 위 버튼으로 바로 생성하거나, Consensus tier 이상으로 다시 돌리면 자동 포함됩니다."
+              ? "초기검증 티어는 방향성 확인에 초점을 맞춘 단계라 시장 분석이 기본 포함되지 않습니다. 위 버튼으로 지금 생성하거나, 검증분석 이상으로 다시 돌리면 자동으로 포함됩니다."
               : "Hypothesis tier skips market-profile generation by design (cost). Click the button above to fill it in now, or rerun on Consensus tier or higher to include it automatically."
             : isKo
               ? "이 ensemble의 시장 분석이 아직 채워지지 않았습니다. 위 버튼으로 즉시 생성하거나, 새로 시뮬을 돌리면 자동 포함됩니다."
@@ -4496,8 +4496,8 @@ function SecondaryCountryMarketSection({
         </div>
         <p className="text-sm text-slate-500 mt-1 leading-relaxed">
           {isKo
-            ? `Top 2 동등 후보 ${country} 시장 분석. 1순위와 동일한 깊이로 시장 규모, 명명된 경쟁자, 채널 환경, 규제, 가격 벤치마크, GTM 전략 — 단, 별도 single LLM 호출 결과 (sim 합의 아님).`
-            : `${country} as the parallel Top-2 candidate — same depth as the primary: market size, named competitors, channels, regulatory, pricing, GTM. Note: single LLM pass (not cross-sim consensus).`}
+            ? `Top 2 동등 후보 ${country} 시장 분석. 1순위와 동일한 깊이로 시장 규모, 명명된 경쟁자, 채널 환경, 규제, 가격 벤치마크, GTM 전략 — 단, 시뮬 교차검증 없이 1회 생성한 결과입니다.`
+            : `${country} as the parallel Top-2 candidate — same depth as the primary: market size, named competitors, channels, regulatory, pricing, GTM. Note: generated in one pass, not cross-sim verified.`}
         </p>
       </div>
 
@@ -7425,12 +7425,12 @@ function SecondaryPricingBlock({
                       hasProfile
                         ? `${country} 시장 분석이 있어 competitor 벤치마크 + 문화적 인사이트로 grounded한 결과가 나옵니다.`
                         : `${country} 시장 분석이 아직 없어 페르소나 신호만으로 가격이 생성됩니다 (시장 분석 먼저 권장).`
-                    } 단일 LLM 호출 (30-60초).`
+                    } 한 번의 생성 작업으로 30~60초 걸립니다.`
                   : `Top 2 ties need a parallel ${country} pricing analysis (recommended price, conversion curve, margin) to reach winner-parity depth. ${
                       hasProfile
                         ? `Market profile already exists — generation grounded on competitor benchmarks + cultural insights.`
                         : `No market profile yet — pricing will rely on persona signal only (generate the profile first for better grounding).`
-                    } Single LLM call (30-60s).`}
+                    } Takes 30-60s.`}
               </p>
               <button
                 type="button"
@@ -7497,7 +7497,7 @@ function SecondaryPricingBlock({
           {isKo ? "동등 후보" : "tied"}
         </span>
         <span className="text-[10px] text-slate-500">
-          {isKo ? "single LLM pass (sim 합의 아님)" : "single LLM pass (not cross-sim consensus)"}
+          {isKo ? "시뮬 교차검증 없이 1회 생성" : "generated in one pass, not cross-sim verified"}
         </span>
       </div>
 
@@ -9169,12 +9169,12 @@ function SecondaryRisksBlock({
                       hasProfile
                         ? `${country} 시장 분석이 이미 있어 풍부한 리스크가 생성됩니다.`
                         : `${country} 시장 분석이 아직 없어 페르소나 시그널만으로 생성됩니다 (시장 분석 먼저 생성 권장).`
-                    } 단일 LLM 호출 (30-60초).`
+                    } 한 번의 생성 작업으로 30~60초 걸립니다.`
                   : `Top 2 ties need parallel ${country} risks (compliance · channels · personas, 5-8 items). ${
                       hasProfile
                         ? `Market profile already exists — generates rich, grounded risks.`
                         : `No market profile yet — risks will rely on persona signal only (generate the profile first for better quality).`
-                    } Single LLM call (30-60s).`}
+                    } Takes 30-60s.`}
               </p>
               <button
                 type="button"
@@ -9224,8 +9224,8 @@ function SecondaryRisksBlock({
         </span>
         <span className="text-[10px] text-slate-500">
           {isKo
-            ? `${risks.length}개 리스크 · single LLM pass (sim 합의 아님)`
-            : `${risks.length} risks · single LLM pass (not cross-sim consensus)`}
+            ? `${risks.length}개 리스크 · 시뮬 교차검증 없이 1회 생성`
+            : `${risks.length} risks · generated in one pass, not cross-sim verified`}
         </span>
       </div>
       <div className="card divide-y divide-slate-100">
@@ -9469,12 +9469,12 @@ function SecondaryActionsBlock({
                       hasProfile
                         ? `${country} 시장 분석이 이미 있어 풍부한 액션이 생성됩니다.`
                         : `${country} 시장 분석이 아직 없어 페르소나 시그널만으로 액션이 생성됩니다 (시장 분석 먼저 생성 권장).`
-                    } 단일 LLM 호출 (30-60초).`
+                    } 한 번의 생성 작업으로 30~60초 걸립니다.`
                   : `Top 2 ties need parallel ${country} actions (entry · PR · compliance · pricing · channels · partnerships, 5-8 items). ${
                       hasProfile
                         ? `Market profile already exists — generates rich, grounded actions.`
                         : `No market profile yet — actions will rely on persona signal only (generate the profile first for better quality).`
-                    } Single LLM call (30-60s).`}
+                    } Takes 30-60s.`}
               </p>
               <button
                 type="button"
@@ -9522,8 +9522,8 @@ function SecondaryActionsBlock({
         </span>
         <span className="text-[10px] text-slate-500">
           {isKo
-            ? `${actions.length}개 액션 · single LLM pass (sim 합의 아님)`
-            : `${actions.length} actions · single LLM pass (not cross-sim consensus)`}
+            ? `${actions.length}개 액션 · 시뮬 교차검증 없이 1회 생성`
+            : `${actions.length} actions · generated in one pass, not cross-sim verified`}
         </span>
       </div>
       <ol className="card divide-y divide-slate-100">

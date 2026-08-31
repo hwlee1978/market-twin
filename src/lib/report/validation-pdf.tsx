@@ -2338,8 +2338,8 @@ function _renderSecondaryAnalysisPages(opts: {
         </View>
         <MText style={[styles.bulletText, { fontSize: 9, color: C.muted, marginBottom: 10 }]}>
           {isKo
-            ? `${secondary.actions.length}개 액션 · single LLM pass (cross-sim 합의 아님)`
-            : `${secondary.actions.length} actions · single LLM pass (not cross-sim consensus)`}
+            ? `${secondary.actions.length}개 액션 · 시뮬 교차검증 없이 1회 생성`
+            : `${secondary.actions.length} actions · generated in one pass, not cross-sim verified`}
         </MText>
         {secondary.actions.map((a, i) => (
           <View
@@ -2386,8 +2386,8 @@ function _renderSecondaryAnalysisPages(opts: {
         </View>
         <MText style={[styles.bulletText, { fontSize: 9, color: C.muted, marginBottom: 10 }]}>
           {isKo
-            ? `${secondary.risks.length}개 리스크 · single LLM pass`
-            : `${secondary.risks.length} risks · single LLM pass`}
+            ? `${secondary.risks.length}개 리스크 · 시뮬 교차검증 없이 1회 생성`
+            : `${secondary.risks.length} risks · generated in one pass`}
         </MText>
         {secondary.risks.map((r, i) => (
           <View
@@ -2888,8 +2888,8 @@ function renderSecondaryActionsPage(opts: SecondaryRenderOpts): React.ReactEleme
       {renderSecondaryHeader(opts, isKo ? "추천 액션" : "actions")}
       <MText style={[secondaryBulletTextSmall, { marginBottom: 10 }]}>
         {isKo
-          ? `${secondary.actions.length}개 액션 · single LLM pass (cross-sim 합의 아님)`
-          : `${secondary.actions.length} actions · single LLM pass (not cross-sim consensus)`}
+          ? `${secondary.actions.length}개 액션 · 시뮬 교차검증 없이 1회 생성`
+          : `${secondary.actions.length} actions · generated in one pass, not cross-sim verified`}
       </MText>
       {/* Use the primary phasedExecution row chrome (phaseRow +
           phaseLeft + phaseRight + phaseLabel + phaseGoal +
@@ -3123,8 +3123,8 @@ function renderSecondaryRisksPage(opts: SecondaryRenderOpts): React.ReactElement
       {renderSecondaryHeader(opts, isKo ? "리스크" : "risks")}
       <MText style={[secondaryBulletTextSmall, { marginBottom: 10 }]}>
         {isKo
-          ? `${secondary.risks.length}개 리스크 · single LLM pass`
-          : `${secondary.risks.length} risks · single LLM pass`}
+          ? `${secondary.risks.length}개 리스크 · 시뮬 교차검증 없이 1회 생성`
+          : `${secondary.risks.length} risks · generated in one pass`}
       </MText>
       {/* Use the primary RiskRow chrome: borderLeftColor + riskMain +
           riskTitle + riskMitigation + riskStarsCol + riskStars so the

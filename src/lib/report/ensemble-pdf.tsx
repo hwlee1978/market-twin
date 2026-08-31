@@ -7644,8 +7644,8 @@ function renderEnsembleSecondaryPages(opts: {
         </MText>
         <MText style={styles.pageSubtitle}>
           {isKo
-            ? `Top-2 동등 후보 ${secondaryCountry} 시장 분석 — 1순위와 동일한 깊이로 시장 규모, 명명된 경쟁자, 채널 환경, 규제, 가격 벤치마크, GTM 전략 (단, single LLM pass — cross-sim 합의 아님).`
-            : `${secondaryCountry} as the parallel Top-2 candidate — same depth as primary: market size, named competitors, channels, regulatory, pricing benchmarks, GTM (single LLM pass, not cross-sim consensus).`}
+            ? `Top-2 동등 후보 ${secondaryCountry} 시장 분석 — 1순위와 동일한 깊이로 시장 규모, 명명된 경쟁자, 채널 환경, 규제, 가격 벤치마크, GTM 전략 (단, 시뮬 교차검증 없이 1회 생성).`
+            : `${secondaryCountry} as the parallel Top-2 candidate — same depth as primary: market size, named competitors, channels, regulatory, pricing benchmarks, GTM (generated in one pass, not cross-sim verified).`}
         </MText>
 
         {secondaryDisclaimer}
@@ -8162,8 +8162,8 @@ function renderEnsembleSecondaryPages(opts: {
         <MText style={styles.pageTitle}>{isKo ? "권장 액션" : "Recommended actions"}</MText>
         <MText style={styles.pageSubtitle}>
           {isKo
-            ? `${secondaryCountry} 시장 진출/가속 액션 ${actions.length}개 (Top-2 동등 후보 · single LLM pass — cross-sim 합의 아님).`
-            : `${actions.length} actions for ${secondaryCountry} market entry / acceleration (Top-2 secondary · single LLM pass, not cross-sim consensus).`}
+            ? `${secondaryCountry} 시장 진출/가속 액션 ${actions.length}개 (Top-2 동등 후보 · 시뮬 교차검증 없이 1회 생성).`
+            : `${actions.length} actions for ${secondaryCountry} market entry / acceleration (Top-2 secondary · generated in one pass, not cross-sim verified).`}
         </MText>
 
         {secondaryDisclaimer}
@@ -8198,7 +8198,7 @@ function renderEnsembleSecondaryPages(opts: {
                   )}
                   {specColor && (
                     <MText style={{ fontSize: 8, color: specColor, fontWeight: 600 }}>
-                      {`· single LLM`}
+                      {`· 1회 생성`}
                     </MText>
                   )}
                 </View>
@@ -8222,8 +8222,8 @@ function renderEnsembleSecondaryPages(opts: {
         <MText style={styles.pageTitle}>{isKo ? "주요 리스크" : "Key risks"}</MText>
         <MText style={styles.pageSubtitle}>
           {isKo
-            ? `${secondaryCountry} 시장 진출 리스크 ${risks.length}개 (Top-2 동등 후보 · single LLM pass).`
-            : `${risks.length} risks for ${secondaryCountry} market entry (Top-2 secondary · single LLM pass).`}
+            ? `${secondaryCountry} 시장 진출 리스크 ${risks.length}개 (Top-2 동등 후보 · 시뮬 교차검증 없이 1회 생성).`
+            : `${risks.length} risks for ${secondaryCountry} market entry (Top-2 secondary · 시뮬 교차검증 없이 1회 생성).`}
         </MText>
 
         {secondaryDisclaimer}
@@ -8278,8 +8278,8 @@ function renderEnsembleSecondaryPages(opts: {
         <MText style={styles.pageTitle}>{isKo ? "가격 분석" : "Pricing analysis"}</MText>
         <MText style={styles.pageSubtitle}>
           {isKo
-            ? `${secondaryCountry} 시장 권장 가격, 전환 곡선, 예상 마진 (Top-2 동등 후보 · single LLM pass — cross-sim 합의 아님).`
-            : `${secondaryCountry} recommended price, conversion curve, and margin (Top-2 secondary · single LLM pass, not cross-sim consensus).`}
+            ? `${secondaryCountry} 시장 권장 가격, 전환 곡선, 예상 마진 (Top-2 동등 후보 · 시뮬 교차검증 없이 1회 생성).`
+            : `${secondaryCountry} recommended price, conversion curve, and margin (Top-2 secondary · generated in one pass, not cross-sim verified).`}
         </MText>
 
         {secondaryDisclaimer}
@@ -8287,7 +8287,7 @@ function renderEnsembleSecondaryPages(opts: {
         {/* Headline price — mirrors primary styles.priceHero pattern */}
         <View style={styles.priceHero}>
           <View style={{ flex: 1 }}>
-            <MText style={styles.kpiLabel}>{isKo ? "권장 가격 (single LLM)" : "Recommended (single LLM)"}</MText>
+            <MText style={styles.kpiLabel}>{isKo ? "권장 가격 (1회 생성)" : "Recommended (one pass)"}</MText>
             <View style={{ flexDirection: "row", alignItems: "baseline" }}>
               <MText style={styles.priceBig}>{fmt(secondaryPricing.recommendedPriceCents)}</MText>
               <MText style={styles.priceMeta}>
