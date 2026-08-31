@@ -1162,12 +1162,12 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 ? (() => {
                     const pv = aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.primaryCode)?.percent;
                     const sv = aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.secondaryCode)?.percent;
-                    return `1순위 vote: ${topTwo.primaryLabel} ${pv ?? "?"}% · ${topTwo.secondaryLabel} ${sv ?? "?"}% — 점수 격차 작아 단일국 결정 보류 권장 (top-3 출현률은 ${recommendation.consensusPercent}%)`;
+                    return `1순위 vote: ${topTwo.primaryLabel} ${pv ?? 0}% · ${topTwo.secondaryLabel} ${sv ?? 0}% — 점수 격차 작아 단일국 결정 보류 권장 (1위표 합의도 ${recommendation.consensusPercent}%)`;
                   })()
                 : (() => {
                     const pv = aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.primaryCode)?.percent;
                     const sv = aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.secondaryCode)?.percent;
-                    return `1st-place vote: ${topTwo.primaryLabel} ${pv ?? "?"}% · ${topTwo.secondaryLabel} ${sv ?? "?"}% — narrow score gap, defer single-country decision (top-3 hit rate ${recommendation.consensusPercent}%)`;
+                    return `1st-place vote: ${topTwo.primaryLabel} ${pv ?? 0}% · ${topTwo.secondaryLabel} ${sv ?? 0}% — narrow score gap, defer single-country decision (top-1 agreement ${recommendation.consensusPercent}%)`;
                   })()}
             </MText>
           </View>
@@ -1451,10 +1451,10 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                   ? aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.secondaryCode)
                   : null;
                 const headKo = topTwo
-                  ? `Top 2 동등 후보 — ${topTwo.primaryLabel} 1순위 vote ${primaryVote?.percent ?? "?"}% · ${topTwo.secondaryLabel} 1순위 vote ${secondaryVote?.percent ?? "?"}% (top-3 출현률 ${aggregate.recommendation.consensusPercent}% — 둘 다 거의 모든 시뮬의 top-3 안에 있다는 뜻)`
+                  ? `Top 2 동등 후보 — ${topTwo.primaryLabel} 1순위 vote ${primaryVote?.percent ?? 0}% · ${topTwo.secondaryLabel} 1순위 vote ${secondaryVote?.percent ?? 0}% (1위표 합의도 ${aggregate.recommendation.consensusPercent}% — 1위로 지목한 시뮬의 비율)`
                   : `${recCountryLabel} 진출이 합의 우위 (${aggregate.recommendation.consensusPercent}% / ${aggregate.recommendation.confidence})`;
                 const headEn = topTwo
-                  ? `Top 2 tied — ${topTwo.primaryLabel} 1st-place vote ${primaryVote?.percent ?? "?"}% · ${topTwo.secondaryLabel} 1st-place vote ${secondaryVote?.percent ?? "?"}% (top-3 hit rate ${aggregate.recommendation.consensusPercent}% — both placed in nearly every sim's top-3)`
+                  ? `Top 2 tied — ${topTwo.primaryLabel} 1st-place vote ${primaryVote?.percent ?? 0}% · ${topTwo.secondaryLabel} 1st-place vote ${secondaryVote?.percent ?? 0}% (top-1 agreement ${aggregate.recommendation.consensusPercent}% — share of sims that picked it first)`
                   : `${recCountryLabel} leads consensus (${aggregate.recommendation.consensusPercent}% / ${aggregate.recommendation.confidence})`;
                 if (!fs) return isKo ? `${headKo}.` : `${headEn}.`;
                 const within = fs.withinSimStdMean;
@@ -7361,8 +7361,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                           : `1st-place vote ${pv}% vs ${sv}%`
                         : isKo ? "1순위 vote 분산" : "1st-place vote split";
                       return isKo
-                        ? `점수 격차가 작아 사실상 동등 — 단일국 결정 보류, 두 시장 모두 검토 권장. (${voteFrag}; top-3 출현률 ${aggregate.recommendation.consensusPercent}%)`
-                        : `Score gap is narrow — defer single-country decision, evaluate both. (${voteFrag}; top-3 hit rate ${aggregate.recommendation.consensusPercent}%)`;
+                        ? `점수 격차가 작아 사실상 동등 — 단일국 결정 보류, 두 시장 모두 검토 권장. (${voteFrag}; 1위표 합의도 ${aggregate.recommendation.consensusPercent}%)`
+                        : `Score gap is narrow — defer single-country decision, evaluate both. (${voteFrag}; top-1 agreement ${aggregate.recommendation.consensusPercent}%)`;
                     })()}
                   </MText>
                 </View>

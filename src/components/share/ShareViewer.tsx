@@ -146,7 +146,7 @@ export function ShareViewer({
 
         {/* Top recommendation — hero card with brand-color left rule.
             Top-2 tie: render both candidates side by side and frame
-            the consensus % as top-3 hit rate (not vote share) so the
+            the consensus % as top-1 agreement (the winner's own share) so the
             public share viewer doesn't claim a single winner the
             orchestrator deferred. */}
         {(() => {
@@ -183,11 +183,14 @@ export function ShareViewer({
                     <>
                       <span className="font-semibold text-warn">
                         {isKo
-                          ? `1순위 vote ${pv ?? "?"}% vs ${sv ?? "?"}%`
-                          : `1st-place vote ${pv ?? "?"}% vs ${sv ?? "?"}%`}
+                          ? `1순위 vote ${pv ?? 0}% vs ${sv ?? 0}%`
+                          : `1st-place vote ${pv ?? 0}% vs ${sv ?? 0}%`}
                       </span>
                       <span className="text-slate-500 ml-2">
-                        · {isKo ? "Top-3 출현률" : "top-3 hit rate"} {recommendation.consensusPercent}%
+                        ·{" "}
+                        {isKo
+                          ? `1위표 합의도 ${recommendation.consensusPercent}%`
+                          : `top-1 agreement ${recommendation.consensusPercent}%`}
                       </span>
                     </>
                   ) : (
