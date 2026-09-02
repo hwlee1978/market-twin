@@ -17,24 +17,31 @@ export const dynamic = "force-dynamic";
  *
  * DB check is a cheap `select 1` against a tiny table. We pick
  * `workspaces` because it always has at least the test row and the
- * read is RLS-free via service client. If the query throws or takes
- * more than ~2s, we return 503 so the monitor flags downtime.
+ * read is RLS-free via service client. If the query throws or exceeds
+ * the budget below, we return 503 so the monitor flags downtime.
+ *
+ * The budget was 2s, which turned out to be a false-positive generator:
+ * a cold function's TLS handshake plus a PostgREST round-trip can pass
+ * two seconds while the database is perfectly healthy — see the note in
+ * lib/monitoring/system-health.ts, where the same 2s race fired twice at
+ * the top of the busiest cron hour. 5s still fails well inside
+ * UptimeRobot's 30s timeout.
  */
+const DB_BUDGET_MS = 5000;
+
 export async function GET() {
   const startedAt = Date.now();
   try {
     const admin = createServiceClient();
-    // Race the query against a 2s wall clock so a stuck DB doesn't
-    // hold the request open. UptimeRobot defaults to 30s timeout but
-    // a fast-fail is friendlier to the monitor's alert latency.
-    const dbPromise = admin
+    // abortSignal rather than Promise.race: race abandons the losing
+    // query without cancelling it, leaving a connection held open on
+    // every probe.
+    const { error } = await admin
       .from("workspaces")
       .select("id", { count: "exact", head: true })
-      .limit(1);
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("db_timeout")), 2000),
-    );
-    await Promise.race([dbPromise, timeout]);
+      .limit(1)
+      .abortSignal(AbortSignal.timeout(DB_BUDGET_MS));
+    if (error) throw new Error(error.message);
 
     return NextResponse.json(
       { status: "ok", db: "ok", latencyMs: Date.now() - startedAt },

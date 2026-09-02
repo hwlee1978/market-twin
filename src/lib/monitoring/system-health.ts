@@ -54,17 +54,60 @@ export async function checkSystemHealth(): Promise<SystemHealth> {
 
 // ── 개별 체크 ────────────────────────────────────────────────────────────────
 
-/** DB 도달성 — 2초 내 select 1. */
-async function checkDb(): Promise<HealthCheck> {
+/**
+ * DB 도달성.
+ *
+ * 원래는 PostgREST 왕복을 2초와 race 시켰는데, 그 예산이 너무 빡빡해서
+ * 오탐을 냈다. 근거: 알림이 나간 두 번 모두 이 체크만 fail이었고, 바로
+ * 아래 세 체크가 같은 요청에서 같은 DB를 성공적으로 조회했다. DB가 진짜
+ * 도달 불가였다면 셋 다 같이 죽었어야 한다. 둘 다 18:00 UTC 정각 —
+ * monitoring·seo·auto-publish·zombie-cleanup 크론이 app/mrai 두 프로젝트에서
+ * 동시에 뜨는 시각이라, 콜드 람다의 TLS+쿼리가 2초를 넘긴 것으로 본다.
+ *
+ * 그래서 예산을 늘리고 1회 재시도를 둔다. 1차만 늦고 2차가 붙으면 fail이
+ * 아니라 warn — 사람을 깨우지 않되 느려진 사실은 남긴다. 오탐이 반복되면
+ * 진짜 장애 메일까지 무시하게 되는 쪽이 더 큰 위험이다.
+ *
+ * abortSignal을 쓰는 이유: Promise.race는 진 쪽 쿼리를 취소하지 않고 버려서,
+ * 매 점검마다 커넥션을 붙잡은 요청이 하나씩 남는다.
+ */
+const DB_BUDGET_MS = 5000;
+
+async function pingDb(budgetMs: number): Promise<number> {
   const admin = createServiceClient();
   const started = Date.now();
+  const { error } = await admin
+    .from("workspaces")
+    .select("id", { count: "exact", head: true })
+    .limit(1)
+    .abortSignal(AbortSignal.timeout(budgetMs));
+  if (error) throw new Error(error.message);
+  return Date.now() - started;
+}
+
+async function checkDb(): Promise<HealthCheck> {
   try {
-    const q = admin.from("workspaces").select("id", { count: "exact", head: true }).limit(1);
-    const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("db_timeout(2s)")), 2000));
-    await Promise.race([q, timeout]);
-    return { key: "db", label: "데이터베이스", status: "ok", detail: `Supabase 정상 (${Date.now() - started}ms)` };
-  } catch (err) {
-    return { key: "db", label: "데이터베이스", status: "fail", detail: `도달 불가: ${err instanceof Error ? err.message : "unknown"}` };
+    const ms = await pingDb(DB_BUDGET_MS);
+    return { key: "db", label: "데이터베이스", status: "ok", detail: `Supabase 정상 (${ms}ms)` };
+  } catch (first) {
+    const firstMsg = first instanceof Error ? first.message : "unknown";
+    try {
+      const ms = await pingDb(DB_BUDGET_MS);
+      return {
+        key: "db",
+        label: "데이터베이스",
+        status: "warn",
+        detail: `1차 실패 후 재시도 성공 (${ms}ms) — 원인: ${firstMsg}`,
+      };
+    } catch (second) {
+      const secondMsg = second instanceof Error ? second.message : "unknown";
+      return {
+        key: "db",
+        label: "데이터베이스",
+        status: "fail",
+        detail: `도달 불가 (${DB_BUDGET_MS}ms 예산, 2회 시도): ${secondMsg}`,
+      };
+    }
   }
 }
 
