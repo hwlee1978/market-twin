@@ -80,8 +80,8 @@ export function PlansSelector({
 
       <div className="mt-6 text-xs text-slate-500 text-center">
         {isKo
-          ? "* 베타 무료 체험은 7일 또는 초기검증 2회 (먼저 도래한 시점) 후 자동 종료. 신용카드 등록 불필요."
-          : "* The beta free trial ends after 7 days or 2 sims, whichever comes first. No credit card required."}
+          ? "* 무료 체험은 7일 또는 초기검증 1회 (먼저 도래한 시점) 후 자동 종료. 신용카드 등록 불필요."
+          : "* The free trial ends after 7 days or 1 sim, whichever comes first. No credit card required."}
       </div>
 
       <SinglePurchaseSection currency={currency} isKo={isKo} isLoggedIn={!!isLoggedIn} openBeta={openBeta} />
@@ -335,7 +335,7 @@ function PlanCard({
             </div>
             {plan.slug === "free_trial" && (
               <div className="text-xs text-slate-500 mt-1">
-                {isKo ? "7일 또는 초기검증 2회" : "7 days or 2 sims"}
+                {isKo ? "7일 또는 초기검증 1회" : "7 days or 1 sim"}
               </div>
             )}
             {plan.slug !== "free_trial" && currency === "krw" && (

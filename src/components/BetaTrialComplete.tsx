@@ -2,11 +2,14 @@ import { CheckCircle2 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 
 /**
- * Shown in place of the new-project wizard when a beta (free_trial)
- * workspace has exhausted its trial — either the 2 free simulations are
- * used up, or the 7-day window has passed. Surfaces the "beta complete"
- * message at the '새 프로젝트' step so the user learns it up front rather
- * than after filling in the wizard and hitting a plan_limit on run.
+ * Shown in place of the new-project wizard when a free_trial workspace has
+ * exhausted its trial — either the free simulation is used up, or the
+ * 7-day window has passed. Surfaces the message at the '새 프로젝트' step
+ * so the user learns it up front rather than after filling in the wizard
+ * and hitting a plan_limit on run.
+ *
+ * Named for the open beta it was written during; the component outlived
+ * that and now covers the ordinary free trial.
  */
 export function BetaTrialComplete({
   locale,

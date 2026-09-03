@@ -11,22 +11,30 @@ import { notifyNewSignup } from "@/lib/email/billing-notify";
 export type WorkspaceStatus = "active" | "suspended" | "archived";
 export const ACTIVE_WORKSPACE_COOKIE = "aw_id";
 
-// Open-beta knobs. Defaults match the published beta policy (2 free
-// hypothesis sims within a 7-day window); set these env vars to widen the
-// free-trial quota during the open beta WITHOUT a code change, and unset
-// them to revert. Both gate the hypothesis tier only (canStartSim keeps
-// the per-run cost bounded), so widening them caps total beta cost at
-// roughly BETA_TRIAL_SIMS × (~$3-5) per new signup.
-function betaInt(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (!raw) return fallback;
-  const n = Number.parseInt(raw, 10);
-  return Number.isFinite(n) && n >= 0 ? n : fallback;
+// Free-trial grant for a newly created workspace. These began as open-beta
+// knobs; the beta is over and paid checkout is live, but the trial itself
+// stays — it is now one free hypothesis validation within a 7-day window.
+//
+// The default is the policy. An env var can widen it for a campaign without
+// a deploy, but nothing has to be set for the published terms to hold: a
+// missing or malformed value must not silently hand out more free runs than
+// we advertise. Both gate the hypothesis tier only (canStartSim keeps the
+// per-run cost bounded), so the exposure is roughly
+// FREE_TRIAL_SIMS × (~$3-5) per new signup.
+//
+// BETA_TRIAL_* remains readable as a fallback so an existing deployment's
+// env doesn't change meaning under it mid-flight.
+function trialInt(names: string[], fallback: number): number {
+  for (const name of names) {
+    const raw = process.env[name];
+    if (!raw) continue;
+    const n = Number.parseInt(raw, 10);
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+  return fallback;
 }
-// Beta policy = 2 free hypothesis validations. Keep the default at 2 so a
-// missing env var doesn't silently drop new signups back to 1.
-const BETA_TRIAL_SIMS = betaInt("BETA_TRIAL_SIMS", 2);
-const BETA_TRIAL_DAYS = betaInt("BETA_TRIAL_DAYS", 7);
+const FREE_TRIAL_SIMS = trialInt(["FREE_TRIAL_SIMS", "BETA_TRIAL_SIMS"], 1);
+const FREE_TRIAL_DAYS = trialInt(["FREE_TRIAL_DAYS", "BETA_TRIAL_DAYS"], 7);
 
 type Result = {
   workspaceId: string;
@@ -142,14 +150,14 @@ export const getOrCreatePrimaryWorkspace = cache(
     }
 
     const trialEndsAt = new Date(
-      Date.now() + BETA_TRIAL_DAYS * 24 * 60 * 60 * 1000,
+      Date.now() + FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000,
     ).toISOString();
     const { error: subErr } = await admin.from("subscriptions").insert({
       workspace_id: ws.id,
       plan: "free_trial",
       status: "trialing",
       trial_ends_at: trialEndsAt,
-      trial_sims_limit: abuseGrant ? BETA_TRIAL_SIMS : 0,
+      trial_sims_limit: abuseGrant ? FREE_TRIAL_SIMS : 0,
     });
     if (subErr && (subErr as { code?: string }).code !== "23505") {
       console.warn(`[workspace] subscription bootstrap failed for ${ws.id}:`, subErr.message);
