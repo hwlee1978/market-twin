@@ -38,6 +38,8 @@ import {
 import { RecentProjectsCards, type RecentProjectRow } from "@/components/dashboard/RecentProjectsCards";
 import { formatRelativeTime } from "@/components/dashboard/relativeTime";
 import { DashboardCopilot } from "@/components/dashboard/DashboardCopilot";
+import { PlanUsageCard, type PlanUsageMeter } from "@/components/dashboard/PlanUsageCard";
+import { getSubscription, getMonthlyUsage } from "@/lib/billing/usage";
 
 type LatestEnsembleRow = {
   id: string;
@@ -109,7 +111,12 @@ export default async function DashboardPage({
   // Parallel fan-out — these queries don't depend on each other, so
   // doing them sequentially was costing ~N× the wall time. Promise.all keeps
   // them in flight together and lets the slowest one set the page latency.
-  const [projectsRes, completedSimsRes, monthlyReportsRes, latestEnsembleRes] = await Promise.all([
+  // Subscription first: getMonthlyUsage needs the resolved plan to know where
+  // the billing month starts, so it can't join the fan-out below.
+  const subscription = await getSubscription(ctx.workspaceId);
+
+  const [projectsRes, completedSimsRes, monthlyReportsRes, latestEnsembleRes, monthlyUsage] =
+    await Promise.all([
     supabase
       .from("projects")
       .select("id, name, product_name, category, status, candidate_countries, updated_at")
@@ -138,6 +145,7 @@ export default async function DashboardPage({
       .order("completed_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    getMonthlyUsage(ctx.workspaceId, subscription),
   ]);
 
   const projects = projectsRes.data;
@@ -352,6 +360,60 @@ export default async function DashboardPage({
       }))
     : [];
 
+  // ── Plan + quota summary ───────────────────────────────────────────────
+  // During the free trial the sim quota is the trial grant, not the plan's
+  // monthly allowance — the same rule the billing page applies, kept here
+  // rather than re-derived so the two screens can't disagree.
+  const planLimits = subscription.plan.limits;
+  const trialActive = subscription.trialActive;
+
+  const planMeters: PlanUsageMeter[] = [
+    {
+      label: trialActive ? t("dashboard.plan.trialSims") : t("dashboard.plan.sims"),
+      used: trialActive ? subscription.trialSimsUsed : monthlyUsage.simsUsed,
+      limit: trialActive ? subscription.trialSimsLimit : planLimits.simsPerMonth,
+      color: "#2563eb",
+    },
+  ];
+  if (planLimits.decisionPlusSimsPerMonth > 0) {
+    planMeters.push({
+      label: t("dashboard.plan.decisionPlus"),
+      used: monthlyUsage.decisionPlusSimsUsed,
+      limit: planLimits.decisionPlusSimsPerMonth,
+      color: "#7c3aed",
+    });
+  }
+  if (subscription.plan.features.multiLLM && planLimits.deepSimsPerMonth !== 0) {
+    planMeters.push({
+      label: t("dashboard.plan.deep"),
+      used: monthlyUsage.deepSimsUsed,
+      limit: planLimits.deepSimsPerMonth,
+      color: "#0d9c72",
+    });
+  }
+  planMeters.push({
+    label: t("dashboard.plan.chat"),
+    used: monthlyUsage.chatMessagesUsed,
+    limit: planLimits.chatMessagesPerMonth,
+    color: "#d97706",
+  });
+
+  const planStatus: { label: string; tone: "neutral" | "warn" | "risk" } | null =
+    subscription.status === "past_due"
+      ? { label: t("dashboard.plan.statusPastDue"), tone: "risk" }
+      : subscription.status === "canceled"
+        ? { label: t("dashboard.plan.statusCanceled"), tone: "warn" }
+        : trialActive
+          ? { label: t("dashboard.plan.statusTrial"), tone: "warn" }
+          : null;
+
+  const periodEnd = subscription.currentPeriodEnd ?? subscription.trialEndsAt;
+  const planResetLabel = periodEnd
+    ? t("dashboard.plan.resetsOn", {
+        date: new Date(periodEnd).toLocaleDateString(locale),
+      })
+    : null;
+
   return (
     <>
       {hasProjects ? (
@@ -389,6 +451,16 @@ export default async function DashboardPage({
           }
         />
       )}
+
+      <PlanUsageCard
+        title={t("dashboard.plan.title")}
+        planName={subscription.plan.name}
+        statusLabel={planStatus?.label ?? null}
+        statusTone={planStatus?.tone ?? "neutral"}
+        meters={planMeters}
+        resetLabel={planResetLabel}
+        manageLabel={t("dashboard.plan.manage")}
+      />
 
       {!hasProjects ? (
         <>

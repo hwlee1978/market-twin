@@ -439,6 +439,19 @@
       "countries": "국가",
       "category": "카테고리",
       "updated": "최종 수정"
+    },
+    "plan": {
+      "title": "내 플랜",
+      "manage": "결제 관리",
+      "sims": "시뮬레이션",
+      "trialSims": "무료 체험 시뮬레이션",
+      "decisionPlus": "검증분석 Plus",
+      "deep": "심층분석 (멀티 LLM)",
+      "chat": "페르소나 챗",
+      "statusTrial": "체험 중",
+      "statusPastDue": "결제 실패",
+      "statusCanceled": "해지 예정",
+      "resetsOn": "사용량 갱신: {date}"
     }
   },
   "project": {

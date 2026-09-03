@@ -439,6 +439,19 @@
       "countries": "Countries",
       "category": "Category",
       "updated": "Updated"
+    },
+    "plan": {
+      "title": "Your plan",
+      "manage": "Manage billing",
+      "sims": "Simulations",
+      "trialSims": "Free trial simulations",
+      "decisionPlus": "Consensus Plus",
+      "deep": "Triangulated (multi-LLM)",
+      "chat": "Persona chat",
+      "statusTrial": "Trial",
+      "statusPastDue": "Payment failed",
+      "statusCanceled": "Cancels soon",
+      "resetsOn": "Usage resets: {date}"
     }
   },
   "project": {
