@@ -22,7 +22,7 @@ export default async function TeamPage({
   const [workspaceRes, members, invitations, seats, myRole] = await Promise.all([
     supabase
       .from("workspaces")
-      .select("id, name, company_name, plan, created_at")
+      .select("id, name, company_name, created_at")
       .eq("id", ctx.workspaceId)
       .single(),
     listMembers(ctx.workspaceId, ctx.userId),
@@ -72,9 +72,14 @@ export default async function TeamPage({
           <Field label={t("workspace.companyName")}>
             {workspace?.company_name ?? "—"}
           </Field>
+          {/* subscriptions.plan, not workspaces.plan. The latter is a leftover
+              column from migration 0001 that nothing in billing reads —
+              entitlements, seat limits and simulation quotas all resolve
+              through getSubscription(). Showing it here contradicted the seat
+              meter directly above as soon as a workspace changed plan. */}
           <Field label={t("workspace.plan")}>
             <span className="badge bg-slate-100 text-slate-700 uppercase tracking-wider">
-              {workspace?.plan ?? "starter"}
+              {seats.planName}
             </span>
           </Field>
           <Field label={t("workspace.created")}>
