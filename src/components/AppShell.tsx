@@ -106,8 +106,9 @@ export function AppShell({
           // Mobile: fixed overlay drawer that slides in from the left.
           "fixed inset-y-0 left-0 z-40 transform transition-transform duration-200 ease-out",
           drawerOpen ? "translate-x-0" : "-translate-x-full",
-          // Desktop: in-flow, always visible.
-          "lg:relative lg:translate-x-0 lg:transition-none",
+          // Desktop: sticky full-height column so the nav (and the logout
+          // pinned under it) stays in view no matter how long the page is.
+          "lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:transition-none",
         )}
       >
         <div className="px-6 pt-6 pb-5 flex items-center gap-3">
@@ -167,6 +168,14 @@ export function AppShell({
               </Link>
             );
           })}
+          {/* Logout — sits directly below Help as the last nav item. */}
+          <button
+            onClick={logout}
+            className="mt-0.5 w-full flex items-center gap-3 pl-3 pr-3 py-2 rounded-lg text-sm text-brand-100 hover:bg-brand-600/60 hover:text-white transition-colors"
+          >
+            <LogOut size={16} />
+            <span>{tCommon("logout")}</span>
+          </button>
         </nav>
 
         <div className="px-4 pt-4 pb-5 border-t border-brand-600/60 space-y-3">
@@ -180,16 +189,7 @@ export function AppShell({
               </div>
             </div>
           )}
-          <div className="flex items-center justify-between gap-2">
-            <LocaleSwitcher />
-            <button
-              onClick={logout}
-              className="inline-flex items-center gap-1.5 text-xs text-brand-100 hover:text-white px-2 py-1.5 rounded-md hover:bg-brand-600/60 transition-colors"
-            >
-              <LogOut size={13} />
-              {tCommon("logout")}
-            </button>
-          </div>
+          <LocaleSwitcher />
         </div>
       </aside>
 
