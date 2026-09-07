@@ -96,7 +96,7 @@
 <section class="slide">
   <div class="eyebrow">Solution</div>
   <h2>Simulate market reaction before you launch</h2>
-  <p class="lead" style="margin:18px 0 28px; max-width:940px;">Each analysis runs <b>600–5,000 AI personas</b> across <b>24 countries</b> to forecast demand, pricing, competition, and buying intent — <b>before launch</b>. Your home market can be <b>any of the 24</b>; we model demand in the other 23. Six months of research, in days.</p>
+  <p class="lead" style="margin:18px 0 28px; max-width:940px;">Each analysis runs <b>1,200–5,000 AI personas</b> across <b>up to 24 countries</b> to forecast demand, pricing, competition, and buying intent — <b>before launch</b>. Your home market can be <b>any of the 24</b>; we model demand in the other 23.</p>
   <div class="grid g4">
     <div class="card accent"><h3>Demand</h3><p class="kicker" style="margin-top:8px;">market entry priority, 24 countries</p></div>
     <div class="card accent"><h3>Pricing</h3><p class="kicker" style="margin-top:8px;">price-sensitivity curve per market</p></div>
@@ -114,7 +114,7 @@
   <div class="row" style="margin-top:40px;">
     <div class="step"><div class="n">01 · INPUT</div><h3 style="margin:8px 0;">Product · price · target</h3><p class="kicker">6-step wizard, no tech needed</p></div>
     <div class="arrow">→</div>
-    <div class="step"><div class="n">02 · SIMULATE</div><h3 style="margin:8px 0;">600–5,000 personas × 24 markets</h3><p class="kicker">multi-LLM ensemble, localized</p></div>
+    <div class="step"><div class="n">02 · SIMULATE</div><h3 style="margin:8px 0;">Up to 24 markets · 1,200–5,000 personas</h3><p class="kicker">multi-LLM ensemble, localized</p></div>
     <div class="arrow">→</div>
     <div class="step"><div class="n">03 · GROUND</div><h3 style="margin:8px 0;">Gov &amp; trade data</h3><p class="kicker">KOTRA · UN Comtrade · World Bank</p></div>
     <div class="arrow">→</div>
@@ -140,7 +140,7 @@
 
 <!-- 5 PRODUCT IS REAL -->
 <section class="slide">
-  <div class="eyebrow">Product · already live</div>
+  <div class="eyebrow">Product · production-ready</div>
   <h2>Not a prototype — a production-grade product</h2>
   <div class="grid g2" style="margin-top:26px; align-items:start;">
     <div>
@@ -148,9 +148,9 @@
         <li>Full stack live: simulation engine · data pipelines · billing · web</li>
         <li>Multi-LLM orchestration (Claude · GPT · Gemini · more)</li>
         <li>24-country government &amp; trade-data grounding pipelines</li>
-        <li>Built-in accuracy <b>back-testing engine</b></li>
+        <li>Accuracy <b>back-test — top-3 74%</b> (N=19, hindsight-blocked)</li>
         <li>A compounding <b>persona pool</b> — smarter every run (moat)</li>
-        <li>Currently in <b>live beta</b> · payments wired (NICE / Stripe)</li>
+        <li><b>Ready for general availability</b> · card payments wired (NICE)</li>
       </ul>
       <div class="tagrow" style="margin-top:18px;">
         <span class="tag">Next.js 15</span><span class="tag">Supabase / Postgres</span><span class="tag">Multi-LLM</span><span class="tag">React-PDF</span><span class="tag">RLS security</span>
@@ -170,7 +170,7 @@
   <div class="grid g2" style="margin-top:16px;">
     <div class="card"><h3>① Grounded, not hallucinated</h3><p style="margin-top:8px;">Personas built on real government &amp; trade data — reflecting each country's actual income, culture, and channels. Fundamentally different from generic AI or single-market survey tools.</p><p class="kicker" style="margin-top:8px;">e.g. a Vietnamese persona weighs local income, K-content influence, and official-import trust — not a US stereotype.</p></div>
     <div class="card"><h3>② Reliability-engineered</h3><p style="margin-top:8px;">Multi-LLM ensemble + median aggregation + accuracy back-tested vs ground truth. Not a single black-box guess.</p><p class="kicker" style="margin-top:8px;">Every statement is traceable to a cited statistic; confidence is shown honestly as STRONG / MODERATE / WEAK.</p></div>
-    <div class="card"><h3>③ Compounding moat</h3><p style="margin-top:8px;">Every simulation grows a shared persona pool — the product gets more accurate and cheaper to run over time.</p><p class="kicker" style="margin-top:8px;">600–5,000 personas per run refine a pool reused across projects and customers — a data asset competitors can't copy.</p></div>
+    <div class="card"><h3>③ Compounding moat</h3><p style="margin-top:8px;">Every simulation grows a shared persona pool — the product gets more accurate and cheaper to run over time.</p><p class="kicker" style="margin-top:8px;">1,200–5,000 personas per run refine a pool reused across projects and customers — a data asset competitors can't copy.</p></div>
     <div class="card"><h3>④ The decision layer (upstream)</h3><p style="margin-top:8px;">We decide <b>where, at what price, to whom</b> first — sitting <b>upstream</b> of export/marketing tools. Complementary, not competitive.</p><p class="kicker" style="margin-top:8px;">Now origin-agnostic: any of 24 countries can be the home market, grounded in its own official data.</p></div>
   </div>
   <div class="foot"><span><b>Market Twin</b></span><span>06</span></div>
@@ -183,8 +183,8 @@
   <p class="lead" style="margin:14px 0 20px; max-width:940px;">A production stack built solo — a <b>grounded multi-LLM engine</b>, not a thin GPT wrapper.</p>
   <div style="display:flex; flex-direction:column; gap:12px;">
     <div class="archband"><span class="al">Web app</span><span class="ar">Next.js 15 · React · 6-step wizard · dashboard · 3&times; PDF reports</span></div>
-    <div class="archband"><span class="al">API &amp; orchestration</span><span class="ar">simulation runner · usage &amp; billing (NICE / Stripe) · RLS-secured routes</span></div>
-    <div class="archband core"><span class="al">Core simulation engine</span><span class="ar"><b>Multi-LLM ensemble (3&ndash;25 sims)</b> · aggregator (median + vote-share) · confidence tiering</span></div>
+    <div class="archband"><span class="al">API &amp; orchestration</span><span class="ar">simulation runner · usage &amp; billing (NICE; Stripe planned) · RLS-secured routes</span></div>
+    <div class="archband core"><span class="al">Core simulation engine</span><span class="ar"><b>Multi-LLM ensemble (6&ndash;25 sims)</b> · aggregator (median + vote-share) · confidence tiering</span></div>
     <div class="archband"><span class="al">Data grounding</span><span class="ar">UN Comtrade · <b>import tariffs (WITS)</b> · World Bank (macro · logistics · <b>governance/WGI</b>) · Hofstede · DART / SEC EDGAR / EDINET / <b>Companies House</b> · MFDS / openFDA · KOTRA · Tavily (+ <b>diaspora</b>) · <b>live demand: search + trajectory · TikTok · Baidu-CN</b> · <b>brand-GTM: footprint · partners · your-markets</b></span></div>
     <div class="archband"><span class="al">LLM providers</span><span class="ar">Claude · GPT · Gemini · DeepSeek (provider round-robin)</span></div>
     <div class="archband"><span class="al">Data assets</span><span class="ar">Supabase / Postgres · compounding <b>persona pool</b> · <b>outcome corpus</b> (real-launch feedback loop)</span></div>
@@ -201,9 +201,9 @@
     <div class="arrow">&rarr;</div>
     <div class="step"><div class="n">02 · GROUND</div><h3 style="margin:6px 0; font-size:18px;">Prefetch anchors</h3><p class="kicker">gov &amp; trade data per country</p></div>
     <div class="arrow">&rarr;</div>
-    <div class="step"><div class="n">03 · PERSONAS</div><h3 style="margin:6px 0; font-size:18px;">600&ndash;5,000 personas</h3><p class="kicker">24 countries, localized</p></div>
+    <div class="step"><div class="n">03 · PERSONAS</div><h3 style="margin:6px 0; font-size:18px;">1,200&ndash;5,000 personas</h3><p class="kicker">24 countries, localized</p></div>
     <div class="arrow">&rarr;</div>
-    <div class="step"><div class="n">04 · ENSEMBLE</div><h3 style="margin:6px 0; font-size:18px;">3&ndash;25 multi-LLM sims</h3><p class="kicker">provider round-robin</p></div>
+    <div class="step"><div class="n">04 · ENSEMBLE</div><h3 style="margin:6px 0; font-size:18px;">6&ndash;25 multi-LLM sims</h3><p class="kicker">provider round-robin</p></div>
   </div>
   <div class="row" style="margin-top:16px;">
     <div class="step"><div class="n">05 · SCORE</div><h3 style="margin:6px 0; font-size:18px;">Per-country scoring</h3><p class="kicker">demand · pricing · intent</p></div>
@@ -224,7 +224,7 @@
 <section class="slide">
   <div class="eyebrow">Under the hood · compute</div>
   <h2>AI infrastructure &mdash; built to scale on accelerated compute</h2>
-  <p class="lead" style="margin:10px 0 12px; max-width:960px;">Each analysis is inference-heavy: <b>200 personas &times; 3&ndash;25 simulations (across multiple LLMs) = 600&ndash;5,000 persona-runs</b>. Scaling that economically is a compute problem &mdash; and our roadmap runs on NVIDIA.</p>
+  <p class="lead" style="margin:10px 0 12px; max-width:960px;">Each analysis is inference-heavy: <b>200 personas &times; 6&ndash;25 simulations (across multiple LLMs) = 1,200&ndash;5,000 persona-runs</b>. Scaling that economically is a compute problem &mdash; and our roadmap runs on NVIDIA.</p>
   <div class="grid g2" style="align-items:start;">
     <div class="card">
       <span class="pill">Today</span>
