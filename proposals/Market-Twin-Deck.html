@@ -153,7 +153,7 @@
         <li><b>Ready for general availability</b> · card payments wired (NICE)</li>
       </ul>
       <div class="tagrow" style="margin-top:18px;">
-        <span class="tag">Next.js 15</span><span class="tag">Supabase / Postgres</span><span class="tag">Multi-LLM</span><span class="tag">React-PDF</span><span class="tag">RLS security</span>
+        <span class="tag">Next.js 16</span><span class="tag">Supabase / Postgres</span><span class="tag">Multi-LLM</span><span class="tag">React-PDF</span><span class="tag">RLS security</span>
       </div>
     </div>
     <div class="card accent" style="height:340px; padding:0; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#fff;">
@@ -182,12 +182,12 @@
   <h2>Platform architecture</h2>
   <p class="lead" style="margin:14px 0 20px; max-width:940px;">A production stack built solo — a <b>grounded multi-LLM engine</b>, not a thin GPT wrapper.</p>
   <div style="display:flex; flex-direction:column; gap:12px;">
-    <div class="archband"><span class="al">Web app</span><span class="ar">Next.js 15 · React · 6-step wizard · dashboard · 3&times; PDF reports</span></div>
+    <div class="archband"><span class="al">Web app</span><span class="ar">Next.js 16 · React · 6-step wizard · dashboard · 3&times; PDF reports</span></div>
     <div class="archband"><span class="al">API &amp; orchestration</span><span class="ar">simulation runner · usage &amp; billing (NICE; Stripe planned) · RLS-secured routes</span></div>
-    <div class="archband core"><span class="al">Core simulation engine</span><span class="ar"><b>Multi-LLM ensemble (6&ndash;25 sims)</b> · aggregator (median + vote-share) · confidence tiering</span></div>
-    <div class="archband"><span class="al">Data grounding</span><span class="ar">UN Comtrade · <b>import tariffs (WITS)</b> · World Bank (macro · logistics · <b>governance/WGI</b>) · Hofstede · DART / SEC EDGAR / EDINET / <b>Companies House</b> · MFDS / openFDA · KOTRA · Tavily (+ <b>diaspora</b>) · <b>live demand: search + trajectory · TikTok · Baidu-CN</b> · <b>brand-GTM: footprint · partners · your-markets</b></span></div>
-    <div class="archband"><span class="al">LLM providers</span><span class="ar">Claude · GPT · Gemini · DeepSeek (provider round-robin)</span></div>
-    <div class="archband"><span class="al">Data assets</span><span class="ar">Supabase / Postgres · compounding <b>persona pool</b> · <b>outcome corpus</b> (real-launch feedback loop)</span></div>
+    <div class="archband core"><span class="al">Core simulation engine</span><span class="ar"><b>Multi-LLM ensemble (3&ndash;50 sims by tier)</b> · aggregator (median + vote-share) · confidence tiering</span></div>
+    <div class="archband"><span class="al">Data grounding</span><span class="ar">UN Comtrade · <b>import tariffs (WITS)</b> · World Bank (macro · logistics · <b>governance/WGI</b>) · Hofstede · national-agency registry per origin · DART / SEC EDGAR / EDINET / <b>Companies House</b> · MFDS / openFDA · KOTRA · Korea Customs (item × country trade) · Tavily + Perplexity Sonar (+ <b>diaspora</b>) · <b>live demand: search + trajectory · TikTok · Baidu-CN</b> · <b>brand-GTM: footprint · partners · your-markets</b></span></div>
+    <div class="archband"><span class="al">LLM providers</span><span class="ar">Claude · GPT · DeepSeek round-robin (Gemini on the deep tier)</span></div>
+    <div class="archband"><span class="al">Data assets</span><span class="ar">Supabase / Postgres · compounding <b>persona pool</b> · <b>outcome corpus</b> (real-launch capture — accumulating through pilots)</span></div>
   </div>
   <div class="foot"><span><b>Market Twin</b></span><span>07</span></div>
 </section>

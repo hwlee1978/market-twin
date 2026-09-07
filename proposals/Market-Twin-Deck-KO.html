@@ -204,11 +204,11 @@
         <li>멀티-LLM 오케스트레이션 (Claude · GPT · Gemini · 외)</li>
         <li>24개국 정부 · 무역 데이터 그라운딩 파이프라인</li>
         <li>정확도 <b>백테스트 — top-3 74%</b> (N=19, 힌드사이트 차단)</li>
-        <li>복리형 <b>페르소나 풀</b> — 시뮬레이션이 쌓일수록 정확도가 올라가는 데이터 자산</li>
+        <li>복리형 <b>페르소나 풀</b> — 재사용할수록 결과가 일관되고 실행 원가가 내려가는 데이터 자산</li>
         <li>현재 <b>정식 오픈 준비 완료</b> · 카드결제 연동 완료 (나이스페이먼츠)</li>
       </ul>
       <div class="tagrow" style="margin-top:18px;">
-        <span class="tag">Next.js 15</span><span class="tag">Supabase / Postgres</span><span class="tag">Multi-LLM</span><span class="tag">React-PDF</span><span class="tag">RLS 보안</span>
+        <span class="tag">Next.js 16</span><span class="tag">Supabase / Postgres</span><span class="tag">Multi-LLM</span><span class="tag">React-PDF</span><span class="tag">RLS 보안</span>
       </div>
     </div>
     <div class="card accent" style="height:340px; padding:0; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#fff;">
@@ -237,12 +237,12 @@
   <h2>플랫폼 아키텍처</h2>
   <p class="lead" style="margin:14px 0 20px; max-width:940px;">단독 구축한 상용 스택 — 얇은 GPT 래퍼가 아니라 <b>실통계에 그라운딩된 멀티-LLM 엔진</b>.</p>
   <div style="display:flex; flex-direction:column; gap:12px;">
-    <div class="archband"><span class="al">웹 앱</span><span class="ar">Next.js 15 · React · 6단계 위저드 · 대시보드 · 3종 PDF 리포트</span></div>
+    <div class="archband"><span class="al">웹 앱</span><span class="ar">Next.js 16 · React · 6단계 위저드 · 대시보드 · 3종 PDF 리포트</span></div>
     <div class="archband"><span class="al">API · 오케스트레이션</span><span class="ar">시뮬레이션 러너 · 사용량/결제(나이스페이먼츠 · Stripe 연동 준비) · RLS 보안 라우트</span></div>
-    <div class="archband core"><span class="al">코어 시뮬레이션 엔진</span><span class="ar"><b>멀티-LLM 앙상블(6~25 sim)</b> · 집계기(중앙값 + 득표율) · 신뢰도 티어링</span></div>
-    <div class="archband"><span class="al">데이터 그라운딩</span><span class="ar">UN Comtrade · <b>수입관세(WITS)</b> · World Bank(거시·물류·<b>거버넌스/WGI</b>) · Hofstede · DART / SEC EDGAR / EDINET / <b>Companies House</b> · MFDS / openFDA · KOTRA · Tavily(+<b>디아스포라</b>) · <b>라이브 수요: 검색+추이 · TikTok · Baidu-CN</b> · <b>brand-GTM: 발자국 · 파트너 · 보유시장</b></span></div>
-    <div class="archband"><span class="al">LLM 제공자</span><span class="ar">Claude · GPT · Gemini · DeepSeek (라운드로빈)</span></div>
-    <div class="archband"><span class="al">데이터 자산</span><span class="ar">Supabase / Postgres · 복리형 <b>페르소나 풀</b> · <b>outcome corpus</b>(실제 출시 결과 피드백 루프)</span></div>
+    <div class="archband core"><span class="al">코어 시뮬레이션 엔진</span><span class="ar"><b>멀티-LLM 앙상블(티어별 3~50 sim)</b> · 집계기(중앙값 + 득표율) · 신뢰도 티어링</span></div>
+    <div class="archband"><span class="al">데이터 그라운딩</span><span class="ar">UN Comtrade · <b>수입관세(WITS)</b> · World Bank(거시·물류·<b>거버넌스/WGI</b>) · Hofstede · 원산지별 국가기관 레지스트리 · DART / SEC EDGAR / EDINET / <b>Companies House</b> · MFDS / openFDA · KOTRA · 관세청(품목·국가별 수출입실적) · Tavily + Perplexity Sonar(+<b>디아스포라</b>) · <b>라이브 수요: 검색+추이 · TikTok · Baidu-CN</b> · <b>brand-GTM: 발자국 · 파트너 · 보유시장</b></span></div>
+    <div class="archband"><span class="al">LLM 제공자</span><span class="ar">Claude · GPT · DeepSeek 라운드로빈 (딥 티어는 Gemini 포함)</span></div>
+    <div class="archband"><span class="al">데이터 자산</span><span class="ar">Supabase / Postgres · 복리형 <b>페르소나 풀</b> · <b>outcome corpus</b>(실제 출시 결과 수집 구조 — 파일럿 데이터 축적 중)</span></div>
   </div>
   <div class="foot"><span><b>Market Twin</b></span><span>07</span></div>
 </section>
