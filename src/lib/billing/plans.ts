@@ -95,8 +95,8 @@ const FREE_TRIAL: PlanDefinition = {
   slug: "free_trial",
   name: "베타 무료 체험",
   tagline: {
-    ko: "베타 기간 — 7일 또는 초기검증 2회 무료 체험",
-    en: "Beta — free for 7 days or 2 simulations, whichever comes first",
+    ko: "7일 또는 초기검증 1회 무료 체험",
+    en: "Free for 7 days or 1 simulation, whichever comes first",
   },
   selfServe: true,
   order: 0,

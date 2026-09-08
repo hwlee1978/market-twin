@@ -64,12 +64,12 @@ export default async function BetaLandingPage({
   const perks = isKo
     ? [
         "완전 무료 — 신용카드 불필요",
-        "7일 또는 초기검증 2회 무료",
+        "7일 또는 초기검증 1회 무료",
         "샘플 데모는 하루 3회 즉시 체험",
       ]
     : [
         "Completely free — no credit card",
-        "7 days or 2 hypothesis simulations free",
+        "7 days or 1 hypothesis simulation free",
         "Try the sample demo instantly (3/day)",
       ];
 
