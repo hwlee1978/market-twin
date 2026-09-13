@@ -372,6 +372,29 @@ function normalizeCountrySampleScale(
 // Recomputes finalScore mechanically from LLM-emitted components using the
 // weights declared in calibration/score-weights.ts. Skipped when components
 // are absent (legacy / malformed) — the LLM-emitted finalScore stands.
+/**
+ * 후보 목록 밖의 국가를 떨어뜨린다.
+ *
+ * 프롬프트가 "후보 목록에 없는 국가를 넣지 말라"고 명시하는데도 국가 단계
+ * 응답의 상당수가 원산지를 끼워 넣는다(2026-09 백테스트 재실행 실측: sim의
+ * 22%, 전부 origin). 백테스트는 채점에서 origin을 빼므로 점수에 영향이
+ * 없었지만, 프로덕션에서는 사용자가 후보로 지정하지도 않은 자국이 추천
+ * 1순위로 나갈 수 있다 — 2개 시장을 보여주는 화면에서 한 칸을 먹는다.
+ * 프롬프트 지시만이 유일한 가드였으므로 코드에서 한 번 더 막는다.
+ */
+function dropNonCandidates(
+  sample: z.infer<typeof CountryScoreSchema>[],
+  allowed: Set<string>,
+): { kept: z.infer<typeof CountryScoreSchema>[]; dropped: string[] } {
+  const kept: z.infer<typeof CountryScoreSchema>[] = [];
+  const dropped: string[] = [];
+  for (const row of sample) {
+    if (allowed.has((row.country ?? "").toUpperCase())) kept.push(row);
+    else if (row.country) dropped.push(row.country);
+  }
+  return { kept, dropped };
+}
+
 function recomputeFinalScoreFromComponents(
   sample: z.infer<typeof CountryScoreSchema>[],
 ): z.infer<typeof CountryScoreSchema>[] {
@@ -1704,13 +1727,26 @@ ${entries}
         ),
       );
     const countriesResps = await runCountryRound(COUNTRY_SAMPLES, "main");
+    const allowedCountries = new Set(
+      (opts.projectInput.candidateCountries ?? []).map((c) => c.toUpperCase()),
+    );
+    const droppedNonCandidates: string[] = [];
     const countrySamples: Array<z.infer<typeof CountryScoreSchema>[]> = [];
     for (const resp of countriesResps) {
       if (!resp) continue;
       const parsed = z
         .object({ countries: z.array(CountryScoreSchema) })
         .safeParse(resp.json);
-      if (parsed.success) countrySamples.push(parsed.data.countries);
+      if (!parsed.success) continue;
+      const { kept, dropped } = dropNonCandidates(parsed.data.countries, allowedCountries);
+      droppedNonCandidates.push(...dropped);
+      countrySamples.push(kept);
+    }
+    if (droppedNonCandidates.length > 0) {
+      console.log(
+        `[sim ${opts.simulationId}] dropped ${droppedNonCandidates.length} non-candidate countries: ` +
+          `${[...new Set(droppedNonCandidates)].join(", ")}`,
+      );
     }
     // Truncation / coverage retry — under-coverage triggers when:
     //   (a) fewer than 3 samples parsed (single-call fluke or provider

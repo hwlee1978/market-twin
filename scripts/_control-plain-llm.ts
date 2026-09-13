@@ -63,7 +63,9 @@ async function main() {
      ORDER BY p.product_name, p.created_at DESC;`, [Object.keys(TRUTH)]);
   await c.end();
 
-  const llm = getLLMProvider({ provider: "anthropic" });
+  // stage 를 안 주면 synthesis 기본값(sonnet-4-6)으로 떨어진다. 엔진의 국가
+  // 단계는 haiku-4-5 이므로, 대조군을 "같은 모델"이라 부르려면 명시해야 한다.
+  const llm = getLLMProvider({ provider: "anthropic", model: process.env.CTRL_MODEL });
   console.log(`모델: ${llm.name} / ${llm.model}`);
 
   type Row = { name: string; actual: string; rank: number; top1: string; knew: boolean; knewSaid: string };

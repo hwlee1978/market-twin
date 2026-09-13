@@ -7,13 +7,17 @@
  *   · 원산지는 후보 랭킹에서 제외 (안 빼면 K-브랜드는 KR이 1위로 잡힌다)
  *   · 순위는 aggregate_result.countryStats 의 finalScore 중앙값 기준
  *
- * 실행: npm exec -- tsx --env-file=.env.local scripts/_score-backtest.ts "2026-09-14T00:00:00Z" [라벨]
+ * 실행: _score-backtest.ts <시작ISO> [끝ISO] [라벨]
+ *
+ * 끝 시각을 반드시 주십시오. 구간을 열어두면 이후에 돌린 실행의 앙상블이
+ * 최신으로 잡혀 앞 구간을 채점해도 뒤 구간 결과가 나옵니다(실제로 겪음).
  */
 import { Client } from "pg";
 import { readFileSync } from "node:fs";
 
 const SINCE = process.argv[2];
-const LABEL = process.argv[3] ?? SINCE;
+const UNTIL = process.argv[3] && process.argv[3].includes("T") ? process.argv[3] : null;
+const LABEL = (UNTIL ? process.argv[4] : process.argv[3]) ?? SINCE;
 const SUPPORTED = new Set("KR JP CN TW US CA GB DE FR IT ES NL AE SA SG MY PH AU IN VN TH ID BR MX".split(" "));
 const FIXTURES = "C:/Users/user/AppData/Local/Temp/claude/c--Project-Crypto-Twin/7b11678e-e7ed-42fe-9ab1-fcdf2a589e3b/scratchpad/fixtures.json";
 
@@ -32,8 +36,9 @@ async function main() {
            e.id, e.created_at, e.aggregate_result, e.llm_providers
       FROM ensembles e JOIN projects p ON p.id = e.project_id
      WHERE e.status = 'completed' AND e.aggregate_result IS NOT NULL
-       AND e.created_at >= $1 AND p.product_name = ANY($2::text[])
-     ORDER BY p.product_name, e.created_at DESC;`, [SINCE, [...truth.keys()]]);
+       AND e.created_at >= $1 AND ($3::timestamptz IS NULL OR e.created_at < $3)
+       AND p.product_name = ANY($2::text[])
+     ORDER BY p.product_name, e.created_at DESC;`, [SINCE, [...truth.keys()], UNTIL]);
   await c.end();
 
   const rows: Array<{ name: string; actual: string; rank: number; top1: string; conf: string }> = [];
