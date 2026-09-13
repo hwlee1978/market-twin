@@ -13,6 +13,7 @@ import {
   REGULATORY_HARD_FLOOR,
 } from "./calibration/score-weights";
 import { holisticRankingEnabled } from "./calibration/holistic-ranking";
+import { personaBlockInRankingEnabled } from "./calibration/persona-in-ranking";
 
 function renderCompetitionRubricBlock(locale: PromptLocale): string {
   return COMPETITION_RUBRIC_BANDS.value
@@ -905,7 +906,7 @@ Candidate target markets (ONLY these allowed): ${input.candidateCountries.join("
 
 ${brandStrategyBlock(input, locale)}
 
-${renderAggregateForPrompt(aggregate, locale)}
+${personaBlockInRankingEnabled() ? renderAggregateForPrompt(aggregate, locale) : ""}
 
 ${renderHofstedeTable(input.candidateCountries, locale === "ko" ? "ko" : "en")}
 
