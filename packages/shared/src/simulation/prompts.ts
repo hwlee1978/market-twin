@@ -12,6 +12,7 @@ import {
   FINAL_SCORE_WEIGHTS,
   REGULATORY_HARD_FLOOR,
 } from "./calibration/score-weights";
+import { holisticRankingEnabled } from "./calibration/holistic-ranking";
 
 function renderCompetitionRubricBlock(locale: PromptLocale): string {
   return COMPETITION_RUBRIC_BANDS.value
@@ -969,7 +970,9 @@ finalScore should be a sensible weighted-average reflection of the components, b
 ═══ Weighting guidance (CRITICAL — common miscall) ═══
 When picking finalScore, give marketSize ≥ 25% of the weight. A common mistake in prior sim runs was scoring US / CN / DE in the 50-60 range despite marketSize 75-85, because CAC anxiety + persona-pool low-income skew dragged finalScore toward the mean. Don't do that — a large, growth-trending market with moderate channel / cultural friction (marketSize 80, others 55-65) should land finalScore 70+, NOT 55-60. The persona pool is a sampling artifact, not a constraint on absolute market value. Suggested implicit weights:
 ${renderWeightGuidanceLines()}
-A post-process pass will mechanically re-derive finalScore from these components anyway — but emitting an aligned LLM finalScore keeps the critique stage cleaner and the rank consistent.`;
+${holisticRankingEnabled()
+  ? "Your finalScore is used directly as the ranking — nothing downstream recomputes it. The weights above are guidance, not a formula to execute: when a cross-component interaction matters (a launch-blocker, an unusually strong channel fit), let it move the score."
+  : "A post-process pass will mechanically re-derive finalScore from these components anyway — but emitting an aligned LLM finalScore keeps the critique stage cleaner and the rank consistent."}`;
 }
 
 export const PRICING_SYSTEM = `${SYSTEM_BASE} For pricing, model how conversion changes across price points — find the conversion peak (which may sit slightly above the lowest price when there's a "too cheap → suspicion" zone), then conversion MUST decrease monotonically as price rises past the peak. Real demand curves are non-increasing past the peak; do NOT emit U-shaped or wave curves where conversion climbs again at high prices. Identify the revenue-maximizing point (price × conversion argmax), which lies between the peak and the steep drop-off.`;

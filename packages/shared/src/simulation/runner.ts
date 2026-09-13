@@ -56,6 +56,7 @@ import {
   FINAL_SCORE_WEIGHTS,
   REGULATORY_HARD_FLOOR,
 } from "./calibration/score-weights";
+import { holisticRankingEnabled } from "./calibration/holistic-ranking";
 import {
   notifySimulationComplete,
   notifySimulationFailed,
@@ -376,9 +377,23 @@ function recomputeFinalScoreFromComponents(
 ): z.infer<typeof CountryScoreSchema>[] {
   const w = FINAL_SCORE_WEIGHTS.value;
   const floor = REGULATORY_HARD_FLOOR.value;
+  // 총체적 랭킹 모드에서는 LLM이 낸 finalScore를 순위로 쓴다. 프롬프트가 이미
+  // 교차 컴포넌트 판단을 요구하는데(진입 차단 요인을 평균으로 뭉개지 말 것),
+  // 여기서 가중합으로 덮으면 그 판단이 사라진다. 규제 하한 캡만은 두 모드
+  // 모두 유지한다 — 안전장치이지 순위 산식이 아니다.
+  const holistic = holisticRankingEnabled();
   return sample.map((row) => {
     const c = row.components;
     if (!c) return row;
+    if (holistic) {
+      const llmScore = row.finalScore;
+      if (typeof llmScore !== "number") return row;
+      const capped =
+        c.regulatory < floor.regulatoryThreshold
+          ? Math.min(llmScore, floor.finalScoreCap)
+          : llmScore;
+      return { ...row, finalScore: Math.round(capped * 10) / 10 };
+    }
     let computed =
       c.marketSize * w.marketSize +
       c.culturalFit * w.culturalFit +
