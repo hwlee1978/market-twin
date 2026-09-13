@@ -126,7 +126,9 @@ async function main() {
       "id, workspace_id, product_name, category, description, base_price_cents, currency, objective, originating_country, candidate_countries, competitor_urls, asset_descriptions, asset_urls, founder_background, channel_priority, kol_relationships",
     )
     .order("created_at", { ascending: false })
-    .limit(50);
+    // 최근 50건만 보면 오래된 백테스트 픽스처가 창 밖으로 밀린다(2026-09 기준
+    // 그 이후 생성 프로젝트가 35건). 클라이언트 필터라 창만 넓히면 된다.
+    .limit(500);
   if (lookupErr) throw lookupErr;
   const matches = (candidates ?? []).filter((c) => (c.id as string).startsWith(prefix));
   if (matches.length === 0) {
