@@ -852,6 +852,32 @@ Return: { "reactions": [ ...${count} objects ] }`;
 
 export const COUNTRY_SYSTEM = `${SYSTEM_BASE} For country scoring, weigh demand signals, competitive density, customer-acquisition cost realism, and cultural fit. Rank from best to worst.`;
 
+/**
+ * Says out loud that no trade anchor exists, instead of leaving a hole.
+ *
+ * Services (saas) are outside the UN Comtrade goods regime entirely, some
+ * categories have no HSCode mapping, and reporters skip years. Until now the
+ * block simply vanished, which lets the model read "no trade evidence" as
+ * "no demand" — and the absence applies to every candidate equally, so it
+ * carries no ranking information at all. Measured 2026-09-15: `pet` and
+ * `other` returned empty anchors silently; `saas` always will.
+ */
+function noTradeEvidenceNote(category: string, locale: PromptLocale): string {
+  return locale === "ko"
+    ? [
+        "═══ 무역 증거 없음 ═══",
+        `이 카테고리(${category})는 UN Comtrade 상품 무역 통계의 대상이 아니거나, 해당 연도·보고국의 자료가 없습니다.`,
+        "무역 증거의 부재를 수요의 부재로 해석하지 마십시오. 모든 후보국에 똑같이 적용되므로 순위 판단에는 중립입니다.",
+        "대신 수요측 근거(인구·소득·소비·채널 적합도·문화 적합도)에 무게를 두십시오.",
+      ].join("\n")
+    : [
+        "═══ NO TRADE EVIDENCE AVAILABLE ═══",
+        `This category (${category}) is outside the UN Comtrade goods regime, or the reporter filed nothing for this year.`,
+        "Do NOT read the absence of trade evidence as absence of demand. It applies equally to every candidate market, so it carries no ranking information.",
+        "Weigh demand-side evidence instead (population, income, consumption, channel fit, cultural fit).",
+      ].join("\n");
+}
+
 export function countryPrompt(
   input: ProjectInput,
   aggregate: SimulationAggregate,
@@ -910,7 +936,7 @@ ${personaBlockInRankingEnabled() ? renderAggregateForPrompt(aggregate, locale) :
 
 ${renderHofstedeTable(input.candidateCountries, locale === "ko" ? "ko" : "en")}
 
-${worldBankBlock ? `${worldBankBlock}\n\n` : ""}${tradeAnchorBlock ? `${tradeAnchorBlock}\n\n` : ""}${kolEcosystemBlock ? `${kolEcosystemBlock}\n\n` : ""}═══ CAC GROUNDING — CHANNEL COSTS PER CANDIDATE COUNTRY ═══
+${worldBankBlock ? `${worldBankBlock}\n\n` : ""}${tradeAnchorBlock ? `${tradeAnchorBlock}\n\n` : `${noTradeEvidenceNote(input.category, locale)}\n\n`}${kolEcosystemBlock ? `${kolEcosystemBlock}\n\n` : ""}═══ CAC GROUNDING — CHANNEL COSTS PER CANDIDATE COUNTRY ═══
 Use these medians as the basis for cacEstimateUsd. Do NOT free-style a number — start from the channel mix you'd realistically run for this category and arithmetic from there.
 
 ${channelCostsBlock}
