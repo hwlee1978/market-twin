@@ -19,7 +19,7 @@ const SINCE = process.argv[2];
 const UNTIL = process.argv[3] && process.argv[3].includes("T") ? process.argv[3] : null;
 const LABEL = (UNTIL ? process.argv[4] : process.argv[3]) ?? SINCE;
 const SUPPORTED = new Set("KR JP CN TW US CA GB DE FR IT ES NL AE SA SG MY PH AU IN VN TH ID BR MX".split(" "));
-const FIXTURES = "C:/Users/user/AppData/Local/Temp/claude/c--Project-Crypto-Twin/7b11678e-e7ed-42fe-9ab1-fcdf2a589e3b/scratchpad/fixtures.json";
+const FIXTURES = "C:/Users/user/AppData/Local/Temp/claude/c--Project-Crypto-Twin/7b11678e-e7ed-42fe-9ab1-fcdf2a589e3b/scratchpad/fixtures_score.json";
 
 async function main() {
   if (!SINCE) { console.error("Usage: _score-backtest.ts <ISO timestamp> [label]"); process.exit(1); }

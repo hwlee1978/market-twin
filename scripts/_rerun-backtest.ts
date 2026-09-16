@@ -23,7 +23,8 @@ const SUPPORTED = new Set("KR JP CN TW US CA GB DE FR IT ES NL AE SA SG MY PH AU
 async function main() {
   const c = new Client({ connectionString: process.env.DATABASE_URL });
   await c.connect();
-  const FIXTURES = "C:/Users/user/AppData/Local/Temp/claude/c--Project-Crypto-Twin/7b11678e-e7ed-42fe-9ab1-fcdf2a589e3b/scratchpad/fixtures.json";
+  const FIXTURES = process.env.BT_FIXTURES
+    ?? "C:/Users/user/AppData/Local/Temp/claude/c--Project-Crypto-Twin/7b11678e-e7ed-42fe-9ab1-fcdf2a589e3b/scratchpad/fixtures.json";
   const fixtures = JSON.parse(readFileSync(FIXTURES, "utf8")) as Array<{ name: string; asOf: string; actual: string }>;
   const rows = fixtures
     .filter((f) => SUPPORTED.has(f.actual));
@@ -43,10 +44,12 @@ async function main() {
   const runOne = (f: { name: string; asOf: string }) =>
     new Promise<void>((resolve) => {
       const id = ids.get(f.name)!.slice(0, 8);
+      // Windows + Node 24 에서는 .cmd 를 직접 spawn 하면 EINVAL 이 난다(셸 필요).
+      // node_modules 의 tsx 를 직접 실행해 셸 의존을 없앤다.
       const child = spawn(
-        process.platform === "win32" ? "npm.cmd" : "npm",
-        ["exec", "--", "tsx", "--env-file=.env.local", "scripts/smoke-ensemble-e2e.ts",
-         id, "hypothesis", `--as-of=${f.asOf}`],
+        process.execPath,
+        ["node_modules/tsx/dist/cli.mjs", "--env-file=.env.local",
+         "scripts/smoke-ensemble-e2e.ts", id, "hypothesis", `--as-of=${f.asOf}`],
         { env: { ...process.env, SIM_RANK_WITHOUT_PERSONAS: MODE }, stdio: "ignore" },
       );
       const t0 = Date.now();
