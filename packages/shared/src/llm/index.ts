@@ -122,7 +122,14 @@ function envProviderStageModel(
 const PROVIDER_STAGE_DEFAULTS: Record<LLMProviderName, Record<SimulationStage, string>> = {
   anthropic: {
     personas: "claude-sonnet-4-6",
-    countries: "claude-haiku-4-5-20251001",
+    // Countries moved off Haiku 2026-09-16. Measured on the 42-fixture
+    // backtest corpus (anchors on, 3 samples, identical prompt, only the
+    // model varied): Haiku top-1 38% vs Sonnet 4.6 76% — 17 wins to 1 on
+    // paired fixtures, p≈1.4e-4. Every other suspect for the accuracy gap
+    // (recompute, ensemble aggregation, anchors, persona block, prompt
+    // blocks) was ruled out first; this was the one that moved. Cost is
+    // +$0.36 per hypothesis ensemble, ~4% of that tier's budget.
+    countries: "claude-sonnet-4-6",
     pricing: "claude-haiku-4-5-20251001",
     synthesis: "claude-sonnet-4-6",
   },

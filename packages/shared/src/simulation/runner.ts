@@ -1667,9 +1667,16 @@ ${entries}
     // Median over N parallel country-scoring calls. 5 is a sweet spot:
     // medians stabilise visibly between 3 and 5 (the bias from one outlier
     // sample drops from 33% weight to 20%) but adding a 6th or 7th call
-    // gives diminishing returns relative to the extra LLM spend. Country
-    // model is the cheap haiku/gpt-4o-mini tier so 5x is fine cost-wise;
-    // they all fire concurrently so wall-clock is unchanged from 3.
+    // gives diminishing returns relative to the extra LLM spend. They all
+    // fire concurrently so wall-clock is unchanged from 3.
+    //
+    // 2026-09-16: the Anthropic country model is no longer the cheap tier —
+    // it moved Haiku → Sonnet 4.6 for accuracy, so this 5× multiplies a
+    // dearer call ($0.775 vs $0.418 per sim). Still ~4% of the hypothesis
+    // tier budget, but revisit N here before adding samples elsewhere.
+    // Note also that this median assumes temperature-driven variance between
+    // samples; the 5-generation models reject `temperature`, so adopting one
+    // means finding another variance source or this aggregation collapses.
     const COUNTRY_SAMPLES = (() => {
       const env = Number(process.env.LLM_COUNTRY_SAMPLES);
       if (Number.isFinite(env) && env > 0 && env <= 9) return Math.floor(env);
@@ -1710,10 +1717,15 @@ ${entries}
             // Keep variance among samples — too low and the median collapses
             // to a single answer, defeating the point. Same temp as pricing.
             temperature: 0.4,
-            // Generous output budget so Korean rationale + ≤24 candidate
-            // countries never gets truncated mid-JSON. Provider default of
-            // 4096 cuts it close.
-            maxTokens: 8192,
+            // Output budget for Korean rationale + ≤24 candidate countries.
+            // Measured 2026-09-16 on a 10-candidate prompt: Haiku needs
+            // ~15.0K output tokens, Sonnet 4.6 ~8.6K — so the old 8,192 was
+            // half of what Haiku required and clipped Sonnet's tail. 16,000
+            // is the ceiling the SDK allows without streaming (24,000 raises
+            // "Streaming is required for operations that may take longer
+            // than 10 minutes"); going higher needs a streaming path in
+            // llm/anthropic.ts first.
+            maxTokens: 16000,
           }).catch((err) => {
             // Round-level catch so one rejected sample doesn't sink the
             // whole stage. Each failed sample is surfaced via the parse
