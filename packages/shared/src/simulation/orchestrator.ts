@@ -211,14 +211,28 @@ export async function runEnsembleOrchestration(
         // Hypothesis는 무료 베타 진입 티어다. anthropic sim이 Sonnet으로 돌면
         // 단계마다 voice가 풍부해져 느리고(prod p90 ≈ 880s), worker 미설정 시
         // Vercel inline 800s 한도를 자주 넘겨 504로 죽는다. 무료 맛보기 단계
-        // 이므로 anthropic sim 전체를 Haiku로 내려 한도 안에 안정적으로 들어오게
-        // 한다(≈200-300s, 비용도 ~10x↓). 유료 티어(decision+)는 Sonnet 유지로
-        // 1인칭 voice 품질을 보존하고, openai/deepseek sim은 자체 모델이 이미
-        // 충분히 빠르므로 건드리지 않는다. opts.model은 getLLMProvider에서
-        // 최우선이라 persona·country·pricing·synthesis 전 stage가 Haiku가 된다.
-        model:
+        // 이므로 느린 stage들을 Haiku로 내려 한도 안에 들어오게 한다. 유료
+        // 티어(decision+)는 Sonnet 유지로 1인칭 voice 품질을 보존하고,
+        // openai/deepseek sim은 자체 모델이 이미 충분히 빠르므로 건드리지 않는다.
+        //
+        // 2026-09-16: 이 핀은 원래 `model:` 하나로 걸려 있었고, opts.model이
+        // getLLMProvider에서 최우선이라 country stage까지 함께 Haiku로 내려가
+        // 있었다. country는 순위를 정하는 단계이고 모델 차이가 가장 크게 나는
+        // 곳이다(42건 오프라인: Haiku 38% vs Sonnet 4.6 76%, 17승 1패,
+        // p≈1.4e-4). 반면 voice 품질·소요시간을 지배하는 것은 페르소나 200명을
+        // 뽑는 personas 단계와 긴 산문을 쓰는 synthesis 단계다. 그래서 핀을
+        // stage별로 쪼개 느린 세 단계만 Haiku로 두고 country는 stage 기본값을
+        // 쓰게 한다. country는 5회 동시 호출이라 벽시계 시간은 1회분만 늘어난다.
+        //
+        // 주의: 이 변경의 런타임 영향은 아직 실측되지 않았다. 800s 한도에
+        // 여유가 없다면 countries도 다시 내려야 한다.
+        stageModels:
           tier === "hypothesis" && sim.provider === "anthropic"
-            ? "claude-haiku-4-5-20251001"
+            ? {
+                personas: "claude-haiku-4-5-20251001",
+                pricing: "claude-haiku-4-5-20251001",
+                synthesis: "claude-haiku-4-5-20251001",
+              }
             : undefined,
         inlineAssets,
         trendSnippets,

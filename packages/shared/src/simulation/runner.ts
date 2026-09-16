@@ -81,6 +81,20 @@ interface RunOptions {
   personaCount: number;
   provider?: LLMProviderName;
   model?: string;
+  /**
+   * Per-stage model pins. Takes precedence over `model` for the stage it
+   * names, so a caller can hold one stage on a cheap model without dragging
+   * the other three down with it — which is what a bare `model` does, since
+   * getLLMProvider treats it as the highest-precedence input for every
+   * stage. Added 2026-09-16 when the hypothesis-tier Haiku pin turned out to
+   * be silently overriding the country stage as well.
+   */
+  stageModels?: {
+    personas?: string;
+    countries?: string;
+    pricing?: string;
+    synthesis?: string;
+  };
   locale?: PromptLocale;
   /**
    * Override the seed used for slot planning + pool sampling. Ensembles
@@ -546,10 +560,13 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
   // Anthropic personas+synthesis to Haiku for categories where Sonnet
   // has no accuracy advantage (펫/생활용품, v11 benchmark 2026-05-20).
   const category = opts.projectInput.category;
-  const personaLLMRaw = getLLMProvider({ stage: "personas", provider: opts.provider, model: opts.model, category });
-  const countryLLMRaw = getLLMProvider({ stage: "countries", provider: opts.provider, model: opts.model, category });
-  const pricingLLMRaw = getLLMProvider({ stage: "pricing", provider: opts.provider, model: opts.model, category });
-  const synthesisLLMRaw = getLLMProvider({ stage: "synthesis", provider: opts.provider, model: opts.model, category });
+  // A stage-specific pin wins over the blanket one; see RunOptions.stageModels.
+  const stageModel = (s: "personas" | "countries" | "pricing" | "synthesis") =>
+    opts.stageModels?.[s] ?? opts.model;
+  const personaLLMRaw = getLLMProvider({ stage: "personas", provider: opts.provider, model: stageModel("personas"), category });
+  const countryLLMRaw = getLLMProvider({ stage: "countries", provider: opts.provider, model: stageModel("countries"), category });
+  const pricingLLMRaw = getLLMProvider({ stage: "pricing", provider: opts.provider, model: stageModel("pricing"), category });
+  const synthesisLLMRaw = getLLMProvider({ stage: "synthesis", provider: opts.provider, model: stageModel("synthesis"), category });
 
   // Token + cost accumulator. Every LLM call routes through these wrapped
   // providers, so the numbers cover regulatory + personas + reactions +

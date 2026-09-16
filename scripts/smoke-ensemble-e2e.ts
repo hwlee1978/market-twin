@@ -287,11 +287,26 @@ async function main() {
         seedOverride: `${ensembleId}-${index}`,
         provider,
         // Mirror orchestrator: hypothesis(무료 베타 티어)의 anthropic sim은
-        // Haiku로 내려 800s inline 한도 안에 들어오게 한다. dev variant
-        // ("deep-3" 등)와 유료 티어는 Sonnet 유지.
-        model:
+        // 느린 stage를 Haiku로 내려 800s inline 한도 안에 들어오게 한다.
+        // dev variant("deep-3" 등)와 유료 티어는 Sonnet 유지.
+        //
+        // 2026-09-16: orchestrator와 함께 stage별로 쪼갰다. 예전에는 `model:`
+        // 하나로 걸려 personas·countries·pricing·synthesis가 전부 Haiku였고,
+        // 순위를 정하는 country stage까지 함께 내려가 있었다(42건 오프라인:
+        // Haiku 38% vs Sonnet 4.6 76%). 한도를 지배하는 건 페르소나 200명을
+        // 뽑는 personas와 긴 산문을 쓰는 synthesis이므로 그 둘(+pricing)만
+        // 남기고 countries는 stage 기본값을 쓰게 한다.
+        //
+        // 이 파일은 orchestrator를 import하지 못해 손으로 미러링한 사본이다
+        // (파일 상단 주석 참조). 저쪽 핀을 고치면 여기도 같이 고쳐야 한다 —
+        // 백테스트가 프로덕션과 다른 설정을 재는 사고가 실제로 있었다.
+        stageModels:
           tier === "hypothesis" && provider === "anthropic"
-            ? "claude-haiku-4-5-20251001"
+            ? {
+                personas: "claude-haiku-4-5-20251001",
+                pricing: "claude-haiku-4-5-20251001",
+                synthesis: "claude-haiku-4-5-20251001",
+              }
             : undefined,
         tradeAnchorBlock,
         worldBankBlock,
