@@ -245,7 +245,7 @@ export async function runEnsembleOrchestration(
       });
     } catch (err) {
       console.error(`[ensemble ${ensembleId}] sim ${sim.id} failed:`, err);
-      await admin
+      const { error: simFailErr } = await admin
         .from("simulations")
         .update({
           status: "failed",
@@ -253,6 +253,11 @@ export async function runEnsembleOrchestration(
           error_message: err instanceof Error ? err.message : String(err),
         })
         .eq("id", sim.id);
+      if (simFailErr) {
+        console.error(
+          `[ensemble ${ensembleId}] could not mark sim ${sim.id} failed: ${simFailErr.message} — row will be left 'running' and reaped as stale`,
+        );
+      }
     }
   };
 
@@ -276,7 +281,7 @@ export async function runEnsembleOrchestration(
           `exceeds tier ${tier} budget $${(tierBudgetCents / 100).toFixed(2)}. ` +
           `Aborting remaining sims; ensemble will aggregate whatever has finished.`,
       );
-      await admin
+      const { error: capErr } = await admin
         .from("simulations")
         .update({
           status: "cancelled",
@@ -285,6 +290,11 @@ export async function runEnsembleOrchestration(
         })
         .eq("ensemble_id", ensembleId)
         .in("status", ["pending", "running"]);
+      if (capErr) {
+        console.error(
+          `[ensemble ${ensembleId}] cost-cap cancel write failed: ${capErr.message} — sims may keep spending`,
+        );
+      }
     }
   };
 
@@ -338,7 +348,7 @@ export async function runEnsembleOrchestration(
     }
   } catch (err) {
     console.error(`[ensemble ${ensembleId}] aggregation failed:`, err);
-    await admin
+    const { error: ensFailErr } = await admin
       .from("ensembles")
       .update({
         status: "failed",
@@ -346,6 +356,11 @@ export async function runEnsembleOrchestration(
         completed_at: new Date().toISOString(),
       })
       .eq("id", ensembleId);
+    if (ensFailErr) {
+      console.error(
+        `[ensemble ${ensembleId}] could not mark ensemble failed: ${ensFailErr.message} — it will stay 'running'`,
+      );
+    }
   }
 }
 
@@ -721,15 +736,24 @@ export async function aggregateAndPersist(opts: {
     }
   }
 
-  await admin
+  // Terminal ensemble write — same rule as the per-sim completion write in
+  // runner.ts: a discarded { error } here leaves the ensemble stuck 'running'
+  // forever with no signal that anything went wrong.
+  const { error: finalizeErr, count: finalizeCount } = await admin
     .from("ensembles")
     .update({
       status: finalStatus,
       aggregate_result: snapshots.length > 0 ? aggregate : null,
       completed_at: new Date().toISOString(),
       error_message: lowSampleErrorMessage,
-    })
+    }, { count: "exact" })
     .eq("id", ensembleId);
+  if (finalizeErr || finalizeCount === 0) {
+    throw new Error(
+      `ensemble finalize write failed for ${ensembleId}: ` +
+        (finalizeErr?.message ?? "matched no rows"),
+    );
+  }
 
   return finalStatus === "completed" ? aggregate : null;
 }

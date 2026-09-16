@@ -463,7 +463,20 @@ async function main() {
     groundingCoverage,
     excludeSimIds,
   });
-  const finalStatus = snapshots.length === 0 ? "failed" : "completed";
+  // Mirror the orchestrator's low-sample gate (orchestrator.ts, aggregate
+  // step): an ensemble that lost most of its sims is not a result, it is a
+  // partial. Without this the backtest scored 1-of-3 ensembles exactly like
+  // full-strength ones — 2026-09-16, 15 of 43 ensembles in one run.
+  const lowSampleFloor = preset.parallelSims * 0.4;
+  const finalStatus =
+    snapshots.length === 0 || snapshots.length < lowSampleFloor
+      ? "failed"
+      : "completed";
+  if (snapshots.length > 0 && snapshots.length < lowSampleFloor) {
+    console.warn(
+      `  ! only ${snapshots.length}/${preset.parallelSims} sims completed — below the ${Math.round(lowSampleFloor * 10) / 10} floor, marking ensemble failed`,
+    );
+  }
 
   // Same narrative-merge step the production endpoint runs.
   if (snapshots.length > 0) {

@@ -761,19 +761,27 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     if (await isCancelled()) {
       throw new Error(CANCELLED_ERR);
     }
-    await supabase
+    const { error: stageErr } = await supabase
       .from("simulations")
       .update({ current_stage: stage, status: "running" })
       .eq("id", opts.simulationId)
       // Don't bump cancelled rows back into 'running' — race-safe even if
       // cancel landed between the isCancelled() check and the update below.
       .neq("status", "cancelled");
+    // Progress marker, so a failure here isn't fatal — but it must not be
+    // silent either: a lost stage write is what leaves a row pointing at the
+    // wrong stage when something later goes wrong.
+    if (stageErr) {
+      console.warn(
+        `[sim ${opts.simulationId}] stage write "${stage}" failed: ${stageErr.message}`,
+      );
+    }
   };
 
   // Record the synthesis-stage model on the simulation row — that's the
   // headline model users see in attribution. Other stage models are still
   // visible in logs.
-  await supabase
+  const { error: attributionErr } = await supabase
     .from("simulations")
     .update({
       started_at: new Date().toISOString(),
@@ -781,6 +789,11 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       model_version: synthesisLLM.model,
     })
     .eq("id", opts.simulationId);
+  if (attributionErr) {
+    console.warn(
+      `[sim ${opts.simulationId}] model-attribution write failed: ${attributionErr.message}`,
+    );
+  }
 
   // Top-level wall-clock for the whole sim — prints at end alongside per-stage
   // timings so it's obvious where the budget went on slow runs.
@@ -2365,7 +2378,15 @@ ${entries}
     // (/reports, /dashboard) don't need to join simulation_results.
     // The .neq("status", "cancelled") gate ensures a late-arriving runner
     // can't overwrite a user-cancelled sim back to "completed".
-    await supabase
+    // This write is the one that must land. supabase-js returns { error }
+    // instead of throwing, and every call here used to discard it — so when
+    // it failed the run carried on, printed DONE below, and left the row
+    // sitting at status='running'/current_stage='recommend'. Twenty minutes
+    // later the zombie-cleanup cron relabelled it "Vercel function timed
+    // out", which is not what happened and sent a whole investigation the
+    // wrong way (2026-09-16: 17 of 43 sims in one backtest, all of them
+    // scored as if the ensemble had run at full strength).
+    const { error: completionErr, count: completionCount } = await supabase
       .from("simulations")
       .update({
         status: "completed",
@@ -2385,9 +2406,31 @@ ${entries}
         // provider name when a 5xx forced us to switch.
         synthesis_provider:
           synthesisActualProvider !== synthesisLLMRaw.name ? synthesisActualProvider : null,
-      })
+      }, { count: "exact" })
       .eq("id", opts.simulationId)
       .neq("status", "cancelled");
+    if (completionErr) {
+      throw new Error(
+        `completion write failed for sim ${opts.simulationId}: ${completionErr.message}`,
+      );
+    }
+    if (completionCount === 0) {
+      // Zero rows matched is legitimate for a sim the user cancelled mid-run
+      // (the .neq above is what skips it). Anything else means the row is
+      // gone or unreachable, and pretending the sim succeeded is how the
+      // silent-zombie class of bug happened — fail loudly instead.
+      const { data: current } = await supabase
+        .from("simulations")
+        .select("status")
+        .eq("id", opts.simulationId)
+        .single();
+      if (current?.status !== "cancelled") {
+        throw new Error(
+          `completion write matched no rows for sim ${opts.simulationId} ` +
+            `(status=${current?.status ?? "unknown"}) — refusing to report success`,
+        );
+      }
+    }
 
     if (synthesisActualProvider !== synthesisLLMRaw.name) {
       console.warn(
@@ -2495,7 +2538,7 @@ ${entries}
       // sims show null cost and the rollup undercounts the Anthropic
       // invoice by the LLM tokens we already burned through. We don't
       // override status (already 'cancelled') — only the usage columns.
-      await supabase
+      const { error: cancelUsageErr } = await supabase
         .from("simulations")
         .update({
           total_input_tokens: usage.inputTokens,
@@ -2503,6 +2546,11 @@ ${entries}
           total_cost_cents: usage.costCents,
         })
         .eq("id", opts.simulationId);
+      if (cancelUsageErr) {
+        console.error(
+          `[sim ${opts.simulationId}] usage write on cancel failed: ${cancelUsageErr.message} — billing rollup will undercount this sim`,
+        );
+      }
       return undefined as unknown as SimulationResult;
     }
     // Don't overwrite current_stage here — leave it pointing at whatever
@@ -2514,7 +2562,7 @@ ${entries}
     // Same usage-persistence rationale as the cancellation path: a sim
     // that failed at synthesis still consumed full persona-stage tokens,
     // and pretending it cost $0 in the billing rollup is just wrong.
-    await supabase
+    const { error: failureErr } = await supabase
       .from("simulations")
       .update({
         status: "failed",
@@ -2525,6 +2573,15 @@ ${entries}
       })
       .eq("id", opts.simulationId)
       .neq("status", "cancelled");
+    // Can't throw here — we're inside the catch and `err` is re-thrown below,
+    // so a throw would replace the real cause with a bookkeeping error. Log
+    // loudly instead: if this write is lost the row stays 'running' and the
+    // cleanup cron later reports something that never happened.
+    if (failureErr) {
+      console.error(
+        `[sim ${opts.simulationId}] failure write failed: ${failureErr.message} — row will be left 'running' and reaped as stale`,
+      );
+    }
 
     // Notify on failure too — operators want to know without polling.
     // Same suppression as the success path: ensemble sims roll up into a
