@@ -50,7 +50,7 @@ async function main() {
         process.execPath,
         ["node_modules/tsx/dist/cli.mjs", "--env-file=.env.local",
          "scripts/smoke-ensemble-e2e.ts", id, "hypothesis", `--as-of=${f.asOf}`],
-        { env: { ...process.env, SIM_RANK_WITHOUT_PERSONAS: MODE }, stdio: "ignore" },
+        { env: { ...process.env, SIM_RANK_WITHOUT_PERSONAS: MODE }, stdio: ["ignore", "inherit", "inherit"] },
       );
       const t0 = Date.now();
       child.on("exit", (code) => {
