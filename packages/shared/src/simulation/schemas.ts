@@ -489,7 +489,7 @@ export type Risk = z.infer<typeof RiskSchema>;
 
 // ─── Overview ──────────────────────────────────────────────────
 export const OverviewSchema = z.object({
-  successScore: z.number().min(0).max(100),
+  successScore: z.number().min(0).max(100).transform((n) => Math.round(n)),
   bestCountry: z.string(),
   bestSegment: z.string(),
   bestPriceCents: z.number().int().nonnegative(),

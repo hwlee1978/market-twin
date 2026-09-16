@@ -2392,9 +2392,20 @@ ${entries}
         status: "completed",
         current_stage: "completed",
         completed_at: new Date().toISOString(),
-        success_score: result.overview?.successScore ?? null,
+        // Every numeric column here is an integer type in Postgres, and a
+        // fractional value doesn't fail validation — it fails the INSERT,
+        // which is exactly how the silent-zombie bug got its foothold
+        // (gpt-5.4-mini returns successScore as 74.1; smallint rejects it).
+        // Round at the boundary rather than trusting each producer.
+        success_score:
+          result.overview?.successScore != null
+            ? Math.round(result.overview.successScore)
+            : null,
         best_country: result.overview?.bestCountry ?? null,
-        recommended_price_cents: result.pricing?.recommendedPriceCents ?? null,
+        recommended_price_cents:
+          result.pricing?.recommendedPriceCents != null
+            ? Math.round(result.pricing.recommendedPriceCents)
+            : null,
         // Token + cost totals captured by the LLM-wrapper accumulator.
         // Persisted now so admin/billing has data without re-reading
         // simulation_results.
