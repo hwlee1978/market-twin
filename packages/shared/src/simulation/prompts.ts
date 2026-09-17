@@ -585,7 +585,17 @@ For professions NOT in the reference (or for non-KR personas), interpolate plaus
 `
     : "";
 
-  return `Generate EXACTLY ${count} distinct consumer personas who could plausibly evaluate this product. Do not return fewer than ${count} — the array length must equal ${count}.
+  // Back-test only (see countryPrompt for the full rationale). Personas were the
+  // one part of the pipeline with no date control at all: a 1968 Thai consumer
+  // was being built from present-day wage tables. This at least states the year.
+  const asOfBlock = input.asOfDate
+    ? `═══ AS-OF DATE — THESE PEOPLE LIVE ON ${input.asOfDate} ═══
+Generate them as they were on ${input.asOfDate}: incomes and prices of that time, job titles that existed then, the shops and media they actually used. Do not give them platforms, apps, payment methods or spending habits that did not exist yet.
+
+`
+    : "";
+
+  return `${asOfBlock}Generate EXACTLY ${count} distinct consumer personas who could plausibly evaluate this product. Do not return fewer than ${count} — the array length must equal ${count}.
 
 Product: ${input.productName}
 Category: ${input.category}
@@ -917,7 +927,31 @@ export function countryPrompt(
     .map((country) => `[${country}]\n${buildChannelCostsBlock(country, input.category)}`)
     .join("\n\n");
 
-  return `Rank these candidate LAUNCH TARGET MARKETS for the product below. The company is based in ${input.originatingCountry} (the origin / home market) and wants to validate which target market gives the best launch outcome. A candidate market may be the home market itself (domestic launch validation), an export market, or both side-by-side — treat each candidate on its own merits using the persona + market signals below. When the candidate equals the origin, score it as a DOMESTIC LAUNCH (the company already has cultural/regulatory fluency, but competition + saturation tend to be higher than in unfamiliar markets). When the candidate differs from the origin, score it as an EXPORT TARGET (cultural fit / regulatory friction / distance from origin matter more). The persona stats below are the bounded grounding signal — read them carefully (intent histograms, top objections, top trust signals, profession mix per country) before incorporating market structure.
+  // Back-test only — `asOfDate` is set by historical fixtures and is never set
+  // in live runs, so this renders as an empty string in production.
+  //
+  // Until now the as-of date only filtered which anchors got fetched; the model
+  // was never told what year it was answering in. It sat in the present, knowing
+  // how each story ended, and we called the result hindsight-controlled. It
+  // wasn't. Two separate jobs here: put the model in the period, and tell it not
+  // to reason backwards from an outcome it remembers.
+  //
+  // The second job probably does not work. Physically deleting the brand name
+  // only moved accuracy to ~54%, and an instruction that leaves the name in
+  // place cannot beat deleting it — a model has no timestamps on what it knows.
+  // Measuring how far it gets is the point; do not assume it is a fix.
+  const asOfBlock = input.asOfDate
+    ? `═══ AS-OF DATE — ANSWER AS IF IT IS ${input.asOfDate} ═══
+You are advising this company on ${input.asOfDate}. Nothing that happened after that date is available to you.
+
+1. Judge every candidate market by its condition ON THAT DATE — market size, incomes, retail and e-commerce maturity, media channels, incumbent competitors and regulation as they stood then, not as they stand today.
+2. You may recognise this brand, and you may remember which market it actually went on to win. That memory is NOT evidence and must not influence the ranking. Do not reason backwards from a remembered outcome.
+3. If a market only became attractive for this category AFTER ${input.asOfDate}, it must not rank highly — ranking it highly is exactly the error this rule exists to prevent.
+
+`
+    : "";
+
+  return `${asOfBlock}Rank these candidate LAUNCH TARGET MARKETS for the product below. The company is based in ${input.originatingCountry} (the origin / home market) and wants to validate which target market gives the best launch outcome. A candidate market may be the home market itself (domestic launch validation), an export market, or both side-by-side — treat each candidate on its own merits using the persona + market signals below. When the candidate equals the origin, score it as a DOMESTIC LAUNCH (the company already has cultural/regulatory fluency, but competition + saturation tend to be higher than in unfamiliar markets). When the candidate differs from the origin, score it as an EXPORT TARGET (cultural fit / regulatory friction / distance from origin matter more). The persona stats below are the bounded grounding signal — read them carefully (intent histograms, top objections, top trust signals, profession mix per country) before incorporating market structure.
 
 When scoring competition (both the top-level competitionScore and components.competition), do not equate "same product category has strong incumbents" with "low competition score." Real consumer markets carve segments by taste / price tier / origin story / usage occasion / ingredient claim — coexistence is the norm, not the exception. See the components.competition rubric below for the full rule.
 
