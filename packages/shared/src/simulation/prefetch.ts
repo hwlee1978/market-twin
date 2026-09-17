@@ -479,7 +479,17 @@ export async function prefetchSimulationContext(
   let trendSnippets: TavilyResult[] = [];
   let marginSnippets: TavilyResult[] = [];
   const kolEcosystemByCountry: Record<string, TavilyResult[]> = {};
-  if (process.env.TAVILY_API_KEY || process.env.PERPLEXITY_API_KEY) {
+  // LIVE-ONLY (gated on !asOfDate, like tariffs / WGI / social-buzz / GTM).
+  // These three searches were the one present-day hole left in historical
+  // runs, and the worst kind: the trend and margin queries put the BRAND NAME
+  // and the CURRENT year into a web search, so a 2010 back-test was reading
+  // 2026 articles about how that same brand has since expanded. The KOL
+  // fan-out is brand-free but still current-year, and it feeds the country
+  // prompt directly — the stage the back-test is scored on.
+  if (
+    !projectInput.asOfDate &&
+    (process.env.TAVILY_API_KEY || process.env.PERPLEXITY_API_KEY)
+  ) {
     const trendNativeQuery = buildCategoryTrendQueryNative({
       category: projectInput.category,
       productName: projectInput.productName,
@@ -598,7 +608,9 @@ export async function prefetchSimulationContext(
       );
     }
   } else {
-    console.log(`${log}Tavily grounding skipped (no API keys)`);
+    console.log(
+      `${log}Tavily grounding skipped (${projectInput.asOfDate ? `historical run as-of ${projectInput.asOfDate}` : "no API keys"})`,
+    );
   }
 
   // Competitor price extraction (puppeteer-based, ensemble-shared).

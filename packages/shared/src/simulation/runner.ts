@@ -989,7 +989,14 @@ ${entries}
     const hits: PoolHit[] = [];
     const missSlots: PersonaSlot[] = [];
 
-    if (workspaceId) {
+    // Historical back-tests bypass the pool entirely. The pool is keyed on
+    // (country, base_profession) with no notion of when a persona was built,
+    // so a persona generated for a 2021 fixture gets reused for a 1968 one —
+    // and personas built before the as-of prompt existed carry no date at all.
+    // Measured on the 2026-09-17 as-of run: 32% of 26,400 slots came from the
+    // pool, i.e. a third of the panel was silently the wrong vintage.
+    // Costs ~1.5x the persona calls on a back-test; live runs are untouched.
+    if (workspaceId && !opts.projectInput.asOfDate) {
       // Group slots by (country, base_profession) so we can fetch each cell once.
       // Slots without an assigned profession (free-choice categories) skip the
       // pool entirely — there's nothing to match on.
@@ -1081,7 +1088,8 @@ ${entries}
         );
       }
     } else {
-      // No workspace context (legacy/test path) — skip pool, generate everything fresh.
+      // No workspace context (legacy/test path) or a historical back-test —
+      // skip the pool, generate everything fresh.
       missSlots.push(...allSlots);
     }
     console.log(
