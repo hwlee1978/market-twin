@@ -24,6 +24,10 @@ import {
   type EnsembleSimSnapshot,
 } from "@/lib/simulation/ensemble";
 import { mergeNarrative } from "@/lib/simulation/ensemble-narrative";
+import {
+  blindCrossCheckEnabled,
+  blindMarketPick,
+} from "@/lib/simulation/blind-check";
 import { filterSupportedMarkets } from "@/lib/countries";
 import { parsePackaging } from "@/lib/format/packaging";
 import { buildMarketProfile } from "@/lib/simulation/market-profile";
@@ -321,6 +325,20 @@ export async function runEnsembleOrchestration(
 
   /* ── 3. Aggregate, persist, notify ── */
 
+  // Brand-free cross-check, once per ensemble rather than once per sim — it
+  // depends only on category and origin, so running it per sim would buy
+  // nothing. Best-effort: a failure here leaves blindPick null and the
+  // confidence label is simply computed without it.
+  let blindPick: string | null = null;
+  if (blindCrossCheckEnabled()) {
+    blindPick = await blindMarketPick({
+      category: projectInput.category,
+      originatingCountry: projectInput.originatingCountry,
+      candidateCountries: projectInput.candidateCountries ?? [],
+    }).catch(() => null);
+    console.log(`[ensemble ${ensembleId}] blind cross-check: ${blindPick ?? "n/a"}`);
+  }
+
   try {
     const aggregate = await aggregateAndPersist({
       ensembleId,
@@ -331,6 +349,7 @@ export async function runEnsembleOrchestration(
       expectedSimCount: preset.parallelSims,
       tier,
       groundingCoverage,
+      blindPick,
     });
     if (aggregate) {
       await notifyEnsembleComplete({
@@ -385,6 +404,9 @@ export async function aggregateAndPersist(opts: {
   tier?: string;
   /** Prefetch grounding coverage (0-1) — caps confidence when evidence thin. */
   groundingCoverage?: number;
+  /** Brand-free cross-check pick (blind-check.ts) — downgrades confidence on
+   *  disagreement. Undefined when the check is disabled or failed. */
+  blindPick?: string | null;
 }) {
   const {
     ensembleId,
@@ -395,6 +417,7 @@ export async function aggregateAndPersist(opts: {
     expectedSimCount,
     tier,
     groundingCoverage = 1,
+    blindPick = null,
   } = opts;
   const admin = createServiceClient();
 
@@ -581,6 +604,7 @@ export async function aggregateAndPersist(opts: {
     originatingCountry: projectInput?.originatingCountry ?? "KR",
     groundingCoverage,
     excludeSimIds: quarantinedIds,
+    blindPick,
   });
 
   let finalStatus: "completed" | "failed";

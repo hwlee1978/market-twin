@@ -956,6 +956,13 @@ export interface AggregateEnsembleOptions {
    * if excluding them would leave zero sims to aggregate.
    */
   excludeSimIds?: string[];
+  /**
+   * Market chosen by the brand-free cross-check (see blind-check.ts). When it
+   * disagrees with the ensemble winner, confidence drops a tier — measured
+   * 79% correct on agreement vs 33% on disagreement. Undefined / null = check
+   * didn't run, no adjustment.
+   */
+  blindPick?: string | null;
 }
 
 export function aggregateEnsemble(
@@ -1127,6 +1134,17 @@ export function aggregateEnsemble(
     else if (opts.groundingCoverage < 0.5)
       confidence =
         confidence === "STRONG" ? "MODERATE" : "WEAK";
+  }
+
+  // #5 Blind cross-check — when a brand-free read of the same category and
+  // origin lands somewhere else, the pick is right about a third of the time
+  // instead of four times in five (run G, N=40, p=0.0051). Downgrade only:
+  // the evidence for lowering confidence on disagreement is far stronger than
+  // for raising it on agreement (STRONG+agree is 8/9, too thin to act on),
+  // and erring toward under-claiming is the safe direction for a label a
+  // customer uses to decide how much to trust a recommendation.
+  if (opts.blindPick && phaseEWinnerCountry && opts.blindPick !== phaseEWinnerCountry) {
+    confidence = confidence === "STRONG" ? "MODERATE" : "WEAK";
   }
 
   // ── Top-2 vs single-winner dominance check (2026-05-20) ──
