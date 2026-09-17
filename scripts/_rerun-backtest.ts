@@ -41,8 +41,8 @@ async function main() {
   console.log(`시작 ${new Date().toISOString()}\n`);
 
   let done = 0;
-  const runOne = (f: { name: string; asOf: string }) =>
-    new Promise<void>((resolve) => {
+  const spawnOnce = (f: { name: string; asOf: string }) =>
+    new Promise<number | null>((resolve) => {
       const id = ids.get(f.name)!.slice(0, 8);
       // Windows + Node 24 에서는 .cmd 를 직접 spawn 하면 EINVAL 이 난다(셸 필요).
       // node_modules 의 tsx 를 직접 실행해 셸 의존을 없앤다.
@@ -54,11 +54,34 @@ async function main() {
       );
       const t0 = Date.now();
       child.on("exit", (code) => {
-        done++;
-        console.log(`  [${done}/${queue.length}] ${f.name.padEnd(38)} exit=${code} ${Math.round((Date.now() - t0) / 1000)}s`);
-        resolve();
+        if (code !== 0) {
+          console.log(`  ! ${f.name.padEnd(38)} exit=${code} ${Math.round((Date.now() - t0) / 1000)}s`);
+        }
+        resolve(code);
       });
     });
+
+  // Retry a fixture once when the child process dies outright.
+  //
+  // Roughly 5% of fixtures per run exit with 3221226505 (0xC0000409,
+  // STATUS_STACK_BUFFER_OVERRUN) — a native crash, not a simulation failure.
+  // Measured across two 42-fixture runs: four crashes, four different
+  // fixtures, none of which crashed twice, and every one of them completed
+  // normally in another run. They also die early — 120-334s against a 546s
+  // average — so it isn't resource exhaustion at the tail.
+  //
+  // Root cause is unresolved: a native fault leaves nothing in the logs, and
+  // at a 5% rate a repro run would cost most of a full backtest to catch one.
+  // Retrying costs one fixture's runtime and recovers the data, which is what
+  // actually matters here — a crashed fixture silently shrinks N and the
+  // scored corpus stops being the corpus we think we measured.
+  const runOne = async (f: { name: string; asOf: string }) => {
+    const t0 = Date.now();
+    let code = await spawnOnce(f);
+    if (code !== 0) code = await spawnOnce(f);
+    done++;
+    console.log(`  [${done}/${queue.length}] ${f.name.padEnd(38)} exit=${code} ${Math.round((Date.now() - t0) / 1000)}s`);
+  };
 
   const q = [...queue];
   await Promise.all(Array.from({ length: CONCURRENCY }, async () => {
