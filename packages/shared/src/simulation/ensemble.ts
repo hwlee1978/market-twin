@@ -362,6 +362,19 @@ export interface EnsembleAggregate {
       voteSharePercent: number;
       gapToPrimary: number;
     };
+    /**
+     * Blind cross-check outcome (2026-09-18). `blindPick` is the market a
+     * brand-free read of the same category and origin chose; `agrees` is
+     * whether it matched the engine's top-1. Absent when the check is off or
+     * the call failed.
+     */
+    crossCheck?: { blindPick: string; agrees: boolean };
+    /**
+     * Markets to present, width set by the cross-check: one on agreement,
+     * three (engine top-2 + the blind pick) on disagreement. Absent when the
+     * check did not run — callers then fall back to displayMode/secondary.
+     */
+    shortlist?: string[];
     /** Diagnostic snapshot of the 3 dominance checks used to set displayMode. */
     dominanceCriteria?: {
       meanGap: number;
@@ -1233,6 +1246,33 @@ export function aggregateEnsemble(
     passCount,
   };
 
+  // ── Adaptive width from the blind cross-check (2026-09-18) ──
+  // The simulation and a brand-blind read of the same market are two different
+  // routes to an answer, and whether they land on the same market is the one
+  // signal in this engine that has replicated: agreement 79% correct,
+  // disagreement 40% (Fisher p=0.0225 on the leak-free run, p=0.0051 before).
+  //
+  // So the width of the recommendation follows the signal instead of being
+  // fixed at two markets. Agreement earns a single-market call; disagreement
+  // widens to three and says so, because on disagreement the blind pick is no
+  // better than the engine's (25% vs 40%) — it means neither view is reliable,
+  // not that the other one is right. Measured on 39 fixtures: 82% hit at an
+  // average of 1.9 markets, against 77% at a fixed two.
+  //
+  // Merging the two picks into one list was tried and is worse (72%): the blind
+  // pick usually already sits inside the engine's top 2, so it burns a slot.
+  let crossCheck: { blindPick: string; agrees: boolean } | undefined;
+  let shortlist: string[] | undefined;
+  let displayModeFinal = displayMode;
+  if (opts.blindPick && top1Country) {
+    const agrees = opts.blindPick === top1Country;
+    crossCheck = { blindPick: opts.blindPick, agrees };
+    displayModeFinal = agrees ? "single" : "top2";
+    shortlist = agrees
+      ? [top1Country]
+      : [...new Set([top1Country, top2Country, opts.blindPick].filter((c): c is string => !!c))];
+  }
+
   // ── per-country stats ──
   type Bucket = {
     final: number[];
@@ -1744,9 +1784,11 @@ export function aggregateEnsemble(
       consensusPercent,
       confidence,
       consensusType,
-      displayMode,
+      displayMode: displayModeFinal,
       secondary,
       dominanceCriteria,
+      crossCheck,
+      shortlist,
     },
     countryStats,
     segments,

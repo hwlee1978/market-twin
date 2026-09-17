@@ -1745,6 +1745,56 @@ function SummaryTab({
         completedLabel={completedLabel}
       />
 
+      {/*
+        Blind cross-check banner. The engine's pick is compared with a
+        brand-blind read of the same category and origin — two different routes
+        to the same question. Whether they land on the same market is the one
+        signal here that has replicated across runs (79% correct when they
+        agree, 40% when they don't), so it is worth telling the user which
+        situation they are in rather than presenting every result identically.
+        Rendered only when the check ran; older ensembles simply skip it.
+      */}
+      {recommendation.crossCheck && (
+        <div
+          className={`rounded-xl border p-4 text-sm ${
+            recommendation.crossCheck.agrees
+              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+              : "border-amber-200 bg-amber-50 text-amber-900"
+          }`}
+        >
+          <div className="font-semibold">
+            {recommendation.crossCheck.agrees
+              ? isKo
+                ? "두 관점이 같은 시장을 지목했습니다"
+                : "Both views point to the same market"
+              : isKo
+                ? "두 관점이 갈렸습니다 — 한 곳으로 좁히지 마십시오"
+                : "The two views disagree — don't narrow to one market yet"}
+          </div>
+          <p className="mt-1 leading-relaxed">
+            {recommendation.crossCheck.agrees
+              ? isKo
+                ? `시뮬레이션과, 브랜드를 가린 채 카테고리·원산지만으로 본 판단이 모두 ${recommendation.country}를 골랐습니다. 과거 사례에서 둘이 일치했을 때는 19건 중 15건이 맞았습니다.`
+                : `The simulation and a brand-blind read of the same category and origin both chose ${recommendation.country}. On past cases, agreement was right in 15 of 19.`
+              : isKo
+                ? `시뮬레이션은 ${recommendation.country}, 브랜드를 가린 판단은 ${recommendation.crossCheck.blindPick}를 골랐습니다. 과거 사례에서 둘이 갈렸을 때는 어느 쪽도 믿을 만하지 않았습니다(시뮬 40%, 가린 판단 25%). 아래 후보를 함께 검토하십시오.`
+                : `The simulation chose ${recommendation.country}; the brand-blind read chose ${recommendation.crossCheck.blindPick}. On past cases neither side was reliable when they split (40% and 25%). Treat the markets below as a shortlist.`}
+          </p>
+          {recommendation.shortlist && recommendation.shortlist.length > 1 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {recommendation.shortlist.map((cc) => (
+                <span
+                  key={cc}
+                  className="rounded-md border border-amber-300 bg-white px-2 py-1 font-medium"
+                >
+                  {cc}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <ResultHero
         isKo={isKo}
         locale={locale}

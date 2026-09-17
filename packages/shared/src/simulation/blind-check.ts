@@ -30,9 +30,17 @@
  */
 import { getLLMProvider } from "@/lib/llm";
 
-/** `SIM_BLIND_CROSSCHECK=on` enables the confidence downgrade. Default off. */
+/**
+ * On by default since 2026-09-18; `SIM_BLIND_CROSSCHECK=off` disables it.
+ *
+ * It shipped off while the split rested on one run. It has now replicated on a
+ * second, independent run — the one with the hindsight leaks fixed: agreement
+ * 15/19 correct (79%), disagreement 8/20 (40%), Fisher p=0.0225. And on
+ * disagreement the blind pick is no better (5/20, 25%), so a disagreement means
+ * neither view is reliable rather than "prefer the other one".
+ */
 export function blindCrossCheckEnabled(): boolean {
-  return process.env.SIM_BLIND_CROSSCHECK === "on";
+  return process.env.SIM_BLIND_CROSSCHECK !== "off";
 }
 
 const SAMPLES = 3;
