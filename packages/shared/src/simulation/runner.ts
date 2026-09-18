@@ -2322,9 +2322,20 @@ ${entries}
       | Record<string, z.infer<typeof PricingResultSchema>>
       | undefined;
     if (SECONDARY_MARKETS > 0 && countryScores.length > 1) {
+      // Exclude whichever market the primary curve is for, by name rather than
+      // by position. The headline price belongs to synthesis's bestCountry,
+      // which is not always this sim's top-scoring country — skipping index 0
+      // let the same market through twice (observed: JP as both primary and
+      // "secondary" in one run).
+      const primaryCountry = (
+        synthesis.success
+          ? synthesis.data.overview.bestCountry
+          : countryScores[0]?.country
+      )?.toUpperCase();
       const targets = [...countryScores]
         .sort((a, b) => b.finalScore - a.finalScore)
-        .slice(1, 1 + SECONDARY_MARKETS)
+        .filter((c) => c.country.toUpperCase() !== primaryCountry)
+        .slice(0, SECONDARY_MARKETS)
         .map((c) => c.country);
       let secIn = 0;
       let secOut = 0;
@@ -2367,7 +2378,15 @@ ${entries}
             })
             .filter((p) => p.success)
             .map((p) => p.data);
-          if (parsed.length === 0) return null;
+          if (parsed.length === 0) {
+            // Silence here would just drop the market from the shortlist's
+            // pricing with no trace — which is how a market went missing on
+            // the first verification run.
+            console.warn(
+              `[sim ${opts.simulationId}] pricing for ${country}: all ${resps.length} sample(s) unusable — market omitted`,
+            );
+            return null;
+          }
           // Median by recommended price — same collapse the primary curve uses,
           // so one off-scale sample can't drag the market's number with it.
           parsed.sort((a, b) => a.recommendedPriceCents - b.recommendedPriceCents);
