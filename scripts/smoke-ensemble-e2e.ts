@@ -95,6 +95,17 @@ function admin() {
 }
 
 async function main() {
+  // Register the usage logger. In the app this happens in instrumentation.ts,
+  // which never runs for a CLI script — so every back-test this repo has run
+  // wrote nothing to llm_usage_log, and per-stage cost had to be scraped from
+  // stdout. Side-effect import only; a failure (missing service-role env)
+  // leaves logging off rather than taking the run down.
+  try {
+    await import("../src/lib/llm-usage");
+  } catch (err) {
+    console.warn(`usage logging off: ${(err as Error).message}`);
+  }
+
   const args = process.argv.slice(2);
   // CLI flag: --as-of=YYYY-MM-DD backdates anchors (K-beauty methodology
   // benchmark). Filtered out before positional arg parsing.
@@ -221,10 +232,30 @@ async function main() {
         }
       : undefined;
 
+  // BT_ANON: identity-blind back-test. Swaps the product name and description
+  // for an anonymised version (scripts/_anon-build.ts) so neither the prompts
+  // nor the name-keyed web searches in prefetch ever see the brand. A missing
+  // entry is fatal: quietly falling back to the real name would put the brand
+  // straight back into a run whose whole point is that it isn't there.
+  let anon: { productName: string; description: string } | undefined;
+  if (process.env.BT_ANON) {
+    const { readFileSync } = await import("node:fs");
+    const map = JSON.parse(readFileSync(process.env.BT_ANON, "utf8")) as Record<
+      string,
+      { productName: string; description: string }
+    >;
+    anon = map[project.product_name as string];
+    if (!anon) {
+      console.error(`BT_ANON is set but has no entry for "${project.product_name}" — refusing to run it named.`);
+      process.exit(1);
+    }
+    console.log(`anon: "${project.product_name}" → "${anon.productName}" (${anon.description.length} chars)`);
+  }
+
   const projectInput: ProjectInput = {
-    productName: project.product_name,
+    productName: anon?.productName ?? project.product_name,
     category: project.category ?? "other",
-    description: project.description ?? "",
+    description: anon?.description ?? project.description ?? "",
     basePriceCents: project.base_price_cents ?? 0,
     currency: project.currency ?? "USD",
     objective: project.objective as ProjectInput["objective"],
@@ -482,7 +513,7 @@ async function main() {
   if (snapshots.length > 0) {
     const narrative = await mergeNarrative({
       snapshots,
-      productName: project.product_name,
+      productName: projectInput.productName,
       bestCountry: aggregate.recommendation.country,
       consensusPercent: aggregate.recommendation.consensusPercent,
       locale: "ko",

@@ -563,10 +563,35 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
   // A stage-specific pin wins over the blanket one; see RunOptions.stageModels.
   const stageModel = (s: "personas" | "countries" | "pricing" | "synthesis") =>
     opts.stageModels?.[s] ?? opts.model;
-  const personaLLMRaw = getLLMProvider({ stage: "personas", provider: opts.provider, model: stageModel("personas"), category });
-  const countryLLMRaw = getLLMProvider({ stage: "countries", provider: opts.provider, model: stageModel("countries"), category });
-  const pricingLLMRaw = getLLMProvider({ stage: "pricing", provider: opts.provider, model: stageModel("pricing"), category });
-  const synthesisLLMRaw = getLLMProvider({ stage: "synthesis", provider: opts.provider, model: stageModel("synthesis"), category });
+  // Per-stage usage logging. getLLMProvider only writes to llm_usage_log when
+  // it can resolve a workspace — either from usageContext here, or from an
+  // AsyncLocalStorage context an API route installed. The sim pipeline never
+  // passed one, so the only rows that ever landed came from routes that
+  // happened to wrap the call; background and CLI runs logged nothing, and the
+  // table went silent in May 2026. Without it there is no per-stage cost
+  // anywhere — every "which stage costs what" question this repo has asked was
+  // answered by scraping stdout.
+  //
+  // Resolved here, before the providers are built, because the existing lookup
+  // sits several hundred lines further down — too late to wrap them. One extra
+  // select per sim, and a failure just means logging stays off.
+  const { data: wsRow } = await supabase
+    .from("simulations")
+    .select("workspace_id, ensemble_id")
+    .eq("id", opts.simulationId)
+    .single();
+  const usageWorkspaceId = wsRow?.workspace_id as string | undefined;
+  const usageContext = usageWorkspaceId
+    ? {
+        workspaceId: usageWorkspaceId,
+        simulationId: opts.simulationId,
+        ensembleId: (wsRow?.ensemble_id as string | undefined) ?? undefined,
+      }
+    : undefined;
+  const personaLLMRaw = getLLMProvider({ stage: "personas", provider: opts.provider, model: stageModel("personas"), category, usageContext });
+  const countryLLMRaw = getLLMProvider({ stage: "countries", provider: opts.provider, model: stageModel("countries"), category, usageContext });
+  const pricingLLMRaw = getLLMProvider({ stage: "pricing", provider: opts.provider, model: stageModel("pricing"), category, usageContext });
+  const synthesisLLMRaw = getLLMProvider({ stage: "synthesis", provider: opts.provider, model: stageModel("synthesis"), category, usageContext });
 
   // Token + cost accumulator. Every LLM call routes through these wrapped
   // providers, so the numbers cover regulatory + personas + reactions +
@@ -1997,6 +2022,19 @@ ${entries}
         }),
       ),
     );
+    // Token logging, same shape as the synthesis stage. Without it the pricing
+    // stage was the one stage whose cost could only be guessed — and it is the
+    // stage that would multiply if we ever price each shortlisted market
+    // separately rather than once per sim.
+    {
+      const pin = pricingResps.reduce((a, r) => a + (r.usage?.inputTokens ?? 0), 0);
+      const pout = pricingResps.reduce((a, r) => a + (r.usage?.outputTokens ?? 0), 0);
+      if (pin || pout) {
+        console.log(
+          `[sim ${opts.simulationId}] pricing: ${PRICING_SAMPLES} samples (in=${pin}, out=${pout})`,
+        );
+      }
+    }
     const pricingCandidates: Array<z.infer<typeof PricingResultSchema>> = [];
     for (const resp of pricingResps) {
       const parsed = PricingResultSchema.safeParse(resp.json);
