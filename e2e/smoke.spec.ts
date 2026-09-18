@@ -32,14 +32,23 @@ test.describe("public pages render", () => {
     expect(res?.status()).toBeLessThan(500);
   });
 
-  test("/privacy renders the privacy policy", async ({ page }) => {
-    await page.goto("/privacy");
-    await expect(page.locator("h1", { hasText: "개인정보 처리방침" })).toBeVisible();
+  // 두 법적 문서의 정본은 마케팅 사이트에 단일 유지하고 앱은 리다이렉트만
+  // 한다(privacy/page.tsx, terms/page.tsx). 리다이렉트를 따라가면 이 스위트가
+  // markettwin.ai 가용성과 그쪽 제목 표기에 묶이므로 — 실제로 h1이
+  // "개인정보처리방침"(붙여 씀)이라 이전 단언은 계속 실패했다 — 앱이 내보내는
+  // 리다이렉트 응답 자체만 확인한다.
+  test("/privacy redirects to the canonical policy", async ({ request }) => {
+    const res = await request.get("/privacy", { maxRedirects: 0 });
+    expect(res.status()).toBeGreaterThanOrEqual(300);
+    expect(res.status()).toBeLessThan(400);
+    expect(res.headers()["location"]).toContain("markettwin.ai/privacy");
   });
 
-  test("/terms renders the terms of service", async ({ page }) => {
-    await page.goto("/terms");
-    await expect(page.locator("h1", { hasText: "이용약관" })).toBeVisible();
+  test("/terms redirects to the canonical terms", async ({ request }) => {
+    const res = await request.get("/terms", { maxRedirects: 0 });
+    expect(res.status()).toBeGreaterThanOrEqual(300);
+    expect(res.status()).toBeLessThan(400);
+    expect(res.headers()["location"]).toContain("markettwin.ai/terms");
   });
 
   test("/en/login renders English copy", async ({ page }) => {

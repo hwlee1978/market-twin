@@ -1110,7 +1110,11 @@ export async function generateValidationContent(
     honestDisclosure: llmDisclosure,
     appendix: {
       dataSources: [
-        { category: isKo ? "시뮬 결과" : "Simulation result", source: `AI Market Twin ensemble ${opts.ensembleId.slice(0, 8)} (${opts.llmProviders.length} LLMs × ${agg.simCount ?? 0} sims)`, reliability: "A" },
+        // 실행된 provider 수를 써야 한다. opts.llmProviders는 티어 프리셋이 의도한
+        // 목록이라, 폴백으로 한 provider만 돌아도 "3 LLMs"로 찍힌다(실제로 완료된
+        // decision 앙상블의 상당수가 단일 provider로 끝난다). agg.providerBreakdown이
+        // 실제 참여한 provider만 담는다.
+        { category: isKo ? "시뮬 결과" : "Simulation result", source: `AI Market Twin ensemble ${opts.ensembleId.slice(0, 8)} (${agg.providerBreakdown?.length ?? opts.llmProviders.length} LLMs × ${agg.simCount ?? 0} sims)`, reliability: "A" },
         { category: isKo ? `${winnerKo} 시장 데이터` : `${winnerEn} market data`, source: "Tavily web search (advanced) — analyst reports + industry press", reliability: "B+" },
         { category: isKo ? "동종 브랜드 진출 사례" : "Peer brand entry cases", source: "Tavily web search (advanced)", reliability: "B" },
         { category: isKo ? "KOTRA 진출 한국법인" : "KOTRA korCompList (entities)", source: "data.go.kr / KOTRA natnInfo OpenAPI", reliability: "A" },

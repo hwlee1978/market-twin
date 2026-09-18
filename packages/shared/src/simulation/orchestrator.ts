@@ -24,6 +24,10 @@ import {
   type EnsembleSimSnapshot,
 } from "@/lib/simulation/ensemble";
 import { mergeNarrative } from "@/lib/simulation/ensemble-narrative";
+import {
+  blindCrossCheckEnabled,
+  blindMarketPick,
+} from "@/lib/simulation/blind-check";
 import { filterSupportedMarkets } from "@/lib/countries";
 import { parsePackaging } from "@/lib/format/packaging";
 import { buildMarketProfile } from "@/lib/simulation/market-profile";
@@ -211,14 +215,33 @@ export async function runEnsembleOrchestration(
         // Hypothesis는 무료 베타 진입 티어다. anthropic sim이 Sonnet으로 돌면
         // 단계마다 voice가 풍부해져 느리고(prod p90 ≈ 880s), worker 미설정 시
         // Vercel inline 800s 한도를 자주 넘겨 504로 죽는다. 무료 맛보기 단계
-        // 이므로 anthropic sim 전체를 Haiku로 내려 한도 안에 안정적으로 들어오게
-        // 한다(≈200-300s, 비용도 ~10x↓). 유료 티어(decision+)는 Sonnet 유지로
-        // 1인칭 voice 품질을 보존하고, openai/deepseek sim은 자체 모델이 이미
-        // 충분히 빠르므로 건드리지 않는다. opts.model은 getLLMProvider에서
-        // 최우선이라 persona·country·pricing·synthesis 전 stage가 Haiku가 된다.
-        model:
+        // 이므로 느린 stage들을 Haiku로 내려 한도 안에 들어오게 한다. 유료
+        // 티어(decision+)는 Sonnet 유지로 1인칭 voice 품질을 보존하고,
+        // openai/deepseek sim은 자체 모델이 이미 충분히 빠르므로 건드리지 않는다.
+        //
+        // 2026-09-16: 이 핀은 원래 `model:` 하나로 걸려 있었고, opts.model이
+        // getLLMProvider에서 최우선이라 country stage까지 함께 Haiku로 내려가
+        // 있었다. country는 순위를 정하는 단계이고 모델 차이가 가장 크게 나는
+        // 곳이다(42건 오프라인: Haiku 38% vs Sonnet 4.6 76%, 17승 1패,
+        // p≈1.4e-4). 반면 voice 품질·소요시간을 지배하는 것은 페르소나 200명을
+        // 뽑는 personas 단계와 긴 산문을 쓰는 synthesis 단계다. 그래서 핀을
+        // stage별로 쪼개 느린 세 단계만 Haiku로 두고 country는 stage 기본값을
+        // 쓰게 한다. country는 5회 동시 호출이라 벽시계 시간은 1회분만 늘어난다.
+        //
+        // 주의: 이 변경의 런타임 영향은 아직 실측되지 않았다. 800s 한도에
+        // 여유가 없다면 countries도 다시 내려야 한다.
+        stageModels:
           tier === "hypothesis" && sim.provider === "anthropic"
-            ? "claude-haiku-4-5-20251001"
+            ? {
+                // pricing is deliberately absent: it now follows the stage
+                // default (Sonnet 4.6). On Haiku this stage truncated and
+                // returned the same curve for different markets, which makes a
+                // multi-market recommendation meaningless. Watch the tier's
+                // 800s inline budget — anthropic sims sat near 353s with plenty
+                // of headroom, but this is the stage that eats into it.
+                personas: "claude-haiku-4-5-20251001",
+                synthesis: "claude-haiku-4-5-20251001",
+              }
             : undefined,
         inlineAssets,
         trendSnippets,
@@ -231,7 +254,7 @@ export async function runEnsembleOrchestration(
       });
     } catch (err) {
       console.error(`[ensemble ${ensembleId}] sim ${sim.id} failed:`, err);
-      await admin
+      const { error: simFailErr } = await admin
         .from("simulations")
         .update({
           status: "failed",
@@ -239,6 +262,11 @@ export async function runEnsembleOrchestration(
           error_message: err instanceof Error ? err.message : String(err),
         })
         .eq("id", sim.id);
+      if (simFailErr) {
+        console.error(
+          `[ensemble ${ensembleId}] could not mark sim ${sim.id} failed: ${simFailErr.message} — row will be left 'running' and reaped as stale`,
+        );
+      }
     }
   };
 
@@ -262,7 +290,7 @@ export async function runEnsembleOrchestration(
           `exceeds tier ${tier} budget $${(tierBudgetCents / 100).toFixed(2)}. ` +
           `Aborting remaining sims; ensemble will aggregate whatever has finished.`,
       );
-      await admin
+      const { error: capErr } = await admin
         .from("simulations")
         .update({
           status: "cancelled",
@@ -271,6 +299,11 @@ export async function runEnsembleOrchestration(
         })
         .eq("ensemble_id", ensembleId)
         .in("status", ["pending", "running"]);
+      if (capErr) {
+        console.error(
+          `[ensemble ${ensembleId}] cost-cap cancel write failed: ${capErr.message} — sims may keep spending`,
+        );
+      }
     }
   };
 
@@ -297,6 +330,20 @@ export async function runEnsembleOrchestration(
 
   /* ── 3. Aggregate, persist, notify ── */
 
+  // Brand-free cross-check, once per ensemble rather than once per sim — it
+  // depends only on category and origin, so running it per sim would buy
+  // nothing. Best-effort: a failure here leaves blindPick null and the
+  // confidence label is simply computed without it.
+  let blindPick: string | null = null;
+  if (blindCrossCheckEnabled()) {
+    blindPick = await blindMarketPick({
+      category: projectInput.category,
+      originatingCountry: projectInput.originatingCountry,
+      candidateCountries: projectInput.candidateCountries ?? [],
+    }).catch(() => null);
+    console.log(`[ensemble ${ensembleId}] blind cross-check: ${blindPick ?? "n/a"}`);
+  }
+
   try {
     const aggregate = await aggregateAndPersist({
       ensembleId,
@@ -307,6 +354,7 @@ export async function runEnsembleOrchestration(
       expectedSimCount: preset.parallelSims,
       tier,
       groundingCoverage,
+      blindPick,
     });
     if (aggregate) {
       await notifyEnsembleComplete({
@@ -324,7 +372,7 @@ export async function runEnsembleOrchestration(
     }
   } catch (err) {
     console.error(`[ensemble ${ensembleId}] aggregation failed:`, err);
-    await admin
+    const { error: ensFailErr } = await admin
       .from("ensembles")
       .update({
         status: "failed",
@@ -332,6 +380,11 @@ export async function runEnsembleOrchestration(
         completed_at: new Date().toISOString(),
       })
       .eq("id", ensembleId);
+    if (ensFailErr) {
+      console.error(
+        `[ensemble ${ensembleId}] could not mark ensemble failed: ${ensFailErr.message} — it will stay 'running'`,
+      );
+    }
   }
 }
 
@@ -356,6 +409,9 @@ export async function aggregateAndPersist(opts: {
   tier?: string;
   /** Prefetch grounding coverage (0-1) — caps confidence when evidence thin. */
   groundingCoverage?: number;
+  /** Brand-free cross-check pick (blind-check.ts) — downgrades confidence on
+   *  disagreement. Undefined when the check is disabled or failed. */
+  blindPick?: string | null;
 }) {
   const {
     ensembleId,
@@ -366,6 +422,7 @@ export async function aggregateAndPersist(opts: {
     expectedSimCount,
     tier,
     groundingCoverage = 1,
+    blindPick = null,
   } = opts;
   const admin = createServiceClient();
 
@@ -552,6 +609,7 @@ export async function aggregateAndPersist(opts: {
     originatingCountry: projectInput?.originatingCountry ?? "KR",
     groundingCoverage,
     excludeSimIds: quarantinedIds,
+    blindPick,
   });
 
   let finalStatus: "completed" | "failed";
@@ -707,15 +765,24 @@ export async function aggregateAndPersist(opts: {
     }
   }
 
-  await admin
+  // Terminal ensemble write — same rule as the per-sim completion write in
+  // runner.ts: a discarded { error } here leaves the ensemble stuck 'running'
+  // forever with no signal that anything went wrong.
+  const { error: finalizeErr, count: finalizeCount } = await admin
     .from("ensembles")
     .update({
       status: finalStatus,
       aggregate_result: snapshots.length > 0 ? aggregate : null,
       completed_at: new Date().toISOString(),
       error_message: lowSampleErrorMessage,
-    })
+    }, { count: "exact" })
     .eq("id", ensembleId);
+  if (finalizeErr || finalizeCount === 0) {
+    throw new Error(
+      `ensemble finalize write failed for ${ensembleId}: ` +
+        (finalizeErr?.message ?? "matched no rows"),
+    );
+  }
 
   return finalStatus === "completed" ? aggregate : null;
 }

@@ -61,6 +61,10 @@ const CATEGORY_HSCODE: Record<string, string[]> = {
   // and 39 (plastics-household).
   home: ["39", "94"],
   ip: ["95", "49"],
+  // Pet: 2309 = animal feed, which pet food dominates. Deliberately narrow —
+  // accessories scatter across 4201/6307/9508 and anchoring on the wrong
+  // chapter is worse than no anchor at all. Widen only with evidence.
+  pet: ["2309"],
   saas: [], // services trade not in HSCode regime
   other: [],
 };

@@ -12,6 +12,8 @@ import {
   FINAL_SCORE_WEIGHTS,
   REGULATORY_HARD_FLOOR,
 } from "./calibration/score-weights";
+import { holisticRankingEnabled } from "./calibration/holistic-ranking";
+import { personaBlockInRankingEnabled } from "./calibration/persona-in-ranking";
 
 function renderCompetitionRubricBlock(locale: PromptLocale): string {
   return COMPETITION_RUBRIC_BANDS.value
@@ -583,7 +585,17 @@ For professions NOT in the reference (or for non-KR personas), interpolate plaus
 `
     : "";
 
-  return `Generate EXACTLY ${count} distinct consumer personas who could plausibly evaluate this product. Do not return fewer than ${count} — the array length must equal ${count}.
+  // Back-test only (see countryPrompt for the full rationale). Personas were the
+  // one part of the pipeline with no date control at all: a 1968 Thai consumer
+  // was being built from present-day wage tables. This at least states the year.
+  const asOfBlock = input.asOfDate
+    ? `═══ AS-OF DATE — THESE PEOPLE LIVE ON ${input.asOfDate} ═══
+Generate them as they were on ${input.asOfDate}: incomes and prices of that time, job titles that existed then, the shops and media they actually used. Do not give them platforms, apps, payment methods or spending habits that did not exist yet.
+
+`
+    : "";
+
+  return `${asOfBlock}Generate EXACTLY ${count} distinct consumer personas who could plausibly evaluate this product. Do not return fewer than ${count} — the array length must equal ${count}.
 
 Product: ${input.productName}
 Category: ${input.category}
@@ -850,6 +862,32 @@ Return: { "reactions": [ ...${count} objects ] }`;
 
 export const COUNTRY_SYSTEM = `${SYSTEM_BASE} For country scoring, weigh demand signals, competitive density, customer-acquisition cost realism, and cultural fit. Rank from best to worst.`;
 
+/**
+ * Says out loud that no trade anchor exists, instead of leaving a hole.
+ *
+ * Services (saas) are outside the UN Comtrade goods regime entirely, some
+ * categories have no HSCode mapping, and reporters skip years. Until now the
+ * block simply vanished, which lets the model read "no trade evidence" as
+ * "no demand" — and the absence applies to every candidate equally, so it
+ * carries no ranking information at all. Measured 2026-09-15: `pet` and
+ * `other` returned empty anchors silently; `saas` always will.
+ */
+function noTradeEvidenceNote(category: string, locale: PromptLocale): string {
+  return locale === "ko"
+    ? [
+        "═══ 무역 증거 없음 ═══",
+        `이 카테고리(${category})는 UN Comtrade 상품 무역 통계의 대상이 아니거나, 해당 연도·보고국의 자료가 없습니다.`,
+        "무역 증거의 부재를 수요의 부재로 해석하지 마십시오. 모든 후보국에 똑같이 적용되므로 순위 판단에는 중립입니다.",
+        "대신 수요측 근거(인구·소득·소비·채널 적합도·문화 적합도)에 무게를 두십시오.",
+      ].join("\n")
+    : [
+        "═══ NO TRADE EVIDENCE AVAILABLE ═══",
+        `This category (${category}) is outside the UN Comtrade goods regime, or the reporter filed nothing for this year.`,
+        "Do NOT read the absence of trade evidence as absence of demand. It applies equally to every candidate market, so it carries no ranking information.",
+        "Weigh demand-side evidence instead (population, income, consumption, channel fit, cultural fit).",
+      ].join("\n");
+}
+
 export function countryPrompt(
   input: ProjectInput,
   aggregate: SimulationAggregate,
@@ -889,7 +927,31 @@ export function countryPrompt(
     .map((country) => `[${country}]\n${buildChannelCostsBlock(country, input.category)}`)
     .join("\n\n");
 
-  return `Rank these candidate LAUNCH TARGET MARKETS for the product below. The company is based in ${input.originatingCountry} (the origin / home market) and wants to validate which target market gives the best launch outcome. A candidate market may be the home market itself (domestic launch validation), an export market, or both side-by-side — treat each candidate on its own merits using the persona + market signals below. When the candidate equals the origin, score it as a DOMESTIC LAUNCH (the company already has cultural/regulatory fluency, but competition + saturation tend to be higher than in unfamiliar markets). When the candidate differs from the origin, score it as an EXPORT TARGET (cultural fit / regulatory friction / distance from origin matter more). The persona stats below are the bounded grounding signal — read them carefully (intent histograms, top objections, top trust signals, profession mix per country) before incorporating market structure.
+  // Back-test only — `asOfDate` is set by historical fixtures and is never set
+  // in live runs, so this renders as an empty string in production.
+  //
+  // Until now the as-of date only filtered which anchors got fetched; the model
+  // was never told what year it was answering in. It sat in the present, knowing
+  // how each story ended, and we called the result hindsight-controlled. It
+  // wasn't. Two separate jobs here: put the model in the period, and tell it not
+  // to reason backwards from an outcome it remembers.
+  //
+  // The second job probably does not work. Physically deleting the brand name
+  // only moved accuracy to ~54%, and an instruction that leaves the name in
+  // place cannot beat deleting it — a model has no timestamps on what it knows.
+  // Measuring how far it gets is the point; do not assume it is a fix.
+  const asOfBlock = input.asOfDate
+    ? `═══ AS-OF DATE — ANSWER AS IF IT IS ${input.asOfDate} ═══
+You are advising this company on ${input.asOfDate}. Nothing that happened after that date is available to you.
+
+1. Judge every candidate market by its condition ON THAT DATE — market size, incomes, retail and e-commerce maturity, media channels, incumbent competitors and regulation as they stood then, not as they stand today.
+2. You may recognise this brand, and you may remember which market it actually went on to win. That memory is NOT evidence and must not influence the ranking. Do not reason backwards from a remembered outcome.
+3. If a market only became attractive for this category AFTER ${input.asOfDate}, it must not rank highly — ranking it highly is exactly the error this rule exists to prevent.
+
+`
+    : "";
+
+  return `${asOfBlock}Rank these candidate LAUNCH TARGET MARKETS for the product below. The company is based in ${input.originatingCountry} (the origin / home market) and wants to validate which target market gives the best launch outcome. A candidate market may be the home market itself (domestic launch validation), an export market, or both side-by-side — treat each candidate on its own merits using the persona + market signals below. When the candidate equals the origin, score it as a DOMESTIC LAUNCH (the company already has cultural/regulatory fluency, but competition + saturation tend to be higher than in unfamiliar markets). When the candidate differs from the origin, score it as an EXPORT TARGET (cultural fit / regulatory friction / distance from origin matter more). The persona stats below are the bounded grounding signal — read them carefully (intent histograms, top objections, top trust signals, profession mix per country) before incorporating market structure.
 
 When scoring competition (both the top-level competitionScore and components.competition), do not equate "same product category has strong incumbents" with "low competition score." Real consumer markets carve segments by taste / price tier / origin story / usage occasion / ingredient claim — coexistence is the norm, not the exception. See the components.competition rubric below for the full rule.
 
@@ -904,11 +966,11 @@ Candidate target markets (ONLY these allowed): ${input.candidateCountries.join("
 
 ${brandStrategyBlock(input, locale)}
 
-${renderAggregateForPrompt(aggregate, locale)}
+${personaBlockInRankingEnabled() ? renderAggregateForPrompt(aggregate, locale) : ""}
 
 ${renderHofstedeTable(input.candidateCountries, locale === "ko" ? "ko" : "en")}
 
-${worldBankBlock ? `${worldBankBlock}\n\n` : ""}${tradeAnchorBlock ? `${tradeAnchorBlock}\n\n` : ""}${kolEcosystemBlock ? `${kolEcosystemBlock}\n\n` : ""}═══ CAC GROUNDING — CHANNEL COSTS PER CANDIDATE COUNTRY ═══
+${worldBankBlock ? `${worldBankBlock}\n\n` : ""}${tradeAnchorBlock ? `${tradeAnchorBlock}\n\n` : `${noTradeEvidenceNote(input.category, locale)}\n\n`}${kolEcosystemBlock ? `${kolEcosystemBlock}\n\n` : ""}═══ CAC GROUNDING — CHANNEL COSTS PER CANDIDATE COUNTRY ═══
 Use these medians as the basis for cacEstimateUsd. Do NOT free-style a number — start from the channel mix you'd realistically run for this category and arithmetic from there.
 
 ${channelCostsBlock}
@@ -969,7 +1031,9 @@ finalScore should be a sensible weighted-average reflection of the components, b
 ═══ Weighting guidance (CRITICAL — common miscall) ═══
 When picking finalScore, give marketSize ≥ 25% of the weight. A common mistake in prior sim runs was scoring US / CN / DE in the 50-60 range despite marketSize 75-85, because CAC anxiety + persona-pool low-income skew dragged finalScore toward the mean. Don't do that — a large, growth-trending market with moderate channel / cultural friction (marketSize 80, others 55-65) should land finalScore 70+, NOT 55-60. The persona pool is a sampling artifact, not a constraint on absolute market value. Suggested implicit weights:
 ${renderWeightGuidanceLines()}
-A post-process pass will mechanically re-derive finalScore from these components anyway — but emitting an aligned LLM finalScore keeps the critique stage cleaner and the rank consistent.`;
+${holisticRankingEnabled()
+  ? "Your finalScore is used directly as the ranking — nothing downstream recomputes it. The weights above are guidance, not a formula to execute: when a cross-component interaction matters (a launch-blocker, an unusually strong channel fit), let it move the score."
+  : "A post-process pass will mechanically re-derive finalScore from these components anyway — but emitting an aligned LLM finalScore keeps the critique stage cleaner and the rank consistent."}`;
 }
 
 export const PRICING_SYSTEM = `${SYSTEM_BASE} For pricing, model how conversion changes across price points — find the conversion peak (which may sit slightly above the lowest price when there's a "too cheap → suspicion" zone), then conversion MUST decrease monotonically as price rises past the peak. Real demand curves are non-increasing past the peak; do NOT emit U-shaped or wave curves where conversion climbs again at high prices. Identify the revenue-maximizing point (price × conversion argmax), which lies between the peak and the steep drop-off.`;
@@ -993,6 +1057,14 @@ export function pricingPrompt(
   range?: PricingRangeContext,
   competitorPrices?: CompetitorPriceContext[],
   marginGroundingBlock?: string,
+  /**
+   * Price for one specific market instead of the product overall. Set when a
+   * recommendation names more than one market — a shortlist whose entries all
+   * carry the same price is not much of a shortlist, since willingness to pay
+   * is exactly what differs between them. Left unset for the primary curve,
+   * which keeps the existing whole-product behaviour.
+   */
+  targetCountry?: string,
 ): string {
   // Range defaults to 0.5x-2.0x of base if not provided (legacy callers).
   const minCents = range?.minCents ?? Math.round(input.basePriceCents * 0.5);
@@ -1018,7 +1090,20 @@ ${competitorPrices
 Use these as anchors. The pricing curve should COVER this competitive band, and recommended price should reference whether the product is positioned above / within / below the competitive set.`
       : "";
 
-  return `Generate a pricing curve for this product. Sample 7-10 price points across the range ${(minCents / 100).toFixed(2)} ${input.currency} to ${(maxCents / 100).toFixed(2)} ${input.currency}. For each point, estimate conversion probability (0-1) and a revenue index (price * conversion, normalized).
+  const targetBlock = targetCountry
+    ? `
+═══ TARGET MARKET — price for ${targetCountry} ═══
+Price this product for **${targetCountry}** specifically, not as a global average.
+Treat ${targetCountry}'s persona price sensitivity below as the primary signal; the
+other countries are context for relative positioning only. Local income level,
+competing price tiers and channel structure in ${targetCountry} should move the
+curve — if your answer would be identical for every market, you have not used them.
+The currency lock below still applies: emit ${input.currency} cents regardless.
+
+`
+    : "";
+
+  return `${targetBlock}Generate a pricing curve for this product. Sample 7-10 price points across the range ${(minCents / 100).toFixed(2)} ${input.currency} to ${(maxCents / 100).toFixed(2)} ${input.currency}. For each point, estimate conversion probability (0-1) and a revenue index (price * conversion, normalized).
 ${rangeReason ? `Range rationale: ${rangeReason}` : ""}
 
 Product: ${input.productName} (${input.category})

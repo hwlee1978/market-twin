@@ -641,7 +641,7 @@
       "assetUrlsToggle": "Already have hosted URLs? Paste them here",
       "personaCount": {
         "label": "Persona count",
-        "hint": "Higher count = more accurate, but takes longer.",
+        "hint": "More personas give finer segment-level detail and take longer. It does not change the ranking's hit rate.",
         "tier": {
           "50": "Fast · ~2 min",
           "200": "Balanced · ~4 min (recommended)",
@@ -651,7 +651,7 @@
       },
       "tier": {
         "label": "Analysis depth",
-        "hint": "Confidence scales with the number of personas and parallel sims. Every tier aggregates N independent runs and surfaces consensus + variance alongside the headline recommendation. Recommended workflow: start with Hypothesis to check Top-1 dominance vs Top-2 cluster, then commit to Consensus if a deeper narrative is needed.",
+        "hint": "Every tier aggregates N independent runs and surfaces consensus + variance alongside the headline recommendation. Higher tiers stabilise those consensus and variance estimates; they do not raise the recommendation's hit rate. Recommended workflow: start with Hypothesis to check Top-1 dominance vs Top-2 cluster, then commit to Consensus if a deeper narrative is needed.",
         "hypothesis": {
           "name": "Hypothesis (recommended start)",
           "spec": "600 personas · 3 sims · multi-LLM",
@@ -679,7 +679,7 @@
         "deep_pro": {
           "name": "Triangulated Pro",
           "spec": "10,000 personas · 50 sims · multi-LLM",
-          "desc": "Max confidence · executive review",
+          "desc": "Max consensus · executive review",
           "time": "40+ min"
         }
       },

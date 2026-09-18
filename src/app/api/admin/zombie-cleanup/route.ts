@@ -61,7 +61,13 @@ export async function GET(req: Request) {
     .update({
       status: "failed",
       current_stage: "failed",
-      error_message: "[zombie-cleanup] Vercel function timed out (>20 min); marked failed by cron.",
+      // Don't name a cause we haven't established. A stale 'running' row
+      // usually means the process died or its terminal write never landed —
+      // the Vercel timeout is only one of several ways to get here, and
+      // backtests run locally where that limit does not even apply. Saying
+      // "timed out" cost a day of investigation chasing the wrong thing.
+      error_message:
+        "[zombie-cleanup] Stale 'running' row older than 20 min — the run's terminal write never landed (process died, or the status update failed). Marked failed by cron.",
     })
     .in("id", simIds);
 

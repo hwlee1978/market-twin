@@ -362,6 +362,19 @@ export interface EnsembleAggregate {
       voteSharePercent: number;
       gapToPrimary: number;
     };
+    /**
+     * Blind cross-check outcome (2026-09-18). `blindPick` is the market a
+     * brand-free read of the same category and origin chose; `agrees` is
+     * whether it matched the engine's top-1. Absent when the check is off or
+     * the call failed.
+     */
+    crossCheck?: { blindPick: string; agrees: boolean };
+    /**
+     * Markets to present, width set by the cross-check: one on agreement,
+     * three (engine top-2 + the blind pick) on disagreement. Absent when the
+     * check did not run — callers then fall back to displayMode/secondary.
+     */
+    shortlist?: string[];
     /** Diagnostic snapshot of the 3 dominance checks used to set displayMode. */
     dominanceCriteria?: {
       meanGap: number;
@@ -956,6 +969,13 @@ export interface AggregateEnsembleOptions {
    * if excluding them would leave zero sims to aggregate.
    */
   excludeSimIds?: string[];
+  /**
+   * Market chosen by the brand-free cross-check (see blind-check.ts). When it
+   * disagrees with the ensemble winner, confidence drops a tier — measured
+   * 79% correct on agreement vs 33% on disagreement. Undefined / null = check
+   * didn't run, no adjustment.
+   */
+  blindPick?: string | null;
 }
 
 export function aggregateEnsemble(
@@ -1129,6 +1149,17 @@ export function aggregateEnsemble(
         confidence === "STRONG" ? "MODERATE" : "WEAK";
   }
 
+  // #5 Blind cross-check — when a brand-free read of the same category and
+  // origin lands somewhere else, the pick is right about a third of the time
+  // instead of four times in five (run G, N=40, p=0.0051). Downgrade only:
+  // the evidence for lowering confidence on disagreement is far stronger than
+  // for raising it on agreement (STRONG+agree is 8/9, too thin to act on),
+  // and erring toward under-claiming is the safe direction for a label a
+  // customer uses to decide how much to trust a recommendation.
+  if (opts.blindPick && phaseEWinnerCountry && opts.blindPick !== phaseEWinnerCountry) {
+    confidence = confidence === "STRONG" ? "MODERATE" : "WEAK";
+  }
+
   // ── Top-2 vs single-winner dominance check (2026-05-20) ──
   // User feedback (Lingtea Deep × 2 runs): single-winner framing was misleading
   // when top 2-3 countries are bunched within noise margin. New rule: show
@@ -1214,6 +1245,33 @@ export function aggregateEnsemble(
     crossLLMAgree,
     passCount,
   };
+
+  // ── Adaptive width from the blind cross-check (2026-09-18) ──
+  // The simulation and a brand-blind read of the same market are two different
+  // routes to an answer, and whether they land on the same market is the one
+  // signal in this engine that has replicated: agreement 76% correct,
+  // disagreement 43% (Fisher p=0.058 on the leak-free run, p=0.0051 before).
+  //
+  // So the width of the recommendation follows the signal instead of being
+  // fixed at two markets. Agreement earns a single-market call; disagreement
+  // widens to three and says so, because on disagreement the blind pick is no
+  // better than the engine's (25% vs 40%) — it means neither view is reliable,
+  // not that the other one is right. Measured on 39 fixtures: 82% hit at an
+  // average of 1.9 markets, against 77% at a fixed two.
+  //
+  // Merging the two picks into one list was tried and is worse (72%): the blind
+  // pick usually already sits inside the engine's top 2, so it burns a slot.
+  let crossCheck: { blindPick: string; agrees: boolean } | undefined;
+  let shortlist: string[] | undefined;
+  let displayModeFinal = displayMode;
+  if (opts.blindPick && top1Country) {
+    const agrees = opts.blindPick === top1Country;
+    crossCheck = { blindPick: opts.blindPick, agrees };
+    displayModeFinal = agrees ? "single" : "top2";
+    shortlist = agrees
+      ? [top1Country]
+      : [...new Set([top1Country, top2Country, opts.blindPick].filter((c): c is string => !!c))];
+  }
 
   // ── per-country stats ──
   type Bucket = {
@@ -1726,9 +1784,11 @@ export function aggregateEnsemble(
       consensusPercent,
       confidence,
       consensusType,
-      displayMode,
+      displayMode: displayModeFinal,
       secondary,
       dominanceCriteria,
+      crossCheck,
+      shortlist,
     },
     countryStats,
     segments,

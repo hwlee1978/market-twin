@@ -95,6 +95,17 @@ function admin() {
 }
 
 async function main() {
+  // Register the usage logger. In the app this happens in instrumentation.ts,
+  // which never runs for a CLI script — so every back-test this repo has run
+  // wrote nothing to llm_usage_log, and per-stage cost had to be scraped from
+  // stdout. Side-effect import only; a failure (missing service-role env)
+  // leaves logging off rather than taking the run down.
+  try {
+    await import("../src/lib/llm-usage");
+  } catch (err) {
+    console.warn(`usage logging off: ${(err as Error).message}`);
+  }
+
   const args = process.argv.slice(2);
   // CLI flag: --as-of=YYYY-MM-DD backdates anchors (K-beauty methodology
   // benchmark). Filtered out before positional arg parsing.
@@ -126,7 +137,9 @@ async function main() {
       "id, workspace_id, product_name, category, description, base_price_cents, currency, objective, originating_country, candidate_countries, competitor_urls, asset_descriptions, asset_urls, founder_background, channel_priority, kol_relationships",
     )
     .order("created_at", { ascending: false })
-    .limit(50);
+    // 최근 50건만 보면 오래된 백테스트 픽스처가 창 밖으로 밀린다(2026-09 기준
+    // 그 이후 생성 프로젝트가 35건). 클라이언트 필터라 창만 넓히면 된다.
+    .limit(500);
   if (lookupErr) throw lookupErr;
   const matches = (candidates ?? []).filter((c) => (c.id as string).startsWith(prefix));
   if (matches.length === 0) {
@@ -219,10 +232,30 @@ async function main() {
         }
       : undefined;
 
+  // BT_ANON: identity-blind back-test. Swaps the product name and description
+  // for an anonymised version (scripts/_anon-build.ts) so neither the prompts
+  // nor the name-keyed web searches in prefetch ever see the brand. A missing
+  // entry is fatal: quietly falling back to the real name would put the brand
+  // straight back into a run whose whole point is that it isn't there.
+  let anon: { productName: string; description: string } | undefined;
+  if (process.env.BT_ANON) {
+    const { readFileSync } = await import("node:fs");
+    const map = JSON.parse(readFileSync(process.env.BT_ANON, "utf8")) as Record<
+      string,
+      { productName: string; description: string }
+    >;
+    anon = map[project.product_name as string];
+    if (!anon) {
+      console.error(`BT_ANON is set but has no entry for "${project.product_name}" — refusing to run it named.`);
+      process.exit(1);
+    }
+    console.log(`anon: "${project.product_name}" → "${anon.productName}" (${anon.description.length} chars)`);
+  }
+
   const projectInput: ProjectInput = {
-    productName: project.product_name,
+    productName: anon?.productName ?? project.product_name,
     category: project.category ?? "other",
-    description: project.description ?? "",
+    description: anon?.description ?? project.description ?? "",
     basePriceCents: project.base_price_cents ?? 0,
     currency: project.currency ?? "USD",
     objective: project.objective as ProjectInput["objective"],
@@ -285,11 +318,27 @@ async function main() {
         seedOverride: `${ensembleId}-${index}`,
         provider,
         // Mirror orchestrator: hypothesis(무료 베타 티어)의 anthropic sim은
-        // Haiku로 내려 800s inline 한도 안에 들어오게 한다. dev variant
-        // ("deep-3" 등)와 유료 티어는 Sonnet 유지.
-        model:
+        // 느린 stage를 Haiku로 내려 800s inline 한도 안에 들어오게 한다.
+        // dev variant("deep-3" 등)와 유료 티어는 Sonnet 유지.
+        //
+        // 2026-09-16: orchestrator와 함께 stage별로 쪼갰다. 예전에는 `model:`
+        // 하나로 걸려 personas·countries·pricing·synthesis가 전부 Haiku였고,
+        // 순위를 정하는 country stage까지 함께 내려가 있었다(42건 오프라인:
+        // Haiku 38% vs Sonnet 4.6 76%). 한도를 지배하는 건 페르소나 200명을
+        // 뽑는 personas와 긴 산문을 쓰는 synthesis이므로 그 둘(+pricing)만
+        // 남기고 countries는 stage 기본값을 쓰게 한다.
+        //
+        // 이 파일은 orchestrator를 import하지 못해 손으로 미러링한 사본이다
+        // (파일 상단 주석 참조). 저쪽 핀을 고치면 여기도 같이 고쳐야 한다 —
+        // 백테스트가 프로덕션과 다른 설정을 재는 사고가 실제로 있었다.
+        stageModels:
           tier === "hypothesis" && provider === "anthropic"
-            ? "claude-haiku-4-5-20251001"
+            ? {
+                // Mirrors orchestrator.ts — pricing left off the pin so it
+                // follows the stage default (Sonnet 4.6).
+                personas: "claude-haiku-4-5-20251001",
+                synthesis: "claude-haiku-4-5-20251001",
+              }
             : undefined,
         tradeAnchorBlock,
         worldBankBlock,
@@ -440,19 +489,52 @@ async function main() {
     }
   }
   console.log(`Grounding coverage: ${Math.round(groundingCoverage * 100)}%`);
+
+  // Blind cross-check, mirroring the orchestrator. This file is a hand-copy of
+  // that pipeline, and every time the two drift the back-test silently measures
+  // something production doesn't do — which already happened once with the
+  // hypothesis-tier model pin. The check decides how wide the recommendation
+  // gets, so a back-test without it scores a different product.
+  const { blindCrossCheckEnabled, blindMarketPick } = await import(
+    "../packages/shared/src/simulation/blind-check"
+  );
+  let blindPick: string | null = null;
+  if (blindCrossCheckEnabled()) {
+    blindPick = await blindMarketPick({
+      category: projectInput.category,
+      originatingCountry: projectInput.originatingCountry,
+      candidateCountries: projectInput.candidateCountries,
+    }).catch(() => null);
+    console.log(`blind cross-check: ${blindPick ?? "n/a"}`);
+  }
+
   const aggregate = aggregateEnsemble(snapshots, {
     category: projectInput.category,
     originatingCountry: projectInput.originatingCountry,
     groundingCoverage,
     excludeSimIds,
+    blindPick,
   });
-  const finalStatus = snapshots.length === 0 ? "failed" : "completed";
+  // Mirror the orchestrator's low-sample gate (orchestrator.ts, aggregate
+  // step): an ensemble that lost most of its sims is not a result, it is a
+  // partial. Without this the backtest scored 1-of-3 ensembles exactly like
+  // full-strength ones — 2026-09-16, 15 of 43 ensembles in one run.
+  const lowSampleFloor = preset.parallelSims * 0.4;
+  const finalStatus =
+    snapshots.length === 0 || snapshots.length < lowSampleFloor
+      ? "failed"
+      : "completed";
+  if (snapshots.length > 0 && snapshots.length < lowSampleFloor) {
+    console.warn(
+      `  ! only ${snapshots.length}/${preset.parallelSims} sims completed — below the ${Math.round(lowSampleFloor * 10) / 10} floor, marking ensemble failed`,
+    );
+  }
 
   // Same narrative-merge step the production endpoint runs.
   if (snapshots.length > 0) {
     const narrative = await mergeNarrative({
       snapshots,
-      productName: project.product_name,
+      productName: projectInput.productName,
       bestCountry: aggregate.recommendation.country,
       consensusPercent: aggregate.recommendation.consensusPercent,
       locale: "ko",

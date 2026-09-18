@@ -56,6 +56,7 @@ import {
   FINAL_SCORE_WEIGHTS,
   REGULATORY_HARD_FLOOR,
 } from "./calibration/score-weights";
+import { holisticRankingEnabled } from "./calibration/holistic-ranking";
 import {
   notifySimulationComplete,
   notifySimulationFailed,
@@ -80,6 +81,20 @@ interface RunOptions {
   personaCount: number;
   provider?: LLMProviderName;
   model?: string;
+  /**
+   * Per-stage model pins. Takes precedence over `model` for the stage it
+   * names, so a caller can hold one stage on a cheap model without dragging
+   * the other three down with it — which is what a bare `model` does, since
+   * getLLMProvider treats it as the highest-precedence input for every
+   * stage. Added 2026-09-16 when the hypothesis-tier Haiku pin turned out to
+   * be silently overriding the country stage as well.
+   */
+  stageModels?: {
+    personas?: string;
+    countries?: string;
+    pricing?: string;
+    synthesis?: string;
+  };
   locale?: PromptLocale;
   /**
    * Override the seed used for slot planning + pool sampling. Ensembles
@@ -371,14 +386,51 @@ function normalizeCountrySampleScale(
 // Recomputes finalScore mechanically from LLM-emitted components using the
 // weights declared in calibration/score-weights.ts. Skipped when components
 // are absent (legacy / malformed) — the LLM-emitted finalScore stands.
+/**
+ * 후보 목록 밖의 국가를 떨어뜨린다.
+ *
+ * 프롬프트가 "후보 목록에 없는 국가를 넣지 말라"고 명시하는데도 국가 단계
+ * 응답의 상당수가 원산지를 끼워 넣는다(2026-09 백테스트 재실행 실측: sim의
+ * 22%, 전부 origin). 백테스트는 채점에서 origin을 빼므로 점수에 영향이
+ * 없었지만, 프로덕션에서는 사용자가 후보로 지정하지도 않은 자국이 추천
+ * 1순위로 나갈 수 있다 — 2개 시장을 보여주는 화면에서 한 칸을 먹는다.
+ * 프롬프트 지시만이 유일한 가드였으므로 코드에서 한 번 더 막는다.
+ */
+function dropNonCandidates(
+  sample: z.infer<typeof CountryScoreSchema>[],
+  allowed: Set<string>,
+): { kept: z.infer<typeof CountryScoreSchema>[]; dropped: string[] } {
+  const kept: z.infer<typeof CountryScoreSchema>[] = [];
+  const dropped: string[] = [];
+  for (const row of sample) {
+    if (allowed.has((row.country ?? "").toUpperCase())) kept.push(row);
+    else if (row.country) dropped.push(row.country);
+  }
+  return { kept, dropped };
+}
+
 function recomputeFinalScoreFromComponents(
   sample: z.infer<typeof CountryScoreSchema>[],
 ): z.infer<typeof CountryScoreSchema>[] {
   const w = FINAL_SCORE_WEIGHTS.value;
   const floor = REGULATORY_HARD_FLOOR.value;
+  // 총체적 랭킹 모드에서는 LLM이 낸 finalScore를 순위로 쓴다. 프롬프트가 이미
+  // 교차 컴포넌트 판단을 요구하는데(진입 차단 요인을 평균으로 뭉개지 말 것),
+  // 여기서 가중합으로 덮으면 그 판단이 사라진다. 규제 하한 캡만은 두 모드
+  // 모두 유지한다 — 안전장치이지 순위 산식이 아니다.
+  const holistic = holisticRankingEnabled();
   return sample.map((row) => {
     const c = row.components;
     if (!c) return row;
+    if (holistic) {
+      const llmScore = row.finalScore;
+      if (typeof llmScore !== "number") return row;
+      const capped =
+        c.regulatory < floor.regulatoryThreshold
+          ? Math.min(llmScore, floor.finalScoreCap)
+          : llmScore;
+      return { ...row, finalScore: Math.round(capped * 10) / 10 };
+    }
     let computed =
       c.marketSize * w.marketSize +
       c.culturalFit * w.culturalFit +
@@ -508,10 +560,38 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
   // Anthropic personas+synthesis to Haiku for categories where Sonnet
   // has no accuracy advantage (펫/생활용품, v11 benchmark 2026-05-20).
   const category = opts.projectInput.category;
-  const personaLLMRaw = getLLMProvider({ stage: "personas", provider: opts.provider, model: opts.model, category });
-  const countryLLMRaw = getLLMProvider({ stage: "countries", provider: opts.provider, model: opts.model, category });
-  const pricingLLMRaw = getLLMProvider({ stage: "pricing", provider: opts.provider, model: opts.model, category });
-  const synthesisLLMRaw = getLLMProvider({ stage: "synthesis", provider: opts.provider, model: opts.model, category });
+  // A stage-specific pin wins over the blanket one; see RunOptions.stageModels.
+  const stageModel = (s: "personas" | "countries" | "pricing" | "synthesis") =>
+    opts.stageModels?.[s] ?? opts.model;
+  // Per-stage usage logging. getLLMProvider only writes to llm_usage_log when
+  // it can resolve a workspace — either from usageContext here, or from an
+  // AsyncLocalStorage context an API route installed. The sim pipeline never
+  // passed one, so the only rows that ever landed came from routes that
+  // happened to wrap the call; background and CLI runs logged nothing, and the
+  // table went silent in May 2026. Without it there is no per-stage cost
+  // anywhere — every "which stage costs what" question this repo has asked was
+  // answered by scraping stdout.
+  //
+  // Resolved here, before the providers are built, because the existing lookup
+  // sits several hundred lines further down — too late to wrap them. One extra
+  // select per sim, and a failure just means logging stays off.
+  const { data: wsRow } = await supabase
+    .from("simulations")
+    .select("workspace_id, ensemble_id")
+    .eq("id", opts.simulationId)
+    .single();
+  const usageWorkspaceId = wsRow?.workspace_id as string | undefined;
+  const usageContext = usageWorkspaceId
+    ? {
+        workspaceId: usageWorkspaceId,
+        simulationId: opts.simulationId,
+        ensembleId: (wsRow?.ensemble_id as string | undefined) ?? undefined,
+      }
+    : undefined;
+  const personaLLMRaw = getLLMProvider({ stage: "personas", provider: opts.provider, model: stageModel("personas"), category, usageContext });
+  const countryLLMRaw = getLLMProvider({ stage: "countries", provider: opts.provider, model: stageModel("countries"), category, usageContext });
+  const pricingLLMRaw = getLLMProvider({ stage: "pricing", provider: opts.provider, model: stageModel("pricing"), category, usageContext });
+  const synthesisLLMRaw = getLLMProvider({ stage: "synthesis", provider: opts.provider, model: stageModel("synthesis"), category, usageContext });
 
   // Token + cost accumulator. Every LLM call routes through these wrapped
   // providers, so the numbers cover regulatory + personas + reactions +
@@ -706,19 +786,27 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
     if (await isCancelled()) {
       throw new Error(CANCELLED_ERR);
     }
-    await supabase
+    const { error: stageErr } = await supabase
       .from("simulations")
       .update({ current_stage: stage, status: "running" })
       .eq("id", opts.simulationId)
       // Don't bump cancelled rows back into 'running' — race-safe even if
       // cancel landed between the isCancelled() check and the update below.
       .neq("status", "cancelled");
+    // Progress marker, so a failure here isn't fatal — but it must not be
+    // silent either: a lost stage write is what leaves a row pointing at the
+    // wrong stage when something later goes wrong.
+    if (stageErr) {
+      console.warn(
+        `[sim ${opts.simulationId}] stage write "${stage}" failed: ${stageErr.message}`,
+      );
+    }
   };
 
   // Record the synthesis-stage model on the simulation row — that's the
   // headline model users see in attribution. Other stage models are still
   // visible in logs.
-  await supabase
+  const { error: attributionErr } = await supabase
     .from("simulations")
     .update({
       started_at: new Date().toISOString(),
@@ -726,6 +814,11 @@ export async function runSimulation(opts: RunOptions): Promise<SimulationResult>
       model_version: synthesisLLM.model,
     })
     .eq("id", opts.simulationId);
+  if (attributionErr) {
+    console.warn(
+      `[sim ${opts.simulationId}] model-attribution write failed: ${attributionErr.message}`,
+    );
+  }
 
   // Top-level wall-clock for the whole sim — prints at end alongside per-stage
   // timings so it's obvious where the budget went on slow runs.
@@ -921,7 +1014,14 @@ ${entries}
     const hits: PoolHit[] = [];
     const missSlots: PersonaSlot[] = [];
 
-    if (workspaceId) {
+    // Historical back-tests bypass the pool entirely. The pool is keyed on
+    // (country, base_profession) with no notion of when a persona was built,
+    // so a persona generated for a 2021 fixture gets reused for a 1968 one —
+    // and personas built before the as-of prompt existed carry no date at all.
+    // Measured on the 2026-09-17 as-of run: 32% of 26,400 slots came from the
+    // pool, i.e. a third of the panel was silently the wrong vintage.
+    // Costs ~1.5x the persona calls on a back-test; live runs are untouched.
+    if (workspaceId && !opts.projectInput.asOfDate) {
       // Group slots by (country, base_profession) so we can fetch each cell once.
       // Slots without an assigned profession (free-choice categories) skip the
       // pool entirely — there's nothing to match on.
@@ -1013,7 +1113,8 @@ ${entries}
         );
       }
     } else {
-      // No workspace context (legacy/test path) — skip pool, generate everything fresh.
+      // No workspace context (legacy/test path) or a historical back-test —
+      // skip the pool, generate everything fresh.
       missSlots.push(...allSlots);
     }
     console.log(
@@ -1629,9 +1730,16 @@ ${entries}
     // Median over N parallel country-scoring calls. 5 is a sweet spot:
     // medians stabilise visibly between 3 and 5 (the bias from one outlier
     // sample drops from 33% weight to 20%) but adding a 6th or 7th call
-    // gives diminishing returns relative to the extra LLM spend. Country
-    // model is the cheap haiku/gpt-4o-mini tier so 5x is fine cost-wise;
-    // they all fire concurrently so wall-clock is unchanged from 3.
+    // gives diminishing returns relative to the extra LLM spend. They all
+    // fire concurrently so wall-clock is unchanged from 3.
+    //
+    // 2026-09-16: the Anthropic country model is no longer the cheap tier —
+    // it moved Haiku → Sonnet 4.6 for accuracy, so this 5× multiplies a
+    // dearer call ($0.775 vs $0.418 per sim). Still ~4% of the hypothesis
+    // tier budget, but revisit N here before adding samples elsewhere.
+    // Note also that this median assumes temperature-driven variance between
+    // samples; the 5-generation models reject `temperature`, so adopting one
+    // means finding another variance source or this aggregation collapses.
     const COUNTRY_SAMPLES = (() => {
       const env = Number(process.env.LLM_COUNTRY_SAMPLES);
       if (Number.isFinite(env) && env > 0 && env <= 9) return Math.floor(env);
@@ -1672,10 +1780,15 @@ ${entries}
             // Keep variance among samples — too low and the median collapses
             // to a single answer, defeating the point. Same temp as pricing.
             temperature: 0.4,
-            // Generous output budget so Korean rationale + ≤24 candidate
-            // countries never gets truncated mid-JSON. Provider default of
-            // 4096 cuts it close.
-            maxTokens: 8192,
+            // Output budget for Korean rationale + ≤24 candidate countries.
+            // Measured 2026-09-16 on a 10-candidate prompt: Haiku needs
+            // ~15.0K output tokens, Sonnet 4.6 ~8.6K — so the old 8,192 was
+            // half of what Haiku required and clipped Sonnet's tail. 16,000
+            // is the ceiling the SDK allows without streaming (24,000 raises
+            // "Streaming is required for operations that may take longer
+            // than 10 minutes"); going higher needs a streaming path in
+            // llm/anthropic.ts first.
+            maxTokens: 16000,
           }).catch((err) => {
             // Round-level catch so one rejected sample doesn't sink the
             // whole stage. Each failed sample is surfaced via the parse
@@ -1689,13 +1802,26 @@ ${entries}
         ),
       );
     const countriesResps = await runCountryRound(COUNTRY_SAMPLES, "main");
+    const allowedCountries = new Set(
+      (opts.projectInput.candidateCountries ?? []).map((c) => c.toUpperCase()),
+    );
+    const droppedNonCandidates: string[] = [];
     const countrySamples: Array<z.infer<typeof CountryScoreSchema>[]> = [];
     for (const resp of countriesResps) {
       if (!resp) continue;
       const parsed = z
         .object({ countries: z.array(CountryScoreSchema) })
         .safeParse(resp.json);
-      if (parsed.success) countrySamples.push(parsed.data.countries);
+      if (!parsed.success) continue;
+      const { kept, dropped } = dropNonCandidates(parsed.data.countries, allowedCountries);
+      droppedNonCandidates.push(...dropped);
+      countrySamples.push(kept);
+    }
+    if (droppedNonCandidates.length > 0) {
+      console.log(
+        `[sim ${opts.simulationId}] dropped ${droppedNonCandidates.length} non-candidate countries: ` +
+          `${[...new Set(droppedNonCandidates)].join(", ")}`,
+      );
     }
     // Truncation / coverage retry — under-coverage triggers when:
     //   (a) fewer than 3 samples parsed (single-call fluke or provider
@@ -1896,6 +2022,19 @@ ${entries}
         }),
       ),
     );
+    // Token logging, same shape as the synthesis stage. Without it the pricing
+    // stage was the one stage whose cost could only be guessed — and it is the
+    // stage that would multiply if we ever price each shortlisted market
+    // separately rather than once per sim.
+    {
+      const pin = pricingResps.reduce((a, r) => a + (r.usage?.inputTokens ?? 0), 0);
+      const pout = pricingResps.reduce((a, r) => a + (r.usage?.outputTokens ?? 0), 0);
+      if (pin || pout) {
+        console.log(
+          `[sim ${opts.simulationId}] pricing: ${PRICING_SAMPLES} samples (in=${pin}, out=${pout})`,
+        );
+      }
+    }
     const pricingCandidates: Array<z.infer<typeof PricingResultSchema>> = [];
     for (const resp of pricingResps) {
       const parsed = PricingResultSchema.safeParse(resp.json);
@@ -2163,6 +2302,104 @@ ${entries}
       })
       .safeParse(synthesisResp.json);
 
+    // ── Per-market pricing for the runner-up markets ──────────────
+    // A shortlist whose entries all carry the same price is not much of a
+    // shortlist: willingness to pay is one of the main things that differs
+    // between markets, and the recommendation can now name up to three of them
+    // (engine top-2 plus the blind pick). The primary market keeps the existing
+    // path — currency-scale correction, margin enrichment, fallback — and this
+    // only adds a curve for the others, so none of that verified code moves.
+    //
+    // Measured cost: $0.06 per extra market per ensemble (5 samples, three
+    // providers), about 2.6% of an ensemble. Three samples here rather than
+    // five since these feed a comparison, not the headline price.
+    const SECONDARY_MARKETS = (() => {
+      const env = Number(process.env.SIM_PRICING_MARKETS);
+      if (Number.isFinite(env) && env >= 0 && env <= 3) return Math.floor(env);
+      return 2;
+    })();
+    let pricingByCountry:
+      | Record<string, z.infer<typeof PricingResultSchema>>
+      | undefined;
+    if (SECONDARY_MARKETS > 0 && countryScores.length > 1) {
+      // Exclude whichever market the primary curve is for, by name rather than
+      // by position. The headline price belongs to synthesis's bestCountry,
+      // which is not always this sim's top-scoring country — skipping index 0
+      // let the same market through twice (observed: JP as both primary and
+      // "secondary" in one run).
+      const primaryCountry = (
+        synthesis.success
+          ? synthesis.data.overview.bestCountry
+          : countryScores[0]?.country
+      )?.toUpperCase();
+      const targets = [...countryScores]
+        .sort((a, b) => b.finalScore - a.finalScore)
+        .filter((c) => c.country.toUpperCase() !== primaryCountry)
+        .slice(0, SECONDARY_MARKETS)
+        .map((c) => c.country);
+      let secIn = 0;
+      let secOut = 0;
+      const entries = await Promise.all(
+        targets.map(async (country) => {
+          const text = pricingPrompt(
+            projectInput,
+            aggregate,
+            locale,
+            pricingRange,
+            competitorPriceResults
+              .filter((r) => r.status === "extracted")
+              .map((r) => ({
+                url: r.url,
+                priceCents: r.priceCents!,
+                productName: r.productName,
+              })),
+            marginGroundingBlock,
+            country,
+          );
+          const resps = await Promise.all(
+            Array.from({ length: 3 }, () =>
+              pricingLLM
+                .generate({
+                  system: PRICING_SYSTEM,
+                  prompt: text,
+                  jsonSchema: PricingResultSchema as unknown as object,
+                  temperature: 0.4,
+                  maxTokens: 4096,
+                })
+                .catch(() => null),
+            ),
+          );
+          const parsed = resps
+            .filter((r): r is NonNullable<typeof r> => r !== null)
+            .map((r) => {
+              secIn += r.usage?.inputTokens ?? 0;
+              secOut += r.usage?.outputTokens ?? 0;
+              return PricingResultSchema.safeParse(r.json);
+            })
+            .filter((p) => p.success)
+            .map((p) => p.data);
+          if (parsed.length === 0) {
+            // Silence here would just drop the market from the shortlist's
+            // pricing with no trace — which is how a market went missing on
+            // the first verification run.
+            console.warn(
+              `[sim ${opts.simulationId}] pricing for ${country}: all ${resps.length} sample(s) unusable — market omitted`,
+            );
+            return null;
+          }
+          // Median by recommended price — same collapse the primary curve uses,
+          // so one off-scale sample can't drag the market's number with it.
+          parsed.sort((a, b) => a.recommendedPriceCents - b.recommendedPriceCents);
+          return [country, parsed[Math.floor(parsed.length / 2)]] as const;
+        }),
+      );
+      const ok = entries.filter((e): e is NonNullable<typeof e> => e !== null);
+      if (ok.length > 0) pricingByCountry = Object.fromEntries(ok);
+      console.log(
+        `[sim ${opts.simulationId}] pricing by market: ${ok.map(([c]) => c).join(", ") || "none"} (in=${secIn}, out=${secOut})`,
+      );
+    }
+
     const result: SimulationResult = {
       overview: synthesis.success
         ? synthesis.data.overview
@@ -2170,6 +2407,7 @@ ${entries}
       countries: countryScores,
       personas,
       pricing: pricing.success ? pricing.data : fallbackPricing(projectInput),
+      ...(pricingByCountry ? { pricingByCountry } : {}),
       creative: synthesis.success ? synthesis.data.creative : [],
       risks: synthesis.success ? synthesis.data.risks : [],
       recommendations: synthesis.success
@@ -2275,7 +2513,19 @@ ${entries}
       overview: overviewWithSources,
       countries: result.countries,
       personas: result.personas,
-      pricing: result.pricing,
+      // Per-market curves ride inside the pricing column: this table has fixed
+      // columns, so a separate top-level key would be dropped without a word.
+      pricing: result.pricingByCountry
+        ? {
+            ...result.pricing,
+            byCountry: Object.fromEntries(
+              Object.entries(result.pricingByCountry).map(([cc, p]) => [
+                cc,
+                { recommendedPriceCents: p.recommendedPriceCents, curve: p.curve },
+              ]),
+            ),
+          }
+        : result.pricing,
       creative: result.creative,
       risks: result.risks,
       recommendations: result.recommendations,
@@ -2285,15 +2535,34 @@ ${entries}
     // (/reports, /dashboard) don't need to join simulation_results.
     // The .neq("status", "cancelled") gate ensures a late-arriving runner
     // can't overwrite a user-cancelled sim back to "completed".
-    await supabase
+    // This write is the one that must land. supabase-js returns { error }
+    // instead of throwing, and every call here used to discard it — so when
+    // it failed the run carried on, printed DONE below, and left the row
+    // sitting at status='running'/current_stage='recommend'. Twenty minutes
+    // later the zombie-cleanup cron relabelled it "Vercel function timed
+    // out", which is not what happened and sent a whole investigation the
+    // wrong way (2026-09-16: 17 of 43 sims in one backtest, all of them
+    // scored as if the ensemble had run at full strength).
+    const { error: completionErr, count: completionCount } = await supabase
       .from("simulations")
       .update({
         status: "completed",
         current_stage: "completed",
         completed_at: new Date().toISOString(),
-        success_score: result.overview?.successScore ?? null,
+        // Every numeric column here is an integer type in Postgres, and a
+        // fractional value doesn't fail validation — it fails the INSERT,
+        // which is exactly how the silent-zombie bug got its foothold
+        // (gpt-5.4-mini returns successScore as 74.1; smallint rejects it).
+        // Round at the boundary rather than trusting each producer.
+        success_score:
+          result.overview?.successScore != null
+            ? Math.round(result.overview.successScore)
+            : null,
         best_country: result.overview?.bestCountry ?? null,
-        recommended_price_cents: result.pricing?.recommendedPriceCents ?? null,
+        recommended_price_cents:
+          result.pricing?.recommendedPriceCents != null
+            ? Math.round(result.pricing.recommendedPriceCents)
+            : null,
         // Token + cost totals captured by the LLM-wrapper accumulator.
         // Persisted now so admin/billing has data without re-reading
         // simulation_results.
@@ -2305,9 +2574,31 @@ ${entries}
         // provider name when a 5xx forced us to switch.
         synthesis_provider:
           synthesisActualProvider !== synthesisLLMRaw.name ? synthesisActualProvider : null,
-      })
+      }, { count: "exact" })
       .eq("id", opts.simulationId)
       .neq("status", "cancelled");
+    if (completionErr) {
+      throw new Error(
+        `completion write failed for sim ${opts.simulationId}: ${completionErr.message}`,
+      );
+    }
+    if (completionCount === 0) {
+      // Zero rows matched is legitimate for a sim the user cancelled mid-run
+      // (the .neq above is what skips it). Anything else means the row is
+      // gone or unreachable, and pretending the sim succeeded is how the
+      // silent-zombie class of bug happened — fail loudly instead.
+      const { data: current } = await supabase
+        .from("simulations")
+        .select("status")
+        .eq("id", opts.simulationId)
+        .single();
+      if (current?.status !== "cancelled") {
+        throw new Error(
+          `completion write matched no rows for sim ${opts.simulationId} ` +
+            `(status=${current?.status ?? "unknown"}) — refusing to report success`,
+        );
+      }
+    }
 
     if (synthesisActualProvider !== synthesisLLMRaw.name) {
       console.warn(
@@ -2415,7 +2706,7 @@ ${entries}
       // sims show null cost and the rollup undercounts the Anthropic
       // invoice by the LLM tokens we already burned through. We don't
       // override status (already 'cancelled') — only the usage columns.
-      await supabase
+      const { error: cancelUsageErr } = await supabase
         .from("simulations")
         .update({
           total_input_tokens: usage.inputTokens,
@@ -2423,6 +2714,11 @@ ${entries}
           total_cost_cents: usage.costCents,
         })
         .eq("id", opts.simulationId);
+      if (cancelUsageErr) {
+        console.error(
+          `[sim ${opts.simulationId}] usage write on cancel failed: ${cancelUsageErr.message} — billing rollup will undercount this sim`,
+        );
+      }
       return undefined as unknown as SimulationResult;
     }
     // Don't overwrite current_stage here — leave it pointing at whatever
@@ -2434,7 +2730,7 @@ ${entries}
     // Same usage-persistence rationale as the cancellation path: a sim
     // that failed at synthesis still consumed full persona-stage tokens,
     // and pretending it cost $0 in the billing rollup is just wrong.
-    await supabase
+    const { error: failureErr } = await supabase
       .from("simulations")
       .update({
         status: "failed",
@@ -2445,6 +2741,15 @@ ${entries}
       })
       .eq("id", opts.simulationId)
       .neq("status", "cancelled");
+    // Can't throw here — we're inside the catch and `err` is re-thrown below,
+    // so a throw would replace the real cause with a bookkeeping error. Log
+    // loudly instead: if this write is lost the row stays 'running' and the
+    // cleanup cron later reports something that never happened.
+    if (failureErr) {
+      console.error(
+        `[sim ${opts.simulationId}] failure write failed: ${failureErr.message} — row will be left 'running' and reaped as stale`,
+      );
+    }
 
     // Notify on failure too — operators want to know without polling.
     // Same suppression as the success path: ensemble sims roll up into a

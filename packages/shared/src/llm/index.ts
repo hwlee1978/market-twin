@@ -122,8 +122,24 @@ function envProviderStageModel(
 const PROVIDER_STAGE_DEFAULTS: Record<LLMProviderName, Record<SimulationStage, string>> = {
   anthropic: {
     personas: "claude-sonnet-4-6",
-    countries: "claude-haiku-4-5-20251001",
-    pricing: "claude-haiku-4-5-20251001",
+    // Countries moved off Haiku 2026-09-16. Measured on the 42-fixture
+    // backtest corpus (anchors on, 3 samples, identical prompt, only the
+    // model varied): Haiku top-1 38% vs Sonnet 4.6 76% — 17 wins to 1 on
+    // paired fixtures, p≈1.4e-4. Every other suspect for the accuracy gap
+    // (recompute, ensemble aggregation, anchors, persona block, prompt
+    // blocks) was ruled out first; this was the one that moved. Cost is
+    // +$0.36 per hypothesis ensemble, ~4% of that tier's budget.
+    countries: "claude-sonnet-4-6",
+    // Moved off Haiku 2026-09-18. Haiku was not just imprecise here, it was
+    // truncating: 5 of 9 pricing calls hit the 4,096-token output ceiling and
+    // one market returned nothing usable at all. Its output ran 30.8k tokens
+    // against Sonnet 4.6's 15.1k for the same nine calls — twice the words and
+    // half the answers. The recovered fragments also collapsed onto each other,
+    // which is why two different markets came back with an identical price and
+    // an identical curve. Sonnet 4.6 finished every call and produced a
+    // distinct curve per market (JP 195c / SG 255c / US 195c). Costs about
+    // $0.40 more per ensemble, ~17%.
+    pricing: "claude-sonnet-4-6",
     synthesis: "claude-sonnet-4-6",
   },
   openai: {
