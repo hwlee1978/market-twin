@@ -334,8 +334,9 @@ async function main() {
         stageModels:
           tier === "hypothesis" && provider === "anthropic"
             ? {
+                // Mirrors orchestrator.ts — pricing left off the pin so it
+                // follows the stage default (Sonnet 4.6).
                 personas: "claude-haiku-4-5-20251001",
-                pricing: "claude-haiku-4-5-20251001",
                 synthesis: "claude-haiku-4-5-20251001",
               }
             : undefined,

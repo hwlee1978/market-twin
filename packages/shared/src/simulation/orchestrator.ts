@@ -233,8 +233,13 @@ export async function runEnsembleOrchestration(
         stageModels:
           tier === "hypothesis" && sim.provider === "anthropic"
             ? {
+                // pricing is deliberately absent: it now follows the stage
+                // default (Sonnet 4.6). On Haiku this stage truncated and
+                // returned the same curve for different markets, which makes a
+                // multi-market recommendation meaningless. Watch the tier's
+                // 800s inline budget — anthropic sims sat near 353s with plenty
+                // of headroom, but this is the stage that eats into it.
                 personas: "claude-haiku-4-5-20251001",
-                pricing: "claude-haiku-4-5-20251001",
                 synthesis: "claude-haiku-4-5-20251001",
               }
             : undefined,
