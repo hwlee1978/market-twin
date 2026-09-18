@@ -488,11 +488,31 @@ async function main() {
     }
   }
   console.log(`Grounding coverage: ${Math.round(groundingCoverage * 100)}%`);
+
+  // Blind cross-check, mirroring the orchestrator. This file is a hand-copy of
+  // that pipeline, and every time the two drift the back-test silently measures
+  // something production doesn't do — which already happened once with the
+  // hypothesis-tier model pin. The check decides how wide the recommendation
+  // gets, so a back-test without it scores a different product.
+  const { blindCrossCheckEnabled, blindMarketPick } = await import(
+    "../packages/shared/src/simulation/blind-check"
+  );
+  let blindPick: string | null = null;
+  if (blindCrossCheckEnabled()) {
+    blindPick = await blindMarketPick({
+      category: projectInput.category,
+      originatingCountry: projectInput.originatingCountry,
+      candidateCountries: projectInput.candidateCountries,
+    }).catch(() => null);
+    console.log(`blind cross-check: ${blindPick ?? "n/a"}`);
+  }
+
   const aggregate = aggregateEnsemble(snapshots, {
     category: projectInput.category,
     originatingCountry: projectInput.originatingCountry,
     groundingCoverage,
     excludeSimIds,
+    blindPick,
   });
   // Mirror the orchestrator's low-sample gate (orchestrator.ts, aggregate
   // step): an ensemble that lost most of its sims is not a result, it is a

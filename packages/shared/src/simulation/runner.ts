@@ -2302,6 +2302,85 @@ ${entries}
       })
       .safeParse(synthesisResp.json);
 
+    // ── Per-market pricing for the runner-up markets ──────────────
+    // A shortlist whose entries all carry the same price is not much of a
+    // shortlist: willingness to pay is one of the main things that differs
+    // between markets, and the recommendation can now name up to three of them
+    // (engine top-2 plus the blind pick). The primary market keeps the existing
+    // path — currency-scale correction, margin enrichment, fallback — and this
+    // only adds a curve for the others, so none of that verified code moves.
+    //
+    // Measured cost: $0.06 per extra market per ensemble (5 samples, three
+    // providers), about 2.6% of an ensemble. Three samples here rather than
+    // five since these feed a comparison, not the headline price.
+    const SECONDARY_MARKETS = (() => {
+      const env = Number(process.env.SIM_PRICING_MARKETS);
+      if (Number.isFinite(env) && env >= 0 && env <= 3) return Math.floor(env);
+      return 2;
+    })();
+    let pricingByCountry:
+      | Record<string, z.infer<typeof PricingResultSchema>>
+      | undefined;
+    if (SECONDARY_MARKETS > 0 && countryScores.length > 1) {
+      const targets = [...countryScores]
+        .sort((a, b) => b.finalScore - a.finalScore)
+        .slice(1, 1 + SECONDARY_MARKETS)
+        .map((c) => c.country);
+      let secIn = 0;
+      let secOut = 0;
+      const entries = await Promise.all(
+        targets.map(async (country) => {
+          const text = pricingPrompt(
+            projectInput,
+            aggregate,
+            locale,
+            pricingRange,
+            competitorPriceResults
+              .filter((r) => r.status === "extracted")
+              .map((r) => ({
+                url: r.url,
+                priceCents: r.priceCents!,
+                productName: r.productName,
+              })),
+            marginGroundingBlock,
+            country,
+          );
+          const resps = await Promise.all(
+            Array.from({ length: 3 }, () =>
+              pricingLLM
+                .generate({
+                  system: PRICING_SYSTEM,
+                  prompt: text,
+                  jsonSchema: PricingResultSchema as unknown as object,
+                  temperature: 0.4,
+                  maxTokens: 4096,
+                })
+                .catch(() => null),
+            ),
+          );
+          const parsed = resps
+            .filter((r): r is NonNullable<typeof r> => r !== null)
+            .map((r) => {
+              secIn += r.usage?.inputTokens ?? 0;
+              secOut += r.usage?.outputTokens ?? 0;
+              return PricingResultSchema.safeParse(r.json);
+            })
+            .filter((p) => p.success)
+            .map((p) => p.data);
+          if (parsed.length === 0) return null;
+          // Median by recommended price — same collapse the primary curve uses,
+          // so one off-scale sample can't drag the market's number with it.
+          parsed.sort((a, b) => a.recommendedPriceCents - b.recommendedPriceCents);
+          return [country, parsed[Math.floor(parsed.length / 2)]] as const;
+        }),
+      );
+      const ok = entries.filter((e): e is NonNullable<typeof e> => e !== null);
+      if (ok.length > 0) pricingByCountry = Object.fromEntries(ok);
+      console.log(
+        `[sim ${opts.simulationId}] pricing by market: ${ok.map(([c]) => c).join(", ") || "none"} (in=${secIn}, out=${secOut})`,
+      );
+    }
+
     const result: SimulationResult = {
       overview: synthesis.success
         ? synthesis.data.overview
@@ -2309,6 +2388,7 @@ ${entries}
       countries: countryScores,
       personas,
       pricing: pricing.success ? pricing.data : fallbackPricing(projectInput),
+      ...(pricingByCountry ? { pricingByCountry } : {}),
       creative: synthesis.success ? synthesis.data.creative : [],
       risks: synthesis.success ? synthesis.data.risks : [],
       recommendations: synthesis.success
@@ -2414,7 +2494,19 @@ ${entries}
       overview: overviewWithSources,
       countries: result.countries,
       personas: result.personas,
-      pricing: result.pricing,
+      // Per-market curves ride inside the pricing column: this table has fixed
+      // columns, so a separate top-level key would be dropped without a word.
+      pricing: result.pricingByCountry
+        ? {
+            ...result.pricing,
+            byCountry: Object.fromEntries(
+              Object.entries(result.pricingByCountry).map(([cc, p]) => [
+                cc,
+                { recommendedPriceCents: p.recommendedPriceCents, curve: p.curve },
+              ]),
+            ),
+          }
+        : result.pricing,
       creative: result.creative,
       risks: result.risks,
       recommendations: result.recommendations,

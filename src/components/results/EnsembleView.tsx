@@ -1749,8 +1749,8 @@ function SummaryTab({
         Blind cross-check banner. The engine's pick is compared with a
         brand-blind read of the same category and origin — two different routes
         to the same question. Whether they land on the same market is the one
-        signal here that has replicated across runs (79% correct when they
-        agree, 40% when they don't), so it is worth telling the user which
+        signal here that has replicated across runs (76% correct when they
+        agree, 43% when they don't), so it is worth telling the user which
         situation they are in rather than presenting every result identically.
         Rendered only when the check ran; older ensembles simply skip it.
       */}
@@ -1774,11 +1774,11 @@ function SummaryTab({
           <p className="mt-1 leading-relaxed">
             {recommendation.crossCheck.agrees
               ? isKo
-                ? `시뮬레이션과, 브랜드를 가린 채 카테고리·원산지만으로 본 판단이 모두 ${recommendation.country}를 골랐습니다. 과거 사례에서 둘이 일치했을 때는 19건 중 15건이 맞았습니다.`
-                : `The simulation and a brand-blind read of the same category and origin both chose ${recommendation.country}. On past cases, agreement was right in 15 of 19.`
+                ? `시뮬레이션과, 브랜드를 가린 채 카테고리·원산지만으로 본 판단이 모두 ${recommendation.country}를 골랐습니다. 과거 사례에서 둘이 일치했을 때는 21건 중 16건이 맞았습니다.`
+                : `The simulation and a brand-blind read of the same category and origin both chose ${recommendation.country}. On past cases, agreement was right in 16 of 21.`
               : isKo
-                ? `시뮬레이션은 ${recommendation.country}, 브랜드를 가린 판단은 ${recommendation.crossCheck.blindPick}를 골랐습니다. 과거 사례에서 둘이 갈렸을 때는 어느 쪽도 믿을 만하지 않았습니다(시뮬 40%, 가린 판단 25%). 아래 후보를 함께 검토하십시오.`
-                : `The simulation chose ${recommendation.country}; the brand-blind read chose ${recommendation.crossCheck.blindPick}. On past cases neither side was reliable when they split (40% and 25%). Treat the markets below as a shortlist.`}
+                ? `시뮬레이션은 ${recommendation.country}, 브랜드를 가린 판단은 ${recommendation.crossCheck.blindPick}를 골랐습니다. 과거 사례에서 둘이 갈렸을 때는 어느 쪽도 믿을 만하지 않았습니다(시뮬 43%, 가린 판단 24%). 아래 후보를 함께 검토하십시오.`
+                : `The simulation chose ${recommendation.country}; the brand-blind read chose ${recommendation.crossCheck.blindPick}. On past cases neither side was reliable when they split (43% and 24%). Treat the markets below as a shortlist.`}
           </p>
           {recommendation.shortlist && recommendation.shortlist.length > 1 && (
             <div className="mt-2 flex flex-wrap gap-2">

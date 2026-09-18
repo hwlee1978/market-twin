@@ -35,9 +35,16 @@ import { getLLMProvider } from "@/lib/llm";
  *
  * It shipped off while the split rested on one run. It has now replicated on a
  * second, independent run — the one with the hindsight leaks fixed: agreement
- * 15/19 correct (79%), disagreement 8/20 (40%), Fisher p=0.0225. And on
- * disagreement the blind pick is no better (5/20, 25%), so a disagreement means
+ * 16/21 correct (76%), disagreement 9/21 (43%), Fisher p=0.058. And on
+ * disagreement the blind pick is no better (5/21, 24%), so a disagreement means
  * neither view is reliable rather than "prefer the other one".
+ *
+ * That p was 0.0225 until the baseline's own parser was fixed. Three fixtures
+ * had produced no ranking at all because the model answers, notices it used a
+ * code outside the candidate list, and re-emits a corrected JSON — and the
+ * parser was grabbing from the first brace to the last, prose included. Adding
+ * those three back weakened the split. Worth remembering before quoting it:
+ * the direction has replicated twice, the significance has not.
  */
 export function blindCrossCheckEnabled(): boolean {
   return process.env.SIM_BLIND_CROSSCHECK !== "off";

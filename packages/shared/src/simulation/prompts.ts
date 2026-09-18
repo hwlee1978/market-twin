@@ -1057,6 +1057,14 @@ export function pricingPrompt(
   range?: PricingRangeContext,
   competitorPrices?: CompetitorPriceContext[],
   marginGroundingBlock?: string,
+  /**
+   * Price for one specific market instead of the product overall. Set when a
+   * recommendation names more than one market — a shortlist whose entries all
+   * carry the same price is not much of a shortlist, since willingness to pay
+   * is exactly what differs between them. Left unset for the primary curve,
+   * which keeps the existing whole-product behaviour.
+   */
+  targetCountry?: string,
 ): string {
   // Range defaults to 0.5x-2.0x of base if not provided (legacy callers).
   const minCents = range?.minCents ?? Math.round(input.basePriceCents * 0.5);
@@ -1082,7 +1090,20 @@ ${competitorPrices
 Use these as anchors. The pricing curve should COVER this competitive band, and recommended price should reference whether the product is positioned above / within / below the competitive set.`
       : "";
 
-  return `Generate a pricing curve for this product. Sample 7-10 price points across the range ${(minCents / 100).toFixed(2)} ${input.currency} to ${(maxCents / 100).toFixed(2)} ${input.currency}. For each point, estimate conversion probability (0-1) and a revenue index (price * conversion, normalized).
+  const targetBlock = targetCountry
+    ? `
+═══ TARGET MARKET — price for ${targetCountry} ═══
+Price this product for **${targetCountry}** specifically, not as a global average.
+Treat ${targetCountry}'s persona price sensitivity below as the primary signal; the
+other countries are context for relative positioning only. Local income level,
+competing price tiers and channel structure in ${targetCountry} should move the
+curve — if your answer would be identical for every market, you have not used them.
+The currency lock below still applies: emit ${input.currency} cents regardless.
+
+`
+    : "";
+
+  return `${targetBlock}Generate a pricing curve for this product. Sample 7-10 price points across the range ${(minCents / 100).toFixed(2)} ${input.currency} to ${(maxCents / 100).toFixed(2)} ${input.currency}. For each point, estimate conversion probability (0-1) and a revenue index (price * conversion, normalized).
 ${rangeReason ? `Range rationale: ${rangeReason}` : ""}
 
 Product: ${input.productName} (${input.category})

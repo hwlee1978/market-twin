@@ -428,6 +428,24 @@ export const PricingResultSchema = z.object({
     .optional(),
   curve: z.array(PricingPointSchema),
   /**
+   * Per-market curves for the runner-up markets, keyed by ISO country code.
+   * Lives inside this object because simulation_results has fixed columns —
+   * a new top-level field on the result would be dropped on write.
+   *
+   * Carries only what a market-to-market comparison needs: the recommended
+   * price and the curve. Margin enrichment, currency-scale correction and the
+   * range metadata stay on the primary market above.
+   */
+  byCountry: z
+    .record(
+      z.string(),
+      z.object({
+        recommendedPriceCents: z.number().int().nonnegative(),
+        curve: z.array(PricingPointSchema),
+      }),
+    )
+    .optional(),
+  /**
    * Pricing-range metadata captured at sim time. Optional because
    * legacy results predate the dynamic-range stage. The curve itself
    * is emitted within this range.
@@ -517,6 +535,18 @@ export const SimulationResultSchema = z.object({
   countries: z.array(CountryScoreSchema),
   personas: z.array(PersonaSchema),
   pricing: PricingResultSchema,
+  /**
+   * Per-market pricing, keyed by ISO country code. Populated for the runner-up
+   * markets when a recommendation names more than one — the primary market's
+   * curve stays in `pricing`, which also carries the margin enrichment and the
+   * currency-scale correction the secondary curves skip. Absent on older
+   * simulations and whenever only one market is recommended.
+   *
+   * Persisted inside the `pricing` JSONB column as `byCountry` (see
+   * PricingResultSchema) — simulation_results has fixed columns, so a new
+   * top-level field would be silently dropped on write.
+   */
+  pricingByCountry: z.record(z.string(), PricingResultSchema).optional(),
   creative: z.array(
     z.object({
       assetName: z.string(),

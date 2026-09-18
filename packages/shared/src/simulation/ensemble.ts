@@ -1249,8 +1249,8 @@ export function aggregateEnsemble(
   // ── Adaptive width from the blind cross-check (2026-09-18) ──
   // The simulation and a brand-blind read of the same market are two different
   // routes to an answer, and whether they land on the same market is the one
-  // signal in this engine that has replicated: agreement 79% correct,
-  // disagreement 40% (Fisher p=0.0225 on the leak-free run, p=0.0051 before).
+  // signal in this engine that has replicated: agreement 76% correct,
+  // disagreement 43% (Fisher p=0.058 on the leak-free run, p=0.0051 before).
   //
   // So the width of the recommendation follows the signal instead of being
   // fixed at two markets. Agreement earns a single-market call; disagreement
