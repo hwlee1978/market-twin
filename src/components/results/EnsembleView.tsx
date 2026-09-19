@@ -7,6 +7,7 @@ import { capture } from "@/lib/analytics/posthog";
 import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { categoryLabel } from "@/lib/simulation/taxonomy";
+import { getCountryLabel } from "@/lib/countries";
 import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
 import { formatPrice } from "@/lib/format/price";
 import { normalizeLLMText } from "@/lib/format/normalize";
@@ -45,6 +46,19 @@ import {
   IntentHistogramChart,
   PricingCurveChart,
 } from "./charts";
+import {
+  Chip,
+  CountryMark,
+  DataTable,
+  MiniStat,
+  SectionCard,
+  ShareBar,
+  StatTile,
+  ToneCallout,
+  TONE,
+  TYPO,
+  type Tone,
+} from "./ui";
 
 interface EnsembleStatus {
   id: string;
@@ -8916,9 +8930,11 @@ function RisksTab({
             isKo={isKo}
           />
         )}
-        <div className="card p-8 text-center text-slate-500">
-          {isKo ? "통합 리스크 데이터가 없습니다." : "No merged risks available."}
-        </div>
+        <SectionCard>
+          <div className={clsx(TYPO.cardBody, "py-6 text-center")}>
+            {isKo ? "통합 리스크 데이터가 없습니다." : "No merged risks available."}
+          </div>
+        </SectionCard>
       </div>
     );
   }
@@ -8928,12 +8944,21 @@ function RisksTab({
       : narrative.overallRiskLevel === "medium"
         ? isKo ? "보통" : "MEDIUM"
         : isKo ? "낮음" : "LOW";
-  const riskLevelClass =
+  const riskLevelTone: Tone =
     narrative.overallRiskLevel === "high"
-      ? "text-risk"
+      ? "risk"
       : narrative.overallRiskLevel === "medium"
-        ? "text-warn"
-        : "text-success";
+        ? "warn"
+        : "success";
+  // Fixed illustration of where this level sits on the low→high axis —
+  // not a measured value. Mirrors VarianceCard's track.
+  const riskFill =
+    narrative.overallRiskLevel === "high" ? 92 : narrative.overallRiskLevel === "medium" ? 62 : 28;
+  const sevCounts = {
+    high: narrative.mergedRisks.filter((r) => r.severity === "high").length,
+    medium: narrative.mergedRisks.filter((r) => r.severity === "medium").length,
+    low: narrative.mergedRisks.filter((r) => r.severity === "low").length,
+  };
   return (
     <div className="space-y-4">
       {secondaryCountry && (
@@ -8944,13 +8969,26 @@ function RisksTab({
           isKo={isKo}
         />
       )}
-      <div className="card p-4 flex items-center justify-between">
-        <div className="text-sm text-slate-600">
-          {isKo ? "종합 리스크 수준" : "Overall risk level"}
+      <SectionCard
+        icon={AlertCircle}
+        tone={riskLevelTone}
+        title={isKo ? "종합 리스크 수준" : "Overall risk level"}
+        note={isKo ? `리스크 ${narrative.mergedRisks.length}건` : `${narrative.mergedRisks.length} risks`}
+        actions={<Chip tone={riskLevelTone}>{riskLevelLabel}</Chip>}
+      >
+        <ShareBar
+          segments={[{ percent: riskFill, tone: riskLevelTone }]}
+          ends={[isKo ? "안정" : "Contained", isKo ? "위험" : "Exposed"]}
+          height={8}
+        />
+        <div className="mt-3.5 grid grid-cols-3 gap-2.5">
+          <MiniStat label={isKo ? "높음" : "High"} value={sevCounts.high} />
+          <MiniStat label={isKo ? "보통" : "Medium"} value={sevCounts.medium} />
+          <MiniStat label={isKo ? "낮음" : "Low"} value={sevCounts.low} />
         </div>
-        <div className={clsx("text-lg font-bold", riskLevelClass)}>{riskLevelLabel}</div>
-      </div>
-      <div className="card divide-y divide-slate-100">
+      </SectionCard>
+      <SectionCard>
+        <div className="divide-y divide-slate-100">
         {narrative.mergedRisks.map((r, i) => {
           // Match the secondary risk list's badge exactly: localized label
           // ("높음/보통/낮음") + filled pill, instead of an English text column.
@@ -8960,12 +8998,8 @@ function RisksTab({
               : r.severity === "medium"
                 ? isKo ? "보통" : "MEDIUM"
                 : isKo ? "낮음" : "LOW";
-          const sevBadge =
-            r.severity === "high"
-              ? "bg-risk text-white"
-              : r.severity === "medium"
-                ? "bg-warn text-white"
-                : "bg-slate-200 text-slate-600";
+          const sevTone: Tone =
+            r.severity === "high" ? "risk" : r.severity === "medium" ? "warn" : "neutral";
           // Persona-coverage metric — pulled from the cross-country
           // distribution matrix when the merge LLM tagged personaCategory.
           // Replaces the old "X/Y sims" framing because a sim count is
@@ -8985,10 +9019,10 @@ function RisksTab({
           const consensusInfo =
             !matrixRow && simCount > 1
               ? ratio >= 0.5
-                ? { label: isKo ? "강한 합의" : "strong consensus", className: "text-success" }
+                ? { label: isKo ? "강한 합의" : "strong consensus", tone: "success" as Tone }
                 : ratio >= 0.25
-                  ? { label: isKo ? "부분 합의" : "partial consensus", className: "text-warn" }
-                  : { label: isKo ? "단일/소수 시뮬" : "low consensus", className: "text-slate-500" }
+                  ? { label: isKo ? "부분 합의" : "partial consensus", tone: "warn" as Tone }
+                  : { label: isKo ? "단일/소수 시뮬" : "low consensus", tone: "neutral" as Tone }
               : null;
           const coverageInfo = (() => {
             if (!matrixRow) return null;
@@ -9038,7 +9072,7 @@ function RisksTab({
             if (r.scope === "cross-market") {
               return {
                 label: isKo ? "전 시장 공통" : "Cross-market",
-                className: "bg-slate-100 text-slate-700 border border-slate-200",
+                tone: "neutral" as Tone,
                 detail: isKo
                   ? "후보 진출국 전반에서 비슷한 비율로 surface"
                   : "Surfaces at similar rates across all candidate markets",
@@ -9050,7 +9084,7 @@ function RisksTab({
                 label: country
                   ? isKo ? `${country} 단일 시장` : `${country} only`
                   : isKo ? "단일 시장" : "Country-specific",
-                className: "bg-amber-50 text-amber-700 border border-amber-200",
+                tone: "warn" as Tone,
                 detail: isKo
                   ? "한 국가가 통계적으로 outlier (다른 국가 대비 1.5배 이상)"
                   : "One country is a statistical outlier (≥1.5× other markets)",
@@ -9060,7 +9094,7 @@ function RisksTab({
               label: isKo
                 ? `일부 시장${r.affectedCountries && r.affectedCountries.length > 0 ? ` (${r.affectedCountries.join(", ")})` : ""}`
                 : `Select markets${r.affectedCountries && r.affectedCountries.length > 0 ? ` (${r.affectedCountries.join(", ")})` : ""}`,
-              className: "bg-blue-50 text-blue-700 border border-blue-200",
+              tone: "brand" as Tone,
               detail: isKo
                 ? "특정 국가군에서만 surface — 단일 dominant 국가는 없음"
                 : "Surfaces only in select markets — no single dominant country",
@@ -9068,43 +9102,36 @@ function RisksTab({
           })();
 
           return (
-            <div key={i} className="p-4 flex gap-3 items-start">
-              <span className={clsx("shrink-0 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold mt-0.5", sevBadge)}>
+            <div key={i} className="flex items-start gap-3 py-3.5 first:pt-0 last:pb-0">
+              <Chip tone={sevTone} variant={r.severity === "low" ? "soft" : "solid"} className="mt-0.5 shrink-0">
                 {sevLabel}
-              </span>
+              </Chip>
               <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2 mb-0.5">
-                  <div className="text-sm font-semibold text-slate-900 min-w-0">{r.factor}</div>
+                <div className="mb-1 flex items-start justify-between gap-2">
+                  <div className="min-w-0 text-[13.5px] font-extrabold tracking-tight text-slate-900">
+                    {r.factor}
+                  </div>
                   {scopeBadge && (
-                    <span
-                      className={clsx(
-                        "shrink-0 text-[10px] font-medium px-2 py-0.5 rounded",
-                        scopeBadge.className,
-                      )}
-                      title={scopeBadge.detail}
-                    >
-                      {scopeBadge.label}
+                    <span className="shrink-0" title={scopeBadge.detail}>
+                      <Chip tone={scopeBadge.tone}>{scopeBadge.label}</Chip>
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-slate-600 leading-relaxed">{r.description}</p>
-                <div className="text-xs mt-1 flex items-center gap-2 flex-wrap">
+                <p className={TYPO.cardCopy}>{r.description}</p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11.5px]">
                   {coverageInfo ? (
-                    <span className="text-slate-500">{coverageInfo.primary}</span>
+                    <span className="font-semibold text-slate-500">{coverageInfo.primary}</span>
                   ) : (
                     <>
-                      <span className="text-slate-500">
+                      <span className="font-semibold text-slate-500">
                         {isKo
                           ? `${r.surfacedInSims}/${simCount}개 시뮬에서 언급`
                           : `Surfaced in ${r.surfacedInSims}/${simCount} sim${simCount === 1 ? "" : "s"}`}
                       </span>
                       {consensusInfo && (
-                        <>
-                          <span className="text-slate-300">·</span>
-                          <span className={clsx("font-medium", consensusInfo.className)}>
-                            {consensusInfo.label} ({(ratio * 100).toFixed(0)}%)
-                          </span>
-                        </>
+                        <Chip tone={consensusInfo.tone}>
+                          {consensusInfo.label} ({(ratio * 100).toFixed(0)}%)
+                        </Chip>
                       )}
                     </>
                   )}
@@ -9113,7 +9140,8 @@ function RisksTab({
             </div>
           );
         })}
-      </div>
+        </div>
+      </SectionCard>
       <ChartGuide isKo={isKo} label={isKo ? "심각도(severity)와 빈도(surfacedInSims) 어떻게 읽나요?" : "How to read severity & frequency"}>
         <GuideSection title={isKo ? "심각도 분류" : "Severity tiers"}>
           <ul className="list-disc pl-5 space-y-0.5 m-0">
@@ -9932,218 +9960,232 @@ function DataTab({
     { type: "actions", label: isKo ? "권장 액션" : "Recommended actions" },
     { type: "personas", label: isKo ? "페르소나 (전체)" : "All personas" },
   ];
+
+  const metaRows: MetaEntry[] = [
+    {
+      label: "Tier",
+      value: tierBadgeLabel(tier, isKo),
+      tooltip: isKo
+        ? "분석의 깊이 등급. 초기검증(1 시뮬) → 검증분석(5) → 검증분석 Plus(15) → 심층분석(25, 멀티 LLM) → 심층분석 Pro(50, 멀티 LLM)."
+        : "Analysis depth. Hypothesis(1) → Consensus(5) → Consensus Plus(15) → Triangulated(25, multi-LLM) → Triangulated Pro(50, multi-LLM).",
+    },
+    {
+      label: isKo ? "병렬 시뮬" : "Parallel sims",
+      value: String(parallelSims),
+      tooltip: isKo
+        ? "동시에 실행한 독립 시뮬 수. 시뮬마다 다른 페르소나 샘플을 사용해 합의도와 변동성을 측정합니다."
+        : "Number of independent simulations run in parallel. Each uses a different persona sample to measure consensus + variance.",
+    },
+    {
+      label: isKo ? "유효 페르소나" : "Effective personas",
+      value: effectivePersonas.toLocaleString(),
+      tooltip: isKo
+        ? "모든 시뮬에 걸쳐 생성된 총 페르소나 수. 통계적 신뢰도의 직접 척도."
+        : "Total personas generated across every sim. Direct measure of statistical confidence.",
+    },
+    {
+      label: isKo ? "LLM 라인업" : "LLM providers",
+      value: llmProviders.map(providerLabel).join(", "),
+      tooltip: isKo
+        ? "분석에 참여한 AI 모델. 심층분석 이상은 여러 모델을 번갈아 활용해 단일 모델 편향을 줄입니다."
+        : "AI models that produced this analysis. Triangulated tiers round-robin across providers to dampen single-model bias.",
+    },
+    {
+      label: isKo ? "앙상블 ID" : "Ensemble ID",
+      value: ensembleId,
+      mono: true,
+      tooltip: isKo
+        ? "이 분석의 고유 식별자. 지원 문의나 API 호출 시 참조하세요."
+        : "Unique identifier for this analysis. Reference when contacting support or calling the API.",
+    },
+    {
+      label: isKo ? "로케일" : "Locale",
+      value: locale,
+      mono: true,
+      tooltip: isKo
+        ? "분석에 사용된 언어. 페르소나 voice / 리스크 / 액션 모두 이 언어로 생성됩니다."
+        : "Language used throughout the analysis (persona voices, risks, actions all in this locale).",
+    },
+  ];
+
+  const varianceRows: MetaEntry[] = [
+    {
+      label: isKo ? "최대 점수 변동" : "Max score range",
+      value: `${varianceAssessment.maxFinalScoreRange}pt`,
+      tooltip: isKo
+        ? "한 국가 점수가 시뮬마다 얼마나 다르게 나왔는지의 최대 차이. 30점 이상이면 단일 시뮬은 신뢰하기 어렵습니다."
+        : "Largest spread of a single country's score across sims. >30 means a lone sim is unreliable.",
+    },
+    {
+      label: isKo ? "평균 변동" : "Mean range",
+      value: `${varianceAssessment.meanFinalScoreRange}pt`,
+      tooltip: isKo
+        ? "모든 국가의 점수 변동을 평균한 값. 전반적인 시뮬 안정성을 보여줍니다."
+        : "Average of every country's score range. A general read on sim-to-sim stability.",
+    },
+    {
+      label: isKo ? "변동성 등급" : "Variance label",
+      value: varianceAssessment.label.toUpperCase(),
+      tooltip: isKo
+        ? "LOW(낮음)·MODERATE(보통)·HIGH(높음). HIGH면 단일 시뮬 결과는 노이즈에 휩쓸릴 수 있으니 앙상블 합의도를 더 무겁게 보세요."
+        : "LOW · MODERATE · HIGH. HIGH means a single sim could be noisy — trust the ensemble consensus more heavily.",
+    },
+    {
+      label: isKo ? "분석 국가 수" : "Markets analyzed",
+      value: String(countryStats.length),
+      tooltip: isKo
+        ? "최종 점수가 산출된 후보 진출국 수. 규제 단계에서 차단된 국가는 여기서 제외됩니다."
+        : "Candidate markets that received a final score. Regulatory-blocked countries are excluded here.",
+    },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-base font-semibold text-slate-900 mb-3">
-          {isKo ? "데이터 내보내기 (CSV)" : "Data export (CSV)"}
-        </h2>
-        <div className="card p-4">
-          <p className="text-xs text-slate-500 mb-3 leading-relaxed">
-            {isKo
-              ? "Excel · Google Sheets · Notion에서 바로 열 수 있는 UTF-8 CSV로 다운로드합니다. 한글 표시는 BOM이 자동 포함되어 있습니다."
-              : "Downloads as UTF-8 CSV (BOM included) — opens directly in Excel / Google Sheets / Notion."}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {exportTypes.map((e) => (
-              <a
-                key={e.type}
-                href={`/api/ensembles/${ensembleId}/export?type=${e.type}&locale=${locale}`}
-                className="text-xs px-3 py-1.5 rounded-md border border-slate-200 hover:border-brand hover:text-brand text-slate-700 transition-colors"
-              >
-                {e.label} ↓
-              </a>
-            ))}
-          </div>
+    <div className="space-y-5">
+      <SectionCard
+        icon={Download}
+        tone="brand"
+        title={isKo ? "데이터 내보내기 (CSV)" : "Data export (CSV)"}
+        description={
+          isKo
+            ? "Excel · Google Sheets · Notion에서 바로 열 수 있는 UTF-8 CSV로 다운로드합니다. 한글 표시는 BOM이 자동 포함되어 있습니다."
+            : "Downloads as UTF-8 CSV (BOM included) — opens directly in Excel / Google Sheets / Notion."
+        }
+      >
+        <div className="flex flex-wrap gap-2">
+          {exportTypes.map((e) => (
+            <a
+              key={e.type}
+              href={`/api/ensembles/${ensembleId}/export?type=${e.type}&locale=${locale}`}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-50 px-3.5 py-2 text-[12.5px] font-bold text-slate-700 transition-colors hover:bg-brand hover:text-white"
+            >
+              {e.label}
+              <Download size={13} strokeWidth={2.6} />
+            </a>
+          ))}
         </div>
-      </div>
+      </SectionCard>
 
-      <div>
-        <h2 className="text-base font-semibold text-slate-900 mb-3">
-          {isKo ? "분석 메타데이터" : "Analysis metadata"}
-        </h2>
-        <div className="card divide-y divide-slate-100 text-sm">
-          <MetaRow
-            label="Tier"
-            value={tierBadgeLabel(tier, isKo)}
-            tooltip={
-              isKo
-                ? "분석의 깊이 등급. 초기검증(1 시뮬) → 검증분석(5) → 검증분석 Plus(15) → 심층분석(25, 멀티 LLM) → 심층분석 Pro(50, 멀티 LLM)."
-                : "Analysis depth. Hypothesis(1) → Consensus(5) → Consensus Plus(15) → Triangulated(25, multi-LLM) → Triangulated Pro(50, multi-LLM)."
-            }
-          />
-          <MetaRow
-            label={isKo ? "병렬 시뮬" : "Parallel sims"}
-            value={String(parallelSims)}
-            tooltip={
-              isKo
-                ? "동시에 실행한 독립 시뮬 수. 시뮬마다 다른 페르소나 샘플을 사용해 합의도와 변동성을 측정합니다."
-                : "Number of independent simulations run in parallel. Each uses a different persona sample to measure consensus + variance."
-            }
-          />
-          <MetaRow
-            label={isKo ? "유효 페르소나" : "Effective personas"}
-            value={effectivePersonas.toLocaleString()}
-            tooltip={
-              isKo
-                ? "모든 시뮬에 걸쳐 생성된 총 페르소나 수. 통계적 신뢰도의 직접 척도."
-                : "Total personas generated across every sim. Direct measure of statistical confidence."
-            }
-          />
-          <MetaRow
-            label={isKo ? "LLM 라인업" : "LLM providers"}
-            value={llmProviders.map(providerLabel).join(", ")}
-            tooltip={
-              isKo
-                ? "분석에 참여한 AI 모델. 심층분석 이상은 여러 모델을 번갈아 활용해 단일 모델 편향을 줄입니다."
-                : "AI models that produced this analysis. Triangulated tiers round-robin across providers to dampen single-model bias."
-            }
-          />
-          <MetaRow
-            label={isKo ? "앙상블 ID" : "Ensemble ID"}
-            value={ensembleId}
-            tooltip={
-              isKo
-                ? "이 분석의 고유 식별자. 지원 문의나 API 호출 시 참조하세요."
-                : "Unique identifier for this analysis. Reference when contacting support or calling the API."
-            }
-          />
-          <MetaRow
-            label={isKo ? "로케일" : "Locale"}
-            value={locale}
-            tooltip={
-              isKo
-                ? "분석에 사용된 언어. 페르소나 voice / 리스크 / 액션 모두 이 언어로 생성됩니다."
-                : "Language used throughout the analysis (persona voices, risks, actions all in this locale)."
-            }
-          />
-        </div>
-      </div>
+      <SectionCard
+        icon={HelpCircle}
+        tone="neutral"
+        title={isKo ? "분석 메타데이터" : "Analysis metadata"}
+      >
+        <MetaList rows={metaRows} />
+      </SectionCard>
 
-      <div>
-        <h2 className="text-base font-semibold text-slate-900 mb-3">
-          {isKo ? "LLM별 합의도" : "Cross-model consensus"}
-        </h2>
+      <SectionCard
+        icon={CheckCircle2}
+        tone="success"
+        title={isKo ? "LLM별 합의도" : "Cross-model consensus"}
+        note={
+          providerBreakdown && providerBreakdown.length > 0
+            ? isKo
+              ? `모델 ${providerBreakdown.length}종`
+              : `${providerBreakdown.length} models`
+            : undefined
+        }
+      >
         {!providerBreakdown || providerBreakdown.length === 0 ? (
           // Single-provider tiers (hypothesis / decision) carry no
           // cross-model signal — providerBreakdown is empty by design.
-          // Previously the whole section was hidden, which made the
-          // Data tab look mysteriously shorter for those tiers.
-          // Surface an explanation so the user knows it's tier-driven,
-          // not a missing-data bug.
-          <div className="card p-4 text-xs text-slate-500">
+          // Say so, rather than hiding the section and leaving the tab
+          // mysteriously shorter for those tiers.
+          <ToneCallout tone="neutral" icon={HelpCircle}>
             {isKo
               ? "이 분석은 단일 LLM 등급(초기검증·검증분석)이라 모델 간 합의도가 산출되지 않습니다. 검증분석 Plus 이상 등급에서 여러 모델을 라운드로빈하면 여기에 모델별 1순위 추천과 전체 합의 일치율이 표시됩니다."
               : "Single-LLM tier (Hypothesis / Consensus) — no cross-model signal to render. Run Consensus Plus or higher to see per-provider top picks and agreement rates here."}
-          </div>
+          </ToneCallout>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {providerBreakdown.map((pb) => {
               const top = pb.bestCountryDistribution[0];
               const aligned = pb.agreementWithOverallPercent;
+              const tone: Tone = aligned === 100 ? "success" : aligned >= 50 ? "neutral" : "warn";
               return (
-                <div key={pb.provider} className="card p-4">
-                  <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-                    {providerLabel(pb.provider)} · {pb.simCount}{isKo ? "개 시뮬" : " sims"}
+                <div key={pb.provider} className="rounded-xl bg-slate-50 px-4 py-3.5">
+                  <div className={TYPO.microLabel}>
+                    {providerLabel(pb.provider)} · {pb.simCount}
+                    {isKo ? "개 시뮬" : " sims"}
                   </div>
-                  <div className="text-xl font-bold text-slate-900">{top?.country ?? "—"}</div>
-                  <div className="text-xs text-slate-500 mt-0.5">
-                    {top ? `${top.percent}% ${isKo ? "지지" : "support"}` : ""}
-                  </div>
-                  <div className="mt-2 text-xs">
-                    <span
-                      className={clsx(
-                        "font-semibold",
-                        aligned === 100
-                          ? "text-success"
-                          : aligned >= 50
-                            ? "text-slate-700"
-                            : "text-warn",
-                      )}
-                    >
-                      {aligned}%
-                    </span>{" "}
-                    <span className="text-slate-500">
-                      {isKo ? "전체 합의와 일치" : "agreement w/ overall"}
+                  <div className="mt-2 flex items-center gap-2">
+                    {top?.country && <CountryMark code={top.country} size="sm" />}
+                    <span className="text-[19px] font-extrabold tracking-tight text-slate-900">
+                      {top ? getCountryLabel(top.country, locale) : "—"}
                     </span>
+                  </div>
+                  {top && (
+                    <div className={clsx("mt-0.5", TYPO.cardBody)}>
+                      {top.percent}% {isKo ? "지지" : "support"}
+                    </div>
+                  )}
+                  <div className="mt-2.5">
+                    <ShareBar segments={[{ percent: aligned, tone }]} height={6} />
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <Chip tone={tone}>{aligned}%</Chip>
+                      <span className={TYPO.cardBody}>
+                        {isKo ? "전체 합의와 일치" : "agreement w/ overall"}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
         )}
-      </div>
+      </SectionCard>
 
-      <div>
-        <h2 className="text-base font-semibold text-slate-900 mb-3">
-          {isKo ? "변동성 통계" : "Variance statistics"}
-        </h2>
-        <div className="card divide-y divide-slate-100 text-sm">
-          <MetaRow
-            label={isKo ? "최대 점수 변동" : "Max score range"}
-            value={`${varianceAssessment.maxFinalScoreRange}pt`}
-            tooltip={
-              isKo
-                ? "한 국가 점수가 시뮬마다 얼마나 다르게 나왔는지의 최대 차이. 30점 이상이면 단일 시뮬은 신뢰하기 어렵습니다."
-                : "Largest spread of a single country's score across sims. >30 means a lone sim is unreliable."
-            }
-          />
-          <MetaRow
-            label={isKo ? "평균 변동" : "Mean range"}
-            value={`${varianceAssessment.meanFinalScoreRange}pt`}
-            tooltip={
-              isKo
-                ? "모든 국가의 점수 변동을 평균한 값. 전반적인 시뮬 안정성을 보여줍니다."
-                : "Average of every country's score range. A general read on sim-to-sim stability."
-            }
-          />
-          <MetaRow
-            label={isKo ? "변동성 등급" : "Variance label"}
-            value={varianceAssessment.label.toUpperCase()}
-            tooltip={
-              isKo
-                ? "LOW(낮음)·MODERATE(보통)·HIGH(높음). HIGH면 단일 시뮬 결과는 노이즈에 휩쓸릴 수 있으니 앙상블 합의도를 더 무겁게 보세요."
-                : "LOW · MODERATE · HIGH. HIGH means a single sim could be noisy — trust the ensemble consensus more heavily."
-            }
-          />
-          <MetaRow
-            label={isKo ? "분석 국가 수" : "Markets analyzed"}
-            value={String(countryStats.length)}
-            tooltip={
-              isKo
-                ? "최종 점수가 산출된 후보 진출국 수. 규제 단계에서 차단된 국가는 여기서 제외됩니다."
-                : "Candidate markets that received a final score. Regulatory-blocked countries are excluded here."
-            }
-          />
-        </div>
-      </div>
+      <SectionCard
+        icon={AlertCircle}
+        tone={
+          varianceAssessment.label === "high"
+            ? "risk"
+            : varianceAssessment.label === "moderate"
+              ? "warn"
+              : "success"
+        }
+        title={isKo ? "변동성 통계" : "Variance statistics"}
+      >
+        <MetaList rows={varianceRows} />
+      </SectionCard>
 
-      <div>
-        <h2 className="text-base font-semibold text-slate-900 mb-3">
-          {isKo ? "크리에이티브 분석" : "Creative analysis"}
-        </h2>
-
+      <SectionCard
+        icon={Lightbulb}
+        tone="warn"
+        title={isKo ? "크리에이티브 분석" : "Creative analysis"}
+        note={
+          creative && creative.assets.length > 0
+            ? isKo
+              ? `자산 ${creative.assets.length}개`
+              : `${creative.assets.length} assets`
+            : undefined
+        }
+      >
         {/* Uploaded creative thumbnails — surface raw assets so the reader
-            can correlate score below with the actual image/concept that
+            can correlate the score below with the actual image/concept that
             was scored. Skips silently when no assets were uploaded. */}
         {projectAssetUrls && projectAssetUrls.length > 0 && (
           <div className="mb-4">
-            <div className="text-xs text-slate-500 uppercase tracking-wide mb-2">
+            <div className={clsx(TYPO.microLabel, "mb-2")}>
               {isKo ? "업로드 자산" : "Uploaded assets"}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
               {projectAssetUrls.map((url, i) => {
                 const desc = projectAssetDescriptions?.[i] ?? null;
-                const isImage = /\.(png|jpe?g|webp|gif|avif)$/i.test(url) || /^https?:\/\/.+\.(?:supabase|amazonaws|cloudfront)/i.test(url);
+                const isImage =
+                  /\.(png|jpe?g|webp|gif|avif)$/i.test(url) ||
+                  /^https?:\/\/.+\.(?:supabase|amazonaws|cloudfront)/i.test(url);
                 return (
-                  <div key={i} className="card overflow-hidden bg-white">
+                  <div
+                    key={i}
+                    className="overflow-hidden rounded-xl border border-slate-200 bg-white"
+                  >
                     {isImage ? (
                       <a href={url} target="_blank" rel="noopener noreferrer">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={url}
                           alt={desc ?? `Asset ${i + 1}`}
-                          className="w-full h-32 object-cover bg-slate-100"
+                          className="h-32 w-full bg-slate-100 object-cover"
                           loading="lazy"
                         />
                       </a>
@@ -10152,15 +10194,13 @@ function DataTab({
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block w-full h-32 bg-slate-50 flex items-center justify-center text-xs text-slate-500 break-all px-2"
+                        className="flex h-32 w-full items-center justify-center break-all bg-slate-50 px-2 text-[11.5px] text-slate-500"
                       >
                         {url.slice(0, 60)}…
                       </a>
                     )}
                     {desc && (
-                      <div className="p-2 text-[11px] text-slate-600 line-clamp-2">
-                        {desc}
-                      </div>
+                      <div className="line-clamp-2 p-2 text-[11px] text-slate-600">{desc}</div>
                     )}
                   </div>
                 );
@@ -10170,51 +10210,54 @@ function DataTab({
         )}
 
         {!creative || creative.assets.length === 0 ? (
-          // Project ran without uploaded creative assets — the runner
-          // skips this stage entirely, so the aggregate has no
-          // creative.assets to render. Previously the section was
-          // hidden silently; users assumed it was missing/broken when
-          // it was actually a result of not uploading anything to
-          // grade. Surface an explicit hint with the relevant project
-          // action ("upload creatives to populate this section").
-          <div className="card p-4 text-xs text-slate-500">
+          // The runner skips this stage entirely when a project has no
+          // uploaded creative, so the aggregate carries no assets. Say
+          // why and what to do about it — hiding the section made users
+          // read it as broken.
+          <ToneCallout tone="neutral" icon={HelpCircle}>
             {isKo
               ? "이 프로젝트는 크리에이티브(광고/패키지/이미지 등)를 업로드하지 않아 분석 대상이 없습니다. 프로젝트 설정에서 자산을 추가하고 다시 분석하면 자산별 강점·약점·평균 점수가 여기에 표시됩니다."
               : "No creative assets were uploaded for this project, so there's nothing to grade here. Add assets in the project settings and re-run the analysis to see per-asset strengths, weaknesses, and mean scores."}
-          </div>
+          </ToneCallout>
         ) : (
           <div className="space-y-3">
             {creative.assets.map((a) => (
-              <div key={a.assetName} className="card p-4">
-                <div className="flex items-baseline justify-between mb-2">
-                  <div className="text-sm font-semibold text-slate-900">{a.assetName}</div>
-                  <div className="text-lg font-bold text-brand tabular-nums">
+              <div key={a.assetName} className="rounded-xl bg-slate-50 px-4 py-3.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <div className="text-[13.5px] font-extrabold tracking-tight text-slate-900">
+                    {a.assetName}
+                  </div>
+                  <div className="text-[19px] font-extrabold tabular-nums text-brand">
                     {a.meanScore.toFixed(0)}
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <div className="text-slate-500 uppercase tracking-wide mb-1">
+                    <div className={clsx(TYPO.microLabel, "mb-1.5")}>
                       {isKo ? "강점" : "Strengths"}
                     </div>
-                    <ul className="space-y-1">
+                    <ul className="space-y-1.5">
                       {a.topStrengths.map((s, i) => (
-                        <li key={i} className="text-slate-700">
-                          • {s.point}{" "}
-                          <span className="text-slate-400">({s.surfacedInSims})</span>
+                        <li key={i} className="flex gap-2 text-[12.5px] text-slate-700">
+                          <span style={{ color: TONE.success.fg }}>▸</span>
+                          <span>
+                            {s.point} <span className="text-slate-400">({s.surfacedInSims})</span>
+                          </span>
                         </li>
                       ))}
                     </ul>
                   </div>
                   <div>
-                    <div className="text-slate-500 uppercase tracking-wide mb-1">
+                    <div className={clsx(TYPO.microLabel, "mb-1.5")}>
                       {isKo ? "약점" : "Weaknesses"}
                     </div>
-                    <ul className="space-y-1">
+                    <ul className="space-y-1.5">
                       {a.topWeaknesses.map((s, i) => (
-                        <li key={i} className="text-slate-700">
-                          • {s.point}{" "}
-                          <span className="text-slate-400">({s.surfacedInSims})</span>
+                        <li key={i} className="flex gap-2 text-[12.5px] text-slate-700">
+                          <span style={{ color: TONE.risk.fg }}>▸</span>
+                          <span>
+                            {s.point} <span className="text-slate-400">({s.surfacedInSims})</span>
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -10224,39 +10267,53 @@ function DataTab({
             ))}
           </div>
         )}
-      </div>
+      </SectionCard>
     </div>
   );
 }
 
-function MetaRow({
-  label,
-  value,
-  tooltip,
-}: {
+interface MetaEntry {
   label: string;
   value: string;
   tooltip?: string;
-}) {
+  /** Identifiers and locale codes read better monospaced. */
+  mono?: boolean;
+}
+
+/** Label/value rows inside a SectionCard, hairline-separated. */
+function MetaList({ rows }: { rows: MetaEntry[] }) {
   return (
-    <div className="flex items-center justify-between p-3 gap-3">
-      <div className="text-slate-500 flex items-center gap-1.5 min-w-0">
-        <span>{label}</span>
-        {tooltip && (
-          <span
-            className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-slate-200 text-slate-500 text-[10px] font-bold cursor-help shrink-0"
-            title={tooltip}
+    <div className="divide-y divide-slate-100">
+      {rows.map((r) => (
+        <div
+          key={r.label}
+          className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+        >
+          <div className="flex min-w-0 items-center gap-1.5 text-[12.5px] font-semibold text-slate-500">
+            <span>{r.label}</span>
+            {r.tooltip && (
+              <span
+                className="inline-flex h-3.5 w-3.5 shrink-0 cursor-help items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-500"
+                title={r.tooltip}
+              >
+                ?
+              </span>
+            )}
+          </div>
+          <div
+            className={clsx(
+              "break-all text-right text-[12.5px] font-bold text-slate-900",
+              r.mono && "font-mono text-[11.5px]",
+            )}
           >
-            ?
-          </span>
-        )}
-      </div>
-      <div className="text-slate-900 font-medium font-mono text-xs text-right break-all">
-        {value}
-      </div>
+            {r.value}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
+
 
 /**
  * Plain-language explanation for each strategy segment shown on the
