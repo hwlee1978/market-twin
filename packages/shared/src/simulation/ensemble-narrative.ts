@@ -850,15 +850,25 @@ This analysis cannot pick a single winner. ${opts.top2.primary} (1st-place vote 
   const guidance = isKo
     ? `통합 결과 작성 지침:
 
+⚠ **문체 — 전 필드 공통 (반드시 준수)**: 아래 모든 서술(executiveSummary · hotTake · mergedRisks · mergedActions)은 **보고서 문체**로 작성합니다. 임원 보고와 정부·조달 심사 자료에 그대로 실린다고 가정하세요.
+- 구어체·속어·의성의태어·유행어 금지. 예: "쪼그라듦"→"축소", "터진다"→"급성장한다", "먹힌다"→"수용된다", "각이다"→"가능성이 높다", "다 가도 됨"→"전 시장 진출이 가능하다", "진짜다"→"최적이다", "망한다"→"실패할 가능성이 높다", "빡세다"→"부담이 크다".
+- 명사형 종결(…듦, …됨, …임)로 문장을 끝내지 말고 서술형 종결(…한다, …이다) 또는 명사구로 끝내세요.
+- 감탄·과장·수식어 나열 금지. 주장에는 근거 수치를 붙이고, 근거가 없으면 단정하지 마세요.
+- 짧게 쓰되 가볍게 쓰지 마세요. 문장이 짧은 이유는 군더더기가 없기 때문이지 격식을 낮췄기 때문이 아닙니다.
+- **예외 — 페르소나가 직접 답한 내용을 인용할 때는 원문 그대로 둡니다.** 소비자의 말투를 보고서 문체로 고쳐 쓰면 데이터가 왜곡됩니다.
+
 0. **hotTake (필수, 최대 120자)**: "30초 핫테이크" — 분석 전체에서 가장 도발적이고 의사결정 가능한 한 줄 발견을 한국어로 작성. **점수가 아닌 액션**을 말하세요. 권장 진출 / 진출 회피 / 가격 재조정 / 채널 전략 등 명확한 결정을 한 줄에.
    ⚠ **국가 일치 (절대 위반 불가)**: 추천 진출국은 **${opts.bestCountry}**입니다. hotTake에서 다른 국가를 "최적", "1순위", "권장"으로 지칭하지 마세요 — sim 데이터의 합의는 ${opts.bestCountry}이고, 핫테이크는 그 합의를 요약하는 것이지 뒤집는 것이 아닙니다. 다른 국가를 언급해야 한다면 "차순위", "대안", "단, X는 별도 검토 가치"의 보조 framing만 허용.
    ⚠ **Top 2 동등 케이스 (displayMode "top2") — 단일국 단정 금지**: 만약 displayMode가 "top2"이면 (즉 score 1위와 vote 1위가 다르거나 격차가 1~3pt로 사실상 동등이면), hotTake가 "${opts.bestCountry} 지금 당장 진출" 같이 단일국을 단정하는 표현은 사용자가 두 시장 중 하나만 골랐다고 오해하게 만듭니다. 대신 "${opts.bestCountry}·차순위 동등 — Score 1위 ${opts.bestCountry}지만 Vote 1위 다름, 두 시장 동시 검토 필요" 또는 "동률 Top 2 — 단일국 결정 보류 + Consensus Plus 재실행 권장" 같은 framing을 사용하세요.
    형식 예:
-   - "❌ 미국 진출 보류 — 페르소나 73%가 가격 거부, CAC 흑자전환 8개월 이상 소요"
-   - "🔥 베트남이 진짜다 — H&B 채널 미점유 + Z세대 매운맛 트렌드 동시 기회"
-   - "⚠ 일본 진출은 가능하나 가격 -20% 필수 — 그렇지 않으면 Maruchan에 잠식"
-   - "✓ 5개국 모두 STRONG — 다 가도 됨, US부터 시작해 6개월 후 확장"
-   필수 요소: (a) 이모지 1개로 톤 시그널, (b) 명사 + 동사로 결정 표현, (c) — 뒤에 핵심 이유 1-2개 (숫자 포함). 미사여구 금지. 보고서 톤이 아닌 카톡 메시지 톤.
+   - "❌ 미국 진출 보류 — 페르소나 73%가 가격을 거부, CAC 회수까지 8개월 이상 소요"
+   - "🔥 베트남이 최적 — H&B 채널 미점유와 Z세대 매운맛 수요가 동시에 열려 있음"
+   - "⚠ 일본은 가격 20% 인하가 전제 — 현 가격 유지 시 Maruchan에 점유율 잠식"
+   - "✓ 5개국 모두 STRONG — 전 시장 진출 가능, 미국을 선행 시장으로"
+   필수 요소: (a) 이모지 1개로 톤 시그널, (b) 명사 + 동사로 결정 표현, (c) — 뒤에 핵심 이유 1-2개 (숫자 포함).
+   ⚠ **문체 (반드시 준수)**: 짧고 단정적으로 쓰되 **문어체**를 유지하세요. 임원 브리핑에서 소리 내어 읽어도 어색하지 않아야 합니다.
+   구어체·속어·의성의태어는 금지합니다 — 예: "쪼그라듦"(→ "축소"), "터진다"(→ "급성장"), "먹힌다"(→ "통한다/수용된다"), "각이다"(→ "가능성이 높다"), "다 가도 됨"(→ "전 시장 진출 가능"), "진짜다"(→ "최적이다"). 명사형 종결(…듦, …됨)보다 서술형 종결이나 명사구로 끝내세요.
+   미사여구와 형용사 나열도 금지합니다. 한 줄이 짧은 이유는 가볍기 때문이 아니라 군더더기가 없기 때문입니다.
 
    ⚠ **임의 수치 금지 (절대 위반 불가)**: hotTake에 **CAC $X / ROI X% / payback X개월** 같은 정량 수치를 inline으로 쓰지 마세요. 이 숫자는 서버가 별도 계산해서 UI/PDF의 CAC 카드에 표시합니다. hotTake가 LLM 추정 숫자로 fabricate하면 그 카드 수치와 모순됩니다. 정량 표현 대신 정성 표현 사용:
    - ❌ "CAC $18+ 인플루언서 시딩 없이 적자 확정" → 수치 사실 확인 불가, 서버 카드와 모순 위험
@@ -933,12 +943,19 @@ This analysis cannot pick a single winner. ${opts.top2.primary} (1st-place vote 
    - "200명 중", "out of 200" 같은 sim-level 카운트가 보이면 반드시 percentage-only로 바꾸거나 ensemble 총합으로 환산하세요.`
     : `Output guidance:
 
+⚠ **Register — applies to every field (strict)**: all narrative below (executiveSummary · hotTake · mergedRisks · mergedActions) is written as **report prose** — assume it will be pasted into an executive briefing or a government procurement review.
+- No slang, memes, clipped chat forms, or hype words.
+- No exclamation or stacked adjectives. Attach evidence to claims; if there is no number behind it, do not assert it.
+- Write short, but not casual. Brevity comes from cutting filler, not from lowering the register.
+- **Exception — when quoting what a persona actually said, keep their words verbatim.** Rewriting a consumer into report prose corrupts the data.
+
 0. **hotTake (required, max 120 chars)**: A "30-second hot take" — the most provocative, action-oriented finding in one English sentence. **Talk action, not score.** Examples:
    - "❌ Skip US — 73% reject the price, CAC payback >8 mo"
    - "🔥 Vietnam is the play — uncrowded H&B channel + Gen-Z spice trend"
    - "⚠ Japan works only at -20% price — otherwise Maruchan eats your share"
    - "✓ All 5 markets STRONG — go everywhere, lead with US"
-   Must have: (a) one emoji for tone, (b) noun-verb decision phrasing, (c) "—" then the 1-2 key reasons with numbers. No fluff. Sound like a Slack DM, not a consulting deck.
+   Must have: (a) one emoji for tone, (b) noun-verb decision phrasing, (c) "—" then the 1-2 key reasons with numbers. No fluff.
+   ⚠ **Register (strict)**: short and decisive, but written. It has to survive being read aloud in an executive briefing. No slang, no memes, no clipped chat forms — "Vietnam is the play" is fine, "Vietnam goes brrr" is not.
 
    ⚠ **No fabricated quantitative numbers (strict)**: Do NOT inline **CAC $X / ROI X% / payback X mo** style figures. The server computes these separately and surfaces them in the UI/PDF CAC card. If the hotTake fabricates a number, it contradicts that card. Use qualitative phrasing instead:
    - ❌ "CAC $18+ without influencer seeding kills first 6 months" → unverifiable, contradicts server card

@@ -41,8 +41,24 @@ const LANG_NAME: Record<PromptLocale, string> = {
   en: "English",
 };
 
+const REGISTER_RULE: Record<PromptLocale, string> = {
+  ko: `문체 (반드시 준수): 모든 서술은 **보고서 문체**로 작성합니다. 임원 보고와 정부·조달 심사 자료에 그대로 실린다고 가정하세요.
+- 구어체·속어·의성의태어·유행어 금지. 예: "쪼그라듦"→"축소", "터진다"→"급성장한다", "먹힌다"→"수용된다", "각이다"→"가능성이 높다", "다 가도 됨"→"전 시장 진출이 가능하다", "진짜다"→"최적이다", "망한다"→"실패할 가능성이 높다", "빡세다"→"부담이 크다".
+- 명사형 종결(…듦, …됨, …임)로 문장을 끝내지 말고 서술형 종결(…한다, …이다) 또는 명사구로 끝내세요.
+- 감탄·과장·수식어 나열 금지. 주장에는 근거 수치를 붙이고, 근거가 없으면 단정하지 마세요.
+- 짧게 쓰되 가볍게 쓰지 마세요. 문장이 짧은 이유는 군더더기가 없기 때문이지 격식을 낮췄기 때문이 아닙니다.
+- **예외 — 페르소나가 직접 답한 내용은 이 규칙에서 제외합니다.** voice(발화), objections(거부 이유), trustFactors(신뢰 요인) 등 페르소나 본인의 응답은 실제 소비자의 말이므로 그 사람의 말투·어휘·구어체를 그대로 유지하세요. 여기에 보고서 문체를 강요하면 데이터가 왜곡됩니다. 이 규칙은 분석·점수 근거·요약·리스크·액션 등 **우리가 쓰는 서술**에만 적용됩니다.`,
+  en: `Register (strict): every narrative field is written as **report prose** — assume it will be pasted into an executive briefing or a government procurement review.
+- No slang, memes, clipped chat forms, or hype words.
+- No exclamation or stacked adjectives. Attach evidence to claims; if there is no number behind it, do not assert it.
+- Write short, but not casual. Brevity comes from cutting filler, not from lowering the register.
+- **Exception — anything a persona answered is out of scope.** \`voice\`, \`objections\`, \`trustFactors\` and the like are that person speaking: keep their own diction and colloquialism. Forcing report prose onto them corrupts the data. This rule governs only the text **we** write: analysis, score rationale, summaries, risks, actions.`,
+};
+
 function languageInstruction(locale: PromptLocale): string {
-  return `IMPORTANT: All free-form text fields you produce (rationale, descriptions, names of segments, summaries, action items, channel names, objection text, profession titles, etc.) MUST be written in ${LANG_NAME[locale]}. Numerical fields, country codes, enum values like "low"/"medium"/"high", and field keys themselves stay in English.`;
+  return `IMPORTANT: All free-form text fields you produce (rationale, descriptions, names of segments, summaries, action items, channel names, objection text, profession titles, etc.) MUST be written in ${LANG_NAME[locale]}. Numerical fields, country codes, enum values like "low"/"medium"/"high", and field keys themselves stay in English.
+
+${REGISTER_RULE[locale]}`;
 }
 
 const SYSTEM_BASE = `You are AI Market Twin, a B2B platform that simulates consumer behavior across countries to predict product launch outcomes. Your job is to generate realistic, internally consistent synthetic data and scoring that an executive can act on. Be concrete, specific, and avoid generic marketing fluff.`;
