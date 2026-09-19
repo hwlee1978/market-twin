@@ -9381,9 +9381,11 @@ function ActionsTab({
             isKo={isKo}
           />
         )}
-        <div className="card p-8 text-center text-slate-500">
-          {isKo ? "통합 액션 데이터가 없습니다." : "No merged actions available."}
-        </div>
+        <SectionCard>
+          <div className={clsx(TYPO.cardBody, "py-6 text-center")}>
+            {isKo ? "통합 액션 데이터가 없습니다." : "No merged actions available."}
+          </div>
+        </SectionCard>
       </div>
     );
   }
@@ -9405,13 +9407,13 @@ function ActionsTab({
         />
       )}
       {hasScores && <ActionPriorityMatrix actions={narrative.mergedActions} isKo={isKo} />}
-      <div>
-        {hasScores && (
-          <h2 className="text-base font-semibold text-slate-900 mb-2">
-            {isKo ? "전체 액션 (우선순위 정렬)" : "All actions (sorted)"}
-          </h2>
-        )}
-        <ol className="card divide-y divide-slate-100">
+      <SectionCard
+        icon={Lightbulb}
+        tone="brand"
+        title={isKo ? "전체 액션 (우선순위 정렬)" : "All actions (sorted)"}
+        note={isKo ? `액션 ${narrative.mergedActions.length}건` : `${narrative.mergedActions.length} actions`}
+      >
+        <ol className="divide-y divide-slate-100">
           {narrative.mergedActions.map((a, i) => {
             const quad = quadrantFor(a.impact, a.effort);
             // Category-level coverage replaces the misleading textual
@@ -9430,12 +9432,17 @@ function ActionsTab({
                 : `${coverageRow.surfacedInSims}/${simCount} sim${simCount === 1 ? "" : "s"} recommended a ${categoryLabel("action", coverageRow.category, "en").toLowerCase()} action`
               : null;
             return (
-              <li key={i} className="p-4 flex gap-3 items-start">
-                <div className="shrink-0 w-6 text-sm font-bold text-brand">{i + 1}.</div>
+              <li key={i} className="flex items-start gap-3 py-3.5 first:pt-0 last:pb-0">
+                <span
+                  className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[11.5px] font-extrabold text-white"
+                  style={{ background: TONE[quad?.tone ?? "brand"].icon }}
+                >
+                  {i + 1}
+                </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-slate-700 leading-relaxed">{a.action}</p>
-                  <div className="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
-                    <span className="text-slate-500">
+                  <p className={TYPO.cardCopy}>{a.action}</p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11.5px]">
+                    <span className="font-semibold text-slate-500">
                       {coverageText
                         ? coverageText
                         : isKo
@@ -9444,16 +9451,8 @@ function ActionsTab({
                     </span>
                     {quad && (
                       <>
-                        <span className="text-slate-300">·</span>
-                        <span
-                          className={clsx(
-                            "px-1.5 py-0.5 rounded-full font-semibold text-[10px]",
-                            quad.badgeClass,
-                          )}
-                        >
-                          {quad.label[isKo ? "ko" : "en"]}
-                        </span>
-                        <span className="text-[10px] text-slate-400">
+                        <Chip tone={quad.tone}>{quad.label[isKo ? "ko" : "en"]}</Chip>
+                        <span className="font-semibold text-slate-400">
                           {isKo
                             ? `영향 ${a.impact} · 난이도 ${a.effort}`
                             : `impact ${a.impact} · effort ${a.effort}`}
@@ -9461,10 +9460,7 @@ function ActionsTab({
                       </>
                     )}
                     {a.specificity && (
-                      <>
-                        <span className="text-slate-300">·</span>
-                        <SpecificityBadge specificity={a.specificity} isKo={isKo} />
-                      </>
+                      <SpecificityBadge specificity={a.specificity} isKo={isKo} />
                     )}
                   </div>
                 </div>
@@ -9472,7 +9468,7 @@ function ActionsTab({
             );
           })}
         </ol>
-      </div>
+      </SectionCard>
       {secondaryCountry && (
         <SecondaryActionsBlock
           country={secondaryCountry}
@@ -9661,12 +9657,8 @@ function SpecificityBadge({
   >;
   isKo: boolean;
 }) {
-  const tone =
-    specificity.score >= 75
-      ? "bg-success/15 text-success"
-      : specificity.score >= 50
-        ? "bg-warn/20 text-warn-foreground"
-        : "bg-risk/15 text-risk";
+  const tone: Tone =
+    specificity.score >= 75 ? "success" : specificity.score >= 50 ? "warn" : "risk";
   const label =
     specificity.score >= 75
       ? isKo
@@ -9696,14 +9688,10 @@ function SpecificityBadge({
         ? `누락: ${missing.join(" · ")}`
         : `Missing: ${missing.join(", ")}`;
   return (
-    <span
-      className={clsx(
-        "px-1.5 py-0.5 rounded-full font-semibold text-[10px] tabular-nums",
-        tone,
-      )}
-      title={tooltip}
-    >
-      {label} {specificity.score}
+    <span title={tooltip}>
+      <Chip tone={tone} className="tabular-nums">
+        {label} {specificity.score}
+      </Chip>
     </span>
   );
 }
@@ -9893,7 +9881,7 @@ function quadrantFor(
 ):
   | {
       label: { ko: string; en: string };
-      badgeClass: string;
+      tone: Tone;
     }
   | null {
   if (typeof impact !== "number" || typeof effort !== "number") return null;
@@ -9901,27 +9889,27 @@ function quadrantFor(
   if (impact >= 2 && effort === 1) {
     return {
       label: { ko: "Quick Win", en: "Quick Win" },
-      badgeClass: "bg-success-soft text-success",
+      tone: "success",
     };
   }
   // High impact + medium-hard = Strategic
   if (impact === 3 && effort >= 2) {
     return {
       label: { ko: "Strategic", en: "Strategic" },
-      badgeClass: "bg-accent/15 text-accent",
+      tone: "brand",
     };
   }
   // Low impact + high effort = Avoid
   if (impact === 1 && effort >= 2) {
     return {
       label: { ko: "Avoid", en: "Avoid" },
-      badgeClass: "bg-warn-soft text-warn",
+      tone: "warn",
     };
   }
   // Everything else = Marginal
   return {
     label: { ko: "Marginal", en: "Marginal" },
-    badgeClass: "bg-slate-100 text-slate-500",
+    tone: "neutral",
   };
 }
 
