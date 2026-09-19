@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Loader2, CheckCircle2, AlertCircle, Download, ChevronDown, ChevronRight, HelpCircle, Lightbulb, MessageCircle, Send, X, RefreshCw, Gift, ArrowLeft, Globe2, Layers, Users } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Download, ChevronDown, ChevronRight, HelpCircle, Lightbulb, MessageCircle, Send, X, RefreshCw, Gift, ArrowLeft, Globe2, Layers, Users, Target, BarChart3, ShieldCheck } from "lucide-react";
 import { useRouter, Link } from "@/i18n/navigation";
 import { capture } from "@/lib/analytics/posthog";
 import { clsx } from "clsx";
@@ -3048,35 +3048,42 @@ function CountriesTab({
   const [expandedCountry, setExpandedCountry] = useState<string | null>(null);
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-base font-semibold text-slate-900 mb-3">
-          {isKo ? "전략별 추천" : "Picks by priority"}
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <SectionCard
+        icon={Target}
+        tone="brand"
+        title={isKo ? "전략별 추천" : "Picks by priority"}
+        description={
+          isKo
+            ? "우선순위를 무엇에 두느냐에 따라 1순위 시장이 달라집니다."
+            : "The market that comes first depends on which priority you optimise for."
+        }
+      >
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           {segments.map((seg) => (
-            <div key={seg.id} className="card p-4">
-              <div className="text-xs uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1.5">
-                <span>{segmentLabel(seg.id, isKo)}</span>
+            <div key={seg.id} className="rounded-xl bg-slate-50 px-4 py-3">
+              <div className={clsx(TYPO.microLabel, "flex items-center gap-1.5")}>
+                <span className="truncate">{segmentLabel(seg.id, isKo)}</span>
                 <span
-                  className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-slate-200 text-slate-500 text-[10px] font-bold cursor-help"
+                  className="inline-flex h-3.5 w-3.5 shrink-0 cursor-help items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-500"
                   title={segmentTooltip(seg.id, isKo)}
                 >
                   ?
                 </span>
               </div>
-              <div className="flex items-baseline gap-2">
-                <div className="text-xl font-semibold text-slate-900">
+              <div className="mt-1.5 flex items-center gap-2">
+                <CountryMark code={seg.bestCountry} size="sm" />
+                <span className="text-[17px] font-extrabold tracking-tight text-slate-900">
                   {seg.bestCountry}
-                </div>
-                <div className="text-xs text-slate-500">
-                  {seg.id === "cac" ? `$${seg.bestValue.toFixed(2)}` : seg.bestValue.toFixed(1)}
-                </div>
+                </span>
+                <span className="text-[13px] font-extrabold tabular-nums text-slate-500">
+                  {seg.id === "cac" ? `${seg.bestValue.toFixed(2)}` : seg.bestValue.toFixed(1)}
+                </span>
               </div>
               {seg.alternative && (
-                <div className="mt-1 text-xs text-slate-500">
+                <div className="mt-1.5 text-[11.5px] font-semibold text-slate-400">
                   {isKo ? "대안" : "Alt"}: {seg.alternative.country} (
                   {seg.id === "cac"
-                    ? `$${seg.alternative.value.toFixed(2)}`
+                    ? `${seg.alternative.value.toFixed(2)}`
                     : seg.alternative.value.toFixed(1)}
                   )
                 </div>
@@ -3084,38 +3091,55 @@ function CountriesTab({
             </div>
           ))}
         </div>
-      </div>
+      </SectionCard>
 
-      <div>
-        <h2 className="text-base font-semibold text-slate-900 mb-3">
-          {isKo ? "1위 국가 분포" : "Best-country distribution"}
-        </h2>
-        <div className="card p-4 space-y-2">
-          {bestCountryDistribution.map((b) => (
-            <div key={b.country} className="flex items-center gap-3 text-sm">
-              <div className="w-12 font-medium text-slate-700">{b.country}</div>
-              <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className={clsx(
-                    "h-full",
-                    b.country === recommendation.country ? "bg-success" : "bg-slate-300",
-                  )}
-                  style={{ width: `${b.percent}%` }}
+      <SectionCard
+        icon={Globe2}
+        tone="success"
+        title={isKo ? "1위 국가 분포" : "Best-country distribution"}
+        note={isKo ? `독립 시뮬 ${simCount}개` : `${simCount} independent sims`}
+      >
+        <div className="space-y-2.5">
+          {bestCountryDistribution.map((b) => {
+            const isWinner = b.country === recommendation.country;
+            return (
+              <div key={b.country} className="flex items-center gap-3">
+                <span className="flex w-24 shrink-0 items-center gap-1.5">
+                  <CountryMark code={b.country} size="sm" />
+                  <span
+                    className={clsx(
+                      "truncate text-[12.5px] font-extrabold",
+                      isWinner ? "text-slate-900" : "text-slate-600",
+                    )}
+                  >
+                    {b.country}
+                  </span>
+                </span>
+                <ShareBar
+                  className="flex-1"
+                  segments={[{ percent: b.percent, tone: isWinner ? "success" : "neutral" }]}
+                  height={8}
                 />
+                <span className="w-24 shrink-0 text-right text-[11.5px] font-bold tabular-nums text-slate-500">
+                  {b.count}/{simCount} ({b.percent}%)
+                </span>
               </div>
-              <div className="w-20 text-right text-xs text-slate-500 tabular-nums">
-                {b.count}/{simCount} ({b.percent}%)
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
-      </div>
+      </SectionCard>
 
-      <div>
-        <h2 className="text-base font-semibold text-slate-900 mb-3">
-          {isKo ? "국가별 점수 (평균)" : "Per-country mean score"}
-        </h2>
-        <div className="card p-4">
+      <SectionCard
+        icon={BarChart3}
+        tone="brand"
+        title={isKo ? "국가별 점수 (평균)" : "Per-country mean score"}
+        description={
+          isKo
+            ? "막대는 시뮬 전체 평균, 꼬리선은 최소~최대 범위입니다."
+            : "Bars are the cross-sim mean; the tail marks the min–max range."
+        }
+      >
+        <div>
           <CountryScoreChart
             data={countryStats.map((c) => ({
               country: c.country,
@@ -3151,30 +3175,34 @@ function CountriesTab({
             </ul>
           </GuideSection>
         </ChartGuide>
-      </div>
+      </SectionCard>
 
-      <div>
-        <h2 className="text-base font-semibold text-slate-900 mb-3">
-          {isKo ? "국가별 점수 분포 (전체 통계)" : "Per-country full statistics"}
-        </h2>
-        <p className="text-xs text-slate-500 mb-2">
-          {isKo
+      <SectionCard
+        icon={Layers}
+        tone="neutral"
+        title={isKo ? "국가별 점수 분포 (전체 통계)" : "Per-country full statistics"}
+        description={
+          isKo
             ? "행을 클릭하면 선정 사유 · 페르소나 요약 · 거부 요인을 펼칠 수 있습니다."
-            : "Click a row to expand rationale, persona summary, and objections."}
-        </p>
-        <div className="card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="w-8 px-3 py-2" />
-                <th className="px-4 py-2 text-left">{isKo ? "국가" : "Country"}</th>
-                <th className="px-4 py-2 text-right">{isKo ? "평균 점수" : "Mean"}</th>
-                <th className="px-4 py-2 text-right">{isKo ? "중앙값" : "Median"}</th>
-                <th className="px-4 py-2 text-right">{isKo ? "표준편차" : "Std"}</th>
-                <th className="px-4 py-2 text-right">{isKo ? "범위" : "Range"}</th>
-                <th className="px-4 py-2 text-right">{isKo ? "수요" : "Demand"}</th>
-                <th className="px-4 py-2 text-right">{isKo ? "경쟁" : "Comp"}</th>
-                <th className="px-4 py-2 text-right">CAC</th>
+            : "Click a row to expand rationale, persona summary, and objections."
+        }
+      >
+        {/* Not a DataTable: rows expand into a drilldown, which that
+            primitive does not model. Follows its conventions instead —
+            scroll container, micro column heads, hairline dividers. */}
+        <div className="-mx-1 overflow-x-auto px-1">
+          <table className="w-full min-w-max border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200">
+                <th className="w-6 pb-2" />
+                <th className={clsx(TYPO.colHead, "px-3 pb-2 text-left")}>{isKo ? "국가" : "Country"}</th>
+                <th className={clsx(TYPO.colHead, "px-3 pb-2 text-right")}>{isKo ? "평균 점수" : "Mean"}</th>
+                <th className={clsx(TYPO.colHead, "px-3 pb-2 text-right")}>{isKo ? "중앙값" : "Median"}</th>
+                <th className={clsx(TYPO.colHead, "px-3 pb-2 text-right")}>{isKo ? "표준편차" : "Std"}</th>
+                <th className={clsx(TYPO.colHead, "px-3 pb-2 text-right")}>{isKo ? "범위" : "Range"}</th>
+                <th className={clsx(TYPO.colHead, "px-3 pb-2 text-right")}>{isKo ? "수요" : "Demand"}</th>
+                <th className={clsx(TYPO.colHead, "px-3 pb-2 text-right")}>{isKo ? "경쟁" : "Comp"}</th>
+                <th className={clsx(TYPO.colHead, "px-3 pb-2 text-right")}>CAC</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -3190,7 +3218,7 @@ function CountriesTab({
                       )}
                       onClick={() => hasDetail && setExpandedCountry(isOpen ? null : c.country)}
                     >
-                      <td className="px-3 py-2 text-slate-400">
+                      <td className="py-2.5 text-slate-400">
                         {hasDetail && (
                           <ChevronRight
                             size={14}
@@ -3198,22 +3226,33 @@ function CountriesTab({
                           />
                         )}
                       </td>
-                      <td className="px-4 py-2 font-medium text-slate-900">{c.country}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">{c.finalScore.mean.toFixed(1)}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">{c.finalScore.median.toFixed(1)}</td>
-                      <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                      <td className="px-3 py-2.5">
+                        <span className="flex items-center gap-1.5">
+                          <CountryMark code={c.country} size="sm" />
+                          <span className="text-[12.5px] font-extrabold text-slate-900">
+                            {c.country}
+                          </span>
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-right text-[12.5px] font-extrabold tabular-nums text-slate-900">
+                        {c.finalScore.mean.toFixed(1)}
+                      </td>
+                      <td className={clsx(TYPO.cell, "px-3 py-2.5 text-right tabular-nums")}>
+                        {c.finalScore.median.toFixed(1)}
+                      </td>
+                      <td className="px-3 py-2.5 text-right text-[12.5px] tabular-nums text-slate-500">
                         {(c.finalScore.combinedStd ?? c.finalScore.std).toFixed(1)}
                       </td>
-                      <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                      <td className="px-3 py-2.5 text-right text-[12.5px] tabular-nums text-slate-500">
                         {c.finalScore.min.toFixed(0)}–{c.finalScore.max.toFixed(0)}
                       </td>
-                      <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                      <td className="px-3 py-2.5 text-right text-[12.5px] tabular-nums text-slate-500">
                         {c.demandScore.median.toFixed(0)}
                       </td>
-                      <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                      <td className="px-3 py-2.5 text-right text-[12.5px] tabular-nums text-slate-500">
                         {c.competitionScore.median.toFixed(0)}
                       </td>
-                      <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                      <td className="px-3 py-2.5 text-right text-[12.5px] tabular-nums text-slate-500">
                         {/* Prefer the server-computed cacRange (persona-derived,
                             calibrated against channel-costs benchmarks) over the
                             LLM-emitted median — same rule the Investment + ROI
@@ -3224,8 +3263,8 @@ function CountriesTab({
                       </td>
                     </tr>
                     {isOpen && c.detail && (
-                      <tr className="bg-slate-50/50">
-                        <td colSpan={9} className="px-8 py-5">
+                      <tr className="bg-slate-50/60">
+                        <td colSpan={9} className="px-4 py-5">
                           <CountryDrilldown
                             detail={c.detail}
                             rationaleSamples={c.detail.rationaleSamples}
@@ -3245,7 +3284,7 @@ function CountriesTab({
             </tbody>
           </table>
         </div>
-      </div>
+      </SectionCard>
 
       {/* Project-wide reference data sources — flat list of every gov-stats
           and competitor-IR source consulted across all candidate markets.
@@ -3254,21 +3293,28 @@ function CountriesTab({
           country-tagged. Showing it under one country's expand row would
           imply otherwise. */}
       {sources.length > 0 && (
-        <div>
-          <h2 className="text-base font-semibold text-slate-900 mb-3">
-            {isKo ? "통계 근거" : "Data sources"}
-          </h2>
-          <div className="card p-4">
-            <p className="text-xs text-slate-500 leading-relaxed mb-2">
-              {isKo
-                ? "이번 분석에서 검토한 모든 후보국에 사용된 정부 통계·시장 조사·IR 자료 통합 목록입니다."
-                : "Combined list of every government statistic, market study, and IR source consulted across all candidate markets in this analysis."}
-            </p>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              {sources.join(" · ")}
-            </p>
+        <SectionCard
+          icon={ShieldCheck}
+          tone="success"
+          title={isKo ? "통계 근거" : "Data sources"}
+          note={isKo ? `${sources.length}건` : `${sources.length} sources`}
+          description={
+            isKo
+              ? "이번 분석에서 검토한 모든 후보국에 사용된 정부 통계·시장 조사·IR 자료 통합 목록입니다."
+              : "Combined list of every government statistic, market study, and IR source consulted across all candidate markets in this analysis."
+          }
+        >
+          <div className="flex flex-wrap gap-1.5">
+            {sources.map((s) => (
+              <span
+                key={s}
+                className="rounded-lg bg-slate-50 px-2.5 py-1 text-[11.5px] font-semibold text-slate-600"
+              >
+                {s}
+              </span>
+            ))}
           </div>
-        </div>
+        </SectionCard>
       )}
     </div>
   );
