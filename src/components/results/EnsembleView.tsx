@@ -54,6 +54,7 @@ import {
   SectionCard,
   ShareBar,
   StatTile,
+  SectionTitle,
   ToneCallout,
   TONE,
   TYPO,
@@ -7841,10 +7842,12 @@ function DecisionAidTab({
       {/* ── Investment + ROI ──────────────────────────────────── */}
       {showInvestment && (
         <div>
-          <h2 className="text-xl font-semibold text-slate-900 mb-1">
-            {isKo ? "투자 요구치 + ROI 추정" : "Investment + ROI projection"}
-          </h2>
-          <p className="text-sm text-slate-500 leading-relaxed mb-4">
+          <SectionTitle
+            icon={BarChart3}
+            gradient={TONE.brand.icon}
+            title={isKo ? "투자 요구치 + ROI 추정" : "Investment + ROI projection"}
+          />
+          <p className="mb-4 text-[12.5px] leading-relaxed text-slate-500">
             {isKo
               ? `추천 시장 ${recCountry} 기준. 각 볼륨 티어별 마케팅 예산 + 예상 매출 + 시나리오별 변동. 실제 결과는 ±30% 변동 가능.`
               : `Based on the recommended market ${recCountry}. Marketing budget + projected revenue per volume tier, with optimistic / base / pessimistic scenarios.`}
@@ -7859,11 +7862,11 @@ function DecisionAidTab({
               persona / country detail tabs as a viability signal, not
               here as a calculation input. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-            <div className="card p-4">
-              <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+            <div className="rounded-xl bg-slate-50 px-3.5 py-2.5">
+              <div className={clsx(TYPO.microLabel, "mb-1")}>
                 {isKo ? "단가" : "Unit price"}
               </div>
-              <div className="text-xl font-bold text-slate-900 tabular-nums">
+              <div className="text-[19px] font-extrabold tabular-nums text-slate-800">
                 {fmt(headlinePrice)}
               </div>
             </div>
@@ -8022,9 +8025,9 @@ function DecisionAidTab({
           })()}
 
           {/* Volume tier table */}
-          <div className="card overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <div className="card p-5 sm:p-6">
+            <table className="w-full min-w-max border-collapse text-sm">
+              <thead className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
                 <tr>
                   <th className="px-4 py-2 text-left">{isKo ? "고객 수" : "Customers"}</th>
                   <th className="px-4 py-2 text-right">{isKo ? "마케팅 예산 (CAC × N)" : "Marketing (CAC × N)"}</th>
@@ -8067,7 +8070,7 @@ function DecisionAidTab({
               category margin (marginEstimatePct) when present; falls
               back to 35% for legacy sims. ±10pp brackets give
               pessimistic / base / optimistic. */}
-          <div className="card p-4 mt-4">
+          <div className="card mt-4 p-5 sm:p-6">
             {(() => {
               const llmMarginPct = aggregate.pricing?.marginEstimatePct;
               const baseMarginPct = llmMarginPct ?? 35;
@@ -8232,10 +8235,12 @@ function DecisionAidTab({
       {/* ── Recommendation robustness + sensitivity ──────────── */}
       {showRobustness && (
         <div>
-          <h2 className="text-xl font-semibold text-slate-900 mb-1">
-            {isKo ? "추천 견고성 + 민감도 분석" : "Recommendation robustness + sensitivity"}
-          </h2>
-          <p className="text-sm text-slate-500 leading-relaxed mb-4">
+          <SectionTitle
+            icon={ShieldCheck}
+            gradient={TONE.success.icon}
+            title={isKo ? "추천 견고성 + 민감도 분석" : "Recommendation robustness + sensitivity"}
+          />
+          <p className="mb-4 text-[12.5px] leading-relaxed text-slate-500">
             {isKo
               ? "추천 시장이 흔들리지 않는지 검증. 1순위와 2순위의 점수 격차, 각 component dimension의 취약성, 어떤 변동에서 추천이 flip될지 분석."
               : "Stress-test the recommendation. Gap to runner-up, per-component vulnerability, and what changes would flip the call."}
@@ -8302,9 +8307,9 @@ function DecisionAidTab({
               scenarios with estimated drops, (3) per-scenario flip
               determination, (4) cumulative worst-case across scenarios. */}
           {top.components && (
-            <div className="card overflow-hidden mt-5">
-              <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
-                <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold">
+            <div className="card mt-5 overflow-hidden">
+              <div className="border-b border-slate-200 bg-slate-50 px-5 py-3">
+                <div className={TYPO.microLabel}>
                   {isKo ? `${top.country}의 component별 취약성` : `${top.country} component vulnerability`}
                 </div>
                 <div className="text-[11px] text-slate-500 mt-1 leading-relaxed">
@@ -8413,11 +8418,11 @@ function DecisionAidTab({
 
           {/* Confidence overlay */}
           {aggregate.quality?.confidenceScore != null && (
-            <div className="card p-4 mt-5">
-              <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">
+            <div className="card mt-5 p-5 sm:p-6">
+              <div className={clsx(TYPO.microLabel, "mb-2")}>
                 {isKo ? "결과 신뢰도 overlay" : "Confidence overlay"}
               </div>
-              <p className="text-sm text-slate-700 leading-relaxed">
+              <p className={TYPO.cardCopy}>
                 {(() => {
                   const conf = aggregate.quality!.confidenceScore;
                   if (conf >= 75 && gap >= 8) {
@@ -8474,10 +8479,12 @@ function DecisionAidTab({
                 : "text-brand border-brand";
         return (
           <div>
-            <div className="flex items-baseline gap-2 mb-1">
-              <h2 className="text-xl font-semibold text-slate-900">
-                {isKo ? "소득대 × 구매의향 매트릭스" : "Income × intent matrix"}
-              </h2>
+            <div className="mb-1 flex items-center gap-2">
+              <SectionTitle
+                icon={Users}
+                gradient={TONE.warn.icon}
+                title={isKo ? "소득대 × 구매의향 매트릭스" : "Income × intent matrix"}
+              />
               <HelpModal
                 title={
                   isKo
@@ -8589,8 +8596,8 @@ function DecisionAidTab({
 
             {/* Analysis commentary */}
             {analysis.bullets.length > 0 && (
-              <div className="card p-5">
-                <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-3">
+              <div className="card p-5 sm:p-6">
+                <div className={clsx(TYPO.microLabel, "mb-3")}>
                   {isKo ? "분석 해석" : "Analysis"}
                 </div>
                 <div
