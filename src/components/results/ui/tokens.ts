@@ -135,3 +135,42 @@ export const TYPO = {
 
 /** Card padding, matching the Summary tab. Carries the responsive step. */
 export const CARD_PAD = "p-5 sm:p-6";
+
+/**
+ * Concrete hex values for Recharts.
+ *
+ * TONE holds `var(--color-…)` in places, which recharts cannot resolve —
+ * it writes colours as SVG attributes, not style properties, and a CSS
+ * variable there resolves to nothing. So the chart palette is spelled out
+ * literally and kept in step with TONE by hand.
+ */
+export const CHART = {
+  brand: "#0b2a5b",
+  brandLight: "#3b5bd9",
+  accent: "#2563eb",
+  violet: "#7c5cff",
+  teal: "#0ea5a4",
+  success: "#10b981",
+  warn: "#f59e0b",
+  risk: "#e11d48",
+  /** Axis ticks and de-emphasised series. */
+  muted: "#94a3b8",
+  /** Gridlines. */
+  divider: "#e8edf5",
+} as const;
+
+/**
+ * Tooltip chrome shared by every chart — the same white, radius and soft
+ * shadow as a SectionCard, so a hovered tooltip reads as part of the page
+ * rather than a recharts default.
+ */
+export const CHART_TOOLTIP = {
+  fontSize: 12.5,
+  border: "1px solid #e2e8f0",
+  borderRadius: 12,
+  boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.10)",
+  padding: "8px 12px",
+} as const;
+
+/** Axis tick styling — matches the micro-label scale. */
+export const CHART_TICK = { fontSize: 10.5, fill: CHART.muted } as const;

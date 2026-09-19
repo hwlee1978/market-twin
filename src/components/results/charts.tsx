@@ -6,9 +6,10 @@
  * further with chart config noise. Each chart is a small client-side
  * component receiving already-aggregated data — no derivations here.
  *
- * Color palette is kept inline (matched to Tailwind tokens used in
- * EnsembleView) to avoid a roundtrip through CSS variables that
- * recharts can't read at SVG-attribute time.
+ * Colours come from results/ui/tokens as literal hex. Recharts writes
+ * colours as SVG attributes, where a CSS variable resolves to nothing,
+ * so the chart palette cannot go through `var(--color-…)` the way the
+ * rest of the results page does.
  */
 
 import {
@@ -27,17 +28,13 @@ import {
   Legend,
 } from "recharts";
 import { formatPrice } from "@/lib/format/price";
+import { CHART, CHART_TICK, CHART_TOOLTIP } from "./ui/tokens";
 
 const COLORS = {
-  brand: "#0A1F4D",
-  brandLight: "#3B5BA9",
-  success: "#16A34A",
-  successSoft: "#86EFAC",
-  warn: "#CA8A04",
-  warnSoft: "#FDE68A",
-  risk: "#DC2626",
-  muted: "#94A3B8",
-  divider: "#E2E8F0",
+  ...CHART,
+  // Soft fills used only for histogram bucket tinting.
+  successSoft: "#86efac",
+  warnSoft: "#fde68a",
 };
 
 const PIE_COLORS = [COLORS.success, COLORS.brand, COLORS.warn, COLORS.muted, COLORS.brandLight];
@@ -65,18 +62,14 @@ export function IntentHistogramChart({
   return (
     <ResponsiveContainer width="100%" height={220}>
       <BarChart data={enriched} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="2 4" stroke={COLORS.divider} vertical={false} />
-        <XAxis dataKey="label" tick={{ fontSize: 10, fill: COLORS.muted }} interval={0} />
-        <YAxis tick={{ fontSize: 10, fill: COLORS.muted }} allowDecimals={false} />
+        <CartesianGrid strokeDasharray="3 5" stroke={COLORS.divider} vertical={false} />
+        <XAxis dataKey="label" tick={CHART_TICK} interval={0} />
+        <YAxis tick={CHART_TICK} allowDecimals={false} />
         <Tooltip
-          contentStyle={{
-            fontSize: 12,
-            border: `1px solid ${COLORS.divider}`,
-            borderRadius: 4,
-          }}
+          contentStyle={CHART_TOOLTIP}
           formatter={(value) => [Number(value).toLocaleString(), "personas"] as [string, string]}
         />
-        <Bar dataKey="count" radius={[3, 3, 0, 0]}>
+        <Bar dataKey="count" radius={[5, 5, 0, 0]}>
           {enriched.map((d, i) => (
             <Cell key={i} fill={d.fill} />
           ))}
@@ -100,11 +93,17 @@ export function CountryIntentChart({
         layout="vertical"
         margin={{ top: 8, right: 32, left: 16, bottom: 0 }}
       >
-        <CartesianGrid strokeDasharray="2 4" stroke={COLORS.divider} horizontal={false} />
+                <defs>
+          <linearGradient id="mtBarH" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor={COLORS.brand} />
+            <stop offset="100%" stopColor={COLORS.accent} />
+          </linearGradient>
+        </defs>
+<CartesianGrid strokeDasharray="3 5" stroke={COLORS.divider} horizontal={false} />
         <XAxis
           type="number"
           domain={[0, 100]}
-          tick={{ fontSize: 10, fill: COLORS.muted }}
+          tick={CHART_TICK}
         />
         <YAxis
           type="category"
@@ -113,13 +112,13 @@ export function CountryIntentChart({
           tick={{ fontSize: 11, fill: COLORS.brand, fontWeight: 600 }}
         />
         <Tooltip
-          contentStyle={{ fontSize: 12, border: `1px solid ${COLORS.divider}`, borderRadius: 4 }}
+          contentStyle={CHART_TOOLTIP}
           formatter={(value, _name, item) => {
             const p = (item as { payload?: { count?: number; country?: string } }).payload ?? {};
             return [`${Number(value)}% intent · n=${p.count}`, p.country ?? ""] as [string, string];
           }}
         />
-        <Bar dataKey="meanIntent" fill={COLORS.brand} radius={[0, 3, 3, 0]} />
+        <Bar dataKey="meanIntent" fill="url(#mtBarH)" radius={[0, 5, 5, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -148,11 +147,17 @@ export function CountryScoreChart({
         layout="vertical"
         margin={{ top: 8, right: 32, left: 16, bottom: 0 }}
       >
-        <CartesianGrid strokeDasharray="2 4" stroke={COLORS.divider} horizontal={false} />
+                <defs>
+          <linearGradient id="mtBarH" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor={COLORS.brand} />
+            <stop offset="100%" stopColor={COLORS.accent} />
+          </linearGradient>
+        </defs>
+<CartesianGrid strokeDasharray="3 5" stroke={COLORS.divider} horizontal={false} />
         <XAxis
           type="number"
           domain={[0, 100]}
-          tick={{ fontSize: 10, fill: COLORS.muted }}
+          tick={CHART_TICK}
         />
         <YAxis
           type="category"
@@ -161,7 +166,7 @@ export function CountryScoreChart({
           tick={{ fontSize: 11, fill: COLORS.brand, fontWeight: 600 }}
         />
         <Tooltip
-          contentStyle={{ fontSize: 12, border: `1px solid ${COLORS.divider}`, borderRadius: 4 }}
+          contentStyle={CHART_TOOLTIP}
           formatter={(value, name, item) => {
             const p = (item as { payload?: { min?: number; max?: number } }).payload ?? {};
             if (name === "mean") {
@@ -170,7 +175,7 @@ export function CountryScoreChart({
             return [String(value), String(name)] as [string, string];
           }}
         />
-        <Bar dataKey="mean" fill={COLORS.brand} radius={[0, 3, 3, 0]} />
+        <Bar dataKey="mean" fill="url(#mtBarH)" radius={[0, 5, 5, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -249,15 +254,15 @@ export function PricingCurveChart({
   return (
     <ResponsiveContainer width="100%" height={260}>
       <LineChart data={enriched} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="2 4" stroke={COLORS.divider} />
-        <XAxis dataKey="price" tick={{ fontSize: 10, fill: COLORS.muted }} interval="preserveStartEnd" />
+        <CartesianGrid strokeDasharray="3 5" stroke={COLORS.divider} />
+        <XAxis dataKey="price" tick={CHART_TICK} interval="preserveStartEnd" />
         <YAxis
           unit="%"
-          tick={{ fontSize: 10, fill: COLORS.muted }}
+          tick={CHART_TICK}
           domain={[0, "dataMax"]}
         />
         <Tooltip
-          contentStyle={{ fontSize: 12, border: `1px solid ${COLORS.divider}`, borderRadius: 4 }}
+          contentStyle={CHART_TOOLTIP}
           formatter={(value, name, item) => {
             const p = (item as { payload?: { n?: number; price?: string } }).payload ?? {};
             const label =
@@ -294,9 +299,9 @@ export function PricingCurveChart({
         <Line
           type="monotone"
           dataKey="envelope"
-          stroke={COLORS.brand}
+          stroke={COLORS.accent}
           strokeWidth={2.5}
-          dot={{ r: 3, fill: COLORS.brand }}
+          dot={{ r: 3, fill: COLORS.accent }}
           name="envelope"
           isAnimationActive={false}
         />
@@ -339,7 +344,7 @@ export function BestCountryPieChart({
           ))}
         </Pie>
         <Tooltip
-          contentStyle={{ fontSize: 12, border: `1px solid ${COLORS.divider}`, borderRadius: 4 }}
+          contentStyle={CHART_TOOLTIP}
           formatter={(value, _name, item) => {
             const p = (item as { payload?: { percent?: number; country?: string } }).payload ?? {};
             return [`${Number(value)} sims (${p.percent}%)`, p.country ?? ""] as [string, string];
