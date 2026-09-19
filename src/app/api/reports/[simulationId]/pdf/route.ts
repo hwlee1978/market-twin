@@ -174,30 +174,44 @@ export async function GET(
       })
     : new Date().toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US");
 
-  const buffer = await buildReportPdf({
-    result: {
-      overview: overviewClean as never,
-      countries: result.countries ?? [],
-      personas: result.personas ?? [],
-      pricing: result.pricing,
-      creative: result.creative ?? [],
-      risks: result.risks ?? [],
-      recommendations: result.recommendations,
-    },
-    labels: LABELS_BY_LOCALE[locale],
-    productName,
-    sources,
-    regulatory,
-    locale,
-    currency,
-    meta: {
-      simulationId,
-      runDate,
-      personaCount: (sim as { persona_count?: number }).persona_count,
-      modelProvider: (sim as { model_provider?: string | null }).model_provider,
-      modelVersion: (sim as { model_version?: string | null }).model_version,
-    },
-  });
+  let buffer: Buffer;
+  try {
+    buffer = await buildReportPdf({
+      result: {
+        overview: overviewClean as never,
+        countries: result.countries ?? [],
+        personas: result.personas ?? [],
+        pricing: result.pricing,
+        creative: result.creative ?? [],
+        risks: result.risks ?? [],
+        recommendations: result.recommendations,
+      },
+      labels: LABELS_BY_LOCALE[locale],
+      productName,
+      sources,
+      regulatory,
+      locale,
+      currency,
+      meta: {
+        simulationId,
+        runDate,
+        personaCount: (sim as { persona_count?: number }).persona_count,
+        modelProvider: (sim as { model_provider?: string | null }).model_provider,
+        modelVersion: (sim as { model_version?: string | null }).model_version,
+      },
+    });
+  } catch (err) {
+    // Font loading is the likeliest failure here: the faces are fetched
+    // from a CDN at render time and buildReportPdf now refuses to
+    // typeset in a substitute. Better a retryable error than a report
+    // that looks subtly wrong.
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[report-pdf] build failed for ${simulationId}:`, message);
+    return NextResponse.json(
+      { error: "pdf_build_failed", message, simulationId },
+      { status: 500 },
+    );
+  }
 
   // Track download (fire-and-forget)
   void supabase

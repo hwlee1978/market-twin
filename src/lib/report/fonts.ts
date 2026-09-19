@@ -68,6 +68,67 @@ Font.register({
   ],
 });
 
+/**
+ * Every face we register, as (family, weight) pairs.
+ *
+ * react-pdf fetches these from jsDelivr lazily, at the moment a glyph
+ * needs them, and a fetch that fails does not fail the render — it
+ * substitutes. That is how a published sample report ended up missing
+ * NotoSansTC-Bold: bold Traditional-Chinese text reflowed onto a
+ * fallback and the document silently came out five pages shorter.
+ *
+ * A report is a paid deliverable. Substituting is worse than failing,
+ * so `ensureFontsLoaded` below turns a missing font into an error the
+ * caller has to handle.
+ */
+const REGISTERED_FACES: ReadonlyArray<{ fontFamily: string; fontWeight: number }> = [
+  { fontFamily: "AppFont", fontWeight: 400 },
+  { fontFamily: "AppFont", fontWeight: 500 },
+  { fontFamily: "AppFont", fontWeight: 600 },
+  { fontFamily: "AppFont", fontWeight: 700 },
+  { fontFamily: "AppFontCJK", fontWeight: 400 },
+  { fontFamily: "AppFontCJK", fontWeight: 700 },
+  { fontFamily: "AppFontCJK_TC", fontWeight: 400 },
+  { fontFamily: "AppFontCJK_TC", fontWeight: 700 },
+];
+
+export class FontLoadError extends Error {
+  constructor(public readonly faces: string[]) {
+    super(`PDF fonts failed to load: ${faces.join(", ")}`);
+    this.name = "FontLoadError";
+  }
+}
+
+/**
+ * Fetch every registered face up front and throw if any is missing.
+ *
+ * Call before rendering. Loads are cached by react-pdf, so paying this
+ * cost here costs nothing later in the render — it only moves the
+ * failure to a point where we can still refuse to produce the file.
+ *
+ * One retry: these are CDN fetches and a single blip should not cost a
+ * customer their download.
+ */
+export async function ensureFontsLoaded(): Promise<void> {
+  const failed: string[] = [];
+  await Promise.all(
+    REGISTERED_FACES.map(async (face) => {
+      const label = `${face.fontFamily}@${face.fontWeight}`;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          await Font.load(face);
+          return;
+        } catch (err) {
+          if (attempt === 1) {
+            failed.push(`${label} (${err instanceof Error ? err.message : String(err)})`);
+          }
+        }
+      }
+    }),
+  );
+  if (failed.length > 0) throw new FontLoadError(failed);
+}
+
 /** True if there's at least one Hangul / kana / CJK ideograph in the string. */
 function fontForChar(ch: string): string | undefined {
   if (/[가-힯]/.test(ch)) return undefined;

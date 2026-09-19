@@ -18,7 +18,7 @@ import {
 } from "@react-pdf/renderer";
 import type * as React from "react";
 import type { Style } from "@react-pdf/types";
-import { splitByFont } from "./fonts";
+import { splitByFont, ensureFontsLoaded } from "./fonts";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { categoryLabel } from "@/lib/simulation/taxonomy";
 import {
@@ -873,6 +873,11 @@ const TIER_DISPLAY: Record<
 };
 
 export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
+  // Fonts are fetched from a CDN on demand and a failed fetch silently
+  // substitutes rather than erroring. Load them all up front so a
+  // customer never receives a report typeset in a fallback face.
+  await ensureFontsLoaded();
+
   const {
     aggregate,
     productName,

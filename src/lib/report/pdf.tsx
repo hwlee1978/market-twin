@@ -10,6 +10,7 @@ import {
   View,
   renderToBuffer,
 } from "@react-pdf/renderer";
+import { ensureFontsLoaded } from "./fonts";
 import type { SimulationResult } from "@/lib/simulation/schemas";
 import { getCountryLabel } from "@/lib/countries";
 
@@ -109,20 +110,23 @@ function splitByFont(text: string): TextRun[] {
   return runs;
 }
 
+// Kept in step with src/components/results/ui/tokens.ts and with
+// ensemble-pdf.tsx by hand — react-pdf cannot read CSS custom
+// properties, so the values are restated rather than imported.
 const C = {
-  brand: "#0A1F4D",
+  brand: "#0B2A5B",
   brandSoft: "#EAF0FB",
-  brandText: "#0A1F4D",
-  accent: "#06B6D4",
+  brandText: "#0B2A5B",
+  accent: "#2563EB",
   ink: "#0F172A",
   body: "#334155",
   muted: "#64748B",
   faint: "#94A3B8",
-  divider: "#E2E8F0",
+  divider: "#E8EDF5",
   card: "#F8FAFC",
-  success: "#16A34A",
-  warn: "#CA8A04",
-  risk: "#DC2626",
+  success: "#10B981",
+  warn: "#F59E0B",
+  risk: "#E11D48",
 };
 
 const styles = StyleSheet.create({
@@ -189,7 +193,7 @@ const styles = StyleSheet.create({
   coverEyebrow: {
     fontSize: 10,
     fontWeight: 600,
-    color: "#94CFEA",
+    color: "rgba(255,255,255,0.62)",
     letterSpacing: 1.5,
     marginBottom: 14,
   },
@@ -203,7 +207,7 @@ const styles = StyleSheet.create({
   coverProductName: {
     fontSize: 18,
     fontWeight: 500,
-    color: "#CCD8F0",
+    color: "rgba(255,255,255,0.72)",
     marginBottom: 30,
   },
   coverHeroRow: { flexDirection: "row", gap: 14, marginTop: 40 },
@@ -217,13 +221,13 @@ const styles = StyleSheet.create({
   },
   coverHeroLabel: {
     fontSize: 8,
-    color: "#94CFEA",
+    color: "rgba(255,255,255,0.62)",
     letterSpacing: 1,
     textTransform: "uppercase",
     marginBottom: 6,
   },
   coverHeroValue: { fontSize: 22, fontWeight: 700, letterSpacing: -0.4 },
-  coverHeroSub: { fontSize: 9, color: "#CCD8F0", marginTop: 4 },
+  coverHeroSub: { fontSize: 9, color: "rgba(255,255,255,0.72)", marginTop: 4 },
   coverMetaRow: {
     flexDirection: "row",
     gap: 18,
@@ -234,7 +238,7 @@ const styles = StyleSheet.create({
   coverMetaItem: { flexBasis: 0, flexGrow: 1 },
   coverMetaLabel: {
     fontSize: 8,
-    color: "#94CFEA",
+    color: "rgba(255,255,255,0.62)",
     letterSpacing: 0.8,
     textTransform: "uppercase",
     marginBottom: 3,
@@ -509,6 +513,11 @@ function CJKText({
 }
 
 export async function buildReportPdf(opts: BuildOptions): Promise<Buffer> {
+  // Fonts are fetched from a CDN on demand and a failed fetch silently
+  // substitutes rather than erroring. Load them all up front so a
+  // customer never receives a report typeset in a fallback face.
+  await ensureFontsLoaded();
+
   const {
     result,
     labels,
