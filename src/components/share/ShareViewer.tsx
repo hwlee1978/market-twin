@@ -4,6 +4,7 @@ import { CheckCircle2, TrendingUp } from "lucide-react";
 import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { formatDate } from "@/lib/format/date";
+import { Chip, CountryMark, TONE, TYPO, type Tone } from "@/components/results/ui";
 
 type EnsembleTier =
   | "hypothesis"
@@ -83,12 +84,15 @@ export function ShareViewer({
     (b) => b.country.toUpperCase() !== recommendation.country.toUpperCase(),
   );
   const tierLabel = isKo ? TIER_LABELS_KO[tier] : TIER_LABELS_EN[tier];
-  const confidenceColor =
+  // The hero is the one dark surface on this page; the text-* classes
+  // below are tuned for white cards and disappear against it, so the
+  // hero reads its colour from TONE's onDark pairing instead.
+  const confidenceOnDark =
     recommendation.confidence === "STRONG"
-      ? "text-success"
+      ? TONE.success.onDark.fg
       : recommendation.confidence === "MODERATE"
-        ? "text-warn"
-        : "text-risk";
+        ? TONE.warn.onDark.fg
+        : TONE.risk.onDark.fg;
   const expiresLabel = formatDate(shareExpiresAt, isKo) ?? "";
 
   return (
@@ -164,29 +168,40 @@ export function ShareViewer({
             ? bestCountryDistribution.find((d) => d.country === secondaryCountry)?.percent
             : undefined;
           return (
-        <div className="card p-5 sm:p-6 bg-gradient-to-br from-brand-50/40 to-white border-brand/20 border-l-4 border-l-brand">
-          <div className="flex items-start justify-between gap-3">
+        <div
+          className="relative overflow-hidden rounded-2xl p-5 text-white sm:p-6"
+          style={{ background: "linear-gradient(140deg,#111c3a,#1e2f5e 55%,#26407a)" }}
+        >
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full"
+            style={{ background: "radial-gradient(circle, rgba(99,102,241,.35), transparent 65%)" }}
+          />
+          <div className="relative flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-wider text-brand font-semibold mb-2">
+              <div className="mb-2 text-[10.5px] font-bold uppercase tracking-wider text-white/55">
                 {isTie
                   ? (isKo ? "Top 2 동등 후보" : "Top 2 candidates")
                   : (isKo ? "추천 진출국" : "Recommended market")}
               </div>
               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                <div className="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">
-                  {isTie
-                    ? `${recommendation.country} · ${secondaryCountry}`
-                    : recommendation.country}
+                <div className="flex items-center gap-2.5">
+                  <CountryMark code={recommendation.country} size="md" />
+                  <span className="text-[34px] font-extrabold tracking-tight sm:text-[40px]">
+                    {isTie
+                      ? `${recommendation.country} · ${secondaryCountry}`
+                      : recommendation.country}
+                  </span>
                 </div>
                 <div className="text-sm">
                   {isTie ? (
                     <>
-                      <span className="font-semibold text-warn">
+                      <span className="font-bold" style={{ color: TONE.warn.onDark.fg }}>
                         {isKo
                           ? `1순위 vote ${pv ?? 0}% vs ${sv ?? 0}%`
                           : `1st-place vote ${pv ?? 0}% vs ${sv ?? 0}%`}
                       </span>
-                      <span className="text-slate-500 ml-2">
+                      <span className="ml-2 text-white/55">
                         ·{" "}
                         {isKo
                           ? `1위표 합의도 ${recommendation.consensusPercent}%`
@@ -195,32 +210,32 @@ export function ShareViewer({
                     </>
                   ) : (
                     <>
-                      <span className={clsx("font-semibold", confidenceColor)}>
+                      <span className="font-bold" style={{ color: confidenceOnDark }}>
                         {recommendation.consensusPercent}% {isKo ? "합의" : "consensus"}
                       </span>
-                      <span className="text-slate-500 ml-2">({recommendation.confidence})</span>
+                      <span className="ml-2 text-white/55">({recommendation.confidence})</span>
                     </>
                   )}
                 </div>
               </div>
               {isTie && (
-                <div className="mt-2 text-xs text-warn leading-snug">
+                <div className="mt-2 text-[11.5px] leading-snug" style={{ color: TONE.warn.onDark.fg }}>
                   {isKo
                     ? `점수 격차가 작아 단일 winner 결론 불가. 두 시장 모두 진입 검토 권장.`
                     : `Score gap is narrow — defer single-country decision and evaluate both.`}
                 </div>
               )}
             </div>
-            <CheckCircle2 className={clsx(confidenceColor, "shrink-0")} size={32} />
+            <CheckCircle2 className="shrink-0" size={32} style={{ color: confidenceOnDark }} />
           </div>
           {!isTie && runnerUp && (
-            <div className="mt-3 text-xs text-slate-500">
+            <div className="relative mt-3 text-[11.5px] text-white/60">
               {isKo
                 ? `2위: ${runnerUp.country} (${runnerUp.count}/${simCount} 시뮬, ${runnerUp.percent}%)`
                 : `Runner-up: ${runnerUp.country} (${runnerUp.count}/${simCount} sims, ${runnerUp.percent}%)`}
             </div>
           )}
-          <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-500">
+          <div className="relative mt-4 border-t border-white/12 pt-3 text-[11.5px] text-white/60">
             {isKo
               ? `${simCount}개 독립 시뮬레이션의 합의 결과 · ${effectivePersonas.toLocaleString()}명 페르소나 평균`
               : `Consensus across ${simCount} independent sims · ${effectivePersonas.toLocaleString()} aggregated personas`}
@@ -248,12 +263,15 @@ export function ShareViewer({
             : undefined;
           return (
             <div>
-              <h2 className="text-base font-semibold text-slate-900 mb-2">
+              <h2 className={clsx(TYPO.cardTitle, "mb-2")}>
                 {isKo ? "종합 의견" : "Executive summary"}
               </h2>
               {isTie2 && (
-                <div className="card border-warn/40 bg-warn-soft/20 p-4 mb-3">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-warn mb-1">
+                <div
+                  className="mb-3 rounded-xl border-l-[3px] px-4 py-3"
+                  style={{ background: TONE.warn.soft, borderColor: TONE.warn.solid }}
+                >
+                  <div className="mb-1 text-[10.5px] font-bold uppercase tracking-wider text-warn">
                     {isKo
                       ? "⚠ 본 종합 의견은 단일 winner 가정 하에 작성됨"
                       : "⚠ This summary was written assuming a single winner"}
@@ -277,13 +295,13 @@ export function ShareViewer({
         {/* Strategy picks */}
         {segments.length > 0 && (
           <div>
-            <h2 className="text-base font-semibold text-slate-900 mb-3">
+            <h2 className={clsx(TYPO.cardTitle, "mb-3")}>
               {isKo ? "전략별 추천" : "Strategy picks"}
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {segments.map((seg) => (
-                <div key={seg.id} className="card p-4">
-                  <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
+                <div key={seg.id} className="card p-5 sm:p-6">
+                  <div className={clsx(TYPO.microLabel, "mb-1")}>
                     {(() => {
                       // Same locale fallback as EnsembleView.segmentLabel —
                       // older aggregates persist seg.labelKo in Korean only.
@@ -321,12 +339,12 @@ export function ShareViewer({
         {/* Country stats */}
         {countryStats.length > 0 && (
           <div>
-            <h2 className="text-base font-semibold text-slate-900 mb-3">
+            <h2 className={clsx(TYPO.cardTitle, "mb-3")}>
               {isKo ? "국가별 점수 분포" : "Per-country score distribution"}
             </h2>
-            <div className="card overflow-x-auto">
-              <table className="w-full text-sm min-w-[540px]">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <div className="card overflow-x-auto p-5 sm:p-6">
+              <table className="w-full min-w-[540px] text-sm">
+                <thead className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
                   <tr>
                     <th className="px-4 py-2 text-left">{isKo ? "국가" : "Country"}</th>
                     <th className="px-4 py-2 text-right">{isKo ? "평균" : "Mean"}</th>
@@ -391,27 +409,22 @@ export function ShareViewer({
         {/* Risks */}
         {narrative?.mergedRisks?.length ? (
           <div>
-            <h2 className="text-base font-semibold text-slate-900 mb-3">
+            <h2 className={clsx(TYPO.cardTitle, "mb-3")}>
               {isKo ? "주요 리스크" : "Key risks"}
             </h2>
-            <div className="card divide-y divide-slate-100">
+            <div className="card divide-y divide-slate-100 p-5 sm:p-6">
               {narrative.mergedRisks.slice(0, 8).map((r, i) => {
-                const sevClass =
-                  r.severity === "high"
-                    ? "text-risk"
-                    : r.severity === "medium"
-                      ? "text-warn"
-                      : "text-slate-500";
+                const sevTone: Tone =
+                  r.severity === "high" ? "risk" : r.severity === "medium" ? "warn" : "neutral";
                 return (
-                  <div key={i} className="p-4 flex gap-3 items-start">
-                    <div
-                      className={clsx(
-                        "shrink-0 w-16 text-[10px] font-bold uppercase tracking-wider pt-0.5",
-                        sevClass,
-                      )}
+                  <div key={i} className="flex items-start gap-3 py-3.5 first:pt-0 last:pb-0">
+                    <Chip
+                      tone={sevTone}
+                      variant={r.severity === "low" ? "soft" : "solid"}
+                      className="mt-0.5 shrink-0"
                     >
                       {r.severity}
-                    </div>
+                    </Chip>
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-semibold text-slate-900 mb-0.5">{r.factor}</div>
                       <p className="text-sm text-slate-600 leading-relaxed">{r.description}</p>
@@ -426,14 +439,19 @@ export function ShareViewer({
         {/* Actions */}
         {narrative?.mergedActions?.length ? (
           <div>
-            <h2 className="text-base font-semibold text-slate-900 mb-3">
+            <h2 className={clsx(TYPO.cardTitle, "mb-3")}>
               {isKo ? "권장 액션" : "Recommended actions"}
             </h2>
-            <ol className="card divide-y divide-slate-100">
+            <ol className="card divide-y divide-slate-100 p-5 sm:p-6">
               {narrative.mergedActions.slice(0, 8).map((a, i) => (
-                <li key={i} className="p-4 flex gap-3 items-start">
-                  <div className="shrink-0 w-6 text-sm font-bold text-brand">{i + 1}.</div>
-                  <p className="min-w-0 flex-1 text-sm text-slate-700 leading-relaxed">{a.action}</p>
+                <li key={i} className="flex items-start gap-3 py-3.5 first:pt-0 last:pb-0">
+                  <span
+                    className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[11.5px] font-extrabold text-white"
+                    style={{ background: TONE.brand.icon }}
+                  >
+                    {i + 1}
+                  </span>
+                  <p className={clsx("min-w-0 flex-1", TYPO.cardCopy)}>{a.action}</p>
                 </li>
               ))}
             </ol>
@@ -443,7 +461,7 @@ export function ShareViewer({
         {/* Variance assessment */}
         <div
           className={clsx(
-            "card p-4 flex gap-3 items-start",
+            "card flex items-start gap-3 p-5 sm:p-6",
             varianceAssessment.label === "high" && "bg-warn-soft/40 border-warn-soft",
             varianceAssessment.label === "moderate" && "bg-slate-50",
           )}
