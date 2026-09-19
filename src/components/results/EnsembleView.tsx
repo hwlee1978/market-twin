@@ -790,7 +790,7 @@ function EnsembleProgress({
 
       {confirmCancel && (
         <div
-          className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4 backdrop-blur-[2px]"
           onClick={() => !cancelling && setConfirmCancel(false)}
         >
           <div
@@ -2713,7 +2713,7 @@ function FreeRerunCta({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4 backdrop-blur-[2px]"
           onClick={() => !busy && setOpen(false)}
         >
           <div
@@ -4388,7 +4388,7 @@ function MarketProfileTab({
             <div className="space-y-4">
               {gtm.keyMessage && (
                 <div>
-                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                  <div className={clsx(TYPO.microLabel, "mb-1")}>
                     {isKo ? "핵심 메시지" : "Key message"}
                   </div>
                   <p className="text-base font-semibold text-slate-900 leading-relaxed">
@@ -4398,7 +4398,7 @@ function MarketProfileTab({
               )}
               {gtm.primaryAudience && (
                 <div>
-                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                  <div className={clsx(TYPO.microLabel, "mb-1")}>
                     {isKo ? "1차 타겟 (ICP)" : "Primary audience (ICP)"}
                   </div>
                   <p className="text-sm text-slate-700 leading-relaxed">{gtm.primaryAudience}</p>
@@ -4925,7 +4925,7 @@ function SecondaryCountryMarketSection({
             <div className="space-y-4">
               {gtm.keyMessage && (
                 <div>
-                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                  <div className={clsx(TYPO.microLabel, "mb-1")}>
                     {isKo ? "핵심 메시지" : "Key message"}
                   </div>
                   <p className="text-base font-semibold text-slate-900 leading-relaxed">
@@ -4935,7 +4935,7 @@ function SecondaryCountryMarketSection({
               )}
               {gtm.primaryAudience && (
                 <div>
-                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                  <div className={clsx(TYPO.microLabel, "mb-1")}>
                     {isKo ? "1차 타겟 (ICP)" : "Primary audience (ICP)"}
                   </div>
                   <p className="text-sm text-slate-700 leading-relaxed">{gtm.primaryAudience}</p>
@@ -5387,7 +5387,7 @@ function WelcomeModal({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4 backdrop-blur-[2px]"
       onClick={onDismiss}
     >
       <div
@@ -5656,15 +5656,15 @@ function SegmentTable({
 }) {
   return (
     <div>
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+      <div className={clsx(TYPO.microLabel, "mb-2")}>
         {title}
       </div>
-      <div className="card p-3">
+      <div className="card p-4">
         {rows.length === 0 ? (
-          <div className="text-xs text-slate-400 text-center py-2">—</div>
+          <div className={clsx(TYPO.cardBody, "py-2 text-center")}>—</div>
         ) : (
           <table className="w-full text-xs">
-            <thead className="text-slate-500">
+            <thead className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
               <tr>
                 <th className="text-left py-1 pr-2 font-medium">{isKo ? "그룹" : "Bucket"}</th>
                 <th className="text-right py-1 px-1 font-medium">n</th>
@@ -5783,16 +5783,16 @@ function AllPersonasModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4 backdrop-blur-[2px]"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl max-w-[96vw] w-full max-h-[92vh] flex flex-col"
+        className="flex max-h-[92vh] w-full max-w-[96vw] flex-col rounded-2xl bg-white shadow-[0_24px_64px_-16px_rgba(15,23,42,.45)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-baseline justify-between p-5 border-b border-slate-100">
+        <div className="flex items-baseline justify-between border-b border-slate-100 p-5 sm:p-6">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">
+            <h2 className="text-[17px] font-extrabold tracking-tight text-slate-900">
               {isKo ? "모든 페르소나" : "All personas"}
             </h2>
             <p className="text-xs text-slate-500 mt-1">
@@ -6147,14 +6147,14 @@ function PersonaChatModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4 backdrop-blur-[2px]"
     >
       <div
-        className="bg-white rounded-xl shadow-2xl max-w-2xl w-full flex flex-col max-h-[85vh]"
+        className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-[0_24px_64px_-16px_rgba(15,23,42,.45)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header — pinned persona profile */}
-        <div className="px-5 py-4 border-b border-slate-200 flex items-start gap-3">
+        <div className="flex items-start gap-3 border-b border-slate-200 px-5 py-4 sm:px-6">
           <div className="flex-1 min-w-0">
             <div className="text-[10px] font-bold uppercase tracking-wider text-accent mb-1">
               {isKo ? "이 페르소나에게 질문하기" : "Ask this persona"}
@@ -6448,7 +6448,7 @@ function PricingSensitivityPanel({
         const priceDeltaPct = (ratio - 1) * 100;
         const direction = ratio > 1 ? "↑" : "↓";
         return (
-          <div className="rounded-lg border border-brand/30 bg-brand-50/40 px-4 py-3 mb-4">
+          <div className="mb-4 rounded-xl bg-brand-50/60 px-4 py-3 ring-1 ring-inset ring-brand/20">
             <div className="flex items-baseline justify-between gap-2 flex-wrap mb-1">
               <div className="text-[11px] uppercase tracking-wide font-bold text-brand">
                 {isKo ? "매출 우선 시나리오" : "Revenue-priority alternative"}
@@ -6930,19 +6930,19 @@ function PricingTab({
               that's the real moment of decision. */}
           {recEqCurve && effectiveCurveMax != null ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+              <div className="rounded-xl bg-slate-50 px-4 py-3">
+                <div className={clsx(TYPO.microLabel, "mb-1")}>
                   {isKo ? "본인 입력 가격" : "Your input"}
                 </div>
-                <div className="text-base font-bold text-slate-900 tabular-nums">
+                <div className="text-[17px] font-extrabold tabular-nums text-slate-800">
                   {fmt(basePriceCents)}
                 </div>
               </div>
-              <div className="rounded-lg border border-brand/30 bg-brand-50/40 px-4 py-3">
-                <div className="text-[10px] uppercase tracking-wide text-brand font-semibold mb-1">
+              <div className="rounded-xl bg-brand-50/60 px-4 py-3 ring-1 ring-inset ring-brand/20">
+                <div className="mb-1 text-[10.5px] font-bold uppercase tracking-wider text-brand">
                   {isKo ? "추천 가격" : "Recommended"}
                 </div>
-                <div className="text-base font-bold text-slate-900 tabular-nums">
+                <div className="text-[17px] font-extrabold tabular-nums text-slate-800">
                   {fmt(pricing.recommendedPriceCents)}
                 </div>
                 <div className="text-[10px] text-success mt-0.5 inline-flex items-center gap-1">
@@ -6962,19 +6962,19 @@ function PricingTab({
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+              <div className="rounded-xl bg-slate-50 px-4 py-3">
+                <div className={clsx(TYPO.microLabel, "mb-1")}>
                   {isKo ? "본인 입력 가격" : "Your input"}
                 </div>
-                <div className="text-base font-bold text-slate-900 tabular-nums">
+                <div className="text-[17px] font-extrabold tabular-nums text-slate-800">
                   {fmt(basePriceCents)}
                 </div>
               </div>
-              <div className="rounded-lg border border-brand/30 bg-brand-50/40 px-4 py-3">
-                <div className="text-[10px] uppercase tracking-wide text-brand font-semibold mb-1">
+              <div className="rounded-xl bg-brand-50/60 px-4 py-3 ring-1 ring-inset ring-brand/20">
+                <div className="mb-1 text-[10.5px] font-bold uppercase tracking-wider text-brand">
                   {isKo ? "LLM 추천" : "LLM rec"}
                 </div>
-                <div className="text-base font-bold text-slate-900 tabular-nums">
+                <div className="text-[17px] font-extrabold tabular-nums text-slate-800">
                   {fmt(pricing.recommendedPriceCents)}
                 </div>
                 {baseEqRec && (
@@ -6984,11 +6984,11 @@ function PricingTab({
                 )}
               </div>
               {effectiveCurveMax != null && (
-                <div className="rounded-lg border border-success/30 bg-success-soft/30 px-4 py-3">
+                <div className="rounded-xl bg-success-soft/40 px-4 py-3 ring-1 ring-inset ring-success/25">
                   <div className="text-[10px] uppercase tracking-wide text-success font-semibold mb-1">
                     {isKo ? "곡선 매출 최대점" : "Curve max"}
                   </div>
-                  <div className="text-base font-bold text-slate-900 tabular-nums">
+                  <div className="text-[17px] font-extrabold tabular-nums text-slate-800">
                     {fmt(effectiveCurveMax)}
                   </div>
                   {baseEqCurve && (
@@ -7249,7 +7249,7 @@ function PricingTab({
       {/* Pricing range rationale — visible when range was dynamically
           adjusted from the default 0.5x-2.0x band. */}
       {pricing.range && pricing.range.rationale && pricing.range.rationale.length > 0 && (
-        <div className="rounded-lg border border-brand/20 bg-brand-50/40 px-4 py-3 text-xs text-slate-700 leading-relaxed">
+        <div className="rounded-xl bg-brand-50/60 px-4 py-3 text-[12.5px] leading-relaxed text-slate-700 ring-1 ring-inset ring-brand/15">
           <span className="font-semibold text-brand mr-1.5">
             {isKo ? "가격 곡선 탐색 범위:" : "Curve range:"}
           </span>
