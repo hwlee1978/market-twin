@@ -51,18 +51,31 @@ import {
   type ComponentKey,
 } from "@/lib/decision-aid/stress-scenarios";
 
+/**
+ * Report palette.
+ *
+ * Kept in step with `src/components/results/ui/tokens.ts` by hand — the
+ * web tokens are CSS custom properties and Tailwind classes, neither of
+ * which react-pdf can read, so the values are restated here rather than
+ * imported. When a colour changes there, change it here too: a customer
+ * who reads the dashboard and then downloads the PDF should not see two
+ * different greens.
+ */
 const C = {
-  brand: "#0A1F4D",
+  brand: "#0B2A5B",
+  /** Mid-tone of the dashboard's hero gradient — used for the cover. */
+  brandDeep: "#1E2F5E",
   brandSoft: "#EAF0FB",
+  accent: "#2563EB",
   ink: "#0F172A",
   body: "#334155",
   muted: "#64748B",
   faint: "#94A3B8",
-  divider: "#E2E8F0",
+  divider: "#E8EDF5",
   card: "#F8FAFC",
-  success: "#16A34A",
-  warn: "#CA8A04",
-  risk: "#DC2626",
+  success: "#10B981",
+  warn: "#F59E0B",
+  risk: "#E11D48",
 };
 
 type TierName =
@@ -342,7 +355,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 3,
-    backgroundColor: C.brand,
+    backgroundColor: C.accent,
   },
   pageHeader: {
     position: "absolute",
@@ -376,7 +389,10 @@ const styles = StyleSheet.create({
     padding: 0,
     fontFamily: "AppFont",
     color: "#FFFFFF",
-    backgroundColor: C.brand,
+    // The dashboard hero is a navy gradient; react-pdf has no gradient
+    // fill, so the cover takes its mid-tone rather than the darker
+    // brand — that is the colour a reader remembers from the screen.
+    backgroundColor: C.brandDeep,
   },
   coverInner: {
     padding: 56,
@@ -386,7 +402,7 @@ const styles = StyleSheet.create({
   coverEyebrow: {
     fontSize: 10,
     fontWeight: 600,
-    color: "#94CFEA",
+    color: "rgba(255,255,255,0.62)",
     letterSpacing: 1.5,
     marginBottom: 14,
   },
@@ -398,18 +414,18 @@ const styles = StyleSheet.create({
   },
   coverProduct: {
     fontSize: 14,
-    color: "#C7D7F5",
+    color: "rgba(255,255,255,0.72)",
     marginBottom: 32,
   },
   coverRecCard: {
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 24,
     marginBottom: 24,
   },
   coverRecLabel: {
     fontSize: 9,
-    color: "#94CFEA",
+    color: "rgba(255,255,255,0.62)",
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 6,
