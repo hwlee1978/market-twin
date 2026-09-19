@@ -276,15 +276,20 @@ export async function mergeNarrative(
       prompt,
       jsonSchema: zodToJsonShape(),
       temperature: 0.3,
-      // Bumped from 4096 → 8192 (2026-05-20). Original 4096 was undersized
-      // for decision-tier merges (6 sims × executiveSummary + mergedRisks
-      // + mergedActions). Truncation caused partial JSON to parse as an
-      // array (the first risks/actions item), which failed the top-level
-      // object schema and forced fallback to narrativeFromRawSnapshots —
-      // cosmetic when other paths held up, but combined with stuck-state
-      // bug (orchestrator killed during long merge) produced silent
-      // half-finished ensembles. See [[benchmark_v11_sonnet_4cat]].
-      maxTokens: 8192,
+      // 4096 → 8192 (2026-05-20) → 16384 (2026-09-20).
+      //
+      // Truncation here does not surface as an error: the partial JSON
+      // parses as an array (the first risks/actions item), fails the
+      // top-level object schema, and silently falls back to
+      // narrativeFromRawSnapshots — which produces no hotTake at all,
+      // so the card simply vanishes from the report.
+      //
+      // 8192 held until the register rules landed (2026-09-19): report
+      // prose runs longer than the chat-register prose the prompt used
+      // to ask for, and a decision-tier merge started clipping. Headroom
+      // is cheap — output is billed on tokens produced, not on the
+      // ceiling — and a clipped merge costs the whole call.
+      maxTokens: 16384,
     });
     const parsed = MERGE_RESPONSE_SCHEMA.safeParse(res.json);
     if (!parsed.success) {
