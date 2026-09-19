@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Loader2, CheckCircle2, AlertCircle, Download, ChevronDown, ChevronRight, HelpCircle, Lightbulb, MessageCircle, Send, X, RefreshCw, Gift, ArrowLeft } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Download, ChevronDown, ChevronRight, HelpCircle, Lightbulb, MessageCircle, Send, X, RefreshCw, Gift, ArrowLeft, Globe2, Layers, Users } from "lucide-react";
 import { useRouter, Link } from "@/i18n/navigation";
 import { capture } from "@/lib/analytics/posthog";
 import { clsx } from "clsx";
@@ -1086,13 +1086,6 @@ function EnsembleDashboard({
     }
   };
 
-  const confidenceColor =
-    recommendation.confidence === "STRONG"
-      ? "text-success"
-      : recommendation.confidence === "MODERATE"
-        ? "text-warn"
-        : "text-risk";
-
   return (
     <div className="space-y-6">
       {/* Beta accuracy notice — only on the lightest (hypothesis) tier,
@@ -1295,7 +1288,6 @@ function EnsembleDashboard({
         <OverviewTab
           narrative={narrative}
           recommendation={recommendation}
-          confidenceColor={confidenceColor}
           simCount={simCount}
           effectivePersonas={effectivePersonas}
           tier={tier}
@@ -2030,7 +2022,6 @@ type SecondaryPricingItem = {
 function OverviewTab({
   narrative,
   recommendation,
-  confidenceColor,
   simCount,
   effectivePersonas,
   tier,
@@ -2048,7 +2039,6 @@ function OverviewTab({
 }: {
   narrative: EnsembleAggregate["narrative"];
   recommendation: EnsembleAggregate["recommendation"];
-  confidenceColor: string;
   simCount: number;
   effectivePersonas: number;
   tier: string;
@@ -2139,17 +2129,16 @@ function OverviewTab({
   return (
     <div className="space-y-6">
       {isTie && (
-        <div className="card border-warn/40 bg-warn-soft/30 p-4 flex items-start gap-3">
-          <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-warn/20 text-warn shrink-0 font-bold">
-            !
-          </span>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-warn mb-1">
-              {isKo
-                ? `Top ${tieCountries.length} 동등 후보 — 단일 winner 결론 불가`
-                : `${tieCountries.length}-way tie — no single winner`}
-            </h3>
-            <p className="text-xs text-slate-700 leading-relaxed">
+        <ToneCallout
+          tone="warn"
+          icon={AlertCircle}
+          title={
+            isKo
+              ? `Top ${tieCountries.length} 동등 후보 — 단일 winner 결론 불가`
+              : `${tieCountries.length}-way tie — no single winner`
+          }
+        >
+          <>
               {isKo
                 ? `${tieCountries
                     .map((c) => {
@@ -2169,37 +2158,39 @@ function OverviewTab({
                       return `${c} (${vote}${mean ? `, ${mean}` : ""})`;
                     })
                     .join(" / ")} — score-winner ≠ vote-winner. Evaluate both; additional sims (Consensus Plus or Deep) needed for a single-country conclusion.`}
-            </p>
-          </div>
-        </div>
+          </>
+        </ToneCallout>
       )}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile
+          index={0}
+          icon={Globe2}
           label={isKo ? "추천 진출국" : "Recommended"}
           value={isTie ? tieCountries.join(" · ") : recommendation.country}
-          sub={isTie ? (isKo ? "동등 후보" : "tied") : undefined}
-          accent={isTie ? "warn" : confidenceColor}
+          suffix={isTie ? (isKo ? " 동등" : " tied") : undefined}
         />
-        <KpiCard
-          label={isKo ? "합의도" : "Consensus"}
-          value={
-            isTie && top ? `${top.percent}%` : `${recommendation.consensusPercent}%`
-          }
-          sub={
+        <StatTile
+          index={1}
+          icon={CheckCircle2}
+          label={
             isTie
               ? isKo
-                ? `${tieCountries.length}-way 동등`
-                : `${tieCountries.length}-way tie`
-              : recommendation.confidence
+                ? `합의도 · ${tieCountries.length}-way 동등`
+                : `Consensus · ${tieCountries.length}-way tie`
+              : `${isKo ? "합의도" : "Consensus"} · ${recommendation.confidence}`
           }
-          accent={isTie ? "warn" : confidenceColor}
+          value={isTie && top ? top.percent : recommendation.consensusPercent}
+          suffix="%"
         />
-        <KpiCard
-          label={isKo ? "시뮬 수" : "Sims"}
-          value={String(simCount)}
-          sub={tierBadgeLabel(tier, isKo)}
+        <StatTile
+          index={2}
+          icon={Layers}
+          label={`${isKo ? "시뮬 수" : "Sims"} · ${tierBadgeLabel(tier, isKo)}`}
+          value={simCount}
         />
-        <KpiCard
+        <StatTile
+          index={3}
+          icon={Users}
           label={isKo ? "유효 페르소나" : "Effective personas"}
           value={effectivePersonas.toLocaleString()}
         />
@@ -2208,11 +2199,8 @@ function OverviewTab({
       {/* Key findings — bullet list of the 5-7 most-actionable headlines.
           Each bullet should leave the reader knowing what to do next, not
           just what the number is. */}
-      <div>
-        <h2 className="text-base font-semibold text-slate-900 mb-3">
-          {isKo ? "핵심 발견" : "Key findings"}
-        </h2>
-        <ul className="card p-5 space-y-3 text-sm text-slate-700 leading-relaxed">
+      <SectionCard icon={Lightbulb} tone="warn" title={isKo ? "핵심 발견" : "Key findings"}>
+        <ul className="space-y-3 text-[13px] leading-relaxed text-slate-700">
           {isTie && (
             <li className="flex gap-3">
               <span className="shrink-0 text-warn font-bold">·</span>
@@ -2443,49 +2431,49 @@ function OverviewTab({
             </span>
           </li>
         </ul>
-      </div>
+      </SectionCard>
 
       {/* Cross-model consensus mini-strip — only when multi-LLM. Just a
           headline read; the data tab carries the full breakdown. */}
       {providerBreakdown && providerBreakdown.length > 0 && (
-        <div>
-          <h2 className="text-base font-semibold text-slate-900 mb-3">
-            {isKo ? "모델 합의 신호" : "Cross-model agreement"}
-          </h2>
-          <div className="card p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {providerBreakdown.map((pb) => (
-              <div key={pb.provider} className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-xs text-slate-500">
-                    {providerLabel(pb.provider)} · {pb.simCount}{isKo ? "개 시뮬" : " sims"}
+        <SectionCard
+          icon={CheckCircle2}
+          tone="success"
+          title={isKo ? "모델 합의 신호" : "Cross-model agreement"}
+          note={isKo ? "상세는 데이터 탭" : "Full breakdown in Data"}
+        >
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+            {providerBreakdown.map((pb) => {
+              const pct = pb.agreementWithOverallPercent;
+              const tone: Tone = pct === 100 ? "success" : pct >= 50 ? "neutral" : "warn";
+              const pick = pb.bestCountryDistribution[0]?.country;
+              return (
+                <div key={pb.provider} className="rounded-xl bg-slate-50 px-3.5 py-3">
+                  <div className={TYPO.microLabel}>
+                    {providerLabel(pb.provider)} · {pb.simCount}
+                    {isKo ? "개 시뮬" : " sims"}
                   </div>
-                  <div className="text-sm font-semibold text-slate-900">
-                    {pb.bestCountryDistribution[0]?.country ?? "—"}
+                  <div className="mt-1.5 flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 text-[13.5px] font-extrabold text-slate-900">
+                      {pick && <CountryMark code={pick} size="sm" />}
+                      {pick ?? "—"}
+                    </span>
+                    <Chip tone={tone}>{pct}%</Chip>
                   </div>
+                  <ShareBar className="mt-2" segments={[{ percent: pct, tone }]} height={5} />
                 </div>
-                <div
-                  className={clsx(
-                    "text-lg font-bold tabular-nums",
-                    pb.agreementWithOverallPercent === 100
-                      ? "text-success"
-                      : pb.agreementWithOverallPercent >= 50
-                        ? "text-slate-700"
-                        : "text-warn",
-                  )}
-                >
-                  {pb.agreementWithOverallPercent}%
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-        </div>
+        </SectionCard>
       )}
 
       {narrative?.executiveSummary && (
-        <div>
-          <h2 className="text-base font-semibold text-slate-900 mb-2">
-            {isKo ? "종합 의견 (시뮬 통합)" : "Executive summary (cross-sim consensus)"}
-          </h2>
+        <SectionCard
+          icon={MessageCircle}
+          tone="brand"
+          title={isKo ? "종합 의견 (시뮬 통합)" : "Executive summary (cross-sim consensus)"}
+        >
           {/* The narrative.executiveSummary text is LLM-generated at sim
               aggregation time and may reference "전 시뮬이 X 지목 / 합의도
               96%" framing — wrong when the orchestrator later flagged
@@ -2501,12 +2489,10 @@ function OverviewTab({
               isKo={isKo}
             />
           )}
-          <div className="card p-5">
-            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-              {narrative.executiveSummary}
-            </p>
-          </div>
-        </div>
+          <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-slate-700">
+            {narrative.executiveSummary}
+          </p>
+        </SectionCard>
       )}
     </div>
   );
