@@ -3898,7 +3898,7 @@ function MarketProfileTab({
     return (
       <div className="card p-12 text-center max-w-2xl mx-auto">
         <Lightbulb size={32} className="text-brand mx-auto mb-3" />
-        <h2 className="text-xl font-semibold text-slate-900 mb-2">
+        <h2 className="mb-2 text-[19px] font-extrabold tracking-tight text-slate-900">
           {isKo
             ? `${recommendedCountry} 시장 상황 + 경쟁자 분석을 생성하세요`
             : `Generate market profile for ${recommendedCountry}`}
@@ -3945,20 +3945,12 @@ function MarketProfileTab({
   const gtm = profile.goToMarketStrategy;
   const ms = profile.marketSize;
 
-  const threatToneClass = (t: string) =>
-    t === "high"
-      ? "bg-risk text-white"
-      : t === "medium"
-        ? "bg-warn text-white"
-        : "bg-slate-300 text-slate-700";
+  const threatTone = (t: string): Tone =>
+    t === "high" ? "risk" : t === "medium" ? "warn" : "neutral";
   const threatBorder = (t: string) =>
     t === "high" ? "border-risk" : t === "medium" ? "border-warn" : "border-slate-300";
-  const sevToneClass = (s: string) =>
-    s === "high"
-      ? "bg-risk text-white"
-      : s === "medium"
-        ? "bg-warn text-white"
-        : "bg-slate-300 text-slate-700";
+  const sevTone = (s: string): Tone =>
+    s === "high" ? "risk" : s === "medium" ? "warn" : "neutral";
   const compTypeLabel = (t: string) => {
     if (t === "direct") return isKo ? "직접 경쟁" : "Direct";
     if (t === "indirect") return isKo ? "간접" : "Indirect";
@@ -3974,7 +3966,7 @@ function MarketProfileTab({
     <div className="space-y-6">
       {/* Header context */}
       <div>
-        <h2 className="text-xl font-semibold text-slate-900">
+        <h2 className="text-[19px] font-extrabold tracking-tight text-slate-900">
           {isKo
             ? `${recommendedCountry} — 시장 상황 + 경쟁자 분석`
             : `${recommendedCountry} — Market profile + competitive analysis`}
@@ -4080,9 +4072,11 @@ function MarketProfileTab({
       {/* Competitors */}
       {competitors.length > 0 && (
         <div>
-          <h3 className="text-base font-semibold text-slate-900 mb-3">
-            {isKo ? "경쟁자 분석" : "Competitive landscape"}
-          </h3>
+          <SectionTitle
+            icon={Target}
+            gradient={TONE.brand.icon}
+            title={isKo ? "경쟁자 분석" : "Competitive landscape"}
+          />
           <div className="space-y-3">
             {competitors.map((c, i) => (
               <div
@@ -4095,14 +4089,12 @@ function MarketProfileTab({
                 <div className="flex items-baseline gap-3 flex-wrap mb-2">
                   <span className="text-lg font-bold text-slate-900">{c.name}</span>
                   <span className="text-xs text-slate-500">{compTypeLabel(c.type)}</span>
-                  <span
-                    className={clsx(
-                      "text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full",
-                      threatToneClass(c.threatLevel),
-                    )}
+                  <Chip
+                    tone={threatTone(c.threatLevel)}
+                    variant={c.threatLevel === "low" ? "soft" : "solid"}
                   >
                     {threatLabel(c.threatLevel)}
-                  </span>
+                  </Chip>
                   {c.pricePoint && (
                     <span className="ml-auto text-sm text-slate-700 tabular-nums font-medium">
                       {c.pricePoint}
@@ -4169,9 +4161,11 @@ function MarketProfileTab({
       {pricing &&
         (pricing.entryLevel || pricing.mid || pricing.premium || pricing.yourPosition) && (
           <div>
-            <h3 className="text-base font-semibold text-slate-900 mb-3">
-              {isKo ? "현지 가격 벤치마크" : "Local pricing benchmarks"}
-            </h3>
+            <SectionTitle
+              icon={BarChart3}
+              gradient={TONE.success.icon}
+              title={isKo ? "현지 가격 벤치마크" : "Local pricing benchmarks"}
+            />
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
               {pricing.entryLevel && (
                 <div className="card p-4">
@@ -4238,9 +4232,11 @@ function MarketProfileTab({
           (channels.secondary?.length ?? 0) > 0 ||
           (channels.emerging?.length ?? 0) > 0) && (
           <div>
-            <h3 className="text-base font-semibold text-slate-900 mb-3">
-              {isKo ? "채널 환경" : "Channel landscape"}
-            </h3>
+            <SectionTitle
+              icon={Layers}
+              gradient={TONE.brand.icon}
+              title={isKo ? "채널 환경" : "Channel landscape"}
+            />
             <div className="card p-5 space-y-4">
               {(["primary", "secondary", "emerging"] as const).map((tier) => {
                 const items = channels[tier] ?? [];
@@ -4293,17 +4289,18 @@ function MarketProfileTab({
       {/* Regulatory */}
       {reg && ((reg.barriers?.length ?? 0) > 0 || (reg.requirements?.length ?? 0) > 0) && (
         <div>
-          <h3 className="text-base font-semibold text-slate-900 mb-3">
-            {isKo ? "규제 / 진입 장벽" : "Regulatory / entry barriers"}
-          </h3>
+          <SectionTitle
+            icon={ShieldCheck}
+            gradient={TONE.warn.icon}
+            title={isKo ? "규제 / 진입 장벽" : "Regulatory / entry barriers"}
+          />
           <div className="card p-5 space-y-3">
             {(reg.barriers ?? []).map((b, i) => (
               <div key={i} className="flex items-start gap-3">
-                <span
-                  className={clsx(
-                    "shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full mt-0.5",
-                    sevToneClass(b.severity),
-                  )}
+                <Chip
+                  tone={sevTone(b.severity)}
+                  variant={b.severity === "low" ? "soft" : "solid"}
+                  className="mt-0.5 shrink-0"
                 >
                   {isKo
                     ? b.severity === "high"
@@ -4312,7 +4309,7 @@ function MarketProfileTab({
                         ? "보통"
                         : "낮음"
                     : b.severity.toUpperCase()}
-                </span>
+                </Chip>
                 <div>
                   <div className="text-sm font-semibold text-slate-900">{b.name}</div>
                   {b.description && (
@@ -4356,9 +4353,11 @@ function MarketProfileTab({
           cult.languageNotes ||
           cult.seasonality) && (
           <div>
-            <h3 className="text-base font-semibold text-slate-900 mb-3">
-              {isKo ? "문화 / 소비자 인사이트" : "Cultural & consumer insights"}
-            </h3>
+            <SectionTitle
+              icon={Users}
+              gradient={TONE.warn.icon}
+              title={isKo ? "문화 / 소비자 인사이트" : "Cultural & consumer insights"}
+            />
             <div className="card p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
               {cult.valuesAlignment && (
                 <div>
@@ -4508,7 +4507,7 @@ function SecondaryCountryMarketSection({
             !
           </span>
           <div className="flex-1 min-w-0">
-            <h2 className="text-base font-semibold text-warn mb-1">
+            <h2 className="mb-1 text-[15px] font-extrabold tracking-tight text-warn">
               {isKo
                 ? `${country} — Top 2 동등 후보 시장 분석 (생성 대기)`
                 : `${country} — Top 2 secondary market profile (pending)`}
@@ -4558,12 +4557,8 @@ function SecondaryCountryMarketSection({
   const pricing = profile.pricingBenchmarks;
   const gtm = profile.goToMarketStrategy;
 
-  const threatToneClass = (t: string) =>
-    t === "high"
-      ? "bg-risk text-white"
-      : t === "medium"
-        ? "bg-warn text-white"
-        : "bg-slate-300 text-slate-700";
+  const threatTone = (t: string): Tone =>
+    t === "high" ? "risk" : t === "medium" ? "warn" : "neutral";
   const threatBorder = (t: string) =>
     t === "high" ? "border-risk" : t === "medium" ? "border-warn" : "border-slate-300";
   const compTypeLabel = (t: string) => {
@@ -4582,7 +4577,7 @@ function SecondaryCountryMarketSection({
       {/* Header — same scale as primary MarketProfileTab heading */}
       <div>
         <div className="flex items-baseline gap-3 flex-wrap">
-          <h2 className="text-xl font-semibold text-slate-900">
+          <h2 className="text-[19px] font-extrabold tracking-tight text-slate-900">
             {isKo
               ? `${country} — 시장 상황 + 경쟁자 분석`
               : `${country} — Market profile + competitive analysis`}
@@ -4661,9 +4656,11 @@ function SecondaryCountryMarketSection({
           severity stripe, brand context, strengths/weaknesses grid. */}
       {competitors.length > 0 && (
         <div>
-          <h3 className="text-base font-semibold text-slate-900 mb-3">
-            {isKo ? "경쟁자 분석" : "Competitive landscape"}
-          </h3>
+          <SectionTitle
+            icon={Target}
+            gradient={TONE.brand.icon}
+            title={isKo ? "경쟁자 분석" : "Competitive landscape"}
+          />
           <div className="space-y-3">
             {competitors.map((c, i) => (
               <div
@@ -4676,14 +4673,12 @@ function SecondaryCountryMarketSection({
                 <div className="flex items-baseline gap-3 flex-wrap mb-2">
                   <span className="text-lg font-bold text-slate-900">{c.name}</span>
                   <span className="text-xs text-slate-500">{compTypeLabel(c.type)}</span>
-                  <span
-                    className={clsx(
-                      "text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full",
-                      threatToneClass(c.threatLevel),
-                    )}
+                  <Chip
+                    tone={threatTone(c.threatLevel)}
+                    variant={c.threatLevel === "low" ? "soft" : "solid"}
                   >
                     {threatLabel(c.threatLevel)}
-                  </span>
+                  </Chip>
                   {c.pricePoint && (
                     <span className="ml-auto text-sm text-slate-700 tabular-nums font-medium">
                       {c.pricePoint}
@@ -4748,9 +4743,11 @@ function SecondaryCountryMarketSection({
       {pricing &&
         (pricing.entryLevel || pricing.mid || pricing.premium || pricing.yourPosition) && (
           <div>
-            <h3 className="text-base font-semibold text-slate-900 mb-3">
-              {isKo ? "현지 가격 벤치마크" : "Local pricing benchmarks"}
-            </h3>
+            <SectionTitle
+              icon={BarChart3}
+              gradient={TONE.success.icon}
+              title={isKo ? "현지 가격 벤치마크" : "Local pricing benchmarks"}
+            />
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
               {pricing.entryLevel && (
                 <div className="card p-4">
@@ -4799,9 +4796,11 @@ function SecondaryCountryMarketSection({
       {/* Channels — same section-header style + per-channel rows */}
       {channels && (channels.primary?.length || channels.secondary?.length) && (
         <div>
-          <h3 className="text-base font-semibold text-slate-900 mb-3">
-            {isKo ? "채널 환경" : "Channel landscape"}
-          </h3>
+          <SectionTitle
+            icon={Layers}
+            gradient={TONE.brand.icon}
+            title={isKo ? "채널 환경" : "Channel landscape"}
+          />
           {channels.primary && channels.primary.length > 0 && (
             <div className="mb-3">
               <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1.5">
@@ -4838,21 +4837,22 @@ function SecondaryCountryMarketSection({
       {/* Regulatory — same chip-styled barriers + requirements list */}
       {reg && (reg.barriers?.length || reg.requirements?.length || reg.timeToCompliance) && (
         <div>
-          <h3 className="text-base font-semibold text-slate-900 mb-3">
-            {isKo ? "규제 / 진입 장벽" : "Regulatory / Barriers"}
-          </h3>
+          <SectionTitle
+            icon={ShieldCheck}
+            gradient={TONE.warn.icon}
+            title={isKo ? "규제 / 진입 장벽" : "Regulatory / Barriers"}
+          />
           {reg.barriers && reg.barriers.length > 0 && (
             <ul className="space-y-2 mb-3">
               {reg.barriers.slice(0, 5).map((b, i) => (
                 <li key={i} className="card p-3 flex items-start gap-3">
-                  <span
-                    className={clsx(
-                      "shrink-0 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold",
-                      threatToneClass(b.severity),
-                    )}
+                  <Chip
+                    tone={threatTone(b.severity)}
+                    variant={b.severity === "low" ? "soft" : "solid"}
+                    className="shrink-0"
                   >
                     {b.severity}
-                  </span>
+                  </Chip>
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-slate-900">{b.name}</div>
                     {b.description && (
@@ -7528,7 +7528,7 @@ function SecondaryPricingBlock({
               !
             </span>
             <div className="flex-1 min-w-0">
-              <h2 className="text-base font-semibold text-warn mb-1">
+              <h2 className="mb-1 text-[15px] font-extrabold tracking-tight text-warn">
                 {isKo
                   ? `${country} — Top 2 동등 후보 가격 분석 (생성 대기)`
                   : `${country} — Top 2 secondary pricing analysis (pending)`}
@@ -7604,7 +7604,7 @@ function SecondaryPricingBlock({
   return (
     <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40 space-y-4">
       <div className="flex items-baseline gap-3 flex-wrap">
-        <h2 className="text-xl font-semibold text-slate-900">
+        <h2 className="text-[19px] font-extrabold tracking-tight text-slate-900">
           {country} — {isKo ? "Top 2 동등 후보 가격 분석" : "Top 2 secondary pricing"}
         </h2>
         <span className="text-[10px] uppercase tracking-wider text-warn bg-warn-soft/40 border border-warn/30 px-2 py-0.5 rounded">
@@ -8685,7 +8685,7 @@ function SecondaryDecisionBlock({
   return (
     <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40 space-y-4">
       <div className="flex items-baseline gap-3 flex-wrap">
-        <h2 className="text-xl font-semibold text-slate-900">
+        <h2 className="text-[19px] font-extrabold tracking-tight text-slate-900">
           {country} — {isKo ? "Top 2 동등 후보 의사결정 보조" : "Top 2 secondary decision-aid"}
         </h2>
         <span className="text-[10px] uppercase tracking-wider text-warn bg-warn-soft/40 border border-warn/30 px-2 py-0.5 rounded">
@@ -9292,7 +9292,7 @@ function SecondaryRisksBlock({
               !
             </span>
             <div className="flex-1 min-w-0">
-              <h2 className="text-base font-semibold text-warn mb-1">
+              <h2 className="mb-1 text-[15px] font-extrabold tracking-tight text-warn">
                 {isKo
                   ? `${country} — Top 2 동등 후보 리스크 (생성 대기)`
                   : `${country} — Top 2 secondary risks (pending)`}
@@ -9349,7 +9349,7 @@ function SecondaryRisksBlock({
   return (
     <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40 space-y-4">
       <div className="flex items-baseline gap-3 flex-wrap">
-        <h2 className="text-xl font-semibold text-slate-900">
+        <h2 className="text-[19px] font-extrabold tracking-tight text-slate-900">
           {country} —{" "}
           {isKo ? "Top 2 동등 후보 리스크" : "Top 2 secondary risks"}
         </h2>
@@ -9588,7 +9588,7 @@ function SecondaryActionsBlock({
               !
             </span>
             <div className="flex-1 min-w-0">
-              <h2 className="text-base font-semibold text-warn mb-1">
+              <h2 className="mb-1 text-[15px] font-extrabold tracking-tight text-warn">
                 {isKo
                   ? `${country} — Top 2 동등 후보 추천 액션 (생성 대기)`
                   : `${country} — Top 2 secondary recommended actions (pending)`}
@@ -9643,7 +9643,7 @@ function SecondaryActionsBlock({
   return (
     <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40 space-y-4">
       <div className="flex items-baseline gap-3 flex-wrap">
-        <h2 className="text-xl font-semibold text-slate-900">
+        <h2 className="text-[19px] font-extrabold tracking-tight text-slate-900">
           {country} —{" "}
           {isKo ? "Top 2 동등 후보 추천 액션" : "Top 2 secondary recommended actions"}
         </h2>
