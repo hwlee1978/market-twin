@@ -2991,26 +2991,6 @@ function HotTakeCard({
   );
 }
 
-function KpiCard({
-  label,
-  value,
-  sub,
-  accent,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  accent?: string;
-}) {
-  return (
-    <div className="card p-4">
-      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-      <div className={clsx("text-2xl font-bold mt-1", accent)}>{value}</div>
-      {sub && <div className="text-[10px] uppercase font-semibold text-slate-400 mt-1">{sub}</div>}
-    </div>
-  );
-}
-
 function CountriesTab({
   countryStats,
   segments,
@@ -5028,7 +5008,7 @@ function PersonasTab({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="text-base font-semibold text-slate-900">
+        <h2 className="text-[15px] font-extrabold tracking-tight text-slate-900">
           {isKo
             ? `페르소나 통계 (총 ${personas.total.toLocaleString()}명)`
             : `Persona statistics (${personas.total.toLocaleString()} total)`}
@@ -5054,33 +5034,44 @@ function PersonasTab({
         />
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile
+          index={0}
+          icon={Users}
           label={isKo ? "총 페르소나" : "Total"}
           value={personas.total.toLocaleString()}
         />
-        <KpiCard
-          label={isKo ? "평균 구매의향" : "Mean intent"}
+        <StatTile
+          index={1}
+          icon={BarChart3}
+          label={
+            isKo
+              ? `평균 구매의향 · 중앙값 ${personas.intentMedian}%`
+              : `Mean intent · median ${personas.intentMedian}%`
+          }
           value={`${personas.intentMean.toFixed(0)}%`}
-          sub={isKo ? `중앙값 ${personas.intentMedian}%` : `Median ${personas.intentMedian}%`}
         />
-        <KpiCard
+        <StatTile
+          index={2}
+          icon={CheckCircle2}
           label={isKo ? "강한 관심 (≥70)" : "High intent (≥70)"}
           value={personas.highIntentCount.toLocaleString()}
-          accent="text-success"
         />
-        <KpiCard
+        <StatTile
+          index={3}
+          icon={AlertCircle}
           label={isKo ? "약한 관심 (<35)" : "Low intent (<35)"}
           value={personas.lowIntentCount.toLocaleString()}
-          accent="text-warn"
         />
       </div>
 
       <div>
-        <h2 className="text-base font-semibold text-slate-900 mb-3">
-          {isKo ? "구매의향 분포 (히스토그램)" : "Intent distribution"}
-        </h2>
-        <div className="card p-4">
+        <SectionTitle
+          icon={BarChart3}
+          gradient={TONE.brand.icon}
+          title={isKo ? "구매의향 분포 (히스토그램)" : "Intent distribution"}
+        />
+        <div className="card p-5 sm:p-6">
           <IntentHistogramChart data={personas.intentHistogram} />
         </div>
         <ChartGuide isKo={isKo}>
@@ -5129,10 +5120,12 @@ function PersonasTab({
       </div>
 
       <div>
-        <h2 className="text-base font-semibold text-slate-900 mb-3">
-          {isKo ? "국가별 평균 구매의향" : "Per-country mean intent"}
-        </h2>
-        <div className="card p-4">
+        <SectionTitle
+          icon={Globe2}
+          gradient={TONE.success.icon}
+          title={isKo ? "국가별 평균 구매의향" : "Per-country mean intent"}
+        />
+        <div className="card p-5 sm:p-6">
           <CountryIntentChart data={personas.byCountry} />
         </div>
       </div>
@@ -5166,10 +5159,12 @@ function PersonasTab({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <h3 className="text-sm font-semibold text-slate-900 mb-2">
-            {isKo ? "연령대 분포" : "Age distribution"}
-          </h3>
-          <div className="card p-4 space-y-1">
+          <SectionTitle
+            icon={Users}
+            gradient={TONE.warn.icon}
+            title={isKo ? "연령대 분포" : "Age distribution"}
+          />
+          <div className="card space-y-1 p-5 sm:p-6">
             {personas.ageDistribution.length === 0 ? (
               <div className="text-xs text-slate-400">—</div>
             ) : (
@@ -5195,10 +5190,12 @@ function PersonasTab({
           </p>
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-slate-900 mb-2">
-            {isKo ? "직업 분포 (Top 12)" : "Top professions"}
-          </h3>
-          <div className="card p-4 space-y-1">
+          <SectionTitle
+            icon={Target}
+            gradient={TONE.neutral.icon}
+            title={isKo ? "직업 분포 (Top 12)" : "Top professions"}
+          />
+          <div className="card space-y-1 p-5 sm:p-6">
             {personas.professionTopN.length === 0 ? (
               <div className="text-xs text-slate-400">—</div>
             ) : (
@@ -5218,11 +5215,13 @@ function PersonasTab({
           channels are the existing touchpoints worth prioritising. */}
       {personas.channelMentions && personas.channelMentions.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-slate-900 mb-2">
-            {isKo ? "채널·브랜드 언급" : "Channel / brand mentions"}
-          </h3>
-          <div className="card p-4">
-            <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+          <SectionTitle
+            icon={Layers}
+            gradient={TONE.brand.icon}
+            title={isKo ? "채널·브랜드 언급" : "Channel / brand mentions"}
+          />
+          <div className="card p-5 sm:p-6">
+            <p className="mb-3 text-[12.5px] leading-relaxed text-slate-500">
               {isKo
                 ? "페르소나가 신뢰 요인 / 거부 요인 / 코멘트에서 직접 언급한 채널입니다. 언급량과 평균 구매의향을 같이 보면 \"이미 잠재 고객이 있는 채널\"이 보입니다."
                 : "Channels personas mention in their voice / trust / objections. Mentions × intent surfaces existing-touchpoint priorities."}
@@ -5274,9 +5273,15 @@ function PersonasTab({
           personas.segmentBreakdown.byAge.length > 0 ||
           personas.segmentBreakdown.byIncome.length > 0) && (
           <div>
-            <h3 className="text-sm font-semibold text-slate-900 mb-2">
-              {isKo ? "세그먼트별 구매의향 (10명 이상 그룹만)" : "Intent by segment (groups ≥10 only)"}
-            </h3>
+            <SectionTitle
+              icon={Users}
+              gradient={TONE.success.icon}
+              title={
+                isKo
+                  ? "세그먼트별 구매의향 (10명 이상 그룹만)"
+                  : "Intent by segment (groups ≥10 only)"
+              }
+            />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <SegmentTable
                 title={isKo ? "성별" : "Gender"}
