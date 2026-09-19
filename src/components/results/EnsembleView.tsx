@@ -5017,11 +5017,11 @@ function PersonasTab({
   >(null);
   if (!personas) {
     return (
-      <div className="card p-8 text-center text-slate-500">
+      <SectionCard className="text-center text-slate-500">
         {isKo
           ? "이 앙상블에는 페르소나 통합 데이터가 없습니다 (이전 버전에서 생성된 결과)."
           : "No aggregated persona data on this ensemble (legacy run)."}
-      </div>
+      </SectionCard>
     );
   }
   return (
@@ -6642,11 +6642,11 @@ function PricingTab({
   const primaryPurchaseBehavior = marketProfile?.culturalNotes?.purchaseBehavior;
   if (!pricing) {
     return (
-      <div className="card p-8 text-center text-slate-500">
+      <SectionCard className="text-center text-slate-500">
         {isKo
           ? "이 앙상블에는 가격 통합 데이터가 없습니다."
           : "No aggregated pricing data on this ensemble."}
-      </div>
+      </SectionCard>
     );
   }
   const fmt = (cents: number) => formatPrice(cents, currency);
@@ -6758,10 +6758,20 @@ function PricingTab({
       {/* Hero: recommended price + range + margin in one row. Compact
           single-row card so the pricing tab opens with the headline answer
           immediately visible — no large dead vertical space. */}
-      <div className="card p-5 bg-gradient-to-br from-brand-50/40 to-white border-brand/20">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div
+        className="relative overflow-hidden rounded-2xl p-5 sm:p-6 text-white"
+        style={{ background: "linear-gradient(140deg,#111c3a,#1e2f5e 55%,#26407a)" }}
+      >
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full"
+          style={{
+            background: "radial-gradient(circle, rgba(99,102,241,.35), transparent 65%)",
+          }}
+        />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
+            <div className="text-[10.5px] font-bold uppercase tracking-wider text-white/55">
               {wasCorrected
                 ? isKo
                   ? `${recommendation.country} 권장 가격 (곡선 매출 최대점)`
@@ -6770,11 +6780,11 @@ function PricingTab({
                   ? `${recommendation.country} 권장 가격 (시뮬 합산 중앙값)`
                   : `${recommendation.country} recommended price (median across sims)`}
             </div>
-            <div className="flex items-baseline gap-3 flex-wrap">
-              <div className="text-4xl font-bold text-brand tabular-nums leading-none">
+            <div className="mt-1.5 flex flex-wrap items-baseline gap-3">
+              <div className="text-[34px] font-extrabold leading-none tracking-tight tabular-nums">
                 {fmt(headlinePriceCents)}
               </div>
-              <div className="text-sm text-slate-500">
+              <div className="text-[12.5px] font-semibold text-white/65">
                 {(() => {
                   const unanimous = pricing.recommendedPriceUnanimousAt;
                   const withinStd = pricing.recommendedPriceWithinSimStdMean ?? 0;
@@ -6800,7 +6810,7 @@ function PricingTab({
               </div>
             </div>
             {wasCorrected && (
-              <div className="text-[11px] text-slate-500 mt-2 leading-relaxed max-w-md">
+              <div className="mt-2 max-w-md text-[11px] leading-relaxed text-white/60">
                 {isKo
                   ? `LLM 안내가는 ${fmt(pricing.recommendedPriceCents)}였으나 기본가에 anchor된 것으로 보여 곡선 매출 최대점으로 자동 보정되었습니다.`
                   : `LLM said ${fmt(pricing.recommendedPriceCents)}, but it appears anchored on the base price — auto-corrected to the curve revenue-max point.`}
@@ -6809,7 +6819,7 @@ function PricingTab({
             {(recommendation as { displayMode?: string }).displayMode === "top2" && (() => {
               const secCountry = (recommendation as { secondary?: { country?: string } }).secondary?.country;
               return (
-                <div className="text-[11px] text-slate-500 mt-2 leading-relaxed max-w-lg">
+                <div className="mt-2 max-w-lg text-[11px] leading-relaxed text-white/60">
                   {isKo
                     ? `이 권장가는 주 후보 ${recommendation.country}를 포함한 전체 시뮬 통합(cross-sim) 값으로, 사실상 ${recommendation.country} 시장의 대표 권장가입니다.${secCountry ? ` 2순위 ${secCountry} 시장의 단독 추천가는 아래 'Top 2 보조 가격' 섹션을 참고하세요` : ""} — 시장마다 가격 민감도가 달라 값이 다를 수 있습니다.`
                     : `This recommended price is the cross-sim value including the primary candidate ${recommendation.country} — effectively the representative price for ${recommendation.country}.${secCountry ? ` The standalone price for the #2 market (${secCountry}) is in the 'Top 2 secondary pricing' section below` : ""} — values can differ because price sensitivity varies by market.`}
@@ -6825,14 +6835,17 @@ function PricingTab({
                 ⚠ when they don't (the auto-correction case). */}
             {effectiveCurveMax != null && (
               <div
-                className={clsx(
-                  "rounded-lg border px-4 py-3 shrink-0 min-w-[140px]",
-                  curveMaxRejectedAsExtrapolation
-                    ? "bg-slate-100 border-slate-300"
-                    : recComputedMatchesCurve === true
-                      ? "bg-success-soft/40 border-success/30"
-                      : "bg-warn-soft/40 border-warn/30",
-                )}
+                className="min-w-[140px] shrink-0 rounded-xl px-4 py-3"
+                style={{
+                  background: "rgba(255,255,255,.08)",
+                  border: `1px solid ${
+                    curveMaxRejectedAsExtrapolation
+                      ? "rgba(255,255,255,.14)"
+                      : recComputedMatchesCurve === true
+                        ? "rgba(110,240,193,.35)"
+                        : "rgba(251,191,36,.35)"
+                  }`,
+                }}
                 title={
                   curveMaxRejectedAsExtrapolation
                     ? isKo
@@ -6843,21 +6856,21 @@ function PricingTab({
                       : "Where (price × conversion) peaks on the curve under monotonic assumption. ✓ if matches LLM rec; ⚠ if differs."
                 }
               >
-                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">
+                <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-white/50">
                   {isKo ? "곡선 매출 최대점" : "Curve revenue max"}
                 </div>
-                <div className="text-base font-semibold text-slate-900 tabular-nums">
+                <div className="text-[17px] font-extrabold tabular-nums">
                   {fmt(effectiveCurveMax)}
                 </div>
                 <div
-                  className={clsx(
-                    "text-[10px] font-semibold",
-                    curveMaxRejectedAsExtrapolation
-                      ? "text-slate-500"
+                  className="text-[10px] font-bold"
+                  style={{
+                    color: curveMaxRejectedAsExtrapolation
+                      ? "rgba(255,255,255,.55)"
                       : recComputedMatchesCurve === true
-                        ? "text-success"
-                        : "text-warn",
-                  )}
+                        ? TONE.success.onDark.fg
+                        : TONE.warn.onDark.fg,
+                  }}
                 >
                   {curveMaxRejectedAsExtrapolation
                     ? isKo
@@ -6874,14 +6887,17 @@ function PricingTab({
               </div>
             )}
             {peakPoint && (
-              <div className="rounded-lg bg-white border border-slate-200 px-4 py-3 shrink-0 min-w-[140px]">
-                <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">
+              <div
+                className="min-w-[140px] shrink-0 rounded-xl px-4 py-3"
+                style={{ background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.14)" }}
+              >
+                <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-white/50">
                   {isKo ? "최고 전환 가격" : "Peak conversion"}
                 </div>
-                <div className="text-base font-semibold text-slate-900 tabular-nums">
+                <div className="text-[17px] font-extrabold tabular-nums">
                   {fmt(peakPoint.priceCents)}
                 </div>
-                <div className="text-[10px] text-slate-400">
+                <div className="text-[10px] font-bold text-white/55">
                   {(peakPoint.meanConversionProbability * 100).toFixed(1)}%
                 </div>
               </div>
@@ -6896,10 +6912,11 @@ function PricingTab({
           users always get a clear interpretation of what they're
           looking at. */}
       {basePriceCents != null && (
-        <div className="card p-5">
-          <h3 className="text-sm font-semibold text-slate-900 mb-3">
-            {isKo ? "본인 입력가 vs 분석 결과" : "Your input vs analysis"}
-          </h3>
+        <SectionCard
+          icon={Target}
+          tone="brand"
+          title={isKo ? "본인 입력가 vs 분석 결과" : "Your input vs analysis"}
+        >
           {/* Tile layout collapses when LLM rec and curve max agree (±10%):
               the curve becomes a verification badge under the recommendation
               instead of a third "competing" green-highlighted tile. Three
@@ -7006,7 +7023,7 @@ function PricingTab({
                     ? `세 값이 부분적으로 일치. 아래 매출 인덱스 표에서 실제 매출 최대점을 직접 확인하세요.`
                     : `Partial alignment. Verify against the revenue index table below.`}
           </div>
-        </div>
+        </SectionCard>
       )}
 
       {/* Top revenue index — transparency: let the user see WHY
@@ -7015,10 +7032,11 @@ function PricingTab({
           descending, show top 5. The bar makes the gap between
           #1 and runner-ups visually obvious. */}
       {topRevenue.length >= 2 && (
-        <div className="card p-5">
-          <h3 className="text-sm font-semibold text-slate-900 mb-1">
-            {isKo ? "매출 인덱스 Top 5" : "Top 5 revenue index"}
-          </h3>
+        <SectionCard
+          icon={BarChart3}
+          tone="success"
+          title={isKo ? "매출 인덱스 Top 5" : "Top 5 revenue index"}
+        >
           <p className="text-xs text-slate-500 mb-4 leading-relaxed">
             {isKo
               ? "각 가격대의 (가격 × 전환율). 가장 높은 값이 매출 최대 — 본인이 직접 검증 가능. monotonic envelope 적용으로 노이즈 bump 제외."
@@ -7102,7 +7120,7 @@ function PricingTab({
               ? "열: 가격 / 전환율 (envelope) / 매출 인덱스. ★ = 매출 최대점, rec = 권장 가격에 가장 가까운 곡선 포인트."
               : "Cols: price / envelope conversion / revenue index. ★ = revenue max, rec = nearest curve point to the recommended price."}
           </p>
-        </div>
+        </SectionCard>
       )}
 
       {/* Competitor price anchors — extracted at sim time from user-
@@ -7302,18 +7320,17 @@ function PricingTab({
         </div>
       )}
 
-      <div>
-        <h2 className="text-base font-semibold text-slate-900 mb-3">
-          {isKo ? "가격–전환 곡선" : "Price–conversion curve"}
-        </h2>
-        <div className="card p-4">
+        <SectionCard
+          icon={BarChart3}
+          tone="brand"
+          title={isKo ? "가격–전환 곡선" : "Price–conversion curve"}
+        >
           <PricingCurveChart data={pricing.curve} currency={currency} />
           <p className="text-xs text-slate-500 mt-3 leading-relaxed">
             {isKo
               ? '실선(파랑) = 보정 곡선("monotonic envelope") — 권장가·매출 최대점 계산에 실제 사용되는 곡선입니다. 가격이 오르면 수요가 다시 늘 수 없다는 원리에 따라, LLM 원본에서 위로 솟은 noise를 직전 running-min으로 눌러 보정합니다. 점선(회색, 보일 때) = LLM 원본 전환율(보정 전 신호) — LLM이 가격대마다 독립적으로 추정하다 보니 들쭉날쭉한데, 이는 참고용이며 의사결정에는 쓰이지 않습니다. 곡선이 이미 깨끗한 단조감소면 둘이 일치해 점선은 표시되지 않습니다.'
               : 'Solid (blue) = the monotonic-envelope curve actually used for the recommended price / revenue-max. It clamps the LLM\'s upward "bumps" to the running min, on the principle that real demand can\'t rise as price rises. Dashed (grey, when shown) = the raw LLM conversion before correction — it looks jagged because the LLM scores each price point independently; it\'s shown for reference only and is NOT used in any decision. When the curve is already cleanly monotonic the two coincide and the dashed line is hidden.'}
           </p>
-        </div>
         <ChartGuide isKo={isKo}>
           <GuideSection title={isKo ? "Peak conversion vs Recommended price" : "Peak conversion vs Recommended price"}>
             <p className="m-0">
@@ -7347,7 +7364,7 @@ function PricingTab({
             </p>
           </GuideSection>
         </ChartGuide>
-      </div>
+      </SectionCard>
 
       {(() => {
         // When auto-correction kicks in, recompute sensitivity against
@@ -7371,8 +7388,8 @@ function PricingTab({
         );
       })()}
 
-      <details className="card p-4">
-        <summary className="text-sm text-slate-600 cursor-pointer hover:text-slate-800 font-medium">
+      <details className="card p-5 sm:p-6">
+        <summary className="cursor-pointer text-[13px] font-extrabold tracking-tight text-slate-700 hover:text-slate-900">
           {isKo
             ? "원본 가격 포인트 데이터 보기"
             : "View raw price-point data"}
