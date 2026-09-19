@@ -1,5 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/admin";
-import { getFromAddress, getResend } from "./client";
+import { getFromAddress, getResend, getOpsRecipient, sendEmail } from "./client";
 import { appOrigin } from "./app-url";
 
 /**
@@ -409,11 +409,13 @@ export async function notifyNewSignup(args: { userEmail: string; workspaceId: st
 export async function notifySystemHealthAlert(args: {
   overallStatus: string;
   failing: Array<{ label: string; status: string; detail: string }>;
-}): Promise<void> {
-  const resend = getResend();
-  if (!resend) return;
-  const to = process.env.OPS_ALERT_EMAIL ?? "chris@markettwin.ai";
-  try {
+}): Promise<boolean> {
+  const to = getOpsRecipient();
+  if (!to) {
+    console.error("[billing-notify] no ops recipient — set OPS_ALERT_EMAIL or SUPERADMIN_EMAILS");
+    return false;
+  }
+  {
     const rows = args.failing
       .map((c) => {
         const dot = c.status === "fail" ? "🔴" : "🟡";
@@ -421,7 +423,7 @@ export async function notifySystemHealthAlert(args: {
       })
       .join("");
     const text = args.failing.map((c) => `[${c.status}] ${c.label}: ${c.detail}`).join("\n");
-    await resend.emails.send({
+    const result = await sendEmail({
       from: getFromAddress(),
       to: [to],
       subject: `[Market Twin] ⚠️ 시스템 점검 알림 — ${args.failing.length}건 (${args.overallStatus.toUpperCase()})`,
@@ -435,9 +437,8 @@ export async function notifySystemHealthAlert(args: {
         footnote: "Market Twin · Monitoring",
       }),
       text,
-    });
-  } catch (err) {
-    console.warn("[billing-notify] system_health_alert email failed", err);
+    }, "system_health_alert");
+    return result.ok;
   }
 }
 

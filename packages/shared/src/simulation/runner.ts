@@ -1,4 +1,5 @@
 import { getLLMProvider } from "@/lib/llm";
+import { alertOpsAsync } from "@/lib/email/ops-alert";
 import type { LLMProvider, LLMProviderName } from "@/lib/llm";
 import { llmCallCostCents } from "@/lib/llm/cost";
 import { withProviderFallback } from "@/lib/llm/failover";
@@ -1912,6 +1913,15 @@ ${entries}
         `[sim ${opts.simulationId}] countries: all ${COUNTRY_SAMPLES} samples failed to parse — ` +
           `${((Date.now() - tCountries) / 1000).toFixed(1)}s`,
       );
+      // countryScores stays empty and the sim carries on. Everything
+      // downstream that ranks markets has nothing to rank.
+      void alertOpsAsync({
+        kind: "country_scores_empty",
+        severity: "critical",
+        summary: "국가 점수 샘플이 전량 파싱 실패 — 이 시뮬은 시장 순위를 만들지 못합니다",
+        simulationId: opts.simulationId,
+        details: { samples: COUNTRY_SAMPLES },
+      });
     }
 
     // ── Stage 3: pricing ───────────────────────────────────────
@@ -2385,6 +2395,15 @@ ${entries}
             console.warn(
               `[sim ${opts.simulationId}] pricing for ${country}: all ${resps.length} sample(s) unusable — market omitted`,
             );
+            // A market vanishing from the comparison table is invisible to
+            // the reader — there is no gap where it used to be.
+            void alertOpsAsync({
+              kind: "market_dropped",
+              severity: "critical",
+              summary: `${country} 가격 샘플이 전량 파싱 실패해 비교표에서 누락됩니다`,
+              simulationId: opts.simulationId,
+              details: { country, samples: resps.length },
+            });
             return null;
           }
           // Median by recommended price — same collapse the primary curve uses,

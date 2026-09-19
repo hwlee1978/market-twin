@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { alertOps } from "@/lib/email/ops-alert";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { buildReportPdf } from "@/lib/report/pdf";
@@ -207,6 +208,13 @@ export async function GET(
     // that looks subtly wrong.
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[report-pdf] build failed for ${simulationId}:`, message);
+    await alertOps({
+      kind: "pdf_font_missing",
+      severity: "critical",
+      summary: "PDF 생성이 실패해 고객이 리포트를 받지 못했습니다",
+      simulationId,
+      details: { message },
+    });
     return NextResponse.json(
       { error: "pdf_build_failed", message, simulationId },
       { status: 500 },

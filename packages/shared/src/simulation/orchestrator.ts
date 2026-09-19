@@ -15,6 +15,7 @@
  */
 
 import { createServiceClient } from "@/lib/supabase/admin";
+import { alertOpsAsync } from "@/lib/email/ops-alert";
 import { runSimulation } from "@/lib/simulation/runner";
 import type { ProjectInput, CountryScore } from "@/lib/simulation/schemas";
 import { prefetchInlineAssets } from "@/lib/llm/asset-fetch";
@@ -635,6 +636,20 @@ export async function aggregateAndPersist(opts: {
         `[ensemble ${ensembleId}] suboptimal sim count: ${snapshots.length}/${expectedSimCount} ` +
           `(${Math.round((snapshots.length / expectedSimCount) * 100)}%) — downgrading confidence to WEAK`,
       );
+      // The ensemble still completes and the customer is billed for the
+      // tier they bought; they just get a conclusion drawn from fewer
+      // sims than that tier promises.
+      void alertOpsAsync({
+        kind: "low_sim_success_rate",
+        severity: "critical",
+        summary: `${snapshots.length}/${expectedSimCount}개 시뮬만 성공 — 신뢰도를 WEAK로 강등하고 완료 처리합니다`,
+        ensembleId,
+        details: {
+          succeeded: snapshots.length,
+          expected: expectedSimCount,
+          percent: Math.round((snapshots.length / expectedSimCount) * 100),
+        },
+      });
       aggregate.recommendation.confidence = "WEAK";
     }
   }
@@ -678,6 +693,7 @@ export async function aggregateAndPersist(opts: {
         : undefined;
     const narrative = await mergeNarrative({
       snapshots,
+      ensembleId,
       productName,
       bestCountry: aggregate.recommendation.country,
       consensusPercent: aggregate.recommendation.consensusPercent,

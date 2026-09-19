@@ -15,6 +15,7 @@
 import { z } from "zod";
 import { COUNTRIES, getCountryLabel } from "@/lib/countries";
 import { getLLMProvider } from "@/lib/llm";
+import { alertOpsAsync } from "@/lib/email/ops-alert";
 import type {
   EnsembleSimSnapshot,
   EnsembleNarrative,
@@ -195,6 +196,9 @@ export interface MergeNarrativeOpts {
    * the cross-model diversity story, so the cheaper model is fine here.
    */
   tier?: string;
+  /** Only used to name the subject in operational alerts. */
+  ensembleId?: string;
+  workspaceId?: string;
 }
 
 export async function mergeNarrative(
@@ -294,6 +298,24 @@ export async function mergeNarrative(
     const parsed = MERGE_RESPONSE_SCHEMA.safeParse(res.json);
     if (!parsed.success) {
       console.warn("[ensemble narrative] merge response failed schema validation:", parsed.error.flatten());
+      // The report loses its hotTake entirely on this path and nothing
+      // downstream notices — the ensemble still completes. Usually the
+      // cause is a response clipped at maxTokens whose partial JSON
+      // parses as an array.
+      await alertOpsAsync({
+        kind: "narrative_fallback",
+        severity: "critical",
+        summary: "병합 응답이 스키마 검증에 실패해 폴백으로 대체됨 — 리포트에서 핫테이크가 누락됩니다",
+        ensembleId: opts.ensembleId,
+        workspaceId: opts.workspaceId,
+        details: {
+          cause: "schema_validation",
+          product: opts.productName,
+          tier: opts.tier ?? "unknown",
+          sims: sims.length,
+          maxTokens: 16384,
+        },
+      });
       return narrativeFromRawSnapshots(sims, overallRiskLevel);
     }
     console.log(
@@ -527,6 +549,20 @@ export async function mergeNarrative(
     // chart sections are still useful on their own. Fall back to a
     // dumb per-sim merge so the report at least shows something.
     console.warn(`[ensemble narrative] merge LLM call failed, falling back to raw:`, err);
+    await alertOpsAsync({
+      kind: "narrative_fallback",
+      severity: "critical",
+      summary: "병합 LLM 호출이 실패해 폴백으로 대체됨 — 리포트 서술이 템플릿으로 나갑니다",
+      ensembleId: opts.ensembleId,
+      workspaceId: opts.workspaceId,
+      details: {
+        cause: "llm_call_failed",
+        product: opts.productName,
+        tier: opts.tier ?? "unknown",
+        sims: sims.length,
+        error: err instanceof Error ? err.message : String(err),
+      },
+    });
     return narrativeFromRawSnapshots(sims, overallRiskLevel);
   }
 }

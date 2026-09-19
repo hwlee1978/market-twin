@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { alertOps } from "@/lib/email/ops-alert";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { buildEnsemblePdf } from "@/lib/report/ensemble-pdf";
@@ -256,6 +257,16 @@ export async function GET(
       message,
       stack,
     );
+    // A paid deliverable the customer could not download. The likeliest
+    // cause is FontLoadError — the report refuses to typeset in a
+    // substitute face — and nothing else would report it.
+    await alertOps({
+      kind: "pdf_font_missing",
+      severity: "critical",
+      summary: "PDF 생성이 실패해 고객이 리포트를 받지 못했습니다",
+      ensembleId: id,
+      details: { message, tier: ensemble.tier, variant },
+    });
     return NextResponse.json(
       {
         error: "pdf_build_failed",

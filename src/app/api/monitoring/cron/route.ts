@@ -45,24 +45,34 @@ export async function GET(req: Request) {
     .limit(1);
 
   const alreadyAlerted = !!(recent && recent.length);
+  let delivered = false;
   if (!alreadyAlerted) {
-    void notifySystemHealthAlert({
+    // Awaited, not fire-and-forget: a serverless function that returns
+    // first can be torn down before the send completes, losing the very
+    // alert it exists to deliver.
+    delivered = await notifySystemHealthAlert({
       overallStatus: health.status,
       failing: health.failing.map((c) => ({ label: c.label, status: c.status, detail: c.detail })),
     });
-    await svc.from("audit_logs").insert({
-      action: "system_health_alert",
-      metadata: {
-        status: health.status,
-        failing: health.failing.map((c) => ({ key: c.key, status: c.status, detail: c.detail })),
-      },
-    });
+    // Only claim the dedupe window once something was actually sent.
+    // Writing the marker first meant a failed send also locked out every
+    // retry for the next 18 hours.
+    if (delivered) {
+      await svc.from("audit_logs").insert({
+        action: "system_health_alert",
+        metadata: {
+          status: health.status,
+          failing: health.failing.map((c) => ({ key: c.key, status: c.status, detail: c.detail })),
+        },
+      });
+    }
   }
 
   return NextResponse.json({
     status: health.status,
     healthy: health.healthy,
-    alerted: !alreadyAlerted,
+    alerted: delivered,
+    alertFailed: !alreadyAlerted && !delivered,
     deduped: alreadyAlerted,
     checks: health.checks,
   });

@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { LLMProvider, LLMRequest, LLMResponse } from "./types";
+import { alertOpsAsync } from "@/lib/email/ops-alert";
 import { withLLMRetry } from "./retry";
 import { recoverJsonFromText } from "./json-parse";
 
@@ -149,6 +150,17 @@ export class AnthropicProvider implements LLMProvider {
         `[anthropic] response hit max_tokens=${req.maxTokens ?? 4096} ceiling — output truncated. ` +
           `Used ${usedTokens} tokens. Partial JSON recovered (caller may see incomplete array).`,
       );
+      // Recovered, but the array is short — items the model meant to
+      // emit are gone and the caller cannot tell. Collapsed hourly per
+      // ceiling: a run that clips once usually clips repeatedly.
+      void alertOpsAsync({
+        kind: "llm_output_truncated",
+        severity: "warn",
+        summary: `Anthropic 응답이 max_tokens=${req.maxTokens ?? 4096}에서 잘렸습니다 — 부분 복구된 결과가 그대로 사용됩니다`,
+        dedupeKey: `anthropic:${req.maxTokens ?? 4096}`,
+        dedupeMinutes: 60,
+        details: { maxTokens: req.maxTokens ?? 4096, usedTokens },
+      });
     }
 
     // Cache hit / write stats are surfaced for cost validation. Anthropic
