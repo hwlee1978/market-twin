@@ -3035,9 +3035,12 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           tone="success"
           isKo={isKo}
           label={
+            // pickQuote falls back to any country when the recommended
+            // market has no positive voice in the pool — label the quote
+            // by where it actually came from, not by where we asked.
             isKo
-              ? `${aggregate.recommendation.country} 챔피언의 목소리`
-              : `Voice from ${aggregate.recommendation.country}'s champion`
+              ? `${championQuote.country} 챔피언의 목소리`
+              : `Voice from ${championQuote.country}'s champion`
           }
         />
       )}
