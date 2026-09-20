@@ -3,6 +3,13 @@
  * confidence-graded results. MVP CLI version; productize as API endpoint
  * once we've validated the output quality on a real fixture.
  *
+ * Writes a real `ensembles` row and stamps ensemble_id on every sim
+ * before starting them. Two things depend on that and used to break:
+ * the runner skips its per-sim completion email only for sims that
+ * belong to an ensemble (otherwise a 6-sim run mails you six times),
+ * and smoke:ensemble-pdf can only render an ensemble the table knows
+ * about.
+ *
  * Each sim within the ensemble uses a distinct seed (`<ensembleId>-<index>`)
  * so they draw different persona samples. Aggregating the N results gives
  * the bestCountry distribution, per-country score variance, and segment-
@@ -18,11 +25,16 @@
  */
 import { Client } from "pg";
 import { runSimulation } from "../packages/shared/src/simulation/runner";
+import { aggregateEnsemble } from "../packages/shared/src/simulation/ensemble";
+import type { EnsembleSimSnapshot } from "../packages/shared/src/simulation/ensemble";
+import { mergeNarrative } from "../packages/shared/src/simulation/ensemble-narrative";
+import type { CountryScore } from "../packages/shared/src/simulation/schemas";
 import type { ProjectInput } from "../packages/shared/src/simulation/schemas";
 
 interface ProjectRow {
   id: string;
   workspace_id: string;
+  created_by: string | null;
   product_name: string;
   category: string;
   description: string;
@@ -73,7 +85,7 @@ async function main() {
   let project: ProjectRow | null = null;
   try {
     const { rows } = await c.query<ProjectRow>(
-      `select id::text, workspace_id::text, product_name, category, description,
+      `select id::text, workspace_id::text, created_by::text, product_name, category, description,
               base_price_cents, currency, objective, originating_country,
               candidate_countries, competitor_urls, asset_descriptions, asset_urls,
               founder_background, channel_priority, kol_relationships
@@ -90,6 +102,29 @@ async function main() {
   }
 
   const ensembleId = crypto.randomUUID();
+  {
+    const c2 = new Client({ connectionString: process.env.DATABASE_URL });
+    await c2.connect();
+    try {
+      await c2.query(
+        `insert into public.ensembles
+            (id, project_id, workspace_id, created_by, tier, parallel_sims,
+             per_sim_personas, llm_providers, status, locale)
+          values ($1,$2,$3,$4,$5,$6,$7,'{anthropic}','running','ko')`,
+        [
+          ensembleId,
+          project.id,
+          project.workspace_id,
+          project.created_by ?? null,
+          tierFor(parallel),
+          parallel,
+          perSim,
+        ],
+      );
+    } finally {
+      await c2.end();
+    }
+  }
   console.log(`\n${"=".repeat(72)}`);
   console.log(`Ensemble Run`);
   console.log(`  Ensemble: ${ensembleId.slice(0, 8)}`);
@@ -137,10 +172,11 @@ async function main() {
     for (let i = 0; i < parallel; i++) {
       const { rows } = await adminClient.query<{ id: string }>(
         `insert into public.simulations
-            (project_id, workspace_id, status, persona_count, current_stage)
-          values ($1, $2, 'pending', $3, 'validating')
+            (project_id, workspace_id, status, persona_count, current_stage,
+             ensemble_id, ensemble_index)
+          values ($1, $2, 'pending', $3, 'validating', $4, $5)
           returning id::text`,
-        [project.id, project.workspace_id, perSim],
+        [project.id, project.workspace_id, perSim, ensembleId, i],
       );
       simIds.push(rows[0].id);
     }
@@ -268,7 +304,116 @@ async function main() {
     );
   }
 
+  // Persist the aggregate so the row is usable by the app, the PDF
+  // renderer and anything else that reads ensembles.aggregate_result.
+  // Without this the run only ever existed in this console.
+  const c3 = new Client({ connectionString: process.env.DATABASE_URL });
+  await c3.connect();
+  try {
+    const snapshots = await loadSnapshots(c3, ensembleId);
+    const aggregate = aggregateEnsemble(snapshots);
+    const narrative = await mergeNarrative({
+      snapshots,
+      ensembleId,
+      productName: project.product_name,
+      bestCountry: aggregate.recommendation.country,
+      consensusPercent: aggregate.recommendation.consensusPercent,
+      locale: "ko",
+      crossCountryDistribution: aggregate.crossCountryDistribution,
+      candidateCountries: project.candidate_countries,
+      basePriceCents: project.base_price_cents,
+      currency: project.currency,
+      tier: tierFor(parallel),
+    });
+    if (narrative) {
+      (aggregate as { narrative?: unknown }).narrative = narrative;
+    } else {
+      console.warn("narrative merge returned nothing — aggregate saved without it");
+    }
+    await c3.query(
+      `update public.ensembles
+          set aggregate_result = $2::jsonb, status = 'completed', completed_at = now()
+        where id = $1`,
+      [ensembleId, JSON.stringify(aggregate)],
+    );
+    console.log(`\n✓ Saved ensemble ${ensembleId.slice(0, 8)} (${snapshots.length} sims aggregated)`);
+  } finally {
+    await c3.end();
+  }
+
   console.log(`\n✓ Ensemble complete. Wall time: ${wallSec}s`);
+}
+
+/** Tier label implied by the parallel-sim count the caller asked for. */
+function tierFor(parallel: number): string {
+  if (parallel <= 3) return "hypothesis";
+  if (parallel <= 6) return "decision";
+  if (parallel <= 15) return "decision_plus";
+  if (parallel <= 25) return "deep";
+  return "deep_pro";
+}
+
+/** Rebuild per-sim snapshots from what the runner persisted. */
+async function loadSnapshots(c: Client, ensembleId: string): Promise<EnsembleSimSnapshot[]> {
+  const { rows } = await c.query<Record<string, unknown>>(
+    `select s.id::text as id, s.ensemble_index, s.best_country, s.model_provider,
+            sr.countries, sr.personas, sr.overview, sr.risks, sr.recommendations,
+            sr.pricing, sr.creative
+       from public.simulations s
+       join public.simulation_results sr on sr.simulation_id = s.id
+      where s.ensemble_id = $1 and s.status = 'completed'
+      order by s.ensemble_index nulls last`,
+    [ensembleId],
+  );
+  return rows.map((r) => {
+    const personas = (r.personas ?? []) as Array<Record<string, unknown>>;
+    const sums: Record<string, { n: number; total: number }> = {};
+    for (const p of personas) {
+      const cc = String(p.country ?? "?").toUpperCase();
+      (sums[cc] ??= { n: 0, total: 0 });
+      sums[cc].n += 1;
+      sums[cc].total += typeof p.purchaseIntent === "number" ? p.purchaseIntent : 0;
+    }
+    const intentByCountry: Record<string, { n: number; meanIntent: number }> = {};
+    for (const [cc, v] of Object.entries(sums)) {
+      intentByCountry[cc] = { n: v.n, meanIntent: v.n ? v.total / v.n : 0 };
+    }
+    const compact = personas.flatMap((p) =>
+      typeof p.purchaseIntent === "number" && p.country
+        ? [
+            {
+              country: String(p.country).toUpperCase(),
+              purchaseIntent: p.purchaseIntent as number,
+              voice: p.voice as string | undefined,
+              ageRange: p.ageRange as string | undefined,
+              profession: p.profession as string | undefined,
+              gender: p.gender as string | undefined,
+              incomeBand: p.incomeBand as string | undefined,
+              trustFactors: Array.isArray(p.trustFactors)
+                ? (p.trustFactors as unknown[]).filter((x): x is string => typeof x === "string")
+                : undefined,
+              objections: Array.isArray(p.objections)
+                ? (p.objections as unknown[]).filter((x): x is string => typeof x === "string")
+                : undefined,
+            },
+          ]
+        : [],
+    );
+    return {
+      simulationId: r.id as string,
+      index: (r.ensemble_index as number) ?? 0,
+      bestCountry: (r.best_country as string) ?? null,
+      countries: (r.countries ?? []) as CountryScore[],
+      personaIntentByCountry: intentByCountry,
+      provider: (r.model_provider as string) ?? undefined,
+      overview: r.overview,
+      risks: r.risks,
+      recommendations: r.recommendations,
+      pricing: r.pricing,
+      personas: compact,
+      creative: r.creative,
+    } as EnsembleSimSnapshot;
+  });
 }
 
 main().catch((err) => {
