@@ -30,7 +30,15 @@ const worst = (a: CheckStatus, b: CheckStatus): CheckStatus =>
 
 export async function checkSystemHealth(): Promise<SystemHealth> {
   const checks: HealthCheck[] = [];
-  for (const run of [checkDb, checkSimulations, checkCrawler, checkPayments]) {
+  for (const run of [
+    checkDb,
+    checkSimulations,
+    checkCrawler,
+    checkPayments,
+    checkQualityAudit,
+    checkFailoverRate,
+    checkSilentDegradation,
+  ]) {
     try {
       checks.push(await run());
     } catch (err) {
@@ -155,4 +163,137 @@ async function checkPayments(): Promise<HealthCheck> {
   const pastDue = pd.count ?? 0;
   if (failed > 0 || pastDue > 0) return { key: "payments", label: "결제", status: "warn", detail: `24h 결제실패 ${failed}건 · past_due ${pastDue}건` };
   return { key: "payments", label: "결제", status: "ok", detail: "결제실패 0 · past_due 0" };
+}
+
+/**
+ * Quality audit coverage.
+ *
+ * Every completed sim should leave a simulation_quality row. The audit
+ * is wrapped in a try/catch that only warns, so when it breaks the rows
+ * simply stop appearing — and because the ensemble aggregator uses
+ * those rows to decide which sims to quarantine, a broken audit quietly
+ * lets flagged sims back into the conclusion. It is a cascade point, so
+ * it is worth checking directly rather than waiting for a symptom.
+ */
+async function checkQualityAudit(): Promise<HealthCheck> {
+  const admin = createServiceClient();
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const [sims, audits] = await Promise.all([
+    admin
+      .from("simulations")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "completed")
+      .gte("created_at", since),
+    admin
+      .from("simulation_quality")
+      .select("simulation_id", { count: "exact", head: true })
+      .gte("created_at", since),
+  ]);
+  const done = sims.count ?? 0;
+  const audited = audits.count ?? 0;
+  if (done === 0) {
+    return { key: "quality_audit", label: "품질 감사", status: "ok", detail: "최근 24h 완료 시뮬 없음" };
+  }
+  const pct = Math.round((audited / done) * 100);
+  if (pct < 50) {
+    return {
+      key: "quality_audit",
+      label: "품질 감사",
+      status: "fail",
+      detail: `완료 시뮬 ${done}건 중 ${audited}건만 감사됨 (${pct}%) — 격리 필터가 무력화됩니다`,
+    };
+  }
+  if (pct < 90) {
+    return {
+      key: "quality_audit",
+      label: "품질 감사",
+      status: "warn",
+      detail: `감사 누락 ${done - audited}건 (${pct}% 커버)`,
+    };
+  }
+  return { key: "quality_audit", label: "품질 감사", status: "ok", detail: `${audited}/${done}건 감사 (${pct}%)` };
+}
+
+/**
+ * Synthesis failover rate.
+ *
+ * One failover is the mechanism working. A high rate means the primary
+ * provider is effectively down and every report is being written by the
+ * backup — which is a different model than the tier advertises. Rate,
+ * not count, because a per-event alert here would be pure noise.
+ */
+async function checkFailoverRate(): Promise<HealthCheck> {
+  const admin = createServiceClient();
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await admin
+    .from("simulation_quality")
+    .select("synthesis_failover")
+    .gte("created_at", since);
+  if (error) {
+    return { key: "failover", label: "LLM 폴오버", status: "warn", detail: `조회 실패: ${error.message}` };
+  }
+  const rows = (data ?? []) as Array<{ synthesis_failover: boolean | null }>;
+  if (rows.length < 5) {
+    return { key: "failover", label: "LLM 폴오버", status: "ok", detail: `표본 부족 (${rows.length}건)` };
+  }
+  const flipped = rows.filter((r) => r.synthesis_failover).length;
+  const pct = Math.round((flipped / rows.length) * 100);
+  if (pct >= 50) {
+    return {
+      key: "failover",
+      label: "LLM 폴오버",
+      status: "fail",
+      detail: `24h 폴오버율 ${pct}% (${flipped}/${rows.length}) — 주 provider 사실상 중단`,
+    };
+  }
+  if (pct >= 20) {
+    return {
+      key: "failover",
+      label: "LLM 폴오버",
+      status: "warn",
+      detail: `24h 폴오버율 ${pct}% (${flipped}/${rows.length})`,
+    };
+  }
+  return { key: "failover", label: "LLM 폴오버", status: "ok", detail: `24h 폴오버율 ${pct}%` };
+}
+
+/**
+ * Digest of the silent degradations alertOps recorded.
+ *
+ * Individual alerts are collapsed per (kind, subject) and an email can
+ * be missed. The audit trail is not — so the periodic health check
+ * reports what actually happened, grouped, whether or not each one got
+ * its own email.
+ */
+async function checkSilentDegradation(): Promise<HealthCheck> {
+  const admin = createServiceClient();
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await admin
+    .from("audit_logs")
+    .select("resource_type, metadata")
+    .eq("action", "ops_alert")
+    .gte("ts", since);
+  if (error) {
+    return { key: "degradation", label: "품질 저하 신호", status: "warn", detail: `조회 실패: ${error.message}` };
+  }
+  const rows = (data ?? []) as Array<{ resource_type: string | null; metadata: { severity?: string } | null }>;
+  if (rows.length === 0) {
+    return { key: "degradation", label: "품질 저하 신호", status: "ok", detail: "24h 내 감지 없음" };
+  }
+  const byKind = new Map<string, number>();
+  for (const r of rows) {
+    const k = r.resource_type ?? "unknown";
+    byKind.set(k, (byKind.get(k) ?? 0) + 1);
+  }
+  const summary = [...byKind.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => `${k} ${n}건`)
+    .join(", ");
+  const critical = rows.filter((r) => r.metadata?.severity === "critical").length;
+  return {
+    key: "degradation",
+    label: "품질 저하 신호",
+    status: critical > 0 ? "fail" : "warn",
+    detail: `24h ${rows.length}건 (치명 ${critical}건) — ${summary}`,
+  };
 }

@@ -15,6 +15,7 @@
  */
 
 import { createServiceClient } from "@/lib/supabase/admin";
+import { alertOpsAsync } from "@/lib/email/ops-alert";
 import type { CountryScore, Persona, PricingResult } from "@/lib/simulation/schemas";
 
 export type WarningSeverity = "info" | "warning" | "critical";
@@ -409,7 +410,7 @@ export async function persistAudit(
   result: QualityAuditResult,
 ): Promise<void> {
   const admin = createServiceClient();
-  await admin.from("simulation_quality").upsert(
+  const { error } = await admin.from("simulation_quality").upsert(
     {
       simulation_id: input.simulationId,
       workspace_id: input.workspaceId,
@@ -429,6 +430,25 @@ export async function persistAudit(
     },
     { onConflict: "simulation_id" },
   );
+  if (error) {
+    // PostgREST reports a bad column as { error }, not a throw, so the
+    // caller's try/catch never fires. This write failed silently from
+    // 2026-05 onward — the audit ran every time and the row was never
+    // stored — because two migrations adding metric columns had not
+    // been applied. Nothing downstream complained: the ensemble
+    // aggregator just found no quarantine rows to filter on.
+    await alertOpsAsync({
+      kind: "quality_audit_failed",
+      severity: "critical",
+      summary: "품질 감사 결과를 저장하지 못했습니다 — 격리 필터가 무력화됩니다",
+      simulationId: input.simulationId,
+      workspaceId: input.workspaceId,
+      dedupeKey: "persist",
+      dedupeMinutes: 180,
+      details: { code: error.code, message: error.message, hint: error.hint ?? null },
+    });
+    throw new Error(`simulation_quality upsert failed: ${error.message}`);
+  }
 }
 
 /**
