@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { confidenceBasis, confidenceCopy } from "@/lib/simulation/grade-copy";
 import { CheckCircle2, Scale, Sparkles } from "lucide-react";
 import { CountryMark } from "@/components/dashboard/CountryMark";
 import { getCountryLabel } from "@/lib/countries";
@@ -58,6 +59,8 @@ export function ResultHero({
 }) {
   const isTie = !!secondaryCountryCode;
   const conf = CONFIDENCE_STYLE[confidence];
+  const gradeCopy = confidenceCopy(confidence, isKo ? "ko" : "en");
+  const basis = confidenceBasis(isKo ? "ko" : "en");
   const primaryLabel = getCountryLabel(countryCode, locale);
   const secondaryLabel = secondaryCountryCode
     ? getCountryLabel(secondaryCountryCode, locale)
@@ -105,8 +108,10 @@ export function ResultHero({
           <span
             className="px-2.5 py-1 rounded-full text-[11.5px] font-extrabold"
             style={{ background: conf.bg, color: conf.fg }}
+            title={`${gradeCopy.meaning} ${gradeCopy.action}`}
           >
             {confidence}
+            <span className="ml-1 font-bold opacity-70">{gradeCopy.label}</span>
           </span>
           {consensusBadge}
         </div>
@@ -154,6 +159,20 @@ export function ResultHero({
               ? `${simCount}개 독립 시뮬 중 ${consensusPercent}%가 ${primaryLabel}을(를) 1순위로 지목했습니다.`
               : `${consensusPercent}% of ${simCount} independent simulations put ${primaryLabel} first.`}
         </p>
+
+        {/* What the grade means. The label alone reads as a verdict on the
+            product; it is actually a measurement of how much the runs
+            agreed, and that distinction changes what the reader does next. */}
+        <div className="mt-3 rounded-xl px-3.5 py-3" style={{ background: "rgba(255,255,255,.07)" }}>
+          <div className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: conf.fg }}>
+            {isKo ? `신뢰도 ${confidence} — ${gradeCopy.label}` : `Confidence: ${gradeCopy.label}`}
+          </div>
+          <p className="mt-1 text-[12px] leading-relaxed text-white/75">{gradeCopy.meaning}</p>
+          <p className="mt-1 text-[12px] leading-relaxed font-semibold text-white/90">
+            {gradeCopy.action}
+          </p>
+          <p className="mt-2 text-[10.5px] leading-relaxed text-white/45">{basis}</p>
+        </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] font-semibold text-white/45">
           <span>{isKo ? `시뮬 ${simCount}개` : `${simCount} sims`}</span>

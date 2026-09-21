@@ -19,6 +19,7 @@ import {
 import type * as React from "react";
 import type { Style } from "@react-pdf/types";
 import { splitByFont, ensureFontsLoaded } from "./fonts";
+import { confidenceCopy, confidenceLegend, confidenceBasis, varianceCopyFor } from "@/lib/simulation/grade-copy";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { categoryLabel } from "@/lib/simulation/taxonomy";
 import {
@@ -1201,14 +1202,14 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 {recommendation.country}
               </MText>
               <MText style={styles.kpiSub}>
-                {`${recommendation.consensusPercent}% ${isKo ? "합의" : "consensus"} · ${recommendation.confidence}`}
+                {`${recommendation.consensusPercent}% ${isKo ? "합의" : "consensus"} · ${recommendation.confidence} (${confidenceCopy(recommendation.confidence, isKo ? "ko" : "en").label})`}
               </MText>
             </View>
           )}
           <View style={[styles.kpiCard, { flex: 1 }]}>
             <MText style={styles.kpiLabel}>{isKo ? "변동성" : "Variance"}</MText>
             <MText style={[styles.kpiValue, { color: variance.label === "high" ? C.warn : variance.label === "moderate" ? C.muted : C.success }]}>
-              {variance.label.toUpperCase()}
+              {varianceCopyFor(variance.label, isKo ? "ko" : "en").label}
             </MText>
             <MText style={styles.kpiSub}>
               {isKo
@@ -1237,6 +1238,58 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
               {`${topRisks.length} ${isKo ? "주요 리스크" : "top risks"}`}
             </MText>
           </View>
+        </View>
+
+        {/* Confidence legend. The grade above is the single most quoted
+            number in these reports and the most misread — readers take
+            STRONG/MODERATE/WEAK as a verdict on the product rather than
+            a measure of how far the runs agreed. Spelling out all three
+            grades, not just the one that applies, is what makes the
+            distinction visible. */}
+        <View
+          style={{
+            backgroundColor: C.card,
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 16,
+          }}
+        >
+          <MText style={[styles.kpiLabel, { marginBottom: 6 }]}>
+            {isKo ? "신뢰도 등급의 의미" : "What the confidence grade means"}
+          </MText>
+          {confidenceLegend(isKo ? "ko" : "en").map((g) => {
+            const active = g.grade === recommendation.confidence;
+            const tint =
+              g.grade === "STRONG" ? C.success : g.grade === "MODERATE" ? C.warn : C.risk;
+            return (
+              <View
+                key={g.grade}
+                style={{
+                  flexDirection: "row",
+                  gap: 8,
+                  marginBottom: 5,
+                  opacity: active ? 1 : 0.55,
+                }}
+              >
+                <MText
+                  style={{
+                    fontSize: 8,
+                    fontWeight: 700,
+                    color: tint,
+                    width: 74,
+                  }}
+                >
+                  {`${g.grade}${active ? " ◀" : ""}`}
+                </MText>
+                <MText style={{ fontSize: 8.5, lineHeight: 1.5, color: C.body, flex: 1 }}>
+                  {`${g.meaning} ${g.action}`}
+                </MText>
+              </View>
+            );
+          })}
+          <MText style={{ fontSize: 7.5, lineHeight: 1.5, color: C.muted, marginTop: 4 }}>
+            {confidenceBasis(isKo ? "ko" : "en")}
+          </MText>
         </View>
 
         {/* Two-column grid: top risks + top actions */}
@@ -1889,6 +1942,38 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             ))}
           </View>
         )}
+
+        {/* Confidence legend. The grade is the most quoted line in this
+            report and the most misread — readers take STRONG/MODERATE/WEAK
+            as a verdict on the product rather than a measure of how far
+            the independent runs agreed. Showing all three grades, not
+            only the one that applies, is what makes that visible. */}
+        <View style={{ backgroundColor: C.card, borderRadius: 8, padding: 12, marginTop: 14 }}>
+          <MText style={[styles.kpiLabel, { marginBottom: 6 }]}>
+            {isKo ? "신뢰도 등급의 의미" : "What the confidence grade means"}
+          </MText>
+          {confidenceLegend(isKo ? "ko" : "en").map((g) => {
+            const active = g.grade === aggregate.recommendation.confidence;
+            const tint =
+              g.grade === "STRONG" ? C.success : g.grade === "MODERATE" ? C.warn : C.risk;
+            return (
+              <View
+                key={g.grade}
+                style={{ flexDirection: "row", gap: 8, marginBottom: 5, opacity: active ? 1 : 0.5 }}
+              >
+                <MText style={{ fontSize: 8, fontWeight: 700, color: tint, width: 76 }}>
+                  {`${g.grade}${active ? " ◀" : ""}`}
+                </MText>
+                <MText style={{ fontSize: 8.5, lineHeight: 1.5, color: C.body, flex: 1 }}>
+                  {`${g.meaning} ${g.action}`}
+                </MText>
+              </View>
+            );
+          })}
+          <MText style={{ fontSize: 7.5, lineHeight: 1.5, color: C.muted, marginTop: 4 }}>
+            {confidenceBasis(isKo ? "ko" : "en")}
+          </MText>
+        </View>
 
         {pageFooter}
       </Page>

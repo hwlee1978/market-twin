@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Activity } from "lucide-react";
+import { varianceCopyFor } from "@/lib/simulation/grade-copy";
 
 type VarianceLabel = "low" | "moderate" | "high";
 
@@ -54,13 +55,11 @@ export function VarianceCard({
   guide?: ReactNode;
 }) {
   const s = STYLE[label];
-  const labelText = isKo
-    ? label === "low"
-      ? "낮음"
-      : label === "moderate"
-        ? "보통"
-        : "높음"
-    : label.toUpperCase();
+  // Deliberately not "MODERATE": confidence uses that word for its own
+  // middle grade, and the two sat side by side with no way to tell which
+  // scale a reader was looking at.
+  const vc = varianceCopyFor(label, isKo ? "ko" : "en");
+  const labelText = vc.label;
 
   return (
     <section className="card p-5 sm:p-6">
@@ -86,6 +85,9 @@ export function VarianceCard({
           </div>
 
           <p className="mt-1.5 text-[13px] leading-relaxed text-slate-600">{copy}</p>
+          <p className="mt-1.5 text-[12.5px] leading-relaxed text-slate-500">
+            {vc.meaning} <b className="font-semibold text-slate-700">{vc.action}</b>
+          </p>
 
           <div className="mt-3.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
             <div className="h-full rounded-full" style={{ width: `${s.fill}%`, background: s.bar }} />
