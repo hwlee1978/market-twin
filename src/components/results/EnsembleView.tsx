@@ -176,7 +176,7 @@ function ConsensusTypeBadge({
         className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800"
         title={
           isKo
-            ? "하나의 LLM 제공자가 합의를 주도합니다. 그 모델의 prior가 결과를 결정한 가능성이 있어 다른 tier(deep)에서 재검증을 권장합니다."
+            ? "하나의 LLM 제공자가 합의를 주도했습니다. 그 모델의 선입견이 결과를 좌우했을 가능성이 있으므로, 심층분석 티어에서 재검증하시기를 권합니다."
             : "One LLM provider drives the consensus. The model's prior may be dominating the result; re-validate at a higher tier (deep) before acting."
         }
       >
@@ -1100,7 +1100,7 @@ function EnsembleDashboard({
           </span>{" "}
           {isKo
             ? "가장 가벼운 초기검증 티어(시뮬 3회 · 페르소나 600명)로, 검증분석·심층분석보다 정확도가 낮을 수 있습니다. 방향성 확인 용도로 활용하시고, 정밀한 의사결정에는 상위 티어를 권장합니다."
-            : "This is the lightest Hypothesis tier (3 sims · 600 personas), so accuracy can be lower than the Decision/Deep tiers. Use it for directional checks; for high-stakes decisions, run a higher tier."}
+            : "This is the lightest Hypothesis tier (3 sims · 600 personas), so accuracy can be lower than the Consensus and Triangulated tiers. Use it for directional checks; for a high-stakes decision, run a deeper tier."}
         </div>
       )}
       {/* Header */}
@@ -1872,8 +1872,8 @@ function SummaryTab({
             <GuideSection title={isKo ? "HIGH일 때 뭘 해야 하나" : "What to do when HIGH"}>
               <p className="m-0">
                 {isKo
-                  ? "더 깊은 티어(decision_plus / deep / deep_pro)로 시뮬 수를 늘려 합의도를 끌어올리거나, 입력 (페르소나 카테고리·가격·국가)을 다듬어 모호함을 줄이세요."
-                  : "Bump up to a deeper tier (decision_plus / deep / deep_pro) to add more sims and tighten consensus, or refine inputs (persona category, price, market list) to reduce ambiguity."}
+                  ? "더 깊은 티어(검증분석 Plus · 심층분석 · 심층분석 Pro)로 시뮬 수를 늘려 합의도를 끌어올리거나, 입력(페르소나 카테고리·가격·국가)을 다듬어 모호함을 줄이십시오."
+                  : "Move up to a deeper tier (Consensus Plus · Triangulated · Triangulated Pro) to add more sims and tighten consensus, or refine the inputs (persona category, price, market list) to reduce ambiguity."}
               </p>
             </GuideSection>
           </ChartGuide>
@@ -8480,7 +8480,7 @@ function DecisionAidTab({
                   }
                   if (conf < 60 && gap < 4) {
                     return isKo
-                      ? `⚠ 결과 신뢰도 ${conf}점 + 격차 거의 없음(${gap.toFixed(1)}pt). 무료 재실행 또는 더 높은 tier 시뮬로 검증 강력 권장.`
+                      ? `⚠ 결과 신뢰도 ${conf}점, 1·2순위 격차 ${gap.toFixed(1)}pt로 사실상 동률입니다. 무료 재실행 또는 상위 티어 분석으로 검증하시기를 강력히 권합니다.`
                       : `⚠ Confidence ${conf} + tight gap (${gap.toFixed(1)}pt). Strongly recommend a free rerun or higher-tier sim before committing.`;
                   }
                   return isKo
