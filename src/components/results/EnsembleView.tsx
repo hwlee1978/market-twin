@@ -8,6 +8,7 @@ import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { categoryLabel } from "@/lib/simulation/taxonomy";
 import { getCountryLabel } from "@/lib/countries";
+import { confidenceBasis, confidenceCopy } from "@/lib/simulation/grade-copy";
 import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
 import { formatPrice } from "@/lib/format/price";
 import { normalizeLLMText } from "@/lib/format/normalize";
@@ -2166,6 +2167,11 @@ function OverviewTab({
         <StatTile
           index={0}
           icon={Globe2}
+          hint={
+            isKo
+              ? "독립 시뮬레이션들이 종합적으로 1순위로 지목한 시장입니다."
+              : "The market the independent simulations collectively put first."
+          }
           label={isKo ? "추천 진출국" : "Recommended"}
           value={isTie ? tieCountries.join(" · ") : recommendation.country}
           suffix={isTie ? (isKo ? " 동등" : " tied") : undefined}
@@ -2173,6 +2179,11 @@ function OverviewTab({
         <StatTile
           index={1}
           icon={CheckCircle2}
+          hint={
+            isKo
+              ? `${simCount}개 독립 시뮬 중 이 시장을 1순위로 지목한 비율입니다. 뒤의 등급은 그 합의가 얼마나 단단한지를 나타냅니다.`
+              : `Share of ${simCount} independent simulations that put this market first. The grade says how solid that agreement is.`
+          }
           label={
             isTie
               ? isKo
@@ -2196,6 +2207,38 @@ function OverviewTab({
           value={effectivePersonas.toLocaleString()}
         />
       </div>
+
+      {/* "50% · MODERATE" is two different statements stacked, and the
+          tile has no room to say so: the number is how many runs agreed,
+          the grade is how much weight that agreement carries. */}
+      <ToneCallout
+        tone={
+          recommendation.confidence === "STRONG"
+            ? "success"
+            : recommendation.confidence === "MODERATE"
+              ? "warn"
+              : "risk"
+        }
+        icon={HelpCircle}
+        title={
+          isKo
+            ? `합의도 ${isTie && top ? top.percent : recommendation.consensusPercent}% · 신뢰도 ${recommendation.confidence} (${confidenceCopy(recommendation.confidence, "ko").label})`
+            : `${isTie && top ? top.percent : recommendation.consensusPercent}% agreement · ${confidenceCopy(recommendation.confidence, "en").label} confidence`
+        }
+      >
+        <p className="m-0">
+          {isKo
+            ? `합의도는 ${simCount}개 독립 시뮬레이션 중 이 시장을 1순위로 지목한 비율입니다. `
+            : `Agreement is the share of ${simCount} independent simulations that put this market first. `}
+          {confidenceCopy(recommendation.confidence, isKo ? "ko" : "en").meaning}
+        </p>
+        <p className="m-0 mt-1.5 font-semibold text-slate-700">
+          {confidenceCopy(recommendation.confidence, isKo ? "ko" : "en").action}
+        </p>
+        <p className="m-0 mt-2 text-[11.5px] text-slate-400">
+          {confidenceBasis(isKo ? "ko" : "en")}
+        </p>
+      </ToneCallout>
 
       {/* Key findings — bullet list of the 5-7 most-actionable headlines.
           Each bullet should leave the reader knowing what to do next, not

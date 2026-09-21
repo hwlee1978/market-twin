@@ -160,21 +160,35 @@ export function StatTile({
   suffix,
   label,
   index = 0,
+  hint,
 }: {
   icon: LucideIcon;
   value: ReactNode;
   suffix?: ReactNode;
   label: ReactNode;
   index?: number;
+  /** Definition of the figure, surfaced on hover. Keep it to a sentence. */
+  hint?: string;
 }) {
   const i = index % GRADIENTS.length;
   return (
     <div
       className="relative overflow-hidden rounded-2xl px-4 py-3.5 text-white"
       style={{ background: GRADIENTS[i] }}
+      title={hint}
     >
-      <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-white/20">
-        <Icon size={16} strokeWidth={2.4} />
+      <span className="flex items-center gap-1.5">
+        <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-white/20">
+          <Icon size={16} strokeWidth={2.4} />
+        </span>
+        {hint && (
+          <span
+            className="flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-white/20 text-[10px] font-bold"
+            aria-label={hint}
+          >
+            ?
+          </span>
+        )}
       </span>
       <div className="mt-3 text-[26px] font-extrabold leading-none tabular-nums tracking-tight">
         {value}
