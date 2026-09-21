@@ -4059,6 +4059,24 @@ function MarketProfileTab({
               )}
             </div>
           )}
+          {/* "unknown" is not "fine" — it means the sanitizer could not
+              find two comparable figures in the fetched sources, so the
+              estimate was never cross-checked against anything. With
+              citation links present and no notice, the number reads as
+              sourced when it is the model's own. */}
+          {(ms.groundingFlag?.status === "unknown" ||
+            ms.groundingFlag?.status === "no-snippets") && (
+            <div className="mb-3 rounded-xl px-3.5 py-2.5 text-[11.5px] leading-relaxed text-slate-700"
+              style={{ background: TONE.neutral.soft }}
+            >
+              <span className="font-bold text-slate-800">
+                {isKo ? "출처와 대조되지 않은 추정치" : "Estimate not cross-checked"}
+              </span>{" "}
+              {isKo
+                ? "아래 출처에서 비교 가능한 시장 규모 수치를 찾지 못해, 이 금액은 모델 자체 추정으로 남아 있습니다. 인용 링크는 맥락 자료이며 이 수치의 근거는 아닙니다."
+                : "No comparable market-size figure was found in the sources below, so this number remains the model's own estimate. The links are context, not the basis for the figure."}
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {ms.estimateUsd && (
               <div>
@@ -4675,6 +4693,24 @@ function SecondaryCountryMarketSection({
           <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-3">
             {isKo ? "시장 규모" : "Market size"}
           </div>
+          {/* "unknown" is not "fine" — it means the sanitizer could not
+              find two comparable figures in the fetched sources, so the
+              estimate was never cross-checked against anything. With
+              citation links present and no notice, the number reads as
+              sourced when it is the model's own. */}
+          {(ms.groundingFlag?.status === "unknown" ||
+            ms.groundingFlag?.status === "no-snippets") && (
+            <div className="mb-3 rounded-xl px-3.5 py-2.5 text-[11.5px] leading-relaxed text-slate-700"
+              style={{ background: TONE.neutral.soft }}
+            >
+              <span className="font-bold text-slate-800">
+                {isKo ? "출처와 대조되지 않은 추정치" : "Estimate not cross-checked"}
+              </span>{" "}
+              {isKo
+                ? "아래 출처에서 비교 가능한 시장 규모 수치를 찾지 못해, 이 금액은 모델 자체 추정으로 남아 있습니다. 인용 링크는 맥락 자료이며 이 수치의 근거는 아닙니다."
+                : "No comparable market-size figure was found in the sources below, so this number remains the model's own estimate. The links are context, not the basis for the figure."}
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {ms.estimateUsd && (
               <div>
@@ -4710,6 +4746,35 @@ function SecondaryCountryMarketSection({
               </div>
             )}
           </div>
+          {/* Sources. The comment above used to claim the secondary
+              generator emits no citations, so this block was left out —
+              but it does emit them, and the market figures were sitting
+              on the page with nothing behind them. */}
+          {(ms.citations?.length ?? 0) > 0 ? (
+            <div className="mt-4 border-t border-slate-100 pt-3">
+              <div className={clsx(TYPO.microLabel, "mb-2")}>{isKo ? "출처" : "Sources"}</div>
+              <ul className="space-y-1">
+                {ms.citations!.slice(0, 3).map((c, i) => (
+                  <li key={i} className="text-xs">
+                    <a
+                      href={c.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="break-all text-accent-600 hover:underline"
+                    >
+                      {`${i + 1}. ${c.title}`}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <div className="mt-3 border-t border-slate-100 pt-3 text-[11px] text-slate-400">
+              {isKo
+                ? "AI 추정 — 외부 시장조사 데이터로 검증되지 않음"
+                : "AI estimate — not externally sourced"}
+            </div>
+          )}
         </div>
       )}
 
