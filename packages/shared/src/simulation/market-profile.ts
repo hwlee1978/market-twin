@@ -255,9 +255,20 @@ export async function buildMarketProfile(
     // cited URLs match what the LLM actually saw.
     const profile = parsed.data;
     if (marketSnippets.length > 0 && profile.marketSize) {
-      profile.marketSize.citations = marketSnippets
-        .slice(0, 3)
-        .map((s) => ({ url: s.url, title: s.title }));
+      // Not the first three results. A search for a Taiwanese snack
+      // market returns a pet-food report near the top, and citing it
+      // made an unverified figure look sourced.
+      const picked = selectMarketSizeCitations(marketSnippets, {
+        category: opts.input.category,
+        productName: opts.input.productName,
+      });
+      if (picked.rejected.length > 0) {
+        console.warn(
+          `[market profile] dropped ${picked.rejected.length} off-market citation(s): ` +
+            picked.rejected.map((r) => `${r.title} — ${r.reason}`).join(" | `"),
+        );
+      }
+      profile.marketSize.citations = picked.kept.map((s) => ({ url: s.url, title: s.title }));
     }
     // Output-side grounding check. Even with the "anchor on these
     // snippets" hard rule (prompts.ts:894), the LLM sometimes emits a
