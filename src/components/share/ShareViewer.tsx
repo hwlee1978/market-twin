@@ -518,18 +518,3 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function varianceCopy(label: "low" | "moderate" | "high", isKo: boolean): string {
-  if (label === "high") {
-    return isKo
-      ? "동일 조건에서도 시뮬마다 점수 편차가 큽니다. 단일 시뮬은 불안정하니 앙상블 결과를 신뢰하세요."
-      : "Same fixture produces very different country scores per run. Trust the ensemble; single sim alone would be unreliable.";
-  }
-  if (label === "moderate") {
-    return isKo
-      ? "시뮬 간 변동이 중간 수준입니다. 앙상블 결과가 의미 있는 신뢰도를 더해줍니다."
-      : "Moderate run-to-run variance. Ensemble adds meaningful confidence.";
-  }
-  return isKo
-    ? "단일 시뮬 결과만으로도 신뢰할 수 있는 수준입니다."
-    : "Single-sim answer would have been reliable.";
-}
