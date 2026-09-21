@@ -356,6 +356,11 @@ export function DataTable<Row>({
     return <div className={clsx(TYPO.cardBody, "py-6 text-center")}>{empty}</div>;
   }
   return (
+    // min-w-max sizes the table to its widest cell, which is right for
+    // figures and wrong for prose: a paragraph in a cell stops wrapping
+    // and runs off the side instead. Columns here should hold values and
+    // short labels; a table that needs a paragraph wants a fixed
+    // min-width, not this.
     <div className={clsx("-mx-1 overflow-x-auto px-1", className)}>
       <table className="w-full min-w-max border-collapse">
         <thead>

@@ -3243,8 +3243,13 @@ function CountriesTab({
         {/* Not a DataTable: rows expand into a drilldown, which that
             primitive does not model. Follows its conventions instead —
             scroll container, micro column heads, hairline dividers. */}
+        {/* A fixed min-width, not min-w-max. The expand row holds
+            paragraphs of rationale, and min-w-max grows the table to fit
+            the longest line — so the prose never wrapped, it just ran off
+            the side and was clipped. This keeps the numeric columns from
+            being crushed while letting the drilldown wrap. */}
         <div className="-mx-1 overflow-x-auto px-1">
-          <table className="w-full min-w-max border-collapse">
+          <table className="w-full min-w-[720px] border-collapse">
             <thead>
               <tr className="border-b border-slate-200">
                 <th className="w-6 pb-2" />
@@ -8107,7 +8112,10 @@ function DecisionAidTab({
 
           {/* Volume tier table */}
           <div className="card p-5 sm:p-6">
-            <table className="w-full min-w-max border-collapse text-sm">
+            {/* min-w-max needs a scroll parent or the table just overflows
+                the card on a narrow screen. */}
+            <div className="-mx-1 overflow-x-auto px-1">
+              <table className="w-full min-w-max border-collapse text-sm">
               <thead className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
                 <tr>
                   <th className="px-4 py-2 text-left">{isKo ? "고객 수" : "Customers"}</th>
@@ -8142,7 +8150,8 @@ function DecisionAidTab({
                   );
                 })}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
 
           {/* Break-even sensitivity table — three margin scenarios so
