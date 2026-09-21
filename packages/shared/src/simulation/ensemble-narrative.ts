@@ -955,6 +955,7 @@ This analysis cannot pick a single winner. ${opts.top2.primary} (1st-place vote 
    - **effort** (1-3): 1=며칠 내 (콘텐츠 작성, A/B 테스트), 2=몇 주 (파트너 미팅, 패키지 재디자인), 3=수개월 또는 신규 파트너 필요 (인증, 유통망 신규 구축).
    - 두 점수 모두 정수. 모호한 액션이면 둘 다 2 (medium)로.
    - 사용자는 이 점수로 액션을 Quick-Wins (impact↑ effort↓) / Strategic (둘 다 ↑) / Marginal (둘 다 ↓) / Avoid (impact↓ effort↑) 4사분면에 배치합니다.
+   - ⚠ **점수는 필드에만 넣고 액션 문장에는 절대 쓰지 마세요.** "【즉시 착수 — 2026년 10월, effort=3, impact=3】" 처럼 액션 텍스트 안에 점수 표기를 넣으면, 독자는 척도가 무엇인지 알 수 없는 숫자만 보게 됩니다. 화면과 리포트가 두 점수를 따로 표시하므로 중복이기도 합니다. 액션 문장에는 시기·채널·수치·KPI만 담으세요.
 
    ⚠ **점수에 variance 강제 (필수)**: 모든 액션을 effort=2, impact=2로 똑같이 매기는 건 lazy default — 실제로 액션 plan은 "당장 할 일 (며칠)" + "이번 분기 일 (몇 주)" + "장기 결정 (몇 개월)"이 섞여 있어야 자연스럽습니다.
      • 액션 ${Math.max(3, Math.ceil(0.3 * 10))}개 이상이면 **최소 1개의 effort=1 (Quick Win)**과 **최소 1개의 effort=3 (Strategic / 장기)**을 포함시키세요.

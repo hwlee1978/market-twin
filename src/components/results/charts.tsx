@@ -26,6 +26,7 @@ import {
   Pie,
   Cell,
   Legend,
+  ErrorBar,
 } from "recharts";
 import { formatPrice } from "@/lib/format/price";
 import { CHART, CHART_TICK, CHART_TOOLTIP } from "./ui/tokens";
@@ -93,13 +94,13 @@ export function CountryIntentChart({
         layout="vertical"
         margin={{ top: 8, right: 32, left: 16, bottom: 0 }}
       >
-                <defs>
+        <defs>
           <linearGradient id="mtBarH" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stopColor={COLORS.brand} />
             <stop offset="100%" stopColor={COLORS.accent} />
           </linearGradient>
         </defs>
-<CartesianGrid strokeDasharray="3 5" stroke={COLORS.divider} horizontal={false} />
+        <CartesianGrid strokeDasharray="3 5" stroke={COLORS.divider} horizontal={false} />
         <XAxis
           type="number"
           domain={[0, 100]}
@@ -139,6 +140,9 @@ export function CountryScoreChart({
     min: d.min,
     max: d.max,
     range: d.max - d.min,
+    // recharts wants the whisker as [distance below, distance above] the
+    // plotted value, not absolute bounds.
+    errorRange: [Math.max(0, d.mean - d.min), Math.max(0, d.max - d.mean)] as [number, number],
   }));
   return (
     <ResponsiveContainer width="100%" height={Math.max(160, data.length * 36 + 40)}>
@@ -147,13 +151,13 @@ export function CountryScoreChart({
         layout="vertical"
         margin={{ top: 8, right: 32, left: 16, bottom: 0 }}
       >
-                <defs>
-          <linearGradient id="mtBarH" x1="0" y1="0" x2="1" y2="0">
+        <defs>
+          <linearGradient id="mtBarScore" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stopColor={COLORS.brand} />
             <stop offset="100%" stopColor={COLORS.accent} />
           </linearGradient>
         </defs>
-<CartesianGrid strokeDasharray="3 5" stroke={COLORS.divider} horizontal={false} />
+        <CartesianGrid strokeDasharray="3 5" stroke={COLORS.divider} horizontal={false} />
         <XAxis
           type="number"
           domain={[0, 100]}
@@ -175,7 +179,21 @@ export function CountryScoreChart({
             return [String(value), String(name)] as [string, string];
           }}
         />
-        <Bar dataKey="mean" fill="url(#mtBarH)" radius={[0, 5, 5, 0]} />
+        <Bar dataKey="mean" fill="url(#mtBarScore)" radius={[0, 5, 5, 0]}>
+          {/* The min–max whisker the guide has always described. min and
+              max were computed and passed in, and the comment above
+              claims a "range bracket", but nothing ever drew one — so
+              the explanation pointed at a mark that wasn't on the chart.
+              Without it the bar reads as a precise value rather than the
+              middle of a spread. */}
+          <ErrorBar
+            dataKey="errorRange"
+            direction="x"
+            width={5}
+            strokeWidth={1.5}
+            stroke={COLORS.muted}
+          />
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );

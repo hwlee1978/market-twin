@@ -8,7 +8,17 @@ import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { categoryLabel } from "@/lib/simulation/taxonomy";
 import { getCountryLabel } from "@/lib/countries";
-import { confidenceBasis, confidenceCopy } from "@/lib/simulation/grade-copy";
+import {
+  actionScaleNote,
+  confidenceBasis,
+  confidenceCopy,
+  effortLabel,
+  impactLabel,
+  formatSegmentValue,
+  stripActionScoreNotation,
+  varianceCopyFor,
+  type SegmentMetric,
+} from "@/lib/simulation/grade-copy";
 import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
 import { formatPrice } from "@/lib/format/price";
 import { normalizeLLMText } from "@/lib/format/normalize";
@@ -2461,16 +2471,28 @@ function OverviewTab({
               <span className="shrink-0 text-success font-bold">·</span>
               <span>
                 {isKo ? "1순위 액션: " : "First action: "}
-                <span className="font-medium text-slate-900">{topAction.action}</span>
+                <span className="font-medium text-slate-900">
+                  {stripActionScoreNotation(topAction.action)}
+                </span>
               </span>
             </li>
           )}
           <li className="flex gap-3">
             <span className="shrink-0 text-slate-400 font-bold">·</span>
             <span className="text-slate-500">
-              {isKo
-                ? `시뮬 간 변동성: ${varianceAssessment.label.toUpperCase()} (최대 점수 변동 ${varianceAssessment.maxFinalScoreRange}점) — ${varianceCopy(varianceAssessment.label, isKo ? "ko" : "en")}`
-                : `Variance: ${varianceAssessment.label.toUpperCase()} (max range ${varianceAssessment.maxFinalScoreRange}pt) — ${varianceCopy(varianceAssessment.label, "en")}`}
+              {(() => {
+                // Was "변동성: MODERATE — 시뮬 간 변동이 중간 수준입니다",
+                // which repeats the grade without saying what it implies
+                // for the ranking the reader is looking at.
+                const vc = varianceCopyFor(
+                  varianceAssessment.label,
+                  isKo ? "ko" : "en",
+                  varianceAssessment.maxFinalScoreRange,
+                );
+                return isKo
+                  ? `시뮬 간 변동성 ${vc.label} — ${vc.meaning} ${vc.action}`
+                  : `Variance: ${vc.label} — ${vc.meaning} ${vc.action}`;
+              })()}
             </span>
           </li>
         </ul>
@@ -3099,15 +3121,23 @@ function CountriesTab({
                   {seg.bestCountry}
                 </span>
                 <span className="text-[13px] font-extrabold tabular-nums text-slate-500">
-                  {seg.id === "cac" ? `${seg.bestValue.toFixed(2)}` : seg.bestValue.toFixed(1)}
+                  {formatSegmentValue(seg.id as SegmentMetric, seg.bestValue, isKo ? "ko" : "en").text}
                 </span>
+              </div>
+              {/* The unit, in plain sight. "$4.20" and "68.0" sat next to
+                  each other with nothing to say one was money and the
+                  other a score, or which direction counted as good. */}
+              <div className="mt-1 text-[10.5px] leading-snug text-slate-400">
+                {formatSegmentValue(seg.id as SegmentMetric, seg.bestValue, isKo ? "ko" : "en").caption}
               </div>
               {seg.alternative && (
                 <div className="mt-1.5 text-[11.5px] font-semibold text-slate-400">
                   {isKo ? "대안" : "Alt"}: {seg.alternative.country} (
-                  {seg.id === "cac"
-                    ? `${seg.alternative.value.toFixed(2)}`
-                    : seg.alternative.value.toFixed(1)}
+                  {formatSegmentValue(
+                    seg.id as SegmentMetric,
+                    seg.alternative.value,
+                    isKo ? "ko" : "en",
+                  ).text}
                   )
                 </div>
               )}
@@ -3610,7 +3640,11 @@ function CountryComponentBreakdown({
     },
     {
       key: "competition",
-      label: isKo ? "경쟁 (역치)" : "Competition (inv)",
+      // Was "경쟁 (역치)" — 역치 means a physiological threshold, not an
+      // inverted scale, and the reader had to hold "high is good here but
+      // not there" in their head. Naming the thing the score measures
+      // removes the inversion from view entirely.
+      label: isKo ? "경쟁 우위" : "Competitive headroom",
       hint: isKo
         ? "높을수록 덜 혼잡, 지배 incumbent 부재"
         : "Higher = less crowded / no dominant incumbent",
@@ -3618,7 +3652,7 @@ function CountryComponentBreakdown({
     },
     {
       key: "regulatory",
-      label: isKo ? "규제 (역치)" : "Regulatory (inv)",
+      label: isKo ? "규제 통과 용이성" : "Regulatory ease",
       hint: isKo
         ? "높을수록 진입 장벽 적음 (관세·인증·제한)"
         : "Higher = fewer barriers (duties, certs, restrictions)",
@@ -3674,8 +3708,8 @@ function CountryComponentBreakdown({
       </ul>
       <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
         {isKo
-          ? "각 항목 0–100. 경쟁·규제는 역치 (높을수록 좋음). 가장 낮은 항목에 주목 — 그 부분이 진출의 약점입니다."
-          : "Each metric 0–100. Competition and regulatory are inverted (higher = better). The lowest score is your weakness — focus there."}
+          ? "막대 길이는 100점 만점 점수이며, 모든 항목이 길수록 유리합니다. 색은 70점 이상 초록 · 50–69 주황 · 50 미만 빨강입니다. 가장 낮은 항목이 이 시장 진출의 약점입니다."
+          : "Bar length is the score out of 100, and longer is better for every metric. Colour: 70+ green · 50–69 amber · under 50 red. The lowest metric is this market's weak point."}
       </p>
     </div>
   );
@@ -9543,7 +9577,7 @@ function ActionsTab({
                   {i + 1}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className={TYPO.cardCopy}>{a.action}</p>
+                  <p className={TYPO.cardCopy}>{stripActionScoreNotation(a.action)}</p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11.5px]">
                     <span className="font-semibold text-slate-500">
                       {coverageText
@@ -9555,10 +9589,13 @@ function ActionsTab({
                     {quad && (
                       <>
                         <Chip tone={quad.tone}>{quad.label[isKo ? "ko" : "en"]}</Chip>
+                        {/* Spell the buckets out. "impact 3 · effort 3"
+                            reads as a rating out of three; it is a band,
+                            and which band decides what to do with it. */}
                         <span className="font-semibold text-slate-400">
                           {isKo
-                            ? `영향 ${a.impact} · 난이도 ${a.effort}`
-                            : `impact ${a.impact} · effort ${a.effort}`}
+                            ? `영향 ${impactLabel(a.impact, "ko") ?? a.impact} · 난이도 ${effortLabel(a.effort, "ko") ?? a.effort}`
+                            : `${impactLabel(a.impact, "en") ?? a.impact} impact · ${effortLabel(a.effort, "en") ?? a.effort}`}
                         </span>
                       </>
                     )}
@@ -9571,6 +9608,9 @@ function ActionsTab({
             );
           })}
         </ol>
+        <p className={clsx("mt-3 border-t border-slate-100 pt-3", TYPO.cardBody)}>
+          {actionScaleNote(isKo ? "ko" : "en")}
+        </p>
       </SectionCard>
       {secondaryCountry && (
         <SecondaryActionsBlock
@@ -10632,19 +10672,3 @@ function ProviderLineup({
 // Mirrors the locale mapping in src/lib/report/ensemble-pdf.tsx so the
 // dashboard and PDF tell the same story for the same variance label. The
 // English string baked into aggregate.varianceAssessment.note is ignored.
-function varianceCopy(label: "low" | "moderate" | "high", locale: string): string {
-  const isKo = locale === "ko";
-  if (label === "high") {
-    return isKo
-      ? "동일 조건에서도 시뮬마다 점수 편차가 큽니다. 단일 시뮬은 불안정하니 앙상블 결과를 신뢰하세요."
-      : "Same fixture produces very different country scores per run. Trust the ensemble; single sim alone would be unreliable.";
-  }
-  if (label === "moderate") {
-    return isKo
-      ? "시뮬 간 변동이 중간 수준입니다. 앙상블 결과가 의미 있는 신뢰도를 더해줍니다."
-      : "Moderate run-to-run variance. Ensemble adds meaningful confidence.";
-  }
-  return isKo
-    ? "단일 시뮬 결과만으로도 신뢰할 수 있는 수준입니다."
-    : "Single-sim answer would have been reliable.";
-}

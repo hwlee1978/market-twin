@@ -19,7 +19,13 @@ import {
 import type * as React from "react";
 import type { Style } from "@react-pdf/types";
 import { splitByFont, ensureFontsLoaded } from "./fonts";
-import { confidenceCopy, confidenceLegend, confidenceBasis, varianceCopyFor } from "@/lib/simulation/grade-copy";
+import {
+  confidenceBasis,
+  confidenceCopy,
+  confidenceLegend,
+  stripActionScoreNotation,
+  varianceCopyFor,
+} from "@/lib/simulation/grade-copy";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { categoryLabel } from "@/lib/simulation/taxonomy";
 import {
@@ -1209,7 +1215,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           <View style={[styles.kpiCard, { flex: 1 }]}>
             <MText style={styles.kpiLabel}>{isKo ? "변동성" : "Variance"}</MText>
             <MText style={[styles.kpiValue, { color: variance.label === "high" ? C.warn : variance.label === "moderate" ? C.muted : C.success }]}>
-              {varianceCopyFor(variance.label, isKo ? "ko" : "en").label}
+              {varianceCopyFor(variance.label, isKo ? "ko" : "en", variance.maxFinalScoreRange).label}
             </MText>
             <MText style={styles.kpiSub}>
               {isKo
@@ -1358,7 +1364,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                     {`${i + 1}.`}
                   </MText>
                   <MText style={{ fontSize: 9.5, color: C.ink, lineHeight: 1.45, flex: 1 }}>
-                    {stripUnsupportedGlyphs(a.action)}
+                    {stripUnsupportedGlyphs(stripActionScoreNotation(a.action))}
                   </MText>
                 </View>
               ))
@@ -1644,7 +1650,9 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             {topAction && (
               <BulletItem
                 text={
-                  isKo ? `1순위 액션: ${topAction.action}` : `First action: ${topAction.action}`
+                  isKo
+                    ? `1순위 액션: ${stripActionScoreNotation(topAction.action)}`
+                    : `First action: ${stripActionScoreNotation(topAction.action)}`
                 }
               />
             )}
@@ -3093,7 +3101,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                         </MText>
                       </View>
                       <MText style={{ fontSize: 9, color: C.body, flex: 1, lineHeight: 1.5 }}>
-                        {a.action}
+                        {stripActionScoreNotation(a.action)}
                       </MText>
                     </View>
                   );
@@ -4316,7 +4324,9 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
               : `Recommended by ${a.surfacedInSims} sim${a.surfacedInSims === 1 ? "" : "s"}`;
             return (
               <View key={i} style={styles.actionRow} wrap={false}>
-                <MText style={styles.actionText}>{`${i + 1}. ${a.action}`}</MText>
+                <MText style={styles.actionText}>
+                  {`${i + 1}. ${stripActionScoreNotation(a.action)}`}
+                </MText>
                 <View style={{ flexDirection: "row", gap: 6, alignItems: "center", marginTop: 2 }}>
                   <MText style={styles.actionMeta}>
                     {coverageText ?? fallbackText}
@@ -8288,7 +8298,9 @@ function renderEnsembleSecondaryPages(opts: {
             const effortLabel = a.effort === 3 ? (isKo ? "몇 달" : "Months") : a.effort === 2 ? (isKo ? "몇 주" : "Weeks") : a.effort === 1 ? (isKo ? "며칠" : "Days") : null;
             return (
               <View key={i} style={styles.actionRow} wrap={false}>
-                <MText style={styles.actionText}>{`${i + 1}. ${a.action}`}</MText>
+                <MText style={styles.actionText}>
+                  {`${i + 1}. ${stripActionScoreNotation(a.action)}`}
+                </MText>
                 <View style={{ flexDirection: "row", gap: 6, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
                   {impactLabel && (
                     <MText style={[styles.actionMeta, { color: C.body }]}>
@@ -8831,8 +8843,8 @@ function ComponentBars({
     { label: isKo ? "문화 적합" : "Cultural fit", value: components.culturalFit.mean },
     { label: isKo ? "채널 매치" : "Channel match", value: components.channelMatch.mean },
     { label: isKo ? "가격 수용" : "Price fit", value: components.priceCompat.mean },
-    { label: isKo ? "경쟁 (역치)" : "Competition (inv)", value: components.competition.mean },
-    { label: isKo ? "규제 (역치)" : "Regulatory (inv)", value: components.regulatory.mean },
+    { label: isKo ? "경쟁 우위" : "Competitive headroom", value: components.competition.mean },
+    { label: isKo ? "규제 통과 용이성" : "Regulatory ease", value: components.regulatory.mean },
   ];
   return (
     <View style={{ gap: 3 }}>
