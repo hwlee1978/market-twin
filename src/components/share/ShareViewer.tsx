@@ -5,6 +5,7 @@ import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { formatDate } from "@/lib/format/date";
 import { Chip, CountryMark, TONE, TYPO, type Tone } from "@/components/results/ui";
+import { varianceCopyFor } from "@/lib/simulation/grade-copy";
 
 type EnsembleTier =
   | "hypothesis"
@@ -94,6 +95,11 @@ export function ShareViewer({
         ? TONE.warn.onDark.fg
         : TONE.risk.onDark.fg;
   const expiresLabel = formatDate(shareExpiresAt, isKo) ?? "";
+  const vcShare = varianceCopyFor(
+    varianceAssessment.label,
+    isKo ? "ko" : "en",
+    varianceAssessment.maxFinalScoreRange,
+  );
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -481,7 +487,10 @@ export function ShareViewer({
             <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
               {isKo ? "변동성 평가" : "Variance assessment"}
             </div>
-            <p className="text-sm text-slate-700 leading-relaxed">{varianceCopy(varianceAssessment.label, isKo)}</p>
+            <p className="text-[13px] leading-relaxed text-slate-700">{vcShare.meaning}</p>
+            <p className="mt-1 text-[13px] font-semibold leading-relaxed text-slate-800">
+              {vcShare.action}
+            </p>
             <p className="text-xs text-slate-500 mt-1">
               {isKo
                 ? `최대 점수 변동: ${varianceAssessment.maxFinalScoreRange}점 · 평균 변동: ${varianceAssessment.meanFinalScoreRange}점`

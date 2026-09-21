@@ -41,14 +41,12 @@ const STYLE: Record<
  */
 export function VarianceCard({
   label,
-  copy,
   maxRange,
   meanRange,
   isKo,
   guide,
 }: {
   label: VarianceLabel;
-  copy: string;
   maxRange: number;
   meanRange: number;
   isKo: boolean;
@@ -58,7 +56,7 @@ export function VarianceCard({
   // Deliberately not "MODERATE": confidence uses that word for its own
   // middle grade, and the two sat side by side with no way to tell which
   // scale a reader was looking at.
-  const vc = varianceCopyFor(label, isKo ? "ko" : "en");
+  const vc = varianceCopyFor(label, isKo ? "ko" : "en", maxRange);
   const labelText = vc.label;
 
   return (
@@ -84,9 +82,12 @@ export function VarianceCard({
             </span>
           </div>
 
-          <p className="mt-1.5 text-[13px] leading-relaxed text-slate-600">{copy}</p>
-          <p className="mt-1.5 text-[12.5px] leading-relaxed text-slate-500">
-            {vc.meaning} <b className="font-semibold text-slate-700">{vc.action}</b>
+          {/* One statement, with the measured range in it. The older
+              line said "변동이 중간 수준입니다" — true, and impossible to
+              act on without knowing the middle of what. */}
+          <p className="mt-1.5 text-[13px] leading-relaxed text-slate-600">{vc.meaning}</p>
+          <p className="mt-1.5 text-[13px] font-semibold leading-relaxed text-slate-800">
+            {vc.action}
           </p>
 
           <div className="mt-3.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">

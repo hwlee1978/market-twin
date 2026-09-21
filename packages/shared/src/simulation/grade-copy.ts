@@ -73,51 +73,77 @@ const CONFIDENCE: Record<GradeLocale, Record<ConfidenceGrade, GradeCopy>> = {
   },
 };
 
-const VARIANCE: Record<GradeLocale, Record<VarianceGrade, GradeCopy>> = {
-  ko: {
-    low: {
-      label: "안정적",
-      meaning: "같은 국가의 점수가 시뮬레이션마다 거의 같게 나왔습니다.",
-      action: "단일 시뮬레이션만으로도 비슷한 결론에 도달했을 것입니다.",
-    },
-    moderate: {
+/**
+ * Variance wording takes the measured range so the sentence can name it.
+ * "Scores moved somewhat" tells the reader nothing they can act on;
+ * "the same country scored up to 27.8 points apart, so countries within
+ * that of each other are not really ranked" does.
+ */
+function varianceText(
+  grade: VarianceGrade,
+  locale: GradeLocale,
+  maxRange?: number,
+): GradeCopy {
+  const n = maxRange != null ? Math.round(maxRange * 10) / 10 : null;
+  const ko = n != null ? `최대 ${n}점` : "크지 않은 폭";
+  const en = n != null ? `up to ${n} points` : "a small amount";
+
+  if (locale === "ko") {
+    if (grade === "low") {
+      return {
+        label: "안정적",
+        meaning: `같은 국가의 점수가 시뮬레이션마다 거의 달라지지 않았습니다(${ko} 차이).`,
+        action: "국가 순위를 그대로 신뢰하셔도 됩니다.",
+      };
+    }
+    if (grade === "high") {
+      return {
+        label: "불안정",
+        meaning: `같은 국가인데도 시뮬레이션에 따라 점수가 ${ko}까지 벌어졌습니다.`,
+        action:
+          "점수 차가 이 폭에 못 미치는 국가들끼리는 순위를 신뢰하기 어렵습니다. 시뮬 횟수를 늘리면 순서가 안정됩니다.",
+      };
+    }
+    return {
       label: "보통",
-      meaning: "국가 점수가 시뮬레이션마다 어느 정도 움직였습니다. 통상적인 범위입니다.",
-      action: "개별 점수의 소수점보다 국가 간 순서를 기준으로 읽으십시오.",
-    },
-    high: {
-      label: "불안정",
-      meaning: "국가 점수가 시뮬레이션마다 크게 달라졌습니다.",
-      action:
-        "점수 차이가 작은 국가들은 사실상 동률로 보아야 합니다. 시뮬 횟수를 늘리면 순서가 안정됩니다.",
-    },
-  },
-  en: {
-    low: {
+      meaning: `같은 국가라도 시뮬레이션에 따라 점수가 ${ko}까지 달랐습니다. 흔히 나타나는 정도입니다.`,
+      action: `점수가 몇 점 차이로 갈린 국가끼리는 우열이 뒤집힐 수 있습니다. 1위와 2위가 근소하면 두 곳을 함께 검토하십시오.`,
+    };
+  }
+
+  if (grade === "low") {
+    return {
       label: "Stable",
-      meaning: "A country's score barely moved between simulations.",
-      action: "A single simulation would have reached much the same conclusion.",
-    },
-    moderate: {
-      label: "Normal",
-      meaning: "Country scores moved somewhat between runs — the usual range.",
-      action: "Read the ordering between countries rather than the decimals of any one score.",
-    },
-    high: {
+      meaning: `A country scored almost the same in every simulation (${en} apart).`,
+      action: "You can take the country ranking at face value.",
+    };
+  }
+  if (grade === "high") {
+    return {
       label: "Volatile",
-      meaning: "Country scores moved a great deal between simulations.",
+      meaning: `The same country scored ${en} apart depending on the simulation.`,
       action:
-        "Treat closely-scored countries as effectively tied. More simulations will settle the ordering.",
-    },
-  },
-};
+      "Where countries are separated by less than that, the ordering is not reliable. More simulations will settle it.",
+    };
+  }
+  return {
+    label: "Normal",
+    meaning: `A country scored ${en} apart between simulations — a common amount of movement.`,
+    action:
+      "Countries separated by only a few points could swap places. If first and second are close, evaluate both.",
+  };
+}
 
 export function confidenceCopy(grade: ConfidenceGrade, locale: GradeLocale): GradeCopy {
   return CONFIDENCE[locale][grade] ?? CONFIDENCE[locale].WEAK;
 }
 
-export function varianceCopyFor(grade: VarianceGrade, locale: GradeLocale): GradeCopy {
-  return VARIANCE[locale][grade] ?? VARIANCE[locale].moderate;
+export function varianceCopyFor(
+  grade: VarianceGrade,
+  locale: GradeLocale,
+  maxRange?: number,
+): GradeCopy {
+  return varianceText(grade, locale, maxRange);
 }
 
 /** All three confidence grades, for rendering a legend. */

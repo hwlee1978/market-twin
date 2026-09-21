@@ -1839,7 +1839,6 @@ function SummaryTab({
 
       <VarianceCard
         label={varianceAssessment.label}
-        copy={varianceCopy(varianceAssessment.label, locale)}
         maxRange={varianceAssessment.maxFinalScoreRange}
         meanRange={varianceAssessment.meanFinalScoreRange}
         isKo={isKo}
