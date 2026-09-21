@@ -8,6 +8,10 @@ import type { ProjectInput } from "@/lib/simulation/schemas";
 import { parsePackaging } from "@/lib/format/packaging";
 
 export const runtime = "nodejs";
+// Grounding fetch + a long generation — measured 120s for a secondary market. Without an explicit ceiling this route runs under
+// Vercel's default, which is far below what it needs — the feature
+// simply times out once deployed.
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 /**

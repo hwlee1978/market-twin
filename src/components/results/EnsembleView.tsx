@@ -4575,8 +4575,8 @@ function SecondaryCountryMarketSection({
             </h2>
             <p className="text-xs text-slate-700 leading-relaxed mb-4">
               {isKo
-                ? `Top 2 동등 후보이므로 ${country} 시장 분석도 함께 봐야 의사결정이 완성됩니다. 위 분석과 같은 깊이로 시장 규모·경쟁자·채널·규제·가격·GTM 전략을 추가 LLM 호출(30-60초)로 생성합니다.`
-                : `Since this is a Top 2 tie, you need a parallel profile for ${country} to make a complete decision. One additional LLM call (30-60s) generates the same depth of market size · competitors · channels · regulatory · pricing · GTM strategy.`}
+                ? `Top 2 동등 후보이므로 ${country} 시장 분석도 함께 봐야 의사결정이 완성됩니다. 위 분석과 같은 깊이로 시장 규모·경쟁자·채널·규제·가격·GTM 전략을 추가 LLM 호출로 생성합니다. 근거 수집과 생성을 합쳐 2~3분 정도 걸립니다.`
+                : `Since this is a Top 2 tie, you need a parallel profile for ${country} to make a complete decision. One additional LLM call generates the same depth of market size · competitors · channels · regulatory · pricing · GTM strategy. Grounding plus generation takes about 2-3 minutes.`}
             </p>
             <button
               type="button"

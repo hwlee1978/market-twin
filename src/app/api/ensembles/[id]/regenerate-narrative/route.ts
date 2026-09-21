@@ -10,6 +10,10 @@ import type {
 import type { CountryScore } from "@/lib/simulation/schemas";
 
 export const runtime = "nodejs";
+// Full narrative merge over every stored snapshot — measured 162s. Without an explicit ceiling this route runs under
+// Vercel's default, which is far below what it needs — the feature
+// simply times out once deployed.
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 /**
