@@ -204,11 +204,13 @@ export function CountryScoreChart({
 export function PricingCurveChart({
   data,
   currency = "USD",
+  isKo = true,
 }: {
   data: Array<{ priceCents: number; meanConversionProbability: number; sampleCount: number }>;
   /** ISO currency code from the project — drives the X-axis label format.
       Defaults to USD for legacy callers that haven't been updated yet. */
   currency?: string;
+  isKo?: boolean;
 }) {
   // Client-side re-bucketing. Aggregator-side bucketing was added later,
   // so existing ensembles still carry noisy curves with adjacent points
@@ -270,6 +272,7 @@ export function PricingCurveChart({
     (d) => Math.abs(d.conv - d.envelope) > 0.5,
   );
   return (
+    <>
     <ResponsiveContainer width="100%" height={260}>
       <LineChart data={enriched} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 5" stroke={COLORS.divider} />
@@ -325,6 +328,17 @@ export function PricingCurveChart({
         />
       </LineChart>
     </ResponsiveContainer>
+    {/* The dashed raw line only exists when it diverges, so its
+        explanation lives here rather than in the caller — describing a
+        mark that is not on the chart is worse than not describing it. */}
+    {envelopeDiverges && (
+      <p className="mt-2 text-[11.5px] leading-relaxed text-slate-500">
+        {isKo
+          ? "회색 점선은 다듬기 전의 원본 추정치입니다. AI가 가격대별로 따로 추정하기 때문에 오르내림이 생기는데, 참고용이며 판단에는 쓰지 않습니다."
+          : "The grey dashed line is the raw estimate before smoothing. The model prices each point independently, so it wobbles; it is shown for reference and not used in any decision."}
+      </p>
+    )}
+    </>
   );
 }
 

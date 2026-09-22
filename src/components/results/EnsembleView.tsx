@@ -7478,11 +7478,11 @@ function PricingTab({
           tone="brand"
           title={isKo ? "가격–전환 곡선" : "Price–conversion curve"}
         >
-          <PricingCurveChart data={pricing.curve} currency={currency} />
+          <PricingCurveChart data={pricing.curve} currency={currency} isKo={isKo} />
           <p className="text-xs text-slate-500 mt-3 leading-relaxed">
             {isKo
-              ? '파란 실선이 권장 가격과 매출 최대점을 계산하는 데 실제로 쓰인 곡선입니다. 가격이 비싸졌는데 사겠다는 사람이 오히려 늘어나는 구간은 현실에서 나오기 어려우므로, 그런 구간은 직전 값까지 눌러 평탄하게 만듭니다. 회색 점선은 다듬기 전의 원본 추정치입니다. AI가 가격대별로 따로 추정하기 때문에 오르내림이 생기는데, 참고용으로만 두고 판단에는 쓰지 않습니다. 원본이 이미 매끄럽게 내려가면 두 선이 겹쳐서 점선은 나타나지 않습니다.'
-              : 'Solid (blue) = the monotonic-envelope curve actually used for the recommended price / revenue-max. It clamps the LLM\'s upward "bumps" to the running min, on the principle that real demand can\'t rise as price rises. Dashed (grey, when shown) = the raw LLM conversion before correction — it looks jagged because the LLM scores each price point independently; it\'s shown for reference only and is NOT used in any decision. When the curve is already cleanly monotonic the two coincide and the dashed line is hidden.'}
+              ? "파란 실선이 권장 가격과 매출 최대점을 계산하는 데 실제로 쓰인 곡선입니다. 가격이 비싸졌는데 사겠다는 사람이 오히려 늘어나는 구간은 현실에서 나오기 어려우므로, 그런 구간은 직전 값까지 눌러 평탄하게 만듭니다."
+              : "The blue line is the curve actually used to compute the recommended price and the revenue peak. Where conversion rises as price rises — which real demand does not do — the curve is flattened back to the previous value."}
           </p>
         <ChartGuide isKo={isKo}>
           <GuideSection title={isKo ? "Peak conversion vs Recommended price" : "Peak conversion vs Recommended price"}>
