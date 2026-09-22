@@ -22,6 +22,7 @@
  * surfaces in the quality audit alongside voiceSlipRate so we can
  * track prompt regressions.
  */
+import { sanitizeOffCategoryChannels } from "./channel-category";
 
 import type { LocaleHint } from "./locale-filter";
 
@@ -259,6 +260,14 @@ export function sanitizeChannelMismatch(
   text: string | undefined,
   personaCountry: string | undefined,
   locale: LocaleHint,
+  /**
+   * Product category. Enables the second check: a channel can be in the
+   * right country and still be the wrong shop. HardwareZone is
+   * Singaporean and sells PC parts, so a Singaporean persona reviewing a
+   * snack there passes the country lock and is still nonsense. Omit to
+   * run the country check alone.
+   */
+  category?: string,
 ): { sanitized: string; replacements: number } {
   if (!text) return { sanitized: "", replacements: 0 };
   const pc = normalizeCountry(personaCountry);
@@ -285,7 +294,15 @@ export function sanitizeChannelMismatch(
       }
     }
   }
-  return { sanitized: out, replacements };
+  const byCategory = sanitizeOffCategoryChannels(
+    out,
+    category,
+    locale === "ko" ? "ko" : "en",
+  );
+  return {
+    sanitized: byCategory.sanitized,
+    replacements: replacements + byCategory.removed.length,
+  };
 }
 
 /**
@@ -297,11 +314,12 @@ export function sanitizeChannelMismatchArray(
   items: string[] | undefined,
   personaCountry: string | undefined,
   locale: LocaleHint,
+  category?: string,
 ): { items: string[]; replacements: number } {
   if (!items || items.length === 0) return { items: [], replacements: 0 };
   let totalReplacements = 0;
   const sanitized = items.map((s) => {
-    const r = sanitizeChannelMismatch(s, personaCountry, locale);
+    const r = sanitizeChannelMismatch(s, personaCountry, locale, category);
     totalReplacements += r.replacements;
     return r.sanitized;
   });

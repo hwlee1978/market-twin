@@ -1240,6 +1240,7 @@ ${entries}
             voiceForChannelCheck,
             parsed.data.country,
             locale,
+            opts.projectInput.category,
           );
           if (channelVoice.replacements > 0) {
             channelMismatchCount += channelVoice.replacements;
@@ -1256,11 +1257,13 @@ ${entries}
             filterLocaleNative(parsed.data.objections, locale),
             parsed.data.country,
             locale,
+            opts.projectInput.category,
           );
           const cleanedTrust = sanitizeChannelMismatchArray(
             filterLocaleNative(parsed.data.trustFactors, locale),
             parsed.data.country,
             locale,
+            opts.projectInput.category,
           );
           channelMismatchCount += cleanedObjections.replacements + cleanedTrust.replacements;
           const cleaned = {
@@ -1493,6 +1496,7 @@ ${entries}
               voiceLocaleClean,
               hit.base.country,
               locale,
+              opts.projectInput.category,
             );
             if (channelVoiceR.replacements > 0) {
               channelMismatchCount += channelVoiceR.replacements;
@@ -1505,11 +1509,13 @@ ${entries}
               objectionsLocale,
               hit.base.country,
               locale,
+              opts.projectInput.category,
             );
             const cleanedTrustR = sanitizeChannelMismatchArray(
               trustFactorsLocale,
               hit.base.country,
               locale,
+              opts.projectInput.category,
             );
             channelMismatchCount += cleanedObjectionsR.replacements + cleanedTrustR.replacements;
             const trustFactors = cleanedTrustR.items;
