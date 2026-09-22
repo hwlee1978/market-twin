@@ -172,7 +172,7 @@ function ConsensusTypeBadge({
         className="ml-2 inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-800"
         title={
           isKo
-            ? "여러 LLM 제공자가 일관되게 동의한 합의. 단일 모델 prior에 의존하지 않은 결과입니다."
+            ? "서로 다른 회사의 AI 모델이 같은 결론에 도달했습니다. 한 모델이 가진 선입견만으로 나온 결과가 아닙니다."
             : "Multiple LLM providers agreed consistently. Result not driven by a single-model prior."
         }
       >
@@ -7004,7 +7004,7 @@ function PricingTab({
                       ? `곡선 최댓값이 시뮬 권장가 IQR(${fmt(pricing.recommendedPriceP25)}–${fmt(pricing.recommendedPriceP75)})의 1.5배를 초과 — 페르소나가 평가하지 않은 외삽 영역으로 판단해 헤드라인에서 제외했습니다.`
                       : `Curve max exceeds 1.5× IQR upper bound (${fmt(pricing.recommendedPriceP25)}–${fmt(pricing.recommendedPriceP75)}) — treated as extrapolation past the personas' evaluated range and excluded from the headline.`
                     : isKo
-                      ? "곡선 데이터에서 (가격 × 전환)이 최대가 되는 지점 — monotonic 가정 적용. LLM의 권장가와 일치하면 ✓, 다르면 ⚠."
+                      ? "곡선에서 (가격 × 전환율)이 가장 커지는 지점입니다. 가격이 오르면 전환율은 내려간다는 전제로 곡선을 다듬은 뒤 계산합니다. AI의 권장가와 일치하면 ✓, 다르면 ⚠ 입니다."
                       : "Where (price × conversion) peaks on the curve under monotonic assumption. ✓ if matches LLM rec; ⚠ if differs."
                 }
               >
@@ -7191,8 +7191,8 @@ function PricingTab({
         >
           <p className="text-xs text-slate-500 mb-4 leading-relaxed">
             {isKo
-              ? "각 가격대의 (가격 × 전환율). 가장 높은 값이 매출 최대 — 본인이 직접 검증 가능. monotonic envelope 적용으로 노이즈 bump 제외."
-              : "Revenue index (price × conversion) per price point — verify the curve max yourself. Monotonic envelope removes high-price noise bumps."}
+              ? "가격대마다 (가격 × 전환율)을 계산한 값입니다. 이 값이 가장 큰 가격이 매출이 최대가 되는 지점이며, 아래 표에서 직접 확인하실 수 있습니다. 계산 전에 곡선을 한 번 다듬습니다 — 가격이 올랐는데 전환율이 따라 오르는 구간은 추정 과정에서 생긴 흔들림으로 보고 걷어냅니다."
+              : "Price × conversion at each price point. The largest value is where revenue peaks, and you can check that against the table below. The curve is smoothed first: where conversion rises as price rises, that is treated as noise in the estimate and removed."}
           </p>
           <div className="space-y-1.5">
             {topRevenue.map((r, i) => {
@@ -7269,7 +7269,7 @@ function PricingTab({
           </div>
           <p className="text-[11px] text-slate-400 mt-3">
             {isKo
-              ? "열: 가격 / 전환율 (envelope) / 매출 인덱스. ★ = 매출 최대점, rec = 권장 가격에 가장 가까운 곡선 포인트."
+              ? "열 구성: 가격 / 다듬은 전환율 / 매출 지수. ★는 매출이 가장 큰 지점, rec는 권장 가격에 가장 가까운 지점입니다."
               : "Cols: price / envelope conversion / revenue index. ★ = revenue max, rec = nearest curve point to the recommended price."}
           </p>
         </SectionCard>
@@ -7343,7 +7343,7 @@ function PricingTab({
             <div className="card p-5">
               <div className="flex items-baseline justify-between mb-3">
                 <h3 className="text-sm font-semibold text-slate-900">
-                  {isKo ? "경쟁사 retail 가격 (anchor 데이터)" : "Competitor retail prices (anchor data)"}
+                  {isKo ? "경쟁사 판매가 (가격 곡선의 기준점)" : "Competitor retail prices (anchor data)"}
                 </h3>
                 <span className="text-xs text-slate-500">
                   {isKo
@@ -7369,7 +7369,7 @@ function PricingTab({
               )}
               <p className="text-[11px] text-slate-500 mt-3 leading-relaxed">
                 {isKo
-                  ? "사용자 입력 이름(또는 URL)과 AI가 추가 발굴한 경쟁사 URL에서 자동 추출. 이 가격대를 anchor 삼아 LLM이 가격 곡선을 생성했습니다."
+                  ? "입력하신 경쟁사 이름·URL과 AI가 추가로 찾은 경쟁사 페이지에서 자동으로 뽑아낸 실제 판매가입니다. 이 가격대를 기준점 삼아 가격 곡선을 만들었습니다."
                   : "Auto-extracted from URLs resolved from your input names and from AI-discovered competitors. The pricing curve was anchored against these real retail prices."}
               </p>
             </div>
@@ -7381,11 +7381,11 @@ function PricingTab({
             <AlertCircle size={14} className="shrink-0 mt-0.5 text-slate-400" />
             <div className="text-xs text-slate-600 leading-relaxed">
               <span className="font-semibold text-slate-700">
-                {isKo ? "경쟁사 anchor 데이터 없음" : "No competitor anchor data"}
+                {isKo ? "경쟁사 실제 판매가 확보 실패" : "No competitor anchor data"}
               </span>
               {" — "}
               {isKo
-                ? "이번 분석은 LLM이 추정한 카테고리 가격대로 곡선을 생성했습니다. 더 정확한 anchor가 필요하면 프로젝트 편집에서 경쟁사 URL을 추가하세요 (URL이 이미 있었다면 추출에 실패했을 수 있습니다)."
+                ? "이번 분석은 경쟁사 실제 판매가를 확보하지 못해, AI가 추정한 카테고리 가격대로 곡선을 만들었습니다. 더 정확한 기준점이 필요하시면 프로젝트 편집에서 경쟁사 URL을 추가해 주십시오. 이미 입력하셨다면 해당 페이지에서 가격을 읽어내지 못한 경우입니다."
                 : "The pricing curve was generated from LLM category estimates. To anchor against real retail prices, add competitor URLs in project setup (if URLs were provided, extraction may have failed)."}
             </div>
           </div>
@@ -7452,7 +7452,7 @@ function PricingTab({
             pricing.marginEstimateSources.length === 0) && (
             <p className="text-[11px] text-slate-400 mt-3 pt-3 border-t border-slate-100 leading-relaxed">
               {isKo
-                ? "출처: AI 추정 (카테고리 평균 기준 prompt anchor 기반). 외부 소스 grounding 실패 시 fallback."
+                ? "출처: AI 추정치입니다. 같은 카테고리의 통상 마진을 기준으로 삼았으며, 외부 자료를 확보하지 못했을 때 쓰이는 값입니다."
                 : "Source: AI estimate (prompt-anchored category average). External-source grounding unavailable for this run."}
             </p>
           )}
@@ -7480,7 +7480,7 @@ function PricingTab({
           <PricingCurveChart data={pricing.curve} currency={currency} />
           <p className="text-xs text-slate-500 mt-3 leading-relaxed">
             {isKo
-              ? '실선(파랑) = 보정 곡선("monotonic envelope") — 권장가·매출 최대점 계산에 실제 사용되는 곡선입니다. 가격이 오르면 수요가 다시 늘 수 없다는 원리에 따라, LLM 원본에서 위로 솟은 noise를 직전 running-min으로 눌러 보정합니다. 점선(회색, 보일 때) = LLM 원본 전환율(보정 전 신호) — LLM이 가격대마다 독립적으로 추정하다 보니 들쭉날쭉한데, 이는 참고용이며 의사결정에는 쓰이지 않습니다. 곡선이 이미 깨끗한 단조감소면 둘이 일치해 점선은 표시되지 않습니다.'
+              ? '파란 실선이 권장 가격과 매출 최대점을 계산하는 데 실제로 쓰인 곡선입니다. 가격이 비싸졌는데 사겠다는 사람이 오히려 늘어나는 구간은 현실에서 나오기 어려우므로, 그런 구간은 직전 값까지 눌러 평탄하게 만듭니다. 회색 점선은 다듬기 전의 원본 추정치입니다. AI가 가격대별로 따로 추정하기 때문에 오르내림이 생기는데, 참고용으로만 두고 판단에는 쓰지 않습니다. 원본이 이미 매끄럽게 내려가면 두 선이 겹쳐서 점선은 나타나지 않습니다.'
               : 'Solid (blue) = the monotonic-envelope curve actually used for the recommended price / revenue-max. It clamps the LLM\'s upward "bumps" to the running min, on the principle that real demand can\'t rise as price rises. Dashed (grey, when shown) = the raw LLM conversion before correction — it looks jagged because the LLM scores each price point independently; it\'s shown for reference only and is NOT used in any decision. When the curve is already cleanly monotonic the two coincide and the dashed line is hidden.'}
           </p>
         <ChartGuide isKo={isKo}>
@@ -7511,7 +7511,7 @@ function PricingTab({
           <GuideSection title={isKo ? "추천가 vs 매출 최대가 — 왜 다를까" : "Recommended vs Revenue-max price — why they differ"}>
             <p className="m-0">
               {isKo
-                ? "추천가는 매출만 극대화하는 값이 아닙니다. LLM이 전환 안정성·시장 침투·경쟁·리스크를 종합해 고른 '적정가'로, 보통 매출 최대점보다 낮습니다. 'CURVE REVENUE MAX'는 순수하게 가격×전환이 가장 큰 지점일 뿐입니다. 여러 가격대에서 전환율이 평탄하면(envelope 보정 구간) 매출 최대가가 고가 쪽으로 밀릴 수 있어, 그 구간의 매출 비교는 신뢰도가 낮습니다. 안전·시장 침투를 원하면 추천가를, 단기 매출 극대화를 노린다면 매출 최대가를 참고하세요."
+                ? "둘은 다른 질문에 답합니다. 추천가는 전환 안정성·시장 진입·경쟁·리스크를 함께 고려해 고른 적정 가격이라 보통 매출 최대점보다 낮습니다. 매출 최대점은 순수하게 (가격 × 전환율)이 가장 큰 지점일 뿐입니다. 여러 가격대에서 전환율이 비슷하게 평탄한 구간에서는 매출 최대점이 비싼 쪽으로 밀리기 쉬우므로, 그 구간의 비교는 신뢰도가 낮습니다. 안정적인 시장 진입을 원하시면 추천가를, 단기 매출 극대화를 노리신다면 매출 최대점을 참고하십시오."
                 : "The recommended price is NOT the revenue-maximizing one. It's the LLM's all-things-considered fair price (conversion stability, market entry, competition, risk) and is usually below the revenue max. 'CURVE REVENUE MAX' is simply where price × conversion peaks. When conversion is flat across several prices (an envelope-clamped band), that max can drift toward the high end, so revenue comparisons there are low-confidence. Lean on the recommended price for safe entry, or the revenue-max for a short-term revenue bet."}
             </p>
           </GuideSection>
