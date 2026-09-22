@@ -11,6 +11,7 @@
  */
 
 import { getLLMProvider } from "@/lib/llm";
+import { selectMarketSizeCitations } from "./citation-relevance";
 import {
   buildMarketSizeQuery,
   buildMarketSizeQueryNative,

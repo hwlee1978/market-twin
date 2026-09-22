@@ -6809,11 +6809,6 @@ function PricingTab({
   // the user sees both "consensus recommended" and "highest-converting"
   // and can spot when those diverge (e.g. a price below recommended
   // converts more but margin pressure forces the higher anchor).
-  // Older blocks predate the flag; absence is not evidence of grounding,
-  // so only flag when we positively know it ran without a profile.
-  const groundedOnProfile = (pricing as { groundedOnProfile?: boolean }).groundedOnProfile;
-  const staleWithoutProfile = groundedOnProfile === false && Boolean(profile);
-
   const peakPoint = pricing.curve.reduce<typeof pricing.curve[number] | null>(
     (best, p) => (best === null || p.meanConversionProbability > best.meanConversionProbability ? p : best),
     null,
@@ -7754,6 +7749,11 @@ function SecondaryPricingBlock({
   }
 
   // LLM pricing already persisted — render full analysis with curve.
+  // Older blocks predate the flag; absence is not evidence of grounding,
+  // so only flag when we positively know it ran without a profile.
+  const groundedOnProfile = (pricing as { groundedOnProfile?: boolean }).groundedOnProfile;
+  const staleWithoutProfile = groundedOnProfile === false && Boolean(profile);
+
   const peakPoint = pricing.curve.reduce<typeof pricing.curve[number] | null>(
     (best, p) => (best === null || p.meanConversionProbability > best.meanConversionProbability ? p : best),
     null,
