@@ -308,3 +308,31 @@ export function formatSegmentValue(
         : "overall score out of 100 · weighted demand, competition and cost",
   };
 }
+
+/**
+ * True when a model-written field is a non-answer rather than content.
+ *
+ * The margin estimate is the case that surfaced it: when the sims find
+ * no margin benchmark, the merge writes the literal string "n/a", and
+ * the renderer's only guard was `!== "—"`. So a card appeared with the
+ * heading "예상 마진 분석", the body "n/a", and a footnote explaining
+ * where the (absent) figure came from. Empty is fine; a card that says
+ * nothing while looking like it says something is not.
+ */
+export function isNonAnswer(text: string | null | undefined): boolean {
+  if (!text) return true;
+  const t = text.trim().toLowerCase().replace(/[.\s]+$/, "");
+  return (
+    t === "" ||
+    t === "n/a" ||
+    t === "na" ||
+    t === "—" ||
+    t === "-" ||
+    t === "없음" ||
+    t === "해당 없음" ||
+    t === "정보 없음" ||
+    t === "unknown" ||
+    t === "not available" ||
+    t === "not applicable"
+  );
+}

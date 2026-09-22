@@ -15,6 +15,7 @@ import {
   effortLabel,
   impactLabel,
   formatSegmentValue,
+  isNonAnswer,
   stripActionScoreNotation,
   varianceCopyFor,
   type SegmentMetric,
@@ -7410,7 +7411,7 @@ function PricingTab({
           headline price was auto-corrected because the LLM wrote this
           narrative assuming base = optimal, which now contradicts the
           corrected recommendation. */}
-      {pricing.marginEstimate && pricing.marginEstimate !== "—" && !wasCorrected && (
+      {!isNonAnswer(pricing.marginEstimate) && !wasCorrected && (
         <div className="card p-5">
           <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">
             {isKo ? "예상 마진 분석" : "Margin analysis"}
@@ -7459,7 +7460,7 @@ function PricingTab({
         </div>
       )}
 
-      {wasCorrected && pricing.marginEstimate && (
+      {wasCorrected && !isNonAnswer(pricing.marginEstimate) && (
         <div className="card p-5 bg-slate-50 border-slate-200">
           <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">
             {isKo ? "예상 마진 분석" : "Margin analysis"}

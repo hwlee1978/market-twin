@@ -22,6 +22,7 @@ import { splitByFont, ensureFontsLoaded } from "./fonts";
 import {
   confidenceBasis,
   confidenceCopy,
+  isNonAnswer,
   confidenceLegend,
   stripActionScoreNotation,
   varianceCopyFor,
@@ -4053,7 +4054,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           );
         })()}
 
-        {pr.marginEstimate && pr.marginEstimate !== "—" && !wasCorrected && (
+        {!isNonAnswer(pr.marginEstimate) && !wasCorrected && (
           <View style={styles.sectionBlock} wrap={false}>
             <MText style={styles.sectionEyebrow}>{isKo ? "예상 마진 분석" : "Margin analysis"}</MText>
             <View style={styles.summaryBox}>
