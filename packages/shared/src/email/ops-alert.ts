@@ -65,7 +65,16 @@ const KIND_LABEL: Record<OpsAlertKind, string> = {
   quality_audit_failed: "품질 감사 실패",
 };
 
+/**
+ * Two actions, not one. The dedupe lookup matches only the delivered
+ * form, so an alert that failed to send does not claim the suppression
+ * window — otherwise a deployment with no mail key sends nothing, logs
+ * a row anyway, and then silently suppresses every alert of that kind
+ * for the next hour. Splitting by action keeps the lookup on the
+ * (action, resource_id, ts) index rather than filtering on metadata.
+ */
 const AUDIT_ACTION = "ops_alert";
+const AUDIT_ACTION_FAILED = "ops_alert_failed";
 
 function esc(v: unknown): string {
   return String(v ?? "")
@@ -188,7 +197,8 @@ export async function alertOps(
   let recorded = false;
   try {
     await supabase.from("audit_logs").insert({
-      action: AUDIT_ACTION,
+      // A suppressed alert counts as delivered — the earlier one was.
+      action: emailed || suppressed ? AUDIT_ACTION : AUDIT_ACTION_FAILED,
       resource_type: input.kind,
       resource_id: identity,
       workspace_id: input.workspaceId ?? null,
