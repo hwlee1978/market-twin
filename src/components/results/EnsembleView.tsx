@@ -6809,6 +6809,11 @@ function PricingTab({
   // the user sees both "consensus recommended" and "highest-converting"
   // and can spot when those diverge (e.g. a price below recommended
   // converts more but margin pressure forces the higher anchor).
+  // Older blocks predate the flag; absence is not evidence of grounding,
+  // so only flag when we positively know it ran without a profile.
+  const groundedOnProfile = (pricing as { groundedOnProfile?: boolean }).groundedOnProfile;
+  const staleWithoutProfile = groundedOnProfile === false && Boolean(profile);
+
   const peakPoint = pricing.curve.reduce<typeof pricing.curve[number] | null>(
     (best, p) => (best === null || p.meanConversionProbability > best.meanConversionProbability ? p : best),
     null,
@@ -7766,6 +7771,36 @@ function SecondaryPricingBlock({
           {isKo ? "시뮬 교차검증 없이 1회 생성" : "generated in one pass, not cross-sim verified"}
         </span>
       </div>
+
+      {/* A pricing block generated before the market profile existed says
+          so in its own prose — permanently. Once the profile arrives the
+          text is stale and nothing else reveals that, so surface it and
+          offer the re-run. */}
+      {staleWithoutProfile && (
+        <ToneCallout
+          tone="warn"
+          icon={AlertCircle}
+          title={
+            isKo
+              ? "시장 분석보다 먼저 생성된 가격 분석입니다"
+              : "Priced before the market profile existed"
+          }
+          actions={
+            <button
+              type="button"
+              onClick={generate}
+              disabled={busy}
+              className="btn-secondary text-[11.5px] disabled:opacity-60"
+            >
+              {busy ? (isKo ? "재생성 중..." : "Regenerating...") : isKo ? "다시 생성" : "Regenerate"}
+            </button>
+          }
+        >
+          {isKo
+            ? `${country} 시장 분석이 없는 상태에서 페르소나 신호만으로 만들어졌습니다. 본문에 "시장 분석 데이터가 없어"라고 적혀 있는 것도 그 때문입니다. 지금은 시장 분석이 있으므로, 다시 생성하면 경쟁사 가격·문화 맥락까지 반영됩니다.`
+            : `It was built from persona signal alone, before the ${country} profile existed — which is why its own text says the market data was missing. The profile is available now; regenerating grounds the price on competitor benchmarks and cultural context.`}
+        </ToneCallout>
+      )}
 
       {/* Headline price card */}
       <div className="card p-5">

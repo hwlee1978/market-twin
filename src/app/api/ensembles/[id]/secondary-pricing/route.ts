@@ -155,7 +155,12 @@ export async function POST(
     ...aggregate,
     additionalPricing: {
       ...existingAdditional,
-      [country]: result.pricing,
+      // Record whether a market profile was available. It was returned
+      // in the response and then lost on the next page load, so a
+      // pricing block generated without grounding was indistinguishable
+      // from a grounded one — while its own prose said "시장 분석
+      // 데이터가 없어" forever, even after the profile arrived.
+      [country]: { ...result.pricing, groundedOnProfile: Boolean(secondaryProfile) },
     },
   };
   const { error: updateErr } = await admin
