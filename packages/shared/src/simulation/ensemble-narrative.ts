@@ -938,6 +938,12 @@ This analysis cannot pick a single winner. ${opts.top2.primary} (1st-place vote 
 
 3. **mergedActions**: 의미가 같은 액션은 합치되 **실행 가능한 구체성**을 우선시. 같은 의도의 두 액션 중 더 명확한 채널/타임라인/숫자를 가진 쪽을 채택. surfacedInSims 기록. 정렬: 권장 빈도 + 실행 우선순위. 최대 10개.
 
+⚠ **외부 플랫폼의 수치를 페르소나 발언으로 단정하지 마세요 (필수)**: 페르소나는 통계로 생성된 가상 소비자이며, Reddit·PTT·HardwareZone·네이버 카페 같은 외부 사이트의 **실제 후기 수·팔로워 수·검색량·평점·순위를 조회할 수 없습니다.** 그런데 sim 출력에는 "Reddit Singapore·HardwareZone 후기 0건", "PTT 게시판 후기 전무" 같은 문장이 섞여 들어옵니다. 이는 관측이 아니라 지어낸 수치입니다.
+  - ❌ "SG 페르소나가 'Reddit·HardwareZone 후기 0건 — 공신력 부족'을 명시" → 아무도 세어보지 않은 숫자를 사실로 만듦
+  - ✓ "SG 페르소나가 현지 커뮤니티에서 이 브랜드를 접한 적이 없다고 답함" → 페르소나가 실제로 말할 수 있는 범위
+  - 수치를 살리고 싶다면 **페르소나 응답 자체에서 집계된 값**(구매의향 분포, 거부 요인 언급 비율 등)만 쓰세요. 그건 우리가 실제로 센 값입니다.
+  - 같은 원칙이 매출·점유율·입점 매장 수·재구매율에도 적용됩니다. 근거가 그라운딩 자료에 없으면 숫자를 쓰지 마세요.
+
    ⚠ **합치기 mandate (anti-under-merge)**: 표현이 다르더라도 **같은 결과를 노리는 두 액션은 반드시 합쳐**. ${sims.length}개 sim이 같은 시장을 보고 있으면 4-7개의 큰 액션 줄기로 수렴이 정상이고, 거의 모든 항목이 surfacedInSims=1이면 under-merge한 것. 합쳐야 하는 예시:
      - "Amazon Vine 프로그램 활용해 30개 리뷰 확보" + "Vine 프로그램 + 초기 review acquisition 캠페인" + "리뷰 200개까지 review velocity 빌드업" → 같은 액션 줄기 (review acquisition) → 1개로 합치고 surfacedInSims=3
      - "FDA 식품시설 등록 + 통관 broker 계약" + "Q4 출시 전 import pathway 확보" → 같은 액션 줄기 (US import readiness) → 1개
@@ -984,6 +990,12 @@ This analysis cannot pick a single winner. ${opts.top2.primary} (1st-place vote 
    - 비율(Y%)만 유지하거나, 전체 풀로 환산해 다시 쓰세요. 예) "전체 페르소나의 44.5%" 또는 "${totalPersonas.toLocaleString()}명 중 약 ${Math.round(totalPersonas * 0.445).toLocaleString()}명 (44.5%)"
    - "200명 중", "out of 200" 같은 sim-level 카운트가 보이면 반드시 percentage-only로 바꾸거나 ensemble 총합으로 환산하세요.`
     : `Output guidance:
+
+⚠ **Never state an external platform's metrics as something a persona reported (strict)**: personas are synthetic consumers generated from statistics. They cannot look up review counts, follower counts, search volume, ratings or rankings on Reddit, PTT, HardwareZone, Naver Cafe or anywhere else. Sim output nonetheless contains lines like "0 reviews on Reddit Singapore / HardwareZone". That is an invented figure, not an observation.
+  - ❌ "The SG persona noted '0 reviews on Reddit·HardwareZone — no credibility'" → turns a number nobody counted into a fact
+  - ✓ "The SG persona had not encountered the brand in local communities" → what a persona can actually report
+  - If you want a figure, use one aggregated from the persona responses themselves (intent distribution, share citing an objection). Those we actually counted.
+  - The same applies to revenue, market share, store counts and repeat-purchase rates. If the grounding material does not carry the number, do not write one.
 
 ⚠ **Register — applies to every field (strict)**: all narrative below (executiveSummary · hotTake · mergedRisks · mergedActions) is written as **report prose** — assume it will be pasted into an executive briefing or a government procurement review.
 - No slang, memes, clipped chat forms, or hype words.
