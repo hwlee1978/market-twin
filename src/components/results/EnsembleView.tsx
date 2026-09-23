@@ -9653,56 +9653,61 @@ function SecondaryRisksBlock({
   // card layout the primary mergedRisks list uses.
   const sevLabel = (s: string) =>
     s === "high" ? (isKo ? "높음" : "HIGH") : s === "medium" ? (isKo ? "보통" : "MEDIUM") : isKo ? "낮음" : "LOW";
-  const sevTone = (s: string) =>
-    s === "high"
-      ? "bg-risk text-white"
-      : s === "medium"
-      ? "bg-warn text-white"
-      : "bg-slate-200 text-slate-600";
-  const sevText = (s: string) =>
-    s === "high" ? "text-risk" : s === "medium" ? "text-warn" : "text-slate-500";
+  const sevTone = (s: string): Tone =>
+    s === "high" ? "risk" : s === "medium" ? "warn" : "neutral";
+  // personaCategory carries an objection or trust-factor code. The raw
+  // slug ("price_sensitivity") meant nothing to a reader; the primary
+  // list never showed one, so resolve it to the same label the rest of
+  // the report uses.
+  const personaLabel = (code: string) => {
+    const objection = categoryLabel("objection", code, isKo ? "ko" : "en");
+    if (objection !== code) return objection;
+    return categoryLabel("trust", code, isKo ? "ko" : "en");
+  };
 
   return (
-    <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40 space-y-4">
-      <div className="flex items-baseline gap-3 flex-wrap">
-        <h2 className="text-[19px] font-extrabold tracking-tight text-slate-900">
-          {country} —{" "}
-          {isKo ? `${copy.label} 리스크` : `${copy.label} risks`}
-        </h2>
-        <span className="text-[10px] uppercase tracking-wider text-warn bg-warn-soft/40 border border-warn/30 px-2 py-0.5 rounded">
-          {copy.chip}
-        </span>
-        <span className="text-[10px] text-slate-500">
+    <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40">
+      <SectionCard
+        icon={AlertCircle}
+        tone="warn"
+        title={
+          isKo ? `${country} — ${copy.label} 리스크` : `${country} — ${copy.label} risks`
+        }
+        note={isKo ? `리스크 ${risks.length}건` : `${risks.length} risks`}
+        actions={<Chip tone="warn">{copy.chip}</Chip>}
+      >
+        <p className={clsx("mb-3", TYPO.cardBody)}>
           {isKo
-            ? `${risks.length}개 리스크 · 시뮬 교차검증 없이 1회 생성`
-            : `${risks.length} risks · generated in one pass, not cross-sim verified`}
-        </span>
-      </div>
-      <div className="card divide-y divide-slate-100">
-        {risks.map((r, i) => (
-          <div key={i} className="px-5 py-4">
-            <div className="flex items-baseline gap-2 mb-1.5 flex-wrap">
-              <span
-                className={clsx(
-                  "text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold",
-                  sevTone(r.severity),
-                )}
+            ? "시뮬 교차검증 없이 1회 생성된 결과입니다."
+            : "Generated in one pass — not cross-sim verified."}
+        </p>
+        <div className="divide-y divide-slate-100">
+          {risks.map((r, i) => (
+            <div key={i} className="flex items-start gap-3 py-3.5 first:pt-0 last:pb-0">
+              <Chip
+                tone={sevTone(r.severity)}
+                variant={r.severity === "low" ? "soft" : "solid"}
+                className="mt-0.5 shrink-0"
               >
                 {sevLabel(r.severity)}
-              </span>
-              <h3 className={clsx("text-sm font-semibold", sevText(r.severity))}>
-                {r.factor}
-              </h3>
-            </div>
-            <p className="text-sm text-slate-600 leading-relaxed">{r.description}</p>
-            {r.personaCategory && (
-              <div className="text-xs mt-1.5 text-slate-400 font-mono">
-                {r.personaCategory}
+              </Chip>
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex items-start justify-between gap-2">
+                  <div className="min-w-0 text-[13.5px] font-extrabold tracking-tight text-slate-900">
+                    {r.factor}
+                  </div>
+                  {r.personaCategory && (
+                    <span className="shrink-0">
+                      <Chip tone="neutral">{personaLabel(r.personaCategory)}</Chip>
+                    </span>
+                  )}
+                </div>
+                <p className={TYPO.cardCopy}>{r.description}</p>
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
     </div>
   );
 }
@@ -9958,67 +9963,68 @@ function SecondaryActionsBlock({
     );
   }
 
-  // Populated — render with the same impact/effort/category surfaces
-  // the primary list uses, just labelled as secondary.
-  const impactLabel = (i?: number) =>
-    i === 3 ? (isKo ? "결정적" : "Pivotal") : i === 2 ? (isKo ? "의미 있음" : "Meaningful") : isKo ? "소" : "Small";
-  const effortLabel = (e?: number) =>
-    e === 3 ? (isKo ? "몇 달" : "Months") : e === 2 ? (isKo ? "몇 주" : "Weeks") : isKo ? "며칠" : "Days";
-  const impactTone = (i?: number) =>
-    i === 3 ? "bg-brand text-white" : i === 2 ? "bg-brand/20 text-brand" : "bg-slate-100 text-slate-600";
-
+  // Populated — rendered by the same rules as the primary list in
+  // ActionsTab. It used to carry its own impact/effort wording
+  // ("결정적", "몇 달") and its own badge shapes, so the two lists read
+  // as output from different products. Only the tone (amber) and the
+  // "generated in one pass" note mark it as the runner-up.
   return (
-    <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40 space-y-4">
-      <div className="flex items-baseline gap-3 flex-wrap">
-        <h2 className="text-[19px] font-extrabold tracking-tight text-slate-900">
-          {country} —{" "}
-          {isKo ? `${copy.label} 추천 액션` : `${copy.label} recommended actions`}
-        </h2>
-        <span className="text-[10px] uppercase tracking-wider text-warn bg-warn-soft/40 border border-warn/30 px-2 py-0.5 rounded">
-          {copy.chip}
-        </span>
-        <span className="text-[10px] text-slate-500">
+    <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40">
+      <SectionCard
+        icon={Lightbulb}
+        tone="warn"
+        title={
+          isKo
+            ? `${country} — ${copy.label} 추천 액션`
+            : `${country} — ${copy.label} recommended actions`
+        }
+        note={isKo ? `액션 ${actions.length}건` : `${actions.length} actions`}
+        actions={<Chip tone="warn">{copy.chip}</Chip>}
+      >
+        <p className={clsx("mb-3", TYPO.cardBody)}>
           {isKo
-            ? `${actions.length}개 액션 · 시뮬 교차검증 없이 1회 생성`
-            : `${actions.length} actions · generated in one pass, not cross-sim verified`}
-        </span>
-      </div>
-      <ol className="card divide-y divide-slate-100">
-        {actions.map((a, i) => (
-          <li key={i} className="px-5 py-4 flex gap-3 items-start">
-            <span className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full bg-warn-soft text-warn font-bold text-xs">
-              {i + 1}
-            </span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap">
-                {a.action}
-              </p>
-              <div className="text-xs mt-2 flex items-center gap-2 flex-wrap">
-                {a.impact && (
-                  <span
-                    className={clsx(
-                      "px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider",
-                      impactTone(a.impact),
+            ? "시뮬 교차검증 없이 1회 생성된 결과입니다."
+            : "Generated in one pass — not cross-sim verified."}
+        </p>
+        <ol className="divide-y divide-slate-100">
+          {actions.map((a, i) => {
+            const quad = quadrantFor(a.impact, a.effort);
+            return (
+              <li key={i} className="flex items-start gap-3 py-3.5 first:pt-0 last:pb-0">
+                <span
+                  className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[11.5px] font-extrabold text-white"
+                  style={{ background: TONE[quad?.tone ?? "warn"].icon }}
+                >
+                  {i + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className={TYPO.cardCopy}>{stripActionScoreNotation(a.action)}</p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11.5px]">
+                    {a.actionCategory && (
+                      <span className="font-semibold text-slate-500">
+                        {categoryLabel("action", a.actionCategory, isKo ? "ko" : "en")}
+                      </span>
                     )}
-                  >
-                    {isKo ? "영향" : "Impact"} {a.impact}/3 · {impactLabel(a.impact)}
-                  </span>
-                )}
-                {a.effort && (
-                  <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-semibold uppercase tracking-wider">
-                    {isKo ? "난이도" : "Effort"} {a.effort}/3 · {effortLabel(a.effort)}
-                  </span>
-                )}
-                {a.actionCategory && (
-                  <span className="text-slate-400 font-mono">
-                    {a.actionCategory}
-                  </span>
-                )}
-              </div>
-            </div>
-          </li>
-        ))}
-      </ol>
+                    {quad && (
+                      <>
+                        <Chip tone={quad.tone}>{quad.label[isKo ? "ko" : "en"]}</Chip>
+                        <span className="font-semibold text-slate-400">
+                          {isKo
+                            ? `영향 ${impactLabel(a.impact, "ko") ?? a.impact} · 난이도 ${effortLabel(a.effort, "ko") ?? a.effort}`
+                            : `${impactLabel(a.impact, "en") ?? a.impact} impact · ${effortLabel(a.effort, "en") ?? a.effort}`}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        <p className={clsx("mt-3 border-t border-slate-100 pt-3", TYPO.cardBody)}>
+          {actionScaleNote(isKo ? "ko" : "en")}
+        </p>
+      </SectionCard>
     </div>
   );
 }
