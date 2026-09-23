@@ -213,6 +213,39 @@ export const ACTION_CATEGORIES = [
 ] as const;
 export type ActionCategory = (typeof ACTION_CATEGORIES)[number];
 
+/**
+ * Codes the secondary-action generator invented while its prompt only
+ * offered examples instead of this list. `categoryLabel` falls back to
+ * printing the raw code, so "compliance" reached a shipped report as a
+ * bare slug. Applied at render time too, since stored rows still carry
+ * the old values.
+ */
+const ACTION_CATEGORY_ALIASES: Record<string, ActionCategory> = {
+  compliance: "regulatory_compliance",
+  regulatory: "regulatory_compliance",
+  pricing: "pricing_strategy",
+  promotion: "pricing_promotion",
+  pr_seeding: "content_marketing",
+  pr: "content_marketing",
+  creative: "content_marketing",
+  influencer: "influencer_marketing",
+  localization: "product_localization",
+  ads: "paid_advertising",
+  event: "offline_event",
+};
+
+/** Map a free-text category onto a code the label table recognises. */
+export function normalizeActionCategory(
+  raw: string | null | undefined,
+): ActionCategory | undefined {
+  if (!raw) return undefined;
+  const code = raw.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if ((ACTION_CATEGORIES as readonly string[]).includes(code)) {
+    return code as ActionCategory;
+  }
+  return ACTION_CATEGORY_ALIASES[code] ?? "other";
+}
+
 export const ACTION_LABELS: Record<
   ActionCategory,
   { ko: string; en: string; description: string }

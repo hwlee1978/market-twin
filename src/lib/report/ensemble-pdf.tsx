@@ -22,6 +22,8 @@ import { splitByFont, ensureFontsLoaded } from "./fonts";
 import {
   confidenceBasis,
   confidenceCopy,
+  effortLabel,
+  impactLabel,
   isNonAnswer,
   isTieResult,
   confidenceLegend,
@@ -30,7 +32,7 @@ import {
   varianceCopyFor,
 } from "@/lib/simulation/grade-copy";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
-import { categoryLabel } from "@/lib/simulation/taxonomy";
+import { categoryLabel, normalizeActionCategory } from "@/lib/simulation/taxonomy";
 import {
   computePricingSensitivity,
   getDisplayPriceCents,
@@ -8352,32 +8354,42 @@ function renderEnsembleSecondaryPages(opts: {
               const score = ((a.impact ?? 2) + (4 - (a.effort ?? 2))) * 12.5;
               return score >= 75 ? C.success : score >= 50 ? C.warn : C.risk;
             })();
-            const impactLabel = a.impact === 3 ? (isKo ? "결정적" : "Pivotal") : a.impact === 2 ? (isKo ? "의미 있음" : "Meaningful") : a.impact === 1 ? (isKo ? "소" : "Small") : null;
-            const effortLabel = a.effort === 3 ? (isKo ? "몇 달" : "Months") : a.effort === 2 ? (isKo ? "몇 주" : "Weeks") : a.effort === 1 ? (isKo ? "며칠" : "Days") : null;
+            // These used to be locally-defined labels ("결정적", "몇 달")
+            // that shadowed the shared ones, so the same score read
+            // differently here than on every other surface. And "3/3"
+            // framed a band as a rating out of three.
+            const loc = isKo ? "ko" : "en";
+            const impact = impactLabel(a.impact, loc);
+            const effort = effortLabel(a.effort, loc);
+            const category = a.actionCategory
+              ? categoryLabel(
+                  "action",
+                  normalizeActionCategory(a.actionCategory) ?? a.actionCategory,
+                  loc,
+                )
+              : null;
             return (
               <View key={i} style={styles.actionRow} wrap={false}>
                 <MText style={styles.actionText}>
                   {`${i + 1}. ${stripActionScoreNotation(a.action)}`}
                 </MText>
                 <View style={{ flexDirection: "row", gap: 6, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
-                  {impactLabel && (
+                  {category && (
+                    <MText style={[styles.actionMeta, { color: C.body }]}>{category}</MText>
+                  )}
+                  {impact && (
                     <MText style={[styles.actionMeta, { color: C.body }]}>
-                      {`${isKo ? "영향" : "Impact"} ${a.impact}/3 · ${impactLabel}`}
+                      {isKo ? `· 영향 ${impact}` : `· ${impact} impact`}
                     </MText>
                   )}
-                  {effortLabel && (
+                  {effort && (
                     <MText style={[styles.actionMeta, { color: C.body }]}>
-                      {`· ${isKo ? "난이도" : "Effort"} ${a.effort}/3 · ${effortLabel}`}
-                    </MText>
-                  )}
-                  {a.actionCategory && (
-                    <MText style={[styles.actionMeta, { color: C.muted }]}>
-                      {`· ${a.actionCategory}`}
+                      {isKo ? `· 난이도 ${effort}` : `· ${effort}`}
                     </MText>
                   )}
                   {specColor && (
                     <MText style={{ fontSize: 8, color: specColor, fontWeight: 600 }}>
-                      {`· 1회 생성`}
+                      {isKo ? "· 1회 생성" : "· single pass"}
                     </MText>
                   )}
                 </View>

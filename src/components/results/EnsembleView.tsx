@@ -6,7 +6,7 @@ import { useRouter, Link } from "@/i18n/navigation";
 import { capture } from "@/lib/analytics/posthog";
 import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
-import { categoryLabel } from "@/lib/simulation/taxonomy";
+import { categoryLabel, normalizeActionCategory } from "@/lib/simulation/taxonomy";
 import { getCountryLabel } from "@/lib/countries";
 import {
   actionScaleNote,
@@ -10002,7 +10002,11 @@ function SecondaryActionsBlock({
                   <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11.5px]">
                     {a.actionCategory && (
                       <span className="font-semibold text-slate-500">
-                        {categoryLabel("action", a.actionCategory, isKo ? "ko" : "en")}
+                        {categoryLabel(
+                          "action",
+                          normalizeActionCategory(a.actionCategory) ?? a.actionCategory,
+                          isKo ? "ko" : "en",
+                        )}
                       </span>
                     )}
                     {quad && (

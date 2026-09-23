@@ -2,6 +2,7 @@ import { z } from "zod";
 import { getLLMProvider } from "@/lib/llm";
 import type { MarketProfile, ProjectInput } from "./schemas";
 import type { EnsembleAggregate } from "./ensemble";
+import { ACTION_CATEGORIES, normalizeActionCategory } from "./taxonomy";
 
 /**
  * Secondary-country action generator.
@@ -35,6 +36,7 @@ const ACTION_SCHEMA = z.object({
 const RESPONSE_SCHEMA = z.object({
   actions: z.array(ACTION_SCHEMA).min(3).max(10),
 });
+
 
 export type SecondaryAction = z.infer<typeof ACTION_SCHEMA>;
 
@@ -92,12 +94,12 @@ export async function buildSecondaryActions(
 - Avoid generic advice ("build brand awareness"). Every action must name a vendor / publisher / channel / metric.
 - impact: 1 (incremental polish) / 2 (meaningful channel or packaging choice) / 3 (pivotal — launch-defining).
 - effort: 1 (days) / 2 (weeks) / 3 (months / new partner).
-- actionCategory: short code (e.g. "channel_entry", "pr_seeding", "compliance", "pricing", "creative", "partnership").
+- actionCategory: EXACTLY one of these codes, no others: ${ACTION_CATEGORIES.join(", ")}.
 - surfacedInSims: always 0 (these are single-pass secondary, not cross-sim).
 
 Output VALID JSON only, no code fences:
 { "actions": [{ "action": "...", "impact": 2, "effort": 2, "actionCategory": "...", "surfacedInSims": 0 }] }`
-      : `당신은 D2C 글로벌 진출 전략 전문가입니다. SECONDARY (Top 2 동등 후보) 국가의 페르소나 시그널과 시장 분석을 바탕으로, 한국 D2C 브랜드가 그 시장에 진입/가속할 수 있는 구체적 액션 5~8개를 작성하세요. Primary 추천과 동일한 깊이와 구체성.
+      : `당신은 D2C 글로벌 진출 전략 전문가입니다. SECONDARY (2순위 후보) 국가의 페르소나 시그널과 시장 분석을 바탕으로, 한국 D2C 브랜드가 그 시장에 진입/가속할 수 있는 구체적 액션 5~8개를 작성하세요. Primary 추천과 동일한 깊이와 구체성.
 
 == 규칙 ==
 - 각 액션은 한 단락 (80~200자)에 (1) 무엇을 할지, (2) 어느 채널/플랫폼/파트너로, (3) 시점 (몇 월 / 몇 주차), (4) 측정 가능한 KPI 포함.
@@ -105,7 +107,7 @@ Output VALID JSON only, no code fences:
 - 일반론 ("브랜드 인지도 구축") 절대 금지. 모든 액션은 vendor·publisher·채널·메트릭 이름 포함.
 - impact: 1 (작음 — 마진성 개선) / 2 (의미 있음 — 채널·패키지 선택) / 3 (결정적 — launch 좌우).
 - effort: 1 (며칠) / 2 (몇 주) / 3 (몇 달·신규 파트너).
-- actionCategory: 짧은 코드 (예: "channel_entry", "pr_seeding", "compliance", "pricing", "creative", "partnership").
+- actionCategory: 반드시 다음 코드 중 하나만 사용 (다른 값 금지): ${ACTION_CATEGORIES.join(", ")}.
 - surfacedInSims: 항상 0 (secondary는 single-pass — cross-sim 데이터 없음).
 
 JSON으로만 응답, code fence 없이:
@@ -178,7 +180,10 @@ ${profileBlock}
       Math.round(((inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15) * 1000) / 1000;
 
     return {
-      actions: validated.data.actions,
+      actions: validated.data.actions.map((a) => ({
+        ...a,
+        actionCategory: normalizeActionCategory(a.actionCategory),
+      })),
       inputTokens,
       outputTokens,
       costEstimateUsd: cost,
