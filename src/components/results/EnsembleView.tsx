@@ -9141,34 +9141,35 @@ function TieWinnerOnlyBanner({
   // the ten risks had it. Merged actions have no country field at all.
   // So the caller measures its own list and we describe that, rather
   // than describing the schema.
+  // Once the list is described as winner-scoped, "no per-item market
+  // label" says nothing useful — of course there isn't one, it is all
+  // the same market. Only mention attribution when a badge is drawn.
   const attribution = itemsCarryScope
     ? isKo
-      ? "각 항목 오른쪽에 적용 시장 범위(전 시장 공통 / 단일 시장 / 일부 시장) 배지가 붙습니다."
-      : "Each item carries a scope badge on the right (cross-market / country-specific / select markets)."
-    : isKo
-      ? `단, 항목별로 어느 시장 것인지는 표시되지 않습니다.`
-      : "Individual items, though, are not attributed to a market.";
+      ? "일부 항목은 다른 시장과도 겹치며, 오른쪽 배지(전 시장 공통 / 단일 시장 / 일부 시장)가 그 범위를 표시합니다. "
+      : "Some items also hold across other markets; the badge on the right (cross-market / country-specific / select markets) says which. "
+    : "";
   return (
     <div className="card border-warn/40 bg-warn-soft/30 p-4 flex items-start gap-3">
       <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-warn/20 text-warn shrink-0 font-bold">!</span>
       <div className="flex-1 min-w-0">
         <h3 className="text-sm font-semibold text-warn mb-1">
           {isKo
-            ? `${scopeLabel}는 후보 시장 전체 기준 — 상세 분석은 ${winner} 기준입니다`
-            : `${scopeLabel} cover every candidate market — the deep-dive below is scoped to ${winner}`}
+            ? `아래 ${scopeLabel}는 1순위 ${winner} 기준입니다`
+            : `The ${scopeLabel.toLowerCase()} below are scoped to ${winner}`}
         </h3>
         <p className="text-xs text-slate-700 leading-relaxed">
           {isKo
-            ? `아래 목록은 시뮬이 후보 시장 전체에서 뽑아낸 ${scopeLabel}입니다. ${attribution} 규제·인증·채널처럼 시장별로 갈리는 항목은 1순위 ${winner} 기준으로 깊이 파고들었습니다. ${
+            ? `병합 단계는 ${winner}를 1순위로 꼽은 시뮬만 골라 ${scopeLabel}를 만듭니다 — 그래야 다른 시장의 계획이 섞이지 않습니다. ${attribution}${
                 isTie
                   ? `${secondary}도 동등 후보이므로,`
                   : `${secondary}는 2순위 후보입니다.`
-              } '시장 분석' 탭에서 ${secondary} 분석을 생성하면 같은 깊이의 ${scopeLabel}가 추가됩니다.`
-            : `The list below is what the sims surfaced across all candidate markets. ${attribution} The deep-dive detail is scoped to the #1 pick ${winner}. ${
+              } '시장 분석' 탭에서 ${secondary} 분석을 생성하면 같은 깊이의 ${scopeLabel}가 별도로 추가됩니다.`
+            : `The merge step feeds on only the sims that picked ${winner} first, so plans for other markets don't bleed in. ${attribution}${
                 isTie
                   ? `${secondary} is an equally ranked candidate:`
                   : `${secondary} is the runner-up:`
-              } generate its market profile in the Market Profile tab to get ${scopeLabel.toLowerCase()} at the same depth.`}
+              } generate its market profile in the Market Profile tab to get a parallel set at the same depth.`}
         </p>
       </div>
     </div>
@@ -9813,7 +9814,15 @@ function ActionsTab({
       <SectionCard
         icon={Lightbulb}
         tone="brand"
-        title={isKo ? "전체 액션 (우선순위 정렬)" : "All actions (sorted)"}
+        // Not "전체" — mergeNarrative feeds the action/risk merge only the
+        // sims whose own bestCountry is the winner, so this list is the
+        // winner's plan. Calling it "all actions" next to a "TW — 2순위"
+        // block read as "everything vs. TW", when it is "SG vs. TW".
+        title={
+          isKo
+            ? `${winnerCountry} — 추천 액션 (우선순위 정렬)`
+            : `${winnerCountry} — recommended actions (sorted)`
+        }
         note={isKo ? `액션 ${narrative.mergedActions.length}건` : `${narrative.mergedActions.length} actions`}
       >
         <ol className="divide-y divide-slate-100">

@@ -4157,8 +4157,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         <MText style={styles.pageTitle}>{isKo ? "주요 리스크" : "Key risks"}</MText>
         <MText style={styles.pageSubtitle}>
           {isKo
-            ? `${aggregate.simCount}개 시뮬에서 자주 등장한 리스크를 통합한 결과 — 종합 리스크 수준: ${riskLevelLabel(aggregate.narrative.overallRiskLevel, true)}.`
-            : `Risks dedup'd across ${aggregate.simCount} sims — overall: ${riskLevelLabel(aggregate.narrative.overallRiskLevel, false)}.`}
+            ? `1순위 ${recCountryLabel} 시장 기준으로 ${aggregate.simCount}개 시뮬의 리스크를 통합한 결과 — 종합 리스크 수준: ${riskLevelLabel(aggregate.narrative.overallRiskLevel, true)}.`
+            : `Risks for the #1 market, ${recCountryLabel}, dedup'd across ${aggregate.simCount} sims — overall: ${riskLevelLabel(aggregate.narrative.overallRiskLevel, false)}.`}
         </MText>
 
         {tieBanner}
@@ -4298,8 +4298,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         <MText style={styles.pageTitle}>{isKo ? "권장 액션" : "Recommended actions"}</MText>
         <MText style={styles.pageSubtitle}>
           {isKo
-            ? `시뮬 합의 기반 우선순위 액션 플랜입니다.`
-            : `Cross-sim consensus action plan, in priority order.`}
+            ? `1순위 ${recCountryLabel} 시장의 우선순위 액션 플랜입니다 — 병합 단계가 ${recCountryLabel}를 1순위로 꼽은 시뮬만 사용합니다.`
+            : `Priority action plan for the #1 market, ${recCountryLabel} — the merge step uses only the sims that picked it first.`}
         </MText>
 
         {tieBanner}
