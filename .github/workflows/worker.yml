@@ -1,0 +1,54 @@
+name: Worker build
+
+# apps/worker is a separately deployed Cloud Run service that bundles
+# packages/shared at image build time. Nothing in CI compiled it, so when
+# social-buzz.ts landed on 2026-07-05 with a `cache` property that Next's
+# RequestInit accepts and @types/node's does not, `tsc && tsc-alias` started
+# failing and the image simply stopped being rebuildable. Cloud Run kept
+# serving its 2026-06-18 revision for three months while every
+# packages/shared improvement shipped to Vercel only.
+#
+# The worker compiles the same shared sources under a different tsconfig and
+# a different set of ambient types, so a green root `tsc --noEmit` says
+# nothing about it. This job is the missing half.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            apps/worker/package-lock.json
+
+      # The worker resolves packages/shared's own imports, so both
+      # dependency trees have to be present. apps/worker is not an npm
+      # workspace — it carries its own lockfile and installs separately.
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install worker dependencies
+        run: npm ci
+        working-directory: apps/worker
+
+      # `npm run build` is what deploy.sh runs before pushing an image, so
+      # this fails exactly when a deploy would have.
+      - name: Build worker
+        run: npm run build
+        working-directory: apps/worker
