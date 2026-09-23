@@ -9116,15 +9116,38 @@ function TieWinnerOnlyBanner({
   secondary,
   scope,
   isTie,
+  itemsCarryScope = false,
   isKo,
 }: {
   winner: string;
   secondary: string;
   scope: "risks" | "actions";
   isTie: boolean;
+  /**
+   * Whether the list below actually renders a per-item market badge.
+   * Measured by the caller off the rendered data — `scope` is optional
+   * on merged risks and absent on merged actions entirely.
+   */
+  itemsCarryScope?: boolean;
   isKo: boolean;
 }) {
   const scopeLabel = scope === "risks" ? (isKo ? "리스크" : "Risks") : (isKo ? "추천 액션" : "Actions");
+  // This used to claim "각 항목 앞에 해당 시장 이름이 붙어 있습니다" for
+  // both lists. Nothing prefixes a market name, so the reader went
+  // looking for something that was never drawn.
+  //
+  // What exists: risks may carry a scope badge, but only when the merge
+  // LLM tagged `scope` — on the run this was reported against, none of
+  // the ten risks had it. Merged actions have no country field at all.
+  // So the caller measures its own list and we describe that, rather
+  // than describing the schema.
+  const attribution = itemsCarryScope
+    ? isKo
+      ? "각 항목 오른쪽에 적용 시장 범위(전 시장 공통 / 단일 시장 / 일부 시장) 배지가 붙습니다."
+      : "Each item carries a scope badge on the right (cross-market / country-specific / select markets)."
+    : isKo
+      ? `단, 항목별로 어느 시장 것인지는 표시되지 않습니다.`
+      : "Individual items, though, are not attributed to a market.";
   return (
     <div className="card border-warn/40 bg-warn-soft/30 p-4 flex items-start gap-3">
       <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-warn/20 text-warn shrink-0 font-bold">!</span>
@@ -9136,12 +9159,12 @@ function TieWinnerOnlyBanner({
         </h3>
         <p className="text-xs text-slate-700 leading-relaxed">
           {isKo
-            ? `아래 목록은 시뮬이 후보 시장 전체에서 뽑아낸 ${scopeLabel}이며, 각 항목 앞에 해당 시장 이름이 붙어 있습니다. 다만 규제·인증·채널처럼 시장별로 갈리는 항목은 1순위 ${winner} 기준으로 깊이 파고들었습니다. ${
+            ? `아래 목록은 시뮬이 후보 시장 전체에서 뽑아낸 ${scopeLabel}입니다. ${attribution} 규제·인증·채널처럼 시장별로 갈리는 항목은 1순위 ${winner} 기준으로 깊이 파고들었습니다. ${
                 isTie
                   ? `${secondary}도 동등 후보이므로,`
                   : `${secondary}는 2순위 후보입니다.`
               } '시장 분석' 탭에서 ${secondary} 분석을 생성하면 같은 깊이의 ${scopeLabel}가 추가됩니다.`
-            : `The list below is what the sims surfaced across all candidate markets — each item names its own market. The deep-dive detail, though, is scoped to the #1 pick ${winner}. ${
+            : `The list below is what the sims surfaced across all candidate markets. ${attribution} The deep-dive detail is scoped to the #1 pick ${winner}. ${
                 isTie
                   ? `${secondary} is an equally ranked candidate:`
                   : `${secondary} is the runner-up:`
@@ -9335,6 +9358,7 @@ function RisksTab({
           secondary={secondaryCountry}
           scope="risks"
           isTie={isTieResult(recommendation)}
+          itemsCarryScope={narrative.mergedRisks.some((r) => r.scope)}
           isKo={isKo}
         />
       )}
