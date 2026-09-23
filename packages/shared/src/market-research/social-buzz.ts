@@ -44,6 +44,16 @@ const YT_SEARCH = "https://www.googleapis.com/youtube/v3/search";
 const YT_VIDEOS = "https://www.googleapis.com/youtube/v3/videos";
 const NAVER_BLOG = "https://openapi.naver.com/v1/search/blog.json";
 const NAVER_NEWS = "https://openapi.naver.com/v1/search/news.json";
+
+/**
+ * Next augments RequestInit with `cache`; @types/node's undici RequestInit
+ * does not. This module is shared, so under the worker's tsconfig a literal
+ * carrying `cache` fails the excess-property check — which is what kept
+ * `npm run build` in apps/worker broken, and the Cloud Run image pinned to
+ * its June build. Widening the init type keeps the no-store hint (Next
+ * needs it to bypass its data cache) while compiling in both places.
+ */
+type FetchInit = RequestInit & { cache?: "no-store" | "force-cache" };
 const REDDIT_SEARCH = "https://www.reddit.com/search.json";
 const TT_HOST = "tiktok-scraper7.p.rapidapi.com";
 const DFS_ENDPOINT =
@@ -445,10 +455,11 @@ async function naverBuzz(
   const start = windowEnd - windowMs;
   let mentions = 0;
   const { signal, clear } = withTimeout();
+  const init: FetchInit = { headers, signal, cache: "no-store" };
   try {
     const blog = await fetch(
       `${NAVER_BLOG}?query=${encodeURIComponent(brand)}&display=100&sort=date`,
-      { headers, signal, cache: "no-store" },
+      init,
     );
     if (blog.ok) {
       const j = (await blog.json()) as { items?: { postdate?: string }[] };
@@ -465,7 +476,7 @@ async function naverBuzz(
     }
     const news = await fetch(
       `${NAVER_NEWS}?query=${encodeURIComponent(brand)}&display=100&sort=date`,
-      { headers, signal, cache: "no-store" },
+      init,
     );
     if (news.ok) {
       const j = (await news.json()) as { items?: { pubDate?: string }[] };

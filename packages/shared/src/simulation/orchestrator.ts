@@ -613,6 +613,36 @@ export async function aggregateAndPersist(opts: {
     blindPick,
   });
 
+  // Diagnostic: crossCountryDistribution has been absent from every
+  // aggregate written since roughly June, which silently strips `scope`
+  // off every merged risk — the merge prompt only carries the scope
+  // rules when the distribution exists. Re-running this same aggregator
+  // over the same stored rows *does* produce a distribution, so the
+  // inputs differ at run time in a way static reading hasn't explained.
+  // These counts say which side is short: the snapshots or the compute.
+  {
+    let personaCount = 0;
+    let withObjectionCats = 0;
+    let withTrustCats = 0;
+    for (const s of snapshots) {
+      for (const p of s.personas ?? []) {
+        personaCount++;
+        if (p.objectionsCategorized?.length) withObjectionCats++;
+        if (p.trustFactorsCategorized?.length) withTrustCats++;
+      }
+    }
+    const dist = aggregate.crossCountryDistribution;
+    console.log(
+      `[ensemble ${ensembleId}] ccd-probe: snapshots=${snapshots.length} ` +
+        `personas=${personaCount} objectionCats=${withObjectionCats} ` +
+        `trustCats=${withTrustCats} → distribution=${
+          dist
+            ? `yes(objections=${dist.objections.length},trust=${dist.trustFactors.length},countries=${dist.countryCount})`
+            : "no"
+        }`,
+    );
+  }
+
   let finalStatus: "completed" | "failed";
   let lowSampleErrorMessage: string | null = null;
   if (snapshots.length === 0) {
