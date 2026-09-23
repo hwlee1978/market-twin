@@ -83,6 +83,13 @@ function LoginPageInner() {
         error.code === "email_not_confirmed" ||
           /not confirmed/i.test(error.message),
       );
+      // The friendly message below is a fallback whenever no pattern
+      // matches, so an unrecognised failure is indistinguishable from a
+      // wrong password — and the original text is discarded here, which
+      // leaves nothing to debug from. Keep it in the console in dev.
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[login] sign-in failed:", error.code, error.message);
+      }
       // Map Supabase's English error to a locale-aware friendly message.
       setError(t(authErrorKey(error.message) as "errors.auth.generic"));
       return;

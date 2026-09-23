@@ -16,8 +16,11 @@ import {
   impactLabel,
   formatSegmentValue,
   isNonAnswer,
+  isTieResult as isTieDisplayMode,
+  secondaryCopy as sharedSecondaryCopy,
   stripActionScoreNotation,
   varianceCopyFor,
+  type SecondaryCopy,
   type SegmentMetric,
 } from "@/lib/simulation/grade-copy";
 import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
@@ -72,6 +75,42 @@ import {
   TYPO,
   type Tone,
 } from "./ui";
+
+/**
+ * Seconds elapsed since `running` flipped true; 0 while idle.
+ *
+ * These generate buttons sit next to copy that says the call takes
+ * 30–60s. Without a counter the card looks identical at second 5 and
+ * second 55, so a request that is merely slow reads as a request that
+ * died — which is exactly how it was reported. Resets on each run.
+ */
+function useElapsedSeconds(running: boolean): number {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!running) return;
+    const startedAt = Date.now();
+    // Measure against wall-clock instead of incrementing a counter: a
+    // backgrounded tab throttles timers, and an incremented counter
+    // would drift behind the real wait.
+    const update = () => setSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    // Fire once on the next tick so a retry after an error doesn't show
+    // the previous run's count for a second. It can't run in the effect
+    // body — a synchronous setState there triggers a cascading render.
+    const first = setTimeout(update, 0);
+    const timer = setInterval(update, 1000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, [running]);
+  return running ? seconds : 0;
+}
+
+/** "생성 중... 38초" / "Generating... 38s" */
+function busyLabel(base: string, seconds: number, isKo: boolean): string {
+  if (seconds <= 0) return base;
+  return isKo ? `${base} ${seconds}초` : `${base} ${seconds}s`;
+}
 
 interface EnsembleStatus {
   id: string;
@@ -308,10 +347,18 @@ export function EnsembleView({
   projectId,
   ensembleId,
   locale,
+  initialTab,
 }: {
   projectId: string;
   ensembleId: string;
   locale: string;
+  /**
+   * Tab to open on load, from `?tab=`. Several generate buttons finish
+   * with a full reload (the aggregate is seeded by the polling effect,
+   * which router.refresh() alone won't re-run), so without this the
+   * user is thrown back to the summary tab every time.
+   */
+  initialTab?: string;
 }) {
   const [status, setStatus] = useState<EnsembleStatus | null>(null);
   const [result, setResult] = useState<EnsembleResult | null>(null);
@@ -477,6 +524,7 @@ export function EnsembleView({
       result={result}
       locale={locale}
       ensembleId={ensembleId}
+      initialTab={initialTab}
     />
   );
 }
@@ -931,11 +979,13 @@ function EnsembleDashboard({
   result,
   locale,
   ensembleId,
+  initialTab,
 }: {
   projectId: string;
   result: EnsembleResult;
   locale: string;
   ensembleId: string;
+  initialTab?: string;
 }) {
   const { aggregate, llm_providers, tier, parallel_sims } = result;
   const [pdfBusy, setPdfBusy] = useState<"executive" | "detailed" | "validation" | null>(null);
@@ -1025,7 +1075,23 @@ function EnsembleDashboard({
     simCount,
   } = aggregate;
   const isKo = locale === "ko";
-  const [activeTab, setActiveTab] = useState<TabKey>("summary");
+  const [activeTab, setActiveTab] = useState<TabKey>(() => parseTabKey(initialTab));
+
+  /**
+   * Mirror the tab into `?tab=` so a reload comes back to it. Uses
+   * replaceState rather than the router: a Next navigation would remount
+   * this component and re-run the polling effect, which is exactly the
+   * cost we're trying to avoid on a plain tab click. Back/forward still
+   * work for the surrounding history entries.
+   */
+  const selectTab = (key: TabKey) => {
+    setActiveTab(key);
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (key === "summary") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", key);
+    window.history.replaceState(null, "", url);
+  };
   const [shareUrl, setShareUrl] = useState<string | null>(null);
 
   // Welcome / "how to read this" modal. Two trigger paths:
@@ -1268,7 +1334,7 @@ function EnsembleDashboard({
 
       <TabsNav
         active={activeTab}
-        onChange={setActiveTab}
+        onChange={selectTab}
         aggregate={aggregate}
         tier={tier}
         isKo={isKo}
@@ -1516,7 +1582,7 @@ function EnsembleDashboard({
           isKo={isKo}
           onDismiss={dismissWelcome}
           onJumpTo={(tab) => {
-            setActiveTab(tab);
+            selectTab(tab);
             void dismissWelcome();
           }}
         />
@@ -1529,17 +1595,25 @@ function EnsembleDashboard({
 
 /* ────────────────────────────────── tabs ─── */
 
-type TabKey =
-  | "summary"
-  | "overview"
-  | "countries"
-  | "marketProfile"
-  | "personas"
-  | "pricing"
-  | "decisionAid"
-  | "risks"
-  | "actions"
-  | "data";
+const TAB_KEYS = [
+  "summary",
+  "overview",
+  "countries",
+  "marketProfile",
+  "personas",
+  "pricing",
+  "decisionAid",
+  "risks",
+  "actions",
+  "data",
+] as const;
+
+type TabKey = (typeof TAB_KEYS)[number];
+
+/** Narrow a `?tab=` value; anything unrecognised falls back to summary. */
+function parseTabKey(raw: string | undefined): TabKey {
+  return TAB_KEYS.includes(raw as TabKey) ? (raw as TabKey) : "summary";
+}
 
 function TabsNav({
   active,
@@ -2942,6 +3016,7 @@ function NarrativeTieDisclaimer({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const elapsed = useElapsedSeconds(busy);
   const [err, setErr] = useState<string | null>(null);
   const regenerate = async () => {
     if (busy) return;
@@ -2994,9 +3069,7 @@ function NarrativeTieDisclaimer({
           }
         >
           {busy
-            ? isKo
-              ? "재생성 중…"
-              : "Regenerating…"
+            ? busyLabel(isKo ? "재생성 중…" : "Regenerating…", elapsed, isKo)
             : isKo
               ? "Top-2 prompt로 재생성"
               : "Regenerate with Top-2 prompt"}
@@ -3889,6 +3962,7 @@ function MarketProfileTab({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [busySecondary, setBusySecondary] = useState(false);
+  const elapsed = useElapsedSeconds(busy);
   const [err, setErr] = useState<string | null>(null);
 
   // Detect a secondary candidate the user should also see a market
@@ -3978,9 +4052,11 @@ function MarketProfileTab({
         >
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Lightbulb size={16} />}
           {busy
-            ? isKo
-              ? "생성 중... (LLM 호출)"
-              : "Generating... (LLM call)"
+            ? busyLabel(
+                isKo ? "생성 중... (LLM 호출)" : "Generating... (LLM call)",
+                elapsed,
+                isKo,
+              )
             : isKo
               ? "시장 분석 생성"
               : "Generate market profile"}
@@ -4550,6 +4626,7 @@ function MarketProfileTab({
             ensembleId={ensembleId}
             onGenerate={generateSecondary}
             busy={busySecondary}
+            isTie={isTieResult(recommendation)}
             isKo={isKo}
           />
         </div>
@@ -4568,6 +4645,7 @@ function SecondaryCountryMarketSection({
   ensembleId,
   onGenerate,
   busy,
+  isTie,
   isKo,
 }: {
   country: string;
@@ -4575,9 +4653,12 @@ function SecondaryCountryMarketSection({
   ensembleId: string;
   onGenerate: () => void;
   busy: boolean;
+  isTie: boolean;
   isKo: boolean;
 }) {
   void ensembleId;
+  const elapsed = useElapsedSeconds(busy);
+  const copy = secondaryCopy(isTie, isKo);
   // Empty state — show generate CTA.
   if (!profile) {
     return (
@@ -4589,13 +4670,13 @@ function SecondaryCountryMarketSection({
           <div className="flex-1 min-w-0">
             <h2 className="mb-1 text-[15px] font-extrabold tracking-tight text-warn">
               {isKo
-                ? `${country} — Top 2 동등 후보 시장 분석 (생성 대기)`
-                : `${country} — Top 2 secondary market profile (pending)`}
+                ? `${country} — ${copy.label} 시장 분석 (생성 대기)`
+                : `${country} — ${copy.label} market profile (pending)`}
             </h2>
             <p className="text-xs text-slate-700 leading-relaxed mb-4">
               {isKo
-                ? `Top 2 동등 후보이므로 ${country} 시장 분석도 함께 봐야 의사결정이 완성됩니다. 위 분석과 같은 깊이로 시장 규모·경쟁자·채널·규제·가격·GTM 전략을 추가 LLM 호출로 생성합니다. 근거 수집과 생성을 합쳐 2~3분 정도 걸립니다.`
-                : `Since this is a Top 2 tie, you need a parallel profile for ${country} to make a complete decision. One additional LLM call generates the same depth of market size · competitors · channels · regulatory · pricing · GTM strategy. Grounding plus generation takes about 2-3 minutes.`}
+                ? `${copy.lead} ${country} 시장 분석을 생성하세요. 위 분석과 같은 깊이로 시장 규모·경쟁자·채널·규제·가격·GTM 전략을 추가 LLM 호출로 생성합니다. 근거 수집과 생성을 합쳐 2~3분 정도 걸립니다.`
+                : `${copy.lead} generate a parallel profile for ${country}. One additional LLM call produces the same depth of market size · competitors · channels · regulatory · pricing · GTM strategy. Grounding plus generation takes about 2-3 minutes.`}
             </p>
             <button
               type="button"
@@ -4605,9 +4686,7 @@ function SecondaryCountryMarketSection({
             >
               {busy ? <Loader2 size={14} className="animate-spin" /> : <Lightbulb size={14} />}
               {busy
-                ? isKo
-                  ? "생성 중..."
-                  : "Generating..."
+                ? busyLabel(isKo ? "생성 중..." : "Generating...", elapsed, isKo)
                 : isKo
                   ? `${country} 시장 분석 추가 생성`
                   : `Generate ${country} market profile`}
@@ -4668,22 +4747,34 @@ function SecondaryCountryMarketSection({
         </div>
         <p className="text-sm text-slate-500 mt-1 leading-relaxed">
           {isKo
-            ? `Top 2 동등 후보 ${country} 시장 분석. 1순위와 동일한 깊이로 시장 규모, 명명된 경쟁자, 채널 환경, 규제, 가격 벤치마크, GTM 전략 — 단, 시뮬 교차검증 없이 1회 생성한 결과입니다.`
-            : `${country} as the parallel Top-2 candidate — same depth as the primary: market size, named competitors, channels, regulatory, pricing, GTM. Note: generated in one pass, not cross-sim verified.`}
+            ? `${copy.label} ${country} 시장 분석. 1순위와 동일한 깊이로 시장 규모, 명명된 경쟁자, 채널 환경, 규제, 가격 벤치마크, GTM 전략 — 단, 시뮬 교차검증 없이 1회 생성한 결과입니다.`
+            : `${country} as the ${copy.label.toLowerCase()} market — same depth as the primary: market size, named competitors, channels, regulatory, pricing, GTM. Note: generated in one pass, not cross-sim verified.`}
         </p>
       </div>
 
-      {/* Top-2 tie banner — mirrors the page-level tieBanner the PDF
-          renders on every primary-only page, surfaced here so users
-          understand this whole block is the parallel "2위" deep-dive. */}
+      {/* Scope banner — mirrors the page-level banner the PDF renders on
+          every primary-only page, surfaced here so users understand this
+          whole block is the parallel "2위" deep-dive. The closing line
+          changes with the verdict: only a declared tie earns "treat both
+          as equally viable". */}
       <div className="rounded-md border border-warn/30 bg-warn-soft/30 px-3 py-2">
         <div className="text-[10px] uppercase tracking-wider text-warn font-bold mb-0.5">
-          {isKo ? "TOP-2 동등 후보 — 본 섹션은 2순위 기준" : "TOP-2 TIE — 2nd candidate covered in this section"}
+          {isKo
+            ? `${copy.label} — 본 섹션은 2순위 기준`
+            : `${copy.label.toUpperCase()} — 2nd candidate covered in this section`}
         </div>
         <p className="text-xs text-slate-700 leading-relaxed">
           {isKo
-            ? `1순위 분석은 위쪽 메인 섹션을 참고하세요. 두 시장 모두 동등 후보로 검토 권장.`
-            : `Primary candidate analysis is in the main section above. Treat both markets as equally viable.`}
+            ? `1순위 분석은 위쪽 메인 섹션을 참고하세요. ${
+                isTie
+                  ? "두 시장 모두 동등 후보로 검토 권장."
+                  : "1순위가 우세하나, 차선책 검토용으로 함께 보시기 바랍니다."
+              }`
+            : `Primary candidate analysis is in the main section above. ${
+                isTie
+                  ? "Treat both markets as equally viable."
+                  : "The #1 pick leads; read this as the fallback option."
+              }`}
         </p>
       </div>
 
@@ -7617,6 +7708,7 @@ function PricingTab({
           pricing={secondaryPricing}
           ensembleId={ensembleId}
           currency={currency}
+          isTie={isTieResult(recommendation)}
           isKo={isKo}
         />
       )}
@@ -7630,6 +7722,7 @@ function SecondaryPricingBlock({
   pricing,
   ensembleId,
   currency,
+  isTie,
   isKo,
 }: {
   country: string;
@@ -7637,10 +7730,13 @@ function SecondaryPricingBlock({
   pricing: SecondaryPricingItem | null;
   ensembleId: string;
   currency: string;
+  isTie: boolean;
   isKo: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const elapsed = useElapsedSeconds(busy);
+  const copy = secondaryCopy(isTie, isKo);
   const [err, setErr] = useState<string | null>(null);
   const pricingBenchmarks = profile?.pricingBenchmarks;
   const cult = profile?.culturalNotes;
@@ -7682,17 +7778,17 @@ function SecondaryPricingBlock({
             <div className="flex-1 min-w-0">
               <h2 className="mb-1 text-[15px] font-extrabold tracking-tight text-warn">
                 {isKo
-                  ? `${country} — Top 2 동등 후보 가격 분석 (생성 대기)`
-                  : `${country} — Top 2 secondary pricing analysis (pending)`}
+                  ? `${country} — ${copy.label} 가격 분석 (생성 대기)`
+                  : `${country} — ${copy.label} pricing analysis (pending)`}
               </h2>
               <p className="text-xs text-slate-700 leading-relaxed mb-4">
                 {isKo
-                  ? `Top 2 동등 후보이므로 ${country} 시장의 권장 가격 · 전환 곡선 · 마진 추정을 별도로 생성해야 winner와 동일 깊이의 가격 분석이 됩니다. ${
+                  ? `${copy.lead} ${country} 시장의 권장 가격 · 전환 곡선 · 마진 추정을 별도로 생성해야 1순위와 동일 깊이의 가격 분석이 됩니다. ${
                       hasProfile
                         ? `${country} 시장 분석이 있어 competitor 벤치마크 + 문화적 인사이트로 grounded한 결과가 나옵니다.`
                         : `${country} 시장 분석이 아직 없어 페르소나 신호만으로 가격이 생성됩니다 (시장 분석 먼저 권장).`
                     } 한 번의 생성 작업으로 30~60초 걸립니다.`
-                  : `Top 2 ties need a parallel ${country} pricing analysis (recommended price, conversion curve, margin) to reach winner-parity depth. ${
+                  : `${copy.lead} generate a parallel ${country} pricing analysis (recommended price, conversion curve, margin) to reach parity with the #1 market. ${
                       hasProfile
                         ? `Market profile already exists — generation grounded on competitor benchmarks + cultural insights.`
                         : `No market profile yet — pricing will rely on persona signal only (generate the profile first for better grounding).`
@@ -7706,9 +7802,7 @@ function SecondaryPricingBlock({
               >
                 {busy ? <Loader2 size={14} className="animate-spin" /> : <Lightbulb size={14} />}
                 {busy
-                  ? isKo
-                    ? "생성 중..."
-                    : "Generating..."
+                  ? busyLabel(isKo ? "생성 중..." : "Generating...", elapsed, isKo)
                   : isKo
                     ? `${country} 가격 분석 추가 생성`
                     : `Generate ${country} pricing analysis`}
@@ -7762,10 +7856,10 @@ function SecondaryPricingBlock({
     <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40 space-y-4">
       <div className="flex items-baseline gap-3 flex-wrap">
         <h2 className="text-[19px] font-extrabold tracking-tight text-slate-900">
-          {country} — {isKo ? "Top 2 동등 후보 가격 분석" : "Top 2 secondary pricing"}
+          {country} — {isKo ? `${copy.label} 가격 분석` : `${copy.label} pricing`}
         </h2>
         <span className="text-[10px] uppercase tracking-wider text-warn bg-warn-soft/40 border border-warn/30 px-2 py-0.5 rounded">
-          {isKo ? "동등 후보" : "tied"}
+          {copy.chip}
         </span>
         <span className="text-[10px] text-slate-500">
           {isKo ? "시뮬 교차검증 없이 1회 생성" : "generated in one pass, not cross-sim verified"}
@@ -8828,6 +8922,7 @@ function DecisionAidTab({
           profile={secondaryProfile}
           actions={secondaryActions}
           risks={secondaryRisks}
+          isTie={isTieResult(recommendation)}
           isKo={isKo}
         />
       )}
@@ -8840,14 +8935,17 @@ function SecondaryDecisionBlock({
   profile,
   actions,
   risks,
+  isTie,
   isKo,
 }: {
   country: string;
   profile: EnsembleAggregate["marketProfile"] | null;
   actions: SecondaryActionItem[] | null;
   risks: SecondaryRiskItem[] | null;
+  isTie: boolean;
   isKo: boolean;
 }) {
+  const copy = secondaryCopy(isTie, isKo);
   const hasData = profile || (actions && actions.length) || (risks && risks.length);
   if (!hasData) {
     return (
@@ -8855,8 +8953,8 @@ function SecondaryDecisionBlock({
         <div className="card border-warn/40 bg-warn-soft/20 p-5">
           <h3 className="text-sm font-semibold text-warn mb-1">
             {isKo
-              ? `${country} — Top 2 동등 후보 의사결정 보조 (데이터 필요)`
-              : `${country} — Top 2 secondary decision-aid (data needed)`}
+              ? `${country} — ${copy.label} 의사결정 보조 (데이터 필요)`
+              : `${country} — ${copy.label} decision-aid (data needed)`}
           </h3>
           <p className="text-xs text-slate-700 leading-relaxed">
             {isKo
@@ -8877,10 +8975,10 @@ function SecondaryDecisionBlock({
     <div className="mt-10 pt-8 border-t-2 border-dashed border-warn/40 space-y-4">
       <div className="flex items-baseline gap-3 flex-wrap">
         <h2 className="text-[19px] font-extrabold tracking-tight text-slate-900">
-          {country} — {isKo ? "Top 2 동등 후보 의사결정 보조" : "Top 2 secondary decision-aid"}
+          {country} — {isKo ? `${copy.label} 의사결정 보조` : `${copy.label} decision-aid`}
         </h2>
         <span className="text-[10px] uppercase tracking-wider text-warn bg-warn-soft/40 border border-warn/30 px-2 py-0.5 rounded">
-          {isKo ? "동등 후보" : "tied"}
+          {copy.chip}
         </span>
       </div>
 
@@ -9001,15 +9099,29 @@ function detectSecondary(
   return null;
 }
 
+/** Reads the tie verdict off the recommendation; see the shared helper. */
+function isTieResult(recommendation: EnsembleAggregate["recommendation"]): boolean {
+  return isTieDisplayMode(
+    (recommendation as unknown as { displayMode?: string }).displayMode,
+  );
+}
+
+/** Locale-shaped wrapper over the shared copy table. */
+function secondaryCopy(isTie: boolean, isKo: boolean): SecondaryCopy {
+  return sharedSecondaryCopy(isTie, isKo ? "ko" : "en");
+}
+
 function TieWinnerOnlyBanner({
   winner,
   secondary,
   scope,
+  isTie,
   isKo,
 }: {
   winner: string;
   secondary: string;
   scope: "risks" | "actions";
+  isTie: boolean;
   isKo: boolean;
 }) {
   const scopeLabel = scope === "risks" ? (isKo ? "리스크" : "Risks") : (isKo ? "추천 액션" : "Actions");
@@ -9024,8 +9136,16 @@ function TieWinnerOnlyBanner({
         </h3>
         <p className="text-xs text-slate-700 leading-relaxed">
           {isKo
-            ? `아래 목록은 시뮬이 후보 시장 전체에서 뽑아낸 ${scopeLabel}이며, 각 항목 앞에 해당 시장 이름이 붙어 있습니다. 다만 규제·인증·채널처럼 시장별로 갈리는 항목은 1순위 ${winner} 기준으로 깊이 파고들었습니다. ${secondary}도 동등 후보이므로, '시장 분석' 탭에서 ${secondary} 분석을 생성하면 같은 깊이의 ${scopeLabel}가 추가됩니다.`
-            : `The list below is what the sims surfaced across all candidate markets — each item names its own market. The deep-dive detail, though, is scoped to the #1 pick ${winner}. ${secondary} is an equally ranked candidate: generate its market profile in the Market Profile tab to get ${scopeLabel.toLowerCase()} at the same depth.`}
+            ? `아래 목록은 시뮬이 후보 시장 전체에서 뽑아낸 ${scopeLabel}이며, 각 항목 앞에 해당 시장 이름이 붙어 있습니다. 다만 규제·인증·채널처럼 시장별로 갈리는 항목은 1순위 ${winner} 기준으로 깊이 파고들었습니다. ${
+                isTie
+                  ? `${secondary}도 동등 후보이므로,`
+                  : `${secondary}는 2순위 후보입니다.`
+              } '시장 분석' 탭에서 ${secondary} 분석을 생성하면 같은 깊이의 ${scopeLabel}가 추가됩니다.`
+            : `The list below is what the sims surfaced across all candidate markets — each item names its own market. The deep-dive detail, though, is scoped to the #1 pick ${winner}. ${
+                isTie
+                  ? `${secondary} is an equally ranked candidate:`
+                  : `${secondary} is the runner-up:`
+              } generate its market profile in the Market Profile tab to get ${scopeLabel.toLowerCase()} at the same depth.`}
         </p>
       </div>
     </div>
@@ -9174,6 +9294,7 @@ function RisksTab({
             winner={winnerCountry}
             secondary={secondaryCountry}
             scope="risks"
+            isTie={isTieResult(recommendation)}
             isKo={isKo}
           />
         )}
@@ -9213,6 +9334,7 @@ function RisksTab({
           winner={winnerCountry}
           secondary={secondaryCountry}
           scope="risks"
+          isTie={isTieResult(recommendation)}
           isKo={isKo}
         />
       )}
@@ -9428,6 +9550,7 @@ function RisksTab({
           risks={secondaryRisksList}
           profile={secondaryProfile}
           ensembleId={ensembleId}
+          isTie={isTieResult(recommendation)}
           isKo={isKo}
         />
       )}
@@ -9440,16 +9563,20 @@ function SecondaryRisksBlock({
   risks,
   profile,
   ensembleId,
+  isTie,
   isKo,
 }: {
   country: string;
   risks: SecondaryRiskItem[] | null;
   profile: EnsembleAggregate["marketProfile"] | null;
   ensembleId: string;
+  isTie: boolean;
   isKo: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const elapsed = useElapsedSeconds(busy);
+  const copy = secondaryCopy(isTie, isKo);
   const [error, setError] = useState<string | null>(null);
 
   const generate = async () => {
@@ -9485,17 +9612,17 @@ function SecondaryRisksBlock({
             <div className="flex-1 min-w-0">
               <h2 className="mb-1 text-[15px] font-extrabold tracking-tight text-warn">
                 {isKo
-                  ? `${country} — Top 2 동등 후보 리스크 (생성 대기)`
-                  : `${country} — Top 2 secondary risks (pending)`}
+                  ? `${country} — ${copy.label} 리스크 (생성 대기)`
+                  : `${country} — ${copy.label} risks (pending)`}
               </h2>
               <p className="text-xs text-slate-700 leading-relaxed mb-4">
                 {isKo
-                  ? `Top 2 동등 후보이므로 ${country} 시장의 구체적 리스크 (compliance·채널·페르소나 5~8개)도 별도 생성이 필요합니다. ${
+                  ? `${copy.lead} ${country} 시장의 구체적 리스크 (compliance·채널·페르소나 5~8개)를 별도로 생성해야 합니다. ${
                       hasProfile
                         ? `${country} 시장 분석이 이미 있어 풍부한 리스크가 생성됩니다.`
                         : `${country} 시장 분석이 아직 없어 페르소나 시그널만으로 생성됩니다 (시장 분석 먼저 생성 권장).`
                     } 한 번의 생성 작업으로 30~60초 걸립니다.`
-                  : `Top 2 ties need parallel ${country} risks (compliance · channels · personas, 5-8 items). ${
+                  : `${copy.lead} generate parallel ${country} risks (compliance · channels · personas, 5-8 items). ${
                       hasProfile
                         ? `Market profile already exists — generates rich, grounded risks.`
                         : `No market profile yet — risks will rely on persona signal only (generate the profile first for better quality).`
@@ -9509,9 +9636,7 @@ function SecondaryRisksBlock({
               >
                 {busy ? <Loader2 size={14} className="animate-spin" /> : <Lightbulb size={14} />}
                 {busy
-                  ? isKo
-                    ? "생성 중..."
-                    : "Generating..."
+                  ? busyLabel(isKo ? "생성 중..." : "Generating...", elapsed, isKo)
                   : isKo
                     ? `${country} 리스크 추가 생성`
                     : `Generate ${country} risks`}
@@ -9542,10 +9667,10 @@ function SecondaryRisksBlock({
       <div className="flex items-baseline gap-3 flex-wrap">
         <h2 className="text-[19px] font-extrabold tracking-tight text-slate-900">
           {country} —{" "}
-          {isKo ? "Top 2 동등 후보 리스크" : "Top 2 secondary risks"}
+          {isKo ? `${copy.label} 리스크` : `${copy.label} risks`}
         </h2>
         <span className="text-[10px] uppercase tracking-wider text-warn bg-warn-soft/40 border border-warn/30 px-2 py-0.5 rounded">
-          {isKo ? "동등 후보" : "tied"}
+          {copy.chip}
         </span>
         <span className="text-[10px] text-slate-500">
           {isKo
@@ -9625,6 +9750,7 @@ function ActionsTab({
             winner={winnerCountry}
             secondary={secondaryCountry}
             scope="actions"
+            isTie={isTieResult(recommendation)}
             isKo={isKo}
           />
         )}
@@ -9650,6 +9776,7 @@ function ActionsTab({
           winner={winnerCountry}
           secondary={secondaryCountry}
           scope="actions"
+          isTie={isTieResult(recommendation)}
           isKo={isKo}
         />
       )}
@@ -9728,6 +9855,7 @@ function ActionsTab({
           actions={secondaryActions}
           profile={secondaryProfile}
           ensembleId={ensembleId}
+          isTie={isTieResult(recommendation)}
           isKo={isKo}
         />
       )}
@@ -9740,16 +9868,20 @@ function SecondaryActionsBlock({
   actions,
   profile,
   ensembleId,
+  isTie,
   isKo,
 }: {
   country: string;
   actions: SecondaryActionItem[] | null;
   profile: EnsembleAggregate["marketProfile"] | null;
   ensembleId: string;
+  isTie: boolean;
   isKo: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const elapsed = useElapsedSeconds(busy);
+  const copy = secondaryCopy(isTie, isKo);
   const [error, setError] = useState<string | null>(null);
 
   const generate = async () => {
@@ -9787,17 +9919,17 @@ function SecondaryActionsBlock({
             <div className="flex-1 min-w-0">
               <h2 className="mb-1 text-[15px] font-extrabold tracking-tight text-warn">
                 {isKo
-                  ? `${country} — Top 2 동등 후보 추천 액션 (생성 대기)`
-                  : `${country} — Top 2 secondary recommended actions (pending)`}
+                  ? `${country} — ${copy.label} 추천 액션 (생성 대기)`
+                  : `${country} — ${copy.label} recommended actions (pending)`}
               </h2>
               <p className="text-xs text-slate-700 leading-relaxed mb-4">
                 {isKo
-                  ? `Top 2 동등 후보이므로 ${country} 시장의 구체적 액션 (입점·PR·인증·가격·채널·파트너십 5~8개)도 별도 생성이 필요합니다. ${
+                  ? `${copy.lead} ${country} 시장의 구체적 액션 (입점·PR·인증·가격·채널·파트너십 5~8개)을 별도로 생성해야 합니다. ${
                       hasProfile
                         ? `${country} 시장 분석이 이미 있어 풍부한 액션이 생성됩니다.`
                         : `${country} 시장 분석이 아직 없어 페르소나 시그널만으로 액션이 생성됩니다 (시장 분석 먼저 생성 권장).`
                     } 한 번의 생성 작업으로 30~60초 걸립니다.`
-                  : `Top 2 ties need parallel ${country} actions (entry · PR · compliance · pricing · channels · partnerships, 5-8 items). ${
+                  : `${copy.lead} generate parallel ${country} actions (entry · PR · compliance · pricing · channels · partnerships, 5-8 items). ${
                       hasProfile
                         ? `Market profile already exists — generates rich, grounded actions.`
                         : `No market profile yet — actions will rely on persona signal only (generate the profile first for better quality).`
@@ -9811,9 +9943,7 @@ function SecondaryActionsBlock({
               >
                 {busy ? <Loader2 size={14} className="animate-spin" /> : <Lightbulb size={14} />}
                 {busy
-                  ? isKo
-                    ? "생성 중..."
-                    : "Generating..."
+                  ? busyLabel(isKo ? "생성 중..." : "Generating...", elapsed, isKo)
                   : isKo
                     ? `${country} 추천 액션 추가 생성`
                     : `Generate ${country} recommended actions`}
@@ -9842,10 +9972,10 @@ function SecondaryActionsBlock({
       <div className="flex items-baseline gap-3 flex-wrap">
         <h2 className="text-[19px] font-extrabold tracking-tight text-slate-900">
           {country} —{" "}
-          {isKo ? "Top 2 동등 후보 추천 액션" : "Top 2 secondary recommended actions"}
+          {isKo ? `${copy.label} 추천 액션` : `${copy.label} recommended actions`}
         </h2>
         <span className="text-[10px] uppercase tracking-wider text-warn bg-warn-soft/40 border border-warn/30 px-2 py-0.5 rounded">
-          {isKo ? "동등 후보" : "tied"}
+          {copy.chip}
         </span>
         <span className="text-[10px] text-slate-500">
           {isKo

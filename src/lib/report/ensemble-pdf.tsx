@@ -23,7 +23,9 @@ import {
   confidenceBasis,
   confidenceCopy,
   isNonAnswer,
+  isTieResult,
   confidenceLegend,
+  secondaryCopy,
   stripActionScoreNotation,
   varianceCopyFor,
 } from "@/lib/simulation/grade-copy";
@@ -992,19 +994,23 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       secondary?: { country?: string };
     };
     const distTop = aggregate.bestCountryDistribution?.[0]?.country;
-    const isTie =
-      recExt.displayMode === "top2" ||
-      (!!distTop && distTop !== aggregate.recommendation.country);
+    // Two separate situations shared one banner and one wording. A tie is
+    // the engine declining to name a winner; a vote mismatch is the
+    // score-winner and the vote-leader disagreeing. Both deserve a
+    // caveat, but only the first is "사실상 동등" — see `isTie` below.
+    const isTie = isTieResult(recExt.displayMode);
+    const voteMismatch =
+      !!distTop && distTop !== aggregate.recommendation.country;
     const secondaryCode =
-      recExt.secondary?.country ||
-      (distTop && distTop !== aggregate.recommendation.country ? distTop : null);
-    if (!isTie || !secondaryCode) return null;
+      recExt.secondary?.country || (voteMismatch ? distTop : null);
+    if ((!isTie && !voteMismatch) || !secondaryCode) return null;
     const secondaryLabel = getCountryLabel(secondaryCode, locale) || secondaryCode;
     return {
       primaryCode: aggregate.recommendation.country,
       primaryLabel: recCountryLabel,
       secondaryCode,
       secondaryLabel,
+      isTie,
     };
   })();
 
@@ -1026,12 +1032,22 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       wrap={false}
     >
       <MText style={{ fontSize: 8, color: C.warn, fontWeight: 700, letterSpacing: 0.5 }}>
-        {isKo ? "TOP-2 동등 후보 — 본 페이지는 1순위 기준" : "TOP-2 TIE — primary candidate shown on this page"}
+        {isKo
+          ? `${secondaryCopy(topTwo.isTie, "ko").label} — 본 페이지는 1순위 기준`
+          : `${secondaryCopy(topTwo.isTie, "en").label.toUpperCase()} — primary candidate shown on this page`}
       </MText>
       <MText style={{ fontSize: 9, color: C.body, marginTop: 2, lineHeight: 1.5 }}>
         {isKo
-          ? `점수 격차가 작아 ${topTwo.primaryLabel}(${topTwo.primaryCode})와 ${topTwo.secondaryLabel}(${topTwo.secondaryCode})가 사실상 동등합니다. 2순위 ${topTwo.secondaryLabel} 분석은 별도 secondary 페이지를 참고하세요.`
-          : `Score gap is narrow — ${topTwo.primaryLabel} (${topTwo.primaryCode}) and ${topTwo.secondaryLabel} (${topTwo.secondaryCode}) are effectively tied. See the dedicated secondary pages for ${topTwo.secondaryLabel} analysis.`}
+          ? `${
+              topTwo.isTie
+                ? `점수 격차가 작아 ${topTwo.primaryLabel}(${topTwo.primaryCode})와 ${topTwo.secondaryLabel}(${topTwo.secondaryCode})가 사실상 동등합니다.`
+                : `1순위는 ${topTwo.primaryLabel}(${topTwo.primaryCode})이며, ${topTwo.secondaryLabel}(${topTwo.secondaryCode})는 2순위 후보입니다.`
+            } 2순위 ${topTwo.secondaryLabel} 분석은 별도 secondary 페이지를 참고하세요.`
+          : `${
+              topTwo.isTie
+                ? `Score gap is narrow — ${topTwo.primaryLabel} (${topTwo.primaryCode}) and ${topTwo.secondaryLabel} (${topTwo.secondaryCode}) are effectively tied.`
+                : `${topTwo.primaryLabel} (${topTwo.primaryCode}) leads; ${topTwo.secondaryLabel} (${topTwo.secondaryCode}) is the runner-up.`
+            } See the dedicated secondary pages for ${topTwo.secondaryLabel} analysis.`}
       </MText>
     </View>
   ) : null;
@@ -1181,7 +1197,11 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             wrap={false}
           >
             <MText style={{ fontSize: 8, color: C.warn, fontWeight: 700, letterSpacing: 0.6 }}>
-              {isKo ? "TOP 2 동등 후보" : "TOP 2 CANDIDATES"}
+              {isKo
+                ? topTwo.isTie
+                  ? "TOP 2 동등 후보"
+                  : "1순위 · 2순위 후보"
+                : "TOP 2 CANDIDATES"}
             </MText>
             <MText style={{ fontSize: 18, fontWeight: 700, color: C.ink, marginTop: 2 }}>
               {`${topTwo.primaryLabel} · ${topTwo.secondaryLabel}`}
@@ -1191,12 +1211,18 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 ? (() => {
                     const pv = aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.primaryCode)?.percent;
                     const sv = aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.secondaryCode)?.percent;
-                    return `1순위 vote: ${topTwo.primaryLabel} ${pv ?? 0}% · ${topTwo.secondaryLabel} ${sv ?? 0}% — 점수 격차 작아 단일국 결정 보류 권장 (1위표 합의도 ${recommendation.consensusPercent}%)`;
+                    const verdict = topTwo.isTie
+                      ? "점수 격차 작아 단일국 결정 보류 권장"
+                      : `1순위 ${topTwo.primaryLabel} 우세 · ${topTwo.secondaryLabel}는 차선책`;
+                    return `1순위 vote: ${topTwo.primaryLabel} ${pv ?? 0}% · ${topTwo.secondaryLabel} ${sv ?? 0}% — ${verdict} (1위표 합의도 ${recommendation.consensusPercent}%)`;
                   })()
                 : (() => {
                     const pv = aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.primaryCode)?.percent;
                     const sv = aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.secondaryCode)?.percent;
-                    return `1st-place vote: ${topTwo.primaryLabel} ${pv ?? 0}% · ${topTwo.secondaryLabel} ${sv ?? 0}% — narrow score gap, defer single-country decision (top-1 agreement ${recommendation.consensusPercent}%)`;
+                    const verdict = topTwo.isTie
+                      ? "narrow score gap, defer single-country decision"
+                      : `${topTwo.primaryLabel} leads, ${topTwo.secondaryLabel} is the fallback`;
+                    return `1st-place vote: ${topTwo.primaryLabel} ${pv ?? 0}% · ${topTwo.secondaryLabel} ${sv ?? 0}% — ${verdict} (top-1 agreement ${recommendation.consensusPercent}%)`;
                   })()}
             </MText>
           </View>
@@ -1532,10 +1558,10 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                   ? aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.secondaryCode)
                   : null;
                 const headKo = topTwo
-                  ? `Top 2 동등 후보 — ${topTwo.primaryLabel} 1순위 vote ${primaryVote?.percent ?? 0}% · ${topTwo.secondaryLabel} 1순위 vote ${secondaryVote?.percent ?? 0}% (1위표 합의도 ${aggregate.recommendation.consensusPercent}% — 1위로 지목한 시뮬의 비율)`
+                  ? `${secondaryCopy(topTwo.isTie, "ko").label} — ${topTwo.primaryLabel} 1순위 vote ${primaryVote?.percent ?? 0}% · ${topTwo.secondaryLabel} 1순위 vote ${secondaryVote?.percent ?? 0}% (1위표 합의도 ${aggregate.recommendation.consensusPercent}% — 1위로 지목한 시뮬의 비율)`
                   : `${recCountryLabel} 진출이 합의 우위 (${aggregate.recommendation.consensusPercent}% / ${aggregate.recommendation.confidence})`;
                 const headEn = topTwo
-                  ? `Top 2 tied — ${topTwo.primaryLabel} 1st-place vote ${primaryVote?.percent ?? 0}% · ${topTwo.secondaryLabel} 1st-place vote ${secondaryVote?.percent ?? 0}% (top-1 agreement ${aggregate.recommendation.consensusPercent}% — share of sims that picked it first)`
+                  ? `${secondaryCopy(topTwo.isTie, "en").label} — ${topTwo.primaryLabel} 1st-place vote ${primaryVote?.percent ?? 0}% · ${topTwo.secondaryLabel} 1st-place vote ${secondaryVote?.percent ?? 0}% (top-1 agreement ${aggregate.recommendation.consensusPercent}% — share of sims that picked it first)`
                   : `${recCountryLabel} leads consensus (${aggregate.recommendation.consensusPercent}% / ${aggregate.recommendation.confidence})`;
                 if (!fs) return isKo ? `${headKo}.` : `${headEn}.`;
                 const within = fs.withinSimStdMean;
@@ -2091,7 +2117,13 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             : "Top-candidate markets at a glance — size, key competitors, local price tiers. Channels, regulatory, and GTM detail are in the full detailed report."}
         </MText>
         {primaryMp && block(primaryMp, isKo ? "1순위" : "#1 pick")}
-        {secondaryMp && block(secondaryMp, isKo ? "2순위 (Top-2 동등)" : "#2 (Top-2 tie)")}
+        {secondaryMp &&
+          block(
+            secondaryMp,
+            isKo
+              ? `2순위 (${secondaryCopy(topTwo?.isTie ?? false, "ko").label})`
+              : `#2 (${secondaryCopy(topTwo?.isTie ?? false, "en").label})`,
+          )}
         {pageFooter}
       </Page>
     );
@@ -7436,19 +7468,22 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
               secondary?: { country?: string };
             };
             const distTop = aggregate.bestCountryDistribution?.[0]?.country;
-            const isTie =
-              recExt.displayMode === "top2" ||
-              (!!distTop && distTop !== aggregate.recommendation.country);
+            const isTie = isTieResult(recExt.displayMode);
+            const voteMismatch =
+              !!distTop && distTop !== aggregate.recommendation.country;
             const secondaryCountry =
-              recExt.secondary?.country ||
-              (distTop && distTop !== aggregate.recommendation.country ? distTop : null);
-            if (isTie && secondaryCountry) {
+              recExt.secondary?.country || (voteMismatch ? distTop : null);
+            if ((isTie || voteMismatch) && secondaryCountry) {
               const secondaryLabel =
                 getCountryLabel(secondaryCountry, locale) || secondaryCountry;
               return (
                 <View style={styles.coverRecCard}>
                   <MText style={[styles.coverRecLabel, { color: "#FEF08A" }]}>
-                    {isKo ? "Top 2 동등 후보" : "Top 2 candidates"}
+                    {isKo
+                      ? isTie
+                        ? "Top 2 동등 후보"
+                        : "1순위 · 2순위 후보"
+                      : "Top 2 candidates"}
                   </MText>
                   <MText style={[styles.coverRecCountry, { fontSize: 28 }]}>
                     {`${recCountryLabel} · ${secondaryLabel}`}
@@ -7481,8 +7516,16 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                           : `1st-place vote ${pv}% vs ${sv}%`
                         : isKo ? "1순위 vote 분산" : "1st-place vote split";
                       return isKo
-                        ? `점수 격차가 작아 사실상 동등 — 단일국 결정 보류, 두 시장 모두 검토 권장. (${voteFrag}; 1위표 합의도 ${aggregate.recommendation.consensusPercent}%)`
-                        : `Score gap is narrow — defer single-country decision, evaluate both. (${voteFrag}; top-1 agreement ${aggregate.recommendation.consensusPercent}%)`;
+                        ? `${
+                            isTie
+                              ? "점수 격차가 작아 사실상 동등 — 단일국 결정 보류, 두 시장 모두 검토 권장."
+                              : `1순위 ${recCountryLabel} 우세 — ${secondaryLabel}는 차선책으로 병행 검토 권장.`
+                          } (${voteFrag}; 1위표 합의도 ${aggregate.recommendation.consensusPercent}%)`
+                        : `${
+                            isTie
+                              ? "Score gap is narrow — defer single-country decision, evaluate both."
+                              : `${recCountryLabel} leads — read ${secondaryLabel} as the fallback option.`
+                          } (${voteFrag}; top-1 agreement ${aggregate.recommendation.consensusPercent}%)`;
                     })()}
                   </MText>
                 </View>
@@ -7660,6 +7703,10 @@ function renderEnsembleSecondaryPages(opts: {
   if (!secondaryCountry) {
     return { marketPage: null, actionsPage: null, risksPage: null, pricingPage: null };
   }
+  // The runner-up gets its own pages either way; only a declared tie may
+  // call it an equal candidate. Mirrors the results page.
+  const secIsTie = isTieResult(recExt.displayMode);
+  const secCopy = secondaryCopy(secIsTie, isKo ? "ko" : "en");
 
   type SecondaryPricingShape = {
     recommendedPriceCents: number;
@@ -7719,16 +7766,26 @@ function renderEnsembleSecondaryPages(opts: {
       wrap={false}
     >
       <MText style={{ fontSize: 8, color: C.warn, fontWeight: 700, letterSpacing: 0.5 }}>
-        {isKo ? "TOP-2 동등 후보 — 본 페이지는 2순위 기준" : "TOP-2 TIE — 2nd candidate covered on this page"}
+        {isKo
+          ? `${secCopy.label} — 본 페이지는 2순위 기준`
+          : `${secCopy.label.toUpperCase()} — 2nd candidate covered on this page`}
       </MText>
       <MText style={{ fontSize: 9, color: C.body, marginTop: 2, lineHeight: 1.5 }}>
         {isKo
-          ? `점수 격차가 작아 ${rec.country}와 ${secondaryCountry}가 사실상 동등합니다. ${
+          ? `${
+              secIsTie
+                ? `점수 격차가 작아 ${rec.country}와 ${secondaryCountry}가 사실상 동등합니다.`
+                : `1순위 ${rec.country} 대비 차선책입니다.`
+            } ${
               aggregate.marketProfile
                 ? `1순위 ${rec.country} 분석은 이 페이지 직전의 primary 페이지를 참고하세요.`
                 : `(1순위 ${rec.country} 시장조사는 이 리포트에 생성되지 않아, 본 페이지는 ${secondaryCountry} 단독 분석입니다. 결과 화면의 'Market profile' 탭에서 ${rec.country}를 생성하면 다음 리포트에 포함됩니다.)`
             }`
-          : `Score gap is narrow — ${rec.country} and ${secondaryCountry} are effectively tied. ${
+          : `${
+              secIsTie
+                ? `Score gap is narrow — ${rec.country} and ${secondaryCountry} are effectively tied.`
+                : `The fallback option behind ${rec.country}.`
+            } ${
               aggregate.marketProfile
                 ? `Primary ${rec.country} analysis is in the page just before this one.`
                 : `(The primary ${rec.country} market profile wasn't generated for this report, so this page stands alone as the ${secondaryCountry} analysis. Generate ${rec.country} from the Market profile tab to include it next time.)`
@@ -7764,8 +7821,8 @@ function renderEnsembleSecondaryPages(opts: {
         </MText>
         <MText style={styles.pageSubtitle}>
           {isKo
-            ? `Top-2 동등 후보 ${secondaryCountry} 시장 분석 — 1순위와 동일한 깊이로 시장 규모, 명명된 경쟁자, 채널 환경, 규제, 가격 벤치마크, GTM 전략 (단, 시뮬 교차검증 없이 1회 생성).`
-            : `${secondaryCountry} as the parallel Top-2 candidate — same depth as primary: market size, named competitors, channels, regulatory, pricing benchmarks, GTM (generated in one pass, not cross-sim verified).`}
+            ? `${secCopy.label} ${secondaryCountry} 시장 분석 — 1순위와 동일한 깊이로 시장 규모, 명명된 경쟁자, 채널 환경, 규제, 가격 벤치마크, GTM 전략 (단, 시뮬 교차검증 없이 1회 생성).`
+            : `${secondaryCountry} as the ${secCopy.label.toLowerCase()} market — same depth as primary: market size, named competitors, channels, regulatory, pricing benchmarks, GTM (generated in one pass, not cross-sim verified).`}
         </MText>
 
         {secondaryDisclaimer}
@@ -8282,8 +8339,8 @@ function renderEnsembleSecondaryPages(opts: {
         <MText style={styles.pageTitle}>{isKo ? "권장 액션" : "Recommended actions"}</MText>
         <MText style={styles.pageSubtitle}>
           {isKo
-            ? `${secondaryCountry} 시장 진출/가속 액션 ${actions.length}개 (Top-2 동등 후보 · 시뮬 교차검증 없이 1회 생성).`
-            : `${actions.length} actions for ${secondaryCountry} market entry / acceleration (Top-2 secondary · generated in one pass, not cross-sim verified).`}
+            ? `${secondaryCountry} 시장 진출/가속 액션 ${actions.length}개 (${secCopy.label} · 시뮬 교차검증 없이 1회 생성).`
+            : `${actions.length} actions for ${secondaryCountry} market entry / acceleration (${secCopy.label} · generated in one pass, not cross-sim verified).`}
         </MText>
 
         {secondaryDisclaimer}
@@ -8344,8 +8401,8 @@ function renderEnsembleSecondaryPages(opts: {
         <MText style={styles.pageTitle}>{isKo ? "주요 리스크" : "Key risks"}</MText>
         <MText style={styles.pageSubtitle}>
           {isKo
-            ? `${secondaryCountry} 시장 진출 리스크 ${risks.length}개 (Top-2 동등 후보 · 시뮬 교차검증 없이 1회 생성).`
-            : `${risks.length} risks for ${secondaryCountry} market entry (Top-2 secondary · 시뮬 교차검증 없이 1회 생성).`}
+            ? `${secondaryCountry} 시장 진출 리스크 ${risks.length}개 (${secCopy.label} · 시뮬 교차검증 없이 1회 생성).`
+            : `${risks.length} risks for ${secondaryCountry} market entry (${secCopy.label} · generated in one pass, not cross-sim verified).`}
         </MText>
 
         {secondaryDisclaimer}
@@ -8400,8 +8457,8 @@ function renderEnsembleSecondaryPages(opts: {
         <MText style={styles.pageTitle}>{isKo ? "가격 분석" : "Pricing analysis"}</MText>
         <MText style={styles.pageSubtitle}>
           {isKo
-            ? `${secondaryCountry} 시장 권장 가격, 전환 곡선, 예상 마진 (Top-2 동등 후보 · 시뮬 교차검증 없이 1회 생성).`
-            : `${secondaryCountry} recommended price, conversion curve, and margin (Top-2 secondary · generated in one pass, not cross-sim verified).`}
+            ? `${secondaryCountry} 시장 권장 가격, 전환 곡선, 예상 마진 (${secCopy.label} · 시뮬 교차검증 없이 1회 생성).`
+            : `${secondaryCountry} recommended price, conversion curve, and margin (${secCopy.label} · generated in one pass, not cross-sim verified).`}
         </MText>
 
         {secondaryDisclaimer}

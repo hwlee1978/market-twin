@@ -336,3 +336,51 @@ export function isNonAnswer(text: string | null | undefined): boolean {
     t === "not applicable"
   );
 }
+
+/**
+ * True only when the engine refused to name a single winner.
+ *
+ * `recommendation.secondary` is populated whenever two or more countries
+ * scored — it is the runner-up, not a verdict. The tie verdict lives in
+ * `displayMode`, which turns "top2" when fewer than two of the three
+ * dominance checks pass (mean gap >= 5pt, top-1 vote share >= 50%, every
+ * provider agreeing).
+ *
+ * Calling a 2nd-place market an "equal candidate" when the engine named a
+ * single winner overstates the result: a run with SG on 50% of the vote
+ * and TW on 33% was being presented as a dead heat on screen and in the
+ * PDF.
+ */
+export function isTieResult(displayMode: string | null | undefined): boolean {
+  return displayMode === "top2";
+}
+
+export interface SecondaryCopy {
+  /** Heading prefix, e.g. "2순위 후보 리스크". */
+  label: string;
+  /** Short badge shown beside a populated section heading. */
+  chip: string;
+  /** Lead-in for the generate CTA paragraph. */
+  lead: string;
+}
+
+/**
+ * Wording for the runner-up sections. Lives here rather than in the web
+ * component so the results page and the PDF report cannot drift apart —
+ * they had already drifted once, each carrying its own tie detection.
+ */
+export function secondaryCopy(isTie: boolean, locale: "ko" | "en"): SecondaryCopy {
+  const isKo = locale === "ko";
+  if (isTie) {
+    return {
+      label: isKo ? "Top 2 동등 후보" : "Top 2 tie",
+      chip: isKo ? "동등 후보" : "tied",
+      lead: isKo ? "Top 2 동등 후보이므로" : "This is a Top 2 tie, so",
+    };
+  }
+  return {
+    label: isKo ? "2순위 후보" : "Runner-up",
+    chip: isKo ? "2순위" : "#2",
+    lead: isKo ? "2순위 후보 시장도 함께 보려면" : "To weigh the runner-up market as well,",
+  };
+}
