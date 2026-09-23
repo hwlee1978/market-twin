@@ -365,6 +365,20 @@ async function loadSnapshots(c: Client, ensembleId: string): Promise<EnsembleSim
       order by s.ensemble_index nulls last`,
     [ensembleId],
   );
+  /** Mirrors the orchestrator's coercion: {category, detail} string pairs only. */
+  const coerceCategorized = (
+    raw: unknown,
+  ): Array<{ category: string; detail: string }> | undefined => {
+    if (!Array.isArray(raw)) return undefined;
+    const items = raw.flatMap((v) => {
+      if (!v || typeof v !== "object") return [];
+      const o = v as Record<string, unknown>;
+      if (typeof o.category !== "string" || typeof o.detail !== "string") return [];
+      return o.detail.trim() ? [{ category: o.category, detail: o.detail }] : [];
+    });
+    return items.length > 0 ? items : undefined;
+  };
+
   return rows.map((r) => {
     const personas = (r.personas ?? []) as Array<Record<string, unknown>>;
     const sums: Record<string, { n: number; total: number }> = {};
@@ -395,6 +409,14 @@ async function loadSnapshots(c: Client, ensembleId: string): Promise<EnsembleSim
               objections: Array.isArray(p.objections)
                 ? (p.objections as unknown[]).filter((x): x is string => typeof x === "string")
                 : undefined,
+              // The categorized arrays are what computeCrossCountryDistribution
+              // counts. Dropping them here is why every ensemble this script
+              // produced came out without crossCountryDistribution — which in
+              // turn left the merge prompt without its scope rules, so no
+              // merged risk carried a market attribution. The orchestrator's
+              // own snapshot builder keeps them; this one had drifted.
+              trustFactorsCategorized: coerceCategorized(p.trustFactorsCategorized),
+              objectionsCategorized: coerceCategorized(p.objectionsCategorized),
             },
           ]
         : [],
