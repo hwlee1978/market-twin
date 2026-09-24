@@ -2,6 +2,60 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
+import {
+  effortLabel,
+  impactLabel,
+  stripActionScoreNotation,
+} from "@/lib/simulation/grade-copy";
+import { categoryLabel, normalizeActionCategory } from "@/lib/simulation/taxonomy";
+
+/**
+ * Split one merged action into spreadsheet columns.
+ *
+ * Exported actions are 150–400 characters and arrive as a single cell,
+ * which Excel cannot show even at maximum column width — the user has
+ * to click each row and read the formula bar. The text has a reliable
+ * shape, so give each part its own column instead:
+ *
+ *   【즉시 착수 — 2026년 10월】 제목: 상세 … KPI: 측정 기준
+ *    └ timing              └ title └ detail  └ kpi
+ *
+ * The score notation ("effort=2, impact=2") is stripped here as it is
+ * everywhere else — it was still reaching the CSV, where it read as
+ * part of the timing label.
+ *
+ * Every part is optional. The title split only fires on a colon near
+ * the start of the text, so a body that doesn't follow the convention
+ * stays whole in the detail column rather than being cut mid-sentence.
+ */
+const TITLE_MAX = 70;
+
+function splitAction(raw: string): {
+  timing: string;
+  title: string;
+  detail: string;
+  kpi: string;
+} {
+  const text = stripActionScoreNotation(raw).trim();
+  const bracket = text.match(/^【([^】]*)】\s*/);
+  const timing = bracket ? bracket[1].trim() : "";
+  const rest = bracket ? text.slice(bracket[0].length) : text;
+
+  const kpiAt = rest.search(/KPI\s*[:：]/);
+  const body = (kpiAt >= 0 ? rest.slice(0, kpiAt) : rest).trim();
+  const kpi = kpiAt >= 0 ? rest.slice(kpiAt).replace(/^KPI\s*[:：]\s*/, "").trim() : "";
+
+  const colon = body.search(/[:：]\s/);
+  if (colon > 0 && colon <= TITLE_MAX) {
+    return {
+      timing,
+      title: body.slice(0, colon).trim(),
+      detail: body.slice(colon + 1).trim(),
+      kpi,
+    };
+  }
+  return { timing, title: "", detail: body, kpi };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -84,10 +138,25 @@ export async function GET(
     }
     case "actions": {
       const headers = isKo
-        ? ["우선순위", "권장 액션", "권장 시뮬 수"]
-        : ["rank", "action", "recommended_in_sims"];
+        ? ["우선순위", "시점", "액션", "상세", "KPI", "분류", "영향", "난이도", "구체성", "권장 시뮬 수"]
+        : ["rank", "timing", "action", "detail", "kpi", "category", "impact", "effort", "specificity", "recommended_in_sims"];
       const actions = aggregate.narrative?.mergedActions ?? [];
-      const rows = actions.map((a, i) => [i + 1, a.action, a.surfacedInSims]);
+      const rows = actions.map((a, i) => {
+        const { timing, title, detail, kpi } = splitAction(a.action);
+        const code = normalizeActionCategory(a.actionCategory);
+        return [
+          i + 1,
+          timing,
+          title,
+          detail,
+          kpi,
+          code ? categoryLabel("action", code, locale) : "",
+          impactLabel(a.impact, locale) ?? "",
+          effortLabel(a.effort, locale) ?? "",
+          a.specificity?.score ?? "",
+          a.surfacedInSims,
+        ];
+      });
       csv = toCsv(headers, rows);
       break;
     }
