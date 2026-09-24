@@ -1865,7 +1865,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         </MText>
         <MText style={styles.pageSubtitle}>
           {isKo
-            ? "이 페이지는 분석 전체를 한 줄로 요약합니다. 데이터에 기반한 진출 권장 + 그 결정이 바뀌려면 어떤 조건이 충족돼야 하는지."
+            ? "분석 전체를 한 면에 요약한 페이지입니다. 데이터에 근거한 진출 권고와, 그 판단이 뒤집히기 위해 충족되어야 할 조건을 함께 제시합니다."
             : "One-page synthesis of the entire analysis: data-driven verdict + the conditions that would change it."}
         </MText>
 
