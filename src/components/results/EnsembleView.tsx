@@ -10471,24 +10471,49 @@ function DataTab({
       <SectionCard
         icon={Download}
         tone="brand"
-        title={isKo ? "데이터 내보내기 (CSV)" : "Data export (CSV)"}
+        title={isKo ? "데이터 내보내기" : "Data export"}
         description={
           isKo
-            ? "Excel · Google Sheets · Notion에서 바로 열 수 있는 UTF-8 CSV로 다운로드합니다. 한글 표시는 BOM이 자동 포함되어 있습니다."
-            : "Downloads as UTF-8 CSV (BOM included) — opens directly in Excel / Google Sheets / Notion."
+            ? "읽기 위한 문서는 위의 PDF 리포트입니다. 여기 파일들은 정렬·필터·재가공용입니다."
+            : "For reading, use the PDF report above. These files are for sorting, filtering and reworking the data."
         }
       >
-        <div className="flex flex-wrap gap-2">
-          {exportTypes.map((e) => (
-            <a
-              key={e.type}
-              href={`/api/ensembles/${ensembleId}/export?type=${e.type}&locale=${locale}`}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-50 px-3.5 py-2 text-[12.5px] font-bold text-slate-700 transition-colors hover:bg-brand hover:text-white"
-            >
-              {e.label}
-              <Download size={13} strokeWidth={2.6} />
-            </a>
-          ))}
+        {/* Excel first: it carries column widths, wrapped cells and a
+            frozen header, none of which a CSV can hold — the same action
+            that is unreadable in a CSV cell is legible here. CSV stays
+            for Notion / Sheets import and for anything that parses it. */}
+        <div className="mb-4">
+          <div className={clsx("mb-2", TYPO.note)}>
+            {isKo
+              ? "Excel — 4개 시트 한 파일 · 열 너비와 줄바꿈이 맞춰진 상태로 열립니다"
+              : "Excel — one file, four sheets, column widths and wrapping already set"}
+          </div>
+          <a
+            href={`/api/ensembles/${ensembleId}/export?format=xlsx&locale=${locale}`}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-3.5 py-2 text-[12.5px] font-bold text-white transition-colors hover:bg-brand-600"
+          >
+            {isKo ? "전체 (.xlsx)" : "Everything (.xlsx)"}
+            <Download size={13} strokeWidth={2.6} />
+          </a>
+        </div>
+        <div>
+          <div className={clsx("mb-2", TYPO.note)}>
+            {isKo
+              ? "CSV — 섹션별 개별 파일 · UTF-8 (BOM 포함)"
+              : "CSV — one file per section · UTF-8 with BOM"}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {exportTypes.map((e) => (
+              <a
+                key={e.type}
+                href={`/api/ensembles/${ensembleId}/export?type=${e.type}&locale=${locale}`}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-slate-50 px-3.5 py-2 text-[12.5px] font-bold text-slate-700 transition-colors hover:bg-brand hover:text-white"
+              >
+                {e.label}
+                <Download size={13} strokeWidth={2.6} />
+              </a>
+            ))}
+          </div>
         </div>
       </SectionCard>
 
