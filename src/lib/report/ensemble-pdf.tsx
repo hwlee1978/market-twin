@@ -9156,17 +9156,31 @@ function PricingSensitivityBlock({
         </View>
       )}
 
-      {sensitivity.elasticityAtRec != null && (
-        <MText style={{ fontSize: 8, color: C.muted, marginTop: 4 }}>
-          {isKo
-            ? `권장가 탄력성 ${sensitivity.elasticityAtRec.toFixed(2)} · ${
-                Math.abs(sensitivity.elasticityAtRec) >= 1 ? "탄력적 (할인 효과 큼)" : "비탄력적 (프리미엄 가능)"
-              }`
-            : `Elasticity at rec ${sensitivity.elasticityAtRec.toFixed(2)} · ${
-                Math.abs(sensitivity.elasticityAtRec) >= 1 ? "elastic (discounts move volume)" : "inelastic (premium viable)"
-              }`}
-        </MText>
-      )}
+      {sensitivity.elasticityAtRec != null && (() => {
+        // The bare number meant nothing to readers — it was asked about
+        // directly. Spell out what it predicts and which way it points,
+        // since the whole value of the figure is the pricing decision it
+        // implies. |e| < 1 means a price rise earns more than it costs
+        // in lost conversion; |e| > 1 means the opposite.
+        const e = sensitivity.elasticityAtRec;
+        const inelastic = Math.abs(e) < 1;
+        const convAt10 = Math.abs(e) * 10;
+        const revAt10 = (1.1 * (1 + e * 0.1) - 1) * 100;
+        return (
+          <View style={{ marginTop: 4 }}>
+            <MText style={{ fontSize: 8, color: C.muted }}>
+              {isKo
+                ? `권장가 탄력성 ${e.toFixed(2)} · ${inelastic ? "비탄력적 (프리미엄 가능)" : "탄력적 (할인 효과 큼)"}`
+                : `Elasticity at rec ${e.toFixed(2)} · ${inelastic ? "inelastic (premium viable)" : "elastic (discounts move volume)"}`}
+            </MText>
+            <MText style={{ fontSize: 7.5, color: C.muted, marginTop: 1, lineHeight: 1.45 }}>
+              {isKo
+                ? `가격을 1% 올릴 때 구매 전환이 ${Math.abs(e).toFixed(2)}% 감소한다는 뜻입니다. 10% 인상 시 전환 ${convAt10.toFixed(1)}% 감소 · 매출 ${revAt10 > 0 ? "+" : ""}${revAt10.toFixed(1)}% — ${inelastic ? "할인보다 인상이 유리합니다" : "인상보다 할인이 물량을 크게 움직입니다"}. 권장가 ±2% 구간의 기울기이므로 대폭 할인 구간에는 그대로 적용되지 않습니다.`
+                : `A 1% price rise costs ${Math.abs(e).toFixed(2)}% of conversion. At +10%: conversion ${convAt10.toFixed(1)}% lower, revenue ${revAt10 > 0 ? "+" : ""}${revAt10.toFixed(1)}% — ${inelastic ? "raising beats discounting" : "discounting moves more volume than raising"}. Measured as the slope within ±2% of the recommended price, so it does not carry to deep discounts.`}
+            </MText>
+          </View>
+        );
+      })()}
     </View>
   );
 }
