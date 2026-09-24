@@ -33,6 +33,7 @@ import {
 } from "@/lib/simulation/grade-copy";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { categoryLabel, normalizeActionCategory } from "@/lib/simulation/taxonomy";
+import { assessActionSpecificity } from "@/lib/simulation/action-specificity";
 import {
   computePricingSensitivity,
   getDisplayPriceCents,
@@ -7725,7 +7726,14 @@ function renderEnsembleSecondaryPages(opts: {
     additionalMarketProfiles?: Record<string, EnsembleAggregate["marketProfile"]>;
     additionalActions?: Record<
       string,
-      Array<{ action: string; impact?: number; effort?: number; actionCategory?: string }>
+      Array<{
+        action: string;
+        impact?: number;
+        effort?: number;
+        actionCategory?: string;
+        /** Attached by the generator since 2026-09-24; scored at render otherwise. */
+        specificity?: { score: number };
+      }>
     >;
     additionalRisks?: Record<
       string,
@@ -8349,11 +8357,6 @@ function renderEnsembleSecondaryPages(opts: {
 
         <View>
           {actions.map((a, i) => {
-            const specColor = (() => {
-              if (a.impact == null && a.effort == null) return null;
-              const score = ((a.impact ?? 2) + (4 - (a.effort ?? 2))) * 12.5;
-              return score >= 75 ? C.success : score >= 50 ? C.warn : C.risk;
-            })();
             // These used to be locally-defined labels ("결정적", "몇 달")
             // that shadowed the shared ones, so the same score read
             // differently here than on every other surface. And "3/3"
@@ -8361,6 +8364,18 @@ function renderEnsembleSecondaryPages(opts: {
             const loc = isKo ? "ko" : "en";
             const impact = impactLabel(a.impact, loc);
             const effort = effortLabel(a.effort, loc);
+            // Same concreteness badge the primary page carries. Scored
+            // here when the stored row predates the generator attaching
+            // it — deterministic over the action text either way.
+            const spec = a.specificity ?? assessActionSpecificity(a.action);
+            const specLabel =
+              spec.score >= 75
+                ? isKo ? "구체적" : "Concrete"
+                : spec.score >= 50
+                  ? isKo ? "부분" : "Partial"
+                  : isKo ? "추상적" : "Vague";
+            const specTone =
+              spec.score >= 75 ? C.success : spec.score >= 50 ? C.warn : C.risk;
             const category = a.actionCategory
               ? categoryLabel(
                   "action",
@@ -8387,11 +8402,12 @@ function renderEnsembleSecondaryPages(opts: {
                       {isKo ? `· 난이도 ${effort}` : `· ${effort}`}
                     </MText>
                   )}
-                  {specColor && (
-                    <MText style={{ fontSize: 8, color: specColor, fontWeight: 600 }}>
-                      {isKo ? "· 1회 생성" : "· single pass"}
-                    </MText>
-                  )}
+                  <MText style={{ fontSize: 8, color: specTone, fontWeight: 600 }}>
+                    {`· ${specLabel} ${spec.score}`}
+                  </MText>
+                  <MText style={[styles.actionMeta, { color: C.muted }]}>
+                    {isKo ? "· 1회 생성" : "· single pass"}
+                  </MText>
                 </View>
               </View>
             );

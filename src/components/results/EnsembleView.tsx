@@ -7,6 +7,10 @@ import { capture } from "@/lib/analytics/posthog";
 import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { categoryLabel, normalizeActionCategory } from "@/lib/simulation/taxonomy";
+import {
+  assessActionSpecificity,
+  type ActionSpecificity,
+} from "@/lib/simulation/action-specificity";
 import { getCountryLabel } from "@/lib/countries";
 import {
   actionScaleNote,
@@ -2082,6 +2086,8 @@ type SecondaryActionItem = {
   impact?: number;
   effort?: number;
   actionCategory?: string;
+  /** Present on rows generated after 2026-09-24; scored at render for older ones. */
+  specificity?: ActionSpecificity;
 };
 type SecondaryRiskItem = {
   factor: string;
@@ -10022,6 +10028,12 @@ function SecondaryActionsBlock({
         <ol className="divide-y divide-slate-100">
           {actions.map((a, i) => {
             const quad = quadrantFor(a.impact, a.effort);
+            // Scored here when the stored row predates the generator
+            // attaching it, so rows already in the database get the same
+            // badge the winner's list has always shown. The function is
+            // deterministic over the action text, so this matches what a
+            // regeneration would produce.
+            const spec = a.specificity ?? assessActionSpecificity(a.action);
             return (
               <li key={i} className="flex items-start gap-3 py-3.5 first:pt-0 last:pb-0">
                 <span
@@ -10052,6 +10064,7 @@ function SecondaryActionsBlock({
                         </span>
                       </>
                     )}
+                    <SpecificityBadge specificity={spec} isKo={isKo} />
                   </div>
                 </div>
               </li>

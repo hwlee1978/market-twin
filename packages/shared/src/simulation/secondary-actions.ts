@@ -3,6 +3,7 @@ import { getLLMProvider } from "@/lib/llm";
 import type { MarketProfile, ProjectInput } from "./schemas";
 import type { EnsembleAggregate } from "./ensemble";
 import { ACTION_CATEGORIES, normalizeActionCategory } from "./taxonomy";
+import { assessActionSpecificity } from "./action-specificity";
 
 /**
  * Secondary-country action generator.
@@ -31,6 +32,23 @@ const ACTION_SCHEMA = z.object({
   impact: z.number().int().min(1).max(3).optional(),
   effort: z.number().int().min(1).max(3).optional(),
   actionCategory: z.string().optional(),
+  /**
+   * Scored here rather than asked of the model — assessActionSpecificity
+   * is deterministic (channel / metric / timeline / measurable), and the
+   * primary list gets the same treatment. The header comment above has
+   * promised this field since the module was written; it was never
+   * actually attached, which is why the runner-up list showed no
+   * concreteness badge while the winner's list did.
+   */
+  specificity: z
+    .object({
+      hasChannel: z.boolean(),
+      hasMetric: z.boolean(),
+      hasTimeline: z.boolean(),
+      hasMeasurable: z.boolean(),
+      score: z.number(),
+    })
+    .optional(),
 });
 
 const RESPONSE_SCHEMA = z.object({
@@ -183,6 +201,7 @@ ${profileBlock}
       actions: validated.data.actions.map((a) => ({
         ...a,
         actionCategory: normalizeActionCategory(a.actionCategory),
+        specificity: assessActionSpecificity(a.action),
       })),
       inputTokens,
       outputTokens,
