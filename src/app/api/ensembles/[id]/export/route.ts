@@ -30,6 +30,35 @@ import { categoryLabel, normalizeActionCategory } from "@/lib/simulation/taxonom
  */
 const TITLE_MAX = 70;
 
+/**
+ * Break a paragraph after its first sentence so a spreadsheet shows the
+ * gist in one column and the evidence in the next.
+ *
+ * Returns an empty head when there's no sensible boundary — under 20
+ * characters is an abbreviation ("U.S. market"), and past `max` the
+ * "summary" would be as unreadable as the paragraph it came from. The
+ * caller then keeps the text whole rather than cutting it somewhere
+ * arbitrary.
+ */
+function splitFirstSentence(
+  text: string,
+  max: number,
+): { head: string; rest: string } {
+  const at = text.search(/[.。!?]\s/);
+  if (at < 20 || at > max) return { head: "", rest: text };
+  return { head: text.slice(0, at + 1).trim(), rest: text.slice(at + 1).trim() };
+}
+
+/** "SFA 수입 등록 미완료 — 싱가포르 전 채널 판매 차단" → the two halves. */
+function splitFactor(factor: string): { name: string; impact: string } {
+  const dash = factor.indexOf(" — ");
+  if (dash <= 0) return { name: factor.trim(), impact: "" };
+  return {
+    name: factor.slice(0, dash).trim(),
+    impact: factor.slice(dash + 3).trim(),
+  };
+}
+
 function splitAction(raw: string): {
   timing: string;
   title: string;
@@ -129,10 +158,34 @@ export async function GET(
     }
     case "risks": {
       const headers = isKo
-        ? ["우선순위", "심각도", "리스크 항목", "상세 설명", "언급 시뮬 수"]
-        : ["rank", "severity", "factor", "description", "surfaced_in_sims"];
+        ? ["우선순위", "심각도", "리스크", "파급", "요약", "근거", "적용 범위", "언급 시뮬 수"]
+        : ["rank", "severity", "risk", "impact", "summary", "evidence", "scope", "surfaced_in_sims"];
       const risks = aggregate.narrative?.mergedRisks ?? [];
-      const rows = risks.map((r, i) => [i + 1, r.severity, r.factor, r.description, r.surfacedInSims]);
+      const rows = risks.map((r, i) => {
+        const { name, impact } = splitFactor(r.factor);
+        // Descriptions run 200–500 characters. 200 is the widest first
+        // sentence worth calling a summary on real output.
+        const { head, rest } = splitFirstSentence(r.description ?? "", 200);
+        const ext = r as unknown as {
+          scope?: string;
+          affectedCountries?: string[];
+        };
+        const scopeText = ext.scope
+          ? ext.affectedCountries?.length
+            ? `${ext.scope} (${ext.affectedCountries.join(", ")})`
+            : ext.scope
+          : "";
+        return [
+          i + 1,
+          r.severity,
+          name,
+          impact,
+          head,
+          rest,
+          scopeText,
+          r.surfacedInSims,
+        ];
+      });
       csv = toCsv(headers, rows);
       break;
     }
