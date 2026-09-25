@@ -25,6 +25,7 @@ import {
 } from "./surfaced-recount";
 import { computeCacFromPersonas } from "@/lib/decision-aid/cac-from-personas";
 import { getProviderWeight, normalizeCategory } from "./calibration/provider-weights";
+import { toUsd } from "./fx-rates";
 
 /* ────────────────────────────────── stats helpers ─── */
 function median(xs: number[]): number {
@@ -2377,6 +2378,91 @@ function normaliseAge(a: string | undefined): string | null {
 // Midpoint is more honest: "$130-200k" → ~165k → $150k+ bucket.
 // Single-figure inputs ("$160k") are unchanged. Comma-separated
 // dollar amounts ("$120,000") still parsed via the legacy path.
+/**
+ * Currency marks personas actually write, longest-first so "NT$" is
+ * tried before "S$" would mis-read the "T$" inside it.
+ */
+const INCOME_CURRENCIES: Array<[RegExp, string]> = [
+  [/NT\s*\$/i, "TWD"],
+  [/HK\s*\$/i, "HKD"],
+  [/NZ\s*\$/i, "NZD"],
+  [/A\s*\$/, "AUD"],
+  [/S\s*\$/, "SGD"],
+  [/C\s*\$/, "CAD"],
+  [/RM\s*/i, "MYR"],
+  [/Rp\s*/i, "IDR"],
+  [/₫/, "VND"],
+  [/¥/, "JPY"],
+  [/₩/, "KRW"],
+  [/฿/, "THB"],
+  [/₱/, "PHP"],
+  [/€/, "EUR"],
+  [/£/, "GBP"],
+];
+
+/** "160만" → 1_600_000, "7M" → 7_000_000, "120k" → 120_000. */
+function scaleFor(suffix: string): number {
+  if (/억/.test(suffix)) return 1e8;
+  if (/만/.test(suffix)) return 1e4;
+  if (/천/.test(suffix)) return 1e3;
+  if (/^[MmB]/.test(suffix)) return /B/.test(suffix) ? 1e9 : 1e6;
+  if (/^[kK]/.test(suffix)) return 1e3;
+  return 1;
+}
+
+/**
+ * Pull an annual income in whole units out of one clause, in whatever
+ * currency it is written in.
+ *
+ * Personas phrase it as "가구소득 연 RM 120k-RM 160k, 본인 가처분 월
+ * RM 800-RM 1,500": an annual household figure and a monthly personal
+ * one in the same string. Reading the wrong half puts a comfortable
+ * household in the bottom bracket, so annual clauses win and a monthly
+ * one is only used — multiplied by twelve — when no annual figure
+ * exists anywhere.
+ */
+function readLocalIncome(text: string): { amount: number; currency: string } | null {
+  const clauses = text.split(/[,;.]/).map((c) => c.trim()).filter(Boolean);
+  const annual = clauses.filter((c) => /연|연간|annual|\/yr|per year/i.test(c) && !/월|monthly|\/mo/i.test(c));
+  const monthly = clauses.filter((c) => /월|monthly|\/mo/i.test(c));
+
+  const readClause = (clause: string): { amount: number; currency: string } | null => {
+    for (const [mark, code] of INCOME_CURRENCIES) {
+      const m = clause.match(mark);
+      if (!m || m.index == null) continue;
+      // Numbers after this currency mark, each with its own scale.
+      const re = new RegExp(
+        `${mark.source}\\s*([\\d,]+(?:\\.\\d+)?)\\s*(억|만|천|[MmkKB])?`,
+        "gi",
+      );
+      const values: number[] = [];
+      for (const hit of clause.matchAll(re)) {
+        const n = parseFloat(hit[1].replace(/,/g, ""));
+        if (!Number.isFinite(n)) continue;
+        values.push(n * scaleFor(hit[2] ?? ""));
+      }
+      if (values.length === 0) continue;
+      // Midpoint of a range, or the single figure.
+      const amount =
+        values.length >= 2
+          ? (Math.min(...values) + Math.max(...values)) / 2
+          : values[0];
+      return { amount, currency: code };
+    }
+    return null;
+  };
+
+  for (const c of annual) {
+    const got = readClause(c);
+    if (got) return got;
+  }
+  for (const c of monthly) {
+    const got = readClause(c);
+    if (got) return { amount: got.amount * 12, currency: got.currency };
+  }
+  return null;
+}
+
 function normaliseIncome(i: string | undefined): string | null {
   if (!i) return null;
   const t = i.trim();
@@ -2426,6 +2512,17 @@ function normaliseIncome(i: string | undefined): string | null {
       kUsd = Math.round(
         (parseInt(fullMatch[1], 10) * 1000 + parseInt(fullMatch[2], 10)) / 1000,
       );
+  }
+  if (kUsd == null) {
+    // No USD figure anywhere — read the local currency and convert.
+    // Personas in JP/TW/VN/ID/MY/AU/SG often state income only in their
+    // own currency, and dropping them left 57 of 1,200 unclassified
+    // while the income × intent view claimed to cover the pool.
+    const local = readLocalIncome(t);
+    if (local) {
+      const usd = toUsd(local.amount, local.currency);
+      if (usd != null) kUsd = Math.round(usd / 1000);
+    }
   }
   if (kUsd == null) return null;
   if (kUsd < 30) return "<$30k";

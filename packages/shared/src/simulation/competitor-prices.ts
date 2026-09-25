@@ -50,45 +50,11 @@ export interface CompetitorPriceResult {
 const FETCH_TIMEOUT_MS = 8_000;
 const HTML_MAX_CHARS = 6_000;
 
-/**
- * Hard-coded exchange-rate snapshot for currency conversion. These
- * are NOT live rates — they're a v0.1 approximation. For production
- * we'd want a daily-refreshed rates table, but for pricing-anchor
- * use case (recommendation precision is ±20% anyway) a static snapshot
- * is good enough. Update when rates drift >10%.
- */
-const EXCHANGE_RATES_TO_USD: Record<string, number> = {
-  USD: 1,
-  KRW: 1 / 1390, // 1 USD ≈ 1390 KRW
-  JPY: 1 / 152,
-  CNY: 1 / 7.2,
-  TWD: 1 / 32,
-  HKD: 1 / 7.8,
-  SGD: 1 / 1.35,
-  THB: 1 / 36,
-  VND: 1 / 25500,
-  IDR: 1 / 16200,
-  MYR: 1 / 4.7,
-  PHP: 1 / 58,
-  INR: 1 / 84,
-  GBP: 1 / 0.79,
-  EUR: 1 / 0.93,
-  CAD: 1 / 1.4,
-  AUD: 1 / 1.55,
-};
-
-export function convertCurrencyCents(
-  amountCents: number,
-  fromCurrency: string,
-  toCurrency: string,
-): number | null {
-  const fromRate = EXCHANGE_RATES_TO_USD[fromCurrency.toUpperCase()];
-  const toRate = EXCHANGE_RATES_TO_USD[toCurrency.toUpperCase()];
-  if (!fromRate || !toRate) return null;
-  // amountCents → USD cents → target cents.
-  const usdCents = amountCents * fromRate;
-  return Math.round(usdCents / toRate);
-}
+// Exchange rates moved to ./fx-rates so the aggregator can convert
+// persona income without importing this module (and the LLM
+// providers with it). Re-exported: existing callers import it here.
+import { convertCurrencyCents } from "./fx-rates";
+export { convertCurrencyCents };
 
 // Internal alias kept for the existing call sites within this file —
 // renaming above would touch every call to `convertCents` here.
