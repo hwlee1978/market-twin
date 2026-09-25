@@ -3105,12 +3105,21 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 </MText>
               ) : (
                 items.map((a, i) => {
-                  const impactBadge =
-                    a.impact === 3
-                      ? { tone: C.risk, label: isKo ? "결정적" : "Pivotal" }
-                      : a.impact === 1
-                        ? { tone: C.muted, label: isKo ? "경미" : "Minor" }
-                        : { tone: C.warn, label: isKo ? "중요" : "Material" };
+                  // Wording comes from grade-copy rather than a third
+                  // local vocabulary: this page said "결정적 / 중요 /
+                  // 경미" while the actions page and the results screen
+                  // said "출시를 좌우 / 유의미한 변화 / 소폭 개선" for
+                  // the same score.
+                  const loc = isKo ? "ko" : "en";
+                  const impactBadge = {
+                    tone: a.impact === 3 ? C.risk : a.impact === 1 ? C.muted : C.warn,
+                    label: impactLabel(a.impact, loc) ?? String(a.impact ?? ""),
+                  };
+                  // Effort was never rendered here, yet the note at the
+                  // foot of the page tells the reader to check whether
+                  // actions are all effort 1 or all effort 3 — a balance
+                  // they had no way to see.
+                  const effortText = effortLabel(a.effort, loc);
                   return (
                     <View
                       key={i}
@@ -3122,19 +3131,26 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                       }}
                       wrap={false}
                     >
-                      <View
-                        style={{
-                          backgroundColor: impactBadge.tone,
-                          paddingHorizontal: 4,
-                          paddingVertical: 1,
-                          borderRadius: 2,
-                          width: 50,
-                          alignItems: "center",
-                        }}
-                      >
-                        <MText style={{ fontSize: 7, color: "#FFFFFF", fontWeight: 700 }}>
-                          {impactBadge.label}
-                        </MText>
+                      <View style={{ width: 66, alignItems: "center" }}>
+                        <View
+                          style={{
+                            backgroundColor: impactBadge.tone,
+                            paddingHorizontal: 4,
+                            paddingVertical: 1,
+                            borderRadius: 2,
+                            width: 66,
+                            alignItems: "center",
+                          }}
+                        >
+                          <MText style={{ fontSize: 6.5, color: "#FFFFFF", fontWeight: 700 }}>
+                            {impactBadge.label}
+                          </MText>
+                        </View>
+                        {effortText && (
+                          <MText style={{ fontSize: 6, color: C.muted, marginTop: 1.5 }}>
+                            {effortText}
+                          </MText>
+                        )}
                       </View>
                       <MText style={{ fontSize: 9, color: C.body, flex: 1, lineHeight: 1.5 }}>
                         {stripActionScoreNotation(a.action)}
@@ -3153,8 +3169,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
               ? "메타: LLM이 모든 액션을 동일한 effort로 분류해 phase 1/3이 비어 있었습니다. 영향력(impact) × 난이도(effort) leverage 기준으로 자동 재분배했습니다 — Quick Win이 phase 1, 장기 strategic이 phase 3로 이동. 액션 텍스트의 명시 일정(예: \"2027년 상반기\")이 phase 표시와 다르면 텍스트를 우선 신뢰하세요."
               : "Meta: the LLM rated all actions with the same effort, leaving Phase 1/3 empty. We auto-redistributed by leverage (impact × low-effort) — Quick Wins to Phase 1, strategic bets to Phase 3. If an action's text mentions an explicit date that contradicts its phase, trust the text."
             : isKo
-              ? "메타: 액션이 한 phase에 너무 몰리면 — 모두 effort 1이면 \"빠르지만 임팩트 작은\" 일이 많고, effort 3이면 30일 내 가시 성과 어려움. 전 phase에 골고루 분포되도록 액션 plan 검토 권장."
-              : "Meta: too many actions in one phase = imbalance. All effort 1 = lots of fast low-impact work; all effort 3 = no early wins. Review for balanced distribution."}
+              ? "메타: 각 액션의 색 배지는 영향, 그 아래 회색 글씨는 난이도입니다. 액션이 한 phase에 몰리면 — 모두 '며칠'짜리면 빠르지만 임팩트 작은 일이 많고, 모두 '몇 달 이상'이면 30일 내 가시 성과가 어렵습니다. 전 phase에 골고루 분포되도록 액션 plan 검토를 권장합니다."
+              : "Meta: the coloured badge on each action is its impact, the grey line under it is effort. Too many actions in one phase means imbalance — all \"days\" is fast but low-impact work; all \"months\" leaves no early wins. Review for a balanced distribution."}
         </MText>
 
         {pageFooter}
