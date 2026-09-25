@@ -127,8 +127,8 @@ export function analyzeIncomeIntent(
   } else {
     bullets.push(
       isKo
-        ? `소득과 구매의향이 비례하지 않습니다 — 특정 소득대에서만 의향이 튀어 오릅니다. 하나의 가격으로 전체를 공략하기보다 소득대별로 가격대를 나누는 편이 낫습니다.`
-        : `Intent does not track income — it jumps in particular brackets and not others. Splitting the price by bracket will do more than one price for everyone.`,
+        ? `소득과 구매의향이 비례하지 않습니다 — 특정 소득대에서만 구매의향이 눈에 띄게 높습니다. 하나의 가격으로 전체를 공략하기보다 소득대별로 가격대를 나누는 편이 낫습니다.`
+        : `Intent does not track income — a few brackets stand out well above the rest. Splitting the price by bracket will do more than one price for everyone.`,
     );
   }
 
@@ -205,8 +205,8 @@ export function analyzeIncomeIntent(
     tone = "neutral";
   } else {
     headline = isKo
-      ? "소득이 높다고 더 사지는 않습니다 — 반응이 튀는 소득대에 가격을 맞추세요."
-      : "Earning more does not mean buying more — price to the brackets that actually jump.";
+      ? "소득이 높다고 더 사지는 않습니다 — 전 구간 단일 가격보다, 잘 반응하는 소득대에 맞춘 가격이 낫습니다."
+      : "Earning more does not mean buying more — one price for everyone will do less than a price set for the brackets that respond.";
     tone = "warn";
   }
 
