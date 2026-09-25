@@ -527,6 +527,25 @@ export interface PersonasAggregate {
     profession?: string;
     ageRange?: string;
   }>;
+  /**
+   * Highest-intent voice *within each market*, one per country.
+   *
+   * topPositiveVoices is a global top-5, so a market can be recommended
+   * and still have no voice there: on a run recommending SG, the five
+   * loudest enthusiasts were JP, VN, TW, MY and US, and the report's
+   * "champion" was a Japanese persona on the Singapore page. The
+   * champion has to come from the market being recommended, which means
+   * keeping the per-market best rather than intersecting a global list.
+   *
+   * Optional — absent on aggregates written before 2026-09-25.
+   */
+  topVoiceByCountry?: Array<{
+    text: string;
+    country: string;
+    intent: number;
+    profession?: string;
+    ageRange?: string;
+  }>;
   /** Demographic distributions — useful for the report and any ad-targeting follow-up. */
   ageDistribution: Array<{ bucket: string; count: number }>;
   /**
@@ -1888,6 +1907,27 @@ function computePersonasAggregate(
     5,
   );
 
+  // Best voice per market. Mismatch noise ("not for someone like me")
+  // is dropped first — it wins on intent often enough to become a
+  // market's representative quote while saying nothing about the
+  // product.
+  const bestByCountry = new Map<string, (typeof withVoice)[number]>();
+  for (const p of withVoice) {
+    if (isPersonaMismatchNoise(p.voice ?? "")) continue;
+    const key = (p.country ?? "?").toUpperCase();
+    const cur = bestByCountry.get(key);
+    if (!cur || p.purchaseIntent > cur.purchaseIntent) bestByCountry.set(key, p);
+  }
+  const topVoiceByCountry = [...bestByCountry.entries()]
+    .map(([country, p]) => ({
+      text: p.voice ?? "",
+      country,
+      intent: p.purchaseIntent,
+      profession: p.profession,
+      ageRange: p.ageRange,
+    }))
+    .sort((a, b) => b.intent - a.intent);
+
   // Demographics — ageRange comes through as freeform LLM strings ("25-34",
   // "22-30", "30s", "30대" etc.). Same normalisation as the segment view
   // so the histogram and the segment table speak the same buckets.
@@ -1979,6 +2019,7 @@ function computePersonasAggregate(
     lowIntentCount,
     topPositiveVoices,
     topNegativeVoices,
+    topVoiceByCountry,
     ageDistribution,
     professionTopN,
     segmentBreakdown,

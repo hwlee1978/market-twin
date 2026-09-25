@@ -3163,10 +3163,25 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
   };
 
   const renderRecommendationPage = () => {
-    const championQuote = pickQuote(aggregate, {
-      country: aggregate.recommendation.country,
-      polarity: "positive",
-    });
+    // The champion must come from the market being recommended. Prefer
+    // that market's own best voice, which the aggregator keeps per
+    // country; fall back to the global top-5 filtered to the same
+    // market for aggregates written before that field existed. Never
+    // fall back to another country — a Japanese enthusiast quoted on
+    // the Singapore recommendation reads as evidence for Singapore.
+    const recCountry = aggregate.recommendation.country?.toUpperCase();
+    const perCountryBest = (
+      aggregate.personas as { topVoiceByCountry?: Array<{
+        text: string; country: string; intent: number;
+        profession?: string; ageRange?: string;
+      }> } | undefined
+    )?.topVoiceByCountry?.find((v) => v.country.toUpperCase() === recCountry);
+    const championQuote =
+      perCountryBest ??
+      pickQuote(aggregate, {
+        country: aggregate.recommendation.country,
+        polarity: "positive",
+      });
     return (
     <Page size="A4" style={styles.page}>
       {pageHeader}
@@ -3185,9 +3200,9 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           tone="success"
           isKo={isKo}
           label={
-            // pickQuote falls back to any country when the recommended
-            // market has no positive voice in the pool — label the quote
-            // by where it actually came from, not by where we asked.
+            // Always the recommended market now — pickQuote treats a
+            // requested country as a requirement, and the block hides
+            // when that market has no positive voice in the pool.
             isKo
               ? `${championQuote.country} 챔피언의 목소리`
               : `Voice from ${championQuote.country}'s champion`
@@ -8771,10 +8786,16 @@ function pickQuote(
     ? cleanPool.filter((v) => opts.filter!(v.text))
     : cleanPool;
   if (finalPool.length === 0) return null;
+  // A requested country is a requirement, not a preference. This used to
+  // fall through to the global pool, so the recommendation page could
+  // headline a voice from a market we are not recommending — and it made
+  // the explicit `?? pickQuote(...)` fallback at the motivation callout
+  // unreachable, since the first call could never return null. Callers
+  // that genuinely want a fallback now get one by asking for it.
   if (opts.country) {
     const wanted = opts.country.toUpperCase();
     const filtered = finalPool.filter((v) => v.country.toUpperCase() === wanted);
-    if (filtered.length > offset) return filtered[offset];
+    return filtered[offset] ?? null;
   }
   if (finalPool.length > offset) return finalPool[offset];
   return finalPool[0] ?? null;
