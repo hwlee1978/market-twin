@@ -7913,6 +7913,26 @@ function renderEnsembleSecondaryPages(opts: {
                   </View>
                 )}
               </View>
+              {/* The runner-up profile carries citations exactly like the
+                  primary one does — this page simply never drew them, so
+                  a TAM figure with two named sources behind it read as
+                  unsourced. Same block, same fallback line. */}
+              {(mp.marketSize?.citations?.length ?? 0) > 0 ? (
+                <View style={{ marginTop: 6, gap: 2 }}>
+                  <MText style={{ fontSize: 7, color: C.muted, fontWeight: 600 }}>
+                    {isKo ? "출처" : "Sources"}
+                  </MText>
+                  {mp.marketSize!.citations!.slice(0, 3).map((c, i) => (
+                    <Link key={i} src={c.url} style={{ fontSize: 7, color: C.brand, textDecoration: "none" }}>
+                      {`${i + 1}. ${c.title.length > 80 ? c.title.slice(0, 80) + "…" : c.title}`}
+                    </Link>
+                  ))}
+                </View>
+              ) : (
+                <MText style={{ fontSize: 7, color: C.faint, marginTop: 4 }}>
+                  {isKo ? "AI 추정 — 외부 시장조사 미검증" : "AI estimate — not externally sourced"}
+                </MText>
+              )}
             </View>
           </View>
         )}

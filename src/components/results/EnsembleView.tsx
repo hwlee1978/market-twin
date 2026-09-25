@@ -4709,7 +4709,6 @@ function SecondaryCountryMarketSection({
   //  • Heading carries a "2순위" warn badge instead of plain
   //  • TOP-2 banner card placed under heading mirroring the page-level
   //    tieBanner pattern used everywhere else in the PDF/UI
-  //  • Citation block omitted (secondary LLM doesn't surface citations)
   //  • Everything else (card padding, section header sizes, length-aware
   //    TAM, competitor strengths/weaknesses cards, regulatory chips,
   //    cultural grid, pricing benchmark cards, GTM block) matches the
@@ -4785,7 +4784,7 @@ function SecondaryCountryMarketSection({
       </div>
 
       {/* Market sizing — same card pattern as primary, length-aware TAM
-          typography, no citations block (secondary LLM doesn't emit). */}
+          typography, citations included (see the Sources block below). */}
       {ms && (ms.estimateUsd || ms.growthTrend || ms.addressableSegment) && (
         <div className="card p-5">
           <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-3">
@@ -4844,10 +4843,11 @@ function SecondaryCountryMarketSection({
               </div>
             )}
           </div>
-          {/* Sources. The comment above used to claim the secondary
-              generator emits no citations, so this block was left out —
-              but it does emit them, and the market figures were sitting
-              on the page with nothing behind them. */}
+          {/* Sources. The runner-up profile is produced by the same
+              buildMarketProfile as the primary, so it carries the same
+              Tavily citations — filtered by selectMarketSizeCitations.
+              A comment here once claimed otherwise and the block was
+              left out, leaving the market figures unsourced. */}
           {(ms.citations?.length ?? 0) > 0 ? (
             <div className="mt-4 border-t border-slate-100 pt-3">
               <div className={clsx(TYPO.microLabel, "mb-2")}>{isKo ? "출처" : "Sources"}</div>
