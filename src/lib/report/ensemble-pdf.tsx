@@ -4586,8 +4586,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           return (
             <MText style={{ fontSize: 8, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>
               {isKo
-                ? `합계: ${bucketSum.toLocaleString()} / 전체 페르소나 ${total.toLocaleString()}명 (${coveragePct}%${missing > 0 ? ` · ${missing.toLocaleString()}명 소득 정보 누락` : ""}).`
-                : `Σ = ${bucketSum.toLocaleString()} / ${total.toLocaleString()} effective personas (${coveragePct}%${missing > 0 ? ` · ${missing.toLocaleString()} missing income data` : ""}).`}
+                ? `합계: ${bucketSum.toLocaleString()} / 전체 페르소나 ${total.toLocaleString()}명 (${coveragePct}%${missing > 0 ? ` · ${missing.toLocaleString()}명은 소득이 현지 통화로만 적혀 USD 구간 분류 제외` : ""}).`
+                : `Σ = ${bucketSum.toLocaleString()} / ${total.toLocaleString()} effective personas (${coveragePct}%${missing > 0 ? ` · ${missing.toLocaleString()} stated income in local currency only, so they fall outside the USD brackets` : ""}).`}
             </MText>
           );
         })()}

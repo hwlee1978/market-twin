@@ -2381,32 +2381,47 @@ function normaliseIncome(i: string | undefined): string | null {
   if (!i) return null;
   const t = i.trim();
   if (!t) return null;
+
+  // A "$" alone is not proof of US dollars. Personas write income in the
+  // market's own currency, and several of those use the sign: A$150k is
+  // about US$98k, S$140k about US$104k. Read as USD they land one or two
+  // brackets too high — 18 personas on the run this was found on. Fold
+  // "US$" down to a bare "$", then neutralise every other letter-prefixed
+  // sign so only genuine USD figures can match.
+  const usd = t
+    .replace(/\bUS\s*\$/gi, "$")
+    .replace(/[A-Za-z]{1,3}\s*\$/g, "¤");
+
+  // Decimals are common in the parenthesised conversions personas write
+  // ("연 Rp 120M-Rp 200M (~$7.5-12k USD)"). Integer-only patterns threw
+  // those away as if the income were unknown.
+  const NUM = String.raw`\d{1,4}(?:\.\d+)?`;
   let kUsd: number | null = null;
   // Try a range first: "$X-$Yk" / "$X-Yk" / "$X to $Yk".
-  const rangeMatch = t.match(
-    /\$\s*(\d{1,4})\s*[-–~]\s*\$?\s*(\d{1,4})\s*[kK]/,
+  const rangeMatch = usd.match(
+    new RegExp(String.raw`\$\s*(${NUM})\s*[-–~]\s*\$?\s*(${NUM})\s*[kK]`),
   );
   const rangeMatchTo = !rangeMatch
-    ? t.match(/\$\s*(\d{1,4})\s+to\s+\$?\s*(\d{1,4})\s*[kK]/i)
+    ? usd.match(new RegExp(String.raw`\$\s*(${NUM})\s+to\s+\$?\s*(${NUM})\s*[kK]`, "i"))
     : null;
   const range = rangeMatch ?? rangeMatchTo;
   if (range) {
-    const lo = parseInt(range[1], 10);
-    const hi = parseInt(range[2], 10);
+    const lo = parseFloat(range[1]);
+    const hi = parseFloat(range[2]);
     if (Number.isFinite(lo) && Number.isFinite(hi) && hi >= lo) {
       kUsd = Math.round((lo + hi) / 2);
     } else if (Number.isFinite(lo)) {
-      kUsd = lo;
+      kUsd = Math.round(lo);
     }
   }
   if (kUsd == null) {
     // Single-figure path: "$160k" / "$160 K".
-    const single = t.match(/\$\s*(\d{1,4})\s*[kK]/);
-    if (single) kUsd = parseInt(single[1], 10);
+    const single = usd.match(new RegExp(String.raw`\$\s*(${NUM})\s*[kK]`));
+    if (single) kUsd = Math.round(parseFloat(single[1]));
   }
   if (kUsd == null) {
     // Plain dollar amount with comma like "$45,000".
-    const fullMatch = t.match(/\$\s*(\d{1,3}),(\d{3})/);
+    const fullMatch = usd.match(/\$\s*(\d{1,3}),(\d{3})/);
     if (fullMatch)
       kUsd = Math.round(
         (parseInt(fullMatch[1], 10) * 1000 + parseInt(fullMatch[2], 10)) / 1000,
