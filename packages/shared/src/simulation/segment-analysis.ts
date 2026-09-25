@@ -109,34 +109,34 @@ export function analyzeIncomeIntent(
   if (monotonicUp && strongTrend) {
     bullets.push(
       isKo
-        ? `소득이 높을수록 구매의향이 일관되게 상승 (최저 ${sorted[0].meanIntent.toFixed(1)} → 최고 ${sorted[sorted.length - 1].meanIntent.toFixed(1)}). 비탄력적 수요 = 프리미엄 가격 책정 가능.`
-        : `Intent rises monotonically with income (low ${sorted[0].meanIntent.toFixed(1)} → high ${sorted[sorted.length - 1].meanIntent.toFixed(1)}). Inelastic demand = premium pricing viable.`,
+        ? `소득이 높을수록 구매의향도 함께 올라갑니다 (가장 낮은 소득대 ${sorted[0].meanIntent.toFixed(1)}점 → 가장 높은 소득대 ${sorted[sorted.length - 1].meanIntent.toFixed(1)}점). 가격을 올려도 수요가 크게 줄지 않는 구조라 프리미엄 가격이 가능합니다.`
+        : `The higher the income, the higher the intent (lowest bracket ${sorted[0].meanIntent.toFixed(1)} → highest ${sorted[sorted.length - 1].meanIntent.toFixed(1)}). Demand holds up as the price rises, so premium pricing is viable.`,
     );
   } else if (monotonicDown && strongTrend) {
     bullets.push(
       isKo
-        ? `소득이 높을수록 구매의향이 일관되게 하락 (최저 ${sortedReverse[0].meanIntent.toFixed(1)} → 최고 ${sortedReverse[sortedReverse.length - 1].meanIntent.toFixed(1)}). 가치 / 엔트리 시장 포지셔닝이 핵심.`
-        : `Intent falls monotonically with income (top ${sortedReverse[0].meanIntent.toFixed(1)} → bottom ${sortedReverse[sortedReverse.length - 1].meanIntent.toFixed(1)}). Value / entry-tier positioning is the play.`,
+        ? `소득이 높을수록 구매의향이 떨어집니다 (${sortedReverse[0].meanIntent.toFixed(1)}점 → ${sortedReverse[sortedReverse.length - 1].meanIntent.toFixed(1)}점). 가성비를 앞세운 보급형 포지셔닝이 맞습니다.`
+        : `The higher the income, the lower the intent (${sortedReverse[0].meanIntent.toFixed(1)} → ${sortedReverse[sortedReverse.length - 1].meanIntent.toFixed(1)}). Value, entry-tier positioning is the play.`,
     );
   } else if (Math.abs(intentRange) < 4) {
     bullets.push(
       isKo
-        ? `소득대 간 의향 격차가 좁음 (range ${intentRange.toFixed(1)}pt). 가격은 소득과 거의 무관 — 다른 차원(직업·문화 등)이 결정 요인.`
-        : `Intent is similar across income brackets (range ${intentRange.toFixed(1)}pt). Income is not the price driver — other dimensions (profession, culture) are.`,
+        ? `소득대별 구매의향 차이가 거의 없습니다 (가장 높은 소득대와 가장 낮은 소득대의 차이 ${intentRange.toFixed(1)}점). 소득은 구매를 가르는 요인이 아니므로, 직업·문화 같은 다른 축에서 차이를 찾아야 합니다.`
+        : `Intent barely differs between income brackets (${intentRange.toFixed(1)} points between highest and lowest). Income is not what decides the purchase — look at profession and culture instead.`,
     );
   } else {
     bullets.push(
       isKo
-        ? `소득과 의향이 비단조 관계 (특정 소득대에서 spike). 단일 가격 전략보다 세그먼트별 차별화 검토.`
-        : `Non-monotonic income-intent relationship (peaks in specific brackets). Consider segment-tier pricing rather than a single price.`,
+        ? `소득과 구매의향이 비례하지 않습니다 — 특정 소득대에서만 의향이 튀어 오릅니다. 하나의 가격으로 전체를 공략하기보다 소득대별로 가격대를 나누는 편이 낫습니다.`
+        : `Intent does not track income — it jumps in particular brackets and not others. Splitting the price by bracket will do more than one price for everyone.`,
     );
   }
 
   // Bullet 2: champion segment.
   bullets.push(
     isKo
-      ? `최강 세그먼트: **${champion.bucket}** (의향 ${champion.meanIntent.toFixed(1)}, n=${champion.count}, 주 시장 ${champion.topCountry} ${champion.topCountryShare}%) — 1차 acquisition 우선 타겟.`
-      : `Strongest segment: **${champion.bucket}** (intent ${champion.meanIntent.toFixed(1)}, n=${champion.count}, top market ${champion.topCountry} ${champion.topCountryShare}%) — primary acquisition target.`,
+      ? `가장 반응이 좋은 소득대는 ${champion.bucket}입니다 (평균 구매의향 ${champion.meanIntent.toFixed(1)}점, 페르소나 ${champion.count}명, 그중 ${champion.topCountryShare}%가 ${champion.topCountry} 시장). 초기 고객 확보는 여기부터 공략하세요.`
+      : `The ${champion.bucket} bracket responds best (mean intent ${champion.meanIntent.toFixed(1)}, ${champion.count} personas, ${champion.topCountryShare}% of them in ${champion.topCountry}). Start acquisition here.`,
   );
 
   // Bullet 3: country shift insight.
@@ -146,21 +146,21 @@ export function analyzeIncomeIntent(
     if (lowIncomeCountry && highIncomeCountry && lowIncomeCountry !== highIncomeCountry) {
       bullets.push(
         isKo
-          ? `소득대별 시장 선호도 분기: 저소득(${sorted[0].bucket})은 **${lowIncomeCountry}**, 고소득(${sorted[sorted.length - 1].bucket})은 **${highIncomeCountry}** — 동일 제품도 시장별 가격대를 차별화할 여지.`
-          : `Country preference shifts across income: low (${sorted[0].bucket}) → **${lowIncomeCountry}**, high (${sorted[sorted.length - 1].bucket}) → **${highIncomeCountry}**. Differentiated per-market pricing has room here.`,
+          ? `소득대에 따라 주력 시장이 갈립니다 — 낮은 소득대(${sorted[0].bucket})는 ${lowIncomeCountry}, 높은 소득대(${sorted[sorted.length - 1].bucket})는 ${highIncomeCountry}에 몰려 있습니다. 같은 제품이라도 시장별로 가격대를 달리 가져갈 여지가 있습니다.`
+          : `Which market dominates changes with income — the ${sorted[0].bucket} bracket sits in ${lowIncomeCountry}, the ${sorted[sorted.length - 1].bucket} bracket in ${highIncomeCountry}. The same product can carry a different price in each.`,
       );
     } else {
       bullets.push(
         isKo
-          ? `소득대별로 ${uniqueCountries.size}개 시장이 1순위로 등장 — 가격 포지셔닝과 채널 전략을 시장별로 분기 검토.`
-          : `${uniqueCountries.size} different markets surface as #1 across income tiers — consider per-market pricing and channel differentiation.`,
+          ? `소득대마다 1순위 시장이 달라 모두 ${uniqueCountries.size}개 시장이 등장합니다 — 가격과 채널을 시장별로 나눠 설계하는 것을 검토하세요.`
+          : `${uniqueCountries.size} different markets come out on top across the income brackets — price and channel are worth planning market by market.`,
       );
     }
   } else {
     bullets.push(
       isKo
-        ? `모든 소득대에서 동일 시장(**${sorted[0].topCountry}**)이 1순위 — 단일 시장 집중 전략 적합.`
-        : `Same market (**${sorted[0].topCountry}**) is #1 across all income tiers — single-market focus strategy fits.`,
+        ? `모든 소득대에서 ${sorted[0].topCountry}가 1순위입니다 — 한 시장에 집중하는 전략이 맞습니다.`
+        : `${sorted[0].topCountry} comes first in every income bracket — a single-market focus fits.`,
     );
   }
 
@@ -168,18 +168,20 @@ export function analyzeIncomeIntent(
   if (weakest.bucket !== champion.bucket && weakest.meanIntent < overallMean - 5) {
     bullets.push(
       isKo
-        ? `가장 약한 세그먼트: **${weakest.bucket}** (의향 ${weakest.meanIntent.toFixed(1)}, n=${weakest.count}) — 마케팅 ROI 낮음, 우선순위에서 제외 검토.`
-        : `Weakest segment: **${weakest.bucket}** (intent ${weakest.meanIntent.toFixed(1)}, n=${weakest.count}) — low marketing ROI, deprioritize.`,
+        ? `가장 반응이 약한 소득대는 ${weakest.bucket}입니다 (평균 구매의향 ${weakest.meanIntent.toFixed(1)}점, 페르소나 ${weakest.count}명). 마케팅 비용 대비 효과가 낮아 우선순위에서 빼는 것을 검토하세요.`
+        : `The ${weakest.bucket} bracket responds worst (mean intent ${weakest.meanIntent.toFixed(1)}, ${weakest.count} personas). Marketing there returns little — worth deprioritising.`,
     );
   }
 
   // Bullet 5: sample-size warning, only when meaningful.
   if (smallSamples.length > 0) {
-    const smallList = smallSamples.map((r) => `${r.bucket} (n=${r.count})`).join(", ");
+    const smallList = smallSamples
+      .map((r) => (isKo ? `${r.bucket} ${r.count}명` : `${r.bucket} (${r.count})`))
+      .join(", ");
     bullets.push(
       isKo
-        ? `샘플 크기 주의: ${smallList} — 30명 미만 세그먼트는 의향 평균이 노이즈에 민감. 추가 시뮬로 보강 권장.`
-        : `Small samples: ${smallList} — fewer than 30 personas means high noise sensitivity. Consider additional sims for confidence.`,
+        ? `표본이 적은 소득대에 주의하세요: ${smallList}. 페르소나가 30명 미만이면 몇 사람의 응답만으로 평균이 흔들립니다. 시뮬을 더 돌리면 값이 안정됩니다.`
+        : `Treat these brackets carefully — the sample is small: ${smallList}. Under 30 personas, a handful of answers can move the average. More sims would settle it.`,
     );
   }
 
@@ -188,23 +190,23 @@ export function analyzeIncomeIntent(
   let tone: IncomeIntentAnalysis["tone"];
   if (monotonicUp && strongTrend) {
     headline = isKo
-      ? "고소득층이 챔피언 세그먼트 — 프리미엄 포지셔닝 + 고소득 타겟 광고가 정답."
-      : "High-income brackets are the champion segment — premium positioning + high-income targeting wins.";
+      ? "고소득층이 가장 잘 반응합니다 — 프리미엄 가격과 고소득 타깃 광고가 맞습니다."
+      : "High earners respond best — premium pricing and high-income targeting are the fit.";
     tone = "success";
   } else if (monotonicDown && strongTrend) {
     headline = isKo
-      ? "저소득층이 핵심 시장 — 가치/엔트리 가격 + 광범위 타겟 광고 구조 권장."
-      : "Lower-income brackets are the core market — value pricing + broad-target advertising fit best.";
+      ? "저소득층이 핵심 고객입니다 — 가성비 가격과 폭넓은 타깃 광고가 맞습니다."
+      : "Lower earners are the core customer — value pricing and broad targeting are the fit.";
     tone = "warn";
   } else if (Math.abs(intentRange) < 4) {
     headline = isKo
-      ? "소득대별 의향 격차 좁음 — 가격이 결정 요인이 아님. 직업/문화 차원에서 차별화 모색."
-      : "Income brackets show similar intent — price isn't the deciding factor. Differentiate on profession/culture.";
+      ? "소득대별 반응 차이가 거의 없습니다 — 가격이 아니라 직업·문화에서 차이를 찾아야 합니다."
+      : "Intent is much the same across brackets — the difference lies in profession and culture, not price.";
     tone = "neutral";
   } else {
     headline = isKo
-      ? "비단조 관계 — 특정 소득대 spike에 맞춘 세그먼트별 가격 전략 검토."
-      : "Non-monotonic relationship — explore segment-tier pricing aligned with the income spikes.";
+      ? "소득이 높다고 더 사지는 않습니다 — 반응이 튀는 소득대에 가격을 맞추세요."
+      : "Earning more does not mean buying more — price to the brackets that actually jump.";
     tone = "warn";
   }
 

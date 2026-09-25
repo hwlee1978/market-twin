@@ -8913,7 +8913,10 @@ function DecisionAidTab({
                       <span className="text-slate-400 font-medium tabular-nums shrink-0">
                         {i + 1}.
                       </span>
-                      <span>{b.replace(/\*\*/g, "")}</span>
+                      {/* The bullets used to carry ** around key terms,
+                          stripped here and printed literally by the PDF.
+                          They no longer contain any. */}
+                      <span>{b}</span>
                     </li>
                   ))}
                 </ol>
