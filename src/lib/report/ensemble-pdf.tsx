@@ -978,6 +978,43 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       };
 
   const recCountryLabel = getCountryLabel(aggregate.recommendation.country, locale) || aggregate.recommendation.country;
+
+  /**
+   * A verbatim quote from the market we are recommending, or nothing.
+   *
+   * Every quote callout in this report used to reach into a global
+   * top-5 pool, so the Singapore recommendation could be illustrated by
+   * a Japanese enthusiast, its risks by a Vietnamese night-shift worker
+   * and its price objection by an Indonesian retiree. A reader takes
+   * those as evidence about Singapore.
+   *
+   * Prefers the per-market voice the aggregator keeps; falls back to
+   * the global pool filtered to the same market, which is all that
+   * older aggregates can offer. Returns null rather than another
+   * market's voice, and the callers hide the block.
+   */
+  const recommendedMarketVoice = (
+    polarity: "positive" | "negative",
+    opts: { offset?: number; filter?: (text: string) => boolean } = {},
+  ) => {
+    const { offset = 0, filter } = opts;
+    const recCountry = aggregate.recommendation.country?.toUpperCase();
+    const perMarket = aggregate.personas as {
+      topVoiceByCountry?: Array<{ text: string; country: string; intent: number; profession?: string; ageRange?: string }>;
+      bottomVoiceByCountry?: Array<{ text: string; country: string; intent: number; profession?: string; ageRange?: string }>;
+    } | undefined;
+    const list = polarity === "positive" ? perMarket?.topVoiceByCountry : perMarket?.bottomVoiceByCountry;
+    const candidates = (list ?? [])
+      .filter((v) => v.country.toUpperCase() === recCountry)
+      .filter((v) => (filter ? filter(v.text) : true));
+    if (candidates.length > offset) return candidates[offset];
+    return pickQuote(aggregate, {
+      country: aggregate.recommendation.country,
+      polarity,
+      offset,
+      ...(filter ? { filter } : {}),
+    });
+  };
   const confidenceColor =
     aggregate.recommendation.confidence === "STRONG"
       ? C.success
@@ -3179,25 +3216,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
   };
 
   const renderRecommendationPage = () => {
-    // The champion must come from the market being recommended. Prefer
-    // that market's own best voice, which the aggregator keeps per
-    // country; fall back to the global top-5 filtered to the same
-    // market for aggregates written before that field existed. Never
-    // fall back to another country — a Japanese enthusiast quoted on
-    // the Singapore recommendation reads as evidence for Singapore.
-    const recCountry = aggregate.recommendation.country?.toUpperCase();
-    const perCountryBest = (
-      aggregate.personas as { topVoiceByCountry?: Array<{
-        text: string; country: string; intent: number;
-        profession?: string; ageRange?: string;
-      }> } | undefined
-    )?.topVoiceByCountry?.find((v) => v.country.toUpperCase() === recCountry);
-    const championQuote =
-      perCountryBest ??
-      pickQuote(aggregate, {
-        country: aggregate.recommendation.country,
-        polarity: "positive",
-      });
+    const championQuote = recommendedMarketVoice("positive");
     return (
     <Page size="A4" style={styles.page}>
       {pageHeader}
@@ -3975,8 +3994,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     // price/cost vocabulary. pickQuote returns null if no price-content
     // match exists (rather than surfacing an unrelated low-intent voice
     // under a "price-sensitive" label), and the callout simply hides.
-    const priceSkepticQuote = pickQuote(aggregate, {
-      polarity: "negative",
+    const priceSkepticQuote = recommendedMarketVoice("negative", {
       filter: isPriceObjectionText,
     });
     return (
@@ -3996,7 +4014,11 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             quote={priceSkepticQuote}
             tone="warn"
             isKo={isKo}
-            label={isKo ? "가격에 민감한 페르소나" : "A price-sensitive persona"}
+            label={
+              isKo
+                ? `${priceSkepticQuote.country} 가격 민감 페르소나`
+                : `A price-sensitive persona in ${priceSkepticQuote.country}`
+            }
           />
         )}
 
@@ -4182,7 +4204,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     if (!aggregate.narrative?.mergedRisks?.length) return null;
     const risks = aggregate.narrative.mergedRisks.slice(0, tierBudget.risks);
     const crossCountry = aggregate.crossCountryDistribution;
-    const skepticQuote = pickQuote(aggregate, { polarity: "negative" });
+    const skepticQuote = recommendedMarketVoice("negative");
     return (
       <Page size="A4" style={styles.page}>
         {pageHeader}
@@ -4200,7 +4222,11 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             quote={skepticQuote}
             tone="warn"
             isKo={isKo}
-            label={isKo ? "회의론자가 본 것" : "What a skeptic flagged"}
+            label={
+              isKo
+                ? `${skepticQuote.country} 회의론자가 본 것`
+                : `What a skeptic in ${skepticQuote.country} flagged`
+            }
           />
         )}
 
@@ -4315,15 +4341,10 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     const actions = aggregate.narrative.mergedActions.slice(0, tierBudget.actions);
     const actionCoverage = aggregate.actionCategoryCoverage;
     const simCount = aggregate.simCount;
-    // Champion quote with offset 1 so we don't reuse the same quote
-    // that's already on the recommendation page. Falls back to overall
-    // top if no second-best is available.
-    const motivationQuote =
-      pickQuote(aggregate, {
-        country: aggregate.recommendation.country,
-        polarity: "positive",
-        offset: 1,
-      }) ?? pickQuote(aggregate, { polarity: "positive", offset: 1 });
+    // Offset 1 so this isn't the same quote the recommendation page
+    // already used. Still the recommended market only — a second-best
+    // enthusiast from elsewhere is no more relevant than the first.
+    const motivationQuote = recommendedMarketVoice("positive", { offset: 1 });
     return (
       <Page size="A4" style={styles.page}>
         {pageHeader}
@@ -4341,7 +4362,11 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             quote={motivationQuote}
             tone="success"
             isKo={isKo}
-            label={isKo ? "이 액션을 끌어낸 한 마디" : "What pushed these actions"}
+            label={
+              isKo
+                ? `${motivationQuote.country} 페르소나 — 이 액션을 끌어낸 한 마디`
+                : `What pushed these actions, from ${motivationQuote.country}`
+            }
           />
         )}
 

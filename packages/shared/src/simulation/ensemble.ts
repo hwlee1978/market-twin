@@ -547,6 +547,21 @@ export interface PersonasAggregate {
     profession?: string;
     ageRange?: string;
   }>;
+  /**
+   * Lowest-intent voice within each market — the skeptic counterpart to
+   * topVoiceByCountry, and absent for the same reason: the risks page
+   * quoted whichever market complained loudest, which on a run
+   * recommending SG was a Vietnamese night-shift worker.
+   *
+   * Optional — absent on aggregates written before 2026-09-26.
+   */
+  bottomVoiceByCountry?: Array<{
+    text: string;
+    country: string;
+    intent: number;
+    profession?: string;
+    ageRange?: string;
+  }>;
   /** Demographic distributions — useful for the report and any ad-targeting follow-up. */
   ageDistribution: Array<{ bucket: string; count: number }>;
   /**
@@ -1912,22 +1927,40 @@ function computePersonasAggregate(
   // is dropped first — it wins on intent often enough to become a
   // market's representative quote while saying nothing about the
   // product.
-  const bestByCountry = new Map<string, (typeof withVoice)[number]>();
+  // Three per market, not one: the report quotes a market more than
+  // once — champion, skeptic, the voice behind the action plan, and a
+  // price objection that has to actually mention price. One voice per
+  // market leaves those blocks empty.
+  const PER_COUNTRY_VOICES = 3;
+  const byCountryVoices = new Map<string, (typeof withVoice)[number][]>();
   for (const p of withVoice) {
     if (isPersonaMismatchNoise(p.voice ?? "")) continue;
     const key = (p.country ?? "?").toUpperCase();
-    const cur = bestByCountry.get(key);
-    if (!cur || p.purchaseIntent > cur.purchaseIntent) bestByCountry.set(key, p);
+    const arr = byCountryVoices.get(key) ?? [];
+    arr.push(p);
+    byCountryVoices.set(key, arr);
   }
-  const topVoiceByCountry = [...bestByCountry.entries()]
-    .map(([country, p]) => ({
-      text: p.voice ?? "",
-      country,
-      intent: p.purchaseIntent,
-      profession: p.profession,
-      ageRange: p.ageRange,
-    }))
-    .sort((a, b) => b.intent - a.intent);
+  const asVoice = (country: string, p: (typeof withVoice)[number]) => ({
+    text: p.voice ?? "",
+    country,
+    intent: p.purchaseIntent,
+    profession: p.profession,
+    ageRange: p.ageRange,
+  });
+  const topVoiceByCountry: PersonasAggregate["topVoiceByCountry"] = [];
+  const bottomVoiceByCountry: PersonasAggregate["bottomVoiceByCountry"] = [];
+  for (const [country, arr] of byCountryVoices.entries()) {
+    const high = [...arr].sort((a, b) => b.purchaseIntent - a.purchaseIntent);
+    const low = [...arr].sort((a, b) => a.purchaseIntent - b.purchaseIntent);
+    for (const p of high.slice(0, PER_COUNTRY_VOICES)) {
+      topVoiceByCountry!.push(asVoice(country, p));
+    }
+    for (const p of low.slice(0, PER_COUNTRY_VOICES)) {
+      bottomVoiceByCountry!.push(asVoice(country, p));
+    }
+  }
+  topVoiceByCountry!.sort((a, b) => b.intent - a.intent);
+  bottomVoiceByCountry!.sort((a, b) => a.intent - b.intent);
 
   // Demographics — ageRange comes through as freeform LLM strings ("25-34",
   // "22-30", "30s", "30대" etc.). Same normalisation as the segment view
@@ -2021,6 +2054,7 @@ function computePersonasAggregate(
     topPositiveVoices,
     topNegativeVoices,
     topVoiceByCountry,
+    bottomVoiceByCountry,
     ageDistribution,
     professionTopN,
     segmentBreakdown,
