@@ -549,6 +549,33 @@ function reliabilityColor(r: "A" | "B+" | "B" | "C"): string {
   return C.warn;
 }
 
+/**
+ * Say what kind of agreement produced the confidence grade.
+ *
+ * The raw value was printed straight into the line, so readers saw
+ * "Moderate n/a" and "Moderate cross-model" — an internal enum next to
+ * a grade, meaning nothing. "n/a" in particular is not a finding: it is
+ * what the aggregator returns when only one provider ran, so there is
+ * no cross-provider agreement to classify. Returns "" so the caller
+ * prints the grade alone, which is what the field's own doc comment
+ * says the UI should do.
+ */
+function consensusTypeLabel(
+  type: string | undefined,
+  isKo: boolean,
+): string {
+  switch (type) {
+    case "cross-model":
+      return isKo ? "여러 LLM이 동일 결론" : "multiple LLMs agree";
+    case "single-provider":
+      return isKo ? "한 LLM이 주도 — 교차검증 약함" : "one provider dominates — weak cross-check";
+    case "mixed":
+      return isKo ? "LLM 간 의견 갈림" : "providers disagree";
+    default:
+      return "";
+  }
+}
+
 function gradeColor(grade: string): string {
   if (grade.startsWith("A")) return C.success;
   if (grade.startsWith("B")) return C.brand;
@@ -917,7 +944,10 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
             return (
               <>
                 <Text style={{ fontWeight: 700 }}>{`Multi-LLM ${simResult.consensusPercent}% ${t.consensusWord}`}</Text>
-                <Text>{` · ${simResult.confidence} ${simResult.consensusType ?? ""}`}</Text>
+                <Text>{(() => {
+                  const kind = consensusTypeLabel(simResult.consensusType, isKo);
+                  return ` · ${simResult.confidence}${kind ? ` · ${kind}` : ""}`;
+                })()}</Text>
               </>
             );
           })()}
@@ -1137,7 +1167,11 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
           })()}
         </MText>
         <MText style={styles.calloutBody}>
-          {`Sample: ${meta.personaCount.toLocaleString()} ${isKo ? "페르소나" : "personas"} · ${simResult.consensusType ?? ""}`}
+          {(() => {
+            const kind = consensusTypeLabel(simResult.consensusType, isKo);
+            const head = `Sample: ${meta.personaCount.toLocaleString()} ${isKo ? "페르소나" : "personas"}`;
+            return kind ? `${head} · ${kind}` : head;
+          })()}
         </MText>
       </View>
 
