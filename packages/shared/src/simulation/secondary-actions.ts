@@ -229,9 +229,22 @@ function buildProfileBlock(profile: MarketProfile, locale: "ko" | "en"): string 
     );
   }
 
-  const channels = profile.channels;
+  // All three tiers, not just primary. The market profile had found
+  // Instagram and TikTok Shop for Taiwan, but only `primary` was ever
+  // put in the prompt, so the model planned around Facebook groups and
+  // PTT — the channels it could name from its own knowledge — while the
+  // newer ones sat unused in the very research block meant to ground it.
+  const channels = profile.channels as
+    | { primary?: Array<{ name: string }>; secondary?: Array<{ name: string }>; emerging?: Array<{ name: string }> }
+    | undefined;
   if (channels?.primary?.length) {
-    lines.push(`Primary channels: ${channels.primary.map((c: { name: string }) => c.name).join(", ")}`);
+    lines.push(`Primary channels: ${channels.primary.map((c) => c.name).join(", ")}`);
+  }
+  if (channels?.secondary?.length) {
+    lines.push(`Secondary channels: ${channels.secondary.map((c) => c.name).join(", ")}`);
+  }
+  if (channels?.emerging?.length) {
+    lines.push(`Emerging channels: ${channels.emerging.map((c) => c.name).join(", ")}`);
   }
 
   const reg = profile.regulatory;
