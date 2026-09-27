@@ -16,12 +16,13 @@
  * based recommendations that single-sim view can't surface.
  *
  * Usage:
- *   npm run ensemble:run -- <project_id_prefix> [parallel=5] [perSim=200]
+ *   npm run ensemble:run -- <project_id_prefix> [parallel=5] [perSim=200] [locale=ko|en]
  *
  * Examples:
  *   npm run ensemble:run -- 48f1041d                # 5 × 200 = 1000 personas
  *   npm run ensemble:run -- 48f1041d 10 200         # 10 × 200 = 2000
  *   npm run ensemble:run -- 48f1041d 5 500          # 5 × 500 = 2500
+ *   npm run ensemble:run -- 48f1041d 3 200 en       # English output
  */
 import { Client } from "pg";
 import { runSimulation } from "../packages/shared/src/simulation/runner";
@@ -67,9 +68,9 @@ function std(xs: number[]): number {
 }
 
 async function main() {
-  const [, , projectPrefix, parallelArg, perSimArg] = process.argv;
+  const [, , projectPrefix, parallelArg, perSimArg, localeArg] = process.argv;
   if (!projectPrefix) {
-    console.error("Usage: npm run ensemble:run -- <project_id_prefix> [parallel=5] [perSim=200]");
+    console.error("Usage: npm run ensemble:run -- <project_id_prefix> [parallel=5] [perSim=200] [locale=ko|en]");
     process.exit(1);
   }
   if (!process.env.DATABASE_URL) {
@@ -78,6 +79,10 @@ async function main() {
   }
   const parallel = Math.max(1, Number.parseInt(parallelArg ?? "5", 10));
   const perSim = Math.max(10, Number.parseInt(perSimArg ?? "200", 10));
+  // Locale drives persona language, the narrative merge and the stored
+  // ensemble row. It was hardcoded to "ko", so an English run could not
+  // be produced from the CLI at all.
+  const locale: "ko" | "en" = localeArg === "en" ? "en" : "ko";
   const totalPersonas = parallel * perSim;
 
   const c = new Client({ connectionString: process.env.DATABASE_URL });
@@ -110,7 +115,7 @@ async function main() {
         `insert into public.ensembles
             (id, project_id, workspace_id, created_by, tier, parallel_sims,
              per_sim_personas, llm_providers, status, locale)
-          values ($1,$2,$3,$4,$5,$6,$7,'{anthropic}','running','ko')`,
+          values ($1,$2,$3,$4,$5,$6,$7,'{anthropic}','running',$8)`,
         [
           ensembleId,
           project.id,
@@ -119,6 +124,7 @@ async function main() {
           tierFor(parallel),
           parallel,
           perSim,
+          locale,
         ],
       );
     } finally {
@@ -192,7 +198,7 @@ async function main() {
         simulationId: simId,
         projectInput,
         personaCount: perSim,
-        locale: "ko",
+        locale,
         seedOverride: `${ensembleId}-${idx}`,
       }).then((r) => ({ idx, simId, ok: true as const, result: r }))
         .catch((err) => ({ idx, simId, ok: false as const, error: err instanceof Error ? err.message : String(err) })),
@@ -318,7 +324,7 @@ async function main() {
       productName: project.product_name,
       bestCountry: aggregate.recommendation.country,
       consensusPercent: aggregate.recommendation.consensusPercent,
-      locale: "ko",
+      locale,
       crossCountryDistribution: aggregate.crossCountryDistribution,
       candidateCountries: project.candidate_countries,
       basePriceCents: project.base_price_cents,
