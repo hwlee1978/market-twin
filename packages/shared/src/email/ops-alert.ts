@@ -203,6 +203,8 @@ export async function alertOps(
       resource_id: identity,
       workspace_id: input.workspaceId ?? null,
       metadata: {
+        // Duplicated from resource_type so a census can read one column.
+        kind: input.kind,
         severity,
         summary: input.summary,
         details: input.details ?? {},

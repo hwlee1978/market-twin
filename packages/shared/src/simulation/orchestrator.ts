@@ -596,6 +596,27 @@ export async function aggregateAndPersist(opts: {
         console.warn(
           `[ensemble ${ensembleId}] ${quarantinedIds.length} quarantined sim(s) excluded from aggregation`,
         );
+        // Quarantine is the loudest thing that can happen to a run and
+        // was the quietest: an English decision run built its report
+        // from 2 of 6 sims — 400 personas, not the 1200 the page
+        // claimed — and the only trace was this console.warn. Severity
+        // rises with the share lost, because losing one sim of six is
+        // noise and losing four is a different report.
+        const share = quarantinedIds.length / snapshots.length;
+        void alertOpsAsync({
+          kind: "low_sim_success_rate",
+          severity: share >= 0.34 ? "critical" : "warn",
+          summary:
+            `${snapshots.length}개 시뮬 중 ${quarantinedIds.length}개가 품질 격리되어 집계에서 빠집니다` +
+            ` — 리포트는 ${snapshots.length - quarantinedIds.length}개 시뮬로 작성됩니다`,
+          ensembleId,
+          details: {
+            simCount: snapshots.length,
+            quarantined: quarantinedIds.length,
+            usedForReport: snapshots.length - quarantinedIds.length,
+            quarantinedIds: quarantinedIds.join(", "),
+          },
+        });
       }
     } catch (err) {
       console.warn(

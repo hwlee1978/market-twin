@@ -2326,6 +2326,42 @@ ${entries}
       })
       .safeParse(synthesisResp.json);
 
+    // A rejected synthesis costs this sim its entire narrative: risks
+    // become [], recommendations become empty strings, and the overview
+    // falls back to "Result generated with partial synthesis." Nothing
+    // downstream can tell that apart from a sim that genuinely had
+    // nothing to say. Two of six sims did this on both English decision
+    // runs and none of seven Korean ones, and the only reason we know is
+    // that someone read the stored summary — so say why, loudly.
+    if (!synthesis.success) {
+      const issues = synthesis.error.issues
+        .slice(0, 8)
+        .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+        .join(" | ");
+      const topKeys =
+        synthesisResp.json && typeof synthesisResp.json === "object"
+          ? Object.keys(synthesisResp.json as object).join(",")
+          : `(${typeof synthesisResp.json})`;
+      console.error(
+        `[sim ${opts.simulationId}] synthesis REJECTED by schema — risks/actions/summary will be empty. ` +
+          `keys=[${topKeys}] out=${synthesisResp.usage?.outputTokens ?? "?"} issues: ${issues}`,
+      );
+      void alertOpsAsync({
+        kind: "narrative_fallback",
+        severity: "critical",
+        summary: `합성 결과가 스키마 검증에 실패해 이 시뮬은 리스크·액션·요약 없이 집계됩니다`,
+        simulationId: opts.simulationId,
+        details: {
+          provider: synthesisLLM.name,
+          model: synthesisLLM.model,
+          locale,
+          outputTokens: synthesisResp.usage?.outputTokens ?? null,
+          responseKeys: topKeys,
+          issues,
+        },
+      });
+    }
+
     // ── Per-market pricing for the runner-up markets ──────────────
     // A shortlist whose entries all carry the same price is not much of a
     // shortlist: willingness to pay is one of the main things that differs
@@ -2384,6 +2420,8 @@ ${entries}
             marginGroundingBlock,
             country,
           );
+          // Why each of this market's samples was unusable, in order.
+          const failures: string[] = [];
           const resps = await Promise.all(
             Array.from({ length: 3 }, () =>
               pricingLLM
@@ -2403,7 +2441,14 @@ ${entries}
                   // which is harder to notice than a failure.
                   maxTokens: 12000,
                 })
-                .catch(() => null),
+                // Keep the reason. The bare `.catch(() => null)` this
+                // replaces is why three "all samples unusable" alerts
+                // could say a market had vanished but not whether the
+                // call was rate-limited, truncated, or simply off-schema.
+                .catch((err: unknown) => {
+                  failures.push(err instanceof Error ? err.message : String(err));
+                  return null;
+                }),
             ),
           );
           const parsed = resps
@@ -2411,7 +2456,16 @@ ${entries}
             .map((r) => {
               secIn += r.usage?.inputTokens ?? 0;
               secOut += r.usage?.outputTokens ?? 0;
-              return PerMarketPricingSchema.safeParse(r.json);
+              const p = PerMarketPricingSchema.safeParse(r.json);
+              if (!p.success) {
+                failures.push(
+                  `schema: ${p.error.issues
+                    .slice(0, 3)
+                    .map((i) => `${i.path.join(".") || "(root)"} ${i.message}`)
+                    .join("; ")} (out=${r.usage?.outputTokens ?? "?"})`,
+                );
+              }
+              return p;
             })
             .filter((p) => p.success)
             .map((p) => p.data);
@@ -2420,7 +2474,8 @@ ${entries}
             // pricing with no trace — which is how a market went missing on
             // the first verification run.
             console.warn(
-              `[sim ${opts.simulationId}] pricing for ${country}: all ${resps.length} sample(s) unusable — market omitted`,
+              `[sim ${opts.simulationId}] pricing for ${country}: all ${resps.length} sample(s) unusable — market omitted. ` +
+                `reasons: ${failures.join(" || ") || "(none recorded)"}`,
             );
             // A market vanishing from the comparison table is invisible to
             // the reader — there is no gap where it used to be.
@@ -2429,7 +2484,13 @@ ${entries}
               severity: "critical",
               summary: `${country} 가격 샘플이 전량 파싱 실패해 비교표에서 누락됩니다`,
               simulationId: opts.simulationId,
-              details: { country, samples: resps.length },
+              details: {
+                country,
+                samples: resps.length,
+                provider: pricingLLM.name,
+                model: pricingLLM.model,
+                reasons: failures.slice(0, 3).join(" || ") || "(원인 미기록)",
+              },
             });
             return null;
           }
@@ -2452,7 +2513,11 @@ ${entries}
         : fallbackOverview(projectInput, countryScores, personas),
       countries: countryScores,
       personas,
-      pricing: pricing.success ? pricing.data : fallbackPricing(projectInput),
+      // fallbackPricing returns the price the user typed in, with a
+      // synthetic curve around it. On the page that is indistinguishable
+      // from a real recommendation that happens to agree with the base
+      // price — which is exactly what an English run looked like.
+      pricing: pricing.success ? pricing.data : fallbackPricingReported(projectInput, opts),
       ...(pricingByCountry ? { pricingByCountry } : {}),
       creative: synthesis.success ? synthesis.data.creative : [],
       risks: synthesis.success ? synthesis.data.risks : [],
@@ -2840,6 +2905,35 @@ function fallbackOverview(
     riskLevel: avgIntent > 60 ? "low" : avgIntent > 35 ? "medium" : "high",
     headline: "Result generated with partial synthesis.",
   };
+}
+
+/**
+ * fallbackPricing, plus a word to whoever runs this.
+ *
+ * The fallback emits the base price and a hand-drawn curve. That is a
+ * reasonable thing to render and a terrible thing to render silently —
+ * the reader sees a recommended price and has no way to know no model
+ * produced it.
+ */
+function fallbackPricingReported(
+  input: ProjectInput,
+  opts: { simulationId: string },
+): z.infer<typeof PricingResultSchema> {
+  console.error(
+    `[sim ${opts.simulationId}] pricing REJECTED — falling back to the base price ` +
+      `(${input.basePriceCents / 100} ${input.currency}) with a synthetic curve`,
+  );
+  void alertOpsAsync({
+    kind: "price_hallucination",
+    severity: "critical",
+    summary: `가격 산출이 실패해 입력 기준가를 그대로 권장가로 표시합니다 — 모델이 정한 가격이 아닙니다`,
+    simulationId: opts.simulationId,
+    details: {
+      basePriceCents: input.basePriceCents,
+      currency: input.currency,
+    },
+  });
+  return fallbackPricing(input);
 }
 
 function fallbackPricing(input: ProjectInput): z.infer<typeof PricingResultSchema> {
