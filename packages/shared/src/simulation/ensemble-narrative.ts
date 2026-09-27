@@ -749,7 +749,29 @@ const SUSPICIOUS_RATIO = 5; // flag values >5x or <0.2x any allowed price
  */
 const MAGNITUDE_SUFFIX_RE = /^\s*(?:[BMK]|bn|billion|million|thousand|trillion|조|억|만)/i;
 
-function sanitizePrices(
+/**
+ * Words that mark a money figure as the PRODUCT's price.
+ *
+ * The check this gates exists for one failure: the model inventing a
+ * retail price ("$49,900" for a $399 product). Every other figure a
+ * launch plan quotes — a seeding budget, an acquisition cost, a
+ * certification fee — is a number we have no reference for and no
+ * business rewriting. Scanning all of them replaced "$8,000 influencer
+ * seeding" and "CAC $24.6–$52" with a placeholder in reader-facing
+ * prose. So the figure now has to look like a price before it is judged
+ * as one.
+ */
+const PRICE_CONTEXT_RE =
+  /(price|pricing|priced|retail|RRP|MSRP|per\s+(?:bar|unit|box|pack|item|serving)|sells?\s+(?:for|at)|가격|권장가|정가|소비자가|판매가|단가|출고가)/i;
+
+/** Is this money token sitting in price language? */
+function inPriceContext(whole: string, offset: number, matchLength: number): boolean {
+  const before = whole.slice(Math.max(0, offset - 70), offset);
+  const after = whole.slice(offset + matchLength, offset + matchLength + 40);
+  return PRICE_CONTEXT_RE.test(before) || PRICE_CONTEXT_RE.test(after);
+}
+
+export function sanitizePrices(
   text: string,
   allowedCents: number[],
   locale: "ko" | "en",
@@ -793,6 +815,7 @@ function sanitizePrices(
       // and replaced mid-sentence, leaving the report reading
       // "([price source needed]B annually)".
       if (MAGNITUDE_SUFFIX_RE.test(whole.slice(offset + match.length))) return match;
+      if (!inPriceContext(whole, offset, match.length)) return match;
       const cents = priceTokenToUsdCents(value, "USD");
       if (cents === null || inRange(cents)) return match;
       flagged.push(`USD ${num} (${match})`);
@@ -801,9 +824,11 @@ function sanitizePrices(
   }
 
   for (const { regex, multiplier } of krwPatterns) {
-    result = result.replace(regex, (match, num: string) => {
+    result = result.replace(regex, (match, num: string, offset: number, whole: string) => {
       const value = parseFloat(num.replace(/,/g, ""));
       if (!Number.isFinite(value) || value <= 0) return match;
+      if (MAGNITUDE_SUFFIX_RE.test(whole.slice(offset + match.length))) return match;
+      if (!inPriceContext(whole, offset, match.length)) return match;
       const won = value * multiplier;
       const cents = priceTokenToUsdCents(won, "KRW");
       if (cents === null || inRange(cents)) return match;
