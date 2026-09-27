@@ -16,6 +16,7 @@ import { z } from "zod";
 import { COUNTRIES, getCountryLabel } from "@/lib/countries";
 import { getLLMProvider } from "@/lib/llm";
 import { alertOpsAsync } from "@/lib/email/ops-alert";
+import { convertCurrencyCents, toUsd } from "@/lib/simulation/fx-rates";
 import type {
   EnsembleSimSnapshot,
   EnsembleNarrative,
@@ -170,6 +171,18 @@ export interface MergeNarrativeOpts {
     gapToPrimary: number;
   };
   /**
+   * The market order the engine settled on, best first.
+   *
+   * Without it the merge only knows which market came first, so it
+   * sources any further ranking from whichever sim it happened to
+   * follow. One run's summary opened "The United States is the optimal
+   * first export market … Australia ranks second" while the
+   * recommendation card beside it named SG — Australia was second in
+   * exactly one of three sims, and second by mean rank in none. Both
+   * numbers were in the same report.
+   */
+  marketRanking?: Array<{ country: string; meanRank: number; meanScore: number }>;
+  /**
    * Product input pricing — used by the post-merge price sanitizer to
    * detect hallucinated currency values (e.g. LLM emitted "$49,900" when
    * the input price was $399). Optional for legacy callers; sanitizer
@@ -211,10 +224,33 @@ export async function mergeNarrative(
         (s) => (s.bestCountry ?? "").toUpperCase() === recCountry,
       )
     : [];
-  const sims = alignedSims.length > 0 ? alignedSims : allSims;
-  if (alignedSims.length > 0 && alignedSims.length < allSims.length) {
+  // Filtering to the sims that agree with the recommendation keeps the
+  // merged risks and actions about the market being recommended. But
+  // one survivor is not a merge — it drops through to the single-sim
+  // path below, which returns that sim's own write-up verbatim: no
+  // merge call, and none of the framing blocks this prompt builds.
+  //
+  // A 3-sim run did exactly that. Only the Anthropic sim had picked the
+  // engine's winner, so the whole ensemble's executive summary was one
+  // simulation's prose — and it read "Australia ranks second" while the
+  // recommendation card beside it said SG, because that sim alone had
+  // ranked AU second. Two hundred personas of six hundred, presented as
+  // the ensemble's conclusion.
+  //
+  // Below two survivors, merge everything instead. The recommended
+  // market is already stated in the prompt, the ranking block states the
+  // rest of the order, and the post-merge validation drops a summary
+  // that names the wrong country — so keeping the disagreeing sims costs
+  // nothing and keeps the other two-thirds of the run in the report.
+  const useAligned = alignedSims.length >= 2;
+  const sims = useAligned ? alignedSims : allSims;
+  if (useAligned && alignedSims.length < allSims.length) {
     console.log(
       `[ensemble narrative] filtered ${alignedSims.length}/${allSims.length} sims to bestCountry=${recCountry} for action/risk merge`,
+    );
+  } else if (alignedSims.length === 1 && allSims.length > 1) {
+    console.log(
+      `[ensemble narrative] only ${alignedSims.length}/${allSims.length} sims picked ${recCountry} — merging all of them rather than promoting a single sim's write-up`,
     );
   }
 
@@ -223,6 +259,24 @@ export async function mergeNarrative(
   // (1 → 3 sims) but kept as a safety net for any manually-launched
   // 1-sim run or future degenerate cases.
   if (sims.length === 1) {
+    if (allSims.length > 1) {
+      // Reaching here with other sims available means they were all
+      // dropped upstream; the report is about to present one sim's
+      // write-up as the ensemble's.
+      void alertOpsAsync({
+        kind: "narrative_fallback",
+        severity: "critical",
+        summary: `${allSims.length}개 시뮬 중 1개의 서술만 남아 병합 없이 그대로 리포트에 실립니다`,
+        ensembleId: opts.ensembleId,
+        workspaceId: opts.workspaceId,
+        details: {
+          cause: "single_sim_after_filter",
+          simsAvailable: allSims.length,
+          recommendedCountry: recCountry ?? "(none)",
+          tier: opts.tier ?? "unknown",
+        },
+      });
+    }
     const s = sims[0];
     return {
       executiveSummary: s.overview?.headline ?? s.recommendations?.executiveSummary ?? "",
@@ -638,34 +692,40 @@ function safeExecutiveSummary(
  * off — any threshold below 5x catches it.
  */
 function buildAllowedPriceCents(opts: MergeNarrativeOpts): number[] {
+  // In USD cents, matching what the detector produces. The project's
+  // own prices are in its input currency, so a KRW project compared
+  // against dollar figures in the prose was off by the exchange rate
+  // and flagged every one of them.
+  const currency = opts.currency ?? "USD";
+  const toUsdCents = (cents: number): number | null => {
+    const converted = convertCurrencyCents(cents, currency, "USD");
+    return converted && converted > 0 ? converted : null;
+  };
   const allowed: number[] = [];
-  if (opts.basePriceCents && opts.basePriceCents > 0) {
-    allowed.push(opts.basePriceCents);
-  }
-  for (const s of opts.snapshots) {
-    const cents = s.pricing?.recommendedPriceCents;
-    if (cents && cents > 0) allowed.push(cents);
-  }
+  const push = (cents: number | null | undefined) => {
+    if (!cents || cents <= 0) return;
+    const usd = toUsdCents(cents);
+    if (usd) allowed.push(usd);
+  };
+  push(opts.basePriceCents);
+  for (const s of opts.snapshots) push(s.pricing?.recommendedPriceCents);
   return allowed;
 }
 
 /**
- * Convert a detected (rawValue, unitToken) pair to cents using a small
- * unit table. Returns null when the unit isn't recognized — caller
- * skips sanitization for that occurrence rather than guessing.
+ * A detected (rawValue, unit) pair as USD cents, so a figure written in
+ * one currency can be compared against an allowed price in another.
  *
- * KRW (원): rawValue is already in won → multiply by 100 for cents.
- * USD ($, 달러, USD): rawValue is in dollars → multiply by 100.
- * JPY (¥, 엔, JPY): rawValue is in yen → cents ≈ usd*100 with rate; we
- *   skip conversion and only match when the basePrice/recommended is
- *   ALSO in JPY (currency-aware). For simplicity we drop JPY here —
- *   the bug we're fixing is USD/KRW.
+ * This used to ignore the unit and multiply by 100 regardless, which
+ * made every dollar figure in a KRW project look 700x too small: an
+ * executive summary quoting a $24.60 acquisition cost against an
+ * 18,000-KRW base price had both numbers replaced with
+ * "[price source needed]" and shipped that way.
  */
-function priceTokenToCents(
-  rawValue: number,
-  _unit: "USD" | "KRW",
-): number {
-  return Math.round(rawValue * 100);
+function priceTokenToUsdCents(rawValue: number, unit: "USD" | "KRW"): number | null {
+  if (unit === "USD") return Math.round(rawValue * 100);
+  const usd = toUsd(rawValue, "KRW");
+  return usd == null ? null : Math.round(usd * 100);
 }
 
 const SUSPICIOUS_RATIO = 5; // flag values >5x or <0.2x any allowed price
@@ -682,6 +742,13 @@ const SUSPICIOUS_RATIO = 5; // flag values >5x or <0.2x any allowed price
  * untouched. When no allowed prices are known (legacy callers), the
  * sanitizer is a no-op.
  */
+/**
+ * A magnitude word or letter right after a money token — the figure is
+ * a market size, a revenue line or a funding round, not a unit price,
+ * and the product-price check does not apply to it.
+ */
+const MAGNITUDE_SUFFIX_RE = /^\s*(?:[BMK]|bn|billion|million|thousand|trillion|조|억|만)/i;
+
 function sanitizePrices(
   text: string,
   allowedCents: number[],
@@ -718,11 +785,16 @@ function sanitizePrices(
   let result = text;
 
   for (const re of usdPatterns) {
-    result = result.replace(re, (match, num: string) => {
+    result = result.replace(re, (match, num: string, offset: number, whole: string) => {
       const value = parseFloat(num.replace(/,/g, ""));
       if (!Number.isFinite(value) || value <= 0) return match;
-      const cents = priceTokenToCents(value, "USD");
-      if (inRange(cents)) return match;
+      // A magnitude suffix means this is not a unit price. "$1.29B in
+      // annual bilateral trade" was compared against an $13 snack bar
+      // and replaced mid-sentence, leaving the report reading
+      // "([price source needed]B annually)".
+      if (MAGNITUDE_SUFFIX_RE.test(whole.slice(offset + match.length))) return match;
+      const cents = priceTokenToUsdCents(value, "USD");
+      if (cents === null || inRange(cents)) return match;
       flagged.push(`USD ${num} (${match})`);
       return marker;
     });
@@ -733,8 +805,8 @@ function sanitizePrices(
       const value = parseFloat(num.replace(/,/g, ""));
       if (!Number.isFinite(value) || value <= 0) return match;
       const won = value * multiplier;
-      const cents = priceTokenToCents(won, "KRW");
-      if (inRange(cents)) return match;
+      const cents = priceTokenToUsdCents(won, "KRW");
+      if (cents === null || inRange(cents)) return match;
       flagged.push(`KRW ${num} (${match})`);
       return marker;
     });
@@ -790,6 +862,41 @@ function buildMergePrompt(
     : (isKo
         ? `제품: ${opts.productName} · 추천 진출국: ${opts.bestCountry} (합의도 ${opts.consensusPercent}%)`
         : `Product: ${opts.productName} · Recommended market: ${opts.bestCountry} (consensus ${opts.consensusPercent}%)`);
+
+  // The engine's own ranking, stated as settled fact. The merge model
+  // reads several sims that each ranked the markets differently and,
+  // asked to summarise, will happily name a runner-up from whichever one
+  // it leaned on. That number then sits next to the recommendation
+  // card's runner-up and disagrees with it.
+  const rankingBlock =
+    opts.marketRanking && opts.marketRanking.length >= 2
+      ? (isKo
+          ? `
+═══ 시장 순위 — 엔진이 이미 확정한 값 ═══
+${opts.marketRanking
+  .slice(0, 5)
+  .map((m, i) => `  ${i + 1}순위 ${m.country} (평균 ${m.meanScore}점, 평균 순위 ${m.meanRank})`)
+  .join("\n")}
+
+이 순위는 전 시뮬을 집계해 나온 결과이며 리포트의 추천 카드·비교표가 그대로 씁니다.
+- 다른 순서를 주장하지 마십시오. 개별 시뮬 하나가 다르게 봤더라도 그것은 표본 하나입니다.
+- 2순위를 언급한다면 반드시 ${opts.marketRanking[1].country}입니다.
+- 순위 자체를 반복할 필요는 없습니다. 다만 쓴다면 위 순서와 일치해야 합니다.
+`
+          : `
+═══ MARKET RANKING — already settled by the engine ═══
+${opts.marketRanking
+  .slice(0, 5)
+  .map((m, i) => `  #${i + 1} ${m.country} (mean score ${m.meanScore}, mean rank ${m.meanRank})`)
+  .join("\n")}
+
+This order is the aggregate across every simulation, and it is what the
+recommendation card and the comparison table in the report already show.
+- Do not assert a different order. One sim seeing it differently is one sample.
+- If you name a runner-up it is ${opts.marketRanking[1].country}, nothing else.
+- You need not restate the ranking at all; if you do, it must match the above.
+`)
+      : "";
 
   // Top-2 explicit framing block — injected at the very top of the
   // guidance, BEFORE the existing per-section rules. The existing
@@ -1092,6 +1199,23 @@ This analysis cannot pick a single winner. ${opts.top2.primary} (1st-place vote 
   if (top2Framing) {
     sections.push(top2Framing);
   }
+  // Same reasoning as the block above, and it has to land before the
+  // per-sim outputs for the same reason: once the model is reading six
+  // sims that disagree, it picks an order from one of them.
+  if (rankingBlock) {
+    sections.push(rankingBlock);
+  }
+  // The per-sim headers below carry a provider tag, which the merge
+  // needs in order to weigh cross-model agreement — and which a model
+  // asked to summarise will cheerfully quote. One summary opened "Sim 1
+  // (Anthropic) argues Australia is the optimal first market", naming
+  // our vendors to the customer reading the report.
+  sections.push(
+    "",
+    isKo
+      ? `이 아래 블록들은 **내부 입력**입니다. "Sim 1", "[anthropic]" 같은 라벨과 프로바이더 이름(Anthropic / OpenAI / DeepSeek / Gemini)은 독자에게 보이는 문장에 절대 쓰지 마십시오. 시뮬레이션 간 차이를 말해야 한다면 "일부 시뮬레이션에서는", "3개 중 2개에서" 처럼 익명으로 쓰십시오.`
+      : `The blocks below are **internal input**. Never write the labels ("Sim 1", "[anthropic]") or any provider name (Anthropic / OpenAI / DeepSeek / Gemini) into reader-facing prose. To describe disagreement between runs, say it anonymously — "some simulations", "two of the three".`,
+  );
   sections.push("", "## Per-sim outputs", simBlocks);
   if (distributionBlock) {
     sections.push("", distributionBlock);

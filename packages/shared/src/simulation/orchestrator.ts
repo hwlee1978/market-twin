@@ -752,6 +752,15 @@ export async function aggregateAndPersist(opts: {
       crossCountryDistribution: aggregate.crossCountryDistribution,
       candidateCountries: projectInput?.candidateCountries,
       top2: top2Info,
+      // countryStats is already the aggregate's own ranking, ordered
+      // best-first by mean rank, so the narrative and the recommendation
+      // card cannot disagree about who came second.
+      marketRanking: aggregate.countryStats.slice(0, 5).map((c, i) => ({
+        country: c.country,
+        // Aggregates predating meanRank still carry the order itself.
+        meanRank: c.meanRank ?? i + 1,
+        meanScore: c.finalScore.mean,
+      })),
       basePriceCents: projectInput?.basePriceCents,
       currency: projectInput?.currency,
       tier,
