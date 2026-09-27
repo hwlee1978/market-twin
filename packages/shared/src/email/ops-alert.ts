@@ -76,6 +76,17 @@ const KIND_LABEL: Record<OpsAlertKind, string> = {
 const AUDIT_ACTION = "ops_alert";
 const AUDIT_ACTION_FAILED = "ops_alert_failed";
 
+/**
+ * Is this a deployed server, or someone's laptop?
+ *
+ * Vercel sets VERCEL; Cloud Run sets K_SERVICE. Both are set by the
+ * platform, not by us, so neither can drift out of a config file. A
+ * `tsx scripts/…` run has neither, and neither does `next dev`.
+ */
+function isDeployed(): boolean {
+  return Boolean(process.env.VERCEL || process.env.K_SERVICE);
+}
+
 function esc(v: unknown): string {
   return String(v ?? "")
     .replace(/&/g, "&amp;")
@@ -137,7 +148,22 @@ export async function alertOps(
 
   let emailed = false;
   let emailError: string | undefined;
-  if (!suppressed) {
+  // A one-off script run against .env.local reads the same recipient as
+  // production and mails it. Debugging a truncation sent a real "LLM 출력
+  // 잘림" alert to the operator's inbox from a repro whose token ceiling
+  // was a property of the script, not the pipeline. The console line
+  // above and the audit row below still happen, so nothing is lost — it
+  // just doesn't wake anyone up.
+  //
+  // Kept separate from `suppressed`: a deduped alert counts as delivered
+  // and claims the window, and a local skip must not, or a script run
+  // would silence the next hour of real alerts.
+  const skippedLocally = !suppressed && !isDeployed();
+  if (skippedLocally) {
+    emailError = "local run (not Vercel / Cloud Run) — email skipped";
+    console.warn(`[ops-alert] ${emailError}`);
+  }
+  if (!suppressed && !skippedLocally) {
     const to = getOpsRecipient();
     if (!to) {
       emailError = "no recipient (set OPS_ALERT_EMAIL or SUPERADMIN_EMAILS)";
