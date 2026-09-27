@@ -31,6 +31,7 @@ import {
   stripActionScoreNotation,
   varianceCopyFor,
 } from "@/lib/simulation/grade-copy";
+import { displayPickDistribution } from "@/lib/simulation/ensemble";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { categoryLabel, normalizeActionCategory } from "@/lib/simulation/taxonomy";
 import { assessActionSpecificity } from "@/lib/simulation/action-specificity";
@@ -1033,7 +1034,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       displayMode?: string;
       secondary?: { country?: string };
     };
-    const distTop = aggregate.bestCountryDistribution?.[0]?.country;
+    const distTop = displayPickDistribution(aggregate)?.[0]?.country;
     // Two separate situations shared one banner and one wording. A tie is
     // the engine declining to name a winner; a vote mismatch is the
     // score-winner and the vote-leader disagreeing. Both deserve a
@@ -1249,16 +1250,16 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             <MText style={{ fontSize: 9, color: C.body, marginTop: 4, lineHeight: 1.5 }}>
               {isKo
                 ? (() => {
-                    const pv = aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.primaryCode)?.percent;
-                    const sv = aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.secondaryCode)?.percent;
+                    const pv = displayPickDistribution(aggregate)?.find((b) => b.country === topTwo.primaryCode)?.percent;
+                    const sv = displayPickDistribution(aggregate)?.find((b) => b.country === topTwo.secondaryCode)?.percent;
                     const verdict = topTwo.isTie
                       ? "점수 격차 작아 단일국 결정 보류 권장"
                       : `1순위 ${topTwo.primaryLabel} 우세 · ${topTwo.secondaryLabel}는 차선책`;
                     return `1순위 vote: ${topTwo.primaryLabel} ${pv ?? 0}% · ${topTwo.secondaryLabel} ${sv ?? 0}% — ${verdict} (1위표 합의도 ${recommendation.consensusPercent}%)`;
                   })()
                 : (() => {
-                    const pv = aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.primaryCode)?.percent;
-                    const sv = aggregate.bestCountryDistribution?.find((b) => b.country === topTwo.secondaryCode)?.percent;
+                    const pv = displayPickDistribution(aggregate)?.find((b) => b.country === topTwo.primaryCode)?.percent;
+                    const sv = displayPickDistribution(aggregate)?.find((b) => b.country === topTwo.secondaryCode)?.percent;
                     const verdict = topTwo.isTie
                       ? "narrow score gap, defer single-country decision"
                       : `${topTwo.primaryLabel} leads, ${topTwo.secondaryLabel} is the fallback`;
@@ -1551,7 +1552,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
 
   const renderExecutiveSummaryPage = () => {
     if (!aggregate.narrative?.executiveSummary) return null;
-    const runnerUp = aggregate.bestCountryDistribution[1];
+    const runnerUp = displayPickDistribution(aggregate)[1];
     const winnerStats = aggregate.countryStats.find(
       (c) => c.country === aggregate.recommendation.country,
     );
@@ -2083,7 +2084,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
       displayMode?: string;
       secondary?: { country?: string };
     };
-    const distTop = aggregate.bestCountryDistribution?.[0]?.country;
+    const distTop = displayPickDistribution(aggregate)?.[0]?.country;
     const secCountry =
       recExt.secondary?.country && recExt.secondary.country !== aggregate.recommendation.country
         ? recExt.secondary.country
@@ -7532,7 +7533,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
               displayMode?: string;
               secondary?: { country?: string };
             };
-            const distTop = aggregate.bestCountryDistribution?.[0]?.country;
+            const distTop = displayPickDistribution(aggregate)?.[0]?.country;
             const isTie = isTieResult(recExt.displayMode);
             const voteMismatch =
               !!distTop && distTop !== aggregate.recommendation.country;

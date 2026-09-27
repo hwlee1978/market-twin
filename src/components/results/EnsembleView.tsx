@@ -27,6 +27,7 @@ import {
   type SecondaryCopy,
   type SegmentMetric,
 } from "@/lib/simulation/grade-copy";
+import { displayPickDistribution } from "@/lib/simulation/ensemble";
 import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
 import { formatPrice } from "@/lib/format/price";
 import { normalizeLLMText } from "@/lib/format/normalize";
@@ -1065,7 +1066,6 @@ function EnsembleDashboard({
     }
   };
   const {
-    bestCountryDistribution,
     recommendation,
     countryStats,
     segments,
@@ -1078,6 +1078,12 @@ function EnsembleDashboard({
     effectivePersonas,
     simCount,
   } = aggregate;
+  // Draw the tally the recommendation was decided from, not the one the
+  // sims' write-ups voted for. They disagree often enough to print a
+  // contradiction: a run recommending US at 67% consensus while the bar
+  // chart beside it showed TW ahead 3-2. Older aggregates have only the
+  // write-up tally and still render from that.
+  const bestCountryDistribution = displayPickDistribution(aggregate);
   const isKo = locale === "ko";
   const [activeTab, setActiveTab] = useState<TabKey>(() => parseTabKey(initialTab));
 

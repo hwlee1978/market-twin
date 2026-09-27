@@ -312,6 +312,34 @@ export interface ProviderConsensus {
   agreementWithOverallPercent: number;
 }
 
+/**
+ * The pick distribution to show a reader.
+ *
+ * Prefers the tally the recommendation was decided from, and falls back
+ * to the synthesis-pick tally for aggregates written before that field
+ * existed — so old reports render exactly as they did.
+ */
+export function displayPickDistribution(
+  aggregate: Pick<
+    EnsembleAggregate,
+    "topPickDistribution" | "bestCountryDistribution" | "recommendation"
+  >,
+): Array<{ country: string; count: number; percent: number }> {
+  const rows = aggregate.topPickDistribution?.length
+    ? aggregate.topPickDistribution
+    : aggregate.bestCountryDistribution;
+  // Among markets tied on count, lead with the one that was recommended.
+  // A tie is the engine saying the sims split evenly; whichever country
+  // happened to be counted first should not get to look like the winner
+  // in a chart printed next to a headline naming the other one.
+  const winner = aggregate.recommendation?.country;
+  return [...rows].sort(
+    (a, b) =>
+      b.count - a.count ||
+      (a.country === winner ? -1 : 0) - (b.country === winner ? -1 : 0),
+  );
+}
+
 export interface EnsembleAggregate {
   /** Number of sims successfully aggregated. */
   simCount: number;
@@ -319,6 +347,25 @@ export interface EnsembleAggregate {
   effectivePersonas: number;
 
   bestCountryDistribution: Array<{ country: string; count: number; percent: number }>;
+  /**
+   * The tally the recommendation is actually decided from: each sim's
+   * highest-scoring export market, origin excluded.
+   *
+   * `bestCountryDistribution` above counts something else — the country
+   * each sim's SYNTHESIS named — and the two disagree often enough to
+   * print a contradiction. One run recommended US at 67% consensus
+   * while the chart beside it showed TW leading 3-2, because the
+   * consensus figure came from this tally and the bars came from that
+   * one. Renderers should draw this; the other stays for the
+   * "did the write-up agree with the numbers?" view and for aggregates
+   * written before this field existed.
+   *
+   * Display only. The dominance and confidence calibration deliberately
+   * still read bestCountryDistribution — those thresholds were fitted
+   * against it on the backtest set, and re-pointing them would move
+   * every label without re-running that work.
+   */
+  topPickDistribution?: Array<{ country: string; count: number; percent: number }>;
   /** Top recommendation: most frequent bestCountry across sims. */
   recommendation: {
     country: string;
@@ -1814,6 +1861,10 @@ export function aggregateEnsemble(
     simCount,
     effectivePersonas,
     bestCountryDistribution,
+    topPickDistribution: voteDistribution.map((v) => ({
+      ...v,
+      percent: simCount > 0 ? Math.round((v.count / simCount) * 100) : 0,
+    })),
     recommendation: {
       country: winner?.country ?? "?",
       consensusPercent,
