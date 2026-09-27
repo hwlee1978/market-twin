@@ -39,8 +39,8 @@ interface RecoveryOptions {
  * Best-effort JSON recovery — returns parsed value or undefined.
  * Order of attempts:
  *   1. Direct JSON.parse on trimmed text (covers the happy path).
- *   2. Strip markdown fences.
- *   3. Extract largest balanced {...} block via balanced-brace scan.
+ *   2. Contents of a ```json fence, when the model reasoned first.
+ *   3. Largest balanced {...} block that parses, via balanced-brace scan.
  *   4. Partial array recovery — reconstruct { arrayKey: [...] } from
  *      complete `{...}` blocks inside a truncated array.
  *
@@ -64,8 +64,22 @@ export function recoverJsonFromText(
     // fall through
   }
 
-  // 2. Largest balanced object/array block extraction.
-  const balanced = extractBalancedBlock(cleaned);
+  // 2. Fenced blocks. A model asked for JSON often reasons first and
+  //    then emits ```json … ```, which stripMarkdown can't help with
+  //    because the fence isn't at the start. The fence is an explicit
+  //    "the answer is in here", so trust it above anything found loose
+  //    in the prose.
+  for (const fenced of extractFencedBlocks(cleaned)) {
+    try {
+      return JSON.parse(fenced);
+    } catch {
+      // A fence holding truncated JSON still beats the prose — let the
+      // balanced scan below work on the whole text rather than bail.
+    }
+  }
+
+  // 3. Largest balanced object/array block.
+  const balanced = extractLargestBalancedBlock(cleaned);
   if (balanced !== null) {
     try {
       return JSON.parse(balanced);
@@ -74,7 +88,7 @@ export function recoverJsonFromText(
     }
   }
 
-  // 3. Partial array recovery — the headline value-add.
+  // 4. Partial array recovery — the headline value-add.
   if (opts.arrayKey) {
     const partial = recoverPartialArray(cleaned, opts.arrayKey);
     if (partial !== undefined) return partial;
@@ -95,16 +109,68 @@ function stripMarkdown(text: string): string {
     .trim();
 }
 
+/** Contents of every ``` fenced segment, longest first. */
+function extractFencedBlocks(text: string): string[] {
+  const blocks: string[] = [];
+  const re = /```(?:json|javascript|js)?\s*\n?([\s\S]*?)```/gi;
+  for (let m = re.exec(text); m !== null; m = re.exec(text)) {
+    const body = m[1].trim();
+    if (body) blocks.push(body);
+  }
+  return blocks.sort((a, b) => b.length - a.length);
+}
+
 /**
- * Find the largest substring that's a syntactically balanced JSON
- * object or array. Handles strings (including escaped quotes), nested
- * braces, and ignores unbalanced trailing prose.
+ * The largest top-level balanced block that parses.
  *
- * Returns null when no balanced block exists (e.g. truncated mid-entry).
+ * The previous version took the FIRST `{` or `[` in the text, which is
+ * only the answer when the answer is all the model wrote. Asked to
+ * price one market, the model reasons first — "**JP market signals:**
+ * … high=17 [above US] …" — and a bracket anywhere in that prose won
+ * over the JSON that followed. Every sample for a market would be
+ * rejected as "expected object, received array" while the object sat
+ * intact further down, and the market vanished from the report.
+ *
+ * Walks the text once, collecting blocks that start at depth 0 and
+ * skipping past each one, so the cost stays linear in the input.
  */
-function extractBalancedBlock(text: string): string | null {
-  const start = findFirstStructuralChar(text, 0);
-  if (start === -1) return null;
+function extractLargestBalancedBlock(text: string): string | null {
+  let best: string | null = null;
+  let i = 0;
+  while (i < text.length) {
+    const start = findFirstStructuralChar(text, i);
+    if (start === -1) break;
+    const block = balancedBlockAt(text, start);
+    if (block === null) {
+      // This opener never closes, so everything after it is nested
+      // inside it — a truncated response. Stop rather than descending,
+      // or a max_tokens-clipped `{"personas":[{…},{…` would match the
+      // first complete persona and return that one object as the whole
+      // answer, throwing the other eleven away. The truncated-array
+      // recovery below is what handles this case.
+      break;
+    }
+    // Prefer the largest block that is actually valid JSON: a stray
+    // "[1]" in prose is balanced but is not the answer.
+    if (block.length > (best?.length ?? 0)) {
+      try {
+        JSON.parse(block);
+        best = block;
+      } catch {
+        // Not JSON — keep looking.
+      }
+    }
+    i = start + block.length;
+  }
+  return best;
+}
+
+/**
+ * A balanced JSON object or array starting exactly at `start`.
+ * Handles strings (including escaped quotes) and nested braces.
+ * Returns null when it never closes (e.g. truncated mid-entry).
+ */
+function balancedBlockAt(text: string, start: number): string | null {
   const open = text[start];
   const close = open === "{" ? "}" : "]";
   let depth = 0;
