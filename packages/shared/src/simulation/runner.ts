@@ -68,6 +68,7 @@ import {
   PersonaReactionSchema,
   PersonaSchema,
   PricingResultSchema,
+  PerMarketPricingSchema,
   type ProjectInput,
   RecommendationSchema,
   RiskSchema,
@@ -2341,8 +2342,12 @@ ${entries}
       if (Number.isFinite(env) && env >= 0 && env <= 3) return Math.floor(env);
       return 2;
     })();
+    // Declared as the full PricingResult, but only the price and the
+    // curve were ever read out of it — see the write below, and the
+    // byCountry shape in PricingResultSchema. The wide type is what let
+    // the full schema be handed to the per-market call unnoticed.
     let pricingByCountry:
-      | Record<string, z.infer<typeof PricingResultSchema>>
+      | Record<string, z.infer<typeof PerMarketPricingSchema>>
       | undefined;
     if (SECONDARY_MARKETS > 0 && countryScores.length > 1) {
       // Exclude whichever market the primary curve is for, by name rather than
@@ -2385,13 +2390,17 @@ ${entries}
                 .generate({
                   system: PRICING_SYSTEM,
                   prompt: text,
-                  jsonSchema: PricingResultSchema as unknown as object,
+                  // Slim schema. This pass needs one market's price and
+                  // curve; the full PricingResultSchema also showed the
+                  // model a byCountry slot for every market, and it
+                  // filled it — output ran past the ceiling and the JSON
+                  // came back unterminated. See PerMarketPricingSchema.
+                  jsonSchema: PerMarketPricingSchema as unknown as object,
                   temperature: 0.4,
-                  // Same schema, same ceiling problem as the main
-                  // pricing call above. This one swallows the error
-                  // (.catch(() => null)), so a truncation here doesn't
-                  // fail the run — it just silently drops that market's
-                  // pricing, which is worse to diagnose.
+                  // Generous for the slim shape. A truncation here is
+                  // swallowed by .catch(() => null), so it doesn't fail
+                  // the run — it drops that market's pricing silently,
+                  // which is harder to notice than a failure.
                   maxTokens: 12000,
                 })
                 .catch(() => null),
@@ -2402,7 +2411,7 @@ ${entries}
             .map((r) => {
               secIn += r.usage?.inputTokens ?? 0;
               secOut += r.usage?.outputTokens ?? 0;
-              return PricingResultSchema.safeParse(r.json);
+              return PerMarketPricingSchema.safeParse(r.json);
             })
             .filter((p) => p.success)
             .map((p) => p.data);

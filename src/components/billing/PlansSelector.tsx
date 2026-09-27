@@ -231,8 +231,8 @@ function PackCard({
       >
         {openBeta
           ? isKo
-            ? "베타 무료 이용"
-            : "Free in beta"
+            ? "무료 이용"
+            : "Free"
           : canBuy
             ? isKo
               ? "결제하기"

@@ -415,7 +415,7 @@ function StatusBanner({
       <Banner
         tone="info"
         icon={<Sparkles size={16} />}
-        title={isKo ? "베타 무료 체험 진행 중" : "Beta trial in progress"}
+        title={isKo ? "무료 체험 진행 중" : "Free trial in progress"}
         body={
           isKo
             ? `시뮬 ${trial.simsUsed}/${trial.simsLimit}건 사용 · ${remaining != null ? `${remaining}일 남음` : ""}`

@@ -26,7 +26,7 @@ export function BetaTrialComplete({
         <CheckCircle2 size={32} />
       </div>
       <h1 className="text-2xl font-bold text-slate-900 mb-3">
-        {isKo ? "베타테스트가 완료되었습니다 🎉" : "Your beta trial is complete 🎉"}
+        {isKo ? "무료 체험이 끝났습니다 🎉" : "Your free trial is complete 🎉"}
       </h1>
       <p className="text-slate-600 leading-relaxed mb-2">
         {isKo

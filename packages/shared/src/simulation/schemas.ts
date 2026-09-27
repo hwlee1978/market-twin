@@ -482,6 +482,28 @@ export const PricingResultSchema = z.object({
 });
 export type PricingResult = z.infer<typeof PricingResultSchema>;
 
+/**
+ * Pricing for one runner-up market — what the per-market pass actually
+ * consumes, and nothing else.
+ *
+ * That pass used to hand the model the full PricingResultSchema, which
+ * carries `byCountry` (a map of every market's curve), `range` and
+ * `competitorPrices` — fields the runner fills in itself. A schema is
+ * an instruction: shown a slot for eight markets' curves while being
+ * asked for one, the model filled it. Output ran past a 12,000-token
+ * ceiling, the JSON came back unterminated, and all three samples for
+ * AU and TW failed to parse — those markets then vanished from the
+ * comparison table with no gap to show they had been there.
+ *
+ * `curve` is bounded here too. The prompt asks for 8-15 points; without
+ * a maxItems the schema said any number was acceptable.
+ */
+export const PerMarketPricingSchema = z.object({
+  recommendedPriceCents: z.number().int().nonnegative(),
+  curve: z.array(PricingPointSchema).min(3).max(20),
+});
+export type PerMarketPricing = z.infer<typeof PerMarketPricingSchema>;
+
 // ─── Risks ─────────────────────────────────────────────────────
 export const RiskSchema = z.object({
   factor: z.string(),
@@ -546,7 +568,10 @@ export const SimulationResultSchema = z.object({
    * PricingResultSchema) — simulation_results has fixed columns, so a new
    * top-level field would be silently dropped on write.
    */
-  pricingByCountry: z.record(z.string(), PricingResultSchema).optional(),
+  // Slim, matching what the per-market pass produces and what the write
+  // below stores. It used to be typed as the full PricingResultSchema,
+  // which is how the per-market LLM call came to be handed that schema.
+  pricingByCountry: z.record(z.string(), PerMarketPricingSchema).optional(),
   creative: z.array(
     z.object({
       assetName: z.string(),

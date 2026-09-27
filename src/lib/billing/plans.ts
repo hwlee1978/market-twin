@@ -93,7 +93,10 @@ export interface PlanDefinition {
  */
 const FREE_TRIAL: PlanDefinition = {
   slug: "free_trial",
-  name: "베타 무료 체험",
+  // "베타"를 뗀다. 오픈베타 플래그는 그대로 켜져 있고 결제도 닫힌 채지만,
+  // 제품을 베타라고 부르는 건 별개 문제 — 출시 준비가 끝난 화면에서
+  // "베타"는 완성도가 덜하다는 신호로 읽힌다.
+  name: "무료 체험",
   tagline: {
     ko: "7일 또는 초기검증 1회 무료 체험",
     en: "Free for 7 days or 1 simulation, whichever comes first",
