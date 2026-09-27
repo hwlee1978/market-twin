@@ -2060,9 +2060,25 @@ ${entries}
       }
     }
     const pricingCandidates: Array<z.infer<typeof PricingResultSchema>> = [];
+    // Why a sample was unusable, so the fallback alert can say more than
+    // that pricing failed. Same wrapper tolerance as the per-market pass.
+    const pricingRejects: string[] = [];
     for (const resp of pricingResps) {
-      const parsed = PricingResultSchema.safeParse(resp.json);
+      const parsed = PricingResultSchema.safeParse(unwrapSingleObject(resp.json));
       if (parsed.success) pricingCandidates.push(parsed.data);
+      else
+        pricingRejects.push(
+          `${parsed.error.issues
+            .slice(0, 3)
+            .map((i) => `${i.path.join(".") || "(root)"} ${i.message}`)
+            .join("; ")} (out=${resp.usage?.outputTokens ?? "?"})`,
+        );
+    }
+    if (pricingRejects.length > 0) {
+      console.warn(
+        `[sim ${opts.simulationId}] pricing: ${pricingRejects.length}/${pricingResps.length} sample(s) rejected — ` +
+          pricingRejects.join(" || "),
+      );
     }
     // Currency-scale sanity correction. LLMs occasionally emit prices in
     // a different currency scale than the project's input currency — most
@@ -2310,6 +2326,19 @@ ${entries}
         `(in=${synthesisResp.usage?.inputTokens ?? "?"}, out=${synthesisResp.usage?.outputTokens ?? "?"})`,
     );
 
+    // One null field was costing a whole sim its narrative. English runs
+    // had two of six synthesis calls rejected for
+    // `overview.bestPriceCents: expected number, received null` — the
+    // model declined to name a headline price and lost its risks, action
+    // plan and executive summary along with it. The price is already
+    // known here from the pricing stage, so fill it rather than discard
+    // several thousand tokens of good prose over a field we can supply.
+    const synthesisJson = repairSynthesisOverview(
+      synthesisResp.json,
+      pricing.success ? pricing.data.recommendedPriceCents : projectInput.basePriceCents,
+      opts.simulationId,
+    );
+
     const synthesis = z
       .object({
         overview: OverviewSchema,
@@ -2324,7 +2353,7 @@ ${entries}
         risks: z.array(RiskSchema),
         recommendations: RecommendationSchema,
       })
-      .safeParse(synthesisResp.json);
+      .safeParse(synthesisJson);
 
     // A rejected synthesis costs this sim its entire narrative: risks
     // become [], recommendations become empty strings, and the overview
@@ -2456,7 +2485,7 @@ ${entries}
             .map((r) => {
               secIn += r.usage?.inputTokens ?? 0;
               secOut += r.usage?.outputTokens ?? 0;
-              const p = PerMarketPricingSchema.safeParse(r.json);
+              const p = PerMarketPricingSchema.safeParse(unwrapSingleObject(r.json));
               if (!p.success) {
                 failures.push(
                   `schema: ${p.error.issues
@@ -2517,7 +2546,9 @@ ${entries}
       // synthetic curve around it. On the page that is indistinguishable
       // from a real recommendation that happens to agree with the base
       // price — which is exactly what an English run looked like.
-      pricing: pricing.success ? pricing.data : fallbackPricingReported(projectInput, opts),
+      pricing: pricing.success
+        ? pricing.data
+        : fallbackPricingReported(projectInput, opts, pricingRejects),
       ...(pricingByCountry ? { pricingByCountry } : {}),
       creative: synthesis.success ? synthesis.data.creative : [],
       risks: synthesis.success ? synthesis.data.risks : [],
@@ -2889,6 +2920,56 @@ ${entries}
   }
 }
 
+/**
+ * Accept `[{...}]` where a lone object was asked for.
+ *
+ * The per-market pricing call asks for one market's price and curve and
+ * gets back an array holding exactly that object often enough to lose
+ * whole markets to it — three "market dropped" alerts in one run, every
+ * sample rejected with "expected object, received array". The content
+ * was right; only the wrapper was wrong. Anything else passes through
+ * untouched and still fails validation.
+ */
+function unwrapSingleObject(json: unknown): unknown {
+  if (
+    Array.isArray(json) &&
+    json.length === 1 &&
+    json[0] &&
+    typeof json[0] === "object" &&
+    !Array.isArray(json[0])
+  ) {
+    return json[0];
+  }
+  return json;
+}
+
+/**
+ * Fill the one overview field the model reliably leaves null.
+ *
+ * Deliberately narrow: it repairs `bestPriceCents` when it is null or
+ * missing and touches nothing else, so a synthesis that is wrong in any
+ * other way still fails validation and still gets reported. Widening
+ * this into a general coercion layer would hide exactly the defects the
+ * schema exists to catch.
+ */
+function repairSynthesisOverview(
+  json: unknown,
+  knownPriceCents: number,
+  simulationId: string,
+): unknown {
+  if (!json || typeof json !== "object" || Array.isArray(json)) return json;
+  const root = json as Record<string, unknown>;
+  const overview = root.overview;
+  if (!overview || typeof overview !== "object" || Array.isArray(overview)) return json;
+  const ov = overview as Record<string, unknown>;
+  if (typeof ov.bestPriceCents === "number") return json;
+  console.warn(
+    `[sim ${simulationId}] synthesis omitted overview.bestPriceCents ` +
+      `(${JSON.stringify(ov.bestPriceCents)}) — filling from the pricing stage (${knownPriceCents})`,
+  );
+  return { ...root, overview: { ...ov, bestPriceCents: knownPriceCents } };
+}
+
 function fallbackOverview(
   input: ProjectInput,
   countries: z.infer<typeof CountryScoreSchema>[],
@@ -2918,10 +2999,12 @@ function fallbackOverview(
 function fallbackPricingReported(
   input: ProjectInput,
   opts: { simulationId: string },
+  rejects: string[] = [],
 ): z.infer<typeof PricingResultSchema> {
   console.error(
     `[sim ${opts.simulationId}] pricing REJECTED — falling back to the base price ` +
-      `(${input.basePriceCents / 100} ${input.currency}) with a synthetic curve`,
+      `(${input.basePriceCents / 100} ${input.currency}) with a synthetic curve. ` +
+      `reasons: ${rejects.join(" || ") || "(none recorded)"}`,
   );
   void alertOpsAsync({
     kind: "price_hallucination",
@@ -2931,6 +3014,7 @@ function fallbackPricingReported(
     details: {
       basePriceCents: input.basePriceCents,
       currency: input.currency,
+      reasons: rejects.slice(0, 3).join(" || ") || "(원인 미기록)",
     },
   });
   return fallbackPricing(input);
