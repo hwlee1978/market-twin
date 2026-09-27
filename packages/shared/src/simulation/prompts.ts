@@ -67,12 +67,15 @@ const REGISTER_RULE: Record<PromptLocale, string> = {
  * them, and the quality audit quarantined whole simulations.
  */
 const LANGUAGE_EXAMPLES: Record<PromptLocale, string> = {
-  ko: `- JP 페르소나: profession="영업 매니저" (NOT "営業マネージャー", NOT "Sales Manager"), voice="Qoo10에서 쿠폰 뜨면 바로 사봐야겠어요" (NOT "Qoo10のクーポンで安くなったら絶対買う").
+  ko: `- JP 페르소나: profession="영업 매니저" (NOT "営業マネージャー", NOT "Sales Manager", NOT "営業マネージャー (영업 매니저)"), voice="Qoo10에서 쿠폰 뜨면 바로 사봐야겠어요" (NOT "Qoo10のクーポンで安くなったら絶対買う", NOT "@cosmeのレビューを読んでから決める").
 - TW 페르소나: voice="momo購物에 올라오면 한 박스 사볼게요" — 채널명은 원형 그대로, 문장은 한국어.
-- US 페르소나: interests=["크로스핏", "매크로 트래킹"] (NOT ["CrossFit", "macro tracking"]), voice="$25면 한 번 써볼 만해요".`,
+- US 페르소나: interests=["크로스핏", "매크로 트래킹"] (NOT ["CrossFit", "macro tracking"]), voice="$25면 한 번 써볼 만해요" (NOT "$25 is worth trying").
+- GB 페르소나: profession="마케팅 매니저" (NOT "Marketing Manager"). AE 페르소나: profession="IT 매니저" (NOT "IT Manager").
+- 브랜드·채널의 한글 음차: 위 BRAND 절의 "보존 > 음차 > 번역" 순서에서, 한국어 실행의 음차란 한글을 뜻합니다 — Tabelog → "Tabelog" 또는 "타베로그", Mercari → "메르카리", Rakuten → "라쿠텐", Yodobashi → "요도바시카메라", 厚生労働省 → "후생노동성", ヤマダ電機 → "야마다전기". 한국 독자가 알아보는 표기를 쓰되, 번역("먹로그", "낙천")은 금지.`,
   en: `- A JP persona: profession="Sales Manager" (NOT "営業マネージャー"), voice="I'd grab it when Qoo10 runs a coupon" (NOT "Qoo10のクーポンで安くなったら絶対買う").
 - A TW persona: voice="I'd order a box once it's on momo購物" — keep the channel name as it really is, write the sentence around it in English.
-- A KR persona: voice="Worth a try at ₩18,000" (NOT "18,000원이면 한 번 써볼 만해요"), interests=["CrossFit", "macro tracking"] (NOT ["크로스핏", "매크로 트래킹"]).`,
+- A KR persona: voice="Worth a try at ₩18,000" (NOT "18,000원이면 한 번 써볼 만해요"), interests=["CrossFit", "macro tracking"] (NOT ["크로스핏", "매크로 트래킹"]).
+- Brand and channel transliteration: in an English run the BRAND section's "preserve > transliterate > translate" means Latin script — Tabelog, Mercari, Rakuten, Yodobashi, Yamada Denki; 厚生労働省 as "Ministry of Health, Labour and Welfare". Never render them in Hangul.`,
 };
 
 /**
