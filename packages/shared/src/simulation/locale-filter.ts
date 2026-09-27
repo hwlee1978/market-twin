@@ -84,15 +84,51 @@ export function sanitizeVoice(voice: string | undefined, locale: LocaleHint): st
     if (HIRAGANA_KATAKANA_RE.test(t)) return null;
     return voice;
   }
-  if (HANGUL_RE.test(t) || HIRAGANA_KATAKANA_RE.test(t) || HAN_RE.test(t)) return null;
+  // Hangul or kana in an English voice means the model answered in the
+  // wrong language — still a hard reject.
+  if (HANGUL_RE.test(t) || HIRAGANA_KATAKANA_RE.test(t)) return null;
+  // Han characters are not. An English-speaking persona in Taiwan or
+  // Japan naming a local brand writes it in Han — "I'd buy it on
+  // momo購物", "無糖零食 shelf at Carrefour" — and rejecting the whole
+  // voice for that threw away exactly the market-specific detail the
+  // report wants. Reject only when Han carries the sentence rather than
+  // appearing inside it.
+  if (hanShare(t) > HAN_SHARE_LIMIT) return null;
   return voice;
+}
+
+/**
+ * Share of letters that are Han, ignoring spaces and punctuation.
+ *
+ * A brand name is a few characters in an otherwise Latin sentence; a
+ * voice written in Chinese is nearly all Han. 0.3 sits well clear of
+ * both — "I'd buy it on momo購物 if the price lands near NT$580" is
+ * about 0.05.
+ */
+const HAN_SHARE_LIMIT = 0.3;
+
+function hanShare(text: string): number {
+  const letters = text.replace(/[\s\p{P}\p{S}\d]/gu, "");
+  if (letters.length === 0) return 0;
+  const han = letters.match(/[一-鿿]/gu)?.length ?? 0;
+  return han / letters.length;
 }
 
 // LLM persona-break giveaways. Case-insensitive Korean + English markers.
 // Keep this conservative — false positives drop real voices, so each entry
 // has to be a phrase a real customer would essentially never use.
 const LLM_SELF_REF_RE =
-  /\b(as an? (ai|language model|assistant|llm)|i (cannot|can't|am unable to|am an ai|am a language)|i'm an? (ai|assistant|language model)|sorry,? (but )?(i|as)|i don't have (the )?ability)\b|저는 (인공지능|AI|언어 ?모델|어시스턴트)|죄송하지만 저는|저는 .{0,20}(할 수 없|드릴 수 없)/i;
+  // Each alternative has to name the model. The previous version also
+  // matched bare "I cannot", "I can't" and "sorry, but I" — ordinary
+  // English that customers use constantly ("I can't find it in
+  // Singapore", "Sorry, but I only shop at Costco"). On an English run
+  // that rejected 83 of 200 voices, the quality audit read the losses
+  // as a language failure and quarantined four of six simulations.
+  //
+  // The Korean side kept "죄송하지만 저는" and the "저는 … 할 수 없"
+  // shape, which are far less common in a shopper's own words and were
+  // not producing false drops.
+  /\b(as an? (ai|language model|assistant|llm)|i(?: am|'m) an? (ai|assistant|language model)|i (cannot|can't|am unable to) (assist|help|provide|answer|comply|generate)|i don't have (the )?ability)\b|저는 (인공지능|AI|언어 ?모델|어시스턴트)|죄송하지만 저는|저는 .{0,20}(할 수 없|드릴 수 없)/i;
 
 // Markdown headers / bold / italics / links / fenced code. Personas don't
 // format their inner monologue — when this fires it's leaked LLM output.
