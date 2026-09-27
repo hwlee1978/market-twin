@@ -55,8 +55,65 @@ const REGISTER_RULE: Record<PromptLocale, string> = {
 - **Exception — anything a persona answered is out of scope.** \`voice\`, \`objections\`, \`trustFactors\` and the like are that person speaking: keep their own diction and colloquialism. Forcing report prose onto them corrupts the data. This rule governs only the text **we** write: analysis, score rationale, summaries, risks, actions.`,
 };
 
+/**
+ * Worked language examples, per locale.
+ *
+ * These used to live in PERSONA_SYSTEM and were written for Korean runs
+ * only — every example showed a JP or US persona answering in Korean.
+ * An English run therefore carried a rule saying "write in English" and
+ * a set of examples all written in Korean, and the examples won: on a
+ * measured English batch, 50-75% of voices came back in Korean (or, for
+ * DeepSeek, in the persona's own language), the language gate rejected
+ * them, and the quality audit quarantined whole simulations.
+ */
+const LANGUAGE_EXAMPLES: Record<PromptLocale, string> = {
+  ko: `- JP 페르소나: profession="영업 매니저" (NOT "営業マネージャー", NOT "Sales Manager"), voice="Qoo10에서 쿠폰 뜨면 바로 사봐야겠어요" (NOT "Qoo10のクーポンで安くなったら絶対買う").
+- TW 페르소나: voice="momo購物에 올라오면 한 박스 사볼게요" — 채널명은 원형 그대로, 문장은 한국어.
+- US 페르소나: interests=["크로스핏", "매크로 트래킹"] (NOT ["CrossFit", "macro tracking"]), voice="$25면 한 번 써볼 만해요".`,
+  en: `- A JP persona: profession="Sales Manager" (NOT "営業マネージャー"), voice="I'd grab it when Qoo10 runs a coupon" (NOT "Qoo10のクーポンで安くなったら絶対買う").
+- A TW persona: voice="I'd order a box once it's on momo購物" — keep the channel name as it really is, write the sentence around it in English.
+- A KR persona: voice="Worth a try at ₩18,000" (NOT "18,000원이면 한 번 써볼 만해요"), interests=["CrossFit", "macro tracking"] (NOT ["크로스핏", "매크로 트래킹"]).`,
+};
+
+/**
+ * Examples for the persona-slot rules, per locale.
+ *
+ * These were Korean-only, inside a block the model reads closely (a
+ * HARD RULE with a worked failure case). In an English run they were
+ * the largest remaining stretch of Korean in the prompt, sitting a few
+ * hundred tokens above the fields the model then has to write.
+ */
+const SLOT_EXAMPLES: Record<
+  PromptLocale,
+  {
+    profession: string;
+    cloneFailure: string;
+    districts: string;
+    subSpecialties: string;
+    careerStages: string;
+  }
+> = {
+  ko: {
+    profession: `e.g. "프리랜서 일러스트레이터 (게임 컨셉 아트 전문)"`,
+    cloneFailure: `"편집숍 바이어 (도쿄 오모테산도 멀티 브랜드 편집숍 시니어 바이어)"`,
+    districts: "도쿄 오모테산도 / 후쿠오카 텐진 / 오사카 신사이바시 / 나고야 사카에",
+    subSpecialties: "멀티 브랜드 / 빈티지·아카이브 / 컨템포러리 / 럭셔리 / 영캐주얼",
+    careerStages: "주니어·바이어 보조 / 시니어 바이어 / 헤드 바이어 / 디렉터",
+  },
+  en: {
+    profession: `e.g. "Freelance illustrator (game concept art)" or "Senior software engineer (Tokyo fintech)"`,
+    cloneFailure: `"Select-shop buyer (senior multi-brand buyer, Omotesando, Tokyo)"`,
+    districts: "Omotesando Tokyo / Tenjin Fukuoka / Shinsaibashi Osaka / Sakae Nagoya",
+    subSpecialties: "multi-brand / vintage & archive / contemporary / luxury / young casual",
+    careerStages: "junior assistant buyer / senior buyer / head buyer / director",
+  },
+};
+
 function languageInstruction(locale: PromptLocale): string {
   return `IMPORTANT: All free-form text fields you produce (rationale, descriptions, names of segments, summaries, action items, channel names, objection text, profession titles, etc.) MUST be written in ${LANG_NAME[locale]}. Numerical fields, country codes, enum values like "low"/"medium"/"high", and field keys themselves stay in English.
+
+Worked examples for this locale — the persona's nationality never changes the language:
+${LANGUAGE_EXAMPLES[locale]}
 
 ${REGISTER_RULE[locale]}`;
 }
@@ -288,28 +345,25 @@ For persona generation:
 
 RULE 1 — LANGUAGE OF TEXT FIELDS (HIGHEST PRIORITY — VIOLATIONS ARE CRITICAL ERRORS):
 ALL descriptive text fields (profession, purchaseStyle, interests, trustFactors, objections, voice) MUST be written in the SINGLE language requested by the locale at the bottom of the user prompt. THIS RULE OVERRIDES EVERY OTHER INSTINCT.
-- A JP persona in a Korean-locale run: profession="영업 매니저" (NOT "営業マネージャー", NOT "Sales Manager", NOT "営業マネージャー (Sales Manager)").
-- A JP persona in a Korean-locale run: voice="Qoo10에서 쿠폰 뜨면 바로 사봐야겠어요" (NOT "Qoo10のクーポンで安くなったら絶対買う", NOT "@cosmeのレビューを読んでから決める"). **THIS IS THE MOST FREQUENT SLIP** — Japanese-context content (Qoo10 / @cosme / ドラッグストア / 厚生労働省) heavily biases output toward Japanese. Resist that bias. Reference those Japanese channels by name but write the surrounding sentence in Korean.
-- A US persona in a Korean-locale run: interests=["크로스핏", "매크로 트래킹"] (NOT ["CrossFit", "macro tracking"]).
-- A US persona in a Korean-locale run: voice="$25면 한 번 써볼 만해요" (NOT "$25 is worth trying").
-- A GB persona in a Korean-locale run: profession="마케팅 매니저" (NOT "Marketing Manager", NOT "マーケティングマネージャー").
-- An AE persona in a Korean-locale run: profession="IT 매니저" (NOT "ITマネージャー", NOT "IT Manager").
-- Mixing languages within ONE field is also wrong: "営業マネージャー (영업 매니저)" or "成分表で確認 못 해요" — output ONLY in the locale language.
+- The persona's nationality does NOT decide the language. A Japanese persona writes in the locale language, and so does a Taiwanese, Korean or US one.
+- **THIS IS THE MOST FREQUENT SLIP**: a market's own context drags the output into that market's language. Japanese channels (Qoo10 / @cosme / ドラッグストア / 厚生労働省), Taiwanese ones (momo購物 / PTT / TFDA) and Korean ones (쿠팡 / 올리브영) all pull hard. Name the channel in its real form; write the sentence around it in the locale language.
+- Mixing languages within ONE field is also wrong — no "営業マネージャー (Sales Manager)", no "成分表で確認 못 해요". One language per field, and it is the locale's.
+- Worked examples for THIS run's locale appear at the bottom of the user prompt. Follow those, not the examples you may recall from other runs.
 
 ═══ BRAND / CHANNEL NAME PRESERVATION ═══
-Brand and channel names are preserved in their canonical real-world form, NOT translated, even when a literal translation produces a valid Korean word. The brand IS the name — translating it creates a non-existent entity.
-- Japanese channels with Korean cognates (frequent slip risk):
-  - **kakaku.com** (or 価格.com) — Japan's #1 price comparison site. WRITE "kakaku.com". DO NOT translate to "가격.com" — that domain does not exist. The site name is "kakaku", not "price".
-  - **Tabelog** (食べログ) — Japan's #1 restaurant review site. WRITE "Tabelog" or "타베로그". DO NOT translate to "먹로그" or "식사로그".
-  - **Mercari** (メルカリ) — secondhand marketplace. WRITE "Mercari" or "메르카리". DO NOT translate.
-  - **Rakuten** (楽天) — write "Rakuten" or "라쿠텐". DO NOT translate to "낙천".
-  - **Yodobashi** (ヨドバシカメラ) — write "Yodobashi" or "요도바시카메라".
+Brand and channel names are preserved in their canonical real-world form, NOT translated, even when a literal translation produces a valid word in the locale language. The brand IS the name — translating it creates a non-existent entity.
+- Japanese channels whose names look like ordinary words (frequent slip risk):
+  - **kakaku.com** (or 価格.com) — Japan's #1 price comparison site. WRITE "kakaku.com". DO NOT translate the "price" part into the locale language — no such domain exists. The site name is "kakaku".
+  - **Tabelog** (食べログ) — Japan's #1 restaurant review site. WRITE "Tabelog". DO NOT translate to "eat-log" / "먹로그" or anything similar.
+  - **Mercari** (メルカリ) — secondhand marketplace. WRITE "Mercari". DO NOT translate.
+  - **Rakuten** (楽天) — write "Rakuten". DO NOT translate the characters' meaning.
+  - **Yodobashi** (ヨドバシカメラ) — write "Yodobashi".
 - Already in Latin script — preserve as-is: Qoo10, @cosme, Amazon Japan, Costco, Wirecutter, Reddit, Sephora, Stylevana, YesStyle, Cult Beauty, Look Fantastic, John Lewis, Currys.
-- Government bodies and physical chains may be transliterated to Hangul: 厚生労働省 → "후생노동성", ヤマダ電機 → "야마다전기", ビックカメラ → "빅카메라". This is acceptable because the target reader (a Korean executive) is more likely to recognize the Hangul rendering than the original kana/kanji. But the rule is preserve > transliterate > translate. Only translate when the translation matches an established Korean term (e.g. "외무성" for foreign ministry).
+- Government bodies and physical chains may be transliterated into the LOCALE's script when that is how the locale's readers normally write them — 厚生労働省 as "후생노동성" in a Korean run, as "Ministry of Health, Labour and Welfare" in an English run; ヤマダ電機 as "야마다전기" or "Yamada Denki". Never transliterate into a script the locale does not use. The rule is preserve > transliterate > translate, and translate only when the translation is the locale's established term for that body.
 
 The "country" field is just an ISO code (KR/JP/US/GB/AE/etc) — it controls income currency and cultural realism (Rule 2 below), NOT output language. The country code never switches the text language.
 
-If you find yourself typing Japanese kanji/kana (ひらがな・カタカナ・漢字), English words, or any non-Korean characters in any text field while the locale is "ko", STOP and rewrite that field in Korean before emitting it. Voice is the most slip-prone field — re-check every voice for hiragana/katakana/Latin sentences before output.
+Before emitting any text field, check it against the locale named at the bottom of the user prompt. If a field contains a script or language the locale does not use — Japanese kana/kanji or Hangul in an English run, Latin sentences or kana in a Korean run — STOP and rewrite that field in the locale language. Voice is the most slip-prone field: re-read every voice for foreign-script sentences before output.
 
 RULE 2 — REALISM OF INCOME / VALUES:
 Income amounts, currencies, and cultural references must match the persona's COUNTRY, not a US default. The currency symbol and number scale follow the country, while the surrounding label text follows the locale language.
@@ -559,11 +613,11 @@ ${slots.map((s, i) => `  Slot ${i + 1}: country=${s.country}, base profession=${
 
 Rules:
 - The persona's "country" field MUST equal the slot's country code.
-- The persona's "profession" field MUST start with the assigned base profession. You MAY add a parenthetical specialization to make it concrete (e.g. "프리랜서 일러스트레이터 (게임 컨셉 아트 전문)" or "Senior software engineer (Tokyo fintech)"), but the base must match.
-- **PARENTHETICAL SPECIALIZATION DIVERSITY (HARD RULE)**: Across the batch, NO TWO personas with the same base profession may share an identical parenthetical. This is enforced even when the obvious "default" specialization would fit both. Example failure: emitting "편집숍 바이어 (도쿄 오모테산도 멀티 브랜드 편집숍 시니어 바이어)" for every JP 편집숍 바이어 slot — the cross-sim aggregator collapses these as a single 19-clone group, which surfaces as "19 personas all live in one Tokyo neighborhood and share an exact job title", which is statistically absurd. Vary by:
-   • City / district (도쿄 오모테산도 / 후쿠오카 텐진 / 오사카 신사이바시 / 나고야 사카에)
-   • Sub-specialization (멀티 브랜드 / 빈티지·아카이브 / 컨템포러리 / 럭셔리 / 영캐주얼)
-   • Career stage (주니어·바이어 보조 / 시니어 바이어 / 헤드 바이어 / 디렉터)
+- The persona's "profession" field MUST start with the assigned base profession. You MAY add a parenthetical specialization to make it concrete (${SLOT_EXAMPLES[locale].profession}), but the base must match.
+- **PARENTHETICAL SPECIALIZATION DIVERSITY (HARD RULE)**: Across the batch, NO TWO personas with the same base profession may share an identical parenthetical. This is enforced even when the obvious "default" specialization would fit both. Example failure: emitting ${SLOT_EXAMPLES[locale].cloneFailure} for every JP slot with that profession — the cross-sim aggregator collapses these as a single 19-clone group, which surfaces as "19 personas all live in one Tokyo neighborhood and share an exact job title", which is statistically absurd. Vary by:
+   • City / district (${SLOT_EXAMPLES[locale].districts})
+   • Sub-specialization (${SLOT_EXAMPLES[locale].subSpecialties})
+   • Career stage (${SLOT_EXAMPLES[locale].careerStages})
    • Age / generation cue when relevant
   At least 3 of the 4 axes above MUST differ across personas with the same base profession in this batch. If you can't think of distinct specializations, leave the parenthetical EMPTY rather than repeat — duplicates are worse than absent detail.
 - If an assigned profession doesn't naturally fit the slot's country, adapt to the closest local equivalent BUT keep the same base archetype.
@@ -682,7 +736,7 @@ ${languageInstruction(locale)}
 Final voice self-check before emitting JSON:
 1. **Language — scan every voice for forbidden script for locale "${locale}"**:
    - If locale is "ko": voice must be in Hangul (가-힣). NO hiragana (あ-ん), NO katakana (ア-ン), NO English sentences. The most frequent slip is JP-country personas slipping into Japanese for Qoo10/@cosme/ドラッグストア content — write those references in Korean ("Qoo10에서", "@cosme 리뷰").
-   - If locale is "en": voice must be in Latin script.
+   - If locale is "en": voice must be in English. NO Japanese (あ-ん / ア-ン / 漢字 sentences), NO Chinese, NO Hangul. The most frequent slip is a JP persona answering in Japanese and a TW persona answering in Chinese, because the market context pulls that way — "RakutenかAmazon Japanで買えるなら検討します" and "這個價位對學生來說不太輕鬆" are both CRITICAL ERRORS here. Write the same thought in English: "I'd consider it if Rakuten or Amazon Japan carried it", "At this price it's a stretch for a student". A brand written in its own script inside an English sentence (momo購物, @cosme) is fine; the sentence around it must be English.
    - If you find any violation, REWRITE that voice in the locale language before emitting.
 2. **Length**: KO ≤ 90 chars · EN ≤ 130 chars (aim 90–120 for headroom). Count chars; rewrite shorter if over cap by dropping hedges ("I'd want to", "before I commit"), qualifiers, or second clauses.
 Both rules are non-negotiable. Voices that violate either are CRITICAL ERRORS.
