@@ -7267,7 +7267,13 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                     )}
                     {desc && (
                       <MText style={{ fontSize: 7, color: C.body, marginTop: 3, lineHeight: 1.3 }}>
-                        {stripUnsupportedGlyphs(desc).slice(0, 140)}
+                        {(() => {
+                          // Mark the cut. A bare slice ended these
+                          // captions mid-word with nothing to say they
+                          // continued.
+                          const s = stripUnsupportedGlyphs(desc);
+                          return s.length > 140 ? `${s.slice(0, 139).trimEnd()}…` : s;
+                        })()}
                       </MText>
                     )}
                   </View>

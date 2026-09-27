@@ -576,6 +576,28 @@ function consensusTypeLabel(
   }
 }
 
+/**
+ * Shorten to at most `max` characters, ending on a sentence.
+ *
+ * Returns the whole text when it already fits. When it doesn't, keeps
+ * every sentence that fits and drops the rest, appending an ellipsis so
+ * the cut is visible. Falls back to a hard slice only when the first
+ * sentence alone is longer than the budget.
+ */
+function trimToSentence(text: string, max: number): string {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  // Sentence ends: Korean "…다." / "…요." and Western ". ! ?".
+  let cut = -1;
+  const ender = /[.!?。]/g;
+  for (const m of t.matchAll(ender)) {
+    const end = (m.index ?? 0) + 1;
+    if (end > max) break;
+    cut = end;
+  }
+  return cut > 0 ? t.slice(0, cut) : `${t.slice(0, max).trimEnd()}…`;
+}
+
 function gradeColor(grade: string): string {
   if (grade.startsWith("A")) return C.success;
   if (grade.startsWith("B")) return C.brand;
@@ -1247,7 +1269,11 @@ export async function buildValidationPdf(data: ValidationReportData): Promise<Bu
         <View style={[styles.calloutCard, styles.calloutBrandBg, { marginTop: 10 }]}>
           <MText style={styles.calloutTitle}>{t.simExecLabel}</MText>
           <MText style={styles.calloutBody}>
-            {`"${stripUnsupportedGlyphs(simResult.simExecutiveSummary).slice(0, 400)}"`}
+            {/* Cut at a sentence, not at character 400. The hard slice
+                ended this block mid-word — "…구조적 축소가 발생할 수" —
+                and the quotation marks around it presented the fragment
+                as a complete statement. */}
+            {stripUnsupportedGlyphs(trimToSentence(simResult.simExecutiveSummary, 700))}
           </MText>
         </View>
       )}
