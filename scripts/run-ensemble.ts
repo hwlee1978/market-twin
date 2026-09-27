@@ -254,10 +254,13 @@ async function main() {
     const bar = "█".repeat(Math.round((n / sims.length) * 30));
     console.log(`  ${country.padEnd(4)} ${String(n).padStart(2)}/${sims.length} (${pct.padStart(3)}%) ${bar}`);
   }
-  const winner = sortedBest[0];
-  const consensusPct = (winner[1] / sims.length) * 100;
-  const confidence = consensusPct >= 80 ? "STRONG" : consensusPct >= 50 ? "MODERATE" : "WEAK";
-  console.log(`  → Recommendation: ${winner[0]} (${consensusPct.toFixed(0)}% consensus, ${confidence})\n`);
+  // No recommendation printed here. This used to sort the raw vote
+  // counts and announce the top entry, which is not how the winner is
+  // chosen — the aggregator weighs mean rank, score margin and the
+  // dominance checks. On a 1-1 split the two disagreed outright: the
+  // console said SG while the stored report, and the narrative merge,
+  // said AU. The real recommendation is printed after aggregation.
+  console.log();
 
   // Per-country finalScore stats
   const countryFinal = new Map<string, number[]>();
@@ -318,6 +321,10 @@ async function main() {
   try {
     const snapshots = await loadSnapshots(c3, ensembleId);
     const aggregate = aggregateEnsemble(snapshots);
+    const rec = aggregate.recommendation;
+    console.log(
+      `  → Recommendation: ${rec.country} (${rec.consensusPercent}% consensus, ${rec.confidence})\n`,
+    );
     const narrative = await mergeNarrative({
       snapshots,
       ensembleId,

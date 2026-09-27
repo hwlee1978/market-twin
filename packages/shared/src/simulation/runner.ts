@@ -2034,7 +2034,14 @@ ${entries}
           // Keep variance among the 3 samples — too low and the median
           // collapses to a single answer, defeating the whole point.
           temperature: 0.4,
-          maxTokens: 4096,
+          // 4096 was not enough. A pricing answer carries a curve of
+          // 8–15 points plus a margin estimate and its rationale, and on
+          // 2026-09-27 a sample hit the ceiling mid-JSON: unrecoverable,
+          // and the whole simulation failed with it. The same ceiling is
+          // in the commit note that moved this stage off Haiku — "5 of 9
+          // pricing calls hit the 4,096-token output ceiling" — which
+          // was read as a Haiku problem when the ceiling was the limit.
+          maxTokens: 12000,
         }),
       ),
     );
@@ -2380,7 +2387,12 @@ ${entries}
                   prompt: text,
                   jsonSchema: PricingResultSchema as unknown as object,
                   temperature: 0.4,
-                  maxTokens: 4096,
+                  // Same schema, same ceiling problem as the main
+                  // pricing call above. This one swallows the error
+                  // (.catch(() => null)), so a truncation here doesn't
+                  // fail the run — it just silently drops that market's
+                  // pricing, which is worse to diagnose.
+                  maxTokens: 12000,
                 })
                 .catch(() => null),
             ),
