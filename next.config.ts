@@ -6,6 +6,13 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Next's dev badge is pinned bottom-left, which is exactly where the
+  // sidebar's language switcher sits — it covered the control during a
+  // review pass. Dev-only (it never renders in production), so moving
+  // it costs nothing and keeps the bottom of the sidebar usable.
+  devIndicators: {
+    position: "bottom-right",
+  },
   // ESLint runs as a separate `npm run lint` step (see eslint.config.mjs).
   // Next 16 (Turbopack) no longer runs ESLint during `next build`, and the
   // `eslint` config key was removed from NextConfig — so no build-time
