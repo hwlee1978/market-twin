@@ -2680,9 +2680,22 @@ function computePerMarketPricing(
       });
     if (entries.length === 0) continue;
 
-    // Identical across every market this sim priced — no differentiation
-    // happened, so the sim contributes nothing to a market comparison.
-    if (entries.length > 1 && new Set(entries.map(([, c]) => c)).size === 1) continue;
+    // Every market at this sim's own headline price means the per-market
+    // pass did no work — the 045e2160 signature, where each sim handed
+    // back the price the user had typed in for every market it was asked
+    // about.
+    //
+    // Identical prices alone are NOT that. A sim prices only the
+    // shortlist's two markets, and when those two draw similar
+    // price-sensitivity one number is the right answer: measured on the
+    // two Consensus runs, flat pairs sat 4pp apart on high-sensitivity
+    // share while a differentiated pair sat 0pp apart. An earlier
+    // version of this guard dropped every flat sim and discarded real
+    // work — none of OpenAI's flat answers equalled its own headline.
+    const sameAsHeadline = entries.every(([, cents]) => cents === overall);
+    if (entries.length > 1 && new Set(entries.map(([, c]) => c)).size === 1 && sameAsHeadline) {
+      continue;
+    }
 
     for (const [country, cents] of entries) {
       const arr = byCountry.get(country) ?? [];

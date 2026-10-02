@@ -2464,11 +2464,17 @@ ${entries}
                   // came back unterminated. See PerMarketPricingSchema.
                   jsonSchema: PerMarketPricingSchema as unknown as object,
                   temperature: 0.4,
-                  // Generous for the slim shape. A truncation here is
-                  // swallowed by .catch(() => null), so it doesn't fail
-                  // the run — it drops that market's pricing silently,
-                  // which is harder to notice than a failure.
-                  maxTokens: 12000,
+                  // 4,000 is ~2x the measured output. This was 4,096,
+                  // raised to 12,000 when truncation was frequent — but
+                  // that was while the call still used the full
+                  // PricingResultSchema, which showed the model a curve
+                  // slot for every market and got one. On the slim
+                  // schema a normal response runs 1,300-1,900 tokens,
+                  // and the only calls that reached 12,000 were runaways
+                  // that truncated anyway. A lower ceiling clips those
+                  // sooner, for a third of the tokens, and the salvage
+                  // in json-salvage.ts re-samples or fails over.
+                  maxTokens: 4000,
                 })
                 // Keep the reason. The bare `.catch(() => null)` this
                 // replaces is why three "all samples unusable" alerts
