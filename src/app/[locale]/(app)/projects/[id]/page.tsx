@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import { getSubscription } from "@/lib/billing/usage";
 import { getAdminContext } from "@/lib/admin";
+import { tierName, type Tier } from "@/lib/simulation/tier-display";
 
 export default async function ProjectDetailPage({
   params,
@@ -57,53 +58,35 @@ export default async function ProjectDetailPage({
   // dashboard. Standalone sims (legacy / quick mode) stay in their own list.
   const { data: ensembles } = await supabase
     .from("ensembles")
+    // Only the recommendation, not the whole aggregate. aggregate_result
+    // carries the narrative, per-country stats, sources and persona
+    // rollups — 1.09 MB across ten ensembles here, of which this page
+    // reads four fields. Selecting the one key costs 5 KB, and the row
+    // is serialised again into the client payload, so the saving lands
+    // twice.
     .select(
-      "id, tier, parallel_sims, per_sim_personas, status, created_at, completed_at, aggregate_result",
+      "id, tier, parallel_sims, per_sim_personas, status, created_at, completed_at, aggregate_result->recommendation",
     )
     .eq("project_id", id)
     .order("created_at", { ascending: false })
     .limit(10);
-  type EnsembleTier =
-    | "hypothesis"
-    | "decision"
-    | "decision_plus"
-    | "deep"
-    | "deep_pro";
   type EnsembleRow = {
     id: string;
-    tier: EnsembleTier;
+    tier: Tier;
     parallel_sims: number;
     per_sim_personas: number;
     status: string;
     created_at: string;
     completed_at: string | null;
-    aggregate_result: {
-      recommendation?: {
-        country: string;
-        consensusPercent: number;
-        confidence: string;
-        displayMode?: string;
-        secondary?: { country?: string } | null;
-      };
+    recommendation: {
+      country: string;
+      consensusPercent: number;
+      confidence: string;
+      displayMode?: string;
+      secondary?: { country?: string } | null;
     } | null;
   };
   const ensemblesList = (ensembles ?? []) as unknown as EnsembleRow[];
-  const TIER_LABELS: Record<EnsembleTier, string> =
-    locale === "ko"
-      ? {
-          hypothesis: "초기검증",
-          decision: "검증분석",
-          decision_plus: "검증분석 Plus",
-          deep: "심층분석",
-          deep_pro: "심층분석 Pro",
-        }
-      : {
-          hypothesis: "Hypothesis",
-          decision: "Decision",
-          decision_plus: "Decision+",
-          deep: "Deep",
-          deep_pro: "Deep Pro",
-        };
 
   return (
     <div className="space-y-6">
@@ -149,8 +132,8 @@ export default async function ProjectDetailPage({
           {ensemblesList.length > 0 && (
             <ul className="space-y-2 mb-4">
               {ensemblesList.map((e) => {
-                const tierLabel = TIER_LABELS[e.tier] ?? e.tier;
-                const rec = e.aggregate_result?.recommendation;
+                const tierLabel = tierName(e.tier, locale);
+                const rec = e.recommendation;
                 return (
                   <li key={e.id} className="text-sm">
                     <Link

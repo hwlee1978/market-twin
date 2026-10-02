@@ -28,6 +28,7 @@ import {
   type SegmentMetric,
 } from "@/lib/simulation/grade-copy";
 import { displayPickDistribution } from "@/lib/simulation/ensemble";
+import { tierName, type Tier } from "@/lib/simulation/tier-display";
 import { friendlyApiError, friendlyClientError } from "@/lib/api/error-message";
 import { formatPrice } from "@/lib/format/price";
 import { normalizeLLMText } from "@/lib/format/normalize";
@@ -10907,10 +10908,6 @@ function formatElapsedHMS(seconds: number): string {
   return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
 }
 
-// Tier badge label for the dashboard header. Mirrors the TIER_LABELS map
-// in the project detail page and the TIER_DISPLAY map in ensemble-pdf.tsx
-// so all three surfaces (badge, list row, PDF eyebrow) print the same
-// Korean / English name.
 /**
  * Tier-aware preview text for the detailed-report dropdown option. The
  * page count + the feature list both grow as tier rises, so the user
@@ -10965,17 +10962,14 @@ function detailedReportSummary(
   };
 }
 
+/**
+ * Uppercased tier name for the dashboard badge. The name itself comes
+ * from the shared table — this only decides the casing, which is the
+ * one thing that differs from every other surface.
+ */
 function tierBadgeLabel(tier: string, isKo: boolean): string {
-  const map: Record<string, { ko: string; en: string }> = {
-    hypothesis: { ko: "초기검증", en: "Hypothesis" },
-    decision: { ko: "검증분석", en: "Consensus" },
-    decision_plus: { ko: "검증분석 Plus", en: "Consensus Plus" },
-    deep: { ko: "심층분석", en: "Triangulated" },
-    deep_pro: { ko: "심층분석 Pro", en: "Triangulated Pro" },
-  };
-  const entry = map[tier];
-  if (!entry) return tier.toUpperCase();
-  return isKo ? entry.ko : entry.en.toUpperCase();
+  const name = tierName(tier as Tier, isKo ? "ko" : "en");
+  return isKo ? name : name.toUpperCase();
 }
 
 // Display label for a provider id. Keep this small and centralized so the

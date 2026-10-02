@@ -32,6 +32,7 @@ import {
   varianceCopyFor,
 } from "@/lib/simulation/grade-copy";
 import { displayPickDistribution } from "@/lib/simulation/ensemble";
+import { tierName, type Tier } from "@/lib/simulation/tier-display";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { categoryLabel, normalizeActionCategory } from "@/lib/simulation/taxonomy";
 import { assessActionSpecificity } from "@/lib/simulation/action-specificity";
@@ -875,16 +876,6 @@ function fitCoverTitleSize(text: string): number {
   return 16;
 }
 
-const TIER_DISPLAY: Record<
-  TierName,
-  { ko: string; en: string; eyebrowKo: string; eyebrowEn: string }
-> = {
-  hypothesis: { ko: "초기검증", en: "Hypothesis", eyebrowKo: "초기검증 분석", eyebrowEn: "Hypothesis analysis" },
-  decision: { ko: "검증분석", en: "Consensus", eyebrowKo: "검증분석", eyebrowEn: "Consensus analysis" },
-  decision_plus: { ko: "검증분석 Plus", en: "Consensus Plus", eyebrowKo: "검증분석 Plus", eyebrowEn: "Consensus Plus analysis" },
-  deep: { ko: "심층분석", en: "Triangulated", eyebrowKo: "심층분석", eyebrowEn: "Triangulated analysis" },
-  deep_pro: { ko: "심층분석 Pro", en: "Triangulated Pro", eyebrowKo: "심층분석 Pro", eyebrowEn: "Triangulated Pro analysis" },
-};
 
 export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
   // Fonts are fetched from a CDN on demand and a failed fetch silently
@@ -905,8 +896,18 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
     project,
   } = args;
   const isKo = locale === "ko";
-  const tierDisplay = TIER_DISPLAY[tier] ?? TIER_DISPLAY.decision;
-  const tierEyebrow = (isKo ? tierDisplay.eyebrowKo : tierDisplay.eyebrowEn).toUpperCase();
+  // Name from the shared table; the PDF's cover eyebrow adds the word
+  // "analysis" to it, which is the only part specific to this surface.
+  const tierLabelText = tierName(tier as Tier, locale);
+  // Korean names that already end in "분석" don't take the suffix —
+  // "검증분석 분석" is not a phrase. "초기검증" does.
+  const tierEyebrow = (
+    isKo
+      ? tierLabelText.includes("분석")
+        ? tierLabelText
+        : `${tierLabelText} 분석`
+      : `${tierLabelText} analysis`
+  ).toUpperCase();
   const tierBudget = TIER_BUDGET[tier] ?? TIER_BUDGET.decision;
   const generatedAtStr = generatedAt.toLocaleDateString(
     isKo ? "ko-KR" : "en-US",
@@ -1195,7 +1196,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             {isKo ? "30초 브리핑" : "30-second brief"}
           </MText>
           <MText style={{ fontSize: 8, color: C.muted }}>
-            {`${aggregate.simCount} sims · ${aggregate.effectivePersonas.toLocaleString()} personas · ${tierDisplay.en}`}
+            {`${aggregate.simCount} sims · ${aggregate.effectivePersonas.toLocaleString()} personas · ${tierName(tier as Tier, "en")}`}
           </MText>
         </View>
         <MText style={[styles.pageTitle, { fontSize: 22, marginBottom: 14 }]}>
@@ -1526,7 +1527,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         <View style={{ marginTop: 22 }}>
           <MText style={styles.sectionEyebrow}>{isKo ? "실행 요약" : "Run summary"}</MText>
           <View style={styles.kpiGrid}>
-            <Kpi label={isKo ? "분석 단계" : "Tier"} value={isKo ? tierDisplay.ko : tierDisplay.en} />
+            <Kpi label={isKo ? "분석 단계" : "Tier"} value={tierLabelText} />
             <Kpi
               label={isKo ? "완료 시뮬" : "Completed sims"}
               value={`${aggregate.simCount}/${parallelSims}`}
@@ -7375,7 +7376,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         </MText>
 
         <View style={{ flexDirection: "column", gap: 10 }}>
-          <MetaLine label={isKo ? "Tier" : "Tier"} value={isKo ? tierDisplay.ko : tierDisplay.en} />
+          <MetaLine label={isKo ? "Tier" : "Tier"} value={tierLabelText} />
           <MetaLine label={isKo ? "병렬 시뮬" : "Parallel sims"} value={String(parallelSims)} />
           <MetaLine
             label={isKo ? "완료 시뮬" : "Completed sims"}
