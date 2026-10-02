@@ -1,8 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { LLMProvider, LLMRequest, LLMResponse } from "./types";
-import { alertOpsAsync } from "@/lib/email/ops-alert";
 import { withLLMRetry } from "./retry";
-import { recoverJsonFromText } from "./json-parse";
+import { salvageJsonResponse } from "./json-salvage";
 
 export class AnthropicProvider implements LLMProvider {
   readonly name = "anthropic" as const;
@@ -100,68 +99,27 @@ export class AnthropicProvider implements LLMProvider {
         { provider: "anthropic", signal: req.signal },
       );
 
-    let response = await callOnce(req.temperature ?? 0.7);
-    let text = extractText(response);
-    let truncated = response.stop_reason === "max_tokens";
-    let json = wantsJson
-      ? recoverJsonFromText(text, { arrayKey: req.expectedArrayKey })
-      : undefined;
-
-    // Malformed-JSON salvage retry. The response completed normally (NOT
-    // truncated) yet the JSON couldn't be parsed or recovered — a transient
-    // sampling defect (e.g. an unescaped newline/quote inside a long string
-    // value), most common when generating long structured content at high
-    // temperature. withLLMRetry never sees this because the HTTP call itself
-    // succeeded: no throw, just `json === undefined`. Without a retry the
-    // caller drops the whole batch on a single bad roll (the drafter's
-    // "0 variants — try again" path). One re-sample at LOW temperature
-    // near-always yields clean JSON, and prompt caching keeps the retry's
-    // input cost ~0.1×. We only re-sample what we couldn't use anyway, so
-    // the creativity lost to low temperature costs nothing.
-    if (wantsJson && json === undefined && !truncated && !req.signal?.aborted) {
-      console.warn(
-        `[anthropic] JSON unparseable on a complete response ` +
-          `(output ${response.usage.output_tokens} tok, stop=${response.stop_reason}) — ` +
-          `re-sampling once at low temperature`,
-      );
-      response = await callOnce(0.2);
-      text = extractText(response);
-      truncated = response.stop_reason === "max_tokens";
-      json = recoverJsonFromText(text, { arrayKey: req.expectedArrayKey });
-    }
-
-    // Surface output-cap truncation. When stop_reason == "max_tokens" and
-    // we couldn't recover ANY usable JSON, throw — that triggers the
-    // failover wrapper's retry-on-different-provider behavior. When we
-    // DID recover partial JSON (most common case post-2026-05-10
-    // partial-array-recovery utility), keep the response but log so the
-    // operator sees the data partial-loss in monitoring.
-    if (truncated) {
-      const usedTokens = response.usage.output_tokens;
-      if (wantsJson && json === undefined) {
-        // Hard failure — throw to let the failover wrapper try a
-        // different provider. Without this throw, the caller sees an
-        // empty result and drops the whole batch.
-        throw new Error(
-          `Anthropic response truncated at max_tokens=${req.maxTokens ?? 4096} (used ${usedTokens}) — JSON unrecoverable, request retry/failover`,
-        );
-      }
-      console.warn(
-        `[anthropic] response hit max_tokens=${req.maxTokens ?? 4096} ceiling — output truncated. ` +
-          `Used ${usedTokens} tokens. Partial JSON recovered (caller may see incomplete array).`,
-      );
-      // Recovered, but the array is short — items the model meant to
-      // emit are gone and the caller cannot tell. Collapsed hourly per
-      // ceiling: a run that clips once usually clips repeatedly.
-      void alertOpsAsync({
-        kind: "llm_output_truncated",
-        severity: "warn",
-        summary: `Anthropic 응답이 max_tokens=${req.maxTokens ?? 4096}에서 잘렸습니다 — 부분 복구된 결과가 그대로 사용됩니다`,
-        dedupeKey: `anthropic:${req.maxTokens ?? 4096}`,
-        dedupeMinutes: 60,
-        details: { maxTokens: req.maxTokens ?? 4096, usedTokens },
-      });
-    }
+    const first = await callOnce(req.temperature ?? 0.7);
+    const read = (resp: Anthropic.Message) => ({
+      text: extractText(resp),
+      truncated: resp.stop_reason === "max_tokens",
+      outputTokens: resp.usage.output_tokens,
+    });
+    let response = first;
+    const salvaged = await salvageJsonResponse({
+      provider: "anthropic",
+      wantsJson,
+      maxTokens: req.maxTokens ?? 4096,
+      arrayKey: req.expectedArrayKey,
+      aborted: req.signal?.aborted,
+      first: read(first),
+      resample: async () => {
+        response = await callOnce(0.2);
+        return read(response);
+      },
+    });
+    const text = salvaged.text;
+    const json = salvaged.json;
 
     // Cache hit / write stats are surfaced for cost validation. Anthropic
     // SDK types include these as optional fields when the message used
@@ -176,7 +134,7 @@ export class AnthropicProvider implements LLMProvider {
       json,
       usage: {
         inputTokens: response.usage.input_tokens,
-        outputTokens: response.usage.output_tokens,
+        outputTokens: salvaged.outputTokens,
         cacheCreationInputTokens,
         cacheReadInputTokens,
       },

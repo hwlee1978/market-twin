@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import type { LLMProvider, LLMRequest, LLMResponse } from "./types";
 import { withLLMRetry } from "./retry";
-import { recoverJsonFromText } from "./json-parse";
+import { hitLengthCap, salvageJsonResponse } from "./json-salvage";
 
 export class OpenAIProvider implements LLMProvider {
   readonly name = "openai" as const;
@@ -31,12 +31,13 @@ export class OpenAIProvider implements LLMProvider {
       ? { max_completion_tokens: tokensCap }
       : { max_tokens: tokensCap };
 
-    const response = await withLLMRetry(
+    const callOnce = (temperature: number) =>
+      withLLMRetry(
       () =>
         this.client.chat.completions.create(
           {
             model: this.model,
-            temperature: req.temperature ?? 0.7,
+            temperature,
             ...tokenParam,
             response_format: wantsJson ? { type: "json_object" } : undefined,
             messages: [
@@ -56,16 +57,29 @@ export class OpenAIProvider implements LLMProvider {
       { provider: "openai", signal: req.signal },
     );
 
-    const text = response.choices[0]?.message?.content ?? "";
+    const response = await callOnce(req.temperature ?? 0.7);
+    const read = (r: typeof response) => ({
+      text: r.choices[0]?.message?.content ?? "",
+      truncated: hitLengthCap(r.choices[0]?.finish_reason),
+      outputTokens: r.usage?.completion_tokens ?? 0,
+    });
+
+    const salvaged = await salvageJsonResponse({
+      provider: "openai",
+      wantsJson,
+      maxTokens: tokensCap,
+      arrayKey: req.expectedArrayKey,
+      aborted: req.signal?.aborted,
+      first: read(response),
+      resample: async () => read(await callOnce(0.2)),
+    });
 
     return {
-      text,
-      json: wantsJson
-        ? recoverJsonFromText(text, { arrayKey: req.expectedArrayKey })
-        : undefined,
+      text: salvaged.text,
+      json: salvaged.json,
       usage: {
         inputTokens: response.usage?.prompt_tokens,
-        outputTokens: response.usage?.completion_tokens,
+        outputTokens: salvaged.outputTokens,
       },
       raw: response,
     };

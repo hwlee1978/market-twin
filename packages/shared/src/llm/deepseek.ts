@@ -16,7 +16,7 @@
 import OpenAI from "openai";
 import type { LLMProvider, LLMRequest, LLMResponse } from "./types";
 import { withLLMRetry } from "./retry";
-import { recoverJsonFromText } from "./json-parse";
+import { hitLengthCap, salvageJsonResponse } from "./json-salvage";
 
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1";
 // Same 180s window we settled on for xAI — gives the slow tail room
@@ -41,13 +41,15 @@ export class DeepSeekProvider implements LLMProvider {
   async generate(req: LLMRequest): Promise<LLMResponse> {
     const wantsJson = !!req.jsonSchema;
 
-    const response = await withLLMRetry(
+    const maxTokens = req.maxTokens ?? 4096;
+    const callOnce = (temperature: number) =>
+      withLLMRetry(
       () =>
         this.client.chat.completions.create(
           {
             model: this.model,
-            temperature: req.temperature ?? 0.7,
-            max_tokens: req.maxTokens ?? 4096,
+            temperature,
+            max_tokens: maxTokens,
             // DeepSeek supports OpenAI-style JSON mode via response_format.
             response_format: wantsJson ? { type: "json_object" } : undefined,
             messages: [
@@ -68,16 +70,29 @@ export class DeepSeekProvider implements LLMProvider {
       { provider: "deepseek", signal: req.signal },
     );
 
-    const text = response.choices[0]?.message?.content ?? "";
+    const response = await callOnce(req.temperature ?? 0.7);
+    const read = (r: typeof response) => ({
+      text: r.choices[0]?.message?.content ?? "",
+      truncated: hitLengthCap(r.choices[0]?.finish_reason),
+      outputTokens: r.usage?.completion_tokens ?? 0,
+    });
+
+    const salvaged = await salvageJsonResponse({
+      provider: "deepseek",
+      wantsJson,
+      maxTokens,
+      arrayKey: req.expectedArrayKey,
+      aborted: req.signal?.aborted,
+      first: read(response),
+      resample: async () => read(await callOnce(0.2)),
+    });
 
     return {
-      text,
-      json: wantsJson
-        ? recoverJsonFromText(text, { arrayKey: req.expectedArrayKey })
-        : undefined,
+      text: salvaged.text,
+      json: salvaged.json,
       usage: {
         inputTokens: response.usage?.prompt_tokens,
-        outputTokens: response.usage?.completion_tokens,
+        outputTokens: salvaged.outputTokens,
       },
       raw: response,
     };
