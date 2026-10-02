@@ -867,10 +867,21 @@ function buildMergePrompt(
   // rule below.
   const totalPersonas = sims.reduce((sum, s) => sum + (s.personas?.length ?? 0), 0);
   const perSimPersonas = sims[0]?.personas?.length ?? 0;
+  // The ensemble's real size, not the subset this merge was handed.
+  // When the recommendation filter drops a sim, `sims` is smaller than
+  // the run — and the lines below are where the model learns how many
+  // simulations to claim. A 3-sim Korean run whose filter kept 2 opened
+  // its summary "2개 시뮬레이션 모두 미국을 확정했다", against a page
+  // header reading 3 simulations / 600 personas. The model read these
+  // lines correctly; the lines were wrong.
+  const ensembleSims = opts.snapshots.length || sims.length;
+  const ensemblePersonas =
+    opts.snapshots.reduce((sum, s) => sum + (s.personas?.length ?? 0), 0) || totalPersonas;
+  const isSubset = sims.length < ensembleSims;
 
   const intro = isKo
-    ? `${sims.length}개 독립 시뮬레이션의 결과를 통합 분석하세요. 같은 의미의 리스크/액션은 하나로 합치고 빈도(surfacedInSims)를 표기하세요. 모든 출력은 한국어로 작성하세요.`
-    : `Synthesize ${sims.length} independent simulation results into one consensus narrative. Collapse semantically equivalent risks/actions into single entries with a frequency count (surfacedInSims). Write everything in English.`;
+    ? `${ensembleSims}개 독립 시뮬레이션의 결과를 통합 분석하세요. 같은 의미의 리스크/액션은 하나로 합치고 빈도(surfacedInSims)를 표기하세요. 모든 출력은 한국어로 작성하세요.`
+    : `Synthesize ${ensembleSims} independent simulation results into one consensus narrative. Collapse semantically equivalent risks/actions into single entries with a frequency count (surfacedInSims). Write everything in English.`;
 
   // Top-2 tie: the productLine + entire prompt framing must
   // acknowledge that result is two-candidates. Otherwise the LLM
@@ -976,9 +987,14 @@ This analysis cannot pick a single winner. ${opts.top2.primary} (1st-place vote 
 `)
     : "";
 
+  const subsetNote = isSubset
+    ? isKo
+      ? ` (아래 per-sim 블록은 추천국과 일치한 ${sims.length}회분입니다. 시뮬 횟수나 페르소나 수를 쓸 때는 반드시 위 전체 수치를 쓰십시오 — "${sims.length}개 시뮬레이션"이라고 쓰면 리포트 헤더와 모순됩니다.)`
+      : ` (the per-sim blocks below are the ${sims.length} that matched the recommended market. Any count of simulations or personas you state must use the ensemble totals above — saying "${sims.length} simulations" contradicts the report header.)`
+    : "";
   const scaleLine = isKo
-    ? `규모: 총 ${totalPersonas.toLocaleString()}명 페르소나 (시뮬당 약 ${perSimPersonas}명 × ${sims.length}회).`
-    : `Scale: ${totalPersonas.toLocaleString()} total personas (~${perSimPersonas} per sim × ${sims.length} sims).`;
+    ? `규모: 총 ${ensemblePersonas.toLocaleString()}명 페르소나 (시뮬당 약 ${perSimPersonas}명 × ${ensembleSims}회).${subsetNote}`
+    : `Scale: ${ensemblePersonas.toLocaleString()} total personas (~${perSimPersonas} per sim × ${ensembleSims} sims).${subsetNote}`;
 
   const riskLevelLine = isKo
     ? `종합 리스크 수준: ${overallRiskLevel.toUpperCase()} (per-sim 다수결 기준)`
