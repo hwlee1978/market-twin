@@ -40,7 +40,7 @@ export default async function BetaLandingPage({
         {
           icon: FileText,
           title: "추천 시장·가격·리포트",
-          body: "추천 시장 Top-2, 페르소나 반응, 적정 가격, PDF 리포트까지 5~6분이면 나옵니다.",
+          body: "추천 시장 Top-2, 페르소나 반응, 적정 가격, PDF 리포트까지 10분이면 나옵니다.",
         },
       ]
     : [
@@ -57,7 +57,7 @@ export default async function BetaLandingPage({
         {
           icon: FileText,
           title: "Markets, pricing & a report",
-          body: "Top-2 markets, persona reactions, pricing, and a PDF report — in 5-6 minutes.",
+          body: "Top-2 markets, persona reactions, pricing, and a PDF report — in about 10 minutes.",
         },
       ];
 
@@ -109,8 +109,8 @@ export default async function BetaLandingPage({
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-brand-100 leading-relaxed break-keep">
             {isKo
-              ? "제품 정보를 입력하면, 진출 후보국의 현지 소비자 600명이 어떻게 반응하는지 시뮬레이션해 보여드립니다. 추천 시장과 적정 가격까지 5~6분이면 확인할 수 있어요."
-              : "Tell us about your product, and we'll simulate how 600 local consumers would react — recommended markets and pricing included. It only takes 5-6 minutes."}
+              ? "제품 정보를 입력하면, 진출 후보국의 현지 소비자 600명이 어떻게 반응하는지 시뮬레이션해 보여드립니다. 추천 시장과 적정 가격까지 10분이면 확인할 수 있어요."
+              : "Tell us about your product, and we'll simulate how 600 local consumers would react — recommended markets and pricing included. It takes about 10 minutes."}
           </p>
           <div className="mt-9 flex flex-wrap items-center gap-4">
             <Link

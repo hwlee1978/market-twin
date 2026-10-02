@@ -57,6 +57,19 @@ export function RunEnsembleButton({ projectId, className, betaTrialOnly = false 
   return (
     <div className={className}>
       <div className="space-y-2">
+        {/* Durations are measured, not estimated — median and p10/p90 of
+            completed runs since 2026-09, outliers (zombies, instant
+            failures) excluded:
+
+              hypothesis     n=281   p10 6   median 8    p90 10
+              decision       n=5     p10 17  median 18   p90 18
+              decision_plus  n=1                 19
+
+            Every published figure here had been too low: "5~6분" against
+            a measured 6-10, "약 12분" against 17-18. Deep has no
+            completed run to measure yet; its range is inferred from the
+            others, which barely move with sim count because the sims run
+            in parallel. Re-measure before quoting it as fact. */}
         <select
           className="input w-full"
           value={tier}
@@ -65,25 +78,25 @@ export function RunEnsembleButton({ projectId, className, betaTrialOnly = false 
         >
           <option value="hypothesis">
             {isKo
-              ? "초기검증 · 600명 · 약 5~6분"
-              : "Hypothesis · 600 personas · ~5-6 min"}
+              ? "초기검증 · 600명 · 약 6~10분"
+              : "Hypothesis · 600 personas · ~6-10 min"}
           </option>
           <option value="decision" disabled={betaTrialOnly}>
             {isKo
-              ? "검증분석 · 1,200명 · 약 12분"
-              : "Consensus · 1,200 personas · ~12 min"}
+              ? "검증분석 · 1,200명 · 약 15~20분"
+              : "Consensus · 1,200 personas · ~15-20 min"}
             {betaTrialOnly ? (isKo ? " · 베타 전용" : " · paid plan") : ""}
           </option>
           <option value="decision_plus" disabled={betaTrialOnly}>
             {isKo
-              ? "검증분석 Plus · 3,000명 · 약 12–17분"
-              : "Consensus Plus · 3,000 personas · ~12–17 min"}
+              ? "검증분석 Plus · 3,000명 · 약 20분"
+              : "Consensus Plus · 3,000 personas · ~20 min"}
             {betaTrialOnly ? (isKo ? " · 베타 전용" : " · paid plan") : ""}
           </option>
           <option value="deep" disabled={betaTrialOnly}>
             {isKo
-              ? "심층분석 · 5,000명 · 멀티 LLM · 약 17–22분"
-              : "Triangulated · 5,000 personas · multi-LLM · ~17–22 min"}
+              ? "심층분석 · 5,000명 · 멀티 LLM · 약 20~30분"
+              : "Triangulated · 5,000 personas · multi-LLM · ~20-30 min"}
             {betaTrialOnly ? (isKo ? " · 베타 전용" : " · paid plan") : ""}
           </option>
           {/* deep_pro hidden until we redesign for sub-800s execution —
