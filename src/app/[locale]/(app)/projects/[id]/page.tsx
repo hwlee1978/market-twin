@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { LocalTime } from "@/components/ui/LocalTime";
 import { RunSimulationButton } from "@/components/RunSimulationButton";
 import { RunEnsembleButton } from "@/components/RunEnsembleButton";
 import { createClient } from "@/lib/supabase/server";
@@ -146,7 +147,7 @@ export default async function ProjectDetailPage({
                             {tierLabel}
                           </span>
                           <span className="text-xs text-slate-500 truncate">
-                            {new Date(e.created_at).toLocaleString(locale)}
+                            <LocalTime iso={e.created_at} locale={locale} />
                           </span>
                         </div>
                         <StatusBadge status={e.status} label={t(`project.status.${e.status}`)} />
@@ -200,7 +201,7 @@ export default async function ProjectDetailPage({
                       href={`/projects/${id}/results?sim=${s.id}`}
                       className="text-brand hover:underline truncate"
                     >
-                      {s.started_at ? new Date(s.started_at).toLocaleString(locale) : "—"}
+                      <LocalTime iso={s.started_at} locale={locale} />
                     </Link>
                     <StatusBadge status={s.status} label={t(`project.status.${s.status}`)} />
                   </li>
