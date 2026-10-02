@@ -1,3 +1,4 @@
+import { tierName } from "@/lib/simulation/tier-display";
 import { setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { Link } from "@/i18n/navigation";
@@ -38,22 +39,6 @@ type EnsembleRow = {
   aggregate_result: EnsembleAggregate | null;
   created_at: string;
   completed_at: string | null;
-};
-
-const TIER_LABELS_KO: Record<EnsembleTier, string> = {
-  hypothesis: "초기검증",
-  decision: "검증분석",
-  decision_plus: "검증분석 Plus",
-  deep: "심층분석",
-  deep_pro: "심층분석 Pro",
-};
-
-const TIER_LABELS_EN: Record<EnsembleTier, string> = {
-  hypothesis: "Hypothesis",
-  decision: "Consensus",
-  decision_plus: "Consensus Plus",
-  deep: "Triangulated",
-  deep_pro: "Triangulated Pro",
 };
 
 export default async function CompareEnsemblesPage({
@@ -162,7 +147,7 @@ export default async function CompareEnsemblesPage({
           oppositeValue={bId}
           options={ensembles.map((e) => ({
             id: e.id,
-            label: formatEnsembleLabel(e, locale, isKo),
+            label: formatEnsembleLabel(e, locale),
             personaCount: e.parallel_sims * e.per_sim_personas,
             modelProvider: (e.llm_providers ?? []).join(", "),
           }))}
@@ -175,7 +160,7 @@ export default async function CompareEnsemblesPage({
           oppositeValue={aId}
           options={ensembles.map((e) => ({
             id: e.id,
-            label: formatEnsembleLabel(e, locale, isKo),
+            label: formatEnsembleLabel(e, locale),
             personaCount: e.parallel_sims * e.per_sim_personas,
             modelProvider: (e.llm_providers ?? []).join(", "),
           }))}
@@ -192,9 +177,9 @@ export default async function CompareEnsemblesPage({
           </div>
         </div>
         <div className="mt-3 flex items-baseline gap-3 flex-wrap">
-          <TierBadge label={isKo ? TIER_LABELS_KO[aEns.tier] : TIER_LABELS_EN[aEns.tier]} />
+          <TierBadge label={tierName(aEns.tier, locale)} />
           <span className="text-slate-400">→</span>
-          <TierBadge label={isKo ? TIER_LABELS_KO[bEns.tier] : TIER_LABELS_EN[bEns.tier]} />
+          <TierBadge label={tierName(bEns.tier, locale)} />
           <span className="text-xs text-slate-400">·</span>
           <span className="text-xs text-slate-500">{ctx_.timeLabel}</span>
         </div>
@@ -236,8 +221,8 @@ export default async function CompareEnsemblesPage({
       )}
 
       <HotTakeCompare
-        aTitle={`A — ${formatEnsembleLabel(aEns, locale, isKo)}`}
-        bTitle={`B — ${formatEnsembleLabel(bEns, locale, isKo)}`}
+        aTitle={`A — ${formatEnsembleLabel(aEns, locale)}`}
+        bTitle={`B — ${formatEnsembleLabel(bEns, locale)}`}
         a={aEns.aggregate_result?.narrative?.hotTake}
         b={bEns.aggregate_result?.narrative?.hotTake}
         isKo={isKo}
@@ -249,8 +234,8 @@ export default async function CompareEnsemblesPage({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
           <CompareInfo
             label={isKo ? "분석 단계" : "Tier"}
-            a={isKo ? TIER_LABELS_KO[aEns.tier] : TIER_LABELS_EN[aEns.tier]}
-            b={isKo ? TIER_LABELS_KO[bEns.tier] : TIER_LABELS_EN[bEns.tier]}
+            a={tierName(aEns.tier, locale)}
+            b={tierName(bEns.tier, locale)}
             tooltip={
               isKo
                 ? "분석의 깊이 등급. 시뮬 수와 페르소나 수가 많은 tier일수록 합의도가 강해지지만 시간/비용도 큽니다."
@@ -418,14 +403,14 @@ export default async function CompareEnsemblesPage({
         <SectionTitle>{isKo ? "1위 국가 분포" : "Best-country distribution"}</SectionTitle>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
           <DistributionPanel
-            title={`A — ${formatEnsembleLabel(aEns, locale, isKo)}`}
+            title={`A — ${formatEnsembleLabel(aEns, locale)}`}
             distribution={aEns.aggregate_result?.bestCountryDistribution ?? []}
             winner={aEns.aggregate_result?.recommendation.country}
             simCount={aEns.aggregate_result?.simCount ?? 0}
             locale={locale}
           />
           <DistributionPanel
-            title={`B — ${formatEnsembleLabel(bEns, locale, isKo)}`}
+            title={`B — ${formatEnsembleLabel(bEns, locale)}`}
             distribution={bEns.aggregate_result?.bestCountryDistribution ?? []}
             winner={bEns.aggregate_result?.recommendation.country}
             simCount={bEns.aggregate_result?.simCount ?? 0}
@@ -441,12 +426,12 @@ export default async function CompareEnsemblesPage({
           <SectionTitle>{isKo ? "주요 리스크 (Top 5)" : "Top risks"}</SectionTitle>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
             <RiskPanel
-              title={`A — ${formatEnsembleLabel(aEns, locale, isKo)}`}
+              title={`A — ${formatEnsembleLabel(aEns, locale)}`}
               risks={aEns.aggregate_result?.narrative?.mergedRisks?.slice(0, 5) ?? []}
               isKo={isKo}
             />
             <RiskPanel
-              title={`B — ${formatEnsembleLabel(bEns, locale, isKo)}`}
+              title={`B — ${formatEnsembleLabel(bEns, locale)}`}
               risks={bEns.aggregate_result?.narrative?.mergedRisks?.slice(0, 5) ?? []}
               isKo={isKo}
             />
@@ -461,12 +446,12 @@ export default async function CompareEnsemblesPage({
           <SectionTitle>{isKo ? "권장 액션 (Top 5)" : "Top actions"}</SectionTitle>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
             <ActionPanel
-              title={`A — ${formatEnsembleLabel(aEns, locale, isKo)}`}
+              title={`A — ${formatEnsembleLabel(aEns, locale)}`}
               actions={aEns.aggregate_result?.narrative?.mergedActions?.slice(0, 5) ?? []}
               isKo={isKo}
             />
             <ActionPanel
-              title={`B — ${formatEnsembleLabel(bEns, locale, isKo)}`}
+              title={`B — ${formatEnsembleLabel(bEns, locale)}`}
               actions={bEns.aggregate_result?.narrative?.mergedActions?.slice(0, 5) ?? []}
               isKo={isKo}
             />
@@ -680,8 +665,8 @@ function analyseComparison(a: EnsembleRow, b: EnsembleRow, isKo: boolean) {
   let insight: string | null = null;
 
   if (mode === "tier") {
-    const aLabel = isKo ? TIER_LABELS_KO[a.tier] : TIER_LABELS_EN[a.tier];
-    const bLabel = isKo ? TIER_LABELS_KO[b.tier] : TIER_LABELS_EN[b.tier];
+    const aLabel = tierName(a.tier, isKo ? "ko" : "en");
+    const bLabel = tierName(b.tier, isKo ? "ko" : "en");
     headline = isKo
       ? `같은 입력에 ${aLabel}와 ${bLabel}을(를) 적용해 결과가 어떻게 달라지는지 비교합니다. 합의도가 의미 있게 향상되지 않으면 낮은 tier로 충분합니다.`
       : `Same fixture run at ${aLabel} vs ${bLabel}. If consensus doesn't meaningfully improve, the lower tier is sufficient.`;
@@ -752,7 +737,7 @@ function normaliseTitle(s: string): string {
   return s.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-function formatEnsembleLabel(e: EnsembleRow, locale: string, isKo: boolean): string {
+function formatEnsembleLabel(e: EnsembleRow, locale: string): string {
   const date = new Date(e.completed_at ?? e.created_at).toLocaleString(locale, {
     year: "numeric",
     month: "short",
@@ -760,7 +745,7 @@ function formatEnsembleLabel(e: EnsembleRow, locale: string, isKo: boolean): str
     hour: "2-digit",
     minute: "2-digit",
   });
-  const tier = isKo ? TIER_LABELS_KO[e.tier] : TIER_LABELS_EN[e.tier];
+  const tier = tierName(e.tier, locale);
   return `${tier} · ${date}`;
 }
 

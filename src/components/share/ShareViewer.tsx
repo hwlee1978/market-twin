@@ -1,5 +1,6 @@
 "use client";
 
+import { tierName } from "@/lib/simulation/tier-display";
 import { CheckCircle2, TrendingUp } from "lucide-react";
 import { clsx } from "clsx";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
@@ -25,22 +26,6 @@ interface ProjectInfo {
   originating_country: string | null;
   candidate_countries: string[] | null;
 }
-
-const TIER_LABELS_KO: Record<EnsembleTier, string> = {
-  hypothesis: "초기검증",
-  decision: "검증분석",
-  decision_plus: "검증분석 Plus",
-  deep: "심층분석",
-  deep_pro: "심층분석 Pro",
-};
-
-const TIER_LABELS_EN: Record<EnsembleTier, string> = {
-  hypothesis: "Hypothesis",
-  decision: "Consensus",
-  decision_plus: "Consensus Plus",
-  deep: "Triangulated",
-  deep_pro: "Triangulated Pro",
-};
 
 /**
  * Read-only public viewer for a shared ensemble. Same content the owner
@@ -84,7 +69,7 @@ export function ShareViewer({
   const runnerUp = bestCountryDistribution?.find(
     (b) => b.country.toUpperCase() !== recommendation.country.toUpperCase(),
   );
-  const tierLabel = isKo ? TIER_LABELS_KO[tier] : TIER_LABELS_EN[tier];
+  const tierLabel = tierName(tier, locale);
   // The hero is the one dark surface on this page; the text-* classes
   // below are tuned for white cards and disappear against it, so the
   // hero reads its colour from TONE's onDark pairing instead.

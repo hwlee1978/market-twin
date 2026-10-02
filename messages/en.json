@@ -982,7 +982,7 @@
     "consensus": "consensus",
     "noSimulations": "No simulations yet.",
     "firstSimTitle": "Ready to run your first simulation",
-    "firstSimSubtitle": "Get an overseas-market analysis from your product inputs. Pick a tier below — runtime ranges from ~7 min (Hypothesis) to ~30 min (Triangulated).",
+    "firstSimSubtitle": "Get an overseas-market analysis from your product inputs. Pick a tier below — runtime ranges from ~6-10 min (Hypothesis) to ~20-30 min (Triangulated).",
     "viewResults": "View results",
     "viewProgress": "View progress",
     "runNew": "Run new simulation",

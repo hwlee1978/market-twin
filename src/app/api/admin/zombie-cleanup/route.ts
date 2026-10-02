@@ -10,7 +10,7 @@ export const maxDuration = 60;
  *
  * Sweeps stale "running" simulations whose Vercel function definitely
  * died. Vercel function maxDuration is 800s (≈13min), so any sim with
- * status='running' AND started_at older than 20 minutes is a zombie:
+ * status='running' AND started_at older than 30 minutes is a zombie:
  * the row will never flip on its own because the runner process is
  * gone.
  *
@@ -28,9 +28,13 @@ export async function GET(req: Request) {
   if (gate) return gate;
 
   const admin = createServiceClient();
-  // 20-minute threshold = Vercel maxDuration (800s) + 7-min slack
-  // for clock skew, log flush, post-success DB writes, etc.
-  const cutoff = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+  // 30 minutes. The previous 20 was Vercel's maxDuration (800s) plus
+  // slack, but per-sim runtimes measured since 2026-09 left under four
+  // minutes of it: Consensus sims reach a 16.1-minute p99 (n=36) and
+  // Triangulated has no completed run to measure at all. Killing a live
+  // run costs the user the whole ensemble; leaving a genuine zombie an
+  // extra ten minutes costs a stale row on an admin screen.
+  const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
   const { data: zombies, error: queryErr } = await admin
     .from("simulations")
@@ -67,7 +71,7 @@ export async function GET(req: Request) {
       // backtests run locally where that limit does not even apply. Saying
       // "timed out" cost a day of investigation chasing the wrong thing.
       error_message:
-        "[zombie-cleanup] Stale 'running' row older than 20 min — the run's terminal write never landed (process died, or the status update failed). Marked failed by cron.",
+        "[zombie-cleanup] Stale 'running' row older than 30 min — the run's terminal write never landed (process died, or the status update failed). Marked failed by cron.",
     })
     .in("id", simIds);
 

@@ -8,10 +8,14 @@ import { clsx } from "clsx";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatDateTime } from "@/lib/format/date";
 
-// Past this many minutes a "running" sim is almost certainly a zombie —
-// Vercel Pro + Fluid Compute caps functions at 800s (~13 min) so anything
-// still claiming "running" past ~15 min hasn't actually been alive for a while.
-const ZOMBIE_THRESHOLD_MINUTES = 15;
+// Past this many minutes a "running" sim is almost certainly a zombie.
+//
+// The old value was 15, reasoned from Vercel's 800s (~13 min) function
+// cap plus slack. Measured per-sim runtimes since 2026-09 overtook it:
+// Consensus sims run to a 16.1-minute p99 (n=36), so healthy runs were
+// being flagged. Matched to the cleanup cron's own window instead, which
+// is what actually decides a run is dead.
+const ZOMBIE_THRESHOLD_MINUTES = 30;
 
 interface Row {
   id: string;
