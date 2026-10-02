@@ -7162,6 +7162,56 @@ function PricingTab({
         </div>
       </div>
 
+      {/* Price per shortlist market. Each sim prices the shortlist's
+          markets separately, and until now the aggregator dropped the
+          result — so a shortlist's entries all carried one price, when
+          willingness to pay is the main thing separating them. Hidden
+          when the sims didn't actually differentiate, rather than
+          showing a table that implies a comparison nobody made. */}
+      {(() => {
+        const perMarket = (
+          pricing as {
+            perMarket?: Array<{ country: string; recommendedPriceCents: number; sampleCount: number }>;
+          }
+        ).perMarket;
+        if (!perMarket?.length) return null;
+        const top = perMarket[0].recommendedPriceCents || 1;
+        return (
+          <SectionCard
+            icon={Target}
+            tone="brand"
+            title={isKo ? "시장별 권장가" : "Recommended price by market"}
+          >
+            <div className="space-y-2">
+              {perMarket.map((m) => (
+                <div key={m.country} className="flex items-center gap-3">
+                  <div className="w-28 shrink-0 text-[12.5px] font-semibold text-slate-700">
+                    {getCountryLabel(m.country, isKo ? "ko" : "en") || m.country}
+                  </div>
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-brand"
+                      style={{ width: `${Math.max(6, (m.recommendedPriceCents / top) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="w-24 shrink-0 text-right text-[13px] font-bold tabular-nums text-slate-900">
+                    {fmt(m.recommendedPriceCents)}
+                  </div>
+                  <div className="w-20 shrink-0 text-right text-[11px] text-slate-500">
+                    {isKo ? `시뮬 ${m.sampleCount}회` : `${m.sampleCount} sim${m.sampleCount === 1 ? "" : "s"}`}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-[11.5px] leading-relaxed text-slate-500">
+              {isKo
+                ? "각 시장의 소득 수준·경쟁 가격대·채널 구조를 반영한 값입니다. 시뮬마다 따로 산출해 중앙값을 취했고, 위 전체 권장가와 다를 수 있습니다."
+                : "Priced for each market's income level, competing tiers and channel structure — computed per simulation and taken as the median, so these can differ from the headline price above."}
+            </p>
+          </SectionCard>
+        );
+      })()}
+
       {/* Three-way relationship — explicit "did the LLM just give back
           your input?" answer. Renders only when basePriceCents is
           known. Different message for each alignment pattern so

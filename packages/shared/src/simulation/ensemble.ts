@@ -724,6 +724,14 @@ export interface ChannelMentionRow {
  */
 export interface PricingAggregate {
   recommendedPriceCents: number;
+  /**
+   * Price per shortlist market, best-first, when the sims actually
+   * differentiated between them. Absent when the guards in
+   * computePerMarketPricing rejected the data — a scale blow-up, or
+   * every market landing on the same number — because an undifferentiated
+   * table claims a comparison the model did not make.
+   */
+  perMarket?: PerMarketPriceAggregate[];
   recommendedPriceMedian: number;
   recommendedPriceP25: number;
   recommendedPriceP75: number;
@@ -2617,6 +2625,90 @@ function normaliseIncome(i: string | undefined): string | null {
   return "$150k+";
 }
 
+/**
+ * Per-market recommended prices, median across the sims that produced a
+ * usable one.
+ *
+ * Each sim prices the shortlist's markets separately — three samples per
+ * market — and the result was written to the sim row and then dropped
+ * here, so a decision run spent 36 calls on numbers no reader ever saw.
+ * Connecting it needs guards, because the raw values are not all sound:
+ *
+ *  - Scale. One run returned AU at 210 against an overall 15,000: the
+ *    model emitted whole currency units where cents were asked for. A
+ *    100x error printed as a recommended price is worse than no price.
+ *  - Indifference. In another, every market in every sim got the same
+ *    number, and that number was the price the user had typed in. The
+ *    prompt warns against exactly this ("if your answer would be
+ *    identical for every market, you have not used them"), and when it
+ *    happens the model has not priced per market — showing the output
+ *    would claim an analysis that didn't occur.
+ *
+ * Both are dropped rather than corrected, and a market needs a survivor
+ * from at least one sim to appear at all.
+ */
+const PER_MARKET_SCALE_MIN = 0.2;
+const PER_MARKET_SCALE_MAX = 5;
+
+export interface PerMarketPriceAggregate {
+  country: string;
+  recommendedPriceCents: number;
+  /** How many sims contributed a price that passed the guards. */
+  sampleCount: number;
+}
+
+function computePerMarketPricing(
+  sims: EnsembleSimSnapshot[],
+): PerMarketPriceAggregate[] | undefined {
+  type WithByCountry = NonNullable<EnsembleSimSnapshot["pricing"]> & {
+    byCountry?: Record<string, { recommendedPriceCents?: number }>;
+  };
+  const byCountry = new Map<string, number[]>();
+
+  for (const sim of sims) {
+    const pricing = sim.pricing as WithByCountry | undefined;
+    const perMarket = pricing?.byCountry;
+    const overall = pricing?.recommendedPriceCents;
+    if (!perMarket || !overall || overall <= 0) continue;
+
+    const entries = Object.entries(perMarket)
+      .map(([country, v]) => [country, v?.recommendedPriceCents ?? 0] as const)
+      .filter(([, cents]) => cents > 0)
+      .filter(([, cents]) => {
+        const ratio = cents / overall;
+        return ratio >= PER_MARKET_SCALE_MIN && ratio <= PER_MARKET_SCALE_MAX;
+      });
+    if (entries.length === 0) continue;
+
+    // Identical across every market this sim priced — no differentiation
+    // happened, so the sim contributes nothing to a market comparison.
+    if (entries.length > 1 && new Set(entries.map(([, c]) => c)).size === 1) continue;
+
+    for (const [country, cents] of entries) {
+      const arr = byCountry.get(country) ?? [];
+      arr.push(cents);
+      byCountry.set(country, arr);
+    }
+  }
+
+  if (byCountry.size < 2) return undefined;
+  const rows = [...byCountry.entries()]
+    .map(([country, values]) => {
+      const sorted = [...values].sort((a, b) => a - b);
+      return {
+        country,
+        recommendedPriceCents: sorted[Math.floor(sorted.length / 2)],
+        sampleCount: sorted.length,
+      };
+    })
+    .sort((a, b) => b.recommendedPriceCents - a.recommendedPriceCents);
+
+  // Every surviving market landing on the same price is the same
+  // indifference, one level up.
+  if (new Set(rows.map((r) => r.recommendedPriceCents)).size === 1) return undefined;
+  return rows;
+}
+
 function computePricingAggregate(
   sims: EnsembleSimSnapshot[],
 ): PricingAggregate | undefined {
@@ -2813,6 +2905,7 @@ function computePricingAggregate(
     range,
     competitorPrices,
     sensitivity: computePricingSensitivityShared(curve, recommendedPriceCents),
+    perMarket: computePerMarketPricing(present),
   };
 }
 

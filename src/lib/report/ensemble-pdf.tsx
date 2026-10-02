@@ -4091,6 +4091,38 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           );
         })()}
 
+        {/* Price per shortlist market. Computed per sim all along and
+            dropped at aggregation until now, so a shortlist's entries all
+            carried one price — when willingness to pay is the main thing
+            that separates them. Absent when the sims didn't actually
+            differentiate; see computePerMarketPricing. */}
+        {(pr as { perMarket?: Array<{ country: string; recommendedPriceCents: number; sampleCount: number }> })
+          .perMarket && (
+          <View style={styles.sectionBlock}>
+            <MText style={styles.sectionEyebrow}>
+              {isKo ? "시장별 권장가" : "Recommended price by market"}
+            </MText>
+            {(pr as { perMarket: Array<{ country: string; recommendedPriceCents: number; sampleCount: number }> }).perMarket.map(
+              (m) => (
+                <View key={m.country} style={styles.distRow}>
+                  <MText style={styles.distCountry}>{getCountryLabel(m.country, locale) || m.country}</MText>
+                  <MText style={{ fontSize: 10, fontWeight: 700, color: C.ink, width: 90 }}>
+                    {fmt(m.recommendedPriceCents)}
+                  </MText>
+                  <MText style={styles.distMeta}>
+                    {isKo ? `시뮬 ${m.sampleCount}회 중앙값` : `median of ${m.sampleCount} sim${m.sampleCount === 1 ? "" : "s"}`}
+                  </MText>
+                </View>
+              ),
+            )}
+            <MText style={{ fontSize: 8, color: C.muted, marginTop: 4, lineHeight: 1.4 }}>
+              {isKo
+                ? "각 시장의 소득 수준·경쟁 가격대·채널 구조를 반영한 값입니다. 전체 권장가와 다를 수 있습니다."
+                : "Priced for each market's income level, competing tiers and channel structure — these can differ from the headline price."}
+            </MText>
+          </View>
+        )}
+
         {tierBudget.showPricingCurve && pr.curve.length > 0 && (
           <View style={styles.sectionBlock}>
             <MText style={styles.sectionEyebrow}>
