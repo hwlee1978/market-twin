@@ -45,9 +45,9 @@ async function main() {
     for (const b of res.byCountry) {
       const yt = b.youtube ? `YT ${b.youtube.videoCount}v/${fmt(b.youtube.viewSum)}` : "YT -";
       const nv = b.naver ? ` Naver ${b.naver.mentions}` : "";
-      const rd = b.reddit ? ` Reddit ${b.reddit.posts}` : "";
+      const sv = b.searchVolume != null ? ` search ${fmt(b.searchVolume)}/mo` : "";
       const mark = b.country === c.actual ? "  <== ACTUAL" : b.country === c.modelPicked ? "  (model pick)" : "";
-      console.log(`  [${b.country}] index ${String(b.index).padStart(3)}  ${yt}${nv}${rd}${mark}`);
+      console.log(`  [${b.country}] index ${String(b.index).padStart(3)}  ${yt}${nv}${sv}${mark}`);
     }
     // verdict: did buzz rank the ACTUAL winner #1 or top-2?
     const rank = res.byCountry.findIndex((b) => b.country === c.actual) + 1;

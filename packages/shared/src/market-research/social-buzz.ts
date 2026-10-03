@@ -33,7 +33,12 @@
  *      (~4 brands/day for a 24-market run) — the worst value/quota ratio in
  *      the stack. Opt in with SOCIAL_BUZZ_YOUTUBE=1 only if the quota is
  *      raised; TikTok (500k/mo headroom) + DataForSEO cover this better.
- *   ⑤ Naver (KR) / Reddit (country subs) — local community deepeners.
+ *   ⑤ Naver (KR) — local community deepener for the origin market.
+ *
+ * Reddit country subs were ⑤'s other half until 2026-10: the unauthenticated
+ * search.json endpoint now answers 403 to every call, so it contributed
+ * nothing to any score while costing one request per country per run.
+ * Restoring it needs an OAuth app, not a bug fix.
  *
  * Best-effort contract, same as every other anchor: never throw, return an
  * empty/degraded result on any miss so a missing key or a rate-limit never
@@ -54,7 +59,6 @@ const NAVER_NEWS = "https://openapi.naver.com/v1/search/news.json";
  * needs it to bypass its data cache) while compiling in both places.
  */
 type FetchInit = RequestInit & { cache?: "no-store" | "force-cache" };
-const REDDIT_SEARCH = "https://www.reddit.com/search.json";
 const TT_HOST = "tiktok-scraper7.p.rapidapi.com";
 const DFS_ENDPOINT =
   "https://api.dataforseo.com/v3/keywords_data/google_ads/search_volume/live";
@@ -64,43 +68,41 @@ const HTTP_TIMEOUT_MS = 12_000;
 interface CountrySource {
   regionCode: string;
   lang: string;
-  reddit?: string;
   /** DataForSEO / Google-Ads numeric location criterion. */
   dfsLoc: number;
 }
 /**
  * Country → source config for the 24 supported markets. regionCode is
- * ISO-3166, lang is ISO-639-1, dfsLoc is the Google-Ads geo criterion code
- * DataForSEO expects, reddit is a country subreddit where one is an active
- * buzz proxy.
+ * ISO-3166, lang is ISO-639-1, and dfsLoc is the Google-Ads geo criterion
+ * code DataForSEO expects.
  */
 const COUNTRY_SOURCES: Record<string, CountrySource> = {
-  KR: { regionCode: "KR", lang: "ko", reddit: "korea", dfsLoc: 2410 },
-  JP: { regionCode: "JP", lang: "ja", reddit: "japan", dfsLoc: 2392 },
+  KR: { regionCode: "KR", lang: "ko", dfsLoc: 2410 },
+  JP: { regionCode: "JP", lang: "ja", dfsLoc: 2392 },
   CN: { regionCode: "CN", lang: "zh", dfsLoc: 2156 },
-  TW: { regionCode: "TW", lang: "zh", reddit: "taiwan", dfsLoc: 2158 },
-  HK: { regionCode: "HK", lang: "zh", reddit: "HongKong", dfsLoc: 2344 },
-  SG: { regionCode: "SG", lang: "en", reddit: "singapore", dfsLoc: 2702 },
-  TH: { regionCode: "TH", lang: "th", reddit: "Thailand", dfsLoc: 2764 },
-  VN: { regionCode: "VN", lang: "vi", reddit: "VietNam", dfsLoc: 2704 },
-  ID: { regionCode: "ID", lang: "id", reddit: "indonesia", dfsLoc: 2360 },
-  MY: { regionCode: "MY", lang: "ms", reddit: "malaysia", dfsLoc: 2458 },
-  PH: { regionCode: "PH", lang: "en", reddit: "Philippines", dfsLoc: 2608 },
-  IN: { regionCode: "IN", lang: "en", reddit: "india", dfsLoc: 2356 },
-  US: { regionCode: "US", lang: "en", reddit: "all", dfsLoc: 2840 },
-  CA: { regionCode: "CA", lang: "en", reddit: "canada", dfsLoc: 2124 },
-  GB: { regionCode: "GB", lang: "en", reddit: "unitedkingdom", dfsLoc: 2826 },
-  DE: { regionCode: "DE", lang: "de", reddit: "germany", dfsLoc: 2276 },
-  FR: { regionCode: "FR", lang: "fr", reddit: "france", dfsLoc: 2250 },
-  IT: { regionCode: "IT", lang: "it", reddit: "italy", dfsLoc: 2380 },
-  ES: { regionCode: "ES", lang: "es", reddit: "es", dfsLoc: 2724 },
-  NL: { regionCode: "NL", lang: "nl", reddit: "thenetherlands", dfsLoc: 2528 },
-  AU: { regionCode: "AU", lang: "en", reddit: "australia", dfsLoc: 2036 },
-  NZ: { regionCode: "NZ", lang: "en", reddit: "newzealand", dfsLoc: 2554 },
-  AE: { regionCode: "AE", lang: "en", reddit: "dubai", dfsLoc: 2784 },
-  SA: { regionCode: "SA", lang: "ar", reddit: "saudiarabia", dfsLoc: 2682 },
-  BR: { regionCode: "BR", lang: "pt", reddit: "brasil", dfsLoc: 2076 },
-  MX: { regionCode: "MX", lang: "es", reddit: "mexico", dfsLoc: 2484 },
+  TW: { regionCode: "TW", lang: "zh", dfsLoc: 2158 },
+  HK: { regionCode: "HK", lang: "zh", dfsLoc: 2344 },
+  SG: { regionCode: "SG", lang: "en", dfsLoc: 2702 },
+  TH: { regionCode: "TH", lang: "th", dfsLoc: 2764 },
+  VN: { regionCode: "VN", lang: "vi", dfsLoc: 2704 },
+  ID: { regionCode: "ID", lang: "id", dfsLoc: 2360 },
+  MY: { regionCode: "MY", lang: "ms", dfsLoc: 2458 },
+  PH: { regionCode: "PH", lang: "en", dfsLoc: 2608 },
+  IN: { regionCode: "IN", lang: "en", dfsLoc: 2356 },
+  US: { regionCode: "US", lang: "en", dfsLoc: 2840 },
+  CA: { regionCode: "CA", lang: "en", dfsLoc: 2124 },
+  GB: { regionCode: "GB", lang: "en", dfsLoc: 2826 },
+  DE: { regionCode: "DE", lang: "de", dfsLoc: 2276 },
+  FR: { regionCode: "FR", lang: "fr", dfsLoc: 2250 },
+  IT: { regionCode: "IT", lang: "it", dfsLoc: 2380 },
+  ES: { regionCode: "ES", lang: "es", dfsLoc: 2724 },
+  NL: { regionCode: "NL", lang: "nl", dfsLoc: 2528 },
+  AU: { regionCode: "AU", lang: "en", dfsLoc: 2036 },
+  NZ: { regionCode: "NZ", lang: "en", dfsLoc: 2554 },
+  AE: { regionCode: "AE", lang: "en", dfsLoc: 2784 },
+  SA: { regionCode: "SA", lang: "ar", dfsLoc: 2682 },
+  BR: { regionCode: "BR", lang: "pt", dfsLoc: 2076 },
+  MX: { regionCode: "MX", lang: "es", dfsLoc: 2484 },
 };
 
 export interface CountryBuzz {
@@ -109,6 +111,10 @@ export interface CountryBuzz {
   searchVolume?: number;
   /** Recent 3-mo vs prior 3-mo % change in search volume (demand direction). */
   searchTrendPct?: number | null;
+  /** Google Ads top-of-page CPC in USD — what this demand costs to buy. */
+  cpcUsd?: number;
+  /** Google Ads competition index 0-100 for the brand keyword. */
+  competitionIndex?: number;
   /** TikTok videos in the brand's top search attributed to this region. */
   tiktokVideos?: number;
   /** China-only: count of top Baidu organic results from Chinese commerce /
@@ -117,7 +123,6 @@ export interface CountryBuzz {
   baiduPresence?: number;
   youtube?: { videoCount: number; viewSum: number };
   naver?: { mentions: number };
-  reddit?: { posts: number };
   /** Composite raw score (log-scaled weighted sum, pre-normalization). */
   raw: number;
   /** 0-100, normalized against the max raw across the candidate set. */
@@ -194,6 +199,13 @@ export interface CountryDemand {
   /** Recent 3-mo vs prior 3-mo % change in monthly search volume (trajectory),
    *  or null when < 6 months of data. Positive = rising demand. */
   trendPct: number | null;
+  /** Google Ads top-of-page CPC in USD for the brand keyword. The cost side of
+   *  the same demand: two markets with equal volume are not equally cheap to
+   *  enter. Arrives in the response we already make for volume. */
+  cpcUsd?: number;
+  /** Google Ads competition index 0-100 (how contested the keyword's auction
+   *  is). High volume + high index = demand already being bid for. */
+  competitionIndex?: number;
 }
 
 /** Recent-3-month vs prior-3-month % change from DataForSEO monthly_searches
@@ -212,9 +224,11 @@ function trajectory(
 }
 
 /**
- * Absolute monthly Google search volume + trajectory per candidate country.
- * The clean per-country backbone: absolute volume compares directly across
- * markets with no platform blind spot. Sends ONE task per request (the plan
+ * Absolute monthly Google search volume + trajectory + ad-auction cost per
+ * candidate country. The clean per-country backbone: absolute volume compares
+ * directly across markets with no platform blind spot, and the same response
+ * carries CPC and the competition index at no extra request — the cost side of
+ * entering that demand. Sends ONE task per request (the plan
  * rejects multi-task arrays with "one task at a time" — 40000), concurrently.
  * Empty when DATAFORSEO_LOGIN/PASSWORD are unset (graceful degrade to social).
  */
@@ -254,6 +268,8 @@ async function dataForSeoDemandByCountry(
             tasks?: Array<{
               result?: Array<{
                 search_volume?: number | null;
+                cpc?: number | null;
+                competition_index?: number | null;
                 monthly_searches?: Array<{ search_volume?: number | null }>;
               }>;
             }>;
@@ -262,7 +278,15 @@ async function dataForSeoDemandByCountry(
           if (typeof r?.search_volume !== "number") return null;
           return [
             iso,
-            { volume: r.search_volume, trendPct: trajectory(r.monthly_searches) },
+            {
+              volume: r.search_volume,
+              trendPct: trajectory(r.monthly_searches),
+              cpcUsd: typeof r.cpc === "number" ? r.cpc : undefined,
+              competitionIndex:
+                typeof r.competition_index === "number"
+                  ? r.competition_index
+                  : undefined,
+            },
           ];
         } catch {
           return null;
@@ -503,50 +527,20 @@ async function naverBuzz(
   }
 }
 
-async function redditBuzz(
-  brand: string,
-  sub: string,
-  windowDays: number,
-): Promise<CountryBuzz["reddit"] | undefined> {
-  const t =
-    windowDays <= 1
-      ? "day"
-      : windowDays <= 7
-        ? "week"
-        : windowDays <= 31
-          ? "month"
-          : "year";
-  const url =
-    sub === "all"
-      ? `${REDDIT_SEARCH}?q=${encodeURIComponent(brand)}&t=${t}&limit=100`
-      : `https://www.reddit.com/r/${sub}/search.json?q=${encodeURIComponent(brand)}&restrict_sr=1&t=${t}&limit=100`;
-  const { signal, clear } = withTimeout();
-  try {
-    const res = await fetch(url, {
-      headers: { "user-agent": "market-twin/0.1 (grounding)" },
-      signal,
-    });
-    if (!res.ok) return undefined;
-    const json = (await res.json()) as {
-      data?: { dist?: number; children?: unknown[] };
-    };
-    return { posts: json.data?.dist ?? json.data?.children?.length ?? 0 };
-  } catch {
-    return undefined;
-  } finally {
-    clear();
-  }
-}
-
 /* ─────────────────────────  composite  ───────────────────────── */
 
 /**
  * Weighted composite. DataForSEO absolute search volume dominates when
  * present (clean per-country demand); TikTok creator distribution is the
  * strongest social signal; YouTube view-sum is a weak tiebreaker (global
- * views leak across regions); Naver/Reddit are local deepeners. Naver is
+ * views leak across regions); Naver is a local deepener. Naver is
  * deweighted vs the Spotlight original so the origin market (always high on
  * home-country buzz) doesn't dominate an EXPORT-market ranking.
+ *
+ * CPC and the competition index are deliberately NOT summed in. This index
+ * measures how much demand exists; what that demand costs to buy is a
+ * separate axis the ranking model should weigh itself, and folding an
+ * expensive auction into a demand score would read as more demand.
  */
 function composite(b: CountryBuzz): number {
   const log10 = (n: number) => Math.log10(1 + Math.max(0, n));
@@ -556,7 +550,6 @@ function composite(b: CountryBuzz): number {
   if (b.baiduPresence != null) raw += 1.2 * b.baiduPresence; // ④ China (Baidu)
   if (b.youtube) raw += 0.4 * log10(b.youtube.viewSum); // weak tiebreaker
   if (b.naver) raw += 1.0 * log10(b.naver.mentions); // ⑤ deweighted
-  if (b.reddit) raw += 1.0 * log10(b.reddit.posts); // ⑤
   return raw;
 }
 
@@ -564,7 +557,7 @@ function composite(b: CountryBuzz): number {
  * Fetch per-country social buzz for a brand. Inactive (empty) only when NONE
  * of DataForSEO / RapidAPI / YouTube keys are present. Brand-level signals
  * (TikTok hashtag, region tally, DataForSEO batch) are fetched once; YouTube/
- * Reddit/Naver run per country. All best-effort.
+ * Naver run per country. All best-effort.
  */
 export async function fetchSocialBuzzByCountry(
   input: SocialBuzzInput,
@@ -602,20 +595,20 @@ export async function fetchSocialBuzzByCountry(
     countries.map(async (country): Promise<CountryBuzz> => {
       const src = COUNTRY_SOURCES[country];
       if (!src) return { country, raw: 0, index: 0 };
-      const [youtube, reddit, naver] = await Promise.all([
+      const [youtube, naver] = await Promise.all([
         ytKey ? youtubeBuzz(input.brand, src, publishedAfter, ytKey) : undefined,
-        src.reddit ? redditBuzz(input.brand, src.reddit, windowDays) : undefined,
         country === "KR" ? naverBuzz(input.brand, windowMs, windowEnd) : undefined,
       ]);
       const cb: CountryBuzz = {
         country,
         searchVolume: demandByCountry[country]?.volume,
         searchTrendPct: demandByCountry[country]?.trendPct,
+        cpcUsd: demandByCountry[country]?.cpcUsd,
+        competitionIndex: demandByCountry[country]?.competitionIndex,
         tiktokVideos: ttTally?.[country],
         baiduPresence: country === "CN" ? baiduCN : undefined,
         youtube,
         naver,
-        reddit,
         raw: 0,
         index: 0,
       };
@@ -642,6 +635,12 @@ export async function fetchSocialBuzzByCountry(
  * prompt. Presents the RELATIVE index (0-100) plus the raw sub-signals, and
  * flags the primary signal so the LLM knows how much to trust it. Returns ""
  * when there is no usable signal.
+ *
+ * Closes with per-source coverage, because a blank sub-signal is ambiguous:
+ * TikTok answers for 2 of 7 candidate countries on a typical run, and a
+ * country missing from that tally looks exactly like a country with no
+ * creators posting. Naming the coverage stops a silent source from reading
+ * as measured-zero demand.
  */
 export function formatSocialBuzzBlock(
   result: SocialBuzzResult,
@@ -662,8 +661,8 @@ export function formatSocialBuzzBlock(
         ? "주 신호=국가별 절대 검색량(DataForSEO)"
         : "primary=absolute search volume by country (DataForSEO)"
       : isKo
-        ? "주 신호=소셜(TikTok/YouTube/커뮤니티) — 검색량 미연동(근사치)"
-        : "primary=social proxies (TikTok/YouTube/community) — search volume not wired (approximate)";
+        ? "주 신호=소셜(TikTok) — 검색량 미연동(근사치)"
+        : "primary=social proxy (TikTok) — search volume not wired (approximate)";
   const header = isKo
     ? `═══ 후보국별 소셜/검색 수요 지수 (실측)${viral} ═══\n브랜드명 기준 국가별 조직적(organic) 수요의 상대 지수(0-100, 후보군 내 최대=100). ${primaryNote}. 시장 규모와 다른 축 — 규모는 작아도 이미 뜨는 시장을 식별하기 위한 것. brand-strategy가 KOL/소셜/검색 주도면 country score에 가중:`
     : `═══ PER-COUNTRY SOCIAL / SEARCH DEMAND INDEX (measured)${viral} ═══\nRelative index (0-100, max in candidate set = 100) of organic demand for the brand per country. ${primaryNote}. A SEPARATE axis from market size — surfaces markets already trending even if small. Weight into the country score when the brand-strategy is KOL/social/search-led:`;
@@ -676,15 +675,30 @@ export function formatSocialBuzzBlock(
           : ` ${c.searchTrendPct >= 0 ? "↑" : "↓"}${Math.abs(c.searchTrendPct)}%`;
       bits.push(`search ${formatViews(c.searchVolume)}/mo${tr}`);
     }
+    if (c.cpcUsd != null) {
+      const comp = c.competitionIndex != null ? `/comp ${c.competitionIndex}` : "";
+      bits.push(`CPC $${c.cpcUsd.toFixed(2)}${comp}`);
+    }
     if (c.tiktokVideos) bits.push(`TikTok ${c.tiktokVideos} vids`);
     if (c.baiduPresence != null) bits.push(`Baidu-CN ${c.baiduPresence}`);
     if (c.youtube && c.youtube.viewSum > 0)
       bits.push(`YT ${formatViews(c.youtube.viewSum)}`);
     if (c.naver && c.naver.mentions > 0) bits.push(`Naver ${c.naver.mentions}`);
-    if (c.reddit && c.reddit.posts > 0) bits.push(`Reddit ${c.reddit.posts}`);
     return `  [${c.country}] index ${c.index}  (${bits.join(", ") || "—"})`;
   });
-  return `${header}\n${lines.join("\n")}`;
+  const n = result.byCountry.length;
+  const covered = (f: (c: CountryBuzz) => boolean) =>
+    `${result.byCountry.filter(f).length}/${n}`;
+  const coverage = [
+    `search ${covered((c) => c.searchVolume != null)}`,
+    `CPC ${covered((c) => c.cpcUsd != null)}`,
+    `TikTok ${covered((c) => !!c.tiktokVideos)}`,
+    `Baidu-CN ${covered((c) => c.baiduPresence != null)}`,
+  ].join(" · ");
+  const note = isKo
+    ? `소스별 응답 국가수: ${coverage}. 응답하지 않은 소스는 "수요 0"이 아니라 "미측정"이다 — 해당 소스가 비어 있다는 이유로 그 국가를 낮추지 말 것. (CPC/comp는 수요가 아니라 그 수요를 사는 비용이므로 index에 미포함)`
+    : `Source coverage: ${coverage}. A source that returned nothing means NOT MEASURED, not zero demand — do not mark a country down because a source is blank. (CPC/comp is the cost of buying that demand, not demand itself, and is excluded from the index.)`;
+  return `${header}\n${lines.join("\n")}\n${note}`;
 }
 
 function formatViews(n: number): string {
