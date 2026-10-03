@@ -1869,20 +1869,20 @@ function SummaryTab({
           <div className="font-semibold">
             {recommendation.crossCheck.agrees
               ? isKo
-                ? "두 관점이 같은 시장을 지목했습니다"
-                : "Both views point to the same market"
+                ? "다른 방법으로 한 번 더 확인했고, 같은 답이 나왔습니다"
+                : "We checked a second way and got the same answer"
               : isKo
-                ? "두 관점이 갈렸습니다 — 한 곳으로 좁히지 마십시오"
-                : "The two views disagree — don't narrow to one market yet"}
+                ? "다른 방법으로 확인했더니 답이 갈렸습니다 — 한 곳으로 좁히지 마세요"
+                : "We checked a second way and got a different answer — don't commit to one market"}
           </div>
           <p className="mt-1 leading-relaxed">
             {recommendation.crossCheck.agrees
               ? isKo
-                ? `시뮬레이션과, 브랜드를 가린 채 카테고리·원산지만으로 본 판단이 모두 ${recommendation.country}를 골랐습니다. 과거 사례에서 둘이 일치했을 때는 21건 중 16건이 맞았습니다.`
-                : `The simulation and a brand-blind read of the same category and origin both chose ${recommendation.country}. On past cases, agreement was right in 16 of 21.`
+                ? `브랜드를 가리고 제품 종류와 원산지만으로 다시 골라봤는데, 이번에도 ${recommendation.country}가 나왔습니다. 지금까지 두 방법이 같은 답을 낸 21번 중 16번은 그 시장이 실제로 맞았습니다. 평소보다 믿으셔도 되지만, 네 번에 한 번은 빗나갑니다.`
+                : `Asked again with the brand hidden — just the product type and country of origin — the answer was still ${recommendation.country}. Of the 21 past cases where both methods agreed, the market turned out right 16 times. Worth trusting more than usual, though it still misses about one time in four.`
               : isKo
-                ? `시뮬레이션은 ${recommendation.country}, 브랜드를 가린 판단은 ${recommendation.crossCheck.blindPick}를 골랐습니다. 과거 사례에서 둘이 갈렸을 때는 어느 쪽도 믿을 만하지 않았습니다(시뮬 43%, 가린 판단 24%). 아래 후보를 함께 검토하십시오.`
-                : `The simulation chose ${recommendation.country}; the brand-blind read chose ${recommendation.crossCheck.blindPick}. On past cases neither side was reliable when they split (43% and 24%). Treat the markets below as a shortlist.`}
+                ? `브랜드를 가리고 제품 종류와 원산지만으로 다시 골라봤더니 ${recommendation.crossCheck.blindPick}가 나왔습니다. 시뮬레이션은 ${recommendation.country}입니다. 지금까지 두 방법이 갈렸을 때는 어느 쪽도 믿기 어려웠습니다 — 시뮬레이션이 열에 넷, 가린 쪽은 열에 둘 정도만 맞았습니다. 한 곳을 정하지 마시고 아래 후보를 함께 보십시오.`
+                : `Asked again with the brand hidden — just the product type and country of origin — the answer came back ${recommendation.crossCheck.blindPick}, while the simulation chose ${recommendation.country}. When the two methods have split before, neither was reliable: the simulation was right about four times in ten, the blind read about two. Don't settle on one market — look at the candidates below together.`}
           </p>
           {recommendation.shortlist && recommendation.shortlist.length > 1 && (
             <div className="mt-2 flex flex-wrap gap-2">
