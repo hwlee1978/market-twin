@@ -255,6 +255,14 @@ export async function buildMarketProfile(
     // verbatim; passing them through programmatically guarantees the
     // cited URLs match what the LLM actually saw.
     const profile = parsed.data;
+    // Snippets that survived citation filtering — the ones the report
+    // actually links. The grounding check below used the unfiltered set,
+    // so it could compare a snack-bar estimate against a US food-service
+    // figure that had already been rejected as off-market, then tell the
+    // reader to "verify against the source links below" where that
+    // number does not appear.
+    let citedSnippets: Array<{ title?: string; url?: string; content?: string }> =
+      marketSnippets;
     if (marketSnippets.length > 0 && profile.marketSize) {
       // Not the first three results. A search for a Taiwanese snack
       // market returns a pet-food report near the top, and citing it
@@ -270,6 +278,7 @@ export async function buildMarketProfile(
         );
       }
       profile.marketSize.citations = picked.kept.map((s) => ({ url: s.url, title: s.title }));
+      citedSnippets = picked.kept;
     }
     // Output-side grounding check. Even with the "anchor on these
     // snippets" hard rule (prompts.ts:894), the LLM sometimes emits a
@@ -281,7 +290,7 @@ export async function buildMarketProfile(
     if (profile.marketSize) {
       const grounding = checkMarketSizeGrounding(
         profile.marketSize.estimateUsd,
-        marketSnippets,
+        citedSnippets,
       );
       profile.marketSize.groundingFlag = grounding;
       if (grounding.status === "mismatch") {

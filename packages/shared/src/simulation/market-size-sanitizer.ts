@@ -123,8 +123,16 @@ export function pickClaimedValueUsdB(estimateUsd: string): number | undefined {
   const values = extractUsdBillionValues(estimateUsd);
   if (values.length === 0) return undefined;
   if (values.length === 1) return values[0];
-  // Range: take the midpoint of the spread the LLM emitted.
   const sorted = [...values].sort((a, b) => a - b);
+  // Figures an order of magnitude apart are not a range, they are
+  // different quantities. "미국 건강식품 시장 $400B+, 프리미엄 그래놀라
+  // ·에너지바 세그먼트 $3.5–5B" is a total market and a segment of it;
+  // averaging them produced $201.75B, which is neither, and the report
+  // then warned that this invented number disagreed with its sources.
+  // With nothing comparable to pick, say so and let the caller report
+  // "unknown" rather than check an estimate nobody made.
+  if (sorted[sorted.length - 1] / sorted[0] > 10) return undefined;
+  // A genuine range: take its midpoint.
   return (sorted[0] + sorted[sorted.length - 1]) / 2;
 }
 
