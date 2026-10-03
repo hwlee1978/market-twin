@@ -28,6 +28,7 @@ import {
   Legend,
   ErrorBar,
 } from "recharts";
+import { postPeakEnvelope } from "@/lib/simulation/pricing-sensitivity";
 import { formatPrice } from "@/lib/format/price";
 import { CHART, CHART_TICK, CHART_TOOLTIP } from "./ui/tokens";
 
@@ -244,27 +245,36 @@ export function PricingCurveChart({
       }))
       .sort((a, b) => a.priceCents - b.priceCents);
   })();
-  // Monotonic envelope overlay — running min of conversion as price
-  // ascends. Visible as a dashed line so the user can SEE what the
-  // algorithm uses for revenue-max computation vs the raw LLM output.
-  // Le Mouton 1265510e curve drifts up after $220 (LLM emitted
-  // $260=45%, $300=60%) — the envelope clamps those to the prior
-  // running min, surfacing the high-price bumps as suppressed noise
-  // rather than treating them as real demand growth.
-  const enriched = bucketed.reduce<
-    { price: string; priceCents: number; conv: number; envelope: number; n: number }[]
-  >((acc, d) => {
-    const prevMin = acc.length > 0 ? acc[acc.length - 1].envelope / 10 : Infinity;
-    const envelopeRaw = Math.min(prevMin, d.meanConversionProbability);
-    acc.push({
-      price: formatPrice(d.priceCents, currency),
-      priceCents: d.priceCents,
-      conv: Math.round(d.meanConversionProbability * 1000) / 10, // raw %
-      envelope: Math.round(envelopeRaw * 1000) / 10, // envelope %
-      n: d.sampleCount,
-    });
-    return acc;
-  }, []);
+  // Envelope overlay — the curve with post-peak upticks flattened,
+  // drawn bold over the raw samples so the reader sees which rises were
+  // taken at face value and which were suppressed.
+  //
+  // This used to compute its own running minimum inline and got the
+  // units wrong: the envelope is stored as a percentage (×1000/10) and
+  // the running min divided it by 10 instead of 100, so the carried
+  // value was always above 1 and Math.min always picked the raw
+  // conversion. The envelope line was the raw line, `envelopeDiverges`
+  // was never true, and the caption claiming upticks were flattened sat
+  // under a chart that flattened nothing.
+  //
+  // It now uses the shared postPeakEnvelope — the same function the PDF
+  // draws and the one whose behaviour the caption describes.
+  const envelopeByPrice = new Map(
+    postPeakEnvelope(
+      bucketed.map((d) => ({
+        priceCents: d.priceCents,
+        meanConversionProbability: d.meanConversionProbability,
+      })),
+    ).map((p) => [p.priceCents, p.meanConversionProbability]),
+  );
+  const enriched = bucketed.map((d) => ({
+    price: formatPrice(d.priceCents, currency),
+    priceCents: d.priceCents,
+    conv: Math.round(d.meanConversionProbability * 1000) / 10,
+    envelope:
+      Math.round((envelopeByPrice.get(d.priceCents) ?? d.meanConversionProbability) * 1000) / 10,
+    n: d.sampleCount,
+  }));
   // Only show envelope line when it actually diverges from raw —
   // monotonic curves overlap perfectly and the dashed line just adds
   // visual clutter.
@@ -285,11 +295,16 @@ export function PricingCurveChart({
         <Tooltip
           contentStyle={CHART_TOOLTIP}
           formatter={(value, name, item) => {
-            const p = (item as { payload?: { n?: number; price?: string } }).payload ?? {};
+            const p =
+              (item as { payload?: { n?: number; price?: string; conv?: number; envelope?: number } })
+                .payload ?? {};
+            // Only the points the envelope actually moved get the note.
+            const clamped =
+              p.conv != null && p.envelope != null && Math.abs(p.conv - p.envelope) > 0.05;
             const label =
               name === "envelope"
-                ? `${Number(value)}% envelope (clamped)`
-                : `${Number(value)}% raw conv (n=${p.n})`;
+                ? `${Number(value)}%${clamped ? " · 고점 이후 평탄화" : ""}`
+                : `${Number(value)}% 원본 (n=${p.n})`;
             return [label, p.price ?? ""] as [string, string];
           }}
           labelFormatter={() => ""}

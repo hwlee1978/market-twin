@@ -43,7 +43,6 @@ import {
 import {
   computePricingSensitivity,
   computeCurveRevenueMaxCents,
-  postPeakEnvelope,
   getDisplayPriceCents,
 } from "@/lib/simulation/pricing-sensitivity";
 import { analyzeIncomeIntent } from "@/lib/simulation/segment-analysis";
@@ -7640,11 +7639,11 @@ function PricingTab({
           tone="brand"
           title={isKo ? "가격–전환 곡선" : "Price–conversion curve"}
         >
-          {/* The envelope, not the raw samples. The caption below has
-              always described the flattened curve — the chart drew the
-              raw one, so a reader could see conversion climb with price
-              directly under a sentence saying that cannot happen. */}
-          <PricingCurveChart data={postPeakEnvelope(pricing.curve)} currency={currency} isKo={isKo} />
+          {/* Raw curve in, on purpose: the chart draws the raw samples
+              faint and the post-peak envelope bold over them, so the
+              reader can see which rises were suppressed. Passing an
+              already-flattened curve would flatten it twice. */}
+          <PricingCurveChart data={pricing.curve} currency={currency} isKo={isKo} />
           <p className="text-xs text-slate-500 mt-3 leading-relaxed">
             {isKo
               ? "전환율이 가장 높은 지점을 지난 뒤에는, 가격이 더 올랐는데 사겠다는 사람이 다시 늘어나는 구간이 현실에서 나오기 어렵습니다. 그런 구간은 직전 값까지 눌러 평탄하게 그렸습니다. 반대로 고점 이전의 상승은 \"너무 싸면 오히려 의심한다\"는 실제 반응이므로 그대로 둡니다."
