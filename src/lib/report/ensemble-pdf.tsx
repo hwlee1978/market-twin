@@ -1197,7 +1197,13 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             {isKo ? "30초 브리핑" : "30-second brief"}
           </MText>
           <MText style={{ fontSize: 8, color: C.muted }}>
-            {`${aggregate.simCount} sims · ${aggregate.effectivePersonas.toLocaleString()} personas · ${tierName(tier as Tier, "en")}`}
+            {/* Korean reports printed this line in English — "6 sims ·
+                1,200 personas · Consensus" under a 한글 heading, with
+                the tier name in a vocabulary the Korean report never
+                uses elsewhere. */}
+            {isKo
+              ? `시뮬 ${aggregate.simCount}회 · 페르소나 ${aggregate.effectivePersonas.toLocaleString()}명 · ${tierLabelText}`
+              : `${aggregate.simCount} sims · ${aggregate.effectivePersonas.toLocaleString()} personas · ${tierLabelText}`}
           </MText>
         </View>
         <MText style={[styles.pageTitle, { fontSize: 22, marginBottom: 14 }]}>
@@ -5212,7 +5218,9 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                       : `Range ${fmt(Math.round(cacRange.lowUsd * 100 * usdRate))}–${fmt(Math.round(cacRange.highUsd * 100 * usdRate))}`}
                   </MText>
                   <MText style={{ fontSize: 6.5, color: C.faint, marginTop: 1 }}>
-                    {`($${cacRange.lowUsd.toFixed(0)}–$${cacRange.highUsd.toFixed(0)} · multiplier ${cacRange.newBrandMultiplier}× · benchmark $${cacRange.benchmark.rangeLow}-${cacRange.benchmark.rangeHigh})`}
+                    {isKo
+                      ? `($${cacRange.lowUsd.toFixed(0)}–$${cacRange.highUsd.toFixed(0)} · 신규 브랜드 배수 ${cacRange.newBrandMultiplier}배 · 업계 기준 $${cacRange.benchmark.rangeLow}-${cacRange.benchmark.rangeHigh})`
+                      : `($${cacRange.lowUsd.toFixed(0)}–$${cacRange.highUsd.toFixed(0)} · multiplier ${cacRange.newBrandMultiplier}× · benchmark $${cacRange.benchmark.rangeLow}-${cacRange.benchmark.rangeHigh})`}
                   </MText>
                   {cacRange.benchmarkFlag.status !== "in-range" && (
                     <MText
@@ -7037,7 +7045,9 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                   }}
                 >
                   <MText style={{ fontSize: 10, color: C.ink, fontWeight: 700 }}>
-                    {`${providerLabelPdf(p.provider)} · ${p.simCount} sims`}
+                    {isKo
+                      ? `${providerLabelPdf(p.provider)} · 시뮬 ${p.simCount}회`
+                      : `${providerLabelPdf(p.provider)} · ${p.simCount} sims`}
                   </MText>
                   <MText style={{ fontSize: 8, color: tone, fontWeight: 600 }}>
                     {isKo
@@ -7158,7 +7168,9 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
           {aggregate.providerBreakdown.map((pb) => (
             <View key={pb.provider} style={{ marginBottom: 10 }}>
               <MText style={{ fontSize: 9, fontWeight: 600, color: C.ink, marginBottom: 4 }}>
-                {`${providerLabelPdf(pb.provider)} (${pb.simCount} sims)`}
+                {isKo
+                  ? `${providerLabelPdf(pb.provider)} (시뮬 ${pb.simCount}회)`
+                  : `${providerLabelPdf(pb.provider)} (${pb.simCount} sims)`}
               </MText>
               {pb.bestCountryDistribution.map((b) => (
                 <View key={b.country} style={styles.distRow}>
