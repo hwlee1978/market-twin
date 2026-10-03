@@ -1560,7 +1560,25 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
 
   const renderExecutiveSummaryPage = () => {
     if (!aggregate.narrative?.executiveSummary) return null;
-    const runnerUp = displayPickDistribution(aggregate)[1];
+    // The engine's own runner-up, not the second row of the vote chart.
+    // Those differ: this report's summary named 싱가포르 (second by mean
+    // rank) while this bullet said TW (second by first-place votes), in
+    // the same document. The recommendation card and the prose both use
+    // the engine's pick, so this follows them.
+    const runnerUp = (() => {
+      const sec = aggregate.recommendation.secondary;
+      const dist = displayPickDistribution(aggregate);
+      if (sec?.country && sec.country !== aggregate.recommendation.country) {
+        return {
+          country: sec.country,
+          percent:
+            sec.voteSharePercent ??
+            dist.find((d) => d.country === sec.country)?.percent ??
+            0,
+        };
+      }
+      return dist.find((d) => d.country !== aggregate.recommendation.country);
+    })();
     const winnerStats = aggregate.countryStats.find(
       (c) => c.country === aggregate.recommendation.country,
     );
@@ -1648,8 +1666,8 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
               <BulletItem
                 text={
                   isKo
-                    ? `차순위는 ${runnerUp.country} (${runnerUp.percent}%) — 1순위가 막혔을 때 즉시 대안.`
-                    : `Runner-up: ${runnerUp.country} (${runnerUp.percent}%) — immediate fallback.`
+                    ? `차순위는 ${getCountryLabel(runnerUp.country, locale) || runnerUp.country} (${runnerUp.percent}%) — 1순위가 막혔을 때 즉시 대안.`
+                    : `Runner-up: ${getCountryLabel(runnerUp.country, locale) || runnerUp.country} (${runnerUp.percent}%) — immediate fallback.`
                 }
               />
             )}
@@ -1657,7 +1675,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
               <BulletItem
                 text={
                   isKo
-                    ? `종합 점수 1위는 ${overallSeg.bestCountry} (${overallSeg.bestValue.toFixed(0)}) — 합의도 1위와 다르니 의사결정 시 참고.`
+                    ? `종합 점수 1위는 ${getCountryLabel(overallSeg.bestCountry, locale) || overallSeg.bestCountry} (${overallSeg.bestValue.toFixed(0)}) — 합의도 1위와 다르니 의사결정 시 참고.`
                     : `Highest-scored market is ${overallSeg.bestCountry} (${overallSeg.bestValue.toFixed(0)}) — diverges from consensus winner.`
                 }
               />
@@ -2221,7 +2239,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         {pageHeader}
         <MText style={styles.pageTitle}>
           {isKo
-            ? `${mp.country} — 시장 상황 + 경쟁자 분석`
+            ? `${getCountryLabel(mp.country, locale) || mp.country} — 시장 상황 + 경쟁자 분석`
             : `${mp.country} — Market profile + competitive analysis`}
         </MText>
         <MText style={styles.pageSubtitle}>
@@ -2419,7 +2437,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                         }}
                       >
                         <MText style={{ fontSize: 7, color: C.body, fontWeight: 600 }}>
-                          {isKo ? `원산지 ${c.originCountry}` : `Origin ${c.originCountry}`}
+                          {isKo ? `원산지 ${getCountryLabel(c.originCountry, locale) || c.originCountry}` : `Origin ${getCountryLabel(c.originCountry, locale) || c.originCountry}`}
                         </MText>
                       </View>
                     )}
@@ -3248,7 +3266,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             // requested country as a requirement, and the block hides
             // when that market has no positive voice in the pool.
             isKo
-              ? `${championQuote.country} 챔피언의 목소리`
+              ? `${getCountryLabel(championQuote.country, locale) || championQuote.country} 챔피언의 목소리`
               : `Voice from ${championQuote.country}'s champion`
           }
         />
@@ -3308,7 +3326,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 <MText style={styles.segValue}>{valueText}</MText>
                 {seg.alternative && altText && (
                   <MText style={styles.segAlt}>
-                    {`${isKo ? "대안" : "Alt"}: ${seg.alternative.country} (${altText})`}
+                    {`${isKo ? "대안" : "Alt"}: ${getCountryLabel(seg.alternative.country, locale) || seg.alternative.country} (${altText})`}
                   </MText>
                 )}
               </View>
@@ -3936,7 +3954,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                     // intent is the persona's purchaseIntent score (0-100)
                     // — labeled "의향 X" / "intent X" so readers don't
                     // misread the bare "X%" as a probability.
-                    `${v.country} · ${isKo ? "의향" : "intent"} ${v.intent}`,
+                    `${getCountryLabel(v.country, locale) || v.country} · ${isKo ? "의향" : "intent"} ${v.intent}`,
                     v.profession,
                     v.ageRange,
                   ].filter(Boolean).join(" · ")}
@@ -3954,7 +3972,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 <MText style={styles.voiceText}>{`"${v.text}"`}</MText>
                 <MText style={styles.voiceMeta}>
                   {[
-                    `${v.country} · ${isKo ? "의향" : "intent"} ${v.intent}`,
+                    `${getCountryLabel(v.country, locale) || v.country} · ${isKo ? "의향" : "intent"} ${v.intent}`,
                     v.profession,
                     v.ageRange,
                   ].filter(Boolean).join(" · ")}
@@ -4028,7 +4046,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             isKo={isKo}
             label={
               isKo
-                ? `${priceSkepticQuote.country} 가격 민감 페르소나`
+                ? `${getCountryLabel(priceSkepticQuote.country, locale) || priceSkepticQuote.country} 가격 민감 페르소나`
                 : `A price-sensitive persona in ${priceSkepticQuote.country}`
             }
           />
@@ -4271,7 +4289,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             isKo={isKo}
             label={
               isKo
-                ? `${skepticQuote.country} 회의론자가 본 것`
+                ? `${getCountryLabel(skepticQuote.country, locale) || skepticQuote.country} 회의론자가 본 것`
                 : `What a skeptic in ${skepticQuote.country} flagged`
             }
           />
@@ -4411,7 +4429,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             isKo={isKo}
             label={
               isKo
-                ? `${motivationQuote.country} 페르소나 — 이 액션을 끌어낸 한 마디`
+                ? `${getCountryLabel(motivationQuote.country, locale) || motivationQuote.country} 페르소나 — 이 액션을 끌어낸 한 마디`
                 : `What pushed these actions, from ${motivationQuote.country}`
             }
           />
@@ -5655,7 +5673,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             </MText>
             <MText style={{ fontSize: 11, color: C.body }}>
               {isKo
-                ? `1순위(${top.country}) ${top.finalScore.mean.toFixed(1)}점 vs 2순위(${runnerUp.country}) ${runnerUp.finalScore.mean.toFixed(1)}점 — 격차 ${gap.toFixed(1)}점 (${gapPct.toFixed(0)}%)`
+                ? `1순위(${getCountryLabel(top.country, locale) || top.country}) ${top.finalScore.mean.toFixed(1)}점 vs 2순위(${getCountryLabel(runnerUp.country, locale) || runnerUp.country}) ${runnerUp.finalScore.mean.toFixed(1)}점 — 격차 ${gap.toFixed(1)}점 (${gapPct.toFixed(0)}%)`
                 : `Top (${top.country}) ${top.finalScore.mean.toFixed(1)} vs runner-up (${runnerUp.country}) ${runnerUp.finalScore.mean.toFixed(1)} — gap ${gap.toFixed(1)}pt (${gapPct.toFixed(0)}%)`}
             </MText>
           </View>
@@ -5685,7 +5703,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         {vulnerableDim.length > 0 && (
           <View style={styles.sectionBlock}>
             <MText style={styles.sectionEyebrow}>
-              {isKo ? `${top.country}의 component별 취약성` : `${top.country} component vulnerability`}
+              {isKo ? `${getCountryLabel(top.country, locale) || top.country}의 component별 취약성` : `${getCountryLabel(top.country, locale) || top.country} component vulnerability`}
             </MText>
             <MText style={{ fontSize: 8, color: C.muted, lineHeight: 1.4, marginBottom: 6 }}>
               {isKo
@@ -7899,12 +7917,12 @@ function renderEnsembleSecondaryPages(opts: {
         {isKo
           ? `${
               secIsTie
-                ? `점수 격차가 작아 ${rec.country}와 ${secondaryCountry}가 사실상 동등합니다.`
-                : `1순위 ${rec.country} 대비 차선책입니다.`
+                ? `점수 격차가 작아 ${getCountryLabel(rec.country, isKo ? "ko" : "en") || rec.country}와 ${secondaryCountry}가 사실상 동등합니다.`
+                : `1순위 ${getCountryLabel(rec.country, isKo ? "ko" : "en") || rec.country} 대비 차선책입니다.`
             } ${
               aggregate.marketProfile
-                ? `1순위 ${rec.country} 분석은 이 페이지 직전의 primary 페이지를 참고하세요.`
-                : `(1순위 ${rec.country} 시장조사는 이 리포트에 생성되지 않아, 본 페이지는 ${secondaryCountry} 단독 분석입니다. 결과 화면의 'Market profile' 탭에서 ${rec.country}를 생성하면 다음 리포트에 포함됩니다.)`
+                ? `1순위 ${getCountryLabel(rec.country, isKo ? "ko" : "en") || rec.country} 분석은 이 페이지 직전의 primary 페이지를 참고하세요.`
+                : `(1순위 ${getCountryLabel(rec.country, isKo ? "ko" : "en") || rec.country} 시장조사는 이 리포트에 생성되지 않아, 본 페이지는 ${secondaryCountry} 단독 분석입니다. 결과 화면의 'Market profile' 탭에서 ${getCountryLabel(rec.country, isKo ? "ko" : "en") || rec.country}를 생성하면 다음 리포트에 포함됩니다.)`
             }`
           : `${
               secIsTie
@@ -8111,7 +8129,7 @@ function renderEnsembleSecondaryPages(opts: {
                         }}
                       >
                         <MText style={{ fontSize: 7, color: C.body, fontWeight: 600 }}>
-                          {isKo ? `원산지 ${c.originCountry}` : `Origin ${c.originCountry}`}
+                          {isKo ? `원산지 ${getCountryLabel(c.originCountry, isKo ? "ko" : "en") || c.originCountry}` : `Origin ${getCountryLabel(c.originCountry, isKo ? "ko" : "en") || c.originCountry}`}
                         </MText>
                       </View>
                     )}

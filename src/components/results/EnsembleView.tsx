@@ -454,10 +454,10 @@ export function EnsembleView({
     // doesn't claim a single winner when the orchestrator deferred.
     const body = rec.displayMode === "top2" && rec.secondary
       ? isKo
-        ? `Top 2 동등: ${rec.country} · ${rec.secondary.country} (격차 ${rec.secondary.gapToPrimary}pt)`
+        ? `Top 2 동등: ${getCountryLabel(rec.country, locale) || rec.country} · ${getCountryLabel(rec.secondary.country, locale) || rec.secondary.country} (격차 ${rec.secondary.gapToPrimary}pt)`
         : `Top 2 tied: ${rec.country} · ${rec.secondary.country} (gap ${rec.secondary.gapToPrimary}pt)`
       : isKo
-        ? `추천: ${rec.country} (${rec.consensusPercent}% ${rec.confidence})`
+        ? `추천: ${getCountryLabel(rec.country, locale) || rec.country} (${rec.consensusPercent}% ${rec.confidence})`
         : `Top market: ${rec.country} (${rec.consensusPercent}% ${rec.confidence})`;
     try {
       const n = new Notification(title, {
@@ -1881,10 +1881,10 @@ function SummaryTab({
           <p className="mt-1 leading-relaxed">
             {recommendation.crossCheck.agrees
               ? isKo
-                ? `브랜드를 가리고 제품 종류와 원산지만으로 다시 골라봤는데, 이번에도 ${recommendation.country}가 나왔습니다. 지금까지 두 방법이 같은 답을 낸 24번 중 19번은 그 시장이 실제로 맞았습니다. 평소보다 믿으셔도 되지만, 다섯 번에 한 번은 빗나갑니다.`
+                ? `브랜드를 가리고 제품 종류와 원산지만으로 다시 골라봤는데, 이번에도 ${getCountryLabel(recommendation.country, locale) || recommendation.country}가 나왔습니다. 지금까지 두 방법이 같은 답을 낸 24번 중 19번은 그 시장이 실제로 맞았습니다. 평소보다 믿으셔도 되지만, 다섯 번에 한 번은 빗나갑니다.`
                 : `Asked again with the brand hidden — just the product type and country of origin — the answer was still ${recommendation.country}. Of the 24 past cases where both methods agreed, the market turned out right 19 times. Worth trusting more than usual, though it still misses about one time in five.`
               : isKo
-                ? `브랜드를 가리고 제품 종류와 원산지만으로 다시 골라봤더니 ${recommendation.crossCheck.blindPick}가 나왔습니다. 시뮬레이션은 ${recommendation.country}입니다. 지금까지 두 방법이 갈렸을 때는 어느 쪽도 믿기 어려웠습니다 — 시뮬레이션이 열에 넷 남짓, 가린 쪽은 더 낮았습니다. 한 곳을 정하지 마시고 아래 후보를 함께 보십시오.`
+                ? `브랜드를 가리고 제품 종류와 원산지만으로 다시 골라봤더니 ${getCountryLabel(recommendation.crossCheck.blindPick, locale) || recommendation.crossCheck.blindPick}가 나왔습니다. 시뮬레이션은 ${getCountryLabel(recommendation.country, locale) || recommendation.country}입니다. 지금까지 두 방법이 갈렸을 때는 어느 쪽도 믿기 어려웠습니다 — 시뮬레이션이 열에 넷 남짓, 가린 쪽은 더 낮았습니다. 한 곳을 정하지 마시고 아래 후보를 함께 보십시오.`
                 : `Asked again with the brand hidden — just the product type and country of origin — the answer came back ${recommendation.crossCheck.blindPick}, while the simulation chose ${recommendation.country}. When the two methods have split before, neither was reliable: the simulation was right a little over four times in ten, the blind read fewer still. Don't settle on one market — look at the candidates below together.`}
           </p>
           {recommendation.shortlist && recommendation.shortlist.length > 1 && (
@@ -2465,7 +2465,7 @@ function OverviewTab({
               <span className="shrink-0 text-brand font-bold">·</span>
               <span>
                 {isKo
-                  ? `차순위는 ${runnerUp.country} (${runnerUp.percent}%) — 1순위가 막혔을 때 즉시 대안.`
+                  ? `차순위는 ${getCountryLabel(runnerUp.country, locale) || runnerUp.country} (${runnerUp.percent}%) — 1순위가 막혔을 때 즉시 대안.`
                   : `Runner-up: ${runnerUp.country} (${runnerUp.percent}%) — immediate fallback if the winner is blocked.`}
               </span>
             </li>
@@ -2475,7 +2475,7 @@ function OverviewTab({
               <span className="shrink-0 text-warn font-bold">·</span>
               <span>
                 {isKo
-                  ? `종합 점수 1위는 ${overallSeg.bestCountry} (${overallSeg.bestValue.toFixed(0)}) — 합의도 1위와 다르므로 의사결정 시 참고.`
+                  ? `종합 점수 1위는 ${getCountryLabel(overallSeg.bestCountry, locale) || overallSeg.bestCountry} (${overallSeg.bestValue.toFixed(0)}) — 합의도 1위와 다르므로 의사결정 시 참고.`
                   : `Top-scored market is ${overallSeg.bestCountry} (${overallSeg.bestValue.toFixed(0)}) — diverges from consensus winner; review before committing.`}
               </span>
             </li>
@@ -4280,7 +4280,7 @@ function MarketProfileTab({
                   <div className="flex items-baseline gap-2 flex-wrap mb-2">
                     {c.originCountry && (
                       <span className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
-                        {isKo ? `원산지 ${c.originCountry}` : `Origin ${c.originCountry}`}
+                        {isKo ? `원산지 ${getCountryLabel(c.originCountry, locale) || c.originCountry}` : `Origin ${getCountryLabel(c.originCountry, locale) || c.originCountry}`}
                       </span>
                     )}
                     {c.brandContext && (
@@ -4705,12 +4705,12 @@ function SecondaryCountryMarketSection({
           <div className="flex-1 min-w-0">
             <h2 className="mb-1 text-[15px] font-extrabold tracking-tight text-warn">
               {isKo
-                ? `${country} — ${copy.label} 시장 분석 (생성 대기)`
+                ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} — ${copy.label} 시장 분석 (생성 대기)`
                 : `${country} — ${copy.label} market profile (pending)`}
             </h2>
             <p className="text-xs text-slate-700 leading-relaxed mb-4">
               {isKo
-                ? `${copy.lead} ${country} 시장 분석을 생성하세요. 위 분석과 같은 깊이로 시장 규모·경쟁자·채널·규제·가격·GTM 전략을 추가 LLM 호출로 생성합니다. 근거 수집과 생성을 합쳐 2~3분 정도 걸립니다.`
+                ? `${copy.lead} ${getCountryLabel(country, isKo ? "ko" : "en") || country} 시장 분석을 생성하세요. 위 분석과 같은 깊이로 시장 규모·경쟁자·채널·규제·가격·GTM 전략을 추가 LLM 호출로 생성합니다. 근거 수집과 생성을 합쳐 2~3분 정도 걸립니다.`
                 : `${copy.lead} generate a parallel profile for ${country}. One additional LLM call produces the same depth of market size · competitors · channels · regulatory · pricing · GTM strategy. Grounding plus generation takes about 2-3 minutes.`}
             </p>
             <button
@@ -4723,7 +4723,7 @@ function SecondaryCountryMarketSection({
               {busy
                 ? busyLabel(isKo ? "생성 중..." : "Generating...", elapsed, isKo)
                 : isKo
-                  ? `${country} 시장 분석 추가 생성`
+                  ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} 시장 분석 추가 생성`
                   : `Generate ${country} market profile`}
             </button>
           </div>
@@ -4772,7 +4772,7 @@ function SecondaryCountryMarketSection({
         <div className="flex items-baseline gap-3 flex-wrap">
           <h2 className="text-[19px] font-extrabold tracking-tight text-slate-900">
             {isKo
-              ? `${country} — 시장 상황 + 경쟁자 분석`
+              ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} — 시장 상황 + 경쟁자 분석`
               : `${country} — Market profile + competitive analysis`}
           </h2>
           <span className="text-[10px] uppercase tracking-wider text-warn bg-warn-soft/40 border border-warn/30 px-2 py-0.5 rounded">
@@ -4781,7 +4781,7 @@ function SecondaryCountryMarketSection({
         </div>
         <p className="text-sm text-slate-500 mt-1 leading-relaxed">
           {isKo
-            ? `${copy.label} ${country} 시장 분석. 1순위와 동일한 깊이로 시장 규모, 명명된 경쟁자, 채널 환경, 규제, 가격 벤치마크, GTM 전략 — 단, 시뮬 교차검증 없이 1회 생성한 결과입니다.`
+            ? `${copy.label} ${getCountryLabel(country, isKo ? "ko" : "en") || country} 시장 분석. 1순위와 동일한 깊이로 시장 규모, 명명된 경쟁자, 채널 환경, 규제, 가격 벤치마크, GTM 전략 — 단, 시뮬 교차검증 없이 1회 생성한 결과입니다.`
             : `${country} as the ${copy.label.toLowerCase()} market — same depth as the primary: market size, named competitors, channels, regulatory, pricing, GTM. Note: generated in one pass, not cross-sim verified.`}
         </p>
       </div>
@@ -4942,7 +4942,7 @@ function SecondaryCountryMarketSection({
                   <div className="flex items-baseline gap-2 flex-wrap mb-2">
                     {c.originCountry && (
                       <span className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
-                        {isKo ? `원산지 ${c.originCountry}` : `Origin ${c.originCountry}`}
+                        {isKo ? `원산지 ${getCountryLabel(c.originCountry, isKo ? "ko" : "en") || c.originCountry}` : `Origin ${getCountryLabel(c.originCountry, isKo ? "ko" : "en") || c.originCountry}`}
                       </span>
                     )}
                     {c.brandContext && (
@@ -7067,10 +7067,10 @@ function PricingTab({
             <div className="text-[10.5px] font-bold uppercase tracking-wider text-white/55">
               {wasCorrected
                 ? isKo
-                  ? `${recommendation.country} 권장 가격 (곡선 매출 최대점)`
+                  ? `${getCountryLabel(recommendation.country, isKo ? "ko" : "en") || recommendation.country} 권장 가격 (곡선 매출 최대점)`
                   : `${recommendation.country} recommended price (curve revenue max)`
                 : isKo
-                  ? `${recommendation.country} 권장 가격 (시뮬 합산 중앙값)`
+                  ? `${getCountryLabel(recommendation.country, isKo ? "ko" : "en") || recommendation.country} 권장 가격 (시뮬 합산 중앙값)`
                   : `${recommendation.country} recommended price (median across sims)`}
             </div>
             <div className="mt-1.5 flex flex-wrap items-baseline gap-3">
@@ -7114,7 +7114,7 @@ function PricingTab({
               return (
                 <div className="mt-2 max-w-lg text-[11px] leading-relaxed text-white/60">
                   {isKo
-                    ? `이 권장가는 주 후보 ${recommendation.country}를 포함한 전체 시뮬 통합(cross-sim) 값으로, 사실상 ${recommendation.country} 시장의 대표 권장가입니다.${secCountry ? ` 2순위 ${secCountry} 시장의 단독 추천가는 아래 'Top 2 보조 가격' 섹션을 참고하세요` : ""} — 시장마다 가격 민감도가 달라 값이 다를 수 있습니다.`
+                    ? `이 권장가는 주 후보 ${getCountryLabel(recommendation.country, isKo ? "ko" : "en") || recommendation.country}를 포함한 전체 시뮬 통합(cross-sim) 값으로, 사실상 ${getCountryLabel(recommendation.country, isKo ? "ko" : "en") || recommendation.country} 시장의 대표 권장가입니다.${secCountry ? ` 2순위 ${secCountry} 시장의 단독 추천가는 아래 'Top 2 보조 가격' 섹션을 참고하세요` : ""} — 시장마다 가격 민감도가 달라 값이 다를 수 있습니다.`
                     : `This recommended price is the cross-sim value including the primary candidate ${recommendation.country} — effectively the representative price for ${recommendation.country}.${secCountry ? ` The standalone price for the #2 market (${secCountry}) is in the 'Top 2 secondary pricing' section below` : ""} — values can differ because price sensitivity varies by market.`}
                 </div>
               );
@@ -7909,15 +7909,15 @@ function SecondaryPricingBlock({
             <div className="flex-1 min-w-0">
               <h2 className="mb-1 text-[15px] font-extrabold tracking-tight text-warn">
                 {isKo
-                  ? `${country} — ${copy.label} 가격 분석 (생성 대기)`
+                  ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} — ${copy.label} 가격 분석 (생성 대기)`
                   : `${country} — ${copy.label} pricing analysis (pending)`}
               </h2>
               <p className="text-xs text-slate-700 leading-relaxed mb-4">
                 {isKo
-                  ? `${copy.lead} ${country} 시장의 권장 가격 · 전환 곡선 · 마진 추정을 별도로 생성해야 1순위와 동일 깊이의 가격 분석이 됩니다. ${
+                  ? `${copy.lead} ${getCountryLabel(country, isKo ? "ko" : "en") || country} 시장의 권장 가격 · 전환 곡선 · 마진 추정을 별도로 생성해야 1순위와 동일 깊이의 가격 분석이 됩니다. ${
                       hasProfile
-                        ? `${country} 시장 분석이 있어 competitor 벤치마크 + 문화적 인사이트로 grounded한 결과가 나옵니다.`
-                        : `${country} 시장 분석이 아직 없어 페르소나 신호만으로 가격이 생성됩니다 (시장 분석 먼저 권장).`
+                        ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} 시장 분석이 있어 competitor 벤치마크 + 문화적 인사이트로 grounded한 결과가 나옵니다.`
+                        : `${getCountryLabel(country, isKo ? "ko" : "en") || country} 시장 분석이 아직 없어 페르소나 신호만으로 가격이 생성됩니다 (시장 분석 먼저 권장).`
                     } 한 번의 생성 작업으로 30~60초 걸립니다.`
                   : `${copy.lead} generate a parallel ${country} pricing analysis (recommended price, conversion curve, margin) to reach parity with the #1 market. ${
                       hasProfile
@@ -7935,7 +7935,7 @@ function SecondaryPricingBlock({
                 {busy
                   ? busyLabel(isKo ? "생성 중..." : "Generating...", elapsed, isKo)
                   : isKo
-                    ? `${country} 가격 분석 추가 생성`
+                    ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} 가격 분석 추가 생성`
                     : `Generate ${country} pricing analysis`}
               </button>
               {err && <p className="text-xs text-risk mt-3">{err}</p>}
@@ -8022,7 +8022,7 @@ function SecondaryPricingBlock({
           }
         >
           {isKo
-            ? `${country} 시장 분석이 없는 상태에서 페르소나 신호만으로 만들어졌습니다. 본문에 "시장 분석 데이터가 없어"라고 적혀 있는 것도 그 때문입니다. 지금은 시장 분석이 있으므로, 다시 생성하면 경쟁사 가격·문화 맥락까지 반영됩니다.`
+            ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} 시장 분석이 없는 상태에서 페르소나 신호만으로 만들어졌습니다. 본문에 "시장 분석 데이터가 없어"라고 적혀 있는 것도 그 때문입니다. 지금은 시장 분석이 있으므로, 다시 생성하면 경쟁사 가격·문화 맥락까지 반영됩니다.`
             : `It was built from persona signal alone, before the ${country} profile existed — which is why its own text says the market data was missing. The profile is available now; regenerating grounds the price on competitor benchmarks and cultural context.`}
         </ToneCallout>
       )}
@@ -8032,7 +8032,7 @@ function SecondaryPricingBlock({
         <div className="flex items-end gap-6 flex-wrap">
           <div className="min-w-0">
             <div className="text-xs uppercase tracking-wider text-slate-500">
-              {isKo ? `${country} 권장 가격` : `${country} recommended`}
+              {isKo ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} 권장 가격` : `${getCountryLabel(country, isKo ? "ko" : "en") || country} recommended`}
             </div>
             <div className="text-3xl font-semibold text-slate-900 mt-1 tabular-nums">
               {fmt(pricing.recommendedPriceCents)}
@@ -8693,7 +8693,7 @@ function DecisionAidTab({
               </span>
               <span className="text-sm text-slate-700">
                 {isKo
-                  ? `1순위(${top.country}) ${top.finalScore.mean.toFixed(1)}점 vs 2순위(${runnerUp.country}) ${runnerUp.finalScore.mean.toFixed(1)}점 — 격차 ${gap.toFixed(1)}점 (${gapPct.toFixed(0)}%)`
+                  ? `1순위(${getCountryLabel(top.country, isKo ? "ko" : "en") || top.country}) ${top.finalScore.mean.toFixed(1)}점 vs 2순위(${getCountryLabel(runnerUp.country, isKo ? "ko" : "en") || runnerUp.country}) ${runnerUp.finalScore.mean.toFixed(1)}점 — 격차 ${gap.toFixed(1)}점 (${gapPct.toFixed(0)}%)`
                   : `Top (${top.country}) ${top.finalScore.mean.toFixed(1)} vs runner-up (${runnerUp.country}) ${runnerUp.finalScore.mean.toFixed(1)} — gap ${gap.toFixed(1)}pt (${gapPct.toFixed(0)}%)`}
               </span>
             </div>
@@ -8726,7 +8726,7 @@ function DecisionAidTab({
             <div className="card mt-5 overflow-hidden">
               <div className="border-b border-slate-200 bg-slate-50 px-5 py-3">
                 <div className={TYPO.microLabel}>
-                  {isKo ? `${top.country}의 component별 취약성` : `${top.country} component vulnerability`}
+                  {isKo ? `${getCountryLabel(top.country, isKo ? "ko" : "en") || top.country}의 component별 취약성` : `${getCountryLabel(top.country, isKo ? "ko" : "en") || top.country} component vulnerability`}
                 </div>
                 <div className="text-[11px] text-slate-500 mt-1 leading-relaxed">
                   {(() => {
@@ -9087,12 +9087,12 @@ function SecondaryDecisionBlock({
         <div className="card border-warn/40 bg-warn-soft/20 p-5">
           <h3 className="text-sm font-semibold text-warn mb-1">
             {isKo
-              ? `${country} — ${copy.label} 의사결정 보조 (데이터 필요)`
+              ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} — ${copy.label} 의사결정 보조 (데이터 필요)`
               : `${country} — ${copy.label} decision-aid (data needed)`}
           </h3>
           <p className="text-xs text-slate-700 leading-relaxed">
             {isKo
-              ? `${country} 시장 분석·추천 액션·리스크를 각 탭에서 생성하시면 여기 의사결정 보조에 통합됩니다.`
+              ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} 시장 분석·추천 액션·리스크를 각 탭에서 생성하시면 여기 의사결정 보조에 통합됩니다.`
               : `Generate ${country} market profile, actions, and risks on their respective tabs and they'll surface here.`}
           </p>
         </div>
@@ -9610,7 +9610,7 @@ function RisksTab({
               const country = r.affectedCountries?.[0];
               return {
                 label: country
-                  ? isKo ? `${country} 단일 시장` : `${country} only`
+                  ? isKo ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} 단일 시장` : `${getCountryLabel(country, isKo ? "ko" : "en") || country} only`
                   : isKo ? "단일 시장" : "Country-specific",
                 tone: "warn" as Tone,
                 detail: isKo
@@ -9771,15 +9771,15 @@ function SecondaryRisksBlock({
             <div className="flex-1 min-w-0">
               <h2 className="mb-1 text-[15px] font-extrabold tracking-tight text-warn">
                 {isKo
-                  ? `${country} — ${copy.label} 리스크 (생성 대기)`
+                  ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} — ${copy.label} 리스크 (생성 대기)`
                   : `${country} — ${copy.label} risks (pending)`}
               </h2>
               <p className="text-xs text-slate-700 leading-relaxed mb-4">
                 {isKo
-                  ? `${copy.lead} ${country} 시장의 구체적 리스크 (compliance·채널·페르소나 5~8개)를 별도로 생성해야 합니다. ${
+                  ? `${copy.lead} ${getCountryLabel(country, isKo ? "ko" : "en") || country} 시장의 구체적 리스크 (compliance·채널·페르소나 5~8개)를 별도로 생성해야 합니다. ${
                       hasProfile
-                        ? `${country} 시장 분석이 이미 있어 풍부한 리스크가 생성됩니다.`
-                        : `${country} 시장 분석이 아직 없어 페르소나 시그널만으로 생성됩니다 (시장 분석 먼저 생성 권장).`
+                        ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} 시장 분석이 이미 있어 풍부한 리스크가 생성됩니다.`
+                        : `${getCountryLabel(country, isKo ? "ko" : "en") || country} 시장 분석이 아직 없어 페르소나 시그널만으로 생성됩니다 (시장 분석 먼저 생성 권장).`
                     } 한 번의 생성 작업으로 30~60초 걸립니다.`
                   : `${copy.lead} generate parallel ${country} risks (compliance · channels · personas, 5-8 items). ${
                       hasProfile
@@ -9797,7 +9797,7 @@ function SecondaryRisksBlock({
                 {busy
                   ? busyLabel(isKo ? "생성 중..." : "Generating...", elapsed, isKo)
                   : isKo
-                    ? `${country} 리스크 추가 생성`
+                    ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} 리스크 추가 생성`
                     : `Generate ${country} risks`}
               </button>
               {error && <p className="text-xs text-risk mt-3">{error}</p>}
@@ -9830,7 +9830,7 @@ function SecondaryRisksBlock({
         icon={AlertCircle}
         tone="warn"
         title={
-          isKo ? `${country} — ${copy.label} 리스크` : `${country} — ${copy.label} risks`
+          isKo ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} — ${copy.label} 리스크` : `${getCountryLabel(country, isKo ? "ko" : "en") || country} — ${copy.label} risks`
         }
         note={isKo ? `리스크 ${risks.length}건` : `${risks.length} risks`}
         actions={<Chip tone="warn">{copy.chip}</Chip>}
@@ -10091,15 +10091,15 @@ function SecondaryActionsBlock({
             <div className="flex-1 min-w-0">
               <h2 className="mb-1 text-[15px] font-extrabold tracking-tight text-warn">
                 {isKo
-                  ? `${country} — ${copy.label} 추천 액션 (생성 대기)`
+                  ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} — ${copy.label} 추천 액션 (생성 대기)`
                   : `${country} — ${copy.label} recommended actions (pending)`}
               </h2>
               <p className="text-xs text-slate-700 leading-relaxed mb-4">
                 {isKo
-                  ? `${copy.lead} ${country} 시장의 구체적 액션 (입점·PR·인증·가격·채널·파트너십 5~8개)을 별도로 생성해야 합니다. ${
+                  ? `${copy.lead} ${getCountryLabel(country, isKo ? "ko" : "en") || country} 시장의 구체적 액션 (입점·PR·인증·가격·채널·파트너십 5~8개)을 별도로 생성해야 합니다. ${
                       hasProfile
-                        ? `${country} 시장 분석이 이미 있어 풍부한 액션이 생성됩니다.`
-                        : `${country} 시장 분석이 아직 없어 페르소나 시그널만으로 액션이 생성됩니다 (시장 분석 먼저 생성 권장).`
+                        ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} 시장 분석이 이미 있어 풍부한 액션이 생성됩니다.`
+                        : `${getCountryLabel(country, isKo ? "ko" : "en") || country} 시장 분석이 아직 없어 페르소나 시그널만으로 액션이 생성됩니다 (시장 분석 먼저 생성 권장).`
                     } 한 번의 생성 작업으로 30~60초 걸립니다.`
                   : `${copy.lead} generate parallel ${country} actions (entry · PR · compliance · pricing · channels · partnerships, 5-8 items). ${
                       hasProfile
@@ -10117,7 +10117,7 @@ function SecondaryActionsBlock({
                 {busy
                   ? busyLabel(isKo ? "생성 중..." : "Generating...", elapsed, isKo)
                   : isKo
-                    ? `${country} 추천 액션 추가 생성`
+                    ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} 추천 액션 추가 생성`
                     : `Generate ${country} recommended actions`}
               </button>
               {error && (
@@ -10142,7 +10142,7 @@ function SecondaryActionsBlock({
         tone="warn"
         title={
           isKo
-            ? `${country} — ${copy.label} 추천 액션`
+            ? `${getCountryLabel(country, isKo ? "ko" : "en") || country} — ${copy.label} 추천 액션`
             : `${country} — ${copy.label} recommended actions`
         }
         note={isKo ? `액션 ${actions.length}건` : `${actions.length} actions`}
