@@ -56,6 +56,7 @@ import {
 import { BackToTop } from "@/components/ui/BackToTop";
 import { HelpModal } from "@/components/ui/HelpModal";
 import { OutcomeFeedbackCTA } from "@/components/outcomes/OutcomeFeedbackCTA";
+import { FxFootnote } from "./FxFootnote";
 import { ResultFeedback } from "./ResultFeedback";
 import { ResultHero } from "./summary/ResultHero";
 import { RunMetaTiles } from "./summary/RunMetaTiles";
@@ -4325,6 +4326,20 @@ function MarketProfileTab({
               </div>
             ))}
           </div>
+          {/* Competitor prices arrive in the market's own currency —
+              "SGD 3.50–4.50 / 개" with nothing on the page saying what
+              an SGD is worth. Only currencies that actually appear get
+              listed, so a USD-only market shows no note. */}
+          <FxFootnote
+            className="mt-2"
+            isKo={isKo}
+            texts={competitors.flatMap((c) => [
+              c.pricePoint,
+              c.marketShareEstimate,
+              ...(c.strengths ?? []),
+              ...(c.weaknesses ?? []),
+            ])}
+          />
         </div>
       )}
 
@@ -4394,6 +4409,11 @@ function MarketProfileTab({
                 </div>
               );
             })()}
+            <FxFootnote
+              className="mt-2"
+              isKo={isKo}
+              texts={[pricing.entryLevel, pricing.mid, pricing.premium, pricing.yourPosition]}
+            />
           </div>
         )}
 
@@ -4968,6 +4988,20 @@ function SecondaryCountryMarketSection({
               </div>
             ))}
           </div>
+          {/* Competitor prices arrive in the market's own currency —
+              "SGD 3.50–4.50 / 개" with nothing on the page saying what
+              an SGD is worth. Only currencies that actually appear get
+              listed, so a USD-only market shows no note. */}
+          <FxFootnote
+            className="mt-2"
+            isKo={isKo}
+            texts={competitors.flatMap((c) => [
+              c.pricePoint,
+              c.marketShareEstimate,
+              ...(c.strengths ?? []),
+              ...(c.weaknesses ?? []),
+            ])}
+          />
         </div>
       )}
 
