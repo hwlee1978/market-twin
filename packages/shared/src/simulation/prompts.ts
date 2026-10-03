@@ -1426,7 +1426,7 @@ Required JSON shape (every field optional — fill what you have confidence abou
   "country": "${recommendedCountry}",
   "marketSize": {
     "estimateUsd": "SHORT TAM figure ONLY — '$2.3B annually' or '$400-600M (premium segment)'. Max 60 chars. Do NOT inline source citations or methodology prose; the system attaches source URLs separately, and growthTrend / addressableSegment are for context. A pure figure-with-light-qualifier is what this field is for.",
-    "growthTrend": "growth rate + 1-line driver, e.g. '+12% YoY, Gen-Z sustainability demand'. Max 100 chars.",
+    "growthTrend": "CAGR with its period + a 1-line driver, e.g. 'CAGR 6.4% (2025-2030), Gen-Z sustainability demand'. Max 100 chars. ALWAYS CAGR over a stated multi-year window — never YoY, never a bare percentage. A reader compares this figure across markets side by side, and a single-year YoY next to a five-year CAGR is not a comparison. If only a YoY figure is available, say so explicitly ('2025 YoY 8.3%, CAGR not available') rather than presenting it as if it were the same metric.",
     "addressableSegment": "the realistic addressable share — e.g. 'premium eco-conscious 25-44, ~5% of total'. Max 120 chars."
   },
   "competitors": [
