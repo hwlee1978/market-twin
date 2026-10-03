@@ -7537,13 +7537,18 @@ function PricingTab({
           <div className="flex items-start gap-3">
             <AlertCircle size={14} className="shrink-0 mt-0.5 text-slate-400" />
             <div className="text-xs text-slate-600 leading-relaxed">
+              {/* "확보 실패" read as a malfunction to someone whose
+                  project simply had no competitor URLs — which was most
+                  of them. The two situations get different words now,
+                  and neither is described as a failure when nothing was
+                  attempted. */}
               <span className="font-semibold text-slate-700">
-                {isKo ? "경쟁사 실제 판매가 확보 실패" : "No competitor anchor data"}
+                {isKo ? "경쟁사 실제 판매가 없이 산출" : "Priced without competitor anchors"}
               </span>
               {" — "}
               {isKo
-                ? "이번 분석은 경쟁사 실제 판매가를 확보하지 못해, AI가 추정한 카테고리 가격대로 곡선을 만들었습니다. 더 정확한 기준점이 필요하시면 프로젝트 편집에서 경쟁사 URL을 추가해 주십시오. 이미 입력하셨다면 해당 페이지에서 가격을 읽어내지 못한 경우입니다."
-                : "The pricing curve was generated from LLM category estimates. To anchor against real retail prices, add competitor URLs in project setup (if URLs were provided, extraction may have failed)."}
+                ? "이번 가격 곡선은 경쟁사 실제 판매가 대신 AI가 추정한 카테고리 가격대를 기준으로 만들었습니다. 실제 판매가를 쓰면 기준점이 더 정확해집니다. 프로젝트 편집에서 경쟁사 이름이나 URL을 넣어 주시면 다음 분석부터 반영됩니다 — 이름만 넣으셔도 저희가 판매 페이지를 찾습니다. URL을 이미 넣으셨다면 그 페이지에서 가격을 읽어내지 못한 경우입니다."
+                : "This curve is anchored on the model's estimate of the category rather than real retail prices. Adding competitors in project setup sharpens it — a name is enough, we look up the listing. If you did provide URLs, the price could not be read from those pages."}
             </div>
           </div>
         </div>

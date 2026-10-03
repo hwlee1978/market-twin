@@ -5,6 +5,7 @@ import { getOrCreatePrimaryWorkspace } from "@/lib/workspace";
 import type { ProjectInput } from "@/lib/simulation/schemas";
 import { parsePackaging } from "@/lib/format/packaging";
 import { brandStrategyFromRow } from "@/lib/simulation/project-row";
+import { resolveCompetitors } from "@/lib/simulation/competitor-resolver";
 import {
   runEnsembleOrchestration,
   TIER_PRESETS,
@@ -345,6 +346,50 @@ export async function POST(
   const brandStrategy = brandStrategyFromRow(project);
   const packaging = parsePackaging((project as { packaging?: unknown }).packaging);
 
+  // Find competitors when the project has none.
+  //
+  // Discovery already exists and works — asked about this product with no
+  // names it returns KIND Snacks, Larabar and Calbee Granola+ with URLs —
+  // but it only ran at project creation through the wizard's API route.
+  // Projects created any other way (seeds, benchmarks, scripts) never got
+  // it: 135 of 170 projects carry no competitor at all, and not one
+  // carries a name without a URL, which is the shape of a step that
+  // either ran or didn't. Those runs then price against the model's
+  // guess at the category and tell the reader "경쟁사 실제 판매가 확보
+  // 실패", as if extraction had been attempted and failed.
+  //
+  // Running it here instead means it happens however the project was
+  // made. Best-effort and time-boxed: a slow or failed lookup costs the
+  // run nothing beyond what it already had.
+  let competitorUrls: string[] = project.competitor_urls ?? [];
+  if (competitorUrls.length === 0) {
+    const found = await Promise.race([
+      resolveCompetitors({
+        productName: project.product_name,
+        category: project.category ?? "other",
+        description: project.description ?? "",
+        candidateCountries: project.candidate_countries ?? [],
+        userNames: [],
+        userUrls: [],
+        locale: locale === "ko" ? "ko" : "en",
+      }).catch(() => []),
+      new Promise<[]>((r) => setTimeout(() => r([]), 20_000)),
+    ]);
+    competitorUrls = found
+      .map((c) => c.url)
+      .filter((u): u is string => Boolean(u) && /^https?:\/\//.test(u));
+    if (competitorUrls.length > 0) {
+      console.log(
+        `[run-ensemble] project ${project.id}: discovered ${competitorUrls.length} competitor URL(s)`,
+      );
+      // Persist so the next run and the project page both see them.
+      await supabase
+        .from("projects")
+        .update({ competitor_urls: competitorUrls })
+        .eq("id", project.id);
+    }
+  }
+
   const projectInput: ProjectInput = {
     productName: project.product_name,
     category: project.category ?? "other",
@@ -354,7 +399,7 @@ export async function POST(
     objective: project.objective as ProjectInput["objective"],
     originatingCountry: project.originating_country ?? "KR",
     candidateCountries: project.candidate_countries ?? [],
-    competitorUrls: project.competitor_urls ?? [],
+    competitorUrls,
     assetDescriptions: project.asset_descriptions ?? [],
     assetUrls: project.asset_urls ?? [],
     ...(brandStrategy ? { brandStrategy } : {}),
