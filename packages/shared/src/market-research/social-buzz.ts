@@ -144,11 +144,22 @@ export interface SocialBuzzResult {
   active: boolean;
 }
 
-function withTimeout(): { signal: AbortSignal; clear: () => void } {
+function withTimeout(ms: number = HTTP_TIMEOUT_MS): { signal: AbortSignal; clear: () => void } {
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), HTTP_TIMEOUT_MS);
+  const t = setTimeout(() => ctrl.abort(), ms);
   return { signal: ctrl.signal, clear: () => clearTimeout(t) };
 }
+
+/**
+ * Baidu's live SERP endpoint is slower than the rest of the stack —
+ * measured at 6.0s, 11.7s and 13.1s on three consecutive calls against
+ * the shared 12s budget, so it was being aborted about as often as it
+ * returned. That looked identical to "China has no signal for this
+ * brand": baiduPresence came back undefined and the report simply
+ * omitted it. The endpoint itself is fine — it answers 200 with ~20
+ * organic results.
+ */
+const BAIDU_TIMEOUT_MS = 25_000;
 
 /** Deep-search a JSON value for the first numeric value under any of `keys`. */
 function deepNum(obj: unknown, keys: string[], depth = 0): number | null {
@@ -344,7 +355,7 @@ async function baiduChinaPresence(brand: string): Promise<number | undefined> {
   const pass = process.env.DATAFORSEO_PASSWORD;
   if (!login || !pass) return undefined;
   const auth = Buffer.from(`${login}:${pass}`).toString("base64");
-  const { signal, clear } = withTimeout();
+  const { signal, clear } = withTimeout(BAIDU_TIMEOUT_MS);
   try {
     const res = await fetch(
       "https://api.dataforseo.com/v3/serp/baidu/organic/live/advanced",
