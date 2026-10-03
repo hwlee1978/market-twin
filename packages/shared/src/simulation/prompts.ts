@@ -71,10 +71,16 @@ export const REGISTER_RULE: Record<PromptLocale, string> = {
   - **B · M · T 접미사를 쓰지 마십시오**: "$400B+" ❌ → "4,000억 달러 이상" ✓, "$600M" ❌ → "6억 달러" ✓
   - 1억 달러 미만의 실제 판매가·단가는 그대로 달러로 씁니다: "개당 $2.0–2.3", "12개입 $24–28". 시장 규모처럼 큰 수만 한글 단위로 환산하십시오.
   - 원화를 병기할 때는 원을 앞에, 달러를 괄호에: "₩16,600–22,200 ($12–16)".
+- **비유 금지 — 결과를 사실로 쓰십시오.** 비유는 읽는 사람이 해석해야 하고, 해석은 사람마다 다릅니다. 무슨 일이 일어나는지 그대로 쓰십시오.
+  ❌ "고급 아시아 식품 매대를 벗어나기 어렵다" → ✓ "판매 채널이 아시아 식품 코너로 제한된다"
+  ❌ "첫 90일 매출에 출혈이 생긴다" → ✓ "첫 90일 매출이 목표를 밑돈다"
+  ❌ "규제가 발목을 잡는다" → ✓ "규제 승인 지연으로 출시가 밀린다"
+  ❌ "시장의 문이 열린다" → ✓ "신규 수입 허가로 진입이 가능해진다"
+  업계에서 그대로 쓰는 용어(병목, 진입 장벽, 저변 확대)는 비유가 아니라 표준 용어이므로 그대로 쓰십시오.
 - **문체의 기준점**: 컨설팅 보고서나 투자 심사 자료에 그대로 들어가는 문장입니다. 번역투와 구어체 사이, 양쪽 다 아닙니다.
   ❌ 번역투: "FDA 라벨·소포장 구성 2가지를 선행 해소하지 않으면 프리미엄 니치에 갇힌다"
   ❌ 구어체: "미국 진출 방향은 맞다. 라벨 문제를 안 풀면 고급 매대를 못 벗어난다"
-  ✓ 보고서: "미국을 1차 진출 시장으로 선정하는 것은 타당하다. 다만 FDA 라벨 요건과 소포장 구성은 선결 과제이며, 이를 충족하지 못하면 고급 아시아 식품 매대를 벗어나기 어렵다."
+  ✓ 보고서: "미국을 1차 진출 시장으로 선정하는 것은 타당하다. 다만 FDA 라벨 요건과 소포장 구성은 선결 과제이며, 이를 충족하지 못하면 판매 채널이 아시아 식품 코너로 제한된다."
   판단은 단정하되 근거를 붙이고, 조건은 "다만 / 단 / ~인 경우"로 명확히 분리하십시오.
 - **예외 — 페르소나가 직접 답한 내용은 이 규칙에서 제외합니다.** voice(발화), objections(거부 이유), trustFactors(신뢰 요인) 등 페르소나 본인의 응답은 실제 소비자의 말이므로 그 사람의 말투·어휘·구어체를 그대로 유지하세요. 여기에 보고서 문체를 강요하면 데이터가 왜곡됩니다. 이 규칙은 분석·점수 근거·요약·리스크·액션 등 **우리가 쓰는 서술**에만 적용됩니다.`,
   en: `Register (strict): every narrative field is written as **report prose** — assume it will be pasted into an executive briefing or a government procurement review.
@@ -82,6 +88,12 @@ export const REGISTER_RULE: Record<PromptLocale, string> = {
 - No exclamation or stacked adjectives. Attach evidence to claims; if there is no number behind it, do not assert it.
 - Write short, but not casual. Brevity comes from cutting filler, not from lowering the register.
 - Do not stack nouns where a verb belongs. "FDA labelling, small-pack SKU and positioning resolution" is three nouns doing a sentence's work; "resolve FDA labelling, small-pack sizing and positioning first" reads. Keep compound noun phrases to one per sentence.
+- No figurative language. State what happens. A metaphor asks the reader to interpret, and readers interpret differently.
+  ✗ "will bleed the first 90 days" → ✓ "will leave first-quarter revenue below plan"
+  ✗ "stuck in the premium Asian grocery niche" → ✓ "distribution stays limited to Asian grocery channels"
+  ✗ "regulation is a roadblock" → ✓ "approval delays push the launch date back"
+  ✗ "opens the door to the market" → ✓ "import clearance makes entry possible"
+  Established industry terms — bottleneck, barrier to entry, runway — are vocabulary, not figures of speech. Keep those.
 - **Exception — anything a persona answered is out of scope.** \`voice\`, \`objections\`, \`trustFactors\` and the like are that person speaking: keep their own diction and colloquialism. Forcing report prose onto them corrupts the data. This rule governs only the text **we** write: analysis, score rationale, summaries, risks, actions.`,
 };
 
