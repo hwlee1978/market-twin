@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { cookies, headers } from "next/headers";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient, getCurrentUser } from "@/lib/supabase/server";
 import {
   checkTrialAbuse,
   recordSignupAttempt,
@@ -72,9 +72,7 @@ export type WorkspaceSummary = {
 export const getOrCreatePrimaryWorkspace = cache(
   async (): Promise<Result | null> => {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) return null;
 
     const memberships = await supabase
@@ -197,9 +195,7 @@ export const getOrCreatePrimaryWorkspace = cache(
  */
 export async function listMyWorkspaces(): Promise<WorkspaceSummary[]> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return [];
 
   const { data, error } = await supabase
@@ -296,9 +292,7 @@ export async function getMyRoleInWorkspace(
   workspaceId: string,
 ): Promise<WorkspaceSummary["role"] | null> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return null;
 
   const { data } = await supabase

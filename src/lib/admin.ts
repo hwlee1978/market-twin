@@ -1,4 +1,4 @@
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient, getCurrentUser } from "@/lib/supabase/server";
 
 export type AdminRole = "super" | "operations" | "customer" | "finance" | "ml_ops" | "support";
 
@@ -14,10 +14,7 @@ export interface AdminContext {
  * and we want a single trusted code path for "is this user admin?".
  */
 export async function getAdminContext(): Promise<AdminContext | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return null;
 
   const admin = createServiceClient();

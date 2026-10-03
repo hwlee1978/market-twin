@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
@@ -36,3 +37,24 @@ export function createServiceClient() {
     { auth: { persistSession: false } },
   );
 }
+
+/**
+ * The signed-in user, fetched once per request.
+ *
+ * `auth.getUser()` is a network call — it validates the JWT against the
+ * Auth server rather than trusting the cookie, which is the whole point
+ * of using it over `getSession()`. But a single page view was making
+ * that call four times: the proxy, getOrCreatePrimaryWorkspace,
+ * listMyWorkspaces and getAdminContext each asked independently, and
+ * only the first was memoised.
+ *
+ * React's `cache()` collapses every call inside one server render into
+ * one. The proxy runs in a different phase and keeps its own.
+ */
+export const getCurrentUser = cache(async () => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+});
