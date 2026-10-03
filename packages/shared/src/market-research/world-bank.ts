@@ -251,20 +251,41 @@ export function renderWorldBankBlock(
     const div = unit === "M" ? 1e6 : unit === "B" ? 1e9 : 1e12;
     return (n / div).toFixed(1);
   };
+  /**
+   * Money at the scale the reader can hold in their head.
+   *
+   * Household consumption runs to five digits in billions for the large
+   * markets, and the model quotes whatever the block gave it: a report
+   * came out reading "미국은 가계소비 PPP $20,934B으로" — arithmetically
+   * right, unreadable, and with the wrong Korean particle attached to a
+   * Latin letter. Above a trillion it now renders in trillions, and in
+   * Korean in 조, which is the unit a Korean reader actually uses.
+   */
+  const money = (n: number) => {
+    if (!Number.isFinite(n)) return "n/a";
+    if (locale === "ko") {
+      // 1조 = 1e12, 1억 = 1e8. Korean groups by four digits, so a
+      // dollar figure reads naturally in 조 / 억, not in B.
+      return n >= 1e12
+        ? `${(n / 1e12).toFixed(1)}조 달러`
+        : `${Math.round(n / 1e8).toLocaleString()}억 달러`;
+    }
+    return n >= 1e12 ? `$${(n / 1e12).toFixed(1)}T` : `$${Math.round(n / 1e9)}B`;
+  };
   const header =
     locale === "ko"
       ? "═══ World Bank macro 지표 (marketSize sub-score 외부 grounding) ═══"
       : "═══ World Bank macro indicators (marketSize sub-score grounding) ═══";
   const legend =
     locale === "ko"
-      ? "pop=인구(백만), gdp/cap=1인당 GDP PPP(USD), HH cons=총 가계소비 PPP(USD bn), net=인터넷보급(%), urb=도시화(%), infl=인플레(%), lpi=물류지수(1-5). year는 데이터 시점."
-      : "pop=population (M), gdp/cap=GDP per capita PPP (USD), HH cons=total household consumption PPP (USD bn), net=internet users %, urb=urban %, infl=inflation %, lpi=Logistics Perf. Index (1-5).";
+      ? "pop=인구(백만), gdp/cap=1인당 GDP PPP(USD), HH cons=총 가계소비 PPP(표기된 단위 그대로 인용할 것), net=인터넷보급(%), urb=도시화(%), infl=인플레(%), lpi=물류지수(1-5). year는 데이터 시점."
+      : "pop=population (M), gdp/cap=GDP per capita PPP (USD), HH cons=total household consumption PPP (quote the unit as printed), net=internet users %, urb=urban %, infl=inflation %, lpi=Logistics Perf. Index (1-5).";
   const pct = (n: number) => (Number.isFinite(n) ? `${n.toFixed(0)}%` : "n/a");
   const lines = rows.map((r) => {
     const popM = fmt(r.population, "M");
     const gdpCap = Number.isFinite(r.gdpPerCapitaPpp) ? Math.round(r.gdpPerCapitaPpp).toLocaleString() : "n/a";
-    const consB = fmt(r.householdConsumptionPpp, "B");
-    const l1 = `  ${r.country.padEnd(3)} pop=${popM.padStart(6)}M  gdp/cap=$${gdpCap.padStart(7)}  HH cons=$${consB.padStart(6)}B  (${r.year})`;
+    const cons = money(r.householdConsumptionPpp);
+    const l1 = `  ${r.country.padEnd(3)} pop=${popM.padStart(6)}M  gdp/cap=$${gdpCap.padStart(7)}  HH cons=${cons.padStart(10)}  (${r.year})`;
     const l2 = `        net=${pct(r.internetPct)}  urb=${pct(r.urbanPct)}  infl=${Number.isFinite(r.inflationPct) ? r.inflationPct.toFixed(1) + "%" : "n/a"}  lpi=${Number.isFinite(r.lpiScore) ? r.lpiScore.toFixed(1) : "n/a"}`;
     return `${l1}\n${l2}`;
   });
