@@ -42,7 +42,7 @@ export async function POST(
   const supabase = await createClient();
   const { data: ensemble, error } = await supabase
     .from("ensembles")
-    .select("id, project_id, status, aggregate_result, workspace_id, locale")
+    .select("id, project_id, status, aggregate_result, workspace_id, locale, tier")
     .eq("id", id)
     .eq("workspace_id", wsCtx.workspaceId)
     .single();
@@ -206,6 +206,18 @@ export async function POST(
           crossCountryDistribution: aggregate.crossCountryDistribution,
           candidateCountries: project.candidate_countries ?? undefined,
           top2: top2Info,
+          // The orchestrator passes these; this route did not, so a
+          // regenerated narrative lost the engine's ranking (and could
+          // name a different runner-up from the card) and raised its
+          // alerts without an ensemble id.
+          marketRanking: aggregate.countryStats?.slice(0, 5).map((c, i) => ({
+            country: c.country,
+            meanRank: c.meanRank ?? i + 1,
+            meanScore: c.finalScore.mean,
+          })),
+          ensembleId: id,
+          workspaceId: wsCtx.workspaceId,
+          tier: ensemble.tier ?? undefined,
           basePriceCents: project.base_price_cents ?? undefined,
           currency: project.currency ?? undefined,
         }),
