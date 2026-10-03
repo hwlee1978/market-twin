@@ -7178,7 +7178,24 @@ function PricingTab({
           }
         ).perMarket;
         if (!perMarket?.length) return null;
-        const top = perMarket[0].recommendedPriceCents || 1;
+        // A market with its own dedicated pricing page has two numbers in
+        // one report. On a Korean Consensus run this table said SG
+        // 18,900원 while the "SG — 2순위 후보 가격 분석" page said
+        // 28,000원 — 48% apart, same market, same document, and nothing
+        // telling the reader which to use.
+        //
+        // The dedicated page wins: it prices against named competitor
+        // benchmarks, where this table is a median of per-sim persona
+        // estimates. Rather than print a second number, defer to it and
+        // say where the figure came from. No pricing is recomputed here.
+        const rows = perMarket.map((m) => {
+          const dedicated = additionalPricing?.[m.country]?.recommendedPriceCents;
+          return dedicated && dedicated > 0
+            ? { ...m, recommendedPriceCents: dedicated, dedicated: true }
+            : { ...m, dedicated: false };
+        });
+        rows.sort((a, b) => b.recommendedPriceCents - a.recommendedPriceCents);
+        const top = rows[0].recommendedPriceCents || 1;
         return (
           <SectionCard
             icon={Target}
@@ -7186,7 +7203,7 @@ function PricingTab({
             title={isKo ? "시장별 권장가" : "Recommended price by market"}
           >
             <div className="space-y-2">
-              {perMarket.map((m) => (
+              {rows.map((m) => (
                 <div key={m.country} className="flex items-center gap-3">
                   <div className="w-28 shrink-0 text-[12.5px] font-semibold text-slate-700">
                     {getCountryLabel(m.country, isKo ? "ko" : "en") || m.country}
@@ -7200,16 +7217,22 @@ function PricingTab({
                   <div className="w-24 shrink-0 text-right text-[13px] font-bold tabular-nums text-slate-900">
                     {fmt(m.recommendedPriceCents)}
                   </div>
-                  <div className="w-20 shrink-0 text-right text-[11px] text-slate-500">
-                    {isKo ? `시뮬 ${m.sampleCount}회` : `${m.sampleCount} sim${m.sampleCount === 1 ? "" : "s"}`}
+                  <div className="w-24 shrink-0 text-right text-[11px] text-slate-500">
+                    {m.dedicated
+                      ? isKo
+                        ? "전용 분석"
+                        : "dedicated"
+                      : isKo
+                        ? `시뮬 ${m.sampleCount}회`
+                        : `${m.sampleCount} sim${m.sampleCount === 1 ? "" : "s"}`}
                   </div>
                 </div>
               ))}
             </div>
             <p className="mt-3 text-[11.5px] leading-relaxed text-slate-500">
               {isKo
-                ? "각 시장의 소득 수준·경쟁 가격대·채널 구조를 반영한 값입니다. 시뮬마다 따로 산출해 중앙값을 취했고, 위 전체 권장가와 다를 수 있습니다."
-                : "Priced for each market's income level, competing tiers and channel structure — computed per simulation and taken as the median, so these can differ from the headline price above."}
+                ? "각 시장의 소득 수준·경쟁 가격대·채널 구조를 반영한 값이며, 위 전체 권장가와 다를 수 있습니다. \"시뮬 N회\"는 시뮬레이션마다 따로 산출해 중앙값을 취한 값이고, \"전용 분석\"은 그 시장의 경쟁사 실제 가격대를 기준으로 별도 분석한 값입니다 — 해당 시장 페이지에 근거가 함께 있습니다."
+                : "Priced for each market's income level, competing tiers and channel structure, so these can differ from the headline above. \"N sims\" is the median of per-simulation estimates; \"dedicated\" is that market's own analysis against named competitor prices, with the reasoning on its market page."}
             </p>
           </SectionCard>
         );
