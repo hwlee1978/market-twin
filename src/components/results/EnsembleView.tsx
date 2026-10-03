@@ -43,6 +43,7 @@ import {
 import {
   computePricingSensitivity,
   computeCurveRevenueMaxCents,
+  postPeakEnvelope,
   getDisplayPriceCents,
 } from "@/lib/simulation/pricing-sensitivity";
 import { analyzeIncomeIntent } from "@/lib/simulation/segment-analysis";
@@ -7639,11 +7640,15 @@ function PricingTab({
           tone="brand"
           title={isKo ? "가격–전환 곡선" : "Price–conversion curve"}
         >
-          <PricingCurveChart data={pricing.curve} currency={currency} isKo={isKo} />
+          {/* The envelope, not the raw samples. The caption below has
+              always described the flattened curve — the chart drew the
+              raw one, so a reader could see conversion climb with price
+              directly under a sentence saying that cannot happen. */}
+          <PricingCurveChart data={postPeakEnvelope(pricing.curve)} currency={currency} isKo={isKo} />
           <p className="text-xs text-slate-500 mt-3 leading-relaxed">
             {isKo
-              ? "파란 실선이 권장 가격과 매출 최대점을 계산하는 데 실제로 쓰인 곡선입니다. 가격이 비싸졌는데 사겠다는 사람이 오히려 늘어나는 구간은 현실에서 나오기 어려우므로, 그런 구간은 직전 값까지 눌러 평탄하게 만듭니다."
-              : "The blue line is the curve actually used to compute the recommended price and the revenue peak. Where conversion rises as price rises — which real demand does not do — the curve is flattened back to the previous value."}
+              ? "전환율이 가장 높은 지점을 지난 뒤에는, 가격이 더 올랐는데 사겠다는 사람이 다시 늘어나는 구간이 현실에서 나오기 어렵습니다. 그런 구간은 직전 값까지 눌러 평탄하게 그렸습니다. 반대로 고점 이전의 상승은 \"너무 싸면 오히려 의심한다\"는 실제 반응이므로 그대로 둡니다."
+              : "Past the conversion peak, demand does not recover as price climbs further, so a rise after that point is flattened back to the previous value. Rises before the peak are left alone — they are the real \"too cheap to trust\" effect."}
           </p>
         <ChartGuide isKo={isKo}>
           <GuideSection title={isKo ? "Peak conversion vs Recommended price" : "Peak conversion vs Recommended price"}>

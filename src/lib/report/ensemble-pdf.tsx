@@ -32,6 +32,7 @@ import {
   varianceCopyFor,
 } from "@/lib/simulation/grade-copy";
 import { displayPickDistribution } from "@/lib/simulation/ensemble";
+import { postPeakEnvelope } from "@/lib/simulation/pricing-sensitivity";
 import { tierName, type Tier } from "@/lib/simulation/tier-display";
 import type { EnsembleAggregate } from "@/lib/simulation/ensemble";
 import { categoryLabel, normalizeActionCategory } from "@/lib/simulation/taxonomy";
@@ -3971,7 +3972,10 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
         best === null || p.meanConversionProbability > best.meanConversionProbability ? p : best,
       null,
     );
-    const maxConv = Math.max(...pr.curve.map((p) => p.meanConversionProbability), 0.0001);
+    const maxConv = Math.max(
+      ...postPeakEnvelope(pr.curve).map((p) => p.meanConversionProbability),
+      0.0001,
+    );
     // Recompute curveRevenueMax at render time using the monotonic-
     // envelope helper. Legacy ensembles persisted a naive-argmax value
     // that picked high-price noise bumps; render-time recompute fixes
@@ -4129,7 +4133,10 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
             <MText style={styles.sectionEyebrow}>
               {isKo ? "가격–전환 곡선" : "Price–conversion curve"}
             </MText>
-            {pr.curve.map((point) => (
+            {/* Envelope, matching the results page: conversion rising
+                with price is sampling noise, and the engine already
+                clamps it when picking the recommendation. */}
+            {postPeakEnvelope(pr.curve).map((point) => (
               <View key={point.priceCents} style={styles.distRow}>
                 <MText style={[styles.distCountry, { width: 60 }]}>{fmt(point.priceCents)}</MText>
                 <View style={styles.distBarTrack}>

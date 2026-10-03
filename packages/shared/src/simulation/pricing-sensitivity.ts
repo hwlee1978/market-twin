@@ -34,6 +34,40 @@ export interface SensitivityCurvePoint {
  * — server-side computation persists into aggregate, client-side
  * fixes legacy aggregates that were stored with the naive argmax.
  */
+/**
+ * The curve with post-peak upticks flattened, for display.
+ *
+ * Deliberately NOT the running minimum from the left, which is what the
+ * revenue-max search applies. That search is conservative on purpose,
+ * but as a drawn curve it is wrong: the persona prompt treats a rise at
+ * the cheap end as real ("too cheap to trust" turning into a peak
+ * slightly below base price), and clamping from the first point flattens
+ * that whole ramp — on one Korean run it pinned ₩10,000–₩24,000 to a
+ * single 38% line and erased the shape the reader is there to read.
+ *
+ * What does not happen in real demand is conversion recovering AFTER the
+ * peak, which is the case the chart's caption describes. So: find the
+ * peak, leave everything up to it alone, and apply the running minimum
+ * from there on.
+ */
+export function postPeakEnvelope<T extends SensitivityCurvePoint>(curve: T[]): T[] {
+  const sortedAsc = [...curve].sort((a, b) => a.priceCents - b.priceCents);
+  let peakIdx = 0;
+  for (let i = 1; i < sortedAsc.length; i++) {
+    if (sortedAsc[i].meanConversionProbability > sortedAsc[peakIdx].meanConversionProbability) {
+      peakIdx = i;
+    }
+  }
+  let runningMin = Infinity;
+  return sortedAsc.map((p, i) => {
+    if (i < peakIdx) return p;
+    runningMin = Math.min(runningMin, p.meanConversionProbability);
+    return runningMin === p.meanConversionProbability
+      ? p
+      : { ...p, meanConversionProbability: runningMin };
+  });
+}
+
 export function computeCurveRevenueMaxCents(
   curve: SensitivityCurvePoint[],
   /** Optional upper bound on the price we'll consider. Points above
