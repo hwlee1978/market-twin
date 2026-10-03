@@ -6,8 +6,9 @@
  * on a market, variance is how far their scores moved. Seeing "MODERATE"
  * twice on one page with no explanation is the reported confusion this
  * module exists to remove, so the variance labels are deliberately given
- * different words (안정적 / 보통 / 불안정) rather than sharing the
- * confidence vocabulary.
+ * different words (안정적 / 변동 있음 / 불안정) rather than sharing the
+ * confidence vocabulary — the middle grade said 보통 for a while, which
+ * is exactly the collision this was meant to prevent.
  *
  * Kept next to the aggregator that assigns the labels, and imported by
  * both the results page and the PDF, so the two can never drift into
@@ -105,7 +106,10 @@ function varianceText(
       };
     }
     return {
-      label: "보통",
+      // Not "보통": confidence's middle grade already uses that word, and
+      // the two badges sit on the same screen. A reader asked whether
+      // they meant the same thing.
+      label: "변동 있음",
       meaning: `같은 국가라도 시뮬레이션에 따라 점수가 ${ko}까지 달랐습니다. 흔히 나타나는 정도입니다.`,
       action: `점수가 몇 점 차이로 갈린 국가끼리는 우열이 뒤집힐 수 있습니다. 1위와 2위가 근소하면 두 곳을 함께 검토하십시오.`,
     };

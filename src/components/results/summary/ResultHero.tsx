@@ -110,7 +110,12 @@ export function ResultHero({
             style={{ background: conf.bg, color: conf.fg }}
             title={`${gradeCopy.meaning} ${gradeCopy.action}`}
           >
-            {confidence}
+            {/* Name the axis on the badge. "MODERATE 보통" sat a few
+                hundred pixels above a variance badge also reading 보통,
+                and a reader asked outright whether they were the same
+                grade. The raw enum is dropped too — it told the reader
+                nothing the Korean word doesn't. */}
+            {isKo ? "합의" : "Agreement"}
             <span className="ml-1 font-bold opacity-70">{gradeCopy.label}</span>
           </span>
           {consensusBadge}

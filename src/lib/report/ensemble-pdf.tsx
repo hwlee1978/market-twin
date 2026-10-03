@@ -1277,7 +1277,7 @@ export async function buildEnsemblePdf(args: BuildArgs): Promise<Buffer> {
                 {recommendation.country}
               </MText>
               <MText style={styles.kpiSub}>
-                {`${recommendation.consensusPercent}% ${isKo ? "합의" : "consensus"} · ${recommendation.confidence} (${confidenceCopy(recommendation.confidence, isKo ? "ko" : "en").label})`}
+                {`${recommendation.consensusPercent}% ${isKo ? "합의" : "consensus"} · ${isKo ? "합의 등급" : "agreement"} ${confidenceCopy(recommendation.confidence, isKo ? "ko" : "en").label}`}
               </MText>
             </View>
           )}
