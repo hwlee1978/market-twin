@@ -41,17 +41,31 @@ const LANG_NAME: Record<PromptLocale, string> = {
   en: "English",
 };
 
-const REGISTER_RULE: Record<PromptLocale, string> = {
+/**
+ * Report register, shared by every prompt that writes reader-facing
+ * prose — including the ensemble merge, which used to carry its own
+ * near-identical copy. The copies drifted: a rule banning transliterated
+ * English was added here and had no effect on the hot take, because the
+ * hot take is written by the other one.
+ */
+export const REGISTER_RULE: Record<PromptLocale, string> = {
   ko: `문체 (반드시 준수): 모든 서술은 **보고서 문체**로 작성합니다. 임원 보고와 정부·조달 심사 자료에 그대로 실린다고 가정하세요.
 - 구어체·속어·의성의태어·유행어 금지. 예: "쪼그라듦"→"축소", "터진다"→"급성장한다", "먹힌다"→"수용된다", "각이다"→"가능성이 높다", "다 가도 됨"→"전 시장 진출이 가능하다", "진짜다"→"최적이다", "망한다"→"실패할 가능성이 높다", "빡세다"→"부담이 크다".
 - 명사형 종결(…듦, …됨, …임)로 문장을 끝내지 말고 서술형 종결(…한다, …이다) 또는 명사구로 끝내세요.
 - 감탄·과장·수식어 나열 금지. 주장에는 근거 수치를 붙이고, 근거가 없으면 단정하지 마세요.
 - 짧게 쓰되 가볍게 쓰지 마세요. 문장이 짧은 이유는 군더더기가 없기 때문이지 격식을 낮췄기 때문이 아닙니다.
+- **영어를 한글로 적지 마세요.** 한국어 단어가 있으면 한국어로 씁니다: "니치"→"틈새", "그로서리"→"식품점·식료품 매대", "프리미엄"→"고급", "포지셔닝"→"제품 위치"(또는 그대로 두되 한 문장에 하나까지), "SKU"→"품목", "로컬라이제이션"→"현지화", "체리피킹"→"선별 구매". 고유명사(Qoo10, FDA, Amazon)와 업계에서 그대로 쓰는 약어(ODA, CAC)는 예외입니다.
+- **번역투를 쓰지 마세요.** 영어 문장 구조를 그대로 옮기면 한국어로 읽히지 않습니다.
+  - 명사 나열 금지: "FDA 라벨·소분 SKU·포지셔닝 3가지를 선행 해소" → "FDA 라벨, 소포장 구성, 제품 위치 세 가지를 먼저 해결"
+  - 한자어 조어 금지: "선행 해소"→"먼저 해결", "조기 확보"→"일찍 확보", "단계적 확대"→"단계를 나눠 넓힘"
+  - 중점(·)으로 묶는 명사구는 한 문장에 한 번까지. 그 이상은 쉼표로 풀어 쓰세요.
+  - 소리 내어 읽었을 때 한국어 문장으로 들리지 않으면 다시 쓰세요.
 - **예외 — 페르소나가 직접 답한 내용은 이 규칙에서 제외합니다.** voice(발화), objections(거부 이유), trustFactors(신뢰 요인) 등 페르소나 본인의 응답은 실제 소비자의 말이므로 그 사람의 말투·어휘·구어체를 그대로 유지하세요. 여기에 보고서 문체를 강요하면 데이터가 왜곡됩니다. 이 규칙은 분석·점수 근거·요약·리스크·액션 등 **우리가 쓰는 서술**에만 적용됩니다.`,
   en: `Register (strict): every narrative field is written as **report prose** — assume it will be pasted into an executive briefing or a government procurement review.
 - No slang, memes, clipped chat forms, or hype words.
 - No exclamation or stacked adjectives. Attach evidence to claims; if there is no number behind it, do not assert it.
 - Write short, but not casual. Brevity comes from cutting filler, not from lowering the register.
+- Do not stack nouns where a verb belongs. "FDA labelling, small-pack SKU and positioning resolution" is three nouns doing a sentence's work; "resolve FDA labelling, small-pack sizing and positioning first" reads. Keep compound noun phrases to one per sentence.
 - **Exception — anything a persona answered is out of scope.** \`voice\`, \`objections\`, \`trustFactors\` and the like are that person speaking: keep their own diction and colloquialism. Forcing report prose onto them corrupts the data. This rule governs only the text **we** write: analysis, score rationale, summaries, risks, actions.`,
 };
 

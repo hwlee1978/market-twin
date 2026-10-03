@@ -17,6 +17,7 @@ import { COUNTRIES, getCountryLabel } from "@/lib/countries";
 import { getLLMProvider } from "@/lib/llm";
 import { alertOpsAsync } from "@/lib/email/ops-alert";
 import { convertCurrencyCents, toUsd } from "@/lib/simulation/fx-rates";
+import { REGISTER_RULE } from "@/lib/simulation/prompts";
 import type {
   EnsembleSimSnapshot,
   EnsembleNarrative,
@@ -1026,12 +1027,7 @@ This analysis cannot pick a single winner. ${opts.top2.primary} (1st-place vote 
   const guidance = isKo
     ? `통합 결과 작성 지침:
 
-⚠ **문체 — 전 필드 공통 (반드시 준수)**: 아래 모든 서술(executiveSummary · hotTake · mergedRisks · mergedActions)은 **보고서 문체**로 작성합니다. 임원 보고와 정부·조달 심사 자료에 그대로 실린다고 가정하세요.
-- 구어체·속어·의성의태어·유행어 금지. 예: "쪼그라듦"→"축소", "터진다"→"급성장한다", "먹힌다"→"수용된다", "각이다"→"가능성이 높다", "다 가도 됨"→"전 시장 진출이 가능하다", "진짜다"→"최적이다", "망한다"→"실패할 가능성이 높다", "빡세다"→"부담이 크다".
-- 명사형 종결(…듦, …됨, …임)로 문장을 끝내지 말고 서술형 종결(…한다, …이다) 또는 명사구로 끝내세요.
-- 감탄·과장·수식어 나열 금지. 주장에는 근거 수치를 붙이고, 근거가 없으면 단정하지 마세요.
-- 짧게 쓰되 가볍게 쓰지 마세요. 문장이 짧은 이유는 군더더기가 없기 때문이지 격식을 낮췄기 때문이 아닙니다.
-- **예외 — 페르소나가 직접 답한 내용을 인용할 때는 원문 그대로 둡니다.** 소비자의 말투를 보고서 문체로 고쳐 쓰면 데이터가 왜곡됩니다.
+⚠ ${REGISTER_RULE["ko"]}
 
 0. **hotTake (필수, 최대 120자)**: "30초 핫테이크" — 분석 전체에서 가장 도발적이고 의사결정 가능한 한 줄 발견을 한국어로 작성. **점수가 아닌 액션**을 말하세요. 권장 진출 / 진출 회피 / 가격 재조정 / 채널 전략 등 명확한 결정을 한 줄에.
    ⚠ **국가 일치 (절대 위반 불가)**: 추천 진출국은 **${opts.bestCountry}**입니다. hotTake에서 다른 국가를 "최적", "1순위", "권장"으로 지칭하지 마세요 — sim 데이터의 합의는 ${opts.bestCountry}이고, 핫테이크는 그 합의를 요약하는 것이지 뒤집는 것이 아닙니다. 다른 국가를 언급해야 한다면 "차순위", "대안", "단, X는 별도 검토 가치"의 보조 framing만 허용.
