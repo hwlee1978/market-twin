@@ -23,54 +23,55 @@ export default async function ProjectDetailPage({
   const ctx = await getOrCreatePrimaryWorkspace();
   if (!ctx) return null;
 
-  // Beta (free_trial) workspaces can only run Hypothesis — lock higher tiers
-  // in the re-run control too, matching the project-creation wizard.
-  // Super-admins (founder/ops) get no restrictions — run-ensemble already
-  // bypasses canStartSim for them, so align the UI tier lock as well.
-  const sub = await getSubscription(ctx.workspaceId);
-  const adminCtx = await getAdminContext();
+  const supabase = await createClient();
+
+  // Everything below needs only the workspace id, and none of it needs
+  // anything from the others — so it goes out together. Awaited one at a
+  // time these eight round trips measured 431 ms against 104 ms in
+  // parallel, and that gap is the page's wait: the earlier payload fix
+  // cut the bytes per trip, not the number of trips.
+  //
+  // Beta (free_trial) workspaces can only run Hypothesis — lock higher
+  // tiers in the re-run control too, matching the project-creation
+  // wizard. Super-admins (founder/ops) get no restrictions, so align the
+  // UI tier lock with run-ensemble's own bypass.
+  const [sub, adminCtx, projectRes, simulationsRes, ensemblesRes] = await Promise.all([
+    getSubscription(ctx.workspaceId),
+    getAdminContext(),
+    supabase.from("projects").select("*").eq("id", id).eq("workspace_id", ctx.workspaceId).single(),
+    // Standalone simulations only — sims belonging to an ensemble are
+    // already tracked in the ensemble card, and a 25-sim deep ensemble
+    // would otherwise drown the page in repeated rows.
+    supabase
+      .from("simulations")
+      .select("id, status, current_stage, persona_count, started_at, completed_at, model_provider, model_version")
+      .eq("project_id", id)
+      .is("ensemble_id", null)
+      .order("created_at", { ascending: false })
+      .limit(10),
+    // Ensemble history. Only the recommendation, not the whole
+    // aggregate: aggregate_result carries the narrative, per-country
+    // stats, sources and persona rollups — 1.09 MB across ten rows here,
+    // of which this page reads four fields.
+    supabase
+      .from("ensembles")
+      .select(
+        "id, tier, parallel_sims, per_sim_personas, status, created_at, completed_at, aggregate_result->recommendation",
+      )
+      .eq("project_id", id)
+      .order("created_at", { ascending: false })
+      .limit(10),
+  ]);
+
   const isSuperAdmin = adminCtx?.role === "super";
   const betaTrialOnly = sub.plan.slug === "free_trial" && !isSuperAdmin;
 
-  const supabase = await createClient();
-  const { data: project } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("id", id)
-    .eq("workspace_id", ctx.workspaceId)
-    .single();
+  const project = projectRes.data;
   if (!project) notFound();
-
-  // Standalone simulations only — sims that belong to an ensemble are
-  // already tracked in the ensemble card, and a 25-sim deep ensemble would
-  // otherwise drown the page in repeated rows.
-  const { data: simulations } = await supabase
-    .from("simulations")
-    .select("id, status, current_stage, persona_count, started_at, completed_at, model_provider, model_version")
-    .eq("project_id", id)
-    .is("ensemble_id", null)
-    .order("created_at", { ascending: false })
-    .limit(10);
-
+  const simulations = simulationsRes.data;
   const latest = simulations?.[0];
 
-  // Pull ensemble history alongside individual sims. Ensembles are the
-  // primary history view going forward — each row links to the aggregated
-  // dashboard. Standalone sims (legacy / quick mode) stay in their own list.
-  const { data: ensembles } = await supabase
-    .from("ensembles")
-    // Only the recommendation, not the whole aggregate. aggregate_result
-    // carries the narrative, per-country stats, sources and persona
-    // rollups — 1.09 MB across ten ensembles here, of which this page
-    // reads four fields. Selecting the one key costs 5 KB, and the row
-    // is serialised again into the client payload, so the saving lands
-    // twice.
-    .select(
-      "id, tier, parallel_sims, per_sim_personas, status, created_at, completed_at, aggregate_result->recommendation",
-    )
-    .eq("project_id", id)
-    .order("created_at", { ascending: false })
-    .limit(10);
+  const ensembles = ensemblesRes.data;
   type EnsembleRow = {
     id: string;
     tier: Tier;
